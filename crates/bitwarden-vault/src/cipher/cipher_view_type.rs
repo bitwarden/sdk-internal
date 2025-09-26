@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "wasm")]
 use tsify::Tsify;
 
 use crate::{CardView, IdentityView, LoginView, SecureNoteView, SshKeyView};

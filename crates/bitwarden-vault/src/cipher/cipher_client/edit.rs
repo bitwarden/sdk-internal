@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use bitwarden_api_api::{apis::ciphers_api, models::CipherRequestModel};
+use bitwarden_api_api::models::CipherRequestModel;
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
@@ -314,7 +314,7 @@ impl IdentifyKey<SymmetricKeyId> for CipherEditRequest {
 
 async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     key_store: &KeyStore<KeyIds>,
-    api_config: &bitwarden_api_api::apis::configuration::Configuration,
+    api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
     encrypted_for: UserId,
     mut request: CipherEditRequest,
@@ -333,7 +333,9 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     let mut cipher_request = key_store.encrypt(request)?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
-    let response = ciphers_api::ciphers_put(api_config, cipher_id.into(), Some(cipher_request))
+    let response = api_client
+        .ciphers_api()
+        .put(cipher_id.into(), Some(cipher_request))
         .await
         .map_err(ApiError::from)?;
 
@@ -363,7 +365,7 @@ impl CiphersClient {
 
         edit_cipher(
             key_store,
-            &config.api,
+            &config.api_client,
             repository.as_ref(),
             user_id,
             request,
@@ -374,14 +376,10 @@ impl CiphersClient {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_api_api::{
-        apis::configuration::Configuration,
-        models::{CipherRequestModel, CipherResponseModel},
-    };
+    use bitwarden_api_api::{apis::ApiClient, models::CipherResponseModel};
     use bitwarden_core::key_management::SymmetricKeyId;
     use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricCryptoKey};
-    use bitwarden_test::{start_api_mock, MemoryRepository};
-    use wiremock::{matchers, Mock, Request, ResponseTemplate};
+    use bitwarden_test::MemoryRepository;
 
     use super::*;
     use crate::{
@@ -509,50 +507,49 @@ mod tests {
 
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
 
-        let (_server, api_config) = start_api_mock(vec![Mock::given(matchers::path(format!(
-            "/ciphers/{}",
-            cipher_id
-        )))
-        .respond_with(move |req: &Request| {
-            let body: CipherRequestModel = req.body_json().unwrap();
-            ResponseTemplate::new(200).set_body_json(CipherResponseModel {
-                object: Some("cipher".to_string()),
-                id: Some(cipher_id.into()),
-                name: Some(body.name),
-                r#type: body.r#type,
-                organization_id: body
-                    .organization_id
-                    .as_ref()
-                    .and_then(|id| uuid::Uuid::parse_str(id).ok()),
-                folder_id: body
-                    .folder_id
-                    .as_ref()
-                    .and_then(|id| uuid::Uuid::parse_str(id).ok()),
-                favorite: body.favorite,
-                reprompt: body.reprompt,
-                key: body.key,
-                notes: body.notes,
-                view_password: Some(true),
-                edit: Some(true),
-                organization_use_totp: Some(true),
-                revision_date: Some("2025-01-01T00:00:00Z".to_string()),
-                creation_date: Some("2025-01-01T00:00:00Z".to_string()),
-                deleted_date: None,
-                login: body.login,
-                card: body.card,
-                identity: body.identity,
-                secure_note: body.secure_note,
-                ssh_key: body.ssh_key,
-                fields: body.fields,
-                password_history: body.password_history,
-                attachments: None,
-                permissions: None,
-                data: None,
-                archived_date: None,
-            })
-        })
-        .expect(1)])
-        .await;
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api
+                .expect_put()
+                .returning(move |_id, body| {
+                    let body = body.unwrap();
+                    Ok(CipherResponseModel {
+                        object: Some("cipher".to_string()),
+                        id: Some(cipher_id.into()),
+                        name: Some(body.name),
+                        r#type: body.r#type,
+                        organization_id: body
+                            .organization_id
+                            .as_ref()
+                            .and_then(|id| uuid::Uuid::parse_str(id).ok()),
+                        folder_id: body
+                            .folder_id
+                            .as_ref()
+                            .and_then(|id| uuid::Uuid::parse_str(id).ok()),
+                        favorite: body.favorite,
+                        reprompt: body.reprompt,
+                        key: body.key,
+                        notes: body.notes,
+                        view_password: Some(true),
+                        edit: Some(true),
+                        organization_use_totp: Some(true),
+                        revision_date: Some("2025-01-01T00:00:00Z".to_string()),
+                        creation_date: Some("2025-01-01T00:00:00Z".to_string()),
+                        deleted_date: None,
+                        login: body.login,
+                        card: body.card,
+                        identity: body.identity,
+                        secure_note: body.secure_note,
+                        ssh_key: body.ssh_key,
+                        fields: body.fields,
+                        password_history: body.password_history,
+                        attachments: None,
+                        permissions: None,
+                        data: None,
+                        archived_date: None,
+                    })
+                })
+                .once();
+        });
 
         let repository = MemoryRepository::<Cipher>::default();
         repository_add_cipher(&repository, &store, cipher_id, "old_name").await;
@@ -562,7 +559,7 @@ mod tests {
 
         let result = edit_cipher(
             &store,
-            &api_config,
+            &api_client,
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
@@ -581,12 +578,13 @@ mod tests {
         let repository = MemoryRepository::<Cipher>::default();
 
         let cipher_view = generate_test_cipher();
+        let api_client = ApiClient::new_mocked(|_| {});
 
         let request = cipher_view.try_into().unwrap();
 
         let result = edit_cipher(
             &store,
-            &Configuration::default(),
+            &api_client,
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
@@ -611,12 +609,13 @@ mod tests {
 
         let cipher_id: CipherId = "5faa9684-c793-4a2d-8a12-b33900187097".parse().unwrap();
 
-        let (_server, api_config) = start_api_mock(vec![Mock::given(matchers::path(format!(
-            "/ciphers/{}",
-            cipher_id
-        )))
-        .respond_with(ResponseTemplate::new(500))])
-        .await;
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api.expect_put().returning(move |_id, _body| {
+                Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
+                    "Simulated error",
+                )))
+            });
+        });
 
         let repository = MemoryRepository::<Cipher>::default();
         repository_add_cipher(&repository, &store, cipher_id, "old_name").await;
@@ -626,7 +625,7 @@ mod tests {
 
         let result = edit_cipher(
             &store,
-            &api_config,
+            &api_client,
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
