@@ -20,11 +20,11 @@ pub(crate) async fn list_projects(
     input: &ProjectsListRequest,
 ) -> Result<ProjectsResponse, SecretsManagerError> {
     let config = client.internal.get_api_configurations().await;
-    let res = bitwarden_api_api::apis::projects_api::projects_list_by_organization(
-        &config.api,
-        input.organization_id,
-    )
-    .await?;
+    let res = config
+        .api_client
+        .projects_api()
+        .list_by_organization(input.organization_id)
+        .await?;
 
     let key_store = client.internal.get_key_store();
 
