@@ -18,8 +18,15 @@ pub struct AddOrganizationReportRequest {
     pub organization_id: Option<uuid::Uuid>,
     #[serde(rename = "reportData", skip_serializing_if = "Option::is_none")]
     pub report_data: Option<String>,
-    #[serde(rename = "date", skip_serializing_if = "Option::is_none")]
-    pub date: Option<String>,
+    #[serde(
+        rename = "contentEncryptionKey",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub content_encryption_key: Option<String>,
+    #[serde(rename = "summaryData", skip_serializing_if = "Option::is_none")]
+    pub summary_data: Option<String>,
+    #[serde(rename = "applicationData", skip_serializing_if = "Option::is_none")]
+    pub application_data: Option<String>,
 }
 
 impl AddOrganizationReportRequest {
@@ -27,7 +34,9 @@ impl AddOrganizationReportRequest {
         AddOrganizationReportRequest {
             organization_id: None,
             report_data: None,
-            date: None,
+            content_encryption_key: None,
+            summary_data: None,
+            application_data: None,
         }
     }
 }

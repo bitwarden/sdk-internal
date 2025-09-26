@@ -8,7 +8,8 @@ use wasm_bindgen::prelude::*;
 use crate::{
     error::{DecryptError, EncryptError},
     folder::{create_folder, edit_folder, get_folder, list_folders},
-    CreateFolderError, EditFolderError, Folder, FolderAddEditRequest, FolderView, GetFolderError,
+    CreateFolderError, EditFolderError, Folder, FolderAddEditRequest, FolderId, FolderView,
+    GetFolderError,
 };
 
 /// Wrapper for folder specific functionality.
@@ -49,7 +50,7 @@ impl FoldersClient {
     }
 
     /// Get a specific [Folder] by its ID from state and decrypt it to a [FolderView].
-    pub async fn get(&self, folder_id: &str) -> Result<FolderView, GetFolderError> {
+    pub async fn get(&self, folder_id: FolderId) -> Result<FolderView, GetFolderError> {
         let key_store = self.client.internal.get_key_store();
         let repository = self.get_repository()?;
 
@@ -65,13 +66,13 @@ impl FoldersClient {
         let config = self.client.internal.get_api_configurations().await;
         let repository = self.get_repository()?;
 
-        create_folder(key_store, &config.api, repository.as_ref(), request).await
+        create_folder(key_store, &config.api_client, repository.as_ref(), request).await
     }
 
     /// Edit the [Folder] and save it to the server.
     pub async fn edit(
         &self,
-        folder_id: &str,
+        folder_id: FolderId,
         request: FolderAddEditRequest,
     ) -> Result<FolderView, EditFolderError> {
         let key_store = self.client.internal.get_key_store();
@@ -80,7 +81,7 @@ impl FoldersClient {
 
         edit_folder(
             key_store,
-            &config.api,
+            &config.api_client,
             repository.as_ref(),
             folder_id,
             request,

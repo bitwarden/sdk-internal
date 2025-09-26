@@ -2,10 +2,12 @@
 #![warn(unused_extern_crates)]
 
 extern crate rustc_hir;
+extern crate rustc_span;
 
-use clippy_utils::diagnostics::span_lint;
+use clippy_utils::{diagnostics::span_lint, ty::implements_trait};
 use rustc_hir::{Item, ItemKind};
 use rustc_lint::LateLintPass;
+use rustc_span::symbol::sym;
 
 dylint_linting::declare_late_lint! {
     /// ### What it does
@@ -43,6 +45,16 @@ dylint_linting::declare_late_lint! {
 impl<'tcx> LateLintPass<'tcx> for EnumVariantEndsWithError {
     fn check_item(&mut self, cx: &rustc_lint::LateContext<'tcx>, item: &'tcx Item<'tcx>) {
         if let ItemKind::Enum(_, _, enum_def) = &item.kind {
+            let ty = cx.tcx.type_of(item.owner_id.def_id).instantiate_identity();
+            let implements_error = cx
+                .tcx
+                .get_diagnostic_item(sym::Error)
+                .map_or(false, |id| implements_trait(cx, ty, id, &[]));
+
+            if !implements_error {
+                return;
+            }
+
             for variant in enum_def.variants {
                 let variant_name = variant.ident.name.as_str();
                 if variant_name.ends_with("Error") {

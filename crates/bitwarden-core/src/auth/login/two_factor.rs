@@ -46,9 +46,10 @@ pub(crate) async fn send_two_factor_email(
     )?;
 
     let config = client.internal.get_api_configurations().await;
-    bitwarden_api_api::apis::two_factor_api::two_factor_send_email_login_post(
-        &config.api,
-        Some(TwoFactorEmailRequestModel {
+    config
+        .api_client
+        .two_factor_api()
+        .send_email_login(Some(TwoFactorEmailRequestModel {
             master_password_hash: Some(password_hash.to_string()),
             otp: None,
             auth_request_access_code: None,
@@ -56,10 +57,9 @@ pub(crate) async fn send_two_factor_email(
             email: input.email.to_owned(),
             auth_request_id: None,
             sso_email2_fa_session_token: None,
-        }),
-    )
-    .await
-    .map_err(ApiError::from)?;
+        }))
+        .await
+        .map_err(ApiError::from)?;
 
     Ok(())
 }

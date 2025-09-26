@@ -16,11 +16,11 @@ use thiserror::Error;
 
 use super::{
     try_from_credential_new_view, types::*, CheckUserOptions, CipherViewContainer,
-    Fido2CredentialStore, Fido2UserInterface, SelectedCredential, UnknownEnum, AAGUID,
+    Fido2CredentialStore, Fido2UserInterface, SelectedCredential, UnknownEnumError, AAGUID,
 };
 use crate::{
     fill_with_credential, string_to_guid_bytes, try_from_credential_full, Fido2CallbackError,
-    FillCredentialError, InvalidGuid,
+    FillCredentialError, InvalidGuidError,
 };
 
 #[derive(Debug, Error)]
@@ -36,11 +36,12 @@ pub enum GetSelectedCredentialError {
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum MakeCredentialError {
     #[error(transparent)]
     PublicKeyCredentialParameters(#[from] PublicKeyCredentialParametersError),
     #[error(transparent)]
-    UnknownEnum(#[from] UnknownEnum),
+    UnknownEnum(#[from] UnknownEnumError),
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
     #[error("Missing attested_credential_data")]
@@ -51,15 +52,16 @@ pub enum MakeCredentialError {
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum GetAssertionError {
     #[error(transparent)]
-    UnknownEnum(#[from] UnknownEnum),
+    UnknownEnum(#[from] UnknownEnumError),
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
     GetSelectedCredential(#[from] GetSelectedCredentialError),
     #[error(transparent)]
-    InvalidGuid(#[from] InvalidGuid),
+    InvalidGuid(#[from] InvalidGuidError),
     #[error("missing user")]
     MissingUser,
     #[error("get_assertion error: {0}")]
@@ -68,11 +70,12 @@ pub enum GetAssertionError {
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum SilentlyDiscoverCredentialsError {
     #[error(transparent)]
     Cipher(#[from] CipherError),
     #[error(transparent)]
-    InvalidGuid(#[from] InvalidGuid),
+    InvalidGuid(#[from] InvalidGuidError),
     #[error(transparent)]
     Fido2Callback(#[from] Fido2CallbackError),
     #[error(transparent)]
@@ -81,11 +84,12 @@ pub enum SilentlyDiscoverCredentialsError {
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum CredentialsForAutofillError {
     #[error(transparent)]
     Cipher(#[from] CipherError),
     #[error(transparent)]
-    InvalidGuid(#[from] InvalidGuid),
+    InvalidGuid(#[from] InvalidGuidError),
     #[error(transparent)]
     Fido2Callback(#[from] Fido2CallbackError),
     #[error(transparent)]
@@ -511,7 +515,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             #[error("Client User Id has not been set")]
             MissingUserId,
             #[error(transparent)]
-            InvalidGuid(#[from] InvalidGuid),
+            InvalidGuid(#[from] InvalidGuidError),
             #[error("Credential ID does not match selected credential")]
             CredentialIdMismatch,
             #[error(transparent)]

@@ -43,22 +43,18 @@ impl SendAccessClient {
         let configurations = self.client.internal.get_api_configurations().await;
 
         // save off url in variable for re-use
-        let url = format!("{}/connect/token", &configurations.identity.base_path);
+        let url = format!(
+            "{}/connect/token",
+            &configurations.identity_config.base_path
+        );
 
         let request: reqwest::RequestBuilder = configurations
-            .identity
+            .identity_config
             .client
             .post(&url)
-            .header(
-                reqwest::header::CONTENT_TYPE,
-                "application/x-www-form-urlencoded; charset=utf-8",
-            )
             .header(reqwest::header::ACCEPT, "application/json")
             .header(reqwest::header::CACHE_CONTROL, "no-store")
-            // We can use `serde_urlencoded` to serialize the payload into a URL-encoded string
-            // because we don't have complex nested structures in the payload.
-            // If we had nested structures, we have to use serde_qs::to_string instead.
-            .body(serde_urlencoded::to_string(&payload).expect("Serialize should be infallible"));
+            .form(&payload);
 
         // Because of the ? operator, any errors from sending the request are automatically
         // wrapped in SendAccessTokenError::Unexpected as an UnexpectedIdentityError::Reqwest
@@ -164,7 +160,7 @@ mod tests {
                 // expect the headers we set in the client
                 .and(matchers::header(
                     reqwest::header::CONTENT_TYPE.as_str(),
-                    "application/x-www-form-urlencoded; charset=utf-8",
+                    "application/x-www-form-urlencoded",
                 ))
                 .and(matchers::header(
                     reqwest::header::ACCEPT.as_str(),
@@ -234,7 +230,7 @@ mod tests {
                 // expect the headers we set in the client
                 .and(matchers::header(
                     reqwest::header::CONTENT_TYPE.as_str(),
-                    "application/x-www-form-urlencoded; charset=utf-8",
+                    "application/x-www-form-urlencoded",
                 ))
                 .and(matchers::header(
                     reqwest::header::ACCEPT.as_str(),
@@ -298,8 +294,6 @@ mod tests {
                 otp: otp.into(),
             };
 
-            let email_param = serde_urlencoded::to_string([("email", email)]).unwrap(); // "email=valid%40email.com"
-
             let req = SendAccessTokenRequest {
                 send_id: "valid-send-id".into(),
                 send_access_credentials: Some(SendAccessCredentials::EmailOtp(
@@ -312,7 +306,7 @@ mod tests {
                 // expect the headers we set in the client
                 .and(matchers::header(
                     reqwest::header::CONTENT_TYPE.as_str(),
-                    "application/x-www-form-urlencoded; charset=utf-8",
+                    "application/x-www-form-urlencoded",
                 ))
                 .and(matchers::header(
                     reqwest::header::ACCEPT.as_str(),
@@ -330,7 +324,7 @@ mod tests {
                 )))
                 .and(body_string_contains(format!("scope={}", scope_str)))
                 .and(body_string_contains(format!("send_id={}", req.send_id)))
-                .and(body_string_contains(email_param))
+                .and(body_string_contains("email=valid%40email.com"))
                 .and(body_string_contains(format!("otp={}", otp)))
                 // respond with the mock success response
                 .respond_with(ResponseTemplate::new(200).set_body_json(raw_success));

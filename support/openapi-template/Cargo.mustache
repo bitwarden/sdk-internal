@@ -1,18 +1,35 @@
 [package]
 name = "{{{packageName}}}"
-{{#description}}
+version = "{{#lambdaVersion}}{{{packageVersion}}}{{/lambdaVersion}}"
+{{#infoEmail}}
+authors = ["{{{.}}}"]
+{{/infoEmail}}
+{{^infoEmail}}
+authors = ["OpenAPI Generator team and contributors"]
+{{/infoEmail}}
+{{#appDescription}}
 description = "{{{.}}}"
-{{/description}}
-categories = ["api-bindings"]
-
-version.workspace = true
-authors.workspace = true
-edition.workspace = true
-rust-version.workspace = true
-homepage.workspace = true
-repository.workspace = true
-license-file.workspace = true
-keywords.workspace = true
+{{/appDescription}}
+{{#licenseInfo}}
+license = "{{.}}"
+{{/licenseInfo}}
+{{^licenseInfo}}
+# Override this license by providing a License Object in the OpenAPI.
+license = "Unlicense"
+{{/licenseInfo}}
+edition = "2021"
+{{#publishRustRegistry}}
+publish = ["{{.}}"]
+{{/publishRustRegistry}}
+{{#repositoryUrl}}
+repository = "{{.}}"
+{{/repositoryUrl}}
+{{#documentationUrl}}
+documentation = "{{.}}"
+{{/documentationUrl}}
+{{#homePageUrl}}
+homepage = "{{.}}"
+{{/homePageUrl}}
 
 [dependencies]
 serde = { version = "^1.0", features = ["derive"] }
@@ -46,13 +63,20 @@ secrecy = "0.8.0"
 {{/withAWSV4Signature}}
 {{#reqwest}}
 {{^supportAsync}}
-reqwest = { version = "^0.12", default-features = false, features = ["json", "blocking", "multipart", "http2"] }
+reqwest = { version = "^0.12", default-features = false, features = ["json", "blocking", "multipart"] }
 {{#supportMiddleware}}
 reqwest-middleware = { version = "^0.4", features = ["json", "blocking", "multipart"] }
 {{/supportMiddleware}}
 {{/supportAsync}}
 {{#supportAsync}}
-reqwest = { version = "^0.12", default-features = false, features = ["json", "multipart", "http2"] }
+{{#useAsyncFileStream}}
+tokio = { version = "^1.46.0", features = ["fs"] }
+tokio-util = { version = "^0.7", features = ["codec"] }
+reqwest = { version = "^0.12", default-features = false, features = ["json", "multipart", "stream"] }
+{{/useAsyncFileStream}}
+{{^useAsyncFileStream}}
+reqwest = { version = "^0.12", default-features = false, features = ["json", "multipart"] }
+{{/useAsyncFileStream}}
 {{#supportMiddleware}}
 reqwest-middleware = { version = "^0.4", features = ["json", "multipart"] }
 {{/supportMiddleware}}
@@ -62,10 +86,15 @@ async-trait = "^0.1"
 google-cloud-token = "^0.1"
 {{/supportTokenSource}}
 {{/supportAsync}}
+
+[features]
+default = ["native-tls"]
+native-tls = ["reqwest/native-tls"]
+rustls-tls = ["reqwest/rustls-tls"]
 {{/reqwest}}
 {{#reqwestTrait}}
 async-trait = "^0.1"
-reqwest = { version = "^0.12", default-features = false, features = ["json", "multipart", "http2"] }
+reqwest = { version = "^0.12", default-features = false, features = ["json", "multipart"] }
 {{#supportMiddleware}}
 reqwest-middleware = { version = "^0.4", features = ["json", "multipart"] }
 {{/supportMiddleware}}
@@ -82,7 +111,7 @@ bon = { version = "2.3", optional = true }
 [features]
 default = ["native-tls"]
 native-tls = ["reqwest/native-tls"]
-rustls = ["reqwest/rustls-tls"]
+rustls-tls = ["reqwest/rustls-tls"]
 {{#mockall}}
 mockall = ["dep:mockall"]
 {{/mockall}}
