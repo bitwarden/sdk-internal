@@ -19,6 +19,7 @@ pub enum CipherViewType {
 }
 
 impl CipherViewType {
+    /// Returns the corresponding [crate::CipherType] for this view type.
     pub fn get_cipher_type(&self) -> crate::CipherType {
         match self {
             CipherViewType::Login(_) => crate::CipherType::Login,
