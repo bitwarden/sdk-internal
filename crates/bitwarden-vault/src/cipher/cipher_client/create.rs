@@ -61,7 +61,7 @@ pub struct CipherCreateRequest {
 impl CipherCreateRequest {
     /// Generate a new key for the cipher, re-encrypting internal data, if necessary, and stores the
     /// encrypted key to the cipher data.
-    pub fn generate_cipher_key(
+   fn generate_cipher_key(
         &mut self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
