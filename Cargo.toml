@@ -34,6 +34,7 @@ bitwarden-exporters = { path = "crates/bitwarden-exporters", version = "=1.0.0" 
 bitwarden-fido = { path = "crates/bitwarden-fido", version = "=1.0.0" }
 bitwarden-generators = { path = "crates/bitwarden-generators", version = "=1.0.0" }
 bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=1.0.0" }
+bitwarden-pm = { path = "crates/bitwarden-pm", version = "=1.0.0" }
 bitwarden-send = { path = "crates/bitwarden-send", version = "=1.0.0" }
 bitwarden-sm = { path = "bitwarden_license/bitwarden-sm", version = "=1.0.0" }
 bitwarden-ssh = { path = "crates/bitwarden-ssh", version = "=1.0.0" }
@@ -77,7 +78,7 @@ tokio = { version = "1.36.0", features = ["macros"] }
 tsify = { version = ">=0.5.5, <0.6", features = [
     "js",
 ], default-features = false }
-uniffi = "=0.29.1"
+uniffi = "=0.29.4"
 uuid = { version = ">=1.3.3, <2.0", features = ["serde", "v4", "js"] }
 validator = { version = ">=0.18.1, <0.21", features = ["derive"] }
 wasm-bindgen = { version = ">=0.2.91, <0.3", features = ["serde-serialize"] }
@@ -91,6 +92,13 @@ wiremock = ">=0.6.0, <0.7"
 [patch.crates-io]
 pkcs5 = { git = "https://github.com/bitwarden/rustcrypto-formats.git", rev = "2b27c63034217dd126bbf5ed874da51b84f8c705" }
 
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+uniffi_core = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+uniffi_macros = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+uniffi_internal_macros = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+uniffi_bindgen = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+uniffi_build = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+
 [workspace.lints.clippy]
 unused_async = "deny"
 unwrap_used = "deny"
@@ -98,6 +106,9 @@ string_slice = "warn"
 
 [workspace.lints.rust]
 missing_docs = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(feature, values("uniffi", "wasm"))',
+] }
 
 [workspace.metadata.dylint]
 libraries = [{ path = "support/lints" }]

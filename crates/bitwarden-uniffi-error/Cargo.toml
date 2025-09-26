@@ -14,12 +14,8 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
-[features]
-uniffi = ["dep:uniffi"]
-
 [dependencies]
 anyhow = { version = ">=1.0, <2.0" }
-uniffi = { workspace = true, optional = true }
 
 [lints]
 workspace = true

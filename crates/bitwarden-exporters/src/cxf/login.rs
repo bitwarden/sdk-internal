@@ -4,7 +4,7 @@
 //! [PasskeyCredential].
 
 use bitwarden_core::MissingFieldError;
-use bitwarden_fido::{string_to_guid_bytes, InvalidGuid};
+use bitwarden_fido::{string_to_guid_bytes, InvalidGuidError};
 use bitwarden_vault::{FieldType, Totp, TotpAlgorithm};
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
@@ -187,7 +187,7 @@ pub enum PasskeyError {
     #[error("Counter is not zero")]
     CounterNotZero,
     #[error(transparent)]
-    InvalidGuid(InvalidGuid),
+    InvalidGuid(InvalidGuidError),
     #[error(transparent)]
     MissingField(MissingFieldError),
     #[error("Data isn't base64url encoded")]
