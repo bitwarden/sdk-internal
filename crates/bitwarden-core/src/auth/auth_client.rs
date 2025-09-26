@@ -206,6 +206,7 @@ impl AuthClient {
 #[allow(missing_docs)]
 #[cfg(feature = "internal")]
 #[derive(Debug, thiserror::Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum TrustDeviceError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),

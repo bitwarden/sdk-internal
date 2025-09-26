@@ -36,6 +36,7 @@ pub enum GetSelectedCredentialError {
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum MakeCredentialError {
     #[error(transparent)]
     PublicKeyCredentialParameters(#[from] PublicKeyCredentialParametersError),
@@ -51,6 +52,7 @@ pub enum MakeCredentialError {
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum GetAssertionError {
     #[error(transparent)]
     UnknownEnum(#[from] UnknownEnumError),
@@ -68,6 +70,7 @@ pub enum GetAssertionError {
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum SilentlyDiscoverCredentialsError {
     #[error(transparent)]
     Cipher(#[from] CipherError),
@@ -81,6 +84,7 @@ pub enum SilentlyDiscoverCredentialsError {
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum CredentialsForAutofillError {
     #[error(transparent)]
     Cipher(#[from] CipherError),

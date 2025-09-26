@@ -2,8 +2,10 @@
 
 uniffi::setup_scaffolding!();
 
+use std::sync::Arc;
+
 use auth::AuthClient;
-use bitwarden_core::ClientSettings;
+use bitwarden_core::{client::internal::ClientManagedTokens, ClientSettings};
 
 #[allow(missing_docs)]
 pub mod auth;
@@ -35,14 +37,20 @@ pub struct Client(pub(crate) bitwarden_pm::PasswordManagerClient);
 impl Client {
     /// Initialize a new instance of the SDK client
     #[uniffi::constructor]
-    pub fn new(settings: Option<ClientSettings>) -> Self {
+    pub fn new(
+        token_provider: Arc<dyn ClientManagedTokens>,
+        settings: Option<ClientSettings>,
+    ) -> Self {
         init_logger();
         setup_error_converter();
 
         #[cfg(target_os = "android")]
         android_support::init();
 
-        Self(bitwarden_pm::PasswordManagerClient::new(settings))
+        Self(bitwarden_pm::PasswordManagerClient::new_with_client_tokens(
+            settings,
+            token_provider,
+        ))
     }
 
     /// Crypto operations
@@ -99,7 +107,7 @@ impl Client {
             .await
             .map_err(|e| Error::Api(e.into()))?;
 
-        Ok(res.text().await.map_err(|e| Error::Api(e.into()))?)
+        res.text().await.map_err(|e| Error::Api(e.into()))
     }
 }
 
@@ -125,6 +133,6 @@ fn init_logger() {
 /// Check [`bitwarden_uniffi_error`] for more details
 fn setup_error_converter() {
     bitwarden_uniffi_error::set_error_to_uniffi_error(|e| {
-        crate::error::BitwardenError::Conversion(e).into()
+        crate::error::BitwardenError::Conversion(e.to_string()).into()
     });
 }

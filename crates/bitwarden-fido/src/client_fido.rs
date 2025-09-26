@@ -15,6 +15,7 @@ pub struct ClientFido2 {
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum DecryptFido2AutofillCredentialsError {
     #[error(transparent)]
     Fido2CredentialAutofillView(#[from] Fido2CredentialAutofillViewError),
