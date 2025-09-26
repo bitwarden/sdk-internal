@@ -9,7 +9,7 @@ use crate::{CardView, IdentityView, LoginView, SecureNoteView, SshKeyView};
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-#[allow(missing_docs)]
+#[allow(missing_docs, clippy::large_enum_variant)]
 pub enum CipherViewType {
     Login(LoginView),
     Card(CardView),
@@ -51,56 +51,43 @@ where
 
 impl CipherViewTypeExt for Option<CipherViewType> {
     fn as_login_view_mut(&mut self) -> Option<&mut LoginView> {
-        self.as_mut()
-            .map(|inner| inner.as_login_view_mut())
-            .flatten()
+        self.as_mut().and_then(|inner| inner.as_login_view_mut())
     }
     fn as_card_view_mut(&mut self) -> Option<&mut CardView> {
-        self.as_mut()
-            .map(|inner| inner.as_card_view_mut())
-            .flatten()
+        self.as_mut().and_then(|inner| inner.as_card_view_mut())
     }
 
     fn as_identity_view_mut(&mut self) -> Option<&mut IdentityView> {
-        self.as_mut()
-            .map(|inner| inner.as_identity_view_mut())
-            .flatten()
+        self.as_mut().and_then(|inner| inner.as_identity_view_mut())
     }
 
     fn as_secure_note_view_mut(&mut self) -> Option<&mut SecureNoteView> {
         self.as_mut()
-            .map(|inner| inner.as_secure_note_view_mut())
-            .flatten()
+            .and_then(|inner| inner.as_secure_note_view_mut())
     }
 
     fn as_ssh_key_view_mut(&mut self) -> Option<&mut SshKeyView> {
-        self.as_mut()
-            .map(|inner| inner.as_ssh_key_view_mut())
-            .flatten()
+        self.as_mut().and_then(|inner| inner.as_ssh_key_view_mut())
     }
 
     fn as_login_view(&self) -> Option<&LoginView> {
-        self.as_ref().map(|inner| inner.as_login_view()).flatten()
+        self.as_ref().and_then(|inner| inner.as_login_view())
     }
 
     fn as_card_view(&self) -> Option<&CardView> {
-        self.as_ref().map(|inner| inner.as_card_view()).flatten()
+        self.as_ref().and_then(|inner| inner.as_card_view())
     }
 
     fn as_identity_view(&self) -> Option<&IdentityView> {
-        self.as_ref()
-            .map(|inner| inner.as_identity_view())
-            .flatten()
+        self.as_ref().and_then(|inner| inner.as_identity_view())
     }
 
     fn as_secure_note_view(&self) -> Option<&SecureNoteView> {
-        self.as_ref()
-            .map(|inner| inner.as_secure_note_view())
-            .flatten()
+        self.as_ref().and_then(|inner| inner.as_secure_note_view())
     }
 
     fn as_ssh_key_view(&self) -> Option<&SshKeyView> {
-        self.as_ref().map(|inner| inner.as_ssh_key_view()).flatten()
+        self.as_ref().and_then(|inner| inner.as_ssh_key_view())
     }
 }
 

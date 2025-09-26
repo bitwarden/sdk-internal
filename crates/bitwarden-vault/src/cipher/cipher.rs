@@ -470,7 +470,9 @@ impl CipherView {
 
     #[allow(missing_docs)]
     pub fn generate_checksums(&mut self) {
-        self.login.as_mut().map(|l| l.generate_checksums());
+        if let Some(l) = self.login.as_mut() {
+            l.generate_checksums();
+        }
     }
 
     #[allow(missing_docs)]
