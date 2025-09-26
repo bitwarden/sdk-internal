@@ -47,7 +47,6 @@ pub enum CreateCipherError {
 pub struct CipherCreateRequest {
     /// The ID of the user that is encrypting the cipher - this should always match the user
     /// calling the API.
-    pub encrypted_for: UserId,
     pub organization_id: Option<OrganizationId>,
     pub folder_id: Option<FolderId>,
     pub name: String,
@@ -66,7 +65,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
         key: SymmetricKeyId,
     ) -> Result<CipherRequestModel, CryptoError> {
         let cipher_request = CipherRequestModel {
-            encrypted_for: Some(self.encrypted_for.into()),
+            encrypted_for: None,
             r#type: Some(self.r#type.into()),
             organization_id: self.organization_id.map(|id| id.to_string()),
             folder_id: self.folder_id.map(|id| id.to_string()),
@@ -146,9 +145,12 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     key_store: &KeyStore<KeyIds>,
     api_config: &bitwarden_api_api::apis::configuration::Configuration,
     repository: &R,
+    encrypted_for: UserId,
     request: CipherCreateRequest,
 ) -> Result<CipherView, CreateCipherError> {
-    let cipher_request = key_store.encrypt(request)?;
+    let mut cipher_request = key_store.encrypt(request)?;
+    cipher_request.encrypted_for = Some(encrypted_for.into());
+
     let resp = ciphers_api::ciphers_post(api_config, Some(cipher_request))
         .await
         .map_err(ApiError::from)?;
@@ -163,18 +165,26 @@ impl CiphersClient {
     /// Create a new [Cipher] and save it to the server.
     pub async fn create(
         &self,
-        mut request: CipherCreateRequest,
+        request: CipherCreateRequest,
     ) -> Result<CipherView, CreateCipherError> {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations().await;
         let repository = self.get_repository()?;
 
-        request.encrypted_for = self
+        let user_id = self
             .client
             .internal
             .get_user_id()
             .ok_or(NotAuthenticatedError)?;
-        create_cipher(key_store, &config.api, repository.as_ref(), request).await
+
+        create_cipher(
+            key_store,
+            &config.api,
+            repository.as_ref(),
+            user_id,
+            request,
+        )
+        .await
     }
 }
 
@@ -189,6 +199,7 @@ mod tests {
     use crate::{CipherId, CipherType, LoginView};
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
+    const TEST_USER_ID: &str = "550e8400-e29b-41d4-a716-446655440000";
 
     fn generate_test_cipher_create_request() -> CipherCreateRequest {
         CipherCreateRequest {
@@ -264,9 +275,15 @@ mod tests {
         let repository = MemoryRepository::<Cipher>::default();
         let request = generate_test_cipher_create_request();
 
-        let result = create_cipher(&store, &api_config, &repository, request)
-            .await
-            .unwrap();
+        let result = create_cipher(
+            &store,
+            &api_config,
+            &repository,
+            TEST_USER_ID.parse().unwrap(),
+            request,
+        )
+        .await
+        .unwrap();
 
         assert_eq!(result.id, Some(cipher_id));
         assert_eq!(result.name, "Test Login");
@@ -316,7 +333,14 @@ mod tests {
 
         let request = generate_test_cipher_create_request();
 
-        let result = create_cipher(&store, &api_config, &repository, request).await;
+        let result = create_cipher(
+            &store,
+            &api_config,
+            &repository,
+            TEST_USER_ID.parse().unwrap(),
+            request,
+        )
+        .await;
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), CreateCipherError::Api(_)));
