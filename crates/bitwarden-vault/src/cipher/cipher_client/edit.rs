@@ -60,12 +60,10 @@ pub enum EditCipherError {
 pub struct CipherEditRequest {
     pub id: CipherId,
 
-    pub r#type: CipherType,
     pub organization_id: Option<OrganizationId>,
     pub folder_id: Option<FolderId>,
     pub favorite: bool,
     pub reprompt: CipherRepromptType,
-    pub key: Option<EncString>,
     pub name: String,
     pub notes: Option<String>,
     pub fields: Vec<FieldView>,
@@ -75,6 +73,8 @@ pub struct CipherEditRequest {
     pub type_data: Option<CipherViewType>,
     pub revision_date: DateTime<Utc>,
     pub archived_date: Option<DateTime<Utc>>,
+    /// For internal use only. Do not set this from clients.
+    key: Option<EncString>,
 }
 
 impl TryFrom<CipherView> for CipherEditRequest {
@@ -90,7 +90,6 @@ impl TryFrom<CipherView> for CipherEditRequest {
         };
         Ok(Self {
             id: value.id.ok_or(MissingFieldError("id"))?,
-            r#type: value.r#type,
             organization_id: value.organization_id,
             folder_id: value.folder_id,
             favorite: value.favorite,
@@ -128,15 +127,17 @@ impl CipherEditRequest {
         &mut self,
         original_cipher: &CipherView,
     ) -> Vec<PasswordChange> {
-        if self.r#type != CipherType::Login || original_cipher.r#type != CipherType::Login {
-            return Default::default();
+        if !matches!(self.type_data, Some(CipherViewType::Login(_)))
+            || original_cipher.r#type != CipherType::Login
+        {
+            return vec![];
         }
 
         let (Some(original_login), Some(current_login)) = (
             original_cipher.login.as_ref(),
             self.type_data.as_login_view_mut(),
         ) else {
-            return Default::default();
+            return vec![];
         };
 
         let original_password = original_login.password.as_deref().unwrap_or("");
@@ -147,11 +148,11 @@ impl CipherEditRequest {
             if !current_password.is_empty() {
                 current_login.password_revision_date = Some(Utc::now());
             }
-            Default::default()
+            vec![]
         } else if original_password == current_password {
             // Password unchanged - preserve original revision date
             current_login.password_revision_date = original_login.password_revision_date;
-            Default::default()
+            vec![]
         } else {
             // Password changed - update revision date and track change
             current_login.password_revision_date = Some(Utc::now());
@@ -161,7 +162,7 @@ impl CipherEditRequest {
 
     fn detect_hidden_field_changes(&self, original_cipher: &CipherView) -> Vec<PasswordChange> {
         let original_fields =
-            Self::extract_hidden_fields(original_cipher.fields.as_ref().unwrap_or(&vec![]));
+            Self::extract_hidden_fields(original_cipher.fields.as_ref().unwrap_or_default());
         let current_fields = Self::extract_hidden_fields(&self.fields);
 
         original_fields
@@ -177,7 +178,7 @@ impl CipherEditRequest {
             .collect()
     }
 
-    fn extract_hidden_fields(fields: &Vec<FieldView>) -> HashMap<String, String> {
+    fn extract_hidden_fields(fields: &[FieldView]) -> HashMap<String, String> {
         fields
             .iter()
             .filter_map(|f| match (&f.r#type, &f.name, &f.value) {
@@ -212,7 +213,11 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
         // let encrypted_cipher = cipher_view.encrypt_composite(ctx, key)?;
         let cipher_request = CipherRequestModel {
             encrypted_for: None,
-            r#type: Some(cipher_data.r#type.into()),
+            r#type: cipher_data
+                .type_data
+                .as_ref()
+                .map(CipherViewType::get_cipher_type)
+                .map(<_ as Into<_>>::into),
             organization_id: cipher_data.organization_id.map(|id| id.to_string()),
             folder_id: cipher_data.folder_id.map(|id| id.to_string()),
             favorite: Some(cipher_data.favorite),

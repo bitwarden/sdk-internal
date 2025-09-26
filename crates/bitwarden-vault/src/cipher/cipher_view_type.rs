@@ -18,6 +18,18 @@ pub enum CipherViewType {
     SshKey(SshKeyView),
 }
 
+impl CipherViewType {
+    pub fn get_cipher_type(&self) -> crate::CipherType {
+        match self {
+            CipherViewType::Login(_) => crate::CipherType::Login,
+            CipherViewType::Card(_) => crate::CipherType::Card,
+            CipherViewType::Identity(_) => crate::CipherType::Identity,
+            CipherViewType::SecureNote(_) => crate::CipherType::SecureNote,
+            CipherViewType::SshKey(_) => crate::CipherType::SshKey,
+        }
+    }
+}
+
 /// Extension trait to provide type-safe accessors for the different cipher view types.
 #[allow(private_bounds)]
 pub trait CipherViewTypeExt

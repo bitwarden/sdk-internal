@@ -50,7 +50,6 @@ pub struct CipherCreateRequest {
     pub folder_id: Option<FolderId>,
     pub name: String,
     pub notes: Option<String>,
-    pub r#type: CipherType,
     pub favorite: bool,
     pub reprompt: CipherRepromptType,
     pub type_data: Option<CipherViewType>,
@@ -61,7 +60,7 @@ pub struct CipherCreateRequest {
 impl CipherCreateRequest {
     /// Generate a new key for the cipher, re-encrypting internal data, if necessary, and stores the
     /// encrypted key to the cipher data.
-   fn generate_cipher_key(
+    fn generate_cipher_key(
         &mut self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
@@ -91,7 +90,11 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
 
         let cipher_request = CipherRequestModel {
             encrypted_for: None,
-            r#type: Some(self.r#type.into()),
+            r#type: self
+                .type_data
+                .as_ref()
+                .map(CipherViewType::get_cipher_type)
+                .map(<_ as Into<_>>::into),
             organization_id: self.organization_id.map(|id| id.to_string()),
             folder_id: self.folder_id.map(|id| id.to_string()),
             favorite: Some(self.favorite),
@@ -244,7 +247,6 @@ mod tests {
         CipherCreateRequest {
             name: "Test Login".to_string(),
             notes: Some("Test notes".to_string()),
-            r#type: CipherType::Login,
             type_data: Some(CipherViewType::Login(LoginView {
                 username: Some("test@example.com".to_string()),
                 password: Some("password123".to_string()),
