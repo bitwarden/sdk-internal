@@ -24,6 +24,7 @@ pub use cipher::{
     CipherType, CipherView, DecryptCipherListResult, EncryptionContext,
 };
 pub use cipher_client::CiphersClient;
+pub use cipher_view_type::CipherViewType;
 pub use field::{FieldType, FieldView};
 pub use identity::IdentityView;
 pub use login::{

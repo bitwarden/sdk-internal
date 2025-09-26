@@ -5,9 +5,10 @@ use crate::{CardView, IdentityView, LoginView, SecureNoteView, SshKeyView};
 
 /// Represents the inner data of a cipher view.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase", untagged)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[allow(missing_docs)]
 pub enum CipherViewType {
     Login(LoginView),
     Card(CardView),
