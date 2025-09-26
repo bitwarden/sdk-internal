@@ -19,7 +19,7 @@ use wasm_bindgen::prelude::*;
 use super::CiphersClient;
 use crate::{
     cipher_view_type::{CipherViewType, CipherViewTypeExt},
-    Cipher, CipherRepromptType, CipherType, CipherView, FieldView, FolderId, VaultParseError,
+    Cipher, CipherRepromptType, CipherView, FieldView, FolderId, VaultParseError,
 };
 
 #[allow(missing_docs)]
@@ -41,7 +41,7 @@ pub enum CreateCipherError {
 }
 
 /// Request to add a cipher.
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -78,6 +78,12 @@ impl CipherCreateRequest {
         self.key = Some(ctx.wrap_symmetric_key(key, new_key)?);
         Ok(())
     }
+
+    fn generate_checksums(&mut self) {
+        if let Some(login) = &mut self.type_data.as_login_view_mut() {
+            login.generate_checksums();
+        }
+    }
 }
 
 impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for CipherCreateRequest {
@@ -86,56 +92,60 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<CipherRequestModel, CryptoError> {
-        let cipher_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+        // Clone self so we can generating the checksums before encrypting.
+        let mut cipher_data = (*self).clone();
+        cipher_data.generate_checksums();
+
+        let cipher_key = Cipher::decrypt_cipher_key(ctx, key, &cipher_data.key)?;
 
         let cipher_request = CipherRequestModel {
             encrypted_for: None,
-            r#type: self
+            r#type: cipher_data
                 .type_data
                 .as_ref()
                 .map(CipherViewType::get_cipher_type)
                 .map(<_ as Into<_>>::into),
-            organization_id: self.organization_id.map(|id| id.to_string()),
-            folder_id: self.folder_id.map(|id| id.to_string()),
-            favorite: Some(self.favorite),
-            reprompt: Some(self.reprompt.into()),
+            organization_id: cipher_data.organization_id.map(|id| id.to_string()),
+            folder_id: cipher_data.folder_id.map(|id| id.to_string()),
+            favorite: Some(cipher_data.favorite),
+            reprompt: Some(cipher_data.reprompt.into()),
             key: None,
-            name: self.name.encrypt(ctx, cipher_key)?.to_string(),
-            notes: self
+            name: cipher_data.name.encrypt(ctx, cipher_key)?.to_string(),
+            notes: cipher_data
                 .notes
                 .as_ref()
                 .map(|n| n.encrypt(ctx, cipher_key))
                 .transpose()?
                 .map(|n| n.to_string()),
-            login: self
+            login: cipher_data
                 .type_data
                 .as_login_view()
                 .as_ref()
                 .map(|l| l.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|l| Box::new(l.into())),
-            card: self
+            card: cipher_data
                 .type_data
                 .as_card_view()
                 .as_ref()
                 .map(|c| c.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|c| Box::new(c.into())),
-            identity: self
+            identity: cipher_data
                 .type_data
                 .as_identity_view()
                 .as_ref()
                 .map(|i| i.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|i| Box::new(i.into())),
-            secure_note: self
+            secure_note: cipher_data
                 .type_data
                 .as_secure_note_view()
                 .as_ref()
                 .map(|s| s.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|s| Box::new(s.into())),
-            ssh_key: self
+            ssh_key: cipher_data
                 .type_data
                 .as_ssh_key_view()
                 .as_ref()
@@ -143,7 +153,8 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
                 .transpose()?
                 .map(|s| Box::new(s.into())),
             fields: Some(
-                self.fields
+                cipher_data
+                    .fields
                     .iter()
                     .map(|f| f.encrypt_composite(ctx, cipher_key))
                     .map(|f| f.map(|f| f.into()))
