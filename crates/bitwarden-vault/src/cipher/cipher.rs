@@ -523,11 +523,7 @@ impl CipherView {
         new_key: SymmetricKeyId,
     ) -> Result<(), CryptoError> {
         if let Some(login) = self.login.as_mut() {
-            if let Some(fido2_credentials) = &mut login.fido2_credentials {
-                let dec_fido2_credentials: Vec<Fido2CredentialFullView> =
-                    fido2_credentials.decrypt(ctx, old_key)?;
-                *fido2_credentials = dec_fido2_credentials.encrypt_composite(ctx, new_key)?;
-            }
+            login.reencrypt_fido2_credentials(ctx, old_key, new_key)?;
         }
         Ok(())
     }

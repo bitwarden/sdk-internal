@@ -4,7 +4,8 @@ use bitwarden_core::{
     require, ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
 };
 use bitwarden_crypto::{
-    CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext, PrimitiveEncryptable,
+    CompositeEncryptable, CryptoError, EncString, IdentifyKey, KeyStore, KeyStoreContext,
+    PrimitiveEncryptable,
 };
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -56,6 +57,30 @@ pub struct CipherCreateRequest {
     pub reprompt: CipherRepromptType,
     pub type_data: Option<CipherViewType>,
     pub fields: Vec<FieldView>,
+    pub key: Option<EncString>,
+}
+
+impl CipherCreateRequest {
+    /// Generate a new key for the cipher, re-encrypting internal data, if necessary, and stores the
+    /// encrypted key to the cipher data.
+    pub fn generate_cipher_key(
+        &mut self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<(), CryptoError> {
+        let old_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+
+        const NEW_KEY_ID: SymmetricKeyId = SymmetricKeyId::Local("new_cipher_key");
+
+        let new_key = ctx.generate_symmetric_key(NEW_KEY_ID)?;
+        self.type_data
+            .as_login_view_mut()
+            .map(|l| l.reencrypt_fido2_credentials(ctx, old_key, new_key))
+            .transpose()?;
+
+        self.key = Some(ctx.wrap_symmetric_key(key, new_key)?);
+        Ok(())
+    }
 }
 
 impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for CipherCreateRequest {
@@ -64,6 +89,8 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<CipherRequestModel, CryptoError> {
+        let cipher_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+
         let cipher_request = CipherRequestModel {
             encrypted_for: None,
             r#type: Some(self.r#type.into()),
@@ -72,52 +99,52 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
             favorite: Some(self.favorite),
             reprompt: Some(self.reprompt.into()),
             key: None,
-            name: self.name.encrypt(ctx, key)?.to_string(),
+            name: self.name.encrypt(ctx, cipher_key)?.to_string(),
             notes: self
                 .notes
                 .as_ref()
-                .map(|n| n.encrypt(ctx, key))
+                .map(|n| n.encrypt(ctx, cipher_key))
                 .transpose()?
                 .map(|n| n.to_string()),
             login: self
                 .type_data
                 .as_login_view()
                 .as_ref()
-                .map(|l| l.encrypt_composite(ctx, key))
+                .map(|l| l.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|l| Box::new(l.into())),
             card: self
                 .type_data
                 .as_card_view()
                 .as_ref()
-                .map(|c| c.encrypt_composite(ctx, key))
+                .map(|c| c.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|c| Box::new(c.into())),
             identity: self
                 .type_data
                 .as_identity_view()
                 .as_ref()
-                .map(|i| i.encrypt_composite(ctx, key))
+                .map(|i| i.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|i| Box::new(i.into())),
             secure_note: self
                 .type_data
                 .as_secure_note_view()
                 .as_ref()
-                .map(|s| s.encrypt_composite(ctx, key))
+                .map(|s| s.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|s| Box::new(s.into())),
             ssh_key: self
                 .type_data
                 .as_ssh_key_view()
                 .as_ref()
-                .map(|s| s.encrypt_composite(ctx, key))
+                .map(|s| s.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|s| Box::new(s.into())),
             fields: Some(
                 self.fields
                     .iter()
-                    .map(|f| f.encrypt_composite(ctx, key))
+                    .map(|f| f.encrypt_composite(ctx, cipher_key))
                     .map(|f| f.map(|f| f.into()))
                     .collect::<Result<Vec<_>, _>>()?,
             ),
@@ -165,7 +192,7 @@ impl CiphersClient {
     /// Create a new [Cipher] and save it to the server.
     pub async fn create(
         &self,
-        request: CipherCreateRequest,
+        mut request: CipherCreateRequest,
     ) -> Result<CipherView, CreateCipherError> {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations().await;
@@ -176,6 +203,18 @@ impl CiphersClient {
             .internal
             .get_user_id()
             .ok_or(NotAuthenticatedError)?;
+
+        // TODO: Once this flag is removed, the key generation logic should
+        // be moved closer to the actual encryption logic.
+        if self
+            .client
+            .internal
+            .get_flags()
+            .enable_cipher_key_encryption
+        {
+            let key = request.key_identifier();
+            request.generate_cipher_key(&mut key_store.context(), key)?;
+        }
 
         create_cipher(
             key_store,

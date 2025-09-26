@@ -322,6 +322,20 @@ impl LoginView {
             }
         }
     }
+
+    /// Re-encrypts the fido2 credentials with a new key, replacing the old encrypted values.
+    pub fn reencrypt_fido2_credentials(
+        &mut self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        old_key: SymmetricKeyId,
+        new_key: SymmetricKeyId,
+    ) -> Result<(), CryptoError> {
+        if let Some(creds) = &mut self.fido2_credentials {
+            let decrypted_creds: Vec<Fido2CredentialFullView> = creds.decrypt(ctx, old_key)?;
+            *creds = decrypted_creds.encrypt_composite(ctx, new_key)?;
+        }
+        Ok(())
+    }
 }
 
 #[allow(missing_docs)]

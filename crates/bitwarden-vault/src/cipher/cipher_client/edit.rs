@@ -207,7 +207,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
         let mut cipher_data = (*self).clone();
         cipher_data.generate_checksums();
 
-        let key = key; // TODO: Swap key for cipher key if available
+        let cipher_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
         // let encrypted_cipher = cipher_view.encrypt_composite(ctx, key)?;
         let cipher_request = CipherRequestModel {
@@ -218,17 +218,17 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
             favorite: Some(cipher_data.favorite),
             reprompt: Some(cipher_data.reprompt.into()),
             key: cipher_data.key.map(|k| k.to_string()),
-            name: cipher_data.name.encrypt(ctx, key)?.to_string(),
+            name: cipher_data.name.encrypt(ctx, cipher_key)?.to_string(),
             notes: cipher_data
                 .notes
                 .as_ref()
-                .map(|n| n.encrypt(ctx, key))
+                .map(|n| n.encrypt(ctx, cipher_key))
                 .transpose()?
                 .map(|n| n.to_string()),
             fields: Some(
                 cipher_data
                     .fields
-                    .encrypt_composite(ctx, key)?
+                    .encrypt_composite(ctx, cipher_key)?
                     .into_iter()
                     .map(|f| f.into())
                     .collect(),
@@ -236,7 +236,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
             password_history: Some(
                 cipher_data
                     .password_history
-                    .encrypt_composite(ctx, key)?
+                    .encrypt_composite(ctx, cipher_key)?
                     .into_iter()
                     .flatten()
                     .map(|ph| ph.into())
@@ -246,7 +246,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
             attachments2: Some(
                 cipher_data
                     .attachments
-                    .encrypt_composite(ctx, key)?
+                    .encrypt_composite(ctx, cipher_key)?
                     .into_iter()
                     .flatten()
                     .filter_map(|a| {
@@ -265,32 +265,32 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
             login: cipher_data
                 .type_data
                 .as_login_view()
-                .map(|l| l.encrypt_composite(ctx, key))
+                .map(|l| l.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|l| Box::new(l.into())),
             card: cipher_data
                 .type_data
                 .as_card_view()
-                .map(|c| c.encrypt_composite(ctx, key))
+                .map(|c| c.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|c| Box::new(c.into())),
             identity: cipher_data
                 .type_data
                 .as_identity_view()
-                .map(|i| i.encrypt_composite(ctx, key))
+                .map(|i| i.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|c| Box::new(c.into())),
 
             secure_note: cipher_data
                 .type_data
                 .as_secure_note_view()
-                .map(|i| i.encrypt_composite(ctx, key))
+                .map(|i| i.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|c| Box::new(c.into())),
             ssh_key: cipher_data
                 .type_data
                 .as_ssh_key_view()
-                .map(|i| i.encrypt_composite(ctx, key))
+                .map(|i| i.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|c| Box::new(c.into())),
 
