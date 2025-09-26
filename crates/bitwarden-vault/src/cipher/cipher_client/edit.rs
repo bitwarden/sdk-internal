@@ -162,7 +162,7 @@ impl CipherEditRequest {
 
     fn detect_hidden_field_changes(&self, original_cipher: &CipherView) -> Vec<PasswordChange> {
         let original_fields =
-            Self::extract_hidden_fields(original_cipher.fields.as_ref().unwrap_or_default());
+            Self::extract_hidden_fields(original_cipher.fields.as_deref().unwrap_or_default());
         let current_fields = Self::extract_hidden_fields(&self.fields);
 
         original_fields
