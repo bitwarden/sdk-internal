@@ -2,6 +2,8 @@ name: Update API Bindings
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * 1" # Every Monday at 4 AM UTC
 
 permissions:
   contents: read
@@ -20,6 +22,15 @@ jobs:
       id-token: write
 
     steps:
+      - name: Early exit for uneven weeks
+        if: github.event_name == 'schedule'
+        run: |
+          WEEK_NUM=$(date +%V)
+          if [ $((WEEK_NUM % 2)) -ne 0 ]; then
+            echo "Odd week ($WEEK_NUM), exiting early."
+          exit 0
+          fi
+
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
