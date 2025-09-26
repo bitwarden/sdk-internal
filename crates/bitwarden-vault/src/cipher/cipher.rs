@@ -63,12 +63,11 @@ pub(super) trait CipherKind {
 }
 
 #[allow(missing_docs)]
-#[derive(Default, Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
+#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum CipherType {
-    #[default]
     Login = 1,
     SecureNote = 2,
     Card = 3,
