@@ -153,6 +153,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
             attachments2: None,
             last_known_revision_date: None,
             archived_date: None,
+            data: None,
         };
 
         Ok(cipher_request)

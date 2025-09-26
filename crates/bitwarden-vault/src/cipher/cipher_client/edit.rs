@@ -296,6 +296,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
 
             last_known_revision_date: Some(cipher_data.revision_date.to_rfc3339()),
             archived_date: cipher_data.archived_date.map(|d| d.to_rfc3339()),
+            data: None,
         };
 
         Ok(cipher_request)
