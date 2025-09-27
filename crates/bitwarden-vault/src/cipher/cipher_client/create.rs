@@ -54,6 +54,7 @@ pub struct CipherCreateRequest {
     pub reprompt: CipherRepromptType,
     pub type_data: Option<CipherViewType>,
     pub fields: Vec<FieldView>,
+    /// For internal use only. Do not set this from clients.
     pub key: Option<EncString>,
 }
 
@@ -109,7 +110,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
             folder_id: cipher_data.folder_id.map(|id| id.to_string()),
             favorite: Some(cipher_data.favorite),
             reprompt: Some(cipher_data.reprompt.into()),
-            key: None,
+            key: cipher_data.key.map(|k| k.to_string()),
             name: cipher_data.name.encrypt(ctx, cipher_key)?.to_string(),
             notes: cipher_data
                 .notes

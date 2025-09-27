@@ -74,7 +74,7 @@ pub struct CipherEditRequest {
     pub revision_date: DateTime<Utc>,
     pub archived_date: Option<DateTime<Utc>>,
     /// For internal use only. Do not set this from clients.
-    key: Option<EncString>,
+    pub key: Option<EncString>,
 }
 
 impl TryFrom<CipherView> for CipherEditRequest {
