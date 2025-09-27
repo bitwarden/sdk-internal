@@ -73,7 +73,6 @@ pub struct CipherEditRequest {
     pub type_data: Option<CipherViewType>,
     pub revision_date: DateTime<Utc>,
     pub archived_date: Option<DateTime<Utc>>,
-    /// For internal use only. Do not set this from clients.
     pub key: Option<EncString>,
 }
 
@@ -210,7 +209,6 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
 
         let cipher_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
-        // let encrypted_cipher = cipher_view.encrypt_composite(ctx, key)?;
         let cipher_request = CipherRequestModel {
             encrypted_for: None,
             r#type: cipher_data
