@@ -1,6 +1,4 @@
 #[cfg(feature = "internal")]
-use bitwarden_crypto::Kdf;
-#[cfg(feature = "internal")]
 use log::info;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -12,6 +10,7 @@ use crate::auth::{
 use crate::{
     auth::{api::request::PasswordTokenRequest, login::LoginError, login::TwoFactorRequest},
     client::LoginMethod,
+    key_management::UserDecryptionData,
     Client,
 };
 
@@ -29,7 +28,9 @@ pub(crate) async fn login_password(
 
     info!("password logging in");
 
-    let master_key = MasterKey::derive(&input.password, &input.email, &input.kdf)?;
+    let kdf = client.auth().prelogin(input.email.clone()).await?;
+
+    let master_key = MasterKey::derive(&input.password, &input.email, &kdf)?;
     let password_hash = master_key
         .derive_master_key_hash(input.password.as_bytes(), HashPurpose::ServerAuthorization);
 
@@ -41,26 +42,55 @@ pub(crate) async fn login_password(
             r.refresh_token.clone(),
             r.expires_in,
         );
-        client
-            .internal
-            .set_login_method(LoginMethod::User(UserLoginMethod::Username {
-                client_id: "web".to_owned(),
-                email: input.email.to_owned(),
-                kdf: input.kdf.to_owned(),
-            }));
 
-        let user_key: EncString = require!(r.key.as_deref()).parse()?;
-        let private_key: EncString = require!(r.private_key.as_deref()).parse()?;
+        let private_key: EncString = require!(&r.private_key).parse()?;
 
-        client.internal.initialize_user_crypto_master_key(
-            master_key,
-            user_key,
-            UserKeyState {
-                private_key,
-                signing_key: None,
-                security_state: None,
-            },
-        )?;
+        let user_key_state = UserKeyState {
+            private_key,
+            signing_key: None,
+            security_state: None,
+        };
+
+        let master_password_unlock = r
+            .user_decryption_options
+            .as_ref()
+            .map(UserDecryptionData::try_from)
+            .transpose()?
+            .and_then(|user_decryption| user_decryption.master_password_unlock);
+        match master_password_unlock {
+            Some(master_password_unlock) => {
+                client.internal.initialize_user_crypto_master_key(
+                    master_key,
+                    master_password_unlock.master_key_wrapped_user_key,
+                    user_key_state,
+                )?;
+
+                client
+                    .internal
+                    .set_login_method(LoginMethod::User(UserLoginMethod::Username {
+                        client_id: "web".to_owned(),
+                        email: master_password_unlock.salt,
+                        kdf: master_password_unlock.kdf,
+                    }));
+            }
+            None => {
+                let user_key: EncString = require!(&r.key).parse()?;
+
+                client.internal.initialize_user_crypto_master_key(
+                    master_key,
+                    user_key,
+                    user_key_state,
+                )?;
+
+                client
+                    .internal
+                    .set_login_method(LoginMethod::User(UserLoginMethod::Username {
+                        client_id: "web".to_owned(),
+                        email: input.email.clone(),
+                        kdf,
+                    }));
+            }
+        };
     }
 
     Ok(PasswordLoginResponse::process_response(response))
@@ -97,8 +127,6 @@ pub struct PasswordLoginRequest {
     pub password: String,
     /// Two-factor authentication
     pub two_factor: Option<TwoFactorRequest>,
-    /// Kdf from prelogin
-    pub kdf: Kdf,
 }
 
 #[allow(missing_docs)]

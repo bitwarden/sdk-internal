@@ -16,15 +16,12 @@ pub(crate) async fn login_password(client: Client, email: Option<String>) -> Res
 
     let password = Password::new("Password").without_confirmation().prompt()?;
 
-    let kdf = client.auth().prelogin(email.clone()).await?;
-
     let result = client
         .auth()
         .login_password(&PasswordLoginRequest {
             email: email.clone(),
             password: password.clone(),
             two_factor: None,
-            kdf: kdf.clone(),
         })
         .await?;
 
@@ -69,7 +66,6 @@ pub(crate) async fn login_password(client: Client, email: Option<String>) -> Res
                 email,
                 password,
                 two_factor,
-                kdf,
             })
             .await?;
 
