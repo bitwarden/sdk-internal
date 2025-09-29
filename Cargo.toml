@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["bitwarden_license/*", "crates/*"]
+members = ["bitwarden_license/*", "crates/*", "sdk_license/*"]
 exclude = ["support/lints"]
 
 # Global settings for all crates should be defined here
