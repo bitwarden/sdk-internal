@@ -53,6 +53,12 @@ pub enum SendAccessTokenError {
 }
 
 // This is just a utility function so that the ? operator works correctly without manual mapping
+impl From<reqwest_middleware::Error> for SendAccessTokenError {
+    fn from(value: reqwest_middleware::Error) -> Self {
+        Self::Unexpected(UnexpectedIdentityError(format!("{value:?}")))
+    }
+}
+
 impl From<reqwest::Error> for SendAccessTokenError {
     fn from(value: reqwest::Error) -> Self {
         Self::Unexpected(UnexpectedIdentityError(format!("{value:?}")))

@@ -15,6 +15,7 @@ macro_rules! impl_bitwarden_error {
             fn from(e: $name<T>) -> Self {
                 match e {
                     $name::Reqwest(e) => Self::Reqwest(e),
+                    $name::ReqwestMiddleware(e) => Self::ReqwestMiddleware(e),
                     $name::ResponseError(e) => Self::ResponseContent {
                         status: e.status,
                         message: e.content,
@@ -34,6 +35,8 @@ macro_rules! impl_bitwarden_error {
 pub enum ApiError {
     #[error(transparent)]
     Reqwest(#[from] reqwest::Error),
+    #[error(transparent)]
+    ReqwestMiddleware(#[from] reqwest_middleware::Error),
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
     #[error(transparent)]

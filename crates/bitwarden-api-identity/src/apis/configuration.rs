@@ -12,7 +12,7 @@
 pub struct Configuration {
     pub base_path: String,
     pub user_agent: Option<String>,
-    pub client: reqwest::Client,
+    pub client: reqwest_middleware::ClientWithMiddleware,
     pub basic_auth: Option<BasicAuth>,
     pub oauth_access_token: Option<String>,
     pub bearer_access_token: Option<String>,
@@ -38,7 +38,7 @@ impl Default for Configuration {
         Configuration {
             base_path: "https://identity.bitwarden.com".to_owned(),
             user_agent: Some("OpenAPI-Generator/v1/rust".to_owned()),
-            client: reqwest::Client::new(),
+            client: reqwest_middleware::ClientBuilder::new(reqwest::Client::new()).build(),
             basic_auth: None,
             oauth_access_token: None,
             bearer_access_token: None,
