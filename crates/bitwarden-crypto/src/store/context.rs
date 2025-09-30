@@ -9,10 +9,10 @@ use zeroize::Zeroizing;
 use super::KeyStoreInner;
 use crate::{
     derive_shareable_key, error::UnsupportedOperationError, signing, store::backend::StoreBackend,
-    AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CryptoError, EncString, KeyId,
-    KeyIds, PublicKeyEncryptionAlgorithm, Result, RotatedUserKeys, Signature, SignatureAlgorithm,
-    SignedObject, SignedPublicKey, SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey,
-    UnsignedSharedKey,
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, ContentFormat,
+    CryptoError, EncString, KeyId, KeyIds, Pkcs8PrivateKeyBytes, PublicKeyEncryptionAlgorithm,
+    Result, RotatedUserKeys, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
+    SignedPublicKeyMessage, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -239,6 +239,97 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 UnsupportedOperationError::EncryptionNotImplementedForKey,
             )),
         }
+    }
+
+    /// Decrypt an asymmetric private key into the context by using an already existing symmetric
+    /// key
+    ///
+    /// # Arguments
+    ///
+    /// * `wrapping_key` - The key id used to decrypt the `wrapped_key`. It must already exist in
+    ///   the context
+    /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
+    ///   will be overwritten
+    /// * `wrapped_key` - The key to decrypt
+    pub fn unwrap_private_key(
+        &mut self,
+        wrapping_key: Ids::Symmetric,
+        new_key_id: Ids::Asymmetric,
+        wrapped_key: &EncString,
+    ) -> Result<Ids::Asymmetric> {
+        let bytes = Pkcs8PrivateKeyBytes::from(
+            self.decrypt_data_with_symmetric_key(wrapping_key, wrapped_key)?,
+        );
+        let key = AsymmetricCryptoKey::from_der(&bytes)?;
+
+        #[allow(deprecated)]
+        self.set_asymmetric_key(new_key_id, key)?;
+
+        // Returning the new key identifier for convenience
+        Ok(new_key_id)
+    }
+
+    /// Encrypt and return an asymmetric private key from the context using an already existing
+    /// symmetric key
+    ///
+    /// # Arguments
+    ///
+    /// * `wrapping_key` - The key id used to wrap (encrypt) the `key_to_wrap`. It must already
+    ///   exist in the context
+    /// * `key_to_wrap` - The key id to wrap. It must already exist in the context
+    pub fn wrap_private_key(
+        &self,
+        wrapping_key: Ids::Symmetric,
+        key_to_wrap: Ids::Asymmetric,
+    ) -> Result<EncString> {
+        let key_to_wrap_instance = self.get_asymmetric_key(key_to_wrap)?;
+        self.encrypt_data_with_symmetric_key(
+            wrapping_key,
+            key_to_wrap_instance.to_der()?.as_ref(),
+            ContentFormat::Pkcs8PrivateKey,
+        )
+    }
+
+    /// Decrypt an asymmetric public key into the context using an already existing symmetric key
+    ///
+    /// # Arguments
+    ///
+    /// * `wrapping_key` - The key id used to decrypt the `wrapped_key`. It must already exist in
+    ///   the context
+    /// * `wrapped_key` - The key to decrypt
+    pub fn unwrap_public_key(
+        &mut self,
+        wrapping_key: Ids::Symmetric,
+        wrapped_key: &EncString,
+    ) -> Result<AsymmetricPublicCryptoKey> {
+        let bytes = SpkiPublicKeyBytes::from(
+            self.decrypt_data_with_symmetric_key(wrapping_key, wrapped_key)?,
+        );
+        let key = AsymmetricPublicCryptoKey::from_der(&bytes)?;
+
+        // Returning the public key because there's not a KeyId type to just store a public key.
+        Ok(key)
+    }
+
+    /// Encrypt and return an asymmetric public key from the context using an already existing
+    /// symmetric key
+    ///
+    /// # Arguments
+    ///
+    /// * `wrapping_key` - The key id used to wrap (encrypt) the `key_to_wrap`. It must already
+    ///   exist in the context
+    /// * `key_to_wrap` - The key id to wrap. It must already exist in the context
+    pub fn wrap_public_key(
+        &self,
+        wrapping_key: Ids::Symmetric,
+        key_to_wrap: Ids::Asymmetric,
+    ) -> Result<EncString> {
+        let public_key_to_wrap_instance = self.get_asymmetric_key(key_to_wrap)?.to_public_key();
+        self.encrypt_data_with_symmetric_key(
+            wrapping_key,
+            public_key_to_wrap_instance.to_der()?.as_ref(),
+            ContentFormat::SPKIPublicKeyDer,
+        )
     }
 
     /// Decapsulate a symmetric key into the context by using an already existing asymmetric key
@@ -703,6 +794,66 @@ mod tests {
         assert_eq!(unwrapped_key_3, key_xchacha_3_id);
         assert_eq!(unwrapped_key_1, key_aes_1_id);
         assert_eq!(unwrapped_key_4, key_xchacha_4_id);
+    }
+
+    #[test]
+    fn test_asymmetric_wrap_unwrap() {
+        let store: KeyStore<TestIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        // AES key
+        let key_aes_1_id = TestSymmKey::A(2);
+        let key_aes_1 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        ctx.set_symmetric_key(key_aes_1_id, key_aes_1.clone())
+            .unwrap();
+        // XChaCha20-Poly1305 key
+        let key_xchacha_2_id = TestSymmKey::A(3);
+        let key_xchacha_2 = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+        ctx.set_symmetric_key(key_xchacha_2_id, key_xchacha_2.clone())
+            .unwrap();
+        // RSA OAEP SHA-1 keys
+        let key_rsa_3_id = TestAsymmKey::A(3);
+        let key_rsa_3 = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        ctx.set_asymmetric_key(key_rsa_3_id, key_rsa_3.clone())
+            .unwrap();
+        let key_rsa_4_id = TestAsymmKey::A(4);
+        let key_rsa_4 = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        ctx.set_asymmetric_key(key_rsa_4_id, key_rsa_4.clone())
+            .unwrap();
+
+        // Wrap the keys
+        let wrapped_priv_key_1_3 = ctx.wrap_private_key(key_aes_1_id, key_rsa_3_id).unwrap();
+        let wrapped_pub_key_1_3 = ctx.wrap_public_key(key_aes_1_id, key_rsa_3_id).unwrap();
+        let wrapped_priv_key_2_4 = ctx
+            .wrap_private_key(key_xchacha_2_id, key_rsa_4_id)
+            .unwrap();
+        let wrapped_pub_key_2_4 = ctx.wrap_public_key(key_xchacha_2_id, key_rsa_4_id).unwrap();
+
+        // Unwrap the keys
+        let unwrapped_priv_key_3 = ctx
+            .unwrap_private_key(key_aes_1_id, key_rsa_3_id, &wrapped_priv_key_1_3)
+            .unwrap();
+        let unwrapped_pub_key_3 = ctx
+            .unwrap_public_key(key_aes_1_id, &wrapped_pub_key_1_3)
+            .unwrap();
+        let unwrapped_priv_key_4 = ctx
+            .unwrap_private_key(key_xchacha_2_id, key_rsa_4_id, &wrapped_priv_key_2_4)
+            .unwrap();
+        let unwrapped_pub_key_4 = ctx
+            .unwrap_public_key(key_xchacha_2_id, &wrapped_pub_key_2_4)
+            .unwrap();
+
+        // Assert that the unwrapped keys are the same as the original keys
+        assert_eq!(unwrapped_priv_key_3, key_rsa_3_id);
+        assert_eq!(
+            unwrapped_pub_key_3.to_der().unwrap(),
+            key_rsa_3.to_public_key().to_der().unwrap()
+        );
+        assert_eq!(unwrapped_priv_key_4, key_rsa_4_id);
+        assert_eq!(
+            unwrapped_pub_key_4.to_der().unwrap(),
+            key_rsa_4.to_public_key().to_der().unwrap()
+        );
     }
 
     #[test]
