@@ -1,7 +1,5 @@
-use bitwarden_core::Client;
-use bitwarden_generators::{
-    GeneratorClientsExt, PassphraseGeneratorRequest, PasswordGeneratorRequest,
-};
+use bitwarden_generators::{PassphraseGeneratorRequest, PasswordGeneratorRequest};
+use bitwarden_pm::PasswordManagerClient;
 use clap::{Args, Subcommand};
 
 use crate::render::CommandResult;
@@ -14,7 +12,7 @@ pub enum GeneratorCommands {
 }
 
 impl GeneratorCommands {
-    pub fn run(&self, client: &Client) -> CommandResult {
+    pub fn run(&self, client: &PasswordManagerClient) -> CommandResult {
         match self {
             GeneratorCommands::Password(args) => {
                 let password = client.generator().password(PasswordGeneratorRequest {

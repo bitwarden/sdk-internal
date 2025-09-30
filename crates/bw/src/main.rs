@@ -1,16 +1,11 @@
 #![doc = include_str!("../README.md")]
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-use bitwarden_cli::{install_color_eyre, Color};
-use bitwarden_core::ClientSettings;
-use bitwarden_generators::{
-    GeneratorClientsExt, PassphraseGeneratorRequest, PasswordGeneratorRequest,
-};
-use clap::{command, Args, CommandFactory, Parser, Subcommand};
+use bitwarden_cli::install_color_eyre;
+use clap::{CommandFactory, Parser};
 use clap_complete::Shell;
 use color_eyre::eyre::Result;
 use env_logger::Target;
-use render::Output;
 
 use crate::{command::*, render::CommandResult};
 
@@ -55,7 +50,7 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
     // If the session was invalid, we'd just return an error immediately
     // This would allow each command to match on the client type that they need, and we don't need
     // to do two matches over the whole command tree
-    let client = bitwarden_core::Client::new(None);
+    let client = bitwarden_pm::PasswordManagerClient::new(None);
 
     match command {
         // Auth commands

@@ -1,5 +1,5 @@
 use bitwarden_cli::text_prompt_when_none;
-use bitwarden_core::{auth::RegisterRequest, ClientSettings};
+use bitwarden_core::ClientSettings;
 use clap::{Args, Subcommand};
 
 mod login;
@@ -77,6 +77,7 @@ pub struct RegisterArgs {
 }
 
 impl RegisterArgs {
+    #[allow(unused_variables, clippy::unused_async)]
     pub async fn run(self) -> CommandResult {
         let settings = self.server.map(|server| ClientSettings {
             api_url: format!("{server}/api"),
@@ -88,16 +89,6 @@ impl RegisterArgs {
         let email = text_prompt_when_none("Email", self.email)?;
         let password = Password::new("Password").prompt()?;
 
-        client
-            .auth()
-            .register(&RegisterRequest {
-                email,
-                name: self.name,
-                password,
-                password_hint: self.password_hint,
-            })
-            .await?;
-
-        Ok("Successfully registered!".into())
+        unimplemented!("Registration is not yet implemented");
     }
 }
