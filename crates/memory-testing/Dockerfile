@@ -1,7 +1,7 @@
 ###############################################
 #                 Build stage                 #
 ###############################################
-FROM rust:1.85-alpine AS base
+FROM rust:1.90-alpine AS base
 WORKDIR /app
 
 # Make sure the correct rust toolchain is installed only once
