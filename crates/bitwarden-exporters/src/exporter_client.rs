@@ -5,8 +5,8 @@ use bitwarden_vault::{Cipher, Folder};
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    export::{export_cxf, export_organization_vault, export_vault, import_cxf},
     Account, ExportError, ExportFormat,
+    export::{export_cxf, export_organization_vault, export_vault, import_cxf},
 };
 
 #[allow(missing_docs)]

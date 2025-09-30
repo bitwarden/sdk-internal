@@ -225,8 +225,8 @@ mod tests {
     use bitwarden_encoding::B64;
 
     use crate::{
-        cipher::cipher::{CipherRepromptType, CipherType},
         AttachmentFile, AttachmentFileView, AttachmentView, Cipher,
+        cipher::cipher::{CipherRepromptType, CipherType},
     };
 
     #[test]

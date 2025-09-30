@@ -6,30 +6,30 @@ use bitwarden_encoding::B64;
 use wasm_bindgen::prelude::*;
 
 use super::crypto::{
-    derive_key_connector, make_key_pair, verify_asymmetric_keys, DeriveKeyConnectorError,
-    DeriveKeyConnectorRequest, EnrollAdminPasswordResetError, MakeKeyPairResponse,
-    VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
+    DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError,
+    MakeKeyPairResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
+    derive_key_connector, make_key_pair, verify_asymmetric_keys,
 };
 #[cfg(any(feature = "wasm", test))]
 use crate::key_management::PasswordProtectedKeyEnvelope;
 #[cfg(feature = "internal")]
 use crate::key_management::{
-    crypto::{
-        derive_pin_key, derive_pin_user_key, enroll_admin_password_reset, get_user_encryption_key,
-        initialize_org_crypto, initialize_user_crypto, DerivePinKeyResponse, InitOrgCryptoRequest,
-        InitUserCryptoRequest, UpdatePasswordResponse,
-    },
     SymmetricKeyId,
+    crypto::{
+        DerivePinKeyResponse, InitOrgCryptoRequest, InitUserCryptoRequest, UpdatePasswordResponse,
+        derive_pin_key, derive_pin_user_key, enroll_admin_password_reset, get_user_encryption_key,
+        initialize_org_crypto, initialize_user_crypto,
+    },
 };
 use crate::{
+    Client,
     client::encryption_settings::EncryptionSettingsError,
     error::StatefulCryptoError,
     key_management::crypto::{
+        CryptoClientError, EnrollPinResponse, UpdateKdfResponse, UserCryptoV2KeysResponse,
         enroll_pin, get_v2_rotated_account_keys, make_update_kdf, make_update_password,
-        make_v2_keys_for_v1_user, CryptoClientError, EnrollPinResponse, UpdateKdfResponse,
-        UserCryptoV2KeysResponse,
+        make_v2_keys_for_v1_user,
     },
-    Client,
 };
 
 /// A client for the crypto operations.

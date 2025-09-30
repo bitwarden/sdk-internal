@@ -1,4 +1,4 @@
-use bitwarden_core::{key_management::KeyIds, require, MissingFieldError};
+use bitwarden_core::{MissingFieldError, key_management::KeyIds, require};
 use bitwarden_crypto::KeyStore;
 use bitwarden_vault::{
     CardView, Cipher, CipherType, CipherView, Fido2CredentialFullView, FieldType, FieldView,

@@ -23,7 +23,7 @@ pub struct CipherMiniResponseModel {
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     pub r#type: Option<models::CipherType>,
     #[serde(rename = "data", skip_serializing_if = "Option::is_none")]
-    pub data: Option<serde_json::Value>,
+    pub data: Option<String>,
     #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     #[serde(rename = "notes", skip_serializing_if = "Option::is_none")]
