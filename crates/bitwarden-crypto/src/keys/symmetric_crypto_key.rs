@@ -1,7 +1,7 @@
 use std::pin::Pin;
 
 use bitwarden_encoding::B64;
-use coset::{iana::KeyOperation, CborSerializable, RegisteredLabelWithPrivate};
+use coset::{CborSerializable, RegisteredLabelWithPrivate, iana::KeyOperation};
 use generic_array::GenericArray;
 use rand::Rng;
 #[cfg(test)]
@@ -16,9 +16,9 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use super::{
     key_encryptable::CryptoKey,
-    key_id::{KeyId, KEY_ID_SIZE},
+    key_id::{KEY_ID_SIZE, KeyId},
 };
-use crate::{cose, BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError};
+use crate::{BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, cose};
 
 /// [Aes256CbcKey] is a symmetric encryption key, consisting of one 256-bit key,
 /// used to decrypt legacy type 0 enc strings. The data is not authenticated
@@ -441,10 +441,10 @@ mod tests {
     use generic_array::GenericArray;
     use typenum::U32;
 
-    use super::{derive_symmetric_key, SymmetricCryptoKey};
+    use super::{SymmetricCryptoKey, derive_symmetric_key};
     use crate::{
-        keys::symmetric_crypto_key::{pad_key, unpad_key},
         Aes256CbcHmacKey, Aes256CbcKey, BitwardenLegacyKeyBytes, XChaCha20Poly1305Key,
+        keys::symmetric_crypto_key::{pad_key, unpad_key},
     };
 
     #[test]

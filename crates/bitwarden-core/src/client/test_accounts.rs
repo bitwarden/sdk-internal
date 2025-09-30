@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use bitwarden_crypto::{EncString, Kdf};
 
 use crate::{
-    key_management::crypto::{InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest},
     Client, UserId,
+    key_management::crypto::{InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest},
 };
 
 impl Client {

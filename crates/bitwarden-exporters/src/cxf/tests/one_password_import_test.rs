@@ -6,9 +6,9 @@
 mod tests {
 
     use crate::{
-        cxf::{parse_cxf, CxfError},
         Card, CipherType, Field, Identity, ImportingCipher, Login, LoginUri, SecureNote,
         SecureNoteType,
+        cxf::{CxfError, parse_cxf},
     };
 
     fn load_file() -> Result<Vec<ImportingCipher>, CxfError> {

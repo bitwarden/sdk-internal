@@ -5,7 +5,7 @@ uniffi::setup_scaffolding!();
 use std::sync::Arc;
 
 use auth::AuthClient;
-use bitwarden_core::{client::internal::ClientManagedTokens, ClientSettings};
+use bitwarden_core::{ClientSettings, client::internal::ClientManagedTokens};
 
 #[allow(missing_docs)]
 pub mod auth;
@@ -65,7 +65,7 @@ impl Client {
 
     #[allow(missing_docs)]
     pub fn platform(&self) -> PlatformClient {
-        PlatformClient(self.0 .0.clone())
+        PlatformClient(self.0.0.clone())
     }
 
     /// Generator operations
@@ -90,7 +90,7 @@ impl Client {
 
     /// Auth operations
     pub fn auth(&self) -> AuthClient {
-        AuthClient(self.0 .0.clone())
+        AuthClient(self.0.0.clone())
     }
 
     /// Test method, echoes back the input
@@ -100,7 +100,7 @@ impl Client {
 
     /// Test method, calls http endpoint
     pub async fn http_get(&self, url: String) -> Result<String> {
-        let client = self.0 .0.internal.get_http_client();
+        let client = self.0.0.internal.get_http_client();
         let res = client
             .get(&url)
             .send()

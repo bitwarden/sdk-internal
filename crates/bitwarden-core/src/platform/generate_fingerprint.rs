@@ -2,12 +2,12 @@
 //!
 //! This module contains the logic for generating fingerprints.
 
-use bitwarden_crypto::{fingerprint, SpkiPublicKeyBytes};
+use bitwarden_crypto::{SpkiPublicKeyBytes, fingerprint};
 use bitwarden_encoding::B64;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{key_management::AsymmetricKeyId, MissingPrivateKeyError};
+use crate::{MissingPrivateKeyError, key_management::AsymmetricKeyId};
 
 /// Request to generate a fingerprint.
 #[derive(Serialize, Deserialize, Debug)]
@@ -81,7 +81,7 @@ mod tests {
     use bitwarden_crypto::{Kdf, MasterKey};
 
     use super::*;
-    use crate::{client::internal::UserKeyState, Client};
+    use crate::{Client, client::internal::UserKeyState};
 
     #[test]
     fn test_generate_user_fingerprint() {

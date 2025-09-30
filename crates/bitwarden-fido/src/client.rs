@@ -2,14 +2,14 @@ use passkey::client::WebauthnError;
 use thiserror::Error;
 
 use super::{
+    Fido2Authenticator, PublicKeyCredentialAuthenticatorAssertionResponse,
+    PublicKeyCredentialAuthenticatorAttestationResponse,
     authenticator::GetSelectedCredentialError,
     get_string_name_from_enum,
     types::{
         AuthenticatorAssertionResponse, AuthenticatorAttestationResponse, ClientData,
         ClientExtensionResults, CredPropsResult, Origin,
     },
-    Fido2Authenticator, PublicKeyCredentialAuthenticatorAssertionResponse,
-    PublicKeyCredentialAuthenticatorAttestationResponse,
 };
 use crate::types::InvalidOriginError;
 

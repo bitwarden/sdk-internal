@@ -17,7 +17,7 @@
 //! checking of the content format, and the risk of using the wrong content format is limited to
 //! converting untyped bytes into a `Bytes<C>`
 
-use crate::{store::KeyStoreContext, ContentFormat, CryptoError, EncString, KeyId, KeyIds};
+use crate::{ContentFormat, CryptoError, EncString, KeyId, KeyIds, store::KeyStoreContext};
 
 /// An encryption operation that takes the input value and encrypts the fields on it recursively.
 /// Implementations should generally consist of calling [PrimitiveEncryptable::encrypt] for all the
@@ -169,9 +169,9 @@ impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptableWithContentType<Ids, Key, O
 #[cfg(test)]
 mod tests {
     use crate::{
-        traits::{encryptable::PrimitiveEncryptableWithContentType, tests::*},
         AsymmetricCryptoKey, ContentFormat, Decryptable, KeyStore, PrimitiveEncryptable,
         PublicKeyEncryptionAlgorithm, SymmetricCryptoKey,
+        traits::{encryptable::PrimitiveEncryptableWithContentType, tests::*},
     };
 
     fn test_store() -> KeyStore<TestIds> {

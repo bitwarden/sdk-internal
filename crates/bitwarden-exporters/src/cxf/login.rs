@@ -4,7 +4,7 @@
 //! [PasskeyCredential].
 
 use bitwarden_core::MissingFieldError;
-use bitwarden_fido::{string_to_guid_bytes, InvalidGuidError};
+use bitwarden_fido::{InvalidGuidError, string_to_guid_bytes};
 use bitwarden_vault::{FieldType, Totp, TotpAlgorithm};
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{

@@ -1,6 +1,6 @@
 use std::{error::Error, sync::OnceLock};
 
-use jni::sys::{jint, jsize, JavaVM};
+use jni::sys::{JavaVM, jint, jsize};
 
 pub static JAVA_VM: OnceLock<jni::JavaVM> = OnceLock::new();
 

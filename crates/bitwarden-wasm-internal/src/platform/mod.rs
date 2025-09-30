@@ -3,7 +3,7 @@ use bitwarden_state::DatabaseConfiguration;
 use bitwarden_vault::{Cipher, Folder};
 use serde::{Deserialize, Serialize};
 use tsify::Tsify;
-use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
+use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
 mod repository;
 pub mod token_provider;
