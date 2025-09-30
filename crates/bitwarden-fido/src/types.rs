@@ -370,14 +370,12 @@ pub struct ClientExtensionResults {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct CredPropsResult {
     pub rk: Option<bool>,
-    pub authenticator_display_name: Option<String>,
 }
 
 impl From<passkey::types::webauthn::CredentialPropertiesOutput> for CredPropsResult {
     fn from(value: passkey::types::webauthn::CredentialPropertiesOutput) -> Self {
         Self {
             rk: value.discoverable,
-            authenticator_display_name: value.authenticator_display_name,
         }
     }
 }
@@ -481,7 +479,7 @@ impl TryFrom<UnverifiedAssetLink> for passkey::client::UnverifiedAssetLink<'_> {
             Cow::from(value.package_name),
             value.sha256_cert_fingerprint.as_str(),
             Cow::from(value.host),
-            asset_link_url,
+            asset_link_url.expect("Is asset_link_url ever null?"),
         )
         .map_err(|e| InvalidOriginError(format!("{e:?}")))
     }

@@ -132,7 +132,6 @@ impl Fido2Client<'_> {
                     .cred_props
                     .map(|c| CredPropsResult {
                         rk: c.discoverable,
-                        authenticator_display_name: c.authenticator_display_name,
                     }),
             },
             response: AuthenticatorAssertionResponse {

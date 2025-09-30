@@ -353,6 +353,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
         &self,
         ids: Option<&[passkey::types::webauthn::PublicKeyCredentialDescriptor]>,
         rp_id: &str,
+        _user_handle: Option<&[u8]>,
     ) -> Result<Vec<Self::PasskeyItem>, StatusCode> {
         #[derive(Debug, Error)]
         enum InnerError {
