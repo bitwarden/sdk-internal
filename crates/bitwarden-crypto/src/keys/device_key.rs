@@ -2,8 +2,8 @@ use bitwarden_encoding::B64;
 
 use super::{AsymmetricCryptoKey, PublicKeyEncryptionAlgorithm};
 use crate::{
-    error::Result, CryptoError, EncString, KeyDecryptable, KeyEncryptable, Pkcs8PrivateKeyBytes,
-    SymmetricCryptoKey, UnsignedSharedKey,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, Pkcs8PrivateKeyBytes,
+    SymmetricCryptoKey, UnsignedSharedKey, error::Result,
 };
 
 /// Device Key
@@ -91,7 +91,7 @@ impl TryFrom<String> for DeviceKey {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{derive_symmetric_key, BitwardenLegacyKeyBytes};
+    use crate::{BitwardenLegacyKeyBytes, derive_symmetric_key};
 
     #[test]
     fn test_trust_device() {

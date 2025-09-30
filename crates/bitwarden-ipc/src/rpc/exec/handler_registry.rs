@@ -36,7 +36,7 @@ impl RpcHandlerRegistry {
 
 #[cfg(test)]
 mod test {
-    use serde::{de::DeserializeOwned, Deserialize, Serialize};
+    use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
     use super::*;
     use crate::{

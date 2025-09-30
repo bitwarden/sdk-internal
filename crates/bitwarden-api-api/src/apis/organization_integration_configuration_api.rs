@@ -14,9 +14,9 @@ use async_trait::async_trait;
 #[cfg(feature = "mockall")]
 use mockall::automock;
 use reqwest;
-use serde::{de::Error as _, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error as _};
 
-use super::{configuration, Error};
+use super::{Error, configuration};
 use crate::{
     apis::{ContentType, ResponseContent},
     models,
@@ -122,8 +122,16 @@ impl OrganizationIntegrationConfigurationApi for OrganizationIntegrationConfigur
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationIntegrationConfigurationResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationIntegrationConfigurationResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationIntegrationConfigurationResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationIntegrationConfigurationResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<CreateError> =
@@ -147,7 +155,13 @@ impl OrganizationIntegrationConfigurationApi for OrganizationIntegrationConfigur
 
         let local_var_client = &local_var_configuration.client;
 
-        let local_var_uri_str = format!("{}/organizations/{organizationId}/integrations/{integrationId}/configurations/{configurationId}", local_var_configuration.base_path, organizationId=organization_id, integrationId=integration_id, configurationId=configuration_id);
+        let local_var_uri_str = format!(
+            "{}/organizations/{organizationId}/integrations/{integrationId}/configurations/{configurationId}",
+            local_var_configuration.base_path,
+            organizationId = organization_id,
+            integrationId = integration_id,
+            configurationId = configuration_id
+        );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
@@ -221,8 +235,16 @@ impl OrganizationIntegrationConfigurationApi for OrganizationIntegrationConfigur
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `Vec&lt;models::OrganizationIntegrationConfigurationResponseModel&gt;`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `Vec&lt;models::OrganizationIntegrationConfigurationResponseModel&gt;`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `Vec&lt;models::OrganizationIntegrationConfigurationResponseModel&gt;`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `Vec&lt;models::OrganizationIntegrationConfigurationResponseModel&gt;`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
@@ -248,7 +270,13 @@ impl OrganizationIntegrationConfigurationApi for OrganizationIntegrationConfigur
 
         let local_var_client = &local_var_configuration.client;
 
-        let local_var_uri_str = format!("{}/organizations/{organizationId}/integrations/{integrationId}/configurations/{configurationId}", local_var_configuration.base_path, organizationId=organization_id, integrationId=integration_id, configurationId=configuration_id);
+        let local_var_uri_str = format!(
+            "{}/organizations/{organizationId}/integrations/{integrationId}/configurations/{configurationId}",
+            local_var_configuration.base_path,
+            organizationId = organization_id,
+            integrationId = integration_id,
+            configurationId = configuration_id
+        );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
@@ -277,8 +305,16 @@ impl OrganizationIntegrationConfigurationApi for OrganizationIntegrationConfigur
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationIntegrationConfigurationResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationIntegrationConfigurationResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationIntegrationConfigurationResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationIntegrationConfigurationResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<UpdateError> =

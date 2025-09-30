@@ -22,8 +22,9 @@ use thiserror::Error;
 
 use super::SecretVerificationRequest;
 use crate::{
+    ApiError, Client, MissingFieldError, NotAuthenticatedError,
     client::{LoginMethod, UserLoginMethod},
-    require, ApiError, Client, MissingFieldError, NotAuthenticatedError,
+    require,
 };
 
 #[allow(missing_docs)]

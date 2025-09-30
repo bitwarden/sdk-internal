@@ -37,8 +37,8 @@ use std::{future::Future, marker::PhantomData, rc::Rc};
 
 use bitwarden_state::repository::{Repository, RepositoryError, RepositoryItem};
 use bitwarden_threading::ThreadBoundRunner;
-use serde::{de::DeserializeOwned, Serialize};
-use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
+use serde::{Serialize, de::DeserializeOwned};
+use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
 /// This trait defines the methods that a [::wasm_bindgen] repository must implement.
 /// The trait itself exists to provide a generic way of handling the [::wasm_bindgen] interface,
@@ -109,7 +109,7 @@ macro_rules! create_wasm_repository {
             ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue>;
             #[wasm_bindgen(method, catch)]
             async fn list(this: &$name)
-                -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue>;
+            -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue>;
             #[wasm_bindgen(method, catch)]
             async fn set(
                 this: &$name,

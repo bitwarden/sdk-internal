@@ -14,8 +14,8 @@ use crate::client::encryption_settings::EncryptionSettings;
 #[cfg(feature = "secrets")]
 use crate::client::login_method::ServiceAccountLoginMethod;
 use crate::{
-    auth::renew::renew_token, client::login_method::LoginMethod, error::UserIdAlreadySetError,
-    key_management::KeyIds, DeviceType, OrganizationId, UserId,
+    DeviceType, OrganizationId, UserId, auth::renew::renew_token,
+    client::login_method::LoginMethod, error::UserIdAlreadySetError, key_management::KeyIds,
 };
 #[cfg(feature = "internal")]
 use crate::{
@@ -26,8 +26,8 @@ use crate::{
     },
     error::NotAuthenticatedError,
     key_management::{
-        crypto::InitUserCryptoRequest, PasswordProtectedKeyEnvelope, SecurityState,
-        SignedSecurityState,
+        PasswordProtectedKeyEnvelope, SecurityState, SignedSecurityState,
+        crypto::InitUserCryptoRequest,
     },
 };
 

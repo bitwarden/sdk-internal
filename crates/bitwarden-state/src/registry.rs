@@ -5,7 +5,7 @@ use std::{
 };
 
 use bitwarden_error::bitwarden_error;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use thiserror::Error;
 
 use crate::{

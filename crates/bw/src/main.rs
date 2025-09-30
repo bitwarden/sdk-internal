@@ -1,11 +1,11 @@
 #![doc = include_str!("../README.md")]
 
-use bitwarden_cli::{install_color_eyre, Color};
+use bitwarden_cli::{Color, install_color_eyre};
 use bitwarden_core::ClientSettings;
 use bitwarden_generators::{
     GeneratorClientsExt, PassphraseGeneratorRequest, PasswordGeneratorRequest,
 };
-use clap::{command, Args, CommandFactory, Parser, Subcommand};
+use clap::{Args, CommandFactory, Parser, Subcommand, command};
 use color_eyre::eyre::Result;
 use render::Output;
 
