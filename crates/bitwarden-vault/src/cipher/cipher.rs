@@ -1,5 +1,6 @@
-use bitwarden_api_api::models::{
-    CipherDetailsResponseModel, CipherRequestModel, CipherResponseModel,
+use bitwarden_api_api::{
+    apis::ciphers_api::PutShareError,
+    models::{CipherDetailsResponseModel, CipherRequestModel, CipherResponseModel},
 };
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
@@ -11,6 +12,7 @@ use bitwarden_crypto::{
     PrimitiveEncryptable,
 };
 use bitwarden_error::bitwarden_error;
+use bitwarden_state::repository::RepositoryError;
 use bitwarden_uuid::uuid_newtype;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -31,8 +33,8 @@ use super::{
     secure_note, ssh_key,
 };
 use crate::{
-    password_history, EncryptError, Fido2CredentialFullView, Fido2CredentialView, FolderId, Login,
-    LoginView, VaultParseError,
+    error, password_history, EncryptError, Fido2CredentialFullView, Fido2CredentialView, FolderId,
+    Login, LoginView, VaultParseError,
 };
 
 uuid_newtype!(pub CipherId);
@@ -47,10 +49,18 @@ pub enum CipherError {
     Crypto(#[from] CryptoError),
     #[error(transparent)]
     Encrypt(#[from] EncryptError),
+    #[error(transparent)]
+    VaultParse(#[from] VaultParseError),
+    // #[error(transparent)]
+    // Api
     #[error("This cipher contains attachments without keys. Those attachments will need to be reuploaded to complete the operation")]
     AttachmentsWithoutKeys,
     #[error("This cipher cannot be moved to the specified organization")]
     OrganizationAlreadySet,
+    #[error(transparent)]
+    ApiShareError(#[from] bitwarden_api_api::apis::Error<PutShareError>),
+    #[error(transparent)]
+    Repository(#[from] RepositoryError),
 }
 
 /// Helper trait for operations on cipher types.

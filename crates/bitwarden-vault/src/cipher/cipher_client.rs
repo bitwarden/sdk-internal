@@ -1,19 +1,20 @@
-use bitwarden_api_api::{
-    apis::ciphers_api,
-    models::{CipherRequestModel, CipherShareRequestModel},
-};
+use std::sync::Arc;
+
+use bitwarden_api_api::models::CipherShareRequestModel;
 use bitwarden_collections::collection::CollectionId;
-use bitwarden_core::{key_management::SymmetricKeyId, Client, OrganizationId, UserId};
+use bitwarden_core::{key_management::SymmetricKeyId, Client, MissingFieldError, OrganizationId};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, SymmetricCryptoKey};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
+use bitwarden_state::repository::{Repository, RepositoryError};
+use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
 use crate::{
     cipher::cipher::DecryptCipherListResult, Cipher, CipherError, CipherListView, CipherView,
-    DecryptError, EncryptError, Fido2CredentialFullView, VaultClientExt,
+    DecryptError, EncryptError, Fido2CredentialFullView,
 };
 
 #[allow(missing_docs)]
@@ -179,6 +180,14 @@ impl CiphersClient {
         let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
         Ok(decrypted_key)
     }
+
+    fn get_repository(&self) -> Result<Arc<dyn Repository<Cipher>>, RepositoryError> {
+        Ok(self
+            .client
+            .platform()
+            .state()
+            .get_client_managed::<Cipher>()?)
+    }
 }
 
 impl CiphersClient {
@@ -204,8 +213,9 @@ impl CiphersClient {
 
             cipher_view = self.move_to_organization(cipher_view, *organization_id)?;
 
-            // TODO: In the client logic, this currently replaces collection_ids rather than appending.
-            // Confirm this is the desired behavior - do we want to append or replace?
+            // TODO: In the client logic, this currently replaces collection_ids rather than
+            // appending. Confirm this is the desired behavior - do we want to append or
+            // replace?
             cipher_view.collection_ids = collection_ids.clone();
         } else {
             if let Some(attachments) = cipher_view.attachments.as_mut() {
@@ -218,6 +228,12 @@ impl CiphersClient {
             cipher_view.organization_id = Some(*organization_id);
             cipher_view.collection_ids = collection_ids.clone();
         }
+
+        let cipher_id = cipher_view
+            .id
+            .map(Into::<Uuid>::into)
+            .ok_or(MissingFieldError("id"))?;
+
         let encrypted_cipher = self.encrypt(cipher_view)?;
 
         let req = CipherShareRequestModel::new(
@@ -227,37 +243,25 @@ impl CiphersClient {
                 .collect(),
             encrypted_cipher.into(),
         );
-        // let api_client = self
-        //     .client
-        //     .internal
-        //     .get_api_configurations()
-        //     .await
-        //     .api_client();
+        let api_client = &self
+            .client
+            .internal
+            .get_api_configurations()
+            .await
+            .api_client;
 
-        // api_client
-        //     .ciphers_api()
-        //     .put_share(
-        //         cipher_view.id.ok_or(CipherError::InvalidState(
-        //             "Cipher must have an ID to be shared.".to_string(),
-        //         ))?,
-        //         req,
-        //     )
-        //     .await?;
+        let response = api_client
+            .ciphers_api()
+            .put_share(cipher_id, Some(req))
+            .await?;
 
-        // let share_request = CipherShareRequestModel::new(collection_id, enc_cipher);
-        // let result = ciphers_api::ciphers_put_share(
-        //     &self.client.internal.get_api_configurations().await.api,
-        //     cipher.id.ok_or(CipherError::InvalidState(
-        //         "Cipher must have an ID to be shared.".to_string(),
-        //     ))?,
-        //     share_request,
-        // ).await?;
+        let new_cipher: Cipher = response.try_into()?;
 
-        // self.upsert(vec![result.data]).await?;
-        // const data = new CipherData(response, collectionIds);
-        // await this.upsert(data);
-        // return new Cipher(data, cipher.localData);
-        todo!()
+        self.get_repository()?
+            .set(cipher_id.to_string(), new_cipher.clone())
+            .await?;
+
+        Ok(new_cipher)
     }
 }
 
@@ -274,9 +278,9 @@ impl CiphersClient {
 //     const encCiphers: Cipher[] = [];
 //     for (const cipher of ciphers) {
 //       if (sdkCipherEncryptionEnabled) {
-//         // The SDK does not expect the cipher to already have an organizationId. It will result in the wrong
-//         // cipher encryption key being used during the move to organization operation.
-//         if (cipher.organizationId != null) {
+//         // The SDK does not expect the cipher to already have an organizationId. It will result
+// in the wrong         // cipher encryption key being used during the move to organization
+// operation.         if (cipher.organizationId != null) {
 //           throw new Error("Cipher is already associated with an organization.");
 //         }
 
