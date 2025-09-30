@@ -1,11 +1,16 @@
 #![doc = include_str!("../README.md")]
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-use bitwarden_cli::install_color_eyre;
-use clap::{CommandFactory, Parser};
+use bitwarden_cli::{install_color_eyre, Color};
+use bitwarden_core::ClientSettings;
+use bitwarden_generators::{
+    GeneratorClientsExt, PassphraseGeneratorRequest, PasswordGeneratorRequest,
+};
+use clap::{command, Args, CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
 use color_eyre::eyre::Result;
 use env_logger::Target;
+use render::Output;
 
 use crate::{command::*, render::CommandResult};
 

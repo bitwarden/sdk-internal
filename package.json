@@ -16,10 +16,13 @@
   "scripts": {
     "lint": "prettier --check .",
     "prettier": "prettier --write .",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "@openapitools/openapi-generator-cli": "2.20.2",
+    "@openapitools/openapi-generator-cli": "2.23.1",
+    "husky": "9.1.7",
+    "lint-staged": "16.1.5",
     "prettier": "3.5.3"
   }
 }

@@ -4,7 +4,7 @@ use bitwarden_api_api::models::{
 use bitwarden_core::{
     client::Client,
     key_management::{KeyIds, SymmetricKeyId},
-    require,
+    require, OrganizationId,
 };
 use bitwarden_crypto::{Decryptable, EncString, KeyStoreContext};
 use schemars::JsonSchema;
@@ -26,11 +26,11 @@ pub(crate) async fn list_secrets(
     input: &SecretIdentifiersRequest,
 ) -> Result<SecretIdentifiersResponse, SecretsManagerError> {
     let config = client.internal.get_api_configurations().await;
-    let res = bitwarden_api_api::apis::secrets_api::organizations_organization_id_secrets_get(
-        &config.api,
-        input.organization_id,
-    )
-    .await?;
+    let res = config
+        .api_client
+        .secrets_api()
+        .list_by_organization(input.organization_id)
+        .await?;
 
     let key_store = client.internal.get_key_store();
 
@@ -50,11 +50,11 @@ pub(crate) async fn list_secrets_by_project(
     input: &SecretIdentifiersByProjectRequest,
 ) -> Result<SecretIdentifiersResponse, SecretsManagerError> {
     let config = client.internal.get_api_configurations().await;
-    let res = bitwarden_api_api::apis::secrets_api::projects_project_id_secrets_get(
-        &config.api,
-        input.project_id,
-    )
-    .await?;
+    let res = config
+        .api_client
+        .secrets_api()
+        .get_secrets_by_project(input.project_id)
+        .await?;
 
     let key_store = client.internal.get_key_store();
 
@@ -99,7 +99,7 @@ impl SecretIdentifierResponse {
         ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<SecretIdentifierResponse, SecretsManagerError> {
         let organization_id = require!(response.organization_id);
-        let enc_key = SymmetricKeyId::Organization(organization_id);
+        let enc_key = SymmetricKeyId::Organization(OrganizationId::new(organization_id));
 
         let key = require!(response.key)
             .parse::<EncString>()?

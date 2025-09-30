@@ -4,11 +4,10 @@ use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey};
+use bitwarden_crypto::{CryptoError, EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey};
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;
-use uuid::Uuid;
 
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::client::encryption_settings::EncryptionSettings;
@@ -16,21 +15,85 @@ use crate::client::encryption_settings::EncryptionSettings;
 use crate::client::login_method::ServiceAccountLoginMethod;
 use crate::{
     auth::renew::renew_token, client::login_method::LoginMethod, error::UserIdAlreadySetError,
-    key_management::KeyIds, DeviceType,
+    key_management::KeyIds, DeviceType, OrganizationId, UserId,
 };
 #[cfg(feature = "internal")]
 use crate::{
-    client::encryption_settings::EncryptionSettingsError,
-    client::{flags::Flags, login_method::UserLoginMethod},
+    client::{
+        encryption_settings::{AccountEncryptionKeys, EncryptionSettingsError},
+        flags::Flags,
+        login_method::UserLoginMethod,
+    },
     error::NotAuthenticatedError,
+    key_management::{
+        crypto::InitUserCryptoRequest, PasswordProtectedKeyEnvelope, SecurityState,
+        SignedSecurityState,
+    },
 };
 
+/// Represents the user's keys, that are encrypted by the user key, and the signed security state.
+#[cfg(feature = "internal")]
+pub(crate) struct UserKeyState {
+    pub(crate) private_key: EncString,
+    pub(crate) signing_key: Option<EncString>,
+    pub(crate) security_state: Option<SignedSecurityState>,
+}
+#[cfg(feature = "internal")]
+impl From<&InitUserCryptoRequest> for UserKeyState {
+    fn from(req: &InitUserCryptoRequest) -> Self {
+        UserKeyState {
+            private_key: req.private_key.clone(),
+            signing_key: req.signing_key.clone(),
+            security_state: req.security_state.clone(),
+        }
+    }
+}
+
 #[allow(missing_docs)]
-#[derive(Debug, Clone)]
 pub struct ApiConfigurations {
-    pub identity: bitwarden_api_identity::apis::configuration::Configuration,
-    pub api: bitwarden_api_api::apis::configuration::Configuration,
+    pub identity_client: bitwarden_api_identity::apis::ApiClient,
+    pub api_client: bitwarden_api_api::apis::ApiClient,
+    pub identity_config: bitwarden_api_identity::apis::configuration::Configuration,
+    pub api_config: bitwarden_api_api::apis::configuration::Configuration,
     pub device_type: DeviceType,
+}
+
+impl std::fmt::Debug for ApiConfigurations {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ApiConfigurations")
+            .field("device_type", &self.device_type)
+            .finish_non_exhaustive()
+    }
+}
+
+impl ApiConfigurations {
+    pub(crate) fn new(
+        identity_config: bitwarden_api_identity::apis::configuration::Configuration,
+        api_config: bitwarden_api_api::apis::configuration::Configuration,
+        device_type: DeviceType,
+    ) -> Arc<Self> {
+        let identity = Arc::new(identity_config.clone());
+        let api = Arc::new(api_config.clone());
+        let identity_client = bitwarden_api_identity::apis::ApiClient::new(&identity);
+        let api_client = bitwarden_api_api::apis::ApiClient::new(&api);
+        Arc::new(Self {
+            identity_client,
+            api_client,
+            identity_config,
+            api_config,
+            device_type,
+        })
+    }
+
+    pub fn set_tokens(self: &mut Arc<Self>, token: String) {
+        let mut identity = self.identity_config.clone();
+        let mut api = self.api_config.clone();
+
+        identity.oauth_access_token = Some(token.clone());
+        api.oauth_access_token = Some(token);
+
+        *self = ApiConfigurations::new(identity, api, self.device_type);
+    }
 }
 
 /// Access and refresh tokens used for authentication and authorization.
@@ -41,6 +104,7 @@ pub(crate) enum Tokens {
 }
 
 /// Access tokens managed by client applications, such as the web or mobile apps.
+#[cfg_attr(feature = "uniffi", uniffi::export(with_foreign))]
 #[async_trait::async_trait]
 pub trait ClientManagedTokens: std::fmt::Debug + Send + Sync {
     /// Returns the access token, if available.
@@ -63,7 +127,7 @@ pub(crate) struct SdkManagedTokens {
 #[allow(missing_docs)]
 #[derive(Debug)]
 pub struct InternalClient {
-    pub(crate) user_id: OnceLock<Uuid>,
+    pub(crate) user_id: OnceLock<UserId>,
     pub(crate) tokens: RwLock<Tokens>,
     pub(crate) login_method: RwLock<Option<Arc<LoginMethod>>>,
 
@@ -80,19 +144,22 @@ pub struct InternalClient {
     pub(crate) external_client: reqwest::Client,
 
     pub(super) key_store: KeyStore<KeyIds>,
+    #[cfg(feature = "internal")]
+    pub(crate) security_state: RwLock<Option<SecurityState>>,
 
     #[cfg(feature = "internal")]
     pub(crate) repository_map: StateRegistry,
 }
 
 impl InternalClient {
-    #[allow(missing_docs)]
+    /// Load feature flags. This is intentionally a collection and not the internal `Flag` enum as
+    /// we want to avoid changes in feature flags from being a breaking change.
     #[cfg(feature = "internal")]
     pub fn load_flags(&self, flags: std::collections::HashMap<String, bool>) {
         *self.flags.write().expect("RwLock is not poisoned") = Flags::load_from_map(flags);
     }
 
-    #[allow(missing_docs)]
+    /// Retrieve the active feature flags.
     #[cfg(feature = "internal")]
     pub fn get_flags(&self) -> Flags {
         self.flags.read().expect("RwLock is not poisoned").clone()
@@ -107,7 +174,7 @@ impl InternalClient {
     }
 
     #[allow(missing_docs)]
-    pub fn get_access_token_organization(&self) -> Option<Uuid> {
+    pub fn get_access_token_organization(&self) -> Option<OrganizationId> {
         match self
             .login_method
             .read()
@@ -143,14 +210,10 @@ impl InternalClient {
 
     /// Sets api tokens for only internal API clients, use `set_tokens` for SdkManagedTokens.
     pub(crate) fn set_api_tokens_internal(&self, token: String) {
-        let mut guard = self
-            .__api_configurations
+        self.__api_configurations
             .write()
-            .expect("RwLock is not poisoned");
-
-        let inner = Arc::make_mut(&mut guard);
-        inner.identity.oauth_access_token = Some(token.clone());
-        inner.api.oauth_access_token = Some(token);
+            .expect("RwLock is not poisoned")
+            .set_tokens(token);
     }
 
     #[allow(missing_docs)]
@@ -191,8 +254,20 @@ impl InternalClient {
         &self.key_store
     }
 
+    /// Returns the security version of the user.
+    /// `1` is returned for V1 users that do not have a signed security state.
+    /// `2` or greater is returned for V2 users that have a signed security state.
+    #[cfg(feature = "internal")]
+    pub fn get_security_version(&self) -> u64 {
+        self.security_state
+            .read()
+            .expect("RwLock is not poisoned")
+            .as_ref()
+            .map_or(1, |state| state.version())
+    }
+
     #[allow(missing_docs)]
-    pub fn init_user_id(&self, user_id: Uuid) -> Result<(), UserIdAlreadySetError> {
+    pub fn init_user_id(&self, user_id: UserId) -> Result<(), UserIdAlreadySetError> {
         let set_uuid = self.user_id.get_or_init(|| user_id);
 
         // Only return an error if the user_id is already set to a different value,
@@ -206,7 +281,7 @@ impl InternalClient {
     }
 
     #[allow(missing_docs)]
-    pub fn get_user_id(&self) -> Option<Uuid> {
+    pub fn get_user_id(&self) -> Option<UserId> {
         self.user_id.get().copied()
     }
 
@@ -215,23 +290,49 @@ impl InternalClient {
         &self,
         master_key: MasterKey,
         user_key: EncString,
-        private_key: EncString,
-        signing_key: Option<EncString>,
+        key_state: UserKeyState,
     ) -> Result<(), EncryptionSettingsError> {
         let user_key = master_key.decrypt_user_key(user_key)?;
-        EncryptionSettings::new_decrypted_key(user_key, private_key, signing_key, &self.key_store)?;
-
-        Ok(())
+        self.initialize_user_crypto_decrypted_key(user_key, key_state)
     }
 
     #[cfg(feature = "internal")]
     pub(crate) fn initialize_user_crypto_decrypted_key(
         &self,
         user_key: SymmetricCryptoKey,
-        private_key: EncString,
-        signing_key: Option<EncString>,
+        key_state: UserKeyState,
     ) -> Result<(), EncryptionSettingsError> {
-        EncryptionSettings::new_decrypted_key(user_key, private_key, signing_key, &self.key_store)?;
+        match user_key {
+            SymmetricCryptoKey::Aes256CbcHmacKey(ref user_key) => {
+                EncryptionSettings::new_decrypted_key(
+                    AccountEncryptionKeys::V1 {
+                        user_key: user_key.clone(),
+                        private_key: key_state.private_key,
+                    },
+                    &self.key_store,
+                    &self.security_state,
+                )?;
+            }
+            SymmetricCryptoKey::XChaCha20Poly1305Key(ref user_key) => {
+                EncryptionSettings::new_decrypted_key(
+                    AccountEncryptionKeys::V2 {
+                        user_key: user_key.clone(),
+                        private_key: key_state.private_key,
+                        signing_key: key_state
+                            .signing_key
+                            .ok_or(EncryptionSettingsError::InvalidSigningKey)?,
+                        security_state: key_state
+                            .security_state
+                            .ok_or(EncryptionSettingsError::InvalidSecurityState)?,
+                    },
+                    &self.key_store,
+                    &self.security_state,
+                )?;
+            }
+            _ => {
+                return Err(CryptoError::InvalidKey.into());
+            }
+        }
 
         Ok(())
     }
@@ -241,17 +342,41 @@ impl InternalClient {
         &self,
         pin_key: PinKey,
         pin_protected_user_key: EncString,
-        private_key: EncString,
-        signing_key: Option<EncString>,
+        key_state: UserKeyState,
     ) -> Result<(), EncryptionSettingsError> {
         let decrypted_user_key = pin_key.decrypt_user_key(pin_protected_user_key)?;
-        self.initialize_user_crypto_decrypted_key(decrypted_user_key, private_key, signing_key)
+        self.initialize_user_crypto_decrypted_key(decrypted_user_key, key_state)
+    }
+
+    #[cfg(feature = "internal")]
+    pub(crate) fn initialize_user_crypto_pin_envelope(
+        &self,
+        pin: String,
+        pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
+        key_state: UserKeyState,
+    ) -> Result<(), EncryptionSettingsError> {
+        let decrypted_user_key = {
+            // Note: This block ensures ctx is dropped. Otherwise it would cause a deadlock when
+            // initializing the user crypto
+            use crate::key_management::SymmetricKeyId;
+            let ctx = &mut self.key_store.context_mut();
+            let decrypted_user_key_id = pin_protected_user_key_envelope
+                .unseal(SymmetricKeyId::Local("tmp_unlock_pin"), &pin, ctx)
+                .map_err(|_| EncryptionSettingsError::WrongPin)?;
+
+            // Allowing deprecated here, until a refactor to pass the Local key ids to
+            // `initialized_user_crypto_decrypted_key`
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(decrypted_user_key_id)?
+                .clone()
+        };
+        self.initialize_user_crypto_decrypted_key(decrypted_user_key, key_state)
     }
 
     #[cfg(feature = "secrets")]
     pub(crate) fn initialize_crypto_single_org_key(
         &self,
-        organization_id: Uuid,
+        organization_id: OrganizationId,
         key: SymmetricCryptoKey,
     ) {
         EncryptionSettings::new_single_org_key(organization_id, key, &self.key_store);
@@ -261,7 +386,7 @@ impl InternalClient {
     #[cfg(feature = "internal")]
     pub fn initialize_org_crypto(
         &self,
-        org_keys: Vec<(Uuid, UnsignedSharedKey)>,
+        org_keys: Vec<(OrganizationId, UnsignedSharedKey)>,
     ) -> Result<(), EncryptionSettingsError> {
         EncryptionSettings::set_org_keys(org_keys, &self.key_store)
     }
@@ -276,7 +401,7 @@ mod tests {
         use super::*;
 
         let client = Client::new(None);
-        let user_id = Uuid::new_v4();
+        let user_id = UserId::new_v4();
 
         // Setting the user ID for the first time should work.
         assert!(client.internal.init_user_id(user_id).is_ok());
@@ -286,7 +411,7 @@ mod tests {
         assert!(client.internal.init_user_id(user_id).is_ok());
 
         // Trying to set a different user_id should return an error.
-        let different_user_id = Uuid::new_v4();
+        let different_user_id = UserId::new_v4();
         assert!(client.internal.init_user_id(different_user_id).is_err());
     }
 }

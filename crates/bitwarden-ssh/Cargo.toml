@@ -18,7 +18,7 @@ keywords.workspace = true
 [features]
 wasm = [
     "bitwarden-error/wasm",
-    "dep:tsify-next",
+    "dep:tsify",
     "dep:wasm-bindgen"
 ] # WASM support
 uniffi = ["dep:uniffi"] # Uniffi bindings
@@ -27,6 +27,7 @@ uniffi = ["dep:uniffi"] # Uniffi bindings
 bitwarden-error = { workspace = true }
 bitwarden-vault = { workspace = true }
 ed25519 = { version = ">=2.2.3, <3.0", features = ["pkcs8"] }
+ed25519-dalek = { workspace = true, features = ["pkcs8"] }
 pem-rfc7468 = "0.7.0"
 pkcs8 = { version = ">=0.10.2, <0.11", features = ["encryption"] }
 rand = ">=0.8.5, <0.9"
@@ -38,7 +39,7 @@ ssh-key = { version = ">=0.6.7, <0.7", features = [
     "rsa",
 ], default-features = false }
 thiserror = { workspace = true }
-tsify-next = { workspace = true, optional = true }
+tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 

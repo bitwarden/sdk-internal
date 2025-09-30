@@ -14,13 +14,14 @@ pub(crate) fn bitwarden_error_full(
 
     let wasm_attributes = cfg!(feature = "wasm").then(|| {
         quote! {
-            #[derive(bitwarden_error::tsify_next::Tsify)]
+            #[derive(bitwarden_error::tsify::Tsify)]
             #[tsify(into_wasm_abi)]
         }
     });
 
     quote! {
         #[derive(serde::Serialize)]
+        #[cfg_attr(feature = "uniffi", derive(uniffi::Error))]
         #wasm_attributes
         #input
     }

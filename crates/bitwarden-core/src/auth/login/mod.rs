@@ -40,8 +40,6 @@ pub enum LoginError {
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
-    #[error(transparent)]
-    InvalidBase64(#[from] base64::DecodeError),
 
     #[error(transparent)]
     MissingField(#[from] crate::MissingFieldError),

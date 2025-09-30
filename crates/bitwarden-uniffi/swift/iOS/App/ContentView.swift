@@ -25,6 +25,12 @@ let PASSWORD = "asdfasdfasdf"
 
 let PIN = "1234"
 
+final class Token: ClientManagedTokens {
+    func getAccessToken() async -> String? {
+        return nil
+    }
+}
+
 struct ContentView: View {
     private var http: URLSession
 
@@ -38,7 +44,7 @@ struct ContentView: View {
             configuration: URLSessionConfiguration.default, delegate: IgnoreHttpsDelegate(),
             delegateQueue: nil)
 
-        client = Client(settings: nil)
+        client = Client(tokenProvider: Token(), settings: nil)
     }
 
     @State var setupBiometrics: Bool = true
@@ -104,7 +110,7 @@ struct ContentView: View {
             })
 
             Button(action: {
-                client = Client(settings: nil)
+                client = Client(tokenProvider: Token(), settings: nil)
             }, label: {
                 Text("Lock & reset client")
             }).padding()
@@ -160,13 +166,9 @@ struct ContentView: View {
         let (loginDataJson, _) = try await http.data(
             for: request(
                 method: "POST", url: IDENTITY_URL + "connect/token",
-                fn: { r in
-                    r.setValue(
-                        EMAIL.data(using: .utf8)?.base64EncodedString(),
-                        forHTTPHeaderField: "Auth-Email")
+                fn: { r in 
                     r.setValue(
                         "application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-
                     var comp = URLComponents()
                     comp.queryItems = [
                         URLQueryItem(name: "scope", value: "api offline_access"),
@@ -194,6 +196,7 @@ struct ContentView: View {
                 email: EMAIL,
                 privateKey: loginData.PrivateKey,
                 signingKey: nil,
+                securityState: nil,
                 method: InitUserCryptoMethod.password(
                     password: PASSWORD,
                     userKey: loginData.Key
@@ -216,7 +219,7 @@ struct ContentView: View {
         }
 
         if setupPin {
-            let pinOptions = try await clientCrypto.derivePinKey(pin: PIN)
+            let pinOptions = try clientCrypto.derivePinKey(pin: PIN)
 
             let defaults = UserDefaults.standard
             defaults.set(loginData.PrivateKey, forKey: "privateKey")
@@ -253,6 +256,7 @@ struct ContentView: View {
             email: EMAIL,
             privateKey: privateKey,
             signingKey: nil,
+            securityState: nil,
             method: InitUserCryptoMethod.decryptedKey(
                 decryptedUserKey: key
             )
@@ -281,6 +285,7 @@ struct ContentView: View {
             email: EMAIL,
             privateKey: privateKey,
             signingKey: nil,
+            securityState: nil,
             method: InitUserCryptoMethod.pin(pin: PIN, pinProtectedUserKey: pinProtectedUserKey)
         ))
     }
@@ -330,7 +335,7 @@ struct ContentView: View {
         let dateFormatter = ISO8601DateFormatter()
         dateFormatter.formatOptions = [.withFractionalSeconds]
 
-        let decryptedFolders = try await clientVault.folders().decryptList(
+        let decryptedFolders = try clientVault.folders().decryptList(
             folders: syncData.folders.map {
                 Folder(
                     id: $0.id, name: $0.name,

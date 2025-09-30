@@ -15,13 +15,14 @@ use crate::types::InvalidOriginError;
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum Fido2ClientError {
     #[error(transparent)]
     InvalidOrigin(#[from] InvalidOriginError),
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
-    GetSelectedCredentialError(#[from] GetSelectedCredentialError),
+    GetSelectedCredential(#[from] GetSelectedCredentialError),
 
     #[error("Webauthn error: {0:?}")]
     Webauthn(WebauthnError),

@@ -8,7 +8,7 @@ use crate::{
         login::{response::two_factor::TwoFactorProviders, LoginError, PasswordLoginResponse},
         JwtToken,
     },
-    client::{LoginMethod, UserLoginMethod},
+    client::{internal::UserKeyState, LoginMethod, UserLoginMethod},
     require, Client,
 };
 
@@ -54,8 +54,11 @@ pub(crate) async fn login_api_key(
         client.internal.initialize_user_crypto_master_key(
             master_key,
             user_key,
-            private_key,
-            None,
+            UserKeyState {
+                private_key,
+                signing_key: None,
+                security_state: None,
+            },
         )?;
     }
 

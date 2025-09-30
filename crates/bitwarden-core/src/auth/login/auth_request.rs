@@ -1,8 +1,6 @@
-use bitwarden_api_api::{
-    apis::auth_requests_api::{auth_requests_id_response_get, auth_requests_post},
-    models::{AuthRequestCreateRequestModel, AuthRequestType},
-};
+use bitwarden_api_api::models::{AuthRequestCreateRequestModel, AuthRequestType};
 use bitwarden_crypto::Kdf;
+use bitwarden_encoding::B64;
 use uuid::Uuid;
 
 use super::LoginError;
@@ -23,7 +21,7 @@ pub struct NewAuthRequestResponse {
     device_identifier: String,
     auth_request_id: Uuid,
     access_code: String,
-    private_key: String,
+    private_key: B64,
 }
 
 pub(crate) async fn send_new_auth_request(
@@ -37,13 +35,16 @@ pub(crate) async fn send_new_auth_request(
 
     let req = AuthRequestCreateRequestModel {
         email: email.clone(),
-        public_key: auth.public_key,
+        public_key: auth.public_key.to_string(),
         device_identifier: device_identifier.clone(),
         access_code: auth.access_code.clone(),
         r#type: AuthRequestType::AuthenticateAndUnlock,
     };
 
-    let res = auth_requests_post(&config.api, Some(req))
+    let res = config
+        .api_client
+        .auth_requests_api()
+        .post(Some(req))
         .await
         .map_err(ApiError::from)?;
 
@@ -62,14 +63,12 @@ pub(crate) async fn complete_auth_request(
     auth_req: NewAuthRequestResponse,
 ) -> Result<(), LoginError> {
     let config = client.internal.get_api_configurations().await;
-
-    let res = auth_requests_id_response_get(
-        &config.api,
-        auth_req.auth_request_id,
-        Some(&auth_req.access_code),
-    )
-    .await
-    .map_err(ApiError::from)?;
+    let res = config
+        .api_client
+        .auth_requests_api()
+        .get_response(auth_req.auth_request_id, Some(&auth_req.access_code))
+        .await
+        .map_err(ApiError::from)?;
 
     let approved = res.request_approved.unwrap_or(false);
 
@@ -121,6 +120,7 @@ pub(crate) async fn complete_auth_request(
                 email: auth_req.email,
                 private_key: require!(r.private_key).parse()?,
                 signing_key: None,
+                security_state: None,
                 method: InitUserCryptoMethod::AuthRequest {
                     request_private_key: auth_req.private_key,
                     method,

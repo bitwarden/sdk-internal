@@ -1,4 +1,3 @@
-use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_api_api::models::{CipherLoginModel, CipherLoginUriModel};
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
@@ -8,11 +7,12 @@ use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, KeyStoreContext,
     PrimitiveEncryptable,
 };
+use bitwarden_encoding::B64;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 #[cfg(feature = "wasm")]
-use tsify_next::Tsify;
+use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -63,21 +63,21 @@ impl LoginUriView {
         let Some(cs) = &self.uri_checksum else {
             return false;
         };
-        let Ok(cs) = STANDARD.decode(cs) else {
+        let Ok(cs) = B64::try_from(cs.as_str()) else {
             return false;
         };
 
         use sha2::Digest;
         let uri_hash = sha2::Sha256::new().chain_update(uri.as_bytes()).finalize();
 
-        uri_hash.as_slice() == cs
+        uri_hash.as_slice() == cs.as_bytes()
     }
 
     pub(crate) fn generate_checksum(&mut self) {
         if let Some(uri) = &self.uri {
             use sha2::Digest;
             let uri_hash = sha2::Sha256::new().chain_update(uri.as_bytes()).finalize();
-            let uri_hash = STANDARD.encode(uri_hash.as_slice());
+            let uri_hash = B64::from(uri_hash.as_slice()).to_string();
             self.uri_checksum = Some(uri_hash);
         }
     }
@@ -114,6 +114,7 @@ pub struct Fido2CredentialListView {
     pub user_handle: Option<String>,
     pub user_name: Option<String>,
     pub user_display_name: Option<String>,
+    pub counter: String,
 }
 
 #[allow(missing_docs)]
@@ -478,6 +479,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, Fido2CredentialListView> for Fido2Crede
             user_handle: self.user_handle.decrypt(ctx, key)?,
             user_name: self.user_name.decrypt(ctx, key)?,
             user_display_name: self.user_display_name.decrypt(ctx, key)?,
+            counter: self.counter.decrypt(ctx, key)?,
         })
     }
 }

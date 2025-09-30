@@ -1,14 +1,15 @@
 use bitwarden_api_api::models::{
     DomainsResponseModel, ProfileOrganizationResponseModel, ProfileResponseModel, SyncResponseModel,
 };
+use bitwarden_collections::{collection::Collection, error::CollectionsParseError};
 use bitwarden_core::{
     client::encryption_settings::EncryptionSettingsError, require, Client, MissingFieldError,
+    OrganizationId, UserId,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use uuid::Uuid;
 
-use crate::{Cipher, Collection, Folder, GlobalDomains, VaultParseError};
+use crate::{Cipher, Folder, GlobalDomains, VaultParseError};
 
 #[derive(Debug, Error)]
 pub enum SyncError {
@@ -18,6 +19,8 @@ pub enum SyncError {
     MissingField(#[from] MissingFieldError),
     #[error(transparent)]
     VaultParse(#[from] VaultParseError),
+    #[error(transparent)]
+    CollectionParse(#[from] CollectionsParseError),
     #[error(transparent)]
     EncryptionSettings(#[from] EncryptionSettingsError),
 }
@@ -32,7 +35,10 @@ pub struct SyncRequest {
 
 pub(crate) async fn sync(client: &Client, input: &SyncRequest) -> Result<SyncResponse, SyncError> {
     let config = client.internal.get_api_configurations().await;
-    let sync = bitwarden_api_api::apis::sync_api::sync_get(&config.api, input.exclude_subdomains)
+    let sync = config
+        .api_client
+        .sync_api()
+        .get(input.exclude_subdomains)
         .await
         .map_err(|e| SyncError::Api(e.into()))?;
 
@@ -42,6 +48,7 @@ pub(crate) async fn sync(client: &Client, input: &SyncRequest) -> Result<SyncRes
         .unwrap_or_default()
         .iter()
         .filter_map(|o| o.id.zip(o.key.as_deref().and_then(|k| k.parse().ok())))
+        .map(|(id, key)| (OrganizationId::new(id), key))
         .collect();
 
     client.internal.initialize_org_crypto(org_keys)?;
@@ -52,7 +59,7 @@ pub(crate) async fn sync(client: &Client, input: &SyncRequest) -> Result<SyncRes
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProfileResponse {
-    pub id: Uuid,
+    pub id: UserId,
     pub name: String,
     pub email: String,
 
@@ -64,7 +71,7 @@ pub struct ProfileResponse {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProfileOrganizationResponse {
-    pub id: Uuid,
+    pub id: OrganizationId,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -121,7 +128,7 @@ impl ProfileOrganizationResponse {
         response: ProfileOrganizationResponseModel,
     ) -> Result<ProfileOrganizationResponse, MissingFieldError> {
         Ok(ProfileOrganizationResponse {
-            id: require!(response.id),
+            id: OrganizationId::new(require!(response.id)),
         })
     }
 }
@@ -131,7 +138,7 @@ impl ProfileResponse {
         response: ProfileResponseModel,
     ) -> Result<ProfileResponse, MissingFieldError> {
         Ok(ProfileResponse {
-            id: require!(response.id),
+            id: UserId::new(require!(response.id)),
             name: require!(response.name),
             email: require!(response.email),
             //key: response.key,

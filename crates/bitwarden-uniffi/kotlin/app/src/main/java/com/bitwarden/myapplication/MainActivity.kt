@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
+import com.bitwarden.core.ClientManagedTokens
 import com.bitwarden.core.DateTime
 import com.bitwarden.vault.Folder
 import com.bitwarden.core.InitOrgCryptoRequest
@@ -82,6 +83,12 @@ const val PIN = "1234"
 // We should separate keys for each user by appending the user_id
 const val BIOMETRIC_KEY = "biometric_key"
 
+class Token: ClientManagedTokens {
+    override suspend fun getAccessToken(): String? {
+        return null
+    }
+}
+
 class MainActivity : FragmentActivity() {
     private lateinit var biometric: Biometric
     private lateinit var client: Client
@@ -98,7 +105,7 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         biometric = Biometric(this)
-        client = Client(null)
+        client = Client(Token(), null)
         http = httpClient()
 
         setContent {
@@ -172,7 +179,7 @@ class MainActivity : FragmentActivity() {
                         Button({
                             GlobalScope.launch {
                                 client.destroy()
-                                client = Client(null)
+                                client = Client(Token(), null)
                                 outputText.value = "OK"
                             }
                         }) {
@@ -234,7 +241,6 @@ class MainActivity : FragmentActivity() {
 
         val loginBody = http.post(IDENTITY_URL + "connect/token") {
             contentType(ContentType.Application.Json)
-            header("Auth-Email", Base64.getEncoder().encodeToString(EMAIL.toByteArray()))
             setBody(FormDataContent(Parameters.build {
                 append("scope", "api offline_access")
                 append("client_id", "web")
@@ -255,6 +261,7 @@ class MainActivity : FragmentActivity() {
                 email = EMAIL,
                 privateKey = loginBody.PrivateKey,
                 signingKey = null,
+                securityState = null,
                 method = InitUserCryptoMethod.Password(
                     password = PASSWORD, userKey = loginBody.Key
                 )
@@ -341,6 +348,7 @@ class MainActivity : FragmentActivity() {
                         email = EMAIL,
                         privateKey = privateKey!!,
                         signingKey = null,
+                        securityState = null,
                         method = InitUserCryptoMethod.DecryptedKey(decryptedUserKey = key)
                     )
                 )
@@ -380,6 +388,7 @@ class MainActivity : FragmentActivity() {
                     email = EMAIL,
                     privateKey = privateKey!!,
                     signingKey = null,
+                    securityState = null,
                     method = InitUserCryptoMethod.Pin(
                         pinProtectedUserKey = pinProtectedUserKey, pin = PIN
                     )

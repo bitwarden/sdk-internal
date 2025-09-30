@@ -24,6 +24,8 @@ jobs:
   setup:
     name: Setup
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     outputs:
       release-version: ${{ steps.version-output.outputs.version }}
     steps:
@@ -56,28 +58,21 @@ jobs:
 
   npm:
     name: Publish NPM
+    environment: NPM
     runs-on: ubuntu-24.04
     needs: setup
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Setup Node
-        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 20
-
-      - name: Login to Azure
-        uses: Azure/login@e15b166166a8746d1a47596803bd8c1b595455cf # v1.6.0
-        with:
-          creds: ${{ secrets.AZURE_KV_CI_SERVICE_PRINCIPAL }}
-
-      - name: Retrieve secrets
-        id: retrieve-secrets
-        uses: bitwarden/gh-actions/get-keyvault-secrets@main
-        with:
-          keyvault: "bitwarden-ci"
-          secrets: "npm-api-key"
+          node-version: 24
+          registry-url: "https://registry.npmjs.org/"
 
       - name: Download artifact
         uses: bitwarden/gh-actions/download-artifacts@main
@@ -92,19 +87,8 @@ jobs:
         run: |
           npm version --no-git-tag-version $VERSION
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{needs.setup.outputs.release-version}}
-
-      - name: Setup NPM
-        run: |
-          echo 'registry="https://registry.npmjs.org/"' > ./.npmrc
-          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ./.npmrc
-
-          echo 'registry="https://registry.npmjs.org/"' > ~/.npmrc
-          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
-        env:
-          NPM_TOKEN: ${{ steps.retrieve-secrets.outputs.npm-api-key }}
 
       - name: Publish NPM
         if: ${{ inputs.release_type != 'Dry Run' }}
-        run: npm publish --access public --registry=https://registry.npmjs.org/  --userconfig=./.npmrc
+        run: npm publish --access public --tag latest

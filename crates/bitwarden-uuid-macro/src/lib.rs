@@ -9,7 +9,7 @@ use syn::{
 
 #[allow(missing_docs)]
 #[proc_macro]
-pub fn uuid(input: TokenStream) -> TokenStream {
+pub fn uuid_newtype(input: TokenStream) -> TokenStream {
     // Parse input as: vis ident
     let input = parse_macro_input!(input as IdTypeInput);
     let ident = input.ident;
@@ -21,11 +21,11 @@ pub fn uuid(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         #[doc = #doc_string]
-        #[cfg_attr(feature = "wasm", derive(::tsify_next::Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+        #[cfg_attr(feature = "wasm", derive(::tsify::Tsify), tsify(into_wasm_abi, from_wasm_abi))]
         #[derive(
             ::serde::Serialize, ::serde::Deserialize,
-            ::std::cmp::PartialEq, ::std::cmp::Eq,
-            ::std::clone::Clone, ::std::marker::Copy, ::std::fmt::Debug
+            ::std::cmp::PartialEq, ::std::cmp::Eq, ::std::cmp::PartialOrd, ::std::cmp::Ord,
+            ::std::hash::Hash, ::std::clone::Clone, ::std::marker::Copy, ::std::fmt::Debug
         )]
         #[repr(transparent)]
         #vis struct #ident
@@ -42,6 +42,11 @@ pub fn uuid(input: TokenStream) -> TokenStream {
             pub fn new(value: uuid::Uuid) -> Self {
                 Self(value)
             }
+
+            /// Create a new UUID v4 based id.
+            pub fn new_v4() -> Self {
+                Self(uuid::Uuid::new_v4())
+            }
         }
 
         impl ::std::str::FromStr for #ident {
@@ -55,6 +60,18 @@ pub fn uuid(input: TokenStream) -> TokenStream {
         impl From<#ident> for ::uuid::Uuid {
             fn from(value: #ident) -> Self {
                 value.0
+            }
+        }
+
+        impl ::std::fmt::Display for #ident {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                self.0.fmt(f)
+            }
+        }
+
+        impl ::std::default::Default for #ident {
+            fn default() -> Self {
+                Self(uuid::Uuid::default())
             }
         }
     };

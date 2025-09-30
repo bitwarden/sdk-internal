@@ -18,8 +18,8 @@ pub use content_format::*;
 mod enc_string;
 pub use enc_string::{EncString, UnsignedSharedKey};
 mod error;
-pub use error::CryptoError;
 pub(crate) use error::Result;
+pub use error::{CryptoError, EncodingError};
 mod fingerprint;
 pub use fingerprint::fingerprint;
 mod keys;
@@ -36,6 +36,7 @@ pub use store::{
 };
 mod cose;
 pub use cose::CoseSerializable;
+pub mod safe;
 mod signing;
 pub use signing::*;
 mod traits;

@@ -13,13 +13,13 @@ use crate::{error::SshKeyImportError, ssh_private_key_to_view};
 /// - [SshKeyImportError::PasswordRequired] if the key is encrypted and no password is provided
 /// - [SshKeyImportError::WrongPassword] if the password provided is incorrect
 /// - [SshKeyImportError::UnsupportedKeyType] if the key type is not supported
-/// - [SshKeyImportError::ParsingError] if the key is otherwise malformed and cannot be parsed
+/// - [SshKeyImportError::Parsing] if the key is otherwise malformed and cannot be parsed
 pub fn import_key(
     encoded_key: String,
     password: Option<String>,
 ) -> Result<SshKeyView, SshKeyImportError> {
     let label = pem_rfc7468::decode_label(encoded_key.as_bytes())
-        .map_err(|_| SshKeyImportError::ParsingError)?;
+        .map_err(|_| SshKeyImportError::Parsing)?;
 
     match label {
         pkcs8::PrivateKeyInfo::PEM_LABEL => import_pkcs8_key(encoded_key, None),
@@ -42,37 +42,43 @@ fn import_pkcs8_key(
                 pkcs8::Error::EncryptedPrivateKey(pkcs5::Error::DecryptFailed) => {
                     SshKeyImportError::WrongPassword
                 }
-                _ => SshKeyImportError::ParsingError,
+                _ => SshKeyImportError::Parsing,
             },
         )?
     } else {
-        SecretDocument::from_pkcs8_pem(&encoded_key).map_err(|_| SshKeyImportError::ParsingError)?
+        SecretDocument::from_pkcs8_pem(&encoded_key).map_err(|_| SshKeyImportError::Parsing)?
     };
 
+    import_pkcs8_der_key(doc.as_bytes())
+}
+
+/// Import a DER encoded private key, and returns a decoded [SshKeyView]. This is primarily used for
+/// importing SSH keys from other Credential Managers through Credential Exchange.
+pub fn import_pkcs8_der_key(encoded_key: &[u8]) -> Result<SshKeyView, SshKeyImportError> {
     let private_key_info =
-        PrivateKeyInfo::from_der(doc.as_bytes()).map_err(|_| SshKeyImportError::ParsingError)?;
+        PrivateKeyInfo::from_der(encoded_key).map_err(|_| SshKeyImportError::Parsing)?;
 
     let private_key = match private_key_info.algorithm.oid {
         ed25519::pkcs8::ALGORITHM_OID => {
             let private_key: ed25519::KeypairBytes = private_key_info
                 .try_into()
-                .map_err(|_| SshKeyImportError::ParsingError)?;
+                .map_err(|_| SshKeyImportError::Parsing)?;
 
             ssh_key::private::PrivateKey::from(Ed25519Keypair::from(&private_key.secret_key.into()))
         }
         rsa::pkcs1::ALGORITHM_OID => {
             let private_key: rsa::RsaPrivateKey = private_key_info
                 .try_into()
-                .map_err(|_| SshKeyImportError::ParsingError)?;
+                .map_err(|_| SshKeyImportError::Parsing)?;
 
             ssh_key::private::PrivateKey::from(
-                RsaKeypair::try_from(private_key).map_err(|_| SshKeyImportError::ParsingError)?,
+                RsaKeypair::try_from(private_key).map_err(|_| SshKeyImportError::Parsing)?,
             )
         }
         _ => return Err(SshKeyImportError::UnsupportedKeyType),
     };
 
-    ssh_private_key_to_view(private_key).map_err(|_| SshKeyImportError::ParsingError)
+    ssh_private_key_to_view(private_key).map_err(|_| SshKeyImportError::Parsing)
 }
 
 fn import_openssh_key(
@@ -84,7 +90,7 @@ fn import_openssh_key(
             ssh_key::Error::AlgorithmUnknown | ssh_key::Error::AlgorithmUnsupported { .. } => {
                 SshKeyImportError::UnsupportedKeyType
             }
-            _ => SshKeyImportError::ParsingError,
+            _ => SshKeyImportError::Parsing,
         })?;
 
     let private_key = if private_key.is_encrypted() {
@@ -96,7 +102,7 @@ fn import_openssh_key(
         private_key
     };
 
-    ssh_private_key_to_view(private_key).map_err(|_| SshKeyImportError::ParsingError)
+    ssh_private_key_to_view(private_key).map_err(|_| SshKeyImportError::Parsing)
 }
 
 #[cfg(test)]
@@ -176,7 +182,7 @@ mod tests {
     #[test]
     fn import_non_key_error() {
         let result = import_key("not a key".to_string(), Some("".to_string()));
-        assert_eq!(result.unwrap_err(), SshKeyImportError::ParsingError);
+        assert_eq!(result.unwrap_err(), SshKeyImportError::Parsing);
     }
 
     #[test]
@@ -201,7 +207,7 @@ mod tests {
     fn import_key_ed25519_putty() {
         let private_key = include_str!("../resources/import/ed25519_putty_openssh_unencrypted");
         let result = import_key(private_key.to_string(), Some("".to_string()));
-        assert_eq!(result.unwrap_err(), SshKeyImportError::ParsingError);
+        assert_eq!(result.unwrap_err(), SshKeyImportError::Parsing);
     }
 
     // Putty-exported keys should be supported, but are not due to a parser incompatibility.
@@ -212,7 +218,7 @@ mod tests {
     fn import_key_rsa_openssh_putty() {
         let private_key = include_str!("../resources/import/rsa_putty_openssh_unencrypted");
         let result = import_key(private_key.to_string(), Some("".to_string()));
-        assert_eq!(result.unwrap_err(), SshKeyImportError::ParsingError);
+        assert_eq!(result.unwrap_err(), SshKeyImportError::Parsing);
     }
 
     #[test]

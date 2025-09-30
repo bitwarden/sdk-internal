@@ -1,10 +1,13 @@
-use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
     AsymmetricPublicCryptoKey, DeviceKey, EncString, Kdf, SpkiPublicKeyBytes, SymmetricCryptoKey,
     TrustDeviceResponse, UnsignedSharedKey, UserKey,
 };
+use bitwarden_encoding::B64;
 
-use crate::{client::encryption_settings::EncryptionSettingsError, Client};
+use crate::{
+    client::{encryption_settings::EncryptionSettingsError, internal::UserKeyState},
+    Client,
+};
 
 /// This function generates a new user key and key pair, initializes the client's crypto with the
 /// generated user key, and encrypts the user key with the organization public key for admin
@@ -12,12 +15,11 @@ use crate::{client::encryption_settings::EncryptionSettingsError, Client};
 pub(super) fn make_register_tde_keys(
     client: &Client,
     email: String,
-    org_public_key: String,
+    org_public_key: B64,
     remember_device: bool,
 ) -> Result<RegisterTdeKeyResponse, EncryptionSettingsError> {
-    let public_key = AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(
-        STANDARD.decode(org_public_key)?,
-    ))?;
+    let public_key =
+        AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))?;
 
     let user_key = UserKey::new(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
     let key_pair = user_key.make_key_pair()?;
@@ -41,10 +43,13 @@ pub(super) fn make_register_tde_keys(
         ));
     client.internal.initialize_user_crypto_decrypted_key(
         user_key.0,
-        key_pair.private.clone(),
-        // Note: Signing keys are not supported on registration yet. This needs to be changed as
-        // soon as registration is supported.
-        None,
+        UserKeyState {
+            private_key: key_pair.private.clone(),
+            // TODO (https://bitwarden.atlassian.net/browse/PM-21771) Signing keys are not supported on registration yet. This needs to be changed as
+            // soon as registration is supported.
+            signing_key: None,
+            security_state: None,
+        },
     )?;
 
     Ok(RegisterTdeKeyResponse {
@@ -60,7 +65,7 @@ pub(super) fn make_register_tde_keys(
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct RegisterTdeKeyResponse {
     pub private_key: EncString,
-    pub public_key: String,
+    pub public_key: B64,
 
     pub admin_reset: UnsignedSharedKey,
     pub device_key: Option<TrustDeviceResponse>,

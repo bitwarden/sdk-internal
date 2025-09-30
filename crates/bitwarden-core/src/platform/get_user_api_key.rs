@@ -14,11 +14,8 @@
 
 use std::sync::Arc;
 
-use bitwarden_api_api::{
-    apis::accounts_api::accounts_api_key_post,
-    models::{ApiKeyResponseModel, SecretVerificationRequestModel},
-};
-use bitwarden_crypto::{HashPurpose, MasterKey};
+use bitwarden_api_api::models::{ApiKeyResponseModel, SecretVerificationRequestModel};
+use bitwarden_crypto::{CryptoError, HashPurpose, MasterKey};
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -56,7 +53,10 @@ pub(crate) async fn get_user_api_key(
     let config = client.internal.get_api_configurations().await;
 
     let request = build_secret_verification_request(&auth_settings, input)?;
-    let response = accounts_api_key_post(&config.api, Some(request))
+    let response = config
+        .api_client
+        .accounts_api()
+        .api_key(Some(request))
         .await
         .map_err(ApiError::from)?;
     UserApiKeyResponse::process_response(response)
@@ -81,7 +81,11 @@ fn build_secret_verification_request(
             .map(|p| {
                 let master_key = MasterKey::derive(p, email, kdf)?;
 
-                master_key.derive_master_key_hash(p.as_bytes(), HashPurpose::ServerAuthorization)
+                Ok::<String, CryptoError>(
+                    master_key
+                        .derive_master_key_hash(p.as_bytes(), HashPurpose::ServerAuthorization)
+                        .to_string(),
+                )
             })
             .transpose()?;
         Ok(SecretVerificationRequestModel {

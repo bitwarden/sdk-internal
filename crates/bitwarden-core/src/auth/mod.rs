@@ -4,10 +4,13 @@
 
 use thiserror::Error;
 
-use crate::{NotAuthenticatedError, VaultLockedError, WrongPasswordError};
+use crate::{NotAuthenticatedError, WrongPasswordError};
 
 mod access_token;
-pub(super) mod api;
+// API is intentionally not visible outside of `auth` as these should be considered private.
+mod api;
+#[cfg(feature = "internal")]
+pub(crate) use api::response::user_decryption_options_response::UserDecryptionOptionsResponseModel;
 #[allow(missing_docs)]
 pub mod auth_client;
 mod jwt_token;
@@ -48,13 +51,12 @@ pub use key_connector::KeyConnectorResponse;
 /// Error for authentication related operations
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum AuthValidateError {
     #[error(transparent)]
     NotAuthenticated(#[from] NotAuthenticatedError),
     #[error(transparent)]
     WrongPassword(#[from] WrongPasswordError),
-    #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
     #[error("wrong user key")]
     WrongUserKey,
     #[error(transparent)]

@@ -5,12 +5,12 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
-use tsify_next::Tsify;
+use tsify::Tsify;
 
 use crate::util::capitalize_first_letter;
 
 #[allow(missing_docs)]
-#[bitwarden_error(flat)]
+#[bitwarden_error(full)]
 #[derive(Debug, Error)]
 pub enum PassphraseError {
     #[error("'num_words' must be between {} and {}", minimum, maximum)]
