@@ -224,7 +224,7 @@ fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials
     macro_rules! extract_credential {
         ($field:ident, $variant:path, $type:ty) => {
             filter_credentials(&credentials, |c| match c {
-                $variant(ref inner) => Some(inner.as_ref()),
+                &$variant(ref inner) => Some(inner.as_ref()),
                 _ => None,
             })
         };
