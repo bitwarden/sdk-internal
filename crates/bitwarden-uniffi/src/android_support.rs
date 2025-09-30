@@ -7,7 +7,7 @@ pub static JAVA_VM: OnceLock<jni::JavaVM> = OnceLock::new();
 // This function is called when the Android app calls `System.loadLibrary("bitwarden_uniffi")`
 // Important: This function must be named `JNI_OnLoad` or otherwise it won't be called
 #[allow(non_snake_case)]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "system" fn JNI_OnLoad(vm_ptr: jni::JavaVM, _reserved: *mut std::ffi::c_void) -> jint {
     log::info!("JNI_OnLoad initializing");
     JAVA_VM.get_or_init(|| vm_ptr);
