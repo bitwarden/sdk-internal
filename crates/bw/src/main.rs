@@ -114,11 +114,3 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         Commands::Receive => todo!(),
     }
 }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
