@@ -1,7 +1,6 @@
 use bitwarden_generators::{PassphraseGeneratorRequest, PasswordGeneratorRequest};
 use bitwarden_pm::PasswordManagerClient;
 use clap::Args;
-use color_eyre::eyre::bail;
 
 use crate::render::CommandResult;
 
@@ -54,16 +53,9 @@ pub struct GenerateArgs {
     pub include_number: bool,
 }
 
-const MIN_WORDS: u8 = 3;
-const MIN_LENGTH: u8 = 5;
-
 impl GenerateArgs {
     pub fn run(mut self, client: &PasswordManagerClient) -> CommandResult {
         let result = if self.passphrase {
-            if self.words < MIN_WORDS {
-                bail!("Minimum number of words for a passphrase is {MIN_WORDS}");
-            }
-
             client.generator().passphrase(PassphraseGeneratorRequest {
                 num_words: self.words,
                 word_separator: self.separator.to_string(),
@@ -71,10 +63,6 @@ impl GenerateArgs {
                 include_number: self.include_number,
             })?
         } else {
-            if self.length < MIN_LENGTH {
-                bail!("Minimum length for a password is {MIN_LENGTH}");
-            }
-
             // Default options if none are specified
             if !self.lowercase && !self.uppercase && !self.number && !self.special {
                 self.lowercase = true;
