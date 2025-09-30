@@ -6,7 +6,7 @@ use crate::{
     auth::{LoginArgs, RegisterArgs},
     platform::ConfigCommand,
     render::Output,
-    tools::GeneratorCommands,
+    tools::GenerateArgs,
     vault::{ItemCommands, TemplateCommands},
 };
 
@@ -168,10 +168,21 @@ Notes:
 
     // Tools commands
     #[command(long_about = "Generate a password/passphrase.")]
-    Generate {
-        #[command(subcommand)]
-        command: GeneratorCommands,
-    },
+    #[command(after_help = r#"Notes:
+    Default options are `-uln --length 14`.
+    Minimum `length` is 5.
+    Minimum `words` is 3.
+
+Examples:
+    bw generate
+    bw generate -u -l --length 18
+    bw generate -ulns --length 25
+    bw generate -ul
+    bw generate -p --separator _
+    bw generate -p --words 5 --separator space
+    bw generate -p --words 5 --separator empty
+    "#)]
+    Generate(GenerateArgs),
     #[command(long_about = "Import vault data from a file.")]
     Import,
     #[command(long_about = "Export vault data to a CSV, JSON or ZIP file.")]

@@ -106,7 +106,7 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         Commands::Confirm { .. } => todo!(),
 
         // Tools commands
-        Commands::Generate { command } => command.run(&client),
+        Commands::Generate(arg) => arg.run(&client),
         Commands::Import => todo!(),
         Commands::Export => todo!(),
         Commands::Share => todo!(),

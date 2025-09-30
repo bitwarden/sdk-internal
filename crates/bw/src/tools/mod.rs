@@ -1,55 +1,21 @@
 use bitwarden_generators::{PassphraseGeneratorRequest, PasswordGeneratorRequest};
 use bitwarden_pm::PasswordManagerClient;
-use clap::{Args, Subcommand};
+use clap::Args;
+use color_eyre::eyre::bail;
 
 use crate::render::CommandResult;
 
-// TODO(CLI): This is incompatible with the current node CLI
-#[derive(Subcommand, Clone)]
-pub enum GeneratorCommands {
-    Password(PasswordGeneratorArgs),
-    Passphrase(PassphraseGeneratorArgs),
-}
-
-impl GeneratorCommands {
-    pub fn run(&self, client: &PasswordManagerClient) -> CommandResult {
-        match self {
-            GeneratorCommands::Password(args) => {
-                let password = client.generator().password(PasswordGeneratorRequest {
-                    lowercase: args.lowercase,
-                    uppercase: args.uppercase,
-                    numbers: args.numbers,
-                    special: args.special,
-                    length: args.length,
-                    ..Default::default()
-                })?;
-
-                Ok(password.into())
-            }
-            GeneratorCommands::Passphrase(args) => {
-                let passphrase = client.generator().passphrase(PassphraseGeneratorRequest {
-                    num_words: args.words,
-                    word_separator: args.separator.to_string(),
-                    capitalize: args.capitalize,
-                    include_number: args.include_number,
-                })?;
-
-                Ok(passphrase.into())
-            }
-        }
-    }
-}
-
 #[derive(Args, Clone)]
-pub struct PasswordGeneratorArgs {
-    #[arg(short = 'l', long, action, help = "Include lowercase characters (a-z)")]
-    pub lowercase: bool,
-
+pub struct GenerateArgs {
+    // Password arguments
     #[arg(short = 'u', long, action, help = "Include uppercase characters (A-Z)")]
     pub uppercase: bool,
 
+    #[arg(short = 'l', long, action, help = "Include lowercase characters (a-z)")]
+    pub lowercase: bool,
+
     #[arg(short = 'n', long, action, help = "Include numbers (0-9)")]
-    pub numbers: bool,
+    pub number: bool,
 
     #[arg(
         short = 's',
@@ -61,14 +27,21 @@ pub struct PasswordGeneratorArgs {
 
     #[arg(long, default_value = "16", help = "Length of generated password")]
     pub length: u8,
-}
 
-#[derive(Args, Clone)]
-pub struct PassphraseGeneratorArgs {
-    #[arg(long, default_value = "3", help = "Number of words in the passphrase")]
+    #[arg(long, help = "Minimum number of numeric characters")]
+    pub min_numbers: Option<u8>,
+
+    #[arg(long, help = "Minimum number of special characters")]
+    pub min_special: Option<u8>,
+
+    // Passphrase arguments
+    #[arg(short = 'p', long, action, help = "Generate a passphrase")]
+    pub passphrase: bool,
+
+    #[arg(long, default_value = "5", help = "Number of words in the passphrase")]
     pub words: u8,
 
-    #[arg(long, default_value = " ", help = "Separator between words")]
+    #[arg(long, default_value = "-", help = "Separator between words")]
     pub separator: char,
 
     #[arg(long, action, help = "Capitalize the first letter of each word")]
@@ -76,4 +49,52 @@ pub struct PassphraseGeneratorArgs {
 
     #[arg(long, action, help = "Include a number in one of the words")]
     pub include_number: bool,
+
+    #[arg(long, action, help = "Avoid ambiguous characters")]
+    pub ambiguous: bool,
+}
+
+const MIN_WORDS: u8 = 3;
+const MIN_LENGTH: u8 = 5;
+
+impl GenerateArgs {
+    pub fn run(mut self, client: &PasswordManagerClient) -> CommandResult {
+        let result = if self.passphrase {
+            if self.words < MIN_WORDS {
+                bail!("Minimum number of words for a passphrase is {MIN_WORDS}");
+            }
+
+            client.generator().passphrase(PassphraseGeneratorRequest {
+                num_words: self.words,
+                word_separator: self.separator.to_string(),
+                capitalize: self.capitalize,
+                include_number: self.include_number,
+            })?
+        } else {
+            if self.length < MIN_LENGTH {
+                bail!("Minimum length for a password is {MIN_LENGTH}");
+            }
+
+            // Default options if none are specified
+            if !self.lowercase && !self.uppercase && !self.number && !self.special {
+                self.lowercase = true;
+                self.uppercase = true;
+                self.number = true;
+            }
+
+            client.generator().password(PasswordGeneratorRequest {
+                lowercase: self.lowercase,
+                uppercase: self.uppercase,
+                numbers: self.number,
+                special: self.special,
+                length: self.length,
+                min_number: self.min_numbers,
+                min_special: self.min_special,
+                avoid_ambiguous: self.ambiguous,
+                ..Default::default()
+            })?
+        };
+
+        Ok(result.into())
+    }
 }
