@@ -21,6 +21,15 @@ pub struct PasswordHistory {
     last_used_date: DateTime<Utc>,
 }
 
+impl From<PasswordHistory> for CipherPasswordHistoryModel {
+    fn from(history: PasswordHistory) -> Self {
+        Self {
+            password: history.password.to_string(),
+            last_used_date: history.last_used_date.to_rfc3339(),
+        }
+    }
+}
+
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -76,14 +85,5 @@ impl TryFrom<CipherPasswordHistoryModel> for PasswordHistory {
             password: model.password.parse()?,
             last_used_date: model.last_used_date.parse()?,
         })
-    }
-}
-
-impl From<PasswordHistory> for CipherPasswordHistoryModel {
-    fn from(history: PasswordHistory) -> Self {
-        Self {
-            password: history.password.to_string(),
-            last_used_date: history.last_used_date.to_rfc3339(),
-        }
     }
 }

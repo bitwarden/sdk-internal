@@ -1,6 +1,9 @@
-use bitwarden_api_api::{apis::ciphers_api, models::CipherShareRequestModel};
+use bitwarden_api_api::{
+    apis::ciphers_api,
+    models::{CipherRequestModel, CipherShareRequestModel},
+};
 use bitwarden_collections::collection::CollectionId;
-use bitwarden_core::{key_management::SymmetricKeyId, Client, OrganizationId};
+use bitwarden_core::{key_management::SymmetricKeyId, Client, OrganizationId, UserId};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, SymmetricCryptoKey};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
@@ -180,35 +183,66 @@ impl CiphersClient {
 
 impl CiphersClient {
     #[allow(missing_docs)]
+    /// Share a cipher with an organization and collections.
     pub async fn share_cipher(
-        &self, 
-        cipher: &CipherView,
+        &self,
+        mut cipher_view: CipherView,
         organization_id: &OrganizationId,
-        collection_ids: Vec<&CollectionId>,
+        collection_ids: Vec<CollectionId>,
         // user_id: &UserId,
         original_cipher: Option<&Cipher>,
     ) -> Result<Cipher, CipherError> {
-        // fn adjustCipherHistory(model: &CipherView, userId; &UserId, origianlCihper: Option<&Cipher>) {
-        // if (model.id != null) {
-        //   if (originalCipher == null) {
-        //     originalCipher = await this.get(model.id, userId);
-        //   }
-        //   if (originalCipher != null) {
-        //     await this.updateModelfromExistingCipher(model, originalCipher, userId);
-        //   }
-        //   this.adjustPasswordHistoryLength(model);
-        // }
+        if self
+            .client
+            .internal
+            .get_flags()
+            .enable_cipher_key_encryption
+        {
+            if cipher_view.organization_id.is_some() {
+                return Err(CipherError::OrganizationAlreadySet);
+            }
 
+            cipher_view = self.move_to_organization(cipher_view, *organization_id)?;
 
-        // if cipher.organization_id.is_some() {
-        //     return Err(CipherError::InvalidState(
-        //         "Cipher is already associated with an organization.".to_string(),
-        //     ));
-        // }
+            // TODO: In the client logic, this currently replaces collection_ids rather than appending.
+            // Confirm this is the desired behavior - do we want to append or replace?
+            cipher_view.collection_ids = collection_ids.clone();
+        } else {
+            if let Some(attachments) = cipher_view.attachments.as_mut() {
+                for attachment in attachments {
+                    if attachment.key.is_none() {
+                        todo!("Share attachment with server. Blocked by PM-25820")
+                    }
+                }
+            }
+            cipher_view.organization_id = Some(*organization_id);
+            cipher_view.collection_ids = collection_ids.clone();
+        }
+        let encrypted_cipher = self.encrypt(cipher_view)?;
 
-        // let mut moved_cipher = self
-        //     .move_to_organization(cipher, organization_id)?;
-        // enc_cipher.collection_ids.push(collection_id);
+        let req = CipherShareRequestModel::new(
+            collection_ids
+                .iter()
+                .map(<CollectionId as ToString>::to_string)
+                .collect(),
+            encrypted_cipher.into(),
+        );
+        // let api_client = self
+        //     .client
+        //     .internal
+        //     .get_api_configurations()
+        //     .await
+        //     .api_client();
+
+        // api_client
+        //     .ciphers_api()
+        //     .put_share(
+        //         cipher_view.id.ok_or(CipherError::InvalidState(
+        //             "Cipher must have an ID to be shared.".to_string(),
+        //         ))?,
+        //         req,
+        //     )
+        //     .await?;
 
         // let share_request = CipherShareRequestModel::new(collection_id, enc_cipher);
         // let result = ciphers_api::ciphers_put_share(
@@ -220,14 +254,12 @@ impl CiphersClient {
         // ).await?;
 
         // self.upsert(vec![result.data]).await?;
-//     const data = new CipherData(response, collectionIds);
-    // await this.upsert(data);
-    // return new Cipher(data, cipher.localData);
-        // todo!()
-    } 
+        // const data = new CipherData(response, collectionIds);
+        // await this.upsert(data);
+        // return new Cipher(data, cipher.localData);
+        todo!()
+    }
 }
- 
-
 
 //   async shareManyWithServer(
 //     ciphers: CipherView[],
