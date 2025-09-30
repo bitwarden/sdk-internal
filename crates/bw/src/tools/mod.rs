@@ -34,6 +34,9 @@ pub struct GenerateArgs {
     #[arg(long, help = "Minimum number of special characters")]
     pub min_special: Option<u8>,
 
+    #[arg(long, action, help = "Avoid ambiguous characters")]
+    pub ambiguous: bool,
+
     // Passphrase arguments
     #[arg(short = 'p', long, action, help = "Generate a passphrase")]
     pub passphrase: bool,
@@ -49,9 +52,6 @@ pub struct GenerateArgs {
 
     #[arg(long, action, help = "Include a number in one of the words")]
     pub include_number: bool,
-
-    #[arg(long, action, help = "Avoid ambiguous characters")]
-    pub ambiguous: bool,
 }
 
 const MIN_WORDS: u8 = 3;
