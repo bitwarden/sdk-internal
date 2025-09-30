@@ -46,7 +46,7 @@ pub struct CollectionViewNodeItem {
 
 #[uniffi::export]
 impl CollectionViewTree {
-    pub fn get_item_by_id(
+    pub fn get_item_for_view(
         &self,
         collection_view: CollectionView,
     ) -> Option<Arc<CollectionViewNodeItem>> {

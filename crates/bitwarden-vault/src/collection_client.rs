@@ -97,7 +97,7 @@ impl CollectionViewNodeItem {
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CollectionViewTree {
-    pub fn get_item_by_id(
+    pub fn get_item_for_view(
         &self,
         collection_view: CollectionView,
     ) -> Option<CollectionViewNodeItem> {
