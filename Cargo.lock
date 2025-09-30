@@ -728,6 +728,7 @@ name = "bitwarden-pm"
 version = "1.0.0"
 dependencies = [
  "bitwarden-auth",
+ "bitwarden-commercial-vault",
  "bitwarden-core",
  "bitwarden-exporters",
  "bitwarden-fido",

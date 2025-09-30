@@ -1,5 +1,8 @@
 #![doc = include_str!("../README.md")]
 
+#[cfg(feature = "bitwarden-license")]
+mod commercial;
+
 use std::sync::Arc;
 
 use bitwarden_auth::AuthClientExt as _;
@@ -44,6 +47,12 @@ impl PasswordManagerClient {
     /// Auth operations
     pub fn auth(&self) -> bitwarden_auth::AuthClient {
         self.0.auth_new()
+    }
+
+    /// Bitwarden licensed operations
+    #[cfg(feature = "bitwarden-license")]
+    pub fn commercial(&self) -> commercial::CommercialPasswordManagerClient {
+        commercial::CommercialPasswordManagerClient::new(self.0.clone())
     }
 
     /// Crypto operations
