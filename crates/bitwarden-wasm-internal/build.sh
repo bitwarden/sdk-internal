@@ -9,14 +9,33 @@ cd ../../
 # Write VERSION file
 git rev-parse HEAD > ./crates/bitwarden-wasm-internal/npm/VERSION
 
-if [ "$1" != "-r" ]; then
-  echo "Building in debug mode"
-  RELEASE_FLAG=""
-  BUILD_FOLDER="debug"
-else
+
+# Parse flags
+ENABLE_LICENSE_FEATURE=""
+RELEASE_FLAG=""
+BUILD_FOLDER="debug"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -b)
+      ENABLE_LICENSE_FEATURE="--features bitwarden-license"
+      ;;
+    -r)
+      RELEASE_FLAG="--release"
+      BUILD_FOLDER="release"
+      ;;
+  esac
+  shift
+done
+
+if [ -n "$RELEASE_FLAG" ]; then
   echo "Building in release mode"
-  RELEASE_FLAG="--release"
-  BUILD_FOLDER="release"
+else
+  echo "Building in debug mode"
+fi
+
+if [ -n "$ENABLE_LICENSE_FEATURE" ]; then
+  echo "Build will include BITWARDEN LICENSED FEATURES"
 fi
 
 # Build with MVP CPU target, two reasons:
@@ -25,7 +44,7 @@ fi
 # Note that this requirest build-std which is an unstable feature,
 # this normally requires a nightly build, but we can also use the
 # RUSTC_BOOTSTRAP hack to use the same stable version as the normal build
-RUSTFLAGS=-Ctarget-cpu=mvp RUSTC_BOOTSTRAP=1 cargo build -p bitwarden-wasm-internal -Zbuild-std=panic_abort,std --target wasm32-unknown-unknown ${RELEASE_FLAG}
+RUSTFLAGS=-Ctarget-cpu=mvp RUSTC_BOOTSTRAP=1 cargo build -p bitwarden-wasm-internal -Zbuild-std=panic_abort,std --target wasm32-unknown-unknown ${RELEASE_FLAG} ${ENABLE_LICENSE_FEATURE}
 wasm-bindgen --target bundler --out-dir crates/bitwarden-wasm-internal/npm ./target/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
 wasm-bindgen --target nodejs --out-dir crates/bitwarden-wasm-internal/npm/node ./target/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
 

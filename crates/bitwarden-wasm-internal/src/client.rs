@@ -3,7 +3,7 @@ use std::{fmt::Display, sync::Arc};
 
 use bitwarden_core::ClientSettings;
 use bitwarden_error::bitwarden_error;
-use bitwarden_pm::{PasswordManagerClient, clients::*};
+use bitwarden_pm::{CommercialPasswordManagerClient, PasswordManagerClient, clients::*};
 use wasm_bindgen::prelude::*;
 
 use crate::platform::{
@@ -52,6 +52,12 @@ impl BitwardenClient {
     /// Auth related operations.
     pub fn auth(&self) -> AuthClient {
         self.0.auth()
+    }
+
+    /// Bitwarden licensed operations.
+    #[cfg(feature = "bitwarden-license")]
+    pub fn commercial(&self) -> CommercialPasswordManagerClient {
+        self.0.commercial()
     }
 
     /// Crypto related operations.

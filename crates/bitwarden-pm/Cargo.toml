@@ -29,6 +29,7 @@ uniffi = [
 ] # Uniffi bindings
 wasm = [
     "bitwarden-auth/wasm",
+    "bitwarden-commercial-vault/wasm",
     "bitwarden-core/wasm",
     "bitwarden-exporters/wasm",
     "bitwarden-generators/wasm",
