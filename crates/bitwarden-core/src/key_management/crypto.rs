@@ -586,6 +586,66 @@ pub(super) fn make_key_pair(user_key: B64) -> Result<MakeKeyPairResponse, Crypto
     })
 }
 
+/// A set of keys where a [UserKey] is protected by an encrypted public/private key-pair.
+/// The `UserKey` is used to encrypt/decrypt data, while the public/private key-pair is
+/// used to rotate the `UserKey`.
+///
+/// The `PrivateKey` is protected by an `ExternalKey`, such as a `DeviceKey`, or `PrfKey`,
+/// and the `PublicKey` is protected by the `UserKey`. This setup allows:
+///
+///   - Access to `UserKey` by knowing the `ExternalKey`
+///   - Rotation to a `NewUserKey` by knowing the current `UserKey`,
+///     without needing access to the `ExternalKey`
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct RotateableKeySet {
+    /// [UserKey] protected by encapsulation key
+    encapsulated_user_key: UnsignedSharedKey,
+    /// Encapsulation key protected by [UserKey]
+    encrypted_encapsulation_key: EncString,
+    /// Decapsulation key protected by wrapping key
+    wrapped_decapsulation_key: EncString,
+}
+
+/// Create a set of keys to allow access to the user key via the provided
+/// symmetric wrapping key while allowing the user key to be rotated.
+fn create_rotateable_key_set(
+    client: &Client,
+    wrapping_key: SymmetricCryptoKey,
+) -> Result<RotateableKeySet, CryptoClientError> {
+    let key_store = client.internal.get_key_store();
+    let mut ctx = key_store.context();
+    let wrapping_key_id = SymmetricKeyId::Local("wrapping_key");
+    #[allow(deprecated)]
+    ctx.set_symmetric_key(wrapping_key_id, wrapping_key)?;
+
+    // encapsulate user key
+    let encapsulation_key_id = AsymmetricKeyId::Local("encapsulation_key");
+    ctx.make_asymmetric_key(encapsulation_key_id)?;
+    let encapsulated_user_key =
+        ctx.encapsulate_key_unsigned(encapsulation_key_id, SymmetricKeyId::User)?;
+
+    // wrap decapsulation key
+    let wrapped_decapsulation_key = ctx.wrap_private_key(wrapping_key_id, encapsulation_key_id)?;
+
+    // wrap encapsulation key with user key
+    // Note: Usually, a public key is - by definition - public, so this should not be necessary.
+    // The specific use-case for this function is to enable rotateable key sets, where
+    // the "public key" is not public, with the intent of preventing the server from being able
+    // to overwrite the user key unlocked by the rotateable keyset.
+    let encrypted_encapsulation_key =
+        ctx.wrap_public_key(SymmetricKeyId::User, encapsulation_key_id)?;
+
+    Ok(RotateableKeySet {
+        encapsulated_user_key,
+        encrypted_encapsulation_key,
+        wrapped_decapsulation_key,
+    })
+}
+
 /// Request for `verify_asymmetric_keys`.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -824,7 +884,7 @@ pub(crate) fn get_v2_rotated_account_keys(
 mod tests {
     use std::num::NonZeroU32;
 
-    use bitwarden_crypto::RsaKeyPair;
+    use bitwarden_crypto::{AsymmetricPublicCryptoKey, RsaKeyPair};
 
     use super::*;
     use crate::{Client, client::internal::UserKeyState};
@@ -1512,5 +1572,77 @@ mod tests {
         .unwrap();
 
         assert!(get_v2_rotated_account_keys(&client).is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_rotateable_key_set() {
+        let client = Client::new(None);
+        let original_user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        #[allow(deprecated)]
+        client
+            .internal
+            .get_key_store()
+            .context_mut()
+            .set_symmetric_key(SymmetricKeyId::User, original_user_key.clone())
+            .unwrap();
+        initialize_user_crypto(
+            &client,
+            InitUserCryptoRequest {
+                user_id: Some(UserId::new_v4()),
+                kdf_params: Kdf::PBKDF2 {
+                    iterations: 100_000.try_into().unwrap(),
+                },
+                email: "test@bitwarden.com".into(),
+                private_key: TEST_VECTOR_PRIVATE_KEY_V2.parse().unwrap(),
+                signing_key: Some(TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap()),
+                security_state: Some(TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap()),
+                method: InitUserCryptoMethod::DecryptedKey {
+                    decrypted_user_key: TEST_VECTOR_USER_KEY_V2_B64.to_string(),
+                },
+            },
+        )
+        .await
+        .unwrap();
+        let wrapping_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let keyset = create_rotateable_key_set(&client, wrapping_key.clone()).unwrap();
+        let decapsulation_key_bytes: Vec<u8> = keyset
+            .wrapped_decapsulation_key
+            .decrypt_with_key(&wrapping_key)
+            .unwrap();
+
+        // Rotate keys
+        let new_user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        #[allow(deprecated)]
+        client
+            .internal
+            .get_key_store()
+            .context_mut()
+            .set_symmetric_key(SymmetricKeyId::User, new_user_key.clone())
+            .unwrap();
+        let encapsulation_key_bytes: Vec<u8> = keyset
+            .encrypted_encapsulation_key
+            .decrypt_with_key(&original_user_key)
+            .unwrap();
+        let encapsulation_key =
+            AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(encapsulation_key_bytes))
+                .unwrap();
+        let new_encapsulated_user_key =
+            UnsignedSharedKey::encapsulate_key_unsigned(&new_user_key, &encapsulation_key).unwrap();
+
+        // User key is accessible from wrapping key
+        let decapsulation_key =
+            AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(decapsulation_key_bytes))
+                .unwrap();
+
+        // Both old and new keys should be accessible
+        let user_key_unwrapped = keyset
+            .encapsulated_user_key
+            .decapsulate_key_unsigned(&decapsulation_key)
+            .unwrap();
+        let new_user_key_unwrapped = new_encapsulated_user_key
+            .decapsulate_key_unsigned(&decapsulation_key)
+            .unwrap();
+        assert_eq!(user_key_unwrapped, original_user_key);
+        assert_eq!(new_user_key, new_user_key_unwrapped);
     }
 }
