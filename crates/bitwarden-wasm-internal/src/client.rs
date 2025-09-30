@@ -33,7 +33,10 @@ impl BitwardenClient {
 
     /// Returns the current SDK version
     pub fn version(&self) -> String {
-        env!("SDK_VERSION").to_owned()
+        #[cfg(feature = "bitwarden-license")]
+        return format!("COMMERCIAL-{}", env!("SDK_VERSION"));
+        #[cfg(not(feature = "bitwarden-license"))]
+        return env!("SDK_VERSION").to_owned();
     }
 
     /// Test method, always throws an error
