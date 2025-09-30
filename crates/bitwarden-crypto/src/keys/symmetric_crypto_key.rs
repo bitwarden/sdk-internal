@@ -284,7 +284,9 @@ impl TryFrom<&BitwardenLegacyKeyBytes> for SymmetricCryptoKey {
         // are the raw serializations of the AES256-CBC, and AES256-CBC-HMAC keys. If they
         // are longer, they are COSE keys. The COSE keys are padded to the minimum length of
         // 65 bytes, when serialized to raw byte arrays.
-        let result = if slice.len() == Self::AES256_CBC_HMAC_KEY_LEN
+        
+
+        if slice.len() == Self::AES256_CBC_HMAC_KEY_LEN
             || slice.len() == Self::AES256_CBC_KEY_LEN
         {
             Self::try_from(EncodedSymmetricKey::BitwardenLegacyKey(value.clone()))
@@ -293,9 +295,7 @@ impl TryFrom<&BitwardenLegacyKeyBytes> for SymmetricCryptoKey {
             Ok(Self::try_from_cose(unpadded_value)?)
         } else {
             Err(CryptoError::InvalidKeyLen)
-        };
-
-        result
+        }
     }
 }
 
