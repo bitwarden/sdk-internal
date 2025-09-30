@@ -59,7 +59,7 @@ impl BitwardenClient {
 
     /// Bitwarden licensed operations.
     #[cfg(feature = "bitwarden-license")]
-    pub fn commercial(&self) -> CommercialPasswordManagerClient {
+    pub fn commercial(&self) -> bitwarden_pm::CommercialPasswordManagerClient {
         self.0.commercial()
     }
 
