@@ -2,7 +2,7 @@ use std::path::Path;
 
 use bitwarden_vault::{Attachment, AttachmentEncryptResult, AttachmentView, Cipher};
 
-use crate::{error::Error, Result};
+use crate::{Result, error::Error};
 
 #[derive(uniffi::Object)]
 pub struct AttachmentsClient(pub(crate) bitwarden_vault::AttachmentsClient);

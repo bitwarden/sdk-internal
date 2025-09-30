@@ -2,7 +2,7 @@ extern crate console_error_panic_hook;
 use std::{fmt::Display, sync::Arc};
 
 use bitwarden_auth::{AuthClient, AuthClientExt};
-use bitwarden_core::{key_management::CryptoClient, Client, ClientSettings};
+use bitwarden_core::{Client, ClientSettings, key_management::CryptoClient};
 use bitwarden_error::bitwarden_error;
 use bitwarden_exporters::ExporterClientExt;
 use bitwarden_generators::GeneratorClientsExt;
@@ -10,8 +10,8 @@ use bitwarden_vault::{VaultClient, VaultClientExt};
 use wasm_bindgen::prelude::*;
 
 use crate::platform::{
-    token_provider::{JsTokenProvider, WasmClientManagedTokens},
     PlatformClient,
+    token_provider::{JsTokenProvider, WasmClientManagedTokens},
 };
 
 #[allow(missing_docs)]

@@ -1,6 +1,6 @@
 use crate::{
-    rsa::{make_key_pair, RsaKeyPair},
     Result, SymmetricCryptoKey,
+    rsa::{RsaKeyPair, make_key_pair},
 };
 
 /// User Key

@@ -1,6 +1,6 @@
 use bitwarden_core::auth::{
-    password::MasterPasswordPolicyOptions, AuthRequestResponse, KeyConnectorResponse,
-    RegisterKeyResponse, RegisterTdeKeyResponse,
+    AuthRequestResponse, KeyConnectorResponse, RegisterKeyResponse, RegisterTdeKeyResponse,
+    password::MasterPasswordPolicyOptions,
 };
 use bitwarden_crypto::{EncString, HashPurpose, Kdf, TrustDeviceResponse, UnsignedSharedKey};
 use bitwarden_encoding::B64;

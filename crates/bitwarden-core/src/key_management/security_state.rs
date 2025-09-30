@@ -26,7 +26,7 @@ use bitwarden_crypto::{
     CoseSerializable, CoseSign1Bytes, CryptoError, EncodingError, KeyIds, KeyStoreContext,
     SignedObject, SigningNamespace, VerifyingKey,
 };
-use bitwarden_encoding::{FromStrVisitor, B64};
+use bitwarden_encoding::{B64, FromStrVisitor};
 use serde::{Deserialize, Serialize};
 
 use crate::UserId;

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use uuid::Uuid;
 
-use crate::{require, MissingFieldError};
+use crate::{MissingFieldError, require};
 
 /// Represents a policy that can be applied to an organization.
 #[derive(Serialize, Deserialize, Debug)]

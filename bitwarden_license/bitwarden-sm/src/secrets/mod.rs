@@ -7,20 +7,20 @@ mod secret_response;
 mod sync;
 mod update;
 
-pub(crate) use create::create_secret;
 pub use create::SecretCreateRequest;
+pub(crate) use create::create_secret;
 pub(crate) use delete::delete_secrets;
 pub use delete::{SecretsDeleteRequest, SecretsDeleteResponse};
-pub(crate) use get::get_secret;
 pub use get::SecretGetRequest;
-pub(crate) use get_by_ids::get_secrets_by_ids;
+pub(crate) use get::get_secret;
 pub use get_by_ids::SecretsGetRequest;
-pub(crate) use list::{list_secrets, list_secrets_by_project};
+pub(crate) use get_by_ids::get_secrets_by_ids;
 pub use list::{
     SecretIdentifiersByProjectRequest, SecretIdentifiersRequest, SecretIdentifiersResponse,
 };
+pub(crate) use list::{list_secrets, list_secrets_by_project};
 pub use secret_response::{SecretResponse, SecretsResponse};
 pub(crate) use sync::sync_secrets;
 pub use sync::{SecretsSyncRequest, SecretsSyncResponse};
-pub(crate) use update::update_secret;
 pub use update::SecretPutRequest;
+pub(crate) use update::update_secret;

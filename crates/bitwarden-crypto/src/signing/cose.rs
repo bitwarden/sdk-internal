@@ -1,16 +1,16 @@
 //! This file contains helper functions to aid in COSE deserialization
 
 use coset::{
-    iana::{EllipticCurve, EnumI64, OkpKeyParameter},
     CoseKey, Label, ProtectedHeader, RegisteredLabel,
+    iana::{EllipticCurve, EnumI64, OkpKeyParameter},
 };
 
 use super::SigningNamespace;
 use crate::{
+    CryptoError, KEY_ID_SIZE,
     cose::SIGNING_NAMESPACE,
     error::{EncodingError, SignatureError},
     keys::KeyId,
-    CryptoError, KEY_ID_SIZE,
 };
 
 /// Helper function to extract the namespace from a `ProtectedHeader`. The namespace is a custom

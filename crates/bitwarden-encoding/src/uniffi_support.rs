@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use bitwarden_uniffi_error::convert_result;
 
-use crate::{B64Url, B64};
+use crate::{B64, B64Url};
 
 uniffi::custom_type!(B64, String, {
     try_lift: |val| {

@@ -9,9 +9,9 @@
  */
 
 use reqwest;
-use serde::{de::Error as _, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error as _};
 
-use super::{configuration, ContentType, Error};
+use super::{ContentType, Error, configuration};
 use crate::{apis::ResponseContent, models};
 
 /// struct for typed errors of method [`providers_provider_id_organizations_add_post`]
@@ -133,8 +133,16 @@ pub async fn providers_provider_id_organizations_get(
         let content = resp.text().await?;
         match content_type {
             ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProviderOrganizationOrganizationDetailsResponseModelListResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProviderOrganizationOrganizationDetailsResponseModelListResponseModel`")))),
+            ContentType::Text => {
+                return Err(Error::from(serde_json::Error::custom(
+                    "Received `text/plain` content type response that cannot be converted to `models::ProviderOrganizationOrganizationDetailsResponseModelListResponseModel`",
+                )));
+            }
+            ContentType::Unsupported(unknown_type) => {
+                return Err(Error::from(serde_json::Error::custom(format!(
+                    "Received `{unknown_type}` content type response that cannot be converted to `models::ProviderOrganizationOrganizationDetailsResponseModelListResponseModel`"
+                ))));
+            }
         }
     } else {
         let content = resp.text().await?;
@@ -284,8 +292,16 @@ pub async fn providers_provider_id_organizations_post(
         let content = resp.text().await?;
         match content_type {
             ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProviderOrganizationResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::ProviderOrganizationResponseModel`")))),
+            ContentType::Text => {
+                return Err(Error::from(serde_json::Error::custom(
+                    "Received `text/plain` content type response that cannot be converted to `models::ProviderOrganizationResponseModel`",
+                )));
+            }
+            ContentType::Unsupported(unknown_type) => {
+                return Err(Error::from(serde_json::Error::custom(format!(
+                    "Received `{unknown_type}` content type response that cannot be converted to `models::ProviderOrganizationResponseModel`"
+                ))));
+            }
         }
     } else {
         let content = resp.text().await?;

@@ -1,4 +1,4 @@
-use log::{set_max_level, Level};
+use log::{Level, set_max_level};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]

@@ -3,8 +3,9 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
+    Ident, Visibility,
     parse::{Parse, ParseStream},
-    parse_macro_input, Ident, Visibility,
+    parse_macro_input,
 };
 
 #[allow(missing_docs)]

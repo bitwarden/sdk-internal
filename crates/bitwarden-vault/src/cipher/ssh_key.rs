@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 
 use super::cipher::CipherKind;
-use crate::{cipher::cipher::CopyableCipherFields, Cipher};
+use crate::{Cipher, cipher::cipher::CopyableCipherFields};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

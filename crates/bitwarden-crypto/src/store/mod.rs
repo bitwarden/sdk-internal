@@ -31,7 +31,7 @@ use crate::{CompositeEncryptable, Decryptable, IdentifyKey, KeyId, KeyIds};
 mod backend;
 mod context;
 
-use backend::{create_store, StoreBackend};
+use backend::{StoreBackend, create_store};
 use context::GlobalKeys;
 pub use context::KeyStoreContext;
 
@@ -362,9 +362,9 @@ fn batch_chunk_size(len: usize) -> usize {
 #[cfg(test)]
 pub(crate) mod tests {
     use crate::{
+        EncString, PrimitiveEncryptable, SymmetricCryptoKey,
         store::{KeyStore, KeyStoreContext},
         traits::tests::{TestIds, TestSymmKey},
-        EncString, PrimitiveEncryptable, SymmetricCryptoKey,
     };
 
     pub struct DataView(pub String, pub TestSymmKey);

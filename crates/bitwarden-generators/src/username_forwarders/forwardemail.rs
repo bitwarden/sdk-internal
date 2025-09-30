@@ -1,4 +1,4 @@
-use reqwest::{header::CONTENT_TYPE, StatusCode};
+use reqwest::{StatusCode, header::CONTENT_TYPE};
 
 use crate::username::UsernameError;
 
@@ -93,7 +93,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_server() {
-        use wiremock::{matchers, Mock, ResponseTemplate};
+        use wiremock::{Mock, ResponseTemplate, matchers};
 
         let server = wiremock::MockServer::start().await;
 
@@ -200,9 +200,11 @@ mod tests {
         .await
         .unwrap_err();
 
-        assert!(free_token_error
-            .to_string()
-            .contains("Please upgrade to a paid plan"));
+        assert!(
+            free_token_error
+                .to_string()
+                .contains("Please upgrade to a paid plan")
+        );
 
         server.verify().await;
     }

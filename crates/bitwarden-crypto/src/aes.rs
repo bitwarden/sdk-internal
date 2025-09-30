@@ -5,7 +5,7 @@
 //! In most cases you should use the [EncString][crate::EncString] with
 //! [KeyEncryptable][crate::KeyEncryptable] & [KeyDecryptable][crate::KeyDecryptable] instead.
 
-use aes::cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
+use aes::cipher::{BlockDecryptMut, BlockEncryptMut, KeyIvInit, block_padding::Pkcs7};
 use generic_array::GenericArray;
 use hmac::Mac;
 use subtle::ConstantTimeEq;
@@ -13,7 +13,7 @@ use typenum::U32;
 
 use crate::{
     error::{CryptoError, Result},
-    util::{PbkdfSha256Hmac, PBKDF_SHA256_HMAC_OUT_SIZE},
+    util::{PBKDF_SHA256_HMAC_OUT_SIZE, PbkdfSha256Hmac},
 };
 
 /// Decrypt using AES-256 in CBC mode.
@@ -106,7 +106,7 @@ fn generate_mac(mac_key: &[u8], iv: &[u8], data: &[u8]) -> Result<[u8; 32]> {
 #[cfg(test)]
 mod tests {
     use bitwarden_encoding::B64;
-    use generic_array::{sequence::GenericSequence, ArrayLength};
+    use generic_array::{ArrayLength, sequence::GenericSequence};
     use rand::SeedableRng;
 
     use super::*;
@@ -135,8 +135,12 @@ mod tests {
         assert_eq!(
             result,
             (
-                [62, 0, 239, 47, 137, 95, 64, 214, 127, 91, 184, 232, 31, 9, 165, 161],
-                vec![214, 76, 187, 97, 58, 146, 212, 140, 95, 164, 177, 204, 179, 133, 172, 148]
+                [
+                    62, 0, 239, 47, 137, 95, 64, 214, 127, 91, 184, 232, 31, 9, 165, 161
+                ],
+                vec![
+                    214, 76, 187, 97, 58, 146, 212, 140, 95, 164, 177, 204, 179, 133, 172, 148
+                ]
             )
         );
     }

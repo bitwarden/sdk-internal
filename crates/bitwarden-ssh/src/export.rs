@@ -1,6 +1,6 @@
 use pkcs8::EncodePrivateKey;
 use rsa::RsaPrivateKey;
-use ssh_key::{private::RsaKeypair, PrivateKey};
+use ssh_key::{PrivateKey, private::RsaKeypair};
 
 use crate::error::SshKeyExportError;
 

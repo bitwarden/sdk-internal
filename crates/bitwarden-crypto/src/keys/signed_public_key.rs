@@ -4,16 +4,16 @@
 
 use std::{borrow::Cow, str::FromStr};
 
-use bitwarden_encoding::{FromStrVisitor, B64};
+use bitwarden_encoding::{B64, FromStrVisitor};
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use super::AsymmetricPublicCryptoKey;
 use crate::{
-    cose::CoseSerializable, error::EncodingError, CoseSign1Bytes, CryptoError,
-    PublicKeyEncryptionAlgorithm, RawPublicKey, SignedObject, SigningKey, SigningNamespace,
-    SpkiPublicKeyBytes, VerifyingKey,
+    CoseSign1Bytes, CryptoError, PublicKeyEncryptionAlgorithm, RawPublicKey, SignedObject,
+    SigningKey, SigningNamespace, SpkiPublicKeyBytes, VerifyingKey, cose::CoseSerializable,
+    error::EncodingError,
 };
 
 #[cfg(feature = "wasm")]

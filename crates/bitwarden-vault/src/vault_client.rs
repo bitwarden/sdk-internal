@@ -3,10 +3,10 @@ use bitwarden_core::Client;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    collection_client::CollectionsClient,
-    sync::{sync, SyncError},
     AttachmentsClient, CiphersClient, FoldersClient, PasswordHistoryClient, SyncRequest,
     SyncResponse, TotpClient,
+    collection_client::CollectionsClient,
+    sync::{SyncError, sync},
 };
 
 #[allow(missing_docs)]

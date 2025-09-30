@@ -128,9 +128,9 @@ impl ClientFido2Client {
         request: String,
         client_data: ClientData,
     ) -> Result<PublicKeyCredentialAuthenticatorAttestationResponse> {
-        let ui = UniffiTraitBridge(self.0 .1.as_ref());
-        let cs = UniffiTraitBridge(self.0 .2.as_ref());
-        let mut client = self.0 .0.create_client(&ui, &cs);
+        let ui = UniffiTraitBridge(self.0.1.as_ref());
+        let cs = UniffiTraitBridge(self.0.2.as_ref());
+        let mut client = self.0.0.create_client(&ui, &cs);
 
         let result = client
             .register(origin, request, client_data)
@@ -145,9 +145,9 @@ impl ClientFido2Client {
         request: String,
         client_data: ClientData,
     ) -> Result<PublicKeyCredentialAuthenticatorAssertionResponse> {
-        let ui = UniffiTraitBridge(self.0 .1.as_ref());
-        let cs = UniffiTraitBridge(self.0 .2.as_ref());
-        let mut client = self.0 .0.create_client(&ui, &cs);
+        let ui = UniffiTraitBridge(self.0.1.as_ref());
+        let cs = UniffiTraitBridge(self.0.2.as_ref());
+        let mut client = self.0.0.create_client(&ui, &cs);
 
         let result = client
             .authenticate(origin, request, client_data)

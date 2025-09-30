@@ -2,9 +2,8 @@ use bitwarden_encoding::B64;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    traits::PrimitiveEncryptableWithContentType, CryptoError, EncString, KeyEncryptable,
-    KeyEncryptableWithContentType, KeyIds, KeyStoreContext, PrimitiveEncryptable,
-    SymmetricCryptoKey,
+    CryptoError, EncString, KeyEncryptable, KeyEncryptableWithContentType, KeyIds, KeyStoreContext,
+    PrimitiveEncryptable, SymmetricCryptoKey, traits::PrimitiveEncryptableWithContentType,
 };
 
 /// The content format describes the format of the contained bytes. Message encryption always

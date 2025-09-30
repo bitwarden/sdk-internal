@@ -1,4 +1,4 @@
-use reqwest::{header::CONTENT_TYPE, StatusCode};
+use reqwest::{StatusCode, header::CONTENT_TYPE};
 
 use crate::username::UsernameError;
 
@@ -41,7 +41,7 @@ mod tests {
     use crate::username::UsernameError;
     #[tokio::test]
     async fn test_mock_server() {
-        use wiremock::{matchers, Mock, ResponseTemplate};
+        use wiremock::{Mock, ResponseTemplate, matchers};
 
         let server = wiremock::MockServer::start().await;
 

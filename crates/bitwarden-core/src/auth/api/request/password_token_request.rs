@@ -2,12 +2,12 @@ use log::debug;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    DeviceType,
     auth::{
         api::response::IdentityTokenResponse,
         login::{LoginError, TwoFactorProvider, TwoFactorRequest},
     },
     client::ApiConfigurations,
-    DeviceType,
 };
 
 #[derive(Serialize, Deserialize, Debug)]

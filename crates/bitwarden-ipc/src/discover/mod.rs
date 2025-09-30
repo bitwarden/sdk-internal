@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
-use crate::{rpc::request::RpcRequest, RpcHandler};
+use crate::{RpcHandler, rpc::request::RpcRequest};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscoverRequest;

@@ -3,9 +3,9 @@
 //! Handles conversion between internal [Login] and credential exchange [BasicAuthCredential] and
 //! [PasskeyCredential].
 
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use bitwarden_core::MissingFieldError;
-use bitwarden_fido::{string_to_guid_bytes, InvalidGuid};
+use bitwarden_fido::{InvalidGuid, string_to_guid_bytes};
 use bitwarden_vault::{FieldType, Totp, TotpAlgorithm};
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{

@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::SecretCreateRequestModel;
-use bitwarden_core::{key_management::SymmetricKeyId, Client, OrganizationId};
+use bitwarden_core::{Client, OrganizationId, key_management::SymmetricKeyId};
 use bitwarden_crypto::PrimitiveEncryptable;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -7,7 +7,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    error::{validate_only_whitespaces, SecretsManagerError},
+    error::{SecretsManagerError, validate_only_whitespaces},
     secrets::SecretResponse,
 };
 

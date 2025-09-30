@@ -1,6 +1,6 @@
 use bitwarden_core::client::internal::ClientManagedTokens;
 use bitwarden_threading::ThreadBoundRunner;
-use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
+use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
 #[wasm_bindgen(typescript_custom_section)]
 const TOKEN_CUSTOM_TS_TYPE: &'static str = r#"

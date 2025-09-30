@@ -1,16 +1,16 @@
 use std::{borrow::Cow, fmt::Display, str::FromStr};
 
-use bitwarden_encoding::{FromStrVisitor, B64};
+use bitwarden_encoding::{B64, FromStrVisitor};
 pub use internal::UnsignedSharedKey;
 use rsa::Oaep;
 use serde::Deserialize;
 
 use super::{from_b64_vec, split_enc_string};
 use crate::{
-    error::{CryptoError, EncStringParseError, Result},
-    rsa::encrypt_rsa2048_oaep_sha1,
     AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, RawPrivateKey,
     RawPublicKey, SymmetricCryptoKey,
+    error::{CryptoError, EncStringParseError, Result},
+    rsa::encrypt_rsa2048_oaep_sha1,
 };
 // This module is a workaround to avoid deprecated warnings that come from the ZeroizeOnDrop
 // macro expansion

@@ -222,8 +222,8 @@ mod tests {
     }
 
     #[test]
-    fn given_collection_with_one_parent_and_two_children_when_getting_parent_then_parent_is_returned_with_children_and_no_parent(
-    ) {
+    fn given_collection_with_one_parent_and_two_children_when_getting_parent_then_parent_is_returned_with_children_and_no_parent()
+     {
         let parent_id = Uuid::new_v4();
         let items = vec![
             TestItem {
@@ -258,8 +258,8 @@ mod tests {
     }
 
     #[test]
-    fn given_collection_with_one_parent_and_two_children_when_getting_child1_then_child1_is_returned_with_no_children_and_a_parent(
-    ) {
+    fn given_collection_with_one_parent_and_two_children_when_getting_child1_then_child1_is_returned_with_no_children_and_a_parent()
+     {
         let child_1_id = Uuid::new_v4();
         let parent_id = Uuid::new_v4();
         let items = vec![

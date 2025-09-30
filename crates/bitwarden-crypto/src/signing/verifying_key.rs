@@ -3,19 +3,19 @@
 //! This implements the lowest layer of the signature module, verifying signatures on raw byte
 //! arrays.
 
-use ciborium::{value::Integer, Value};
+use ciborium::{Value, value::Integer};
 use coset::{
-    iana::{Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter},
     CborSerializable, RegisteredLabel, RegisteredLabelWithPrivate,
+    iana::{Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter},
 };
 
-use super::{ed25519_verifying_key, key_id, SignatureAlgorithm};
+use super::{SignatureAlgorithm, ed25519_verifying_key, key_id};
 use crate::{
+    CoseKeyBytes, CryptoError,
     content_format::CoseKeyContentFormat,
     cose::CoseSerializable,
     error::{EncodingError, SignatureError},
     keys::KeyId,
-    CoseKeyBytes, CryptoError,
 };
 
 /// A `VerifyingKey` without the key id. This enum contains a variant for each supported signature
@@ -152,8 +152,10 @@ mod tests {
         assert_eq!(verifying_key.algorithm(), SignatureAlgorithm::Ed25519);
 
         // This should fail, as the signed object is not valid for the given verifying key.
-        assert!(verifying_key
-            .verify_raw(SIGNED_DATA_RAW, b"Invalid message")
-            .is_err());
+        assert!(
+            verifying_key
+                .verify_raw(SIGNED_DATA_RAW, b"Invalid message")
+                .is_err()
+        );
     }
 }

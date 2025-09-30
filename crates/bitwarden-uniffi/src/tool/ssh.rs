@@ -1,8 +1,8 @@
 use bitwarden_vault::SshKeyView;
 
 use crate::{
-    error::{BitwardenError, Error},
     Result,
+    error::{BitwardenError, Error},
 };
 
 #[derive(uniffi::Object)]

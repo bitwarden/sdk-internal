@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::SecretsSyncResponseModel;
-use bitwarden_core::{key_management::KeyIds, require, Client};
+use bitwarden_core::{Client, key_management::KeyIds, require};
 use bitwarden_crypto::KeyStoreContext;
 use chrono::{DateTime, Utc};
 use schemars::JsonSchema;

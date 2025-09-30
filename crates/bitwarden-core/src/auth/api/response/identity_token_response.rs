@@ -2,6 +2,7 @@ use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    ApiError,
     auth::{
         api::response::{
             IdentityTokenFailResponse, IdentityTokenPayloadResponse, IdentityTokenRefreshResponse,
@@ -9,7 +10,6 @@ use crate::{
         },
         login::LoginError,
     },
-    ApiError,
 };
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]

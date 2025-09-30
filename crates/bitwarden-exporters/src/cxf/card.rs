@@ -7,7 +7,7 @@ use chrono::Month;
 use credential_exchange_format::{Credential, CreditCardCredential, EditableFieldYearMonth};
 use num_traits::FromPrimitive;
 
-use crate::{cxf::editable_field::create_field, Card, Field};
+use crate::{Card, Field, cxf::editable_field::create_field};
 
 impl From<Card> for Vec<Credential> {
     fn from(value: Card) -> Self {

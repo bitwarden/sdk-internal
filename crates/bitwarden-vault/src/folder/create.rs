@@ -1,7 +1,8 @@
 use bitwarden_api_api::{apis::folders_api, models::FolderRequestModel};
 use bitwarden_core::{
+    ApiError, MissingFieldError,
     key_management::{KeyIds, SymmetricKeyId},
-    require, ApiError, MissingFieldError,
+    require,
 };
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext, PrimitiveEncryptable,
@@ -85,9 +86,9 @@ pub(super) async fn create_folder<R: Repository<Folder> + ?Sized>(
 mod tests {
     use bitwarden_api_api::models::FolderResponseModel;
     use bitwarden_crypto::SymmetricCryptoKey;
-    use bitwarden_test::{start_api_mock, MemoryRepository};
+    use bitwarden_test::{MemoryRepository, start_api_mock};
     use uuid::uuid;
-    use wiremock::{matchers, Mock, Request, ResponseTemplate};
+    use wiremock::{Mock, Request, ResponseTemplate, matchers};
 
     use super::*;
     use crate::FolderId;
@@ -103,17 +104,19 @@ mod tests {
 
         let folder_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
 
-        let (_server, api_config) = start_api_mock(vec![Mock::given(matchers::path("/folders"))
-            .respond_with(move |req: &Request| {
-                let body: FolderRequestModel = req.body_json().unwrap();
-                ResponseTemplate::new(201).set_body_json(FolderResponseModel {
-                    id: Some(folder_id),
-                    name: Some(body.name),
-                    revision_date: Some("2025-01-01T00:00:00Z".to_string()),
-                    object: Some("folder".to_string()),
+        let (_server, api_config) = start_api_mock(vec![
+            Mock::given(matchers::path("/folders"))
+                .respond_with(move |req: &Request| {
+                    let body: FolderRequestModel = req.body_json().unwrap();
+                    ResponseTemplate::new(201).set_body_json(FolderResponseModel {
+                        id: Some(folder_id),
+                        name: Some(body.name),
+                        revision_date: Some("2025-01-01T00:00:00Z".to_string()),
+                        object: Some("folder".to_string()),
+                    })
                 })
-            })
-            .expect(1)])
+                .expect(1),
+        ])
         .await;
 
         let repository = MemoryRepository::<Folder>::default();
@@ -163,7 +166,7 @@ mod tests {
         );
 
         let (_server, api_config) = start_api_mock(vec![
-            Mock::given(matchers::path("/folders")).respond_with(ResponseTemplate::new(500))
+            Mock::given(matchers::path("/folders")).respond_with(ResponseTemplate::new(500)),
         ])
         .await;
 

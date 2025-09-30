@@ -2,7 +2,7 @@ use std::path::Path;
 
 use bitwarden_send::{Send, SendListView, SendView};
 
-use crate::{error::Error, Result};
+use crate::{Result, error::Error};
 
 #[derive(uniffi::Object)]
 pub struct SendClient(pub(crate) bitwarden_send::SendClient);

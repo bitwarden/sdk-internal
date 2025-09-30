@@ -4,7 +4,7 @@ use credential_exchange_format::{
     PersonNameCredential,
 };
 
-use crate::{cxf::editable_field::create_field, Field, Identity};
+use crate::{Field, Identity, cxf::editable_field::create_field};
 
 /// Convert address credentials to Identity (no custom fields needed for address)
 /// According to the mapping specification:

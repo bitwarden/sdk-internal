@@ -8,8 +8,8 @@ mod error;
 pub use error::CxfError;
 
 mod export;
-pub(crate) use export::build_cxf;
 pub use export::Account;
+pub(crate) use export::build_cxf;
 mod import;
 pub(crate) use import::parse_cxf;
 mod api_key;

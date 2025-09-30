@@ -4,17 +4,18 @@
 //! be documented publicly.
 
 use coset::{
-    iana::{self, CoapContentFormat},
     CborSerializable, ContentType, Header, Label,
+    iana::{self, CoapContentFormat},
 };
 use generic_array::GenericArray;
 use thiserror::Error;
 use typenum::U32;
 
 use crate::{
+    ContentFormat, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
     content_format::{Bytes, ConstContentFormat, CoseContentFormat},
     error::{EncStringParseError, EncodingError},
-    xchacha20, ContentFormat, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
+    xchacha20,
 };
 
 /// XChaCha20 <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha-03> is used over ChaCha20

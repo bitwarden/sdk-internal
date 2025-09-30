@@ -220,13 +220,13 @@ impl TryFrom<bitwarden_api_api::models::AttachmentResponseModel> for Attachment 
 
 #[cfg(test)]
 mod tests {
-    use base64::{engine::general_purpose::STANDARD, Engine};
+    use base64::{Engine, engine::general_purpose::STANDARD};
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
     use bitwarden_crypto::{EncString, SymmetricCryptoKey};
 
     use crate::{
-        cipher::cipher::{CipherRepromptType, CipherType},
         AttachmentFile, AttachmentFileView, AttachmentView, Cipher,
+        cipher::cipher::{CipherRepromptType, CipherType},
     };
 
     #[test]

@@ -52,7 +52,7 @@ pub struct MasterPasswordPolicyOptions {
 #[cfg(test)]
 mod tests {
 
-    use super::{satisfies_policy, MasterPasswordPolicyOptions};
+    use super::{MasterPasswordPolicyOptions, satisfies_policy};
 
     #[test]
     fn satisfies_policy_gives_success() {

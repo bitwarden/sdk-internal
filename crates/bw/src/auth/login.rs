@@ -1,13 +1,13 @@
 use bitwarden_cli::text_prompt_when_none;
 use bitwarden_core::{
+    Client,
     auth::login::{
         ApiKeyLoginRequest, PasswordLoginRequest, TwoFactorEmailRequest, TwoFactorProvider,
         TwoFactorRequest,
     },
-    Client,
 };
 use bitwarden_vault::{SyncRequest, VaultClientExt};
-use color_eyre::eyre::{bail, Result};
+use color_eyre::eyre::{Result, bail};
 use inquire::{Password, Text};
 use log::{debug, error, info};
 

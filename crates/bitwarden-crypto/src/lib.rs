@@ -32,7 +32,7 @@ mod wordlist;
 pub use wordlist::EFF_LONG_WORD_LIST;
 mod store;
 pub use store::{
-    dangerous_get_v2_rotated_account_keys, KeyStore, KeyStoreContext, RotatedUserKeys,
+    KeyStore, KeyStoreContext, RotatedUserKeys, dangerous_get_v2_rotated_account_keys,
 };
 mod cose;
 pub use cose::CoseSerializable;

@@ -1,6 +1,6 @@
 use zeroize::ZeroizeOnDrop;
 
-use crate::{store::backend::StoreBackend, KeyId};
+use crate::{KeyId, store::backend::StoreBackend};
 
 /// This is a basic key store backend that stores keys in a HashMap memory.
 /// No protections are provided for the keys stored in this backend, beyond enforcing

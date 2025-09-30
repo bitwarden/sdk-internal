@@ -4,7 +4,7 @@ use bitwarden_vault::{
     Fido2CredentialView,
 };
 
-use crate::{error::Error, Result};
+use crate::{Result, error::Error};
 
 #[allow(missing_docs)]
 #[derive(uniffi::Object)]

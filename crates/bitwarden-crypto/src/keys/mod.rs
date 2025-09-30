@@ -29,8 +29,8 @@ mod kdf;
 pub use kdf::dangerous_derive_kdf_material;
 mod key_id;
 pub use kdf::{
-    default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
-    default_pbkdf2_iterations, Kdf,
+    Kdf, default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
+    default_pbkdf2_iterations,
 };
-pub(crate) use key_id::{KeyId, KEY_ID_SIZE};
+pub(crate) use key_id::{KEY_ID_SIZE, KeyId};
 pub(crate) mod utils;

@@ -1,16 +1,16 @@
 use ciborium::value::Integer;
-use coset::{iana::CoapContentFormat, CborSerializable, CoseSign1};
-use serde::{de::DeserializeOwned, Serialize};
+use coset::{CborSerializable, CoseSign1, iana::CoapContentFormat};
+use serde::{Serialize, de::DeserializeOwned};
 
 use super::{
-    content_type, message::SerializedMessage, namespace, signing_key::SigningKey,
-    verifying_key::VerifyingKey, SigningNamespace,
+    SigningNamespace, content_type, message::SerializedMessage, namespace, signing_key::SigningKey,
+    verifying_key::VerifyingKey,
 };
 use crate::{
+    CoseSign1Bytes, CryptoError,
     content_format::CoseSign1ContentFormat,
     cose::{CoseSerializable, SIGNING_NAMESPACE},
     error::{EncodingError, SignatureError},
-    CoseSign1Bytes, CryptoError,
 };
 
 /// A signed object is a message containing a payload and signature that attests the payload's

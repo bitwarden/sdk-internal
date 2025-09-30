@@ -6,8 +6,8 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
 
 use crate::{
-    auth::{login::PreloginError, password::determine_password_hash},
     ApiError, Client,
+    auth::{login::PreloginError, password::determine_password_hash},
 };
 
 #[allow(missing_docs)]

@@ -1,12 +1,12 @@
-use base64::{engine::general_purpose::STANDARD, Engine};
-use bitwarden_crypto::{generate_random_bytes, Kdf, KeyEncryptable, PinKey};
+use base64::{Engine, engine::general_purpose::STANDARD};
+use bitwarden_crypto::{Kdf, KeyEncryptable, PinKey, generate_random_bytes};
 use serde::Serialize;
 use thiserror::Error;
 use uuid::Uuid;
 
 use crate::{
-    json::{self, export_json},
     Cipher, Folder,
+    json::{self, export_json},
 };
 
 #[derive(Error, Debug)]

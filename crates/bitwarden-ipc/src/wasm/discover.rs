@@ -3,9 +3,9 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::JsIpcClient;
 use crate::{
+    RequestError,
     discover::{DiscoverHandler, DiscoverRequest, DiscoverResponse},
     endpoint::Endpoint,
-    RequestError,
 };
 
 #[wasm_bindgen(js_name = ipcRegisterDiscoverHandler)]

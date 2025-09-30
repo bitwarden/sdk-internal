@@ -79,7 +79,7 @@ mod tests {
     fn test_standalone_note_credential() {
         use credential_exchange_format::{Credential, Item};
 
-        use crate::{cxf::import::parse_item, CipherType, ImportingCipher};
+        use crate::{CipherType, ImportingCipher, cxf::import::parse_item};
 
         let item = Item {
             id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),

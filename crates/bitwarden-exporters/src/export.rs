@@ -1,14 +1,14 @@
 use bitwarden_collections::collection::Collection;
-use bitwarden_core::{key_management::KeyIds, Client};
+use bitwarden_core::{Client, key_management::KeyIds};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, KeyStoreContext};
 use bitwarden_vault::{Cipher, CipherView, Folder, FolderView};
 
 use crate::{
+    ExportError, ExportFormat, ImportingCipher,
     csv::export_csv,
-    cxf::{build_cxf, parse_cxf, Account},
+    cxf::{Account, build_cxf, parse_cxf},
     encrypted_json::export_encrypted_json,
     json::export_json,
-    ExportError, ExportFormat, ImportingCipher,
 };
 
 pub(crate) fn export_vault(

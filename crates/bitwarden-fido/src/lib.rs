@@ -1,13 +1,13 @@
 #![doc = include_str!("../README.md")]
 
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use bitwarden_core::key_management::KeyIds;
 use bitwarden_crypto::KeyStoreContext;
 use bitwarden_vault::{
     CipherError, CipherView, Fido2CredentialFullView, Fido2CredentialNewView, Fido2CredentialView,
 };
 use crypto::{CoseKeyToPkcs8Error, PrivateKeyFromSecretKeyError};
-use passkey::types::{ctap2::Aaguid, Passkey};
+use passkey::types::{Passkey, ctap2::Aaguid};
 
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
@@ -298,7 +298,9 @@ mod tests {
         let bytes = super::string_to_guid_bytes(uuid).unwrap();
         assert_eq!(
             bytes,
-            vec![213, 72, 130, 110, 121, 180, 219, 64, 163, 216, 17, 17, 111, 126, 131, 73]
+            vec![
+                213, 72, 130, 110, 121, 180, 219, 64, 163, 216, 17, 17, 111, 126, 131, 73
+            ]
         );
     }
 
@@ -308,7 +310,9 @@ mod tests {
         let bytes = super::string_to_guid_bytes(b64).unwrap();
         assert_eq!(
             bytes,
-            vec![213, 72, 130, 110, 121, 180, 219, 64, 163, 216, 17, 17, 111, 126, 131, 73]
+            vec![
+                213, 72, 130, 110, 121, 180, 219, 64, 163, 216, 17, 17, 111, 126, 131, 73
+            ]
         );
     }
 }

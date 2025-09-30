@@ -1,5 +1,5 @@
 use bitwarden_api_api::apis::folders_api;
-use bitwarden_core::{key_management::KeyIds, ApiError, MissingFieldError};
+use bitwarden_core::{ApiError, MissingFieldError, key_management::KeyIds};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -67,9 +67,9 @@ mod tests {
     };
     use bitwarden_core::key_management::SymmetricKeyId;
     use bitwarden_crypto::{PrimitiveEncryptable, SymmetricCryptoKey};
-    use bitwarden_test::{start_api_mock, MemoryRepository};
+    use bitwarden_test::{MemoryRepository, start_api_mock};
     use uuid::uuid;
-    use wiremock::{matchers, Mock, Request, ResponseTemplate};
+    use wiremock::{Mock, Request, ResponseTemplate, matchers};
 
     use super::*;
     use crate::FolderId;
@@ -106,20 +106,19 @@ mod tests {
 
         let folder_id: FolderId = "25afb11c-9c95-4db5-8bac-c21cb204a3f1".parse().unwrap();
 
-        let (_server, api_config) = start_api_mock(vec![Mock::given(matchers::path(format!(
-            "/folders/{}",
-            folder_id
-        )))
-        .respond_with(move |req: &Request| {
-            let body: FolderRequestModel = req.body_json().unwrap();
-            ResponseTemplate::new(200).set_body_json(FolderResponseModel {
-                object: Some("folder".to_string()),
-                id: Some(folder_id.into()),
-                name: Some(body.name),
-                revision_date: Some("2025-01-01T00:00:00Z".to_string()),
-            })
-        })
-        .expect(1)])
+        let (_server, api_config) = start_api_mock(vec![
+            Mock::given(matchers::path(format!("/folders/{}", folder_id)))
+                .respond_with(move |req: &Request| {
+                    let body: FolderRequestModel = req.body_json().unwrap();
+                    ResponseTemplate::new(200).set_body_json(FolderResponseModel {
+                        object: Some("folder".to_string()),
+                        id: Some(folder_id.into()),
+                        name: Some(body.name),
+                        revision_date: Some("2025-01-01T00:00:00Z".to_string()),
+                    })
+                })
+                .expect(1),
+        ])
         .await;
 
         let repository = MemoryRepository::<Folder>::default();
@@ -183,11 +182,10 @@ mod tests {
 
         let folder_id: FolderId = "25afb11c-9c95-4db5-8bac-c21cb204a3f1".parse().unwrap();
 
-        let (_server, api_config) = start_api_mock(vec![Mock::given(matchers::path(format!(
-            "/folders/{}",
-            folder_id
-        )))
-        .respond_with(ResponseTemplate::new(500))])
+        let (_server, api_config) = start_api_mock(vec![
+            Mock::given(matchers::path(format!("/folders/{}", folder_id)))
+                .respond_with(ResponseTemplate::new(500)),
+        ])
         .await;
 
         let repository = MemoryRepository::<Folder>::default();

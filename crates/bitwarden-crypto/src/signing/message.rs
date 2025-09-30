@@ -15,7 +15,7 @@
 //! what COSE already uses.
 
 use coset::iana::CoapContentFormat;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 use crate::error::EncodingError;
 

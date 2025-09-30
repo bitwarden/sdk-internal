@@ -6,9 +6,9 @@ use bitwarden_state::repository::{Repository, RepositoryError};
 use wasm_bindgen::prelude::*;
 
 use crate::{
+    CreateFolderError, EditFolderError, Folder, FolderAddEditRequest, FolderView, GetFolderError,
     error::{DecryptError, EncryptError},
     folder::{create_folder, edit_folder, get_folder, list_folders},
-    CreateFolderError, EditFolderError, Folder, FolderAddEditRequest, FolderView, GetFolderError,
 };
 
 /// Wrapper for folder specific functionality.

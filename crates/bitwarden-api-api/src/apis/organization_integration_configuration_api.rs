@@ -9,9 +9,9 @@
  */
 
 use reqwest;
-use serde::{de::Error as _, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error as _};
 
-use super::{configuration, ContentType, Error};
+use super::{ContentType, Error, configuration};
 use crate::{apis::ResponseContent, models};
 
 /// struct for typed errors of method
@@ -63,7 +63,13 @@ pub async fn organizations_organization_id_integrations_integration_id_configura
     let p_integration_id = integration_id;
     let p_configuration_id = configuration_id;
 
-    let uri_str = format!("{}/organizations/{organizationId}/integrations/{integrationId}/configurations/{configurationId}", configuration.base_path, organizationId=crate::apis::urlencode(p_organization_id.to_string()), integrationId=crate::apis::urlencode(p_integration_id.to_string()), configurationId=crate::apis::urlencode(p_configuration_id.to_string()));
+    let uri_str = format!(
+        "{}/organizations/{organizationId}/integrations/{integrationId}/configurations/{configurationId}",
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string()),
+        integrationId = crate::apis::urlencode(p_integration_id.to_string()),
+        configurationId = crate::apis::urlencode(p_configuration_id.to_string())
+    );
     let mut req_builder = configuration
         .client
         .request(reqwest::Method::DELETE, &uri_str);
@@ -99,7 +105,13 @@ pub async fn organizations_organization_id_integrations_integration_id_configura
     let p_integration_id = integration_id;
     let p_configuration_id = configuration_id;
 
-    let uri_str = format!("{}/organizations/{organizationId}/integrations/{integrationId}/configurations/{configurationId}/delete", configuration.base_path, organizationId=crate::apis::urlencode(p_organization_id.to_string()), integrationId=crate::apis::urlencode(p_integration_id.to_string()), configurationId=crate::apis::urlencode(p_configuration_id.to_string()));
+    let uri_str = format!(
+        "{}/organizations/{organizationId}/integrations/{integrationId}/configurations/{configurationId}/delete",
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string()),
+        integrationId = crate::apis::urlencode(p_integration_id.to_string()),
+        configurationId = crate::apis::urlencode(p_configuration_id.to_string())
+    );
     let mut req_builder = configuration
         .client
         .request(reqwest::Method::POST, &uri_str);
@@ -150,7 +162,13 @@ pub async fn organizations_organization_id_integrations_integration_id_configura
     let p_organization_integration_configuration_request_model =
         organization_integration_configuration_request_model;
 
-    let uri_str = format!("{}/organizations/{organizationId}/integrations/{integrationId}/configurations/{configurationId}", configuration.base_path, organizationId=crate::apis::urlencode(p_organization_id.to_string()), integrationId=crate::apis::urlencode(p_integration_id.to_string()), configurationId=crate::apis::urlencode(p_configuration_id.to_string()));
+    let uri_str = format!(
+        "{}/organizations/{organizationId}/integrations/{integrationId}/configurations/{configurationId}",
+        configuration.base_path,
+        organizationId = crate::apis::urlencode(p_organization_id.to_string()),
+        integrationId = crate::apis::urlencode(p_integration_id.to_string()),
+        configurationId = crate::apis::urlencode(p_configuration_id.to_string())
+    );
     let mut req_builder = configuration.client.request(reqwest::Method::PUT, &uri_str);
 
     if let Some(ref user_agent) = configuration.user_agent {
@@ -176,8 +194,16 @@ pub async fn organizations_organization_id_integrations_integration_id_configura
         let content = resp.text().await?;
         match content_type {
             ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationIntegrationConfigurationResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationIntegrationConfigurationResponseModel`")))),
+            ContentType::Text => {
+                return Err(Error::from(serde_json::Error::custom(
+                    "Received `text/plain` content type response that cannot be converted to `models::OrganizationIntegrationConfigurationResponseModel`",
+                )));
+            }
+            ContentType::Unsupported(unknown_type) => {
+                return Err(Error::from(serde_json::Error::custom(format!(
+                    "Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationIntegrationConfigurationResponseModel`"
+                ))));
+            }
         }
     } else {
         let content = resp.text().await?;
@@ -232,8 +258,16 @@ pub async fn organizations_organization_id_integrations_integration_id_configura
         let content = resp.text().await?;
         match content_type {
             ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `Vec&lt;models::OrganizationIntegrationConfigurationResponseModel&gt;`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `Vec&lt;models::OrganizationIntegrationConfigurationResponseModel&gt;`")))),
+            ContentType::Text => {
+                return Err(Error::from(serde_json::Error::custom(
+                    "Received `text/plain` content type response that cannot be converted to `Vec&lt;models::OrganizationIntegrationConfigurationResponseModel&gt;`",
+                )));
+            }
+            ContentType::Unsupported(unknown_type) => {
+                return Err(Error::from(serde_json::Error::custom(format!(
+                    "Received `{unknown_type}` content type response that cannot be converted to `Vec&lt;models::OrganizationIntegrationConfigurationResponseModel&gt;`"
+                ))));
+            }
         }
     } else {
         let content = resp.text().await?;
@@ -298,8 +332,16 @@ pub async fn organizations_organization_id_integrations_integration_id_configura
         let content = resp.text().await?;
         match content_type {
             ContentType::Json => serde_json::from_str(&content).map_err(Error::from),
-            ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationIntegrationConfigurationResponseModel`"))),
-            ContentType::Unsupported(unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationIntegrationConfigurationResponseModel`")))),
+            ContentType::Text => {
+                return Err(Error::from(serde_json::Error::custom(
+                    "Received `text/plain` content type response that cannot be converted to `models::OrganizationIntegrationConfigurationResponseModel`",
+                )));
+            }
+            ContentType::Unsupported(unknown_type) => {
+                return Err(Error::from(serde_json::Error::custom(format!(
+                    "Received `{unknown_type}` content type response that cannot be converted to `models::OrganizationIntegrationConfigurationResponseModel`"
+                ))));
+            }
         }
     } else {
         let content = resp.text().await?;

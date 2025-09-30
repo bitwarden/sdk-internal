@@ -1,6 +1,6 @@
 use bitwarden_vault::{Folder, FolderView};
 
-use crate::{error::Error, Result};
+use crate::{Result, error::Error};
 
 #[allow(missing_docs)]
 #[derive(uniffi::Object)]
