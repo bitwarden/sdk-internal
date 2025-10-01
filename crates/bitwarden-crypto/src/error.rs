@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use bitwarden_encoding::NotB64EncodedError;
+use bitwarden_encoding::{B64, NotB64EncodedError};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 use uuid::Uuid;
@@ -53,11 +53,19 @@ pub enum CryptoError {
     #[error("Unsupported operation, {0}")]
     OperationNotSupported(UnsupportedOperationError),
 
-    #[error("Key algorithm does not match encrypted data type")]
-    WrongKeyType,
+    #[error("Key algorithm {key_algorithm:?} does not match data algorithm {data_algorithm:?}")]
+    WrongKeyType {
+        key_algorithm: String,
+        data_algorithm: String,
+    },
 
-    #[error("Key ID in the COSE Encrypt0 message does not match the key ID in the key")]
-    WrongCoseKeyId,
+    #[error(
+        "Key ID ({message_key_id} in the COSE Encrypt0 message does not match the key ID in the key ({key_key_id})"
+    )]
+    WrongCoseKeyId {
+        message_key_id: B64,
+        key_key_id: B64,
+    },
 
     #[error("Invalid nonce length")]
     InvalidNonceLength,

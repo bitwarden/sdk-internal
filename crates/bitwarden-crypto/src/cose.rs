@@ -3,6 +3,7 @@
 //! unless there is a a clear benefit, such as a clear cryptographic benefit, which MUST
 //! be documented publicly.
 
+use bitwarden_encoding::B64;
 use coset::{
     CborSerializable, ContentType, Header, Label,
     iana::{self, CoapContentFormat},
@@ -95,14 +96,20 @@ pub(crate) fn decrypt_xchacha20_poly1305(
     };
 
     if *alg != coset::Algorithm::PrivateUse(XCHACHA20_POLY1305) {
-        return Err(CryptoError::WrongKeyType);
+        return Err(CryptoError::WrongKeyType {
+            key_algorithm: "XChaCha20Poly1305".to_string(),
+            data_algorithm: format!("{alg:?}"),
+        });
     }
 
     let content_format = ContentFormat::try_from(&msg.protected.header)
         .map_err(|_| CryptoError::EncString(EncStringParseError::CoseMissingContentType))?;
 
     if key.key_id != *msg.protected.header.key_id {
-        return Err(CryptoError::WrongCoseKeyId);
+        return Err(CryptoError::WrongCoseKeyId {
+            message_key_id: B64::from(msg.protected.header.key_id.as_ref()),
+            key_key_id: B64::from(key.key_id.as_ref()),
+        });
     }
 
     let decrypted_message = msg.decrypt(&[], |data, aad| {
@@ -402,7 +409,7 @@ mod test {
         };
         assert!(matches!(
             decrypt_xchacha20_poly1305(&serialized_message, &key),
-            Err(CryptoError::WrongKeyType)
+            Err(CryptoError::WrongKeyType { key_algorithm, data_algorithm: _}) if key_algorithm == "XChaCha20Poly1305"
         ));
     }
 }

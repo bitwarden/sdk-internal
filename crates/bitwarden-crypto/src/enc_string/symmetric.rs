@@ -280,6 +280,14 @@ impl EncString {
             EncString::Cose_Encrypt0_B64 { .. } => 7,
         }
     }
+
+    const fn enc_type_name(&self) -> &'static str {
+        match self {
+            EncString::Aes256Cbc_B64 { .. } => "Aes256Cbc_B64",
+            EncString::Aes256Cbc_HmacSha256_B64 { .. } => "Aes256Cbc_HmacSha256_B64",
+            EncString::Cose_Encrypt0_B64 { .. } => "Cose_Encrypt0_B64",
+        }
+    }
 }
 
 impl KeyEncryptableWithContentType<SymmetricCryptoKey, EncString> for &[u8] {
@@ -318,7 +326,10 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                     crate::cose::decrypt_xchacha20_poly1305(data.as_slice(), key)?;
                 Ok(decrypted_message)
             }
-            _ => Err(CryptoError::WrongKeyType),
+            _ => Err(CryptoError::WrongKeyType {
+                key_algorithm: format!("{}", key.enc_type_name()),
+                data_algorithm: format!("{}", self.enc_type_name()),
+            }),
         }
     }
 }

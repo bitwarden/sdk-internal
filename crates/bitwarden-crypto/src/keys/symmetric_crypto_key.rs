@@ -230,6 +230,15 @@ impl SymmetricCryptoKey {
     pub fn to_base64(&self) -> B64 {
         B64::from(self.to_encoded().as_ref())
     }
+
+    /// Returns the encryption type as used in the header of encstrings for this key
+    pub fn enc_type_name(&self) -> &'static str {
+        match self {
+            SymmetricCryptoKey::Aes256CbcKey(_) => "Aes256Cbc_B64",
+            SymmetricCryptoKey::Aes256CbcHmacKey(_) => "Aes256Cbc_HmacSha256_B64",
+            SymmetricCryptoKey::XChaCha20Poly1305Key(_) => "Cose_Encrypt0_B64",
+        }
+    }
 }
 
 impl ConstantTimeEq for SymmetricCryptoKey {
