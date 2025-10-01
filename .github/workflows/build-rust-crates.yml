@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   build:
-    name: Building ${{matrix.package}} for - ${{ matrix.os }}
+    name: Building all crates for - ${{ matrix.os }}
 
     runs-on: ${{ matrix.os || 'ubuntu-24.04' }}
 
@@ -26,14 +26,6 @@ jobs:
           - macos-14
           - ubuntu-24.04
           - windows-2022
-
-        package:
-          - bitwarden-api-api
-          - bitwarden-api-identity
-          - bitwarden-core
-          - bitwarden-crypto
-          - bitwarden-generators
-          - bitwarden-sm
 
     steps:
       - name: Checkout
@@ -47,8 +39,22 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
 
-      - name: Build
-        run: cargo build -p ${{ matrix.package }} --release
+      - name: Build packages
+        shell: pwsh
+        run: |
+          # Get all directories in the crates folder
+          $packages = Get-ChildItem -Path "crates" -Directory | Select-Object -ExpandProperty Name
+
+          Write-Host "Found packages: $($packages -join ', ')"
+
+          foreach ($package in $packages) {
+            Write-Host "Building package: $package"
+            cargo build -p $package
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "Failed to build $package"
+              exit $LASTEXITCODE
+            }
+          }
         env:
           RUSTFLAGS: "-D warnings"
 
@@ -70,6 +76,10 @@ jobs:
         uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
 
       - name: Install cargo-release
+        run: cargo install cargo-release
+
+      - name: Cargo release dry run
+        run: cargo-release release publish --no-publish -p bitwarden-api-api -p bitwarden-api-identity -p bitwarden
         run: cargo install cargo-release
 
       - name: Cargo release dry run
