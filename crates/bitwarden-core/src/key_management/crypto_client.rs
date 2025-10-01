@@ -26,9 +26,9 @@ use crate::{
     client::encryption_settings::EncryptionSettingsError,
     error::StatefulCryptoError,
     key_management::crypto::{
-        CryptoClientError, EnrollPinResponse, UpdateKdfResponse, UserCryptoV2KeysResponse,
-        enroll_pin, get_v2_rotated_account_keys, make_update_kdf, make_update_password,
-        make_v2_keys_for_v1_user,
+        CryptoClientError, EnrollPinResponse, RotateableKeySet, UpdateKdfResponse,
+        UserCryptoV2KeysResponse, derive_prf_key, enroll_pin, get_v2_rotated_account_keys,
+        make_update_kdf, make_update_password, make_v2_keys_for_v1_user,
     },
 };
 
@@ -170,6 +170,13 @@ impl CryptoClient {
         encrypted_pin: EncString,
     ) -> Result<EncString, CryptoClientError> {
         derive_pin_user_key(&self.client, encrypted_pin)
+    }
+
+    /// Generates a PRF-protected user key from the provided PRF secret. The result can be stored
+    /// and later used to initialize another client instance by using the PRF and the PRF key
+    /// with `initialize_user_crypto`.
+    pub fn derive_prf_key(&self, prf: B64) -> Result<RotateableKeySet, CryptoClientError> {
+        derive_prf_key(&self.client, prf)
     }
 
     /// Prepares the account for being enrolled in the admin password reset feature. This encrypts
