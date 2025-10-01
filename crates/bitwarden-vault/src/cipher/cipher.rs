@@ -1,6 +1,9 @@
 use bitwarden_api_api::{
-    apis::ciphers_api::PutShareError,
-    models::{CipherDetailsResponseModel, CipherRequestModel, CipherResponseModel},
+    apis::ciphers_api::{PutShareError, PutShareManyError},
+    models::{
+        CipherDetailsResponseModel, CipherRequestModel, CipherResponseModel,
+        CipherWithIdRequestModel,
+    },
 };
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
@@ -58,7 +61,9 @@ pub enum CipherError {
     #[error("This cipher cannot be moved to the specified organization")]
     OrganizationAlreadySet,
     #[error(transparent)]
-    ApiShareError(#[from] bitwarden_api_api::apis::Error<PutShareError>),
+    PutShare(#[from] bitwarden_api_api::apis::Error<PutShareError>),
+    #[error(transparent)]
+    PutShareMany(#[from] bitwarden_api_api::apis::Error<PutShareManyError>),
     #[error(transparent)]
     Repository(#[from] RepositoryError),
 }
@@ -118,6 +123,71 @@ pub struct EncryptionContext {
     /// Organization-owned ciphers
     pub encrypted_for: UserId,
     pub cipher: Cipher,
+}
+
+impl From<EncryptionContext> for CipherWithIdRequestModel {
+    fn from(
+        EncryptionContext {
+            cipher,
+            encrypted_for,
+        }: EncryptionContext,
+    ) -> Self {
+        Self {
+            id: require!(cipher.id).into(),
+            encrypted_for: Some(encrypted_for.into()),
+            r#type: Some(cipher.r#type.into()),
+            organization_id: cipher.organization_id.map(|o| o.to_string()),
+            folder_id: cipher.folder_id.as_ref().map(ToString::to_string),
+            favorite: cipher.favorite.into(),
+            reprompt: Some(cipher.reprompt.into()),
+            key: cipher.key.map(|k| k.to_string()),
+            name: cipher.name.to_string(),
+            notes: cipher.notes.map(|n| n.to_string()),
+            fields: Some(
+                cipher
+                    .fields
+                    .into_iter()
+                    .flatten()
+                    .map(Into::into)
+                    .collect(),
+            ),
+            password_history: Some(
+                cipher
+                    .password_history
+                    .into_iter()
+                    .flatten()
+                    .map(Into::into)
+                    .collect(),
+            ),
+            attachments: None,
+            attachments2: Some(
+                cipher
+                    .attachments
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|a| {
+                        a.id.map(|id| {
+                            (
+                                id,
+                                bitwarden_api_api::models::CipherAttachmentModel {
+                                    file_name: a.file_name.map(|n| n.to_string()),
+                                    key: a.key.map(|k| k.to_string()),
+                                },
+                            )
+                        })
+                    })
+                    .collect(),
+            ),
+            login: cipher.login.map(|l| Box::new(l.into())),
+            card: cipher.card.map(|c| Box::new(c.into())),
+            identity: cipher.identity.map(|i| Box::new(i.into())),
+            secure_note: cipher.secure_note.map(|s| Box::new(s.into())),
+            ssh_key: cipher.ssh_key.map(|s| Box::new(s.into())),
+            data: None, // TODO: Consume this instead of the individual fields above.
+            last_known_revision_date: Some(cipher.revision_date.to_rfc3339()),
+            archived_date: cipher.archived_date.map(|d| d.to_rfc3339()),
+        }
+    }
 }
 
 impl From<EncryptionContext> for CipherRequestModel {

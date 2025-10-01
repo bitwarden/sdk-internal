@@ -17,6 +17,8 @@ use crate::{
     DecryptError, EncryptError, Fido2CredentialFullView,
 };
 
+mod share_cipher;
+
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CiphersClient {
@@ -187,81 +189,6 @@ impl CiphersClient {
             .platform()
             .state()
             .get_client_managed::<Cipher>()?)
-    }
-}
-
-impl CiphersClient {
-    #[allow(missing_docs)]
-    /// Share a cipher with an organization and collections.
-    pub async fn share_cipher(
-        &self,
-        mut cipher_view: CipherView,
-        organization_id: &OrganizationId,
-        collection_ids: Vec<CollectionId>,
-        // user_id: &UserId,
-        original_cipher: Option<&Cipher>,
-    ) -> Result<Cipher, CipherError> {
-        if self
-            .client
-            .internal
-            .get_flags()
-            .enable_cipher_key_encryption
-        {
-            if cipher_view.organization_id.is_some() {
-                return Err(CipherError::OrganizationAlreadySet);
-            }
-
-            cipher_view = self.move_to_organization(cipher_view, *organization_id)?;
-
-            // TODO: In the client logic, this currently replaces collection_ids rather than
-            // appending. Confirm this is the desired behavior - do we want to append or
-            // replace?
-            cipher_view.collection_ids = collection_ids.clone();
-        } else {
-            if let Some(attachments) = cipher_view.attachments.as_mut() {
-                for attachment in attachments {
-                    if attachment.key.is_none() {
-                        todo!("Share attachment with server. Blocked by PM-25820")
-                    }
-                }
-            }
-            cipher_view.organization_id = Some(*organization_id);
-            cipher_view.collection_ids = collection_ids.clone();
-        }
-
-        let cipher_id = cipher_view
-            .id
-            .map(Into::<Uuid>::into)
-            .ok_or(MissingFieldError("id"))?;
-
-        let encrypted_cipher = self.encrypt(cipher_view)?;
-
-        let req = CipherShareRequestModel::new(
-            collection_ids
-                .iter()
-                .map(<CollectionId as ToString>::to_string)
-                .collect(),
-            encrypted_cipher.into(),
-        );
-        let api_client = &self
-            .client
-            .internal
-            .get_api_configurations()
-            .await
-            .api_client;
-
-        let response = api_client
-            .ciphers_api()
-            .put_share(cipher_id, Some(req))
-            .await?;
-
-        let new_cipher: Cipher = response.try_into()?;
-
-        self.get_repository()?
-            .set(cipher_id.to_string(), new_cipher.clone())
-            .await?;
-
-        Ok(new_cipher)
     }
 }
 
