@@ -22,6 +22,6 @@ members = ["*"]
 exclude = [".cargo", "src", "target"]
 
 [workspace.dependencies]
-clippy_utils = { git = "https://github.com/rust-lang/rust-clippy", rev = "334fb906aef13d20050987b13448f37391bb97a2" }
+clippy_utils = { git = "https://github.com/rust-lang/rust-clippy", rev = "12e0c4c637de04554ed9fab514e0ce37bc815af2" }
 dylint_linting = "4.1.0"
 dylint_testing = "4.1.0"
