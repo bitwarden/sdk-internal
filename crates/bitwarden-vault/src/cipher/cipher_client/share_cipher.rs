@@ -33,7 +33,12 @@ impl CiphersClient {
             if let Some(attachments) = cipher_view.attachments.as_mut() {
                 for attachment in attachments {
                     if attachment.key.is_none() {
-                        todo!("Share attachment with server. Blocked by PM-25820")
+                        self.share_cipher_attachment(
+                            attachment,
+                            require!(cipher_view.id),
+                            organization_id,
+                            collection_ids,
+                        );
                     }
                 }
             }
@@ -95,10 +100,10 @@ impl CiphersClient {
 
     async fn share_cipher_attachment(
         &self,
-        attachmentView: AttachmentView,
-        cipherId: &CipherId,
-        organizationId: &OrganizationId,
-        collectionIds: Vec<CollectionId>,
+        attachment_view: &AttachmentView,
+        cipher_id: &CipherId,
+        organization_id: &OrganizationId,
+        collection_ids: &Vec<CollectionId>,
     ) -> Result<(), CipherError> {
         let api_client = &self
             .client
@@ -106,8 +111,31 @@ impl CiphersClient {
             .get_api_configurations()
             .await
             .api_client;
-        let attachment = api_client.ciphers_api().get_attachment_data(id, attachment_id)
-        unimplemented!()
+        let url = attachment_view
+            .url
+            .as_ref()
+            .ok_or(MissingFieldError("url"))?;
+        // TODO: Handle this properly
+        let data = reqwest::get(url).await.unwrap().bytes().await.unwrap();
+
+        unimplemented!();
+        // TODO: Get user key
+        // let userKey = self.client.internal.get_user_key()?;
+        // TODO: Decrypt data with user key
+        // TODO: Get new org key for encrypting
+        // TODO: Re-encrypt data with org key
+        // TODO: Send to service
+
+        let _result = api_client
+            .ciphers_api()
+            .post_attachment_share(
+                &cipher_id.to_string(),
+                require!(attachment_view.id),
+                Some((*organization_id).into()),
+            )
+            .await
+            .unwrap();
+        Ok(())
     }
 
     #[allow(missing_docs)]
@@ -226,16 +254,5 @@ impl CiphersClient {
             .set(require!(cipher.id).to_string(), cipher.clone())
             .await?;
         Ok(())
-    }
-
-    #[allow(missing_docs)]
-    pub async fn share_cipher_attachment(
-        &self,
-        _cipher: &Cipher,
-        _attachment_id: &str,
-        _organization_id: &OrganizationId,
-        _collection_ids: Vec<CollectionId>,
-    ) -> Result<(), CipherError> {
-        unimplemented!()
     }
 }
