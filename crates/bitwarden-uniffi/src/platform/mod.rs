@@ -5,7 +5,6 @@ use std::sync::Arc;
 use bitwarden_core::{Client, platform::FingerprintRequest};
 use bitwarden_fido::ClientFido2Ext;
 use bitwarden_state::DatabaseConfiguration;
-use bitwarden_vault::Cipher;
 use repository::{UniffiRepositoryBridge, create_uniffi_repositories};
 
 use crate::error::Result;
@@ -65,17 +64,6 @@ impl StateClient {
 
     pub fn register_client_managed_repositories(&self, repositories: Repositories) {
         repositories.register_all(&self.0.platform().state());
-    }
-
-    pub async fn test(&self) -> String {
-        let s = self
-            .0
-            .platform()
-            .state()
-            .get_client_managed::<Cipher>()
-            .expect("msg");
-
-        s.list().await.expect("msg").len().to_string()
     }
 
     /// Initialize the database for SDK managed repositories.
