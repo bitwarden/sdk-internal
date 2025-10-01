@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use bitwarden_state::{
+    DatabaseConfiguration,
     registry::{RepositoryNotFoundError, StateRegistryError},
     repository::{Repository, RepositoryItem, RepositoryMigrations},
-    DatabaseConfiguration,
 };
 
 use crate::Client;

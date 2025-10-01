@@ -5,8 +5,8 @@ use credential_exchange_format::{
 };
 
 use crate::{
-    cxf::editable_field::{create_editable_field, create_field},
     Field, Identity,
+    cxf::editable_field::{create_editable_field, create_field},
 };
 
 /// Convert address credentials to Identity (no custom fields needed for address)

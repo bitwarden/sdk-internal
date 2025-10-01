@@ -10,7 +10,7 @@ use bitwarden_error::bitwarden_error;
 use chrono::{DateTime, Utc};
 use data_encoding::BASE32_NOPAD;
 use hmac::{Hmac, Mac};
-use percent_encoding::{percent_decode_str, percent_encode, NON_ALPHANUMERIC};
+use percent_encoding::{NON_ALPHANUMERIC, percent_decode_str, percent_encode};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -376,9 +376,9 @@ mod tests {
 
     use super::*;
     use crate::{
+        CipherRepromptType,
         cipher::cipher::{CipherListViewType, CopyableCipherFields},
         login::LoginListView,
-        CipherRepromptType,
     };
 
     #[test]
@@ -693,14 +693,18 @@ mod tests {
         let uri = original.to_string();
         let parsed = Totp::from_str(&uri).unwrap();
 
-        assert!(parsed
-            .account
-            .unwrap()
-            .eq_ignore_ascii_case(&original.account.unwrap()));
-        assert!(parsed
-            .issuer
-            .unwrap()
-            .eq_ignore_ascii_case(&original.issuer.unwrap()));
+        assert!(
+            parsed
+                .account
+                .unwrap()
+                .eq_ignore_ascii_case(&original.account.unwrap())
+        );
+        assert!(
+            parsed
+                .issuer
+                .unwrap()
+                .eq_ignore_ascii_case(&original.issuer.unwrap())
+        );
         assert_eq!(parsed.algorithm, original.algorithm);
         assert_eq!(parsed.digits, original.digits);
         assert_eq!(parsed.period, original.period);

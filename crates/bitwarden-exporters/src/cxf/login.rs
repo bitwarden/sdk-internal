@@ -4,7 +4,7 @@
 //! [PasskeyCredential].
 
 use bitwarden_core::MissingFieldError;
-use bitwarden_fido::{string_to_guid_bytes, InvalidGuidError};
+use bitwarden_fido::{InvalidGuidError, string_to_guid_bytes};
 use bitwarden_vault::{FieldType, Totp, TotpAlgorithm};
 use chrono::{DateTime, Utc};
 use credential_exchange_format::{
@@ -25,7 +25,7 @@ fn convert_otp_algorithm(algorithm: &OTPHashAlgorithm) -> TotpAlgorithm {
         OTPHashAlgorithm::Sha1 => TotpAlgorithm::Sha1,
         OTPHashAlgorithm::Sha256 => TotpAlgorithm::Sha256,
         OTPHashAlgorithm::Sha512 => TotpAlgorithm::Sha512,
-        OTPHashAlgorithm::Unknown(ref algo) if algo == "steam" => TotpAlgorithm::Steam,
+        OTPHashAlgorithm::Unknown(algo) if algo == "steam" => TotpAlgorithm::Steam,
         OTPHashAlgorithm::Unknown(_) | _ => TotpAlgorithm::Sha1, /* Default to SHA1 for unknown
                                                                   * algorithms */
     }

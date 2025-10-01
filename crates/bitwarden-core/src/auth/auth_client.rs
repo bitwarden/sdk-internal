@@ -6,31 +6,31 @@ use bitwarden_crypto::{
 use bitwarden_encoding::B64;
 
 #[cfg(feature = "secrets")]
-use crate::auth::login::{login_access_token, AccessTokenLoginRequest, AccessTokenLoginResponse};
+use crate::auth::login::{AccessTokenLoginRequest, AccessTokenLoginResponse, login_access_token};
+use crate::{
+    Client,
+    auth::{login::LoginError, renew::renew_token},
+};
 #[cfg(feature = "internal")]
 use crate::{
     auth::{
-        auth_request::{approve_auth_request, new_auth_request, ApproveAuthRequestError},
-        key_connector::{make_key_connector_keys, KeyConnectorResponse},
+        AuthRequestResponse, AuthValidateError, RegisterKeyResponse,
+        auth_request::{ApproveAuthRequestError, approve_auth_request, new_auth_request},
+        key_connector::{KeyConnectorResponse, make_key_connector_keys},
         login::{
-            login_api_key, login_password, send_two_factor_email, ApiKeyLoginRequest,
-            ApiKeyLoginResponse, NewAuthRequestResponse, PasswordLoginRequest,
+            ApiKeyLoginRequest, ApiKeyLoginResponse, NewAuthRequestResponse, PasswordLoginRequest,
             PasswordLoginResponse, PreloginError, TwoFactorEmailError, TwoFactorEmailRequest,
+            login_api_key, login_password, send_two_factor_email,
         },
         password::{
-            password_strength, satisfies_policy, validate_password, validate_password_user_key,
-            MasterPasswordPolicyOptions,
+            MasterPasswordPolicyOptions, password_strength, satisfies_policy, validate_password,
+            validate_password_user_key,
         },
         pin::validate_pin,
         register::make_register_keys,
-        tde::{make_register_tde_keys, RegisterTdeKeyResponse},
-        AuthRequestResponse, AuthValidateError, RegisterKeyResponse,
+        tde::{RegisterTdeKeyResponse, make_register_tde_keys},
     },
     client::encryption_settings::EncryptionSettingsError,
-};
-use crate::{
-    auth::{login::LoginError, renew::renew_token},
-    Client,
 };
 
 #[allow(missing_docs)]

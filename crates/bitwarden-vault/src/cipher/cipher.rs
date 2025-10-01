@@ -1,8 +1,9 @@
 use bitwarden_api_api::models::CipherDetailsResponseModel;
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
+    MissingFieldError, OrganizationId, UserId,
     key_management::{KeyIds, SymmetricKeyId},
-    require, MissingFieldError, OrganizationId, UserId,
+    require,
 };
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
@@ -29,8 +30,8 @@ use super::{
     secure_note, ssh_key,
 };
 use crate::{
-    password_history, EncryptError, Fido2CredentialFullView, Fido2CredentialView, FolderId, Login,
-    LoginView, VaultParseError,
+    EncryptError, Fido2CredentialFullView, Fido2CredentialView, FolderId, Login, LoginView,
+    VaultParseError, password_history,
 };
 
 uuid_newtype!(pub CipherId);
@@ -45,7 +46,9 @@ pub enum CipherError {
     Crypto(#[from] CryptoError),
     #[error(transparent)]
     Encrypt(#[from] EncryptError),
-    #[error("This cipher contains attachments without keys. Those attachments will need to be reuploaded to complete the operation")]
+    #[error(
+        "This cipher contains attachments without keys. Those attachments will need to be reuploaded to complete the operation"
+    )]
     AttachmentsWithoutKeys,
 }
 
@@ -803,7 +806,7 @@ mod tests {
     use bitwarden_crypto::SymmetricCryptoKey;
 
     use super::*;
-    use crate::{login::Fido2CredentialListView, Fido2Credential};
+    use crate::{Fido2Credential, login::Fido2CredentialListView};
 
     fn generate_cipher() -> CipherView {
         let test_id = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
@@ -1060,9 +1063,10 @@ mod tests {
 
         // Check that the cipher key can be unwrapped with the new key
         assert!(cipher.key.is_some());
-        assert!(ctx
-            .unwrap_symmetric_key(new_key_id, new_key_id, &cipher.key.unwrap())
-            .is_ok());
+        assert!(
+            ctx.unwrap_symmetric_key(new_key_id, new_key_id, &cipher.key.unwrap())
+                .is_ok()
+        );
     }
 
     #[test]
@@ -1146,9 +1150,11 @@ mod tests {
         cipher.attachments = Some(vec![attachment]);
 
         // Neither cipher nor attachment have keys, so the cipher can't be moved
-        assert!(cipher
-            .move_to_organization(&mut key_store.context(), org)
-            .is_err());
+        assert!(
+            cipher
+                .move_to_organization(&mut key_store.context(), org)
+                .is_err()
+        );
     }
 
     #[test]

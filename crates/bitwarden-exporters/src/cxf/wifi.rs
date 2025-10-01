@@ -1,6 +1,6 @@
 use credential_exchange_format::WifiCredential;
 
-use crate::{cxf::editable_field::create_field, Field};
+use crate::{Field, cxf::editable_field::create_field};
 
 /// Convert WiFi credentials to custom fields following the CXF mapping convention
 pub(super) fn wifi_to_fields(wifi: &WifiCredential) -> Vec<Field> {

@@ -3,9 +3,9 @@ use bitwarden_core::Client;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    passphrase::passphrase, password::password, username::username, PassphraseError,
-    PassphraseGeneratorRequest, PasswordError, PasswordGeneratorRequest, UsernameError,
-    UsernameGeneratorRequest,
+    PassphraseError, PassphraseGeneratorRequest, PasswordError, PasswordGeneratorRequest,
+    UsernameError, UsernameGeneratorRequest, passphrase::passphrase, password::password,
+    username::username,
 };
 
 #[allow(missing_docs)]

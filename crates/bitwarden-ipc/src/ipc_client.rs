@@ -7,6 +7,7 @@ use thiserror::Error;
 use tokio::{select, sync::RwLock};
 
 use crate::{
+    RpcHandler,
     constants::CHANNEL_BUFFER_CAPACITY,
     endpoint::Endpoint,
     message::{
@@ -17,12 +18,11 @@ use crate::{
         error::RpcError,
         exec::handler_registry::RpcHandlerRegistry,
         request::RpcRequest,
-        request_message::{RpcRequestMessage, RpcRequestPayload, RPC_REQUEST_PAYLOAD_TYPE_NAME},
+        request_message::{RPC_REQUEST_PAYLOAD_TYPE_NAME, RpcRequestMessage, RpcRequestPayload},
         response_message::{IncomingRpcResponseMessage, OutgoingRpcResponseMessage},
     },
     serde_utils,
     traits::{CommunicationBackend, CryptoProvider, SessionRepository},
-    RpcHandler,
 };
 
 /// An IPC client that handles communication between different components and clients.
@@ -448,7 +448,7 @@ mod tests {
     use crate::{
         endpoint::Endpoint,
         traits::{
-            tests::TestCommunicationBackend, InMemorySessionRepository, NoEncryptionCryptoProvider,
+            InMemorySessionRepository, NoEncryptionCryptoProvider, tests::TestCommunicationBackend,
         },
     };
 

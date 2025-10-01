@@ -1,6 +1,6 @@
 #![doc = include_str!("../README.md")]
 
-use base64::{engine::general_purpose::STANDARD, Engine};
+use base64::{Engine, engine::general_purpose::STANDARD};
 use bitwarden_cli::install_color_eyre;
 use clap::{CommandFactory, Parser};
 use clap_complete::Shell;
