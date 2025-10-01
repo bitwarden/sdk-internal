@@ -39,60 +39,82 @@ impl From<RepositoryError> for bitwarden_state::repository::RepositoryError {
 
 /// This macro creates a Uniffi repository trait and its implementation for the
 /// [bitwarden_state::repository::Repository] trait
-macro_rules! create_uniffi_repository {
-    ($name:ident, $ty:ty) => {
-        #[uniffi::export(with_foreign)]
-        #[async_trait::async_trait]
-        pub trait $name: Send + Sync {
-            async fn get(
-                &self,
-                id: String,
-            ) -> Result<Option<$ty>, $crate::platform::repository::RepositoryError>;
-            async fn list(&self)
-            -> Result<Vec<$ty>, $crate::platform::repository::RepositoryError>;
-            async fn set(
-                &self,
-                id: String,
-                value: $ty,
-            ) -> Result<(), $crate::platform::repository::RepositoryError>;
-            async fn remove(
-                &self,
-                id: String,
-            ) -> Result<(), $crate::platform::repository::RepositoryError>;
+macro_rules! create_uniffi_repositories {
+    ( $container_name:ident ; $( $type_name:ty : $field_name:ident, $typescript_ty:literal, $repo_name:ident );+ $(;)? ) => {
 
-            async fn has(
-                &self,
-                id: String,
-            ) -> Result<bool, $crate::platform::repository::RepositoryError>;
+        #[derive(::uniffi::Record)]
+        pub struct $container_name {
+            $(
+                pub $field_name: Option<::std::sync::Arc<dyn $repo_name>>,
+            )+
         }
 
-        #[async_trait::async_trait]
-        impl bitwarden_state::repository::Repository<$ty>
-            for $crate::platform::repository::UniffiRepositoryBridge<Arc<dyn $name>>
-        {
-            async fn get(
-                &self,
-                key: String,
-            ) -> Result<Option<$ty>, bitwarden_state::repository::RepositoryError> {
-                self.0.get(key).await.map_err(Into::into)
-            }
-            async fn list(&self) -> Result<Vec<$ty>, bitwarden_state::repository::RepositoryError> {
-                self.0.list().await.map_err(Into::into)
-            }
-            async fn set(
-                &self,
-                key: String,
-                value: $ty,
-            ) -> Result<(), bitwarden_state::repository::RepositoryError> {
-                self.0.set(key, value).await.map_err(Into::into)
-            }
-            async fn remove(
-                &self,
-                key: String,
-            ) -> Result<(), bitwarden_state::repository::RepositoryError> {
-                self.0.remove(key).await.map_err(Into::into)
+        impl $container_name {
+            pub fn register_all(self, client: &bitwarden_core::platform::StateClient) {
+                $(
+                    if let Some(repo) = self.$field_name {
+                        let bridge = $crate::platform::repository::UniffiRepositoryBridge::new(repo);
+                        client.register_client_managed(bridge);
+                    }
+                )+
             }
         }
+
+        $(
+            #[::uniffi::export(with_foreign)]
+            #[::async_trait::async_trait]
+            pub trait $repo_name: Send + Sync {
+                async fn get(
+                    &self,
+                    id: String,
+                ) -> Result<Option<$type_name>, $crate::platform::repository::RepositoryError>;
+                async fn list(&self)
+                    -> Result<Vec<$type_name>, $crate::platform::repository::RepositoryError>;
+                async fn set(
+                    &self,
+                    id: String,
+                    value: $type_name,
+                ) -> Result<(), $crate::platform::repository::RepositoryError>;
+                async fn remove(
+                    &self,
+                    id: String,
+                ) -> Result<(), $crate::platform::repository::RepositoryError>;
+
+                async fn has(
+                    &self,
+                    id: String,
+                ) -> Result<bool, $crate::platform::repository::RepositoryError>;
+            }
+
+            #[async_trait::async_trait]
+            impl bitwarden_state::repository::Repository<$type_name>
+                for $crate::platform::repository::UniffiRepositoryBridge<Arc<dyn $repo_name>>
+            {
+                async fn get(
+                    &self,
+                    key: String,
+                ) -> Result<Option<$type_name>, bitwarden_state::repository::RepositoryError> {
+                    self.0.get(key).await.map_err(Into::into)
+                }
+                async fn list(&self) -> Result<Vec<$type_name>, bitwarden_state::repository::RepositoryError> {
+                    self.0.list().await.map_err(Into::into)
+                }
+                async fn set(
+                    &self,
+                    key: String,
+                    value: $type_name,
+                ) -> Result<(), bitwarden_state::repository::RepositoryError> {
+                    self.0.set(key, value).await.map_err(Into::into)
+                }
+                async fn remove(
+                    &self,
+                    key: String,
+                ) -> Result<(), bitwarden_state::repository::RepositoryError> {
+                    self.0.remove(key).await.map_err(Into::into)
+                }
+            }
+        )+
     };
 }
-pub(super) use create_uniffi_repository;
+
+pub(super) use create_uniffi_repositories;

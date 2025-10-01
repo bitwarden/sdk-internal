@@ -39,21 +39,20 @@ need to define some functions in `bitwarden-wasm-internal` and `bitwarden-uniffi
 applications to provide their `Repository` implementations. The implementations themselves will be
 very simple as we provide macros that take care of the brunt of the work.
 
-### Client-Managed State in WASM
+To add support for a new `Repository`, add it to the list defined at the end of
+`crates/bitwarden-pm/src/migrations.rs`.
 
-For WASM, we need to define a new `Repository` for our type and provide a function that will accept
-it. This is done in the file `crates/bitwarden-wasm-internal/src/platform/mod.rs`, you can check the
-provided example:
-
-```rust,ignore
-repository::create_wasm_repository!(CipherRepository, Cipher, "Repository<Cipher>");
-
-#[wasm_bindgen]
-impl StateClient {
-    pub fn register_cipher_repository(&self, store: CipherRepository) {
-        let store = store.into_channel_impl();
-        self.0.platform().state().register_client_managed(store)
-    }
+```rust
+macro_rules! create_client_managed_repositories {
+    ($container_name:ident, $macro:ident) => {
+        $macro! {
+            $container_name;
+            // List any SDK-managed repositories here. The format is:
+            // <full path to the item type>: <field name>, <typescript name> <name of the repository implementation>
+            ::bitwarden_vault::Cipher : cipher, "Repository<Cipher>", CipherRepository;
+            ::bitwarden_vault::Folder : folder, "Repository<Folder>", FolderRepository;
+        }
+    };
 }
 ```
 
@@ -90,30 +89,11 @@ export async function initializeState(
   stateClient: StateClient,
   stateProvider: StateProvider,
 ): Promise<void> {
-  await stateClient.register_cipher_repository(
-    new RepositoryRecord(userId, stateProvider, new CipherRecordMapper()),
+  stateClient.register_client_managed_repositories(
+    new Repositories(
+      new RepositoryRecord(userId, stateProvider, new CipherRecordMapper()),
+    ),
   );
-}
-```
-
-### Client-Managed State in UniFFI
-
-For UniFFI, we need to define a new `Repository` for our type and provide a function that will
-accept it. This is done in the file `crates/bitwarden-uniffi/src/platform/mod.rs`, you can check the
-provided example:
-
-```rust,ignore
-repository::create_uniffi_repository!(CipherRepository, Cipher);
-
-#[uniffi::export]
-impl StateClient {
-    pub fn register_cipher_repository(&self, store: Arc<dyn CipherRepository>) {
-        let store_internal = UniffiRepositoryBridge::new(store);
-        self.0
-            .platform()
-            .state()
-            .register_client_managed(store_internal)
-    }
 }
 ```
 
@@ -187,8 +167,8 @@ SDK. To add support for an SDK managed `Repository`, a new migration step needs 
 
 ### How to initialize SDK-Managed State
 
-Go to `crates/bitwarden-state-migrations/src/lib.rs` and add a line with your type, as shown below.
-In this example we're registering `Cipher` and `Folder` as SDK managed.
+Go to `crates/bitwarden-pm/src/migrations.rs` and add a line with your type, as shown below. In this
+example we're registering `Cipher` and `Folder` as SDK managed.
 
 ```rust,ignore
 /// Returns a list of all SDK-managed repository migrations.
