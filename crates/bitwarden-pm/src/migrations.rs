@@ -24,9 +24,9 @@ macro_rules! create_client_managed_repositories {
         $macro! {
             $container_name;
             // List any SDK-managed repositories here. The format is:
-            // <full path to the item type>: <field name>, <typescript name> <name of the repository implementation>
-            ::bitwarden_vault::Cipher : cipher, "Repository<Cipher>", CipherRepository;
-            ::bitwarden_vault::Folder : folder, "Repository<Folder>", FolderRepository;
+            // <fully qualified path to the item>, <item type idenfier>, <field name>, <name of the repository implementation>
+            ::bitwarden_vault::Cipher, Cipher, cipher, CipherRepository;
+            ::bitwarden_vault::Folder, Folder, folder, FolderRepository;
         }
     };
 }

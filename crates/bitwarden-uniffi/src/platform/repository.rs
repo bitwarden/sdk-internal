@@ -40,7 +40,7 @@ impl From<RepositoryError> for bitwarden_state::repository::RepositoryError {
 /// This macro creates a Uniffi repository trait and its implementation for the
 /// [bitwarden_state::repository::Repository] trait
 macro_rules! create_uniffi_repositories {
-    ( $container_name:ident ; $( $type_name:ty : $field_name:ident, $typescript_ty:literal, $repo_name:ident );+ $(;)? ) => {
+    ( $container_name:ident ; $( $qualified_type_name:ty, $type_name:ident, $field_name:ident, $repo_name:ident );+ $(;)? ) => {
 
         #[derive(::uniffi::Record)]
         pub struct $container_name {
@@ -67,13 +67,13 @@ macro_rules! create_uniffi_repositories {
                 async fn get(
                     &self,
                     id: String,
-                ) -> Result<Option<$type_name>, $crate::platform::repository::RepositoryError>;
+                ) -> Result<Option<$qualified_type_name>, $crate::platform::repository::RepositoryError>;
                 async fn list(&self)
-                    -> Result<Vec<$type_name>, $crate::platform::repository::RepositoryError>;
+                    -> Result<Vec<$qualified_type_name>, $crate::platform::repository::RepositoryError>;
                 async fn set(
                     &self,
                     id: String,
-                    value: $type_name,
+                    value: $qualified_type_name,
                 ) -> Result<(), $crate::platform::repository::RepositoryError>;
                 async fn remove(
                     &self,
@@ -87,22 +87,22 @@ macro_rules! create_uniffi_repositories {
             }
 
             #[async_trait::async_trait]
-            impl bitwarden_state::repository::Repository<$type_name>
+            impl bitwarden_state::repository::Repository<$qualified_type_name>
                 for $crate::platform::repository::UniffiRepositoryBridge<Arc<dyn $repo_name>>
             {
                 async fn get(
                     &self,
                     key: String,
-                ) -> Result<Option<$type_name>, bitwarden_state::repository::RepositoryError> {
+                ) -> Result<Option<$qualified_type_name>, bitwarden_state::repository::RepositoryError> {
                     self.0.get(key).await.map_err(Into::into)
                 }
-                async fn list(&self) -> Result<Vec<$type_name>, bitwarden_state::repository::RepositoryError> {
+                async fn list(&self) -> Result<Vec<$qualified_type_name>, bitwarden_state::repository::RepositoryError> {
                     self.0.list().await.map_err(Into::into)
                 }
                 async fn set(
                     &self,
                     key: String,
-                    value: $type_name,
+                    value: $qualified_type_name,
                 ) -> Result<(), bitwarden_state::repository::RepositoryError> {
                     self.0.set(key, value).await.map_err(Into::into)
                 }
