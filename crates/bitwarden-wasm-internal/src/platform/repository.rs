@@ -103,8 +103,8 @@ macro_rules! create_wasm_repositories {
             const REPOSITORIES_CUSTOM_TS_TYPE: &'static str = concat!(
                 "export interface ",
                 stringify!($container_name),
-                " {\n",
-                $( "    ", stringify!($field_name), ": ", $typescript_ty, " | null;\n", )+
+                "{\n",
+                $( stringify!($field_name), ": Repository<", stringify!($type_name), "> | null;\n", )+
                 "}\n"
             );
         };
