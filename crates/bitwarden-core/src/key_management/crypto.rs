@@ -594,9 +594,8 @@ pub(super) fn make_key_pair(user_key: B64) -> Result<MakeKeyPairResponse, Crypto
 /// and the `PublicKey` is protected by the `UserKey`. This setup allows:
 ///
 ///   - Access to `UserKey` by knowing the `ExternalKey`
-///   - Rotation to a `NewUserKey` by knowing the current `UserKey`,
-///     without needing access to the `ExternalKey`
-
+///   - Rotation to a `NewUserKey` by knowing the current `UserKey`, without needing access to the
+///     `ExternalKey`
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -612,6 +611,7 @@ pub struct RotateableKeySet {
 
 /// Create a set of keys to allow access to the user key via the provided
 /// symmetric wrapping key while allowing the user key to be rotated.
+#[allow(dead_code)]
 fn create_rotateable_key_set(
     client: &Client,
     wrapping_key: SymmetricCryptoKey,
@@ -1577,14 +1577,9 @@ mod tests {
     #[tokio::test]
     async fn test_rotateable_key_set() {
         let client = Client::new(None);
-        let original_user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        #[allow(deprecated)]
-        client
-            .internal
-            .get_key_store()
-            .context_mut()
-            .set_symmetric_key(SymmetricKeyId::User, original_user_key.clone())
-            .unwrap();
+
+        let original_user_key =
+            SymmetricCryptoKey::try_from(TEST_VECTOR_USER_KEY_V2_B64.to_string()).unwrap();
         initialize_user_crypto(
             &client,
             InitUserCryptoRequest {
