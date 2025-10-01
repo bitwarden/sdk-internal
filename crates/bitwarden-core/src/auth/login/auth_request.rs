@@ -5,13 +5,14 @@ use uuid::Uuid;
 
 use super::LoginError;
 use crate::{
+    ApiError, Client,
     auth::{
         api::{request::AuthRequestTokenRequest, response::IdentityTokenResponse},
         auth_request::new_auth_request,
     },
     client::{LoginMethod, UserLoginMethod},
     key_management::crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
-    require, ApiError, Client,
+    require,
 };
 
 #[allow(missing_docs)]

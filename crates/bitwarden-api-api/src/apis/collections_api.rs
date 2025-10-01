@@ -14,9 +14,9 @@ use async_trait::async_trait;
 #[cfg(feature = "mockall")]
 use mockall::automock;
 use reqwest;
-use serde::{de::Error as _, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error as _};
 
-use super::{configuration, Error};
+use super::{Error, configuration};
 use crate::{
     apis::{ContentType, ResponseContent},
     models,
@@ -248,8 +248,16 @@ impl CollectionsApi for CollectionsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CollectionResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CollectionResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::CollectionResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CollectionResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
@@ -301,8 +309,16 @@ impl CollectionsApi for CollectionsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CollectionResponseModelListResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CollectionResponseModelListResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::CollectionResponseModelListResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CollectionResponseModelListResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<GetAllError> =
@@ -357,8 +373,16 @@ impl CollectionsApi for CollectionsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CollectionAccessDetailsResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CollectionAccessDetailsResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::CollectionAccessDetailsResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CollectionAccessDetailsResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<GetDetailsError> =
@@ -414,8 +438,16 @@ impl CollectionsApi for CollectionsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CollectionAccessDetailsResponseModelListResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CollectionAccessDetailsResponseModelListResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::CollectionAccessDetailsResponseModelListResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CollectionAccessDetailsResponseModelListResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<GetManyWithDetailsError> =
@@ -463,8 +495,16 @@ impl CollectionsApi for CollectionsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CollectionDetailsResponseModelListResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CollectionDetailsResponseModelListResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::CollectionDetailsResponseModelListResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CollectionDetailsResponseModelListResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<GetUserError> =
@@ -519,8 +559,16 @@ impl CollectionsApi for CollectionsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `Vec&lt;models::SelectionReadOnlyResponseModel&gt;`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `Vec&lt;models::SelectionReadOnlyResponseModel&gt;`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `Vec&lt;models::SelectionReadOnlyResponseModel&gt;`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `Vec&lt;models::SelectionReadOnlyResponseModel&gt;`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<GetUsersError> =
@@ -575,8 +623,16 @@ impl CollectionsApi for CollectionsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CollectionResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CollectionResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::CollectionResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CollectionResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<PostError> = serde_json::from_str(&local_var_content).ok();
@@ -678,8 +734,16 @@ impl CollectionsApi for CollectionsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::CollectionResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CollectionResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::CollectionResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CollectionResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<PutError> = serde_json::from_str(&local_var_content).ok();

@@ -1,13 +1,13 @@
 use bitwarden_encoding::B64;
 use rsa::{
-    pkcs8::{EncodePrivateKey, EncodePublicKey},
     Oaep, RsaPrivateKey, RsaPublicKey,
+    pkcs8::{EncodePrivateKey, EncodePublicKey},
 };
 use sha1::Sha1;
 
 use crate::{
-    error::{Result, RsaError, UnsupportedOperationError},
     CryptoError, EncString, SymmetricCryptoKey,
+    error::{Result, RsaError, UnsupportedOperationError},
 };
 
 /// RSA Key Pair

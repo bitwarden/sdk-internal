@@ -3,20 +3,20 @@ use std::sync::Arc;
 use chrono::Utc;
 
 use super::login::LoginError;
+use crate::{
+    NotAuthenticatedError,
+    auth::api::{request::ApiTokenRequest, response::IdentityTokenResponse},
+    client::{
+        LoginMethod, UserLoginMethod,
+        internal::{ClientManagedTokens, InternalClient, SdkManagedTokens, Tokens},
+    },
+};
 #[cfg(feature = "secrets")]
 use crate::{
     auth::api::request::AccessTokenRequest,
     client::ServiceAccountLoginMethod,
     key_management::SymmetricKeyId,
     secrets_manager::state::{self, ClientState},
-};
-use crate::{
-    auth::api::{request::ApiTokenRequest, response::IdentityTokenResponse},
-    client::{
-        internal::{ClientManagedTokens, InternalClient, SdkManagedTokens, Tokens},
-        LoginMethod, UserLoginMethod,
-    },
-    NotAuthenticatedError,
 };
 
 pub(crate) async fn renew_token(client: &InternalClient) -> Result<(), LoginError> {

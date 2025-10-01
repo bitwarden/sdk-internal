@@ -3,8 +3,8 @@ use bitwarden_api_api::models::{
 };
 use bitwarden_collections::{collection::Collection, error::CollectionsParseError};
 use bitwarden_core::{
-    client::encryption_settings::EncryptionSettingsError, require, Client, MissingFieldError,
-    OrganizationId, UserId,
+    Client, MissingFieldError, OrganizationId, UserId,
+    client::encryption_settings::EncryptionSettingsError, require,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;

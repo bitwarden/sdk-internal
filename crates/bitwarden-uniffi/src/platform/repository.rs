@@ -49,7 +49,7 @@ macro_rules! create_uniffi_repository {
                 id: String,
             ) -> Result<Option<$ty>, $crate::platform::repository::RepositoryError>;
             async fn list(&self)
-                -> Result<Vec<$ty>, $crate::platform::repository::RepositoryError>;
+            -> Result<Vec<$ty>, $crate::platform::repository::RepositoryError>;
             async fn set(
                 &self,
                 id: String,

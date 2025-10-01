@@ -1,7 +1,8 @@
 use bitwarden_api_api::models::CipherFieldModel;
 use bitwarden_core::{
+    MissingFieldError,
     key_management::{KeyIds, SymmetricKeyId},
-    require, MissingFieldError,
+    require,
 };
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, KeyStoreContext,

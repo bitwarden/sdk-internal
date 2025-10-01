@@ -2,7 +2,7 @@
 //! This module provides functions to serialize and deserialize IPC messages in one place,
 //! ensuring consistency and reducing code duplication across the IPC crate.
 
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 pub(crate) type SerializeError = serde_json::Error;
 pub(crate) type DeserializeError = serde_json::Error;

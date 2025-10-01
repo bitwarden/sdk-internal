@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use bitwarden_crypto::Kdf;
 
 #[cfg(feature = "secrets")]
-use crate::{auth::AccessToken, OrganizationId};
+use crate::{OrganizationId, auth::AccessToken};
 
 #[derive(Debug)]
 pub(crate) enum LoginMethod {
