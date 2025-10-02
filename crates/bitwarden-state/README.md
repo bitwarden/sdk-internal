@@ -89,9 +89,9 @@ export async function initializeState(
   stateClient: StateClient,
   stateProvider: StateProvider,
 ): Promise<void> {
-  stateClient.register_client_managed_repositories(
-    new Repositories(new RepositoryRecord(userId, stateProvider, new CipherRecordMapper())),
-  );
+  stateClient.register_client_managed_repositories({
+    cipher: new RepositoryRecord(userId, stateProvider, new CipherRecordMapper()),
+  });
 }
 ```
 
