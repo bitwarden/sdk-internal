@@ -6,6 +6,7 @@ use ciborium::value::Integer;
 use coset::{CborSerializable, ProtectedHeader, RegisteredLabel, iana::CoapContentFormat};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
 use tsify::Tsify;
 
 use crate::{
