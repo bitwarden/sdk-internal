@@ -620,9 +620,15 @@ mod tests {
         let mut edit_request =
             CipherEditRequest::try_from(create_test_login_cipher("new_password")).unwrap();
 
+        let start = Utc::now();
         let history = edit_request.generate_password_history(&original_cipher);
+        let end = Utc::now();
 
         assert_eq!(history.len(), 1);
+        assert!(
+            history[0].last_used_date > start && history[0].last_used_date < end,
+            "last_used_date was not set properly"
+        );
         assert_eq!(history[0].password, "old_password");
     }
 
