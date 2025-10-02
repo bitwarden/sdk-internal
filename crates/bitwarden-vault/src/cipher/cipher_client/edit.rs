@@ -357,6 +357,7 @@ mod tests {
     use bitwarden_core::key_management::SymmetricKeyId;
     use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricCryptoKey};
     use bitwarden_test::MemoryRepository;
+    use chrono::TimeZone;
 
     use super::*;
     use crate::{
@@ -634,6 +635,45 @@ mod tests {
         let password_history = edit_request.generate_password_history(&original_cipher);
 
         assert!(password_history.is_empty());
+    }
+
+    #[test]
+    fn test_password_history_is_preserved() {
+        let mut original_cipher = create_test_login_cipher("same_password");
+        original_cipher.password_history = Some(
+            (0..4)
+                .map(|i| PasswordHistoryView {
+                    password: format!("old_password_{}", i),
+                    last_used_date: Utc.with_ymd_and_hms(2025, i + 1, i + 1, i, i, i).unwrap(),
+                })
+                .collect(),
+        );
+
+        let mut edit_request =
+            CipherEditRequest::try_from(create_test_login_cipher("same_password")).unwrap();
+
+        let history = edit_request.generate_password_history(&original_cipher);
+
+        assert_eq!(history[0].password, "old_password_0");
+        assert_eq!(
+            history[0].last_used_date,
+            Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap()
+        );
+        assert_eq!(history[1].password, "old_password_1");
+        assert_eq!(
+            history[1].last_used_date,
+            Utc.with_ymd_and_hms(2025, 2, 2, 1, 1, 1).unwrap()
+        );
+        assert_eq!(history[2].password, "old_password_2");
+        assert_eq!(
+            history[2].last_used_date,
+            Utc.with_ymd_and_hms(2025, 3, 3, 2, 2, 2).unwrap()
+        );
+        assert_eq!(history[3].password, "old_password_3");
+        assert_eq!(
+            history[3].last_used_date,
+            Utc.with_ymd_and_hms(2025, 4, 4, 3, 3, 3).unwrap()
+        );
     }
 
     #[test]
