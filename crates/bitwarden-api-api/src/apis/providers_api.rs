@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait ProvidersApi: Send + Sync {
     /// DELETE /providers/{id}
     async fn delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error<DeleteError>>;
@@ -68,7 +69,8 @@ impl ProvidersApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl ProvidersApi for ProvidersApiClient {
     async fn delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error<DeleteError>> {
         let local_var_configuration = &self.configuration;

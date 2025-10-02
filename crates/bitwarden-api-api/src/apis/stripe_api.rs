@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait StripeApi: Send + Sync {
     /// POST /setup-intent/bank-account
     async fn create_setup_intent_for_bank_account(
@@ -52,7 +53,8 @@ impl StripeApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl StripeApi for StripeApiClient {
     async fn create_setup_intent_for_bank_account(
         &self,

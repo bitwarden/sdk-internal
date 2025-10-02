@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait PlansApi: Send + Sync {
     /// GET /plans
     async fn get(&self) -> Result<models::PlanResponseModelListResponseModel, Error<GetError>>;
@@ -39,7 +40,8 @@ impl PlansApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl PlansApi for PlansApiClient {
     async fn get(&self) -> Result<models::PlanResponseModelListResponseModel, Error<GetError>> {
         let local_var_configuration = &self.configuration;
