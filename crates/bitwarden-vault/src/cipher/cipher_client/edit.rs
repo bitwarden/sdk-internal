@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use bitwarden_api_api::models::CipherRequestModel;
 use bitwarden_core::{
-    key_management::{KeyIds, SymmetricKeyId},
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
+    key_management::{KeyIds, SymmetricKeyId},
 };
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, EncString, IdentifyKey, KeyStore, KeyStoreContext,
@@ -21,10 +21,10 @@ use wasm_bindgen::prelude::*;
 
 use super::CiphersClient;
 use crate::{
-    cipher_view_type::{CipherViewType, CipherViewTypeExt},
-    password_history::PasswordChange,
     AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldType,
     FieldView, FolderId, ItemNotFoundError, PasswordHistoryView, VaultParseError,
+    cipher_view_type::{CipherViewType, CipherViewTypeExt},
+    password_history::PasswordChange,
 };
 
 /// Maximum number of password history entries to retain
@@ -67,10 +67,7 @@ pub struct CipherEditRequest {
     pub name: String,
     pub notes: Option<String>,
     pub fields: Vec<FieldView>,
-    pub password_history: Option<Vec<PasswordHistoryView>>,
-    pub attachments: Option<Vec<AttachmentView>>,
-
-    pub type_data: Option<CipherViewType>,
+    pub r#type: CipherViewType,
     pub revision_date: DateTime<Utc>,
     pub archived_date: Option<DateTime<Utc>>,
     pub key: Option<EncString>,
@@ -97,9 +94,7 @@ impl TryFrom<CipherView> for CipherEditRequest {
             name: value.name,
             notes: value.notes,
             fields: value.fields.unwrap_or_default(),
-            password_history: value.password_history,
-            attachments: value.attachments,
-            type_data,
+            r#type: type_data,
             revision_date: value.revision_date,
             archived_date: value.archived_date,
         })
@@ -126,7 +121,7 @@ impl CipherEditRequest {
         &mut self,
         original_cipher: &CipherView,
     ) -> Vec<PasswordChange> {
-        if !matches!(self.type_data, Some(CipherViewType::Login(_)))
+        if !matches!(self.r#type, Some(CipherViewType::Login(_)))
             || original_cipher.r#type != CipherType::Login
         {
             return vec![];
@@ -134,7 +129,7 @@ impl CipherEditRequest {
 
         let (Some(original_login), Some(current_login)) = (
             original_cipher.login.as_ref(),
-            self.type_data.as_login_view_mut(),
+            self.r#type.as_login_view_mut(),
         ) else {
             return vec![];
         };
@@ -192,7 +187,7 @@ impl CipherEditRequest {
     }
 
     fn generate_checksums(&mut self) {
-        if let Some(login) = &mut self.type_data.as_login_view_mut() {
+        if let Some(login) = &mut self.r#type.as_login_view_mut() {
             login.generate_checksums();
         }
     }
@@ -212,7 +207,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
         let cipher_request = CipherRequestModel {
             encrypted_for: None,
             r#type: cipher_data
-                .type_data
+                .r#type
                 .as_ref()
                 .map(CipherViewType::get_cipher_type)
                 .map(<_ as Into<_>>::into),
@@ -246,52 +241,34 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
                     .collect(),
             ),
             attachments: None,
-            attachments2: Some(
-                cipher_data
-                    .attachments
-                    .encrypt_composite(ctx, cipher_key)?
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|a| {
-                        a.id.map(|id| {
-                            (
-                                id,
-                                bitwarden_api_api::models::CipherAttachmentModel {
-                                    file_name: a.file_name.map(|n| n.to_string()),
-                                    key: a.key.map(|k| k.to_string()),
-                                },
-                            )
-                        })
-                    })
-                    .collect(),
-            ),
+            attachments2: None,
             login: cipher_data
-                .type_data
+                .r#type
                 .as_login_view()
                 .map(|l| l.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|l| Box::new(l.into())),
             card: cipher_data
-                .type_data
+                .r#type
                 .as_card_view()
                 .map(|c| c.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|c| Box::new(c.into())),
             identity: cipher_data
-                .type_data
+                .r#type
                 .as_identity_view()
                 .map(|i| i.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|c| Box::new(c.into())),
 
             secure_note: cipher_data
-                .type_data
+                .r#type
                 .as_secure_note_view()
                 .map(|i| i.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|c| Box::new(c.into())),
             ssh_key: cipher_data
-                .type_data
+                .r#type
                 .as_ssh_key_view()
                 .map(|i| i.encrypt_composite(ctx, cipher_key))
                 .transpose()?

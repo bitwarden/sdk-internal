@@ -1,7 +1,8 @@
 use bitwarden_api_api::models::CipherRequestModel;
 use bitwarden_core::{
+    ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
     key_management::{KeyIds, SymmetricKeyId},
-    require, ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
+    require,
 };
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, EncString, IdentifyKey, KeyStore, KeyStoreContext,
@@ -18,8 +19,8 @@ use wasm_bindgen::prelude::*;
 
 use super::CiphersClient;
 use crate::{
-    cipher_view_type::{CipherViewType, CipherViewTypeExt},
     Cipher, CipherRepromptType, CipherView, FieldView, FolderId, VaultParseError,
+    cipher_view_type::{CipherViewType, CipherViewTypeExt},
 };
 
 #[allow(missing_docs)]

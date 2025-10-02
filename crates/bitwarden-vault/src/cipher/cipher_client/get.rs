@@ -5,7 +5,7 @@ use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
 
 use super::CiphersClient;
-use crate::{cipher::cipher::DecryptCipherListResult, Cipher, CipherView, ItemNotFoundError};
+use crate::{Cipher, CipherView, ItemNotFoundError, cipher::cipher::DecryptCipherListResult};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -32,7 +32,7 @@ async fn get_cipher(
     Ok(store.decrypt(&cipher)?)
 }
 
-async fn list_ciphers_with_failures(
+async fn list(
     store: &KeyStore<KeyIds>,
     repository: &dyn Repository<Cipher>,
 ) -> Result<DecryptCipherListResult, GetCipherError> {
@@ -48,11 +48,11 @@ impl CiphersClient {
     /// Get all ciphers from state and decrypt them, returning both successes and failures.
     /// This method will not fail when some ciphers fail to decrypt, allowing for graceful
     /// handling of corrupted or problematic cipher data.
-    pub async fn list_with_failures(&self) -> Result<DecryptCipherListResult, GetCipherError> {
+    pub async fn list(&self) -> Result<DecryptCipherListResult, GetCipherError> {
         let key_store = self.client.internal.get_key_store();
         let repository = self.get_repository()?;
 
-        list_ciphers_with_failures(key_store, repository.as_ref()).await
+        list(key_store, repository.as_ref()).await
     }
 
     /// Get [Cipher] by ID from state and decrypt it to a [CipherView].
