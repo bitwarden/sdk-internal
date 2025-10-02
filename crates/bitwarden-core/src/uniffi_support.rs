@@ -2,6 +2,7 @@
 
 use std::{num::NonZeroU32, str::FromStr};
 
+use bitwarden_crypto::safe::PasswordProtectedKeyEnvelope;
 use bitwarden_uniffi_error::convert_result;
 use uuid::Uuid;
 
@@ -31,5 +32,11 @@ uniffi::custom_type!(SignedSecurityState, String, {
     try_lift: |val| {
         convert_result(SignedSecurityState::from_str(&val))
     },
+    lower: |obj| obj.into(),
+});
+
+uniffi::custom_type!(PasswordProtectedKeyEnvelope, String, {
+    remote,
+    try_lift: |val| convert_result(PasswordProtectedKeyEnvelope::from_str(&val)),
     lower: |obj| obj.into(),
 });

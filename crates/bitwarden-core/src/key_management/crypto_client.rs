@@ -1,6 +1,6 @@
 use bitwarden_crypto::{CryptoError, Decryptable, Kdf};
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{EncString, UnsignedSharedKey};
+use bitwarden_crypto::{EncString, UnsignedSharedKey, safe::PasswordProtectedKeyEnvelope};
 use bitwarden_encoding::B64;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
