@@ -73,6 +73,18 @@ pub struct XChaCha20Poly1305Key {
     pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
 }
 
+impl XChaCha20Poly1305Key {
+    /// Creates a new XChaCha20Poly1305Key with a securely sampled cryptographic key and key id.
+    pub fn make() -> Self {
+        let mut rng = rand::thread_rng();
+        let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
+        rng.fill(enc_key.as_mut_slice());
+        let mut key_id = [0u8; KEY_ID_SIZE];
+        rng.fill(&mut key_id);
+        Self { enc_key, key_id }
+    }
+}
+
 impl ConstantTimeEq for XChaCha20Poly1305Key {
     fn ct_eq(&self, other: &Self) -> Choice {
         self.enc_key.ct_eq(&other.enc_key) & self.key_id.ct_eq(&other.key_id)

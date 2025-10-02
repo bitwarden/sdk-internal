@@ -12,7 +12,7 @@ use thiserror::Error;
 use typenum::U32;
 
 use crate::{
-    ContentFormat, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
+    ContentFormat, CoseEncrypt0Bytes, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
     content_format::{Bytes, ConstContentFormat, CoseContentFormat},
     error::{EncStringParseError, EncodingError},
     xchacha20,
@@ -40,13 +40,15 @@ const CONTENT_TYPE_SPKI_PUBLIC_KEY: &str = "application/x.bitwarden.spki-public-
 //
 /// The label used for the namespace ensuring strong domain separation when using signatures.
 pub(crate) const SIGNING_NAMESPACE: i64 = -80000;
+/// The label used for the namespace ensuring strong domain separation when using data envelopes.
+pub(crate) const DATA_ENVELOPE_NAMESPACE: i64 = -80001;
 
 /// Encrypts a plaintext message using XChaCha20Poly1305 and returns a COSE Encrypt0 message
 pub(crate) fn encrypt_xchacha20_poly1305(
     plaintext: &[u8],
     key: &crate::XChaCha20Poly1305Key,
     content_format: ContentFormat,
-) -> Result<Vec<u8>, CryptoError> {
+) -> Result<CoseEncrypt0Bytes, CryptoError> {
     let mut plaintext = plaintext.to_vec();
 
     let header_builder: coset::HeaderBuilder = content_format.into();
@@ -78,14 +80,15 @@ pub(crate) fn encrypt_xchacha20_poly1305(
     cose_encrypt0
         .to_vec()
         .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))
+        .map(CoseEncrypt0Bytes::from)
 }
 
 /// Decrypts a COSE Encrypt0 message, using a XChaCha20Poly1305 key
 pub(crate) fn decrypt_xchacha20_poly1305(
-    cose_encrypt0_message: &[u8],
+    cose_encrypt0_message: &CoseEncrypt0Bytes,
     key: &crate::XChaCha20Poly1305Key,
 ) -> Result<(Vec<u8>, ContentFormat), CryptoError> {
-    let msg = coset::CoseEncrypt0::from_slice(cose_encrypt0_message)
+    let msg = coset::CoseEncrypt0::from_slice(cose_encrypt0_message.as_ref())
         .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))?;
 
     let Some(ref alg) = msg.protected.header.alg else {
@@ -180,12 +183,16 @@ impl From<ContentFormat> for coset::HeaderBuilder {
             }
             ContentFormat::CoseSign1 => header_builder.content_format(CoapContentFormat::CoseSign1),
             ContentFormat::CoseKey => header_builder.content_format(CoapContentFormat::CoseKey),
+            ContentFormat::CoseEncrypt0 => {
+                header_builder.content_format(CoapContentFormat::CoseEncrypt0)
+            }
             ContentFormat::BitwardenLegacyKey => {
                 header_builder.content_type(CONTENT_TYPE_BITWARDEN_LEGACY_KEY.to_string())
             }
             ContentFormat::OctetStream => {
                 header_builder.content_format(CoapContentFormat::OctetStream)
             }
+            ContentFormat::Cbor => header_builder.content_format(CoapContentFormat::Cbor),
         }
     }
 }
@@ -211,6 +218,7 @@ impl TryFrom<&coset::Header> for ContentFormat {
             Some(ContentType::Assigned(CoapContentFormat::OctetStream)) => {
                 Ok(ContentFormat::OctetStream)
             }
+            Some(ContentType::Assigned(CoapContentFormat::Cbor)) => Ok(ContentFormat::Cbor),
             _ => Err(CryptoError::EncString(
                 EncStringParseError::CoseMissingContentType,
             )),
@@ -363,7 +371,9 @@ mod test {
             key_id: KEY_ID,
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
         };
-        let decrypted = decrypt_xchacha20_poly1305(TEST_VECTOR_COSE_ENCRYPT0, &key).unwrap();
+        let decrypted =
+            decrypt_xchacha20_poly1305(&CoseEncrypt0Bytes::from(TEST_VECTOR_COSE_ENCRYPT0), &key)
+                .unwrap();
         assert_eq!(
             decrypted,
             (TEST_VECTOR_PLAINTEXT.to_vec(), ContentFormat::OctetStream)
@@ -377,7 +387,7 @@ mod test {
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
         };
         assert!(matches!(
-            decrypt_xchacha20_poly1305(TEST_VECTOR_COSE_ENCRYPT0, &key),
+            decrypt_xchacha20_poly1305(&CoseEncrypt0Bytes::from(TEST_VECTOR_COSE_ENCRYPT0), &key),
             Err(CryptoError::WrongCoseKeyId)
         ));
     }
@@ -394,7 +404,7 @@ mod test {
             .create_ciphertext(&[], &[], |_, _| Vec::new())
             .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
             .build();
-        let serialized_message = cose_encrypt0.to_vec().unwrap();
+        let serialized_message = CoseEncrypt0Bytes::from(cose_encrypt0.to_vec().unwrap());
 
         let key = XChaCha20Poly1305Key {
             key_id: KEY_ID,
