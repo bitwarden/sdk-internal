@@ -87,7 +87,7 @@ impl DataEnvelope {
         let mut nonce = [0u8; xchacha20::NONCE_SIZE];
         let encrypt0 = coset::CoseEncrypt0Builder::new()
             .protected(protected_header)
-            .create_ciphertext(&serialized_message.as_bytes(), &[], |data, aad| {
+            .create_ciphertext(serialized_message.as_bytes(), &[], |data, aad| {
                 let ciphertext =
                     crate::xchacha20::encrypt_xchacha20_poly1305(&(*cek.enc_key).into(), data, aad);
                 nonce = ciphertext.nonce();
@@ -177,7 +177,8 @@ impl DataEnvelope {
             })
             .map_err(|_| DataEnvelopeError::DecryptionError)?;
 
-        let content_type = content_type(&msg.protected).unwrap();
+        let content_type =
+            content_type(&msg.protected).map_err(|_| DataEnvelopeError::DecryptionError)?;
         let serialized_message = SerializedMessage::from_bytes(decrypted_message, content_type);
         serialized_message.decode().map_err(|_| {
             DataEnvelopeError::DecodingError("Failed to decode serialized message".into())
@@ -258,9 +259,7 @@ impl FromStr for DataEnvelope {
         let data = B64::try_from(s).map_err(|_| {
             DataEnvelopeError::ParsingError("Invalid DataEnvelope Base64 encoding".to_string())
         })?;
-        Self::try_from(data.into_bytes()).map_err(|_| {
-            DataEnvelopeError::ParsingError("Failed to parse DataEnvelope".to_string())
-        })
+        Ok(Self::from(data.into_bytes()))
     }
 }
 
@@ -293,7 +292,7 @@ impl Serialize for DataEnvelope {
 impl std::fmt::Display for DataEnvelope {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let serialized: Vec<u8> = self.into();
-        write!(f, "{}", B64::from(serialized).to_string())
+        write!(f, "{}", B64::from(serialized))
     }
 }
 
