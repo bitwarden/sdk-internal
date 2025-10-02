@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use bitwarden_encoding::{B64, FromStrVisitor};
 use ciborium::value::Integer;
 #[allow(unused_imports)]
 use coset::{CborSerializable, ProtectedHeader, RegisteredLabel, iana::CoapContentFormat};
@@ -15,7 +16,6 @@ use crate::{
     safe::DataEnvelopeNamespace,
     xchacha20,
 };
-use bitwarden_encoding::{B64, FromStrVisitor};
 
 /// Marker trait for data that can be sealed in a `DataEnvelope`.
 pub trait SealableData {}
