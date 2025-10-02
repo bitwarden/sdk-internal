@@ -88,34 +88,19 @@ impl From<PasswordHistory> for CipherPasswordHistoryModel {
     }
 }
 
-/// Tracks password and sensitive field changes for history purposes.
-#[derive(Debug, Clone)]
-pub struct PasswordChange {
-    /// Display name for the changed item
-    display_name: String,
-    /// When this change occurred
-    changed_at: DateTime<Utc>,
-}
-
-impl PasswordChange {
+#[allow(missing_docs)]
+impl PasswordHistoryView {
     pub fn new_password(old_password: &str) -> Self {
         Self {
-            display_name: old_password.to_string(),
-            changed_at: Utc::now(),
+            password: old_password.to_string(),
+            last_used_date: Utc::now(),
         }
     }
 
     pub fn new_field(field_name: &str, old_value: &str) -> Self {
         Self {
-            display_name: format!("{field_name}: {old_value}"),
-            changed_at: Utc::now(),
-        }
-    }
-
-    pub fn into_history_entry(self) -> PasswordHistoryView {
-        PasswordHistoryView {
-            password: self.display_name,
-            last_used_date: self.changed_at,
+            password: format!("{field_name}: {old_value}"),
+            last_used_date: Utc::now(),
         }
     }
 }
