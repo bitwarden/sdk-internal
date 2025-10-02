@@ -10,7 +10,8 @@ use bitwarden_crypto::{
     AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
     KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, SignatureAlgorithm,
     SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey,
-    UserKey, dangerous_get_v2_rotated_account_keys, safe::PasswordProtectedKeyEnvelopeError,
+    UserKey, dangerous_get_v2_rotated_account_keys,
+    safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError},
 };
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
@@ -26,7 +27,6 @@ use crate::{
     key_management::{
         AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
         master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData},
-        non_generic_wrappers::PasswordProtectedKeyEnvelope,
     },
 };
 
@@ -412,12 +412,7 @@ pub(super) fn enroll_pin(
     let key_store = client.internal.get_key_store();
     let mut ctx = key_store.context_mut();
 
-    let key_envelope =
-        PasswordProtectedKeyEnvelope(bitwarden_crypto::safe::PasswordProtectedKeyEnvelope::seal(
-            SymmetricKeyId::User,
-            &pin,
-            &ctx,
-        )?);
+    let key_envelope = PasswordProtectedKeyEnvelope::seal(SymmetricKeyId::User, &pin, &ctx);
     let encrypted_pin = pin.encrypt(&mut ctx, SymmetricKeyId::User)?;
     Ok(EnrollPinResponse {
         pin_protected_user_key_envelope: key_envelope,

@@ -22,10 +22,6 @@ pub use crypto_client::CryptoClient;
 #[cfg(feature = "internal")]
 mod master_password;
 #[cfg(feature = "internal")]
-mod non_generic_wrappers;
-#[cfg(feature = "internal")]
-pub(crate) use non_generic_wrappers::*;
-#[cfg(feature = "internal")]
 mod security_state;
 #[cfg(feature = "internal")]
 mod user_decryption;
