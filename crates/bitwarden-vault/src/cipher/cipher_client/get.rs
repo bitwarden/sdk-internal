@@ -32,7 +32,7 @@ async fn get_cipher(
     Ok(store.decrypt(&cipher)?)
 }
 
-async fn list(
+async fn list_ciphers(
     store: &KeyStore<KeyIds>,
     repository: &dyn Repository<Cipher>,
 ) -> Result<DecryptCipherListResult, GetCipherError> {
@@ -52,7 +52,7 @@ impl CiphersClient {
         let key_store = self.client.internal.get_key_store();
         let repository = self.get_repository()?;
 
-        list(key_store, repository.as_ref()).await
+        list_ciphers(key_store, repository.as_ref()).await
     }
 
     /// Get [Cipher] by ID from state and decrypt it to a [CipherView].
