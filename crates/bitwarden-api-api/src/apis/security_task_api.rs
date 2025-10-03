@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait SecurityTaskApi: Send + Sync {
     /// POST /tasks/{orgId}/bulk-create
     async fn bulk_create_tasks<'a>(
@@ -67,7 +68,8 @@ impl SecurityTaskApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl SecurityTaskApi for SecurityTaskApiClient {
     async fn bulk_create_tasks<'a>(
         &self,

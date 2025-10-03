@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait ServiceAccountsApi: Send + Sync {
     /// POST /service-accounts/delete
     async fn bulk_delete<'a>(
@@ -92,7 +93,8 @@ impl ServiceAccountsApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl ServiceAccountsApi for ServiceAccountsApiClient {
     async fn bulk_delete<'a>(
         &self,

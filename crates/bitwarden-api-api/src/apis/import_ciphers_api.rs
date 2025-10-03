@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait ImportCiphersApi: Send + Sync {
     /// POST /ciphers/import
     async fn post_import<'a>(
@@ -51,7 +52,8 @@ impl ImportCiphersApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl ImportCiphersApi for ImportCiphersApiClient {
     async fn post_import<'a>(
         &self,
