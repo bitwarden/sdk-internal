@@ -4,6 +4,7 @@ use bitwarden_crypto::KeyStore;
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
+use reqwest_tracing::{SpanBackendWithUrl, TracingMiddleware};
 
 use super::internal::InternalClient;
 #[cfg(feature = "internal")]
@@ -76,6 +77,10 @@ impl Client {
 
         let client = client_builder.build().expect("Build should not fail");
 
+        let client = reqwest_middleware::ClientBuilder::new(client)
+            .with(TracingMiddleware::<SpanBackendWithUrl>::new())
+            .build();
+
         let identity = bitwarden_api_identity::apis::configuration::Configuration {
             base_path: settings.identity_url,
             user_agent: Some(settings.user_agent.clone()),
@@ -116,5 +121,31 @@ impl Client {
                 repository_map: StateRegistry::new(),
             }),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tracing::Level;
+    use tracing_subscriber::FmtSubscriber;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_client_api_tracing() {
+        let subscriber = FmtSubscriber::builder()
+            .with_max_level(Level::TRACE)
+            .finish();
+
+        tracing::subscriber::set_global_default(subscriber).unwrap();
+
+        let client = Client::new(Some(ClientSettings {
+            ..Default::default()
+        }));
+
+        let api_config = client.internal.__api_configurations.read().unwrap();
+        let configs = api_config.api_client.config_api().get_configs().await;
+
+        assert!(configs.is_ok());
     }
 }

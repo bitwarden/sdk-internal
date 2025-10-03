@@ -19,6 +19,7 @@ async-trait = { workspace = true }
 bitwarden-api-api.workspace = true
 bitwarden-state = { workspace = true }
 reqwest = { workspace = true }
+reqwest-middleware = { workspace = true }
 wiremock = { workspace = true }
 
 [lints]

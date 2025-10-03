@@ -48,7 +48,7 @@ impl SendAccessClient {
             &configurations.identity_config.base_path
         );
 
-        let request: reqwest::RequestBuilder = configurations
+        let request = configurations
             .identity_config
             .client
             .post(&url)
@@ -60,7 +60,7 @@ impl SendAccessClient {
         // wrapped in SendAccessTokenError::Unexpected as an UnexpectedIdentityError::Reqwest
         // variant and returned.
         // note: we had to manually built a trait to map reqwest::Error to SendAccessTokenError.
-        let response: reqwest::Response = request.send().await?;
+        let response = request.send().await?;
 
         let response_status = response.status();
 
