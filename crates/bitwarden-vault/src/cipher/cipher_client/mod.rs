@@ -1,13 +1,10 @@
 use std::sync::Arc;
 
-use bitwarden_api_api::models::CipherShareRequestModel;
-use bitwarden_collections::collection::CollectionId;
-use bitwarden_core::{key_management::SymmetricKeyId, Client, MissingFieldError, OrganizationId};
+use bitwarden_core::{key_management::SymmetricKeyId, Client, OrganizationId};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, SymmetricCryptoKey};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
 use bitwarden_state::repository::{Repository, RepositoryError};
-use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -191,66 +188,6 @@ impl CiphersClient {
             .get_client_managed::<Cipher>()?)
     }
 }
-
-//   async shareManyWithServer(
-//     ciphers: CipherView[],
-//     organizationId: string,
-//     collectionIds: string[],
-//     userId: UserId,
-//   ) {
-//     const sdkCipherEncryptionEnabled = await this.configService.getFeatureFlag(
-//       FeatureFlag.PM22136_SdkCipherEncryption,
-//     );
-//     const promises: Promise<any>[] = [];
-//     const encCiphers: Cipher[] = [];
-//     for (const cipher of ciphers) {
-//       if (sdkCipherEncryptionEnabled) {
-//         // The SDK does not expect the cipher to already have an organizationId. It will result
-// in the wrong         // cipher encryption key being used during the move to organization
-// operation.         if (cipher.organizationId != null) {
-//           throw new Error("Cipher is already associated with an organization.");
-//         }
-
-//         promises.push(
-//           this.cipherEncryptionService
-//             .moveToOrganization(cipher, organizationId as OrganizationId, userId)
-//             .then((encCipher) => {
-//               encCipher.cipher.collectionIds = collectionIds;
-//               encCiphers.push(encCipher.cipher);
-//             }),
-//         );
-//       } else {
-//         cipher.organizationId = organizationId;
-//         cipher.collectionIds = collectionIds;
-//         promises.push(
-//           this.encryptSharedCipher(cipher, userId).then((c) => {
-//             encCiphers.push(c.cipher);
-//           }),
-//         );
-//       }
-//     }
-//     await Promise.all(promises);
-//     const request = new CipherBulkShareRequest(encCiphers, collectionIds, userId);
-//     try {
-//       const response = await this.apiService.putShareCiphers(request);
-//       const responseMap = new Map(response.data.map((r) => [r.id, r]));
-
-//       encCiphers.forEach((cipher) => {
-//         const matchingCipher = responseMap.get(cipher.id);
-//         if (matchingCipher) {
-//           cipher.revisionDate = new Date(matchingCipher.revisionDate);
-//         }
-//       });
-//       await this.upsert(encCiphers.map((c) => c.toCipherData()));
-//     } catch (e) {
-//       for (const cipher of ciphers) {
-//         cipher.organizationId = null;
-//         cipher.collectionIds = null;
-//       }
-//       throw e;
-//     }
-//   }
-
 #[cfg(test)]
 mod tests {
 

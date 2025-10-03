@@ -36,8 +36,8 @@ use super::{
     secure_note, ssh_key,
 };
 use crate::{
-    error, password_history, EncryptError, Fido2CredentialFullView, Fido2CredentialView, FolderId,
-    Login, LoginView, VaultParseError,
+    password_history, EncryptError, Fido2CredentialFullView, Fido2CredentialView, FolderId, Login,
+    LoginView, VaultParseError,
 };
 
 uuid_newtype!(pub CipherId);
@@ -125,14 +125,15 @@ pub struct EncryptionContext {
     pub cipher: Cipher,
 }
 
-impl From<EncryptionContext> for CipherWithIdRequestModel {
-    fn from(
+impl TryFrom<EncryptionContext> for CipherWithIdRequestModel {
+    type Error = CipherError;
+    fn try_from(
         EncryptionContext {
             cipher,
             encrypted_for,
         }: EncryptionContext,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
             id: require!(cipher.id).into(),
             encrypted_for: Some(encrypted_for.into()),
             r#type: Some(cipher.r#type.into()),
@@ -186,7 +187,7 @@ impl From<EncryptionContext> for CipherWithIdRequestModel {
             data: None, // TODO: Consume this instead of the individual fields above.
             last_known_revision_date: Some(cipher.revision_date.to_rfc3339()),
             archived_date: cipher.archived_date.map(|d| d.to_rfc3339()),
-        }
+        })
     }
 }
 

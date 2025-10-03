@@ -1,55 +1,31 @@
-use bitwarden_api_api::models::{cipher, CipherBulkShareRequestModel, CipherShareRequestModel};
+use bitwarden_api_api::models::{
+    CipherBulkShareRequestModel, CipherMiniResponseModel, CipherShareRequestModel,
+};
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{require, MissingFieldError, OrganizationId};
 use bitwarden_crypto::EncString;
-use chrono::ParseError;
-use uuid::Uuid;
 
 use crate::{
-    AttachmentView, Cipher, CipherError, CipherId, CipherRepromptType, CipherView, CiphersClient,
-    VaultParseError,
+    Cipher, CipherError, CipherId, CipherRepromptType, CipherView, CiphersClient, VaultParseError,
 };
 
 impl CiphersClient {
-    fn try_update_cipher_collections(
+    fn move_to_collections(
         &self,
         mut cipher_view: CipherView,
         organization_id: &OrganizationId,
         collection_ids: Vec<CollectionId>,
     ) -> Result<CipherView, CipherError> {
-        if self
-            .client
-            .internal
-            .get_flags()
-            .enable_cipher_key_encryption
-        {
-            if cipher_view.organization_id.is_some() {
-                return Err(CipherError::OrganizationAlreadySet);
-            }
-
-            cipher_view = self.move_to_organization(cipher_view, *organization_id)?;
-            cipher_view.collection_ids = collection_ids.clone();
-        } else {
-            if let Some(attachments) = cipher_view.attachments.as_mut() {
-                for attachment in attachments {
-                    if attachment.key.is_none() {
-                        self.share_cipher_attachment(
-                            attachment,
-                            require!(cipher_view.id),
-                            organization_id,
-                            collection_ids,
-                        );
-                    }
-                }
-            }
-            cipher_view.organization_id = Some(*organization_id);
-            cipher_view.collection_ids = collection_ids.clone();
+        if cipher_view.organization_id.is_some() {
+            return Err(CipherError::OrganizationAlreadySet);
         }
+
+        cipher_view = self.move_to_organization(cipher_view, *organization_id)?;
+        cipher_view.collection_ids = collection_ids;
         Ok(cipher_view)
     }
 
-    #[allow(missing_docs)]
-    /// Share a cipher with an organization and collections.
+    /// Moves a cipher into an organization and collections.
     pub async fn share_cipher(
         &self,
         mut cipher_view: CipherView,
@@ -57,17 +33,10 @@ impl CiphersClient {
         collection_ids: Vec<CollectionId>,
         _original_cipher: Option<&Cipher>,
     ) -> Result<Cipher, CipherError> {
-        cipher_view = self.try_update_cipher_collections(
-            cipher_view,
-            organization_id,
-            collection_ids.clone(),
-        )?;
+        cipher_view =
+            self.move_to_collections(cipher_view, organization_id, collection_ids.clone())?;
 
-        let cipher_id = cipher_view
-            .id
-            .map(Into::<Uuid>::into)
-            .ok_or(MissingFieldError("id"))?;
-
+        let cipher_id = require!(cipher_view.id).into();
         let encrypted_cipher = self.encrypt(cipher_view)?;
 
         let req = CipherShareRequestModel::new(
@@ -77,6 +46,7 @@ impl CiphersClient {
                 .collect(),
             encrypted_cipher.into(),
         );
+
         let api_client = &self
             .client
             .internal
@@ -98,46 +68,6 @@ impl CiphersClient {
         Ok(new_cipher)
     }
 
-    async fn share_cipher_attachment(
-        &self,
-        attachment_view: &AttachmentView,
-        cipher_id: &CipherId,
-        organization_id: &OrganizationId,
-        collection_ids: &Vec<CollectionId>,
-    ) -> Result<(), CipherError> {
-        let api_client = &self
-            .client
-            .internal
-            .get_api_configurations()
-            .await
-            .api_client;
-        let url = attachment_view
-            .url
-            .as_ref()
-            .ok_or(MissingFieldError("url"))?;
-        // TODO: Handle this properly
-        let data = reqwest::get(url).await.unwrap().bytes().await.unwrap();
-
-        unimplemented!();
-        // TODO: Get user key
-        // let userKey = self.client.internal.get_user_key()?;
-        // TODO: Decrypt data with user key
-        // TODO: Get new org key for encrypting
-        // TODO: Re-encrypt data with org key
-        // TODO: Send to service
-
-        let _result = api_client
-            .ciphers_api()
-            .post_attachment_share(
-                &cipher_id.to_string(),
-                require!(attachment_view.id),
-                Some((*organization_id).into()),
-            )
-            .await
-            .unwrap();
-        Ok(())
-    }
-
     #[allow(missing_docs)]
     pub async fn share_ciphers_bulk(
         &self,
@@ -145,11 +75,9 @@ impl CiphersClient {
         organization_id: &OrganizationId,
         collection_ids: Vec<CollectionId>,
     ) -> Result<Vec<Cipher>, CipherError> {
-        let results = cipher_views
+        let encrypted_ciphers = cipher_views
             .into_iter()
-            .map(|cv| {
-                self.try_update_cipher_collections(cv, organization_id, collection_ids.clone())
-            })
+            .map(|cv| self.move_to_collections(cv, organization_id, collection_ids.clone()))
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .map(|cv| self.encrypt(cv))
@@ -160,7 +88,10 @@ impl CiphersClient {
                 .iter()
                 .map(<CollectionId as ToString>::to_string)
                 .collect(),
-            results.into_iter().map(Into::into).collect(),
+            encrypted_ciphers
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<_, _>>()?,
         );
         let api_client = &self
             .client
@@ -173,20 +104,32 @@ impl CiphersClient {
             .ciphers_api()
             .put_share_many(Some(request))
             .await?;
+        let results = self
+            .update_repository_from_bulk_share_response(
+                response.data.unwrap_or_default(),
+                collection_ids,
+            )
+            .await?;
+        Ok(results)
+    }
 
+    async fn update_repository_from_bulk_share_response(
+        &self,
+        ciphers: Vec<CipherMiniResponseModel>,
+        collection_ids: Vec<CollectionId>,
+    ) -> Result<Vec<Cipher>, CipherError> {
         let repo = self.get_repository()?;
         let mut results = Vec::new();
-        for cipher_mini in require!(response.data).into_iter() {
-            let Some(orig_cipher) = repo
+        for cipher_mini in ciphers {
+            // The server does not return the full Cipher object, so we pull the details from the
+            // current local version to fill in those missing values.
+            let orig_cipher = repo
                 .get(cipher_mini.id.ok_or(MissingFieldError("id"))?.to_string())
-                .await?
-            else {
-                continue; // TODO: handle missing original cipher
-            };
+                .await?;
+
             let cipher: Cipher = Cipher {
                 id: cipher_mini.id.map(CipherId::new),
                 organization_id: cipher_mini.organization_id.map(OrganizationId::new),
-                folder_id: orig_cipher.folder_id,
                 key: EncString::try_from_optional(cipher_mini.key)?,
                 name: require!(EncString::try_from_optional(cipher_mini.name)?),
                 notes: EncString::try_from_optional(cipher_mini.notes)?,
@@ -232,27 +175,28 @@ impl CiphersClient {
                     .map(|d| d.parse())
                     .transpose()
                     .map_err(Into::<VaultParseError>::into)?,
-                // TODO: Confirm this is the correct approach (yanking from existing cipher in repository)
-                // Maybe update the server to return the full cipher - Slack thread:
-                favorite: orig_cipher.favorite,
-                edit: orig_cipher.edit,
-                permissions: orig_cipher.permissions,
-                view_password: orig_cipher.view_password,
-                local_data: orig_cipher.local_data,
-                collection_ids: collection_ids.clone(), // TODO: No confirmation from server that they were set?
+                edit: orig_cipher.as_ref().map(|c| c.edit).unwrap_or_default(),
+                favorite: orig_cipher.as_ref().map(|c| c.favorite).unwrap_or_default(),
+                folder_id: orig_cipher
+                    .as_ref()
+                    .map(|c| c.folder_id)
+                    .unwrap_or_default(),
+                permissions: orig_cipher
+                    .as_ref()
+                    .map(|c| c.permissions)
+                    .unwrap_or_default(),
+                view_password: orig_cipher
+                    .as_ref()
+                    .map(|c| c.view_password)
+                    .unwrap_or_default(),
+                local_data: orig_cipher.map(|c| c.local_data).unwrap_or_default(),
+                collection_ids: collection_ids.clone(), /* Should we have confirmation from the
+                                                         * server that these were set?? */
             };
-            self.get_repository()?
-                .set(require!(cipher.id).to_string(), cipher.clone())
+            repo.set(require!(cipher.id).to_string(), cipher.clone())
                 .await?;
             results.push(cipher)
         }
         Ok(results)
-    }
-
-    async fn upsert(&self, cipher: Cipher) -> Result<(), CipherError> {
-        self.get_repository()?
-            .set(require!(cipher.id).to_string(), cipher.clone())
-            .await?;
-        Ok(())
     }
 }
