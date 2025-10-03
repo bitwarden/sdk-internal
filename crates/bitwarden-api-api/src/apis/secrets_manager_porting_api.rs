@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait SecretsManagerPortingApi: Send + Sync {
     /// GET /sm/{organizationId}/export
     async fn export<'a>(
@@ -49,7 +50,8 @@ impl SecretsManagerPortingApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl SecretsManagerPortingApi for SecretsManagerPortingApiClient {
     async fn export<'a>(
         &self,

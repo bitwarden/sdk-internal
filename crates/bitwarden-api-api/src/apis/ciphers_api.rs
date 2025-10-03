@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait CiphersApi: Send + Sync {
     /// POST /ciphers/attachment/validate/azure
     async fn azure_validate_file(&self) -> Result<(), Error<AzureValidateFileError>>;
@@ -319,7 +320,8 @@ impl CiphersApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl CiphersApi for CiphersApiClient {
     async fn azure_validate_file(&self) -> Result<(), Error<AzureValidateFileError>> {
         let local_var_configuration = &self.configuration;

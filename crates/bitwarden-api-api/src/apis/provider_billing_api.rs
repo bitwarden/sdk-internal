@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait ProviderBillingApi: Send + Sync {
     /// GET /providers/{providerId}/billing/invoices/{invoiceId}
     async fn generate_client_invoice_report<'a>(
@@ -82,7 +83,8 @@ impl ProviderBillingApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl ProviderBillingApi for ProviderBillingApiClient {
     async fn generate_client_invoice_report<'a>(
         &self,
