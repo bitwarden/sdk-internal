@@ -4,18 +4,22 @@ use bitwarden_api_api::models::{
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{require, MissingFieldError, OrganizationId};
 use bitwarden_crypto::EncString;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     Cipher, CipherError, CipherId, CipherRepromptType, CipherView, CiphersClient, VaultParseError,
 };
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     fn move_to_collections(
         &self,
         mut cipher_view: CipherView,
-        organization_id: &OrganizationId,
+        organization_id: OrganizationId,
         collection_ids: Vec<CollectionId>,
     ) -> Result<CipherView, CipherError> {
+        let organization_id = &organization_id;
         if cipher_view.organization_id.is_some() {
             return Err(CipherError::OrganizationAlreadySet);
         }
@@ -29,9 +33,9 @@ impl CiphersClient {
     pub async fn share_cipher(
         &self,
         mut cipher_view: CipherView,
-        organization_id: &OrganizationId,
+        organization_id: OrganizationId,
         collection_ids: Vec<CollectionId>,
-        _original_cipher: Option<&Cipher>,
+        _original_cipher: Option<Cipher>,
     ) -> Result<Cipher, CipherError> {
         cipher_view =
             self.move_to_collections(cipher_view, organization_id, collection_ids.clone())?;
@@ -72,7 +76,7 @@ impl CiphersClient {
     pub async fn share_ciphers_bulk(
         &self,
         cipher_views: Vec<CipherView>,
-        organization_id: &OrganizationId,
+        organization_id: OrganizationId,
         collection_ids: Vec<CollectionId>,
     ) -> Result<Vec<Cipher>, CipherError> {
         let encrypted_ciphers = cipher_views

@@ -17,7 +17,7 @@ use bitwarden_crypto::{
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::RepositoryError;
 use bitwarden_uuid::uuid_newtype;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
@@ -185,8 +185,14 @@ impl TryFrom<EncryptionContext> for CipherWithIdRequestModel {
             secure_note: cipher.secure_note.map(|s| Box::new(s.into())),
             ssh_key: cipher.ssh_key.map(|s| Box::new(s.into())),
             data: None, // TODO: Consume this instead of the individual fields above.
-            last_known_revision_date: Some(cipher.revision_date.to_rfc3339()),
-            archived_date: cipher.archived_date.map(|d| d.to_rfc3339()),
+            last_known_revision_date: Some(
+                cipher
+                    .revision_date
+                    .to_rfc3339_opts(SecondsFormat::Millis, true),
+            ),
+            archived_date: cipher
+                .archived_date
+                .map(|d| d.to_rfc3339_opts(SecondsFormat::Millis, true)),
         })
     }
 }
@@ -249,8 +255,14 @@ impl From<EncryptionContext> for CipherRequestModel {
             secure_note: cipher.secure_note.map(|s| Box::new(s.into())),
             ssh_key: cipher.ssh_key.map(|s| Box::new(s.into())),
             data: None, // TODO: Consume this instead of the individual fields above.
-            last_known_revision_date: Some(cipher.revision_date.to_rfc3339()),
-            archived_date: cipher.archived_date.map(|d| d.to_rfc3339()),
+            last_known_revision_date: Some(
+                cipher
+                    .revision_date
+                    .to_rfc3339_opts(SecondsFormat::Millis, true),
+            ),
+            archived_date: cipher
+                .archived_date
+                .map(|d| d.to_rfc3339_opts(SecondsFormat::Millis, true)),
         }
     }
 }
@@ -847,6 +859,15 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             local_data: self.local_data.decrypt(ctx, ciphers_key)?,
             archived_date: self.archived_date,
         })
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl wasm_bindgen::__rt::VectorIntoJsValue for Cipher {
+    fn vector_into_jsvalue(
+        vector: wasm_bindgen::__rt::std::boxed::Box<[Self]>,
+    ) -> wasm_bindgen::JsValue {
+        wasm_bindgen::__rt::js_value_vector_into_jsvalue(vector)
     }
 }
 
