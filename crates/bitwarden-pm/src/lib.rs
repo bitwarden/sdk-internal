@@ -22,6 +22,8 @@ pub mod clients {
     pub use bitwarden_vault::VaultClient;
 }
 
+pub mod migrations;
+
 /// The main entry point for the Bitwarden Password Manager SDK
 pub struct PasswordManagerClient(pub bitwarden_core::Client);
 
@@ -39,6 +41,11 @@ impl PasswordManagerClient {
         Self(bitwarden_core::Client::new_with_client_tokens(
             settings, tokens,
         ))
+    }
+
+    /// Platform operations
+    pub fn platform(&self) -> bitwarden_core::platform::PlatformClient {
+        self.0.platform()
     }
 
     /// Auth operations

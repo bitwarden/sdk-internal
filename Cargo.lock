@@ -718,6 +718,7 @@ dependencies = [
  "bitwarden-fido",
  "bitwarden-generators",
  "bitwarden-send",
+ "bitwarden-state",
  "bitwarden-vault",
  "tsify",
  "uniffi",
@@ -801,14 +802,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bitwarden-state-migrations"
-version = "1.0.0"
-dependencies = [
- "bitwarden-state",
- "bitwarden-vault",
-]
-
-[[package]]
 name = "bitwarden-test"
 version = "1.0.0"
 dependencies = [
@@ -857,7 +850,6 @@ dependencies = [
  "bitwarden-send",
  "bitwarden-ssh",
  "bitwarden-state",
- "bitwarden-state-migrations",
  "bitwarden-uniffi-error",
  "bitwarden-vault",
  "chrono",
@@ -943,7 +935,6 @@ dependencies = [
  "bitwarden-pm",
  "bitwarden-ssh",
  "bitwarden-state",
- "bitwarden-state-migrations",
  "bitwarden-threading",
  "bitwarden-vault",
  "console_error_panic_hook",
