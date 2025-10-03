@@ -13,7 +13,7 @@
 //! single recipient's unprotected headers. The output from the KDF - "envelope key", is used to
 //! wrap the symmetric key, that is sealed by the envelope.
 
-use std::{marker::PhantomData, num::TryFromIntError, str::FromStr};
+use std::{num::TryFromIntError, str::FromStr};
 
 use argon2::Params;
 use bitwarden_encoding::{B64, FromStrVisitor};
@@ -22,6 +22,8 @@ use coset::{CborSerializable, CoseError, Header, HeaderBuilder};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
 
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KeyIds,
@@ -47,17 +49,17 @@ const ENVELOPE_ARGON2_OUTPUT_KEY_SIZE: usize = 32;
 /// be provided.
 ///
 /// Internally, Argon2 is used as the KDF and XChaCha20-Poly1305 is used to encrypt the key.
-pub struct PasswordProtectedKeyEnvelope<Ids: KeyIds> {
-    _phantom: PhantomData<Ids>,
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct PasswordProtectedKeyEnvelope {
     cose_encrypt: coset::CoseEncrypt,
 }
 
-impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
+impl PasswordProtectedKeyEnvelope {
     /// Seals a symmetric key with a password, using the current default KDF parameters and a random
     /// salt.
     ///
     /// This should never fail, except for memory allocation error, when running the KDF.
-    pub fn seal(
+    pub fn seal<Ids: KeyIds>(
         key_to_seal: Ids::Symmetric,
         password: &str,
         ctx: &KeyStoreContext<Ids>,
@@ -129,15 +131,12 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
             .build();
         cose_encrypt.unprotected.iv = nonce.into();
 
-        Ok(PasswordProtectedKeyEnvelope {
-            _phantom: PhantomData,
-            cose_encrypt,
-        })
+        Ok(PasswordProtectedKeyEnvelope { cose_encrypt })
     }
 
     /// Unseals a symmetric key from the password-protected envelope, and stores it in the key store
     /// context.
-    pub fn unseal(
+    pub fn unseal<Ids: KeyIds>(
         &self,
         target_keyslot: Ids::Symmetric,
         password: &str,
@@ -229,8 +228,8 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
     }
 }
 
-impl<Ids: KeyIds> From<&PasswordProtectedKeyEnvelope<Ids>> for Vec<u8> {
-    fn from(val: &PasswordProtectedKeyEnvelope<Ids>) -> Self {
+impl From<&PasswordProtectedKeyEnvelope> for Vec<u8> {
+    fn from(val: &PasswordProtectedKeyEnvelope) -> Self {
         val.cose_encrypt
             .clone()
             .to_vec()
@@ -238,19 +237,16 @@ impl<Ids: KeyIds> From<&PasswordProtectedKeyEnvelope<Ids>> for Vec<u8> {
     }
 }
 
-impl<Ids: KeyIds> TryFrom<&Vec<u8>> for PasswordProtectedKeyEnvelope<Ids> {
+impl TryFrom<&Vec<u8>> for PasswordProtectedKeyEnvelope {
     type Error = CoseError;
 
     fn try_from(value: &Vec<u8>) -> Result<Self, Self::Error> {
         let cose_encrypt = coset::CoseEncrypt::from_slice(value)?;
-        Ok(PasswordProtectedKeyEnvelope {
-            _phantom: PhantomData,
-            cose_encrypt,
-        })
+        Ok(PasswordProtectedKeyEnvelope { cose_encrypt })
     }
 }
 
-impl<Ids: KeyIds> std::fmt::Debug for PasswordProtectedKeyEnvelope<Ids> {
+impl std::fmt::Debug for PasswordProtectedKeyEnvelope {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PasswordProtectedKeyEnvelope")
             .field("cose_encrypt", &self.cose_encrypt)
@@ -258,7 +254,7 @@ impl<Ids: KeyIds> std::fmt::Debug for PasswordProtectedKeyEnvelope<Ids> {
     }
 }
 
-impl<Ids: KeyIds> FromStr for PasswordProtectedKeyEnvelope<Ids> {
+impl FromStr for PasswordProtectedKeyEnvelope {
     type Err = PasswordProtectedKeyEnvelopeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -275,14 +271,14 @@ impl<Ids: KeyIds> FromStr for PasswordProtectedKeyEnvelope<Ids> {
     }
 }
 
-impl<Ids: KeyIds> From<PasswordProtectedKeyEnvelope<Ids>> for String {
-    fn from(val: PasswordProtectedKeyEnvelope<Ids>) -> Self {
+impl From<PasswordProtectedKeyEnvelope> for String {
+    fn from(val: PasswordProtectedKeyEnvelope) -> Self {
         let serialized: Vec<u8> = (&val).into();
         B64::from(serialized).to_string()
     }
 }
 
-impl<'de, Ids: KeyIds> Deserialize<'de> for PasswordProtectedKeyEnvelope<Ids> {
+impl<'de> Deserialize<'de> for PasswordProtectedKeyEnvelope {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -291,7 +287,7 @@ impl<'de, Ids: KeyIds> Deserialize<'de> for PasswordProtectedKeyEnvelope<Ids> {
     }
 }
 
-impl<Ids: KeyIds> Serialize for PasswordProtectedKeyEnvelope<Ids> {
+impl Serialize for PasswordProtectedKeyEnvelope {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -547,7 +543,7 @@ mod tests {
         let serialized: Vec<u8> = (&envelope).into();
 
         // Unseal the key from the envelope
-        let deserialized: PasswordProtectedKeyEnvelope<TestIds> =
+        let deserialized: PasswordProtectedKeyEnvelope =
             PasswordProtectedKeyEnvelope::try_from(&serialized).unwrap();
         deserialized
             .unseal(TestSymmKey::A(1), password, &mut ctx)
@@ -580,7 +576,7 @@ mod tests {
         let serialized: Vec<u8> = (&envelope).into();
 
         // Unseal the key from the envelope
-        let deserialized: PasswordProtectedKeyEnvelope<TestIds> =
+        let deserialized: PasswordProtectedKeyEnvelope =
             PasswordProtectedKeyEnvelope::try_from(&serialized).unwrap();
         deserialized
             .unseal(TestSymmKey::A(1), password, &mut ctx)
@@ -607,7 +603,7 @@ mod tests {
         let new_password = "new_test_password";
 
         // Seal the key with a password
-        let envelope: PasswordProtectedKeyEnvelope<TestIds> =
+        let envelope: PasswordProtectedKeyEnvelope =
             PasswordProtectedKeyEnvelope::seal_ref(&key, password).expect("Sealing should work");
 
         // Reseal
@@ -635,7 +631,7 @@ mod tests {
         let envelope = PasswordProtectedKeyEnvelope::seal(test_key, password, &ctx).unwrap();
 
         // Attempt to unseal with the wrong password
-        let deserialized: PasswordProtectedKeyEnvelope<TestIds> =
+        let deserialized: PasswordProtectedKeyEnvelope =
             PasswordProtectedKeyEnvelope::try_from(&(&envelope).into()).unwrap();
         assert!(matches!(
             deserialized.unseal(TestSymmKey::A(1), wrong_password, &mut ctx),
