@@ -26,6 +26,12 @@ brew install binaryen
 # dev
 ./build.sh
 
+# dev with commercial license
+./build.sh -b
+
 # release
 ./build.sh -r
+
+# release with commercial license
+./build.sh -r -b
 ```

@@ -29,6 +29,7 @@ uniffi = [
 ] # Uniffi bindings
 wasm = [
     "bitwarden-auth/wasm",
+    "bitwarden-commercial-vault/wasm",
     "bitwarden-core/wasm",
     "bitwarden-exporters/wasm",
     "bitwarden-generators/wasm",
@@ -37,9 +38,11 @@ wasm = [
     "dep:wasm-bindgen-futures",
     "dep:tsify"
 ] # WASM support
+bitwarden-license = ["dep:bitwarden-commercial-vault"]
 
 [dependencies]
 bitwarden-auth = { workspace = true }
+bitwarden-commercial-vault = { workspace = true, optional = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-exporters = { workspace = true }
 bitwarden-fido = { workspace = true }
