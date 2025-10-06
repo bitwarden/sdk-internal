@@ -23,7 +23,7 @@ use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
-use tsify::Tsify;
+use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KeyIds,
@@ -49,7 +49,6 @@ const ENVELOPE_ARGON2_OUTPUT_KEY_SIZE: usize = 32;
 /// be provided.
 ///
 /// Internally, Argon2 is used as the KDF and XChaCha20-Poly1305 is used to encrypt the key.
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct PasswordProtectedKeyEnvelope {
     cose_encrypt: coset::CoseEncrypt,
 }
@@ -440,6 +439,29 @@ impl From<CoseExtractError> for PasswordProtectedKeyEnvelopeError {
 impl From<TryFromIntError> for PasswordProtectedKeyEnvelopeError {
     fn from(err: TryFromIntError) -> Self {
         PasswordProtectedKeyEnvelopeError::Parsing(format!("Invalid integer: {}", err))
+    }
+}
+
+#[cfg(feature = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
+const TS_CUSTOM_TYPES: &'static str = r#"
+export type PasswordProtectedKeyEnvelope = Tagged<string, "PasswordProtectedKeyEnvelope">;
+"#;
+
+#[cfg(feature = "wasm")]
+impl wasm_bindgen::describe::WasmDescribe for PasswordProtectedKeyEnvelope {
+    fn describe() {
+        <String as wasm_bindgen::describe::WasmDescribe>::describe();
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl FromWasmAbi for PasswordProtectedKeyEnvelope {
+    type Abi = <String as FromWasmAbi>::Abi;
+
+    unsafe fn from_abi(abi: Self::Abi) -> Self {
+        let s = unsafe { String::from_abi(abi) };
+        Self::from_str(&s).expect("Invalid PasswordProtectedKeyEnvelope")
     }
 }
 
