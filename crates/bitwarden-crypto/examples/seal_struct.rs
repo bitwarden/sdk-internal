@@ -8,29 +8,36 @@
 //!
 //! In general, if a struct of data should be protected, the `DataEnvelope` should be used.
 
-use bitwarden_crypto::{key_ids, safe::SealableData};
+use bitwarden_crypto::{
+    key_ids,
+    safe::{DataEnvelope, DataEnvelopeNamespace, SealableData},
+};
 use serde::{Deserialize, Serialize};
 
+/// An example of a versioned piece of data. Since the versioning is handled by the serialization
+/// only one namespace is needed.
 #[derive(Serialize, Deserialize)]
-struct MyItem {
-    a: u64,
-    b: String,
+enum MyItem {
+    V1 { a: u32, b: String },
+    V2 { a: u32, b: bool, c: bool },
 }
 impl SealableData for MyItem {}
 
 fn main() {
-    let store = bitwarden_crypto::KeyStore::<ExampleIds>::default();
+    let store: bitwarden_crypto::KeyStore<ExampleIds> =
+        bitwarden_crypto::KeyStore::<ExampleIds>::default();
     let mut ctx: bitwarden_crypto::KeyStoreContext<'_, ExampleIds> = store.context_mut();
     let mut disk = MockDisk::new();
 
-    let my_item = MyItem {
+    let my_item = MyItem::V1 {
         a: 42,
         b: "Hello, World!".to_string(),
     };
+
     // Seal the item into an encrypted blob, and store the content-encryption-key in the context.
-    let sealed_item = bitwarden_crypto::safe::DataEnvelope::seal(
+    let sealed_item = DataEnvelope::seal(
         my_item,
-        &bitwarden_crypto::safe::DataEnvelopeNamespace::VaultItem,
+        &DataEnvelopeNamespace::VaultItem,
         ExampleSymmetricKey::ItemKey,
         &mut ctx,
     )
@@ -42,18 +49,17 @@ fn main() {
         .load("sealed_item")
         .expect("Failed to load sealed item")
         .clone();
-    let sealed_item: bitwarden_crypto::safe::DataEnvelope =
-        bitwarden_crypto::safe::DataEnvelope::from(sealed_item);
+    let sealed_item = DataEnvelope::from(sealed_item);
 
+    // Unseal the item again, using the content-encryption-key stored in the context.
     let my_item: MyItem = sealed_item
         .unseal(
-            &bitwarden_crypto::safe::DataEnvelopeNamespace::VaultItem,
+            &DataEnvelopeNamespace::VaultItem,
             ExampleSymmetricKey::ItemKey,
             &mut ctx,
         )
         .expect("Unsealing should work");
-    assert!(my_item.a == 42);
-    assert!(my_item.b == "Hello, World!");
+    assert!(matches!(my_item, MyItem::V1 { a: 42, b } if b == "Hello, World!"));
 }
 
 pub(crate) struct MockDisk {
