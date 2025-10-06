@@ -285,6 +285,22 @@ impl InternalClient {
         self.user_id.get().copied()
     }
 
+    /// Export the user encryption key as a base64-encoded session string
+    /// This is used to return a session key that can be used with --session or BW_SESSION
+    #[cfg(feature = "internal")]
+    pub fn export_user_key_as_session(&self) -> Result<String, CryptoError> {
+        use crate::key_management::SymmetricKeyId;
+
+        #[allow(deprecated)]
+        let session = {
+            let ctx = self.key_store.context();
+            let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+            user_key.to_base64().to_string()
+        };
+
+        Ok(session)
+    }
+
     #[cfg(feature = "internal")]
     pub(crate) fn initialize_user_crypto_master_key(
         &self,

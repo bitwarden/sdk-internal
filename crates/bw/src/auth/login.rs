@@ -1,4 +1,4 @@
-use bitwarden_cli::text_prompt_when_none;
+use bitwarden_cli::{text_or_env_prompt, text_prompt_when_none};
 use bitwarden_core::{
     Client,
     auth::login::{
@@ -93,11 +93,24 @@ pub(crate) async fn login_api_key(
     client: Client,
     client_id: Option<String>,
     client_secret: Option<String>,
-) -> Result<()> {
-    let client_id = text_prompt_when_none("Client ID", client_id)?;
-    let client_secret = text_prompt_when_none("Client Secret", client_secret)?;
+) -> Result<String> {
+    let client_id = text_or_env_prompt("Client ID", client_id, &["BW_CLIENTID", "BW_CLIENT_ID"])?;
+    let client_secret = text_or_env_prompt(
+        "Client Secret",
+        client_secret,
+        &["BW_CLIENTSECRET", "BW_CLIENT_SECRET"],
+    )?;
 
-    let password = Password::new("Password").without_confirmation().prompt()?;
+    // Check for password in environment variable first
+    let password = if let Ok(pwd) = std::env::var("BW_PASSWORD") {
+        if !pwd.is_empty() {
+            pwd
+        } else {
+            Password::new("Password").without_confirmation().prompt()?
+        }
+    } else {
+        Password::new("Password").without_confirmation().prompt()?
+    };
 
     let result = client
         .auth()
@@ -110,7 +123,10 @@ pub(crate) async fn login_api_key(
 
     debug!("{result:?}");
 
-    Ok(())
+    // Export the user key as a session string
+    let session = client.internal.export_user_key_as_session()?;
+
+    Ok(session)
 }
 
 pub(crate) async fn login_device(
