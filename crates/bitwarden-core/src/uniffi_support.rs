@@ -2,11 +2,11 @@
 
 use std::{num::NonZeroU32, str::FromStr};
 
+use bitwarden_crypto::safe;
 use bitwarden_uniffi_error::convert_result;
 use uuid::Uuid;
 
 use crate::key_management::SignedSecurityState;
-use bitwarden_crypto::safe;
 
 uniffi::use_remote_type!(bitwarden_crypto::NonZeroU32);
 uniffi::use_remote_type!(bitwarden_crypto::safe::PasswordProtectedKeyEnvelope);
