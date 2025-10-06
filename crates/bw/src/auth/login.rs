@@ -123,8 +123,17 @@ pub(crate) async fn login_api_key(
 
     debug!("{result:?}");
 
-    // Export the user key as a session string
-    let session = client.internal.export_user_key_as_session()?;
+    // Sync vault data after successful login
+    let sync_result = client
+        .vault()
+        .sync(&SyncRequest {
+            exclude_subdomains: Some(true),
+        })
+        .await?;
+    info!("Synced {} ciphers", sync_result.ciphers.len());
+
+    // Export the full session (user key + tokens)
+    let session = client.internal.export_session()?;
 
     Ok(session)
 }
