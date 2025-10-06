@@ -145,7 +145,25 @@ Notes:
     // These are the old style action-name commands, to be replaced by name-action commands in the
     // future
     #[command(long_about = "List an array of objects from the vault.")]
-    List,
+    List {
+        /// Object type to list (items, folders, collections, etc.)
+        object: String,
+
+        #[arg(long, help = "Perform a search on the listed objects")]
+        search: Option<String>,
+
+        #[arg(long, help = "Filter items by folder id")]
+        folderid: Option<String>,
+
+        #[arg(long, help = "Filter items by collection id")]
+        collectionid: Option<String>,
+
+        #[arg(long, help = "Filter items by organization id")]
+        organizationid: Option<String>,
+
+        #[arg(long, help = "Filter items that are deleted and in the trash")]
+        trash: bool,
+    },
     #[command(long_about = "Get an object from the vault.")]
     Get,
     #[command(long_about = "Create an object in the vault.")]
