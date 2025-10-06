@@ -2,13 +2,14 @@
 
 use std::{num::NonZeroU32, str::FromStr};
 
-use bitwarden_crypto::safe::PasswordProtectedKeyEnvelope;
 use bitwarden_uniffi_error::convert_result;
 use uuid::Uuid;
 
 use crate::key_management::SignedSecurityState;
+use bitwarden_crypto::safe;
 
 uniffi::use_remote_type!(bitwarden_crypto::NonZeroU32);
+uniffi::use_remote_type!(bitwarden_crypto::safe::PasswordProtectedKeyEnvelope);
 
 type DateTime = chrono::DateTime<chrono::Utc>;
 uniffi::custom_type!(DateTime, std::time::SystemTime, { remote });
@@ -32,11 +33,5 @@ uniffi::custom_type!(SignedSecurityState, String, {
     try_lift: |val| {
         convert_result(SignedSecurityState::from_str(&val))
     },
-    lower: |obj| obj.into(),
-});
-
-uniffi::custom_type!(PasswordProtectedKeyEnvelope, String, {
-    remote,
-    try_lift: |val| convert_result(PasswordProtectedKeyEnvelope::from_str(&val)),
     lower: |obj| obj.into(),
 });
