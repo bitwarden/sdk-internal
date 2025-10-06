@@ -26,11 +26,11 @@ use crate::{
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait SlackIntegrationApi: Send + Sync {
-    /// GET /organizations/{organizationId}/integrations/slack/create
+    /// GET /organizations/integrations/slack/create
     async fn create<'a>(
         &self,
-        organization_id: uuid::Uuid,
         code: Option<&'a str>,
+        state: Option<&'a str>,
     ) -> Result<(), Error<CreateError>>;
 
     /// GET /organizations/{organizationId}/integrations/slack/redirect
@@ -52,17 +52,16 @@ impl SlackIntegrationApiClient {
 impl SlackIntegrationApi for SlackIntegrationApiClient {
     async fn create<'a>(
         &self,
-        organization_id: uuid::Uuid,
         code: Option<&'a str>,
+        state: Option<&'a str>,
     ) -> Result<(), Error<CreateError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
 
         let local_var_uri_str = format!(
-            "{}/organizations/{organizationId}/integrations/slack/create",
-            local_var_configuration.base_path,
-            organizationId = organization_id
+            "{}/organizations/integrations/slack/create",
+            local_var_configuration.base_path
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
@@ -70,6 +69,10 @@ impl SlackIntegrationApi for SlackIntegrationApiClient {
         if let Some(ref param_value) = code {
             local_var_req_builder =
                 local_var_req_builder.query(&[("code", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = state {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("state", &param_value.to_string())]);
         }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder

@@ -31,6 +31,10 @@ pub struct PasswordRequestModel {
     pub master_password_hint: Option<String>,
     #[serde(rename = "key")]
     pub key: String,
+    #[serde(rename = "authenticationData", skip_serializing_if = "Option::is_none")]
+    pub authentication_data: Option<Box<models::MasterPasswordAuthenticationDataRequestModel>>,
+    #[serde(rename = "unlockData", skip_serializing_if = "Option::is_none")]
+    pub unlock_data: Option<Box<models::MasterPasswordUnlockDataRequestModel>>,
 }
 
 impl PasswordRequestModel {
@@ -43,6 +47,8 @@ impl PasswordRequestModel {
             new_master_password_hash,
             master_password_hint: None,
             key,
+            authentication_data: None,
+            unlock_data: None,
         }
     }
 }

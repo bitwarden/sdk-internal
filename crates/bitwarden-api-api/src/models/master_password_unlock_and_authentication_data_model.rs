@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct MasterPasswordUnlockDataModel {
+pub struct MasterPasswordUnlockAndAuthenticationDataModel {
     #[serde(rename = "kdfType")]
     pub kdf_type: models::KdfType,
     #[serde(rename = "kdfIterations")]
@@ -32,15 +32,15 @@ pub struct MasterPasswordUnlockDataModel {
     pub master_password_hint: Option<String>,
 }
 
-impl MasterPasswordUnlockDataModel {
+impl MasterPasswordUnlockAndAuthenticationDataModel {
     pub fn new(
         kdf_type: models::KdfType,
         kdf_iterations: i32,
         email: Option<String>,
         master_key_authentication_hash: Option<String>,
         master_key_encrypted_user_key: Option<String>,
-    ) -> MasterPasswordUnlockDataModel {
-        MasterPasswordUnlockDataModel {
+    ) -> MasterPasswordUnlockAndAuthenticationDataModel {
+        MasterPasswordUnlockAndAuthenticationDataModel {
             kdf_type,
             kdf_iterations,
             kdf_memory: None,

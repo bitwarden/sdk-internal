@@ -109,6 +109,7 @@ pub trait CiphersApi: Send + Sync {
     async fn get_organization_ciphers<'a>(
         &self,
         organization_id: Option<uuid::Uuid>,
+        include_member_items: Option<bool>,
     ) -> Result<
         models::CipherMiniDetailsResponseModelListResponseModel,
         Error<GetOrganizationCiphersError>,
@@ -1096,6 +1097,7 @@ impl CiphersApi for CiphersApiClient {
     async fn get_organization_ciphers<'a>(
         &self,
         organization_id: Option<uuid::Uuid>,
+        include_member_items: Option<bool>,
     ) -> Result<
         models::CipherMiniDetailsResponseModelListResponseModel,
         Error<GetOrganizationCiphersError>,
@@ -1114,6 +1116,10 @@ impl CiphersApi for CiphersApiClient {
         if let Some(ref param_value) = organization_id {
             local_var_req_builder =
                 local_var_req_builder.query(&[("organizationId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = include_member_items {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("includeMemberItems", &param_value.to_string())]);
         }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
