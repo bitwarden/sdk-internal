@@ -289,9 +289,10 @@ impl InternalClient {
     /// This includes the user key, tokens, and encrypted private/signing keys
     #[cfg(feature = "internal")]
     pub fn export_session(&self) -> Result<String, CryptoError> {
-        use crate::key_management::{AsymmetricKeyId, SymmetricKeyId};
         use bitwarden_encoding::B64;
         use serde::{Deserialize, Serialize};
+
+        use crate::key_management::{AsymmetricKeyId, SymmetricKeyId};
 
         #[derive(Serialize, Deserialize)]
         struct SessionData {
@@ -346,10 +347,11 @@ impl InternalClient {
     /// This includes restoring the user key, private key, and setting tokens
     #[cfg(feature = "internal")]
     pub fn import_session(&self, session: &str) -> Result<(), CryptoError> {
-        use crate::key_management::{AsymmetricKeyId, SymmetricKeyId};
         use bitwarden_crypto::{AsymmetricCryptoKey, Pkcs8PrivateKeyBytes};
         use bitwarden_encoding::B64;
         use serde::{Deserialize, Serialize};
+
+        use crate::key_management::{AsymmetricKeyId, SymmetricKeyId};
 
         #[derive(Serialize, Deserialize)]
         struct SessionData {
