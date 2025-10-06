@@ -139,6 +139,7 @@ impl RotateableKeySet {
     }
 }
 
+#[allow(dead_code)]
 fn rotate_key_set<Ids: KeyIds>(
     ctx: &KeyStoreContext<Ids>,
     key_set: RotateableKeySet,
