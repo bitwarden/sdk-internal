@@ -289,8 +289,8 @@ impl InternalClient {
     /// This includes the user key, tokens, and encrypted private/signing keys
     #[cfg(feature = "internal")]
     pub fn export_session(&self) -> Result<String, CryptoError> {
-        use bitwarden_encoding::B64;
         use crate::key_management::{AsymmetricKeyId, SymmetricKeyId};
+        use bitwarden_encoding::B64;
         use serde::{Deserialize, Serialize};
 
         #[derive(Serialize, Deserialize)]
@@ -336,8 +336,7 @@ impl InternalClient {
         };
 
         // Serialize to JSON and then base64 encode
-        let json = serde_json::to_string(&session_data)
-            .map_err(|_| CryptoError::InvalidKey)?;
+        let json = serde_json::to_string(&session_data).map_err(|_| CryptoError::InvalidKey)?;
         let encoded = bitwarden_encoding::B64::from(json.as_bytes());
 
         Ok(encoded.to_string())
@@ -347,9 +346,9 @@ impl InternalClient {
     /// This includes restoring the user key, private key, and setting tokens
     #[cfg(feature = "internal")]
     pub fn import_session(&self, session: &str) -> Result<(), CryptoError> {
+        use crate::key_management::{AsymmetricKeyId, SymmetricKeyId};
         use bitwarden_crypto::{AsymmetricCryptoKey, Pkcs8PrivateKeyBytes};
         use bitwarden_encoding::B64;
-        use crate::key_management::{AsymmetricKeyId, SymmetricKeyId};
         use serde::{Deserialize, Serialize};
 
         #[derive(Serialize, Deserialize)]
@@ -362,12 +361,11 @@ impl InternalClient {
         }
 
         // Decode from base64 and parse JSON
-        let decoded = B64::try_from(session.to_string())
-            .map_err(|_| CryptoError::InvalidKey)?;
-        let json_str = String::from_utf8(decoded.as_bytes().to_vec())
-            .map_err(|_| CryptoError::InvalidKey)?;
-        let session_data: SessionData = serde_json::from_str(&json_str)
-            .map_err(|_| CryptoError::InvalidKey)?;
+        let decoded = B64::try_from(session.to_string()).map_err(|_| CryptoError::InvalidKey)?;
+        let json_str =
+            String::from_utf8(decoded.as_bytes().to_vec()).map_err(|_| CryptoError::InvalidKey)?;
+        let session_data: SessionData =
+            serde_json::from_str(&json_str).map_err(|_| CryptoError::InvalidKey)?;
 
         // Restore the user key and private key
         let user_key = SymmetricCryptoKey::try_from(session_data.user_key)?;
@@ -379,8 +377,8 @@ impl InternalClient {
 
             // Restore private key if present
             if let Some(private_key_b64) = session_data.private_key {
-                let private_key_b64_parsed = B64::try_from(private_key_b64)
-                    .map_err(|_| CryptoError::InvalidKey)?;
+                let private_key_b64_parsed =
+                    B64::try_from(private_key_b64).map_err(|_| CryptoError::InvalidKey)?;
                 let private_key_der = Pkcs8PrivateKeyBytes::from(private_key_b64_parsed.as_bytes());
                 let private_key = AsymmetricCryptoKey::from_der(&private_key_der)?;
                 ctx.set_asymmetric_key(AsymmetricKeyId::UserPrivateKey, private_key)?;
