@@ -7,7 +7,7 @@ use coset::{CborSerializable, ProtectedHeader, RegisteredLabel, iana::CoapConten
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
-use tsify::Tsify;
+use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
     CoseEncrypt0Bytes, CryptoError, KeyIds, SerializedMessage, SymmetricCryptoKey,
@@ -27,7 +27,8 @@ pub trait SealableData {}
 /// content-encryption-key must be provided again when unsealing the data. A content encryption key
 /// allows easy key-rotation of the encrypting-key, as now just the content-encryption-keys need to
 /// be re-uploaded, instead of all data.
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+///
+/// Note: This is explicitly meant for structured data, not large binary blobs (files).
 pub struct DataEnvelope {
     envelope_data: CoseEncrypt0Bytes,
 }
@@ -323,6 +324,29 @@ pub enum DataEnvelopeError {
     /// Indicates that the data envelope namespace is invalid.
     #[error("Invalid namespace")]
     InvalidNamespace,
+}
+
+#[cfg(feature = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
+const TS_CUSTOM_TYPES: &'static str = r#"
+export type DataEnvelope = Tagged<string, "DataEnvelope">;
+"#;
+
+#[cfg(feature = "wasm")]
+impl wasm_bindgen::describe::WasmDescribe for DataEnvelope {
+    fn describe() {
+        <String as wasm_bindgen::describe::WasmDescribe>::describe();
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl FromWasmAbi for DataEnvelope {
+    type Abi = <String as FromWasmAbi>::Abi;
+
+    unsafe fn from_abi(abi: Self::Abi) -> Self {
+        let s = unsafe { String::from_abi(abi) };
+        Self::from_str(&s).expect("Invalid DataEnvelope")
+    }
 }
 
 #[cfg(test)]

@@ -6,9 +6,6 @@ use crate::{CryptoError, safe::DataEnvelopeError};
 /// that a data envelope namespace has exactly one associated valid message struct. Internal
 /// versioning within a namespace is permitted and up to the domain owner to ensure is done
 /// correctly.
-///
-/// If there is a new version of a message added, it should (generally) use a new namespace, since
-/// this prevents downgrades to the old type of message, and makes optional fields unnecessary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DataEnvelopeNamespace {
     /// The namespace for vault items

@@ -14,3 +14,14 @@ include:
 
 Internally, the module uses a KDF to protect against brute-forcing, but it does not expose this to
 the consumer. The consumer only provides a password and key.
+
+## Data envelope
+
+Use the data envelope to protect a struct of data. Examples include:
+
+- protecting a vault item
+- protecting metadata (name, etc.) of a collection
+- protecting a vault report
+
+The serialization of the data and the creation of a content encryption key is handled internally.
+Calling the API with a decrypted struct, the encryption key and the encrypted data are returned.
