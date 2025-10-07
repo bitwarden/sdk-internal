@@ -133,7 +133,7 @@ mod tests {
     use super::*;
 
     mod send_access_token_invalid_request_error_tests {
-        use serde_json::{from_str, json, to_string, to_value, Value};
+        use serde_json::{Value, from_str, json, to_string, to_value};
 
         use super::*;
 
@@ -307,7 +307,7 @@ mod tests {
     }
 
     mod send_access_token_invalid_grant_error_tests {
-        use serde_json::{from_str, json, to_string, to_value, Value};
+        use serde_json::{Value, from_str, json, to_string, to_value};
 
         use super::*;
 

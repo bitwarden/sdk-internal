@@ -160,77 +160,75 @@ pub mod configuration;
 {{#topLevelApiClient}}
 use std::sync::Arc;
 
-pub trait Api {
-    {{#apiInfo}}
-    {{#apis}}
-    fn {{{classFilename}}}(&self) -> &dyn {{{classFilename}}}::{{classname}};
-    {{/apis}}
-    {{/apiInfo}}
+#[allow(clippy::large_enum_variant, private_interfaces)]
+pub enum ApiClient {
+    Real(ApiClientReal),
+    {{#mockall}}
+    #[cfg(feature = "mockall")]
+    Mock(ApiClientMock),
+    {{/mockall}}
 }
 
-pub struct ApiClient {
+struct ApiClientReal {
     {{#apiInfo}}
     {{#apis}}
-    {{{classFilename}}}: Box<dyn {{{classFilename}}}::{{classname}}>,
-    {{/apis}}
-    {{/apiInfo}}
-}
-
-impl ApiClient {
-    pub fn new(configuration: Arc<configuration::Configuration>) -> Self {
-        Self {
-            {{#apiInfo}}
-            {{#apis}}
-            {{{classFilename}}}: Box::new({{{classFilename}}}::{{classname}}Client::new(configuration.clone())),
-            {{/apis}}
-            {{/apiInfo}}
-        }
-    }
-}
-
-impl Api for ApiClient {
-    {{#apiInfo}}
-    {{#apis}}
-    fn {{{classFilename}}}(&self) -> &dyn {{{classFilename}}}::{{classname}} {
-        self.{{{classFilename}}}.as_ref()
-    }
+    {{{classFilename}}}: {{{classFilename}}}::{{classname}}Client,
     {{/apis}}
     {{/apiInfo}}
 }
 
 {{#mockall}}
 #[cfg(feature = "mockall")]
-pub struct MockApiClient {
+pub struct ApiClientMock {
     {{#apiInfo}}
     {{#apis}}
-    pub {{{classFilename}}}_mock: {{{classFilename}}}::Mock{{classname}},
+    pub {{{classFilename}}}: {{{classFilename}}}::Mock{{classname}},
     {{/apis}}
     {{/apiInfo}}
 }
+ {{/mockall}}
 
-#[cfg(feature = "mockall")]
-impl MockApiClient {
-    pub fn new() -> Self {
-        Self {
+impl ApiClient {
+    pub fn new(configuration: &Arc<configuration::Configuration>) -> Self {
+        Self::Real(ApiClientReal {
             {{#apiInfo}}
             {{#apis}}
-            {{{classFilename}}}_mock: {{{classFilename}}}::Mock{{classname}}::new(),
+            {{{classFilename}}}: {{{classFilename}}}::{{classname}}Client::new(configuration.clone()),
             {{/apis}}
             {{/apiInfo}}
-        }
+        })
     }
+
+    {{#mockall}}
+    #[cfg(feature = "mockall")]
+    pub fn new_mocked(func: impl FnOnce(&mut ApiClientMock)) -> Self {
+        let mut mock = ApiClientMock {
+            {{#apiInfo}}
+            {{#apis}}
+            {{{classFilename}}}: {{{classFilename}}}::Mock{{classname}}::new(),
+            {{/apis}}
+            {{/apiInfo}}
+        };
+        func(&mut mock);
+        Self::Mock(mock)
+    }
+    {{/mockall}}
 }
 
-#[cfg(feature = "mockall")]
-impl Api for MockApiClient {
+impl ApiClient {
     {{#apiInfo}}
     {{#apis}}
-    fn {{{classFilename}}}(&self) -> &dyn {{{classFilename}}}::{{classname}} {
-        &self.{{{classFilename}}}_mock
+    pub fn {{{classFilename}}}(&self) -> &dyn {{{classFilename}}}::{{classname}} {
+        match self {
+            ApiClient::Real(real) => &real.{{{classFilename}}},
+            {{#mockall}}
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.{{{classFilename}}},
+            {{/mockall}}
+        }
     }
     {{/apis}}
     {{/apiInfo}}
 }
-{{/mockall}}
 
 {{/topLevelApiClient}}

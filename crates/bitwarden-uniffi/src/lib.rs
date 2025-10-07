@@ -2,8 +2,10 @@
 
 uniffi::setup_scaffolding!();
 
+use std::sync::Arc;
+
 use auth::AuthClient;
-use bitwarden_core::ClientSettings;
+use bitwarden_core::{ClientSettings, client::internal::ClientManagedTokens};
 
 #[allow(missing_docs)]
 pub mod auth;
@@ -35,14 +37,20 @@ pub struct Client(pub(crate) bitwarden_pm::PasswordManagerClient);
 impl Client {
     /// Initialize a new instance of the SDK client
     #[uniffi::constructor]
-    pub fn new(settings: Option<ClientSettings>) -> Self {
+    pub fn new(
+        token_provider: Arc<dyn ClientManagedTokens>,
+        settings: Option<ClientSettings>,
+    ) -> Self {
         init_logger();
         setup_error_converter();
 
         #[cfg(target_os = "android")]
         android_support::init();
 
-        Self(bitwarden_pm::PasswordManagerClient::new(settings))
+        Self(bitwarden_pm::PasswordManagerClient::new_with_client_tokens(
+            settings,
+            token_provider,
+        ))
     }
 
     /// Crypto operations
@@ -57,7 +65,7 @@ impl Client {
 
     #[allow(missing_docs)]
     pub fn platform(&self) -> PlatformClient {
-        PlatformClient(self.0 .0.clone())
+        PlatformClient(self.0.0.clone())
     }
 
     /// Generator operations
@@ -82,7 +90,7 @@ impl Client {
 
     /// Auth operations
     pub fn auth(&self) -> AuthClient {
-        AuthClient(self.0 .0.clone())
+        AuthClient(self.0.0.clone())
     }
 
     /// Test method, echoes back the input
@@ -92,7 +100,7 @@ impl Client {
 
     /// Test method, calls http endpoint
     pub async fn http_get(&self, url: String) -> Result<String> {
-        let client = self.0 .0.internal.get_http_client();
+        let client = self.0.0.internal.get_http_client();
         let res = client
             .get(&url)
             .send()

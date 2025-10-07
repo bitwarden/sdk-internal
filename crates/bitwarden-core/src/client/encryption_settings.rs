@@ -13,13 +13,13 @@ use bitwarden_error::bitwarden_error;
 use log::warn;
 use thiserror::Error;
 
+#[cfg(any(feature = "secrets", feature = "internal"))]
+use crate::OrganizationId;
 #[cfg(feature = "internal")]
 use crate::key_management::{AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId};
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::key_management::{KeyIds, SymmetricKeyId};
-#[cfg(any(feature = "secrets", feature = "internal"))]
-use crate::OrganizationId;
-use crate::{error::UserIdAlreadySetError, MissingPrivateKeyError};
+use crate::{MissingPrivateKeyError, error::UserIdAlreadySetError};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]

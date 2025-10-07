@@ -4,8 +4,8 @@ use ::aes::cipher::{ArrayLength, Unsigned};
 use generic_array::GenericArray;
 use hmac::digest::OutputSizeUser;
 use rand::{
-    distributions::{Alphanumeric, DistString, Distribution, Standard},
     Rng,
+    distributions::{Alphanumeric, DistString, Distribution, Standard},
 };
 use zeroize::{Zeroize, Zeroizing};
 

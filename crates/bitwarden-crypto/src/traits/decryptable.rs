@@ -1,4 +1,4 @@
-use crate::{store::KeyStoreContext, CryptoError, EncString, KeyId, KeyIds};
+use crate::{CryptoError, EncString, KeyId, KeyIds, store::KeyStoreContext};
 
 /// A decryption operation that takes the input value and decrypts it into the output value.
 /// Implementations should generally consist of calling [Decryptable::decrypt] for all the fields of
@@ -57,7 +57,7 @@ impl<Ids: KeyIds, Key: KeyId, T: Decryptable<Ids, Key, Output>, Output>
 
 #[cfg(test)]
 mod tests {
-    use crate::{traits::tests::*, Decryptable, EncString, KeyStore, SymmetricCryptoKey};
+    use crate::{Decryptable, EncString, KeyStore, SymmetricCryptoKey, traits::tests::*};
 
     fn test_store() -> KeyStore<TestIds> {
         let store = KeyStore::<TestIds>::default();

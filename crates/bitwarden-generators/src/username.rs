@@ -1,6 +1,6 @@
 use bitwarden_crypto::EFF_LONG_WORD_LIST;
 use bitwarden_error::bitwarden_error;
-use rand::{distributions::Distribution, seq::SliceRandom, Rng, RngCore};
+use rand::{Rng, RngCore, distributions::Distribution, seq::SliceRandom};
 use reqwest::StatusCode;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -156,8 +156,8 @@ pub(crate) async fn username(
     input: UsernameGeneratorRequest,
     http: &reqwest::Client,
 ) -> Result<String, UsernameError> {
-    use rand::thread_rng;
     use UsernameGeneratorRequest::*;
+    use rand::thread_rng;
     match input {
         Word {
             capitalize,

@@ -1,6 +1,6 @@
 use bitwarden_crypto::{
-    fingerprint, generate_random_alphanumeric, AsymmetricCryptoKey, AsymmetricPublicCryptoKey,
-    CryptoError, PublicKeyEncryptionAlgorithm, SpkiPublicKeyBytes, UnsignedSharedKey,
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CryptoError, PublicKeyEncryptionAlgorithm,
+    SpkiPublicKeyBytes, UnsignedSharedKey, fingerprint, generate_random_alphanumeric,
 };
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, SymmetricCryptoKey};
@@ -10,7 +10,7 @@ use thiserror::Error;
 
 #[cfg(feature = "internal")]
 use crate::client::encryption_settings::EncryptionSettingsError;
-use crate::{key_management::SymmetricKeyId, Client};
+use crate::{Client, key_management::SymmetricKeyId};
 
 /// Response for `new_auth_request`.
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -111,12 +111,12 @@ mod tests {
 
     use super::*;
     use crate::{
+        UserId,
         client::internal::UserKeyState,
         key_management::{
-            crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
             SymmetricKeyId,
+            crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
         },
-        UserId,
     };
 
     #[test]

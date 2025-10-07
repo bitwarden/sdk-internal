@@ -2,7 +2,7 @@
 
 use std::hint::black_box;
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 
 fn allocate_string(s: &str) -> String {
     s.to_owned()

@@ -11,9 +11,9 @@ use super::{
     utils::stretch_key,
 };
 use crate::{
-    util::{self},
     BitwardenLegacyKeyBytes, CryptoError, EncString, KeyDecryptable, Result, SymmetricCryptoKey,
     UserKey,
+    util::{self},
 };
 
 #[allow(missing_docs)]
@@ -184,10 +184,10 @@ mod tests {
 
     use rand::SeedableRng;
 
-    use super::{make_user_key, HashPurpose, Kdf, MasterKey};
+    use super::{HashPurpose, Kdf, MasterKey, make_user_key};
     use crate::{
-        keys::{master_key::KdfDerivedKeyMaterial, symmetric_crypto_key::derive_symmetric_key},
         EncString, SymmetricCryptoKey,
+        keys::{master_key::KdfDerivedKeyMaterial, symmetric_crypto_key::derive_symmetric_key},
     };
 
     #[test]

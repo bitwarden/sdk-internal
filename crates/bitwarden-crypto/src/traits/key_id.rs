@@ -119,8 +119,8 @@ macro_rules! key_ids {
 #[cfg(test)]
 pub(crate) mod tests {
     use crate::{
-        traits::tests::{TestAsymmKey, TestSigningKey, TestSymmKey},
         KeyId,
+        traits::tests::{TestAsymmKey, TestSigningKey, TestSymmKey},
     };
 
     #[test]
