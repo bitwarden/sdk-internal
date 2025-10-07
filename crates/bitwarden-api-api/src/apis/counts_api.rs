@@ -14,16 +14,17 @@ use async_trait::async_trait;
 #[cfg(feature = "mockall")]
 use mockall::automock;
 use reqwest;
-use serde::{de::Error as _, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error as _};
 
-use super::{configuration, Error};
+use super::{Error, configuration};
 use crate::{
     apis::{ContentType, ResponseContent},
     models,
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait CountsApi: Send + Sync {
     /// GET /organizations/{organizationId}/sm-counts
     async fn get_by_organization<'a>(
@@ -54,7 +55,8 @@ impl CountsApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl CountsApi for CountsApiClient {
     async fn get_by_organization<'a>(
         &self,
@@ -95,8 +97,16 @@ impl CountsApi for CountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationCountsResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationCountsResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationCountsResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationCountsResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<GetByOrganizationError> =
@@ -149,8 +159,16 @@ impl CountsApi for CountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ProjectCountsResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProjectCountsResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::ProjectCountsResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProjectCountsResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<GetByProjectError> =
@@ -203,8 +221,16 @@ impl CountsApi for CountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::ServiceAccountCountsResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ServiceAccountCountsResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::ServiceAccountCountsResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ServiceAccountCountsResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<GetByServiceAccountError> =

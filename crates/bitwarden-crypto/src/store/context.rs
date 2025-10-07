@@ -8,11 +8,11 @@ use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
-    derive_shareable_key, error::UnsupportedOperationError, signing, store::backend::StoreBackend,
     AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CryptoError, EncString, KeyId,
     KeyIds, PublicKeyEncryptionAlgorithm, Result, RotatedUserKeys, Signature, SignatureAlgorithm,
     SignedObject, SignedPublicKey, SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey,
-    UnsignedSharedKey,
+    UnsignedSharedKey, derive_shareable_key, error::UnsupportedOperationError, signing,
+    store::backend::StoreBackend,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -557,15 +557,15 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        store::{
-            tests::{Data, DataView},
-            KeyStore,
-        },
-        traits::tests::{TestAsymmKey, TestIds, TestSigningKey, TestSymmKey},
         AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CompositeEncryptable, CoseKeyBytes,
         CoseSerializable, CryptoError, Decryptable, KeyDecryptable, Pkcs8PrivateKeyBytes,
         PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SigningKey, SigningNamespace,
         SymmetricCryptoKey,
+        store::{
+            KeyStore,
+            tests::{Data, DataView},
+        },
+        traits::tests::{TestAsymmKey, TestIds, TestSigningKey, TestSymmKey},
     };
 
     #[test]

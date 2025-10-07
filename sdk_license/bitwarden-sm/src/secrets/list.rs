@@ -2,9 +2,10 @@ use bitwarden_api_api::models::{
     SecretWithProjectsListResponseModel, SecretsWithProjectsInnerSecret,
 };
 use bitwarden_core::{
+    OrganizationId,
     client::Client,
     key_management::{KeyIds, SymmetricKeyId},
-    require, OrganizationId,
+    require,
 };
 use bitwarden_crypto::{Decryptable, EncString, KeyStoreContext};
 use schemars::JsonSchema;

@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use bitwarden_error::bitwarden_error;
-use rand::{distributions::Distribution, seq::SliceRandom, RngCore};
+use rand::{RngCore, distributions::Distribution, seq::SliceRandom};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;

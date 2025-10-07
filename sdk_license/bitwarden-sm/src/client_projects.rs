@@ -3,9 +3,9 @@ use bitwarden_core::Client;
 use crate::{
     error::SecretsManagerError,
     projects::{
-        create_project, delete_projects, get_project, list_projects, update_project,
         ProjectCreateRequest, ProjectGetRequest, ProjectPutRequest, ProjectResponse,
         ProjectsDeleteRequest, ProjectsDeleteResponse, ProjectsListRequest, ProjectsResponse,
+        create_project, delete_projects, get_project, list_projects, update_project,
     },
 };
 

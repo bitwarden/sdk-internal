@@ -14,16 +14,17 @@ use async_trait::async_trait;
 #[cfg(feature = "mockall")]
 use mockall::automock;
 use reqwest;
-use serde::{de::Error as _, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error as _};
 
-use super::{configuration, Error};
+use super::{Error, configuration};
 use crate::{
     apis::{ContentType, ResponseContent},
     models,
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait TwoFactorApi: Send + Sync {
     /// DELETE /two-factor/webauthn
     async fn delete_web_authn<'a>(
@@ -172,7 +173,8 @@ impl TwoFactorApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl TwoFactorApi for TwoFactorApiClient {
     async fn delete_web_authn<'a>(
         &self,
@@ -214,8 +216,16 @@ impl TwoFactorApi for TwoFactorApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<DeleteWebAuthnError> =
@@ -271,8 +281,16 @@ impl TwoFactorApi for TwoFactorApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<DisableAuthenticatorError> =
@@ -320,8 +338,16 @@ impl TwoFactorApi for TwoFactorApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorProviderResponseModelListResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorProviderResponseModelListResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::TwoFactorProviderResponseModelListResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorProviderResponseModelListResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
@@ -373,8 +399,16 @@ impl TwoFactorApi for TwoFactorApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorAuthenticatorResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorAuthenticatorResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::TwoFactorAuthenticatorResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorAuthenticatorResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<GetAuthenticatorError> =
@@ -424,8 +458,16 @@ impl TwoFactorApi for TwoFactorApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<GetDuoError> =
@@ -476,8 +518,16 @@ impl TwoFactorApi for TwoFactorApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorEmailResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorEmailResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::TwoFactorEmailResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorEmailResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<GetEmailError> =
@@ -531,8 +581,16 @@ impl TwoFactorApi for TwoFactorApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorProviderResponseModelListResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorProviderResponseModelListResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::TwoFactorProviderResponseModelListResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorProviderResponseModelListResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<GetOrganizationError> =
@@ -587,8 +645,16 @@ impl TwoFactorApi for TwoFactorApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<GetOrganizationDuoError> =
@@ -641,8 +707,16 @@ impl TwoFactorApi for TwoFactorApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorRecoverResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorRecoverResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::TwoFactorRecoverResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorRecoverResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<GetRecoverError> =
@@ -695,8 +769,16 @@ impl TwoFactorApi for TwoFactorApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<GetWebAuthnError> =
@@ -749,8 +831,16 @@ impl TwoFactorApi for TwoFactorApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorYubiKeyResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorYubiKeyResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::TwoFactorYubiKeyResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorYubiKeyResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<GetYubiKeyError> =
@@ -806,8 +896,16 @@ impl TwoFactorApi for TwoFactorApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorAuthenticatorResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorAuthenticatorResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::TwoFactorAuthenticatorResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorAuthenticatorResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<PutAuthenticatorError> =
@@ -857,8 +955,16 @@ impl TwoFactorApi for TwoFactorApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<PutDisableError> =
@@ -908,8 +1014,16 @@ impl TwoFactorApi for TwoFactorApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<PutDuoError> =
@@ -959,8 +1073,16 @@ impl TwoFactorApi for TwoFactorApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorEmailResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorEmailResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::TwoFactorEmailResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorEmailResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<PutEmailError> =
@@ -1015,8 +1137,16 @@ impl TwoFactorApi for TwoFactorApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorProviderResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<PutOrganizationDisableError> =
@@ -1071,8 +1201,16 @@ impl TwoFactorApi for TwoFactorApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorDuoResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<PutOrganizationDuoError> =
@@ -1123,8 +1261,16 @@ impl TwoFactorApi for TwoFactorApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorWebAuthnResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<PutWebAuthnError> =
@@ -1177,8 +1323,16 @@ impl TwoFactorApi for TwoFactorApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::TwoFactorYubiKeyResponseModel`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorYubiKeyResponseModel`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::TwoFactorYubiKeyResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TwoFactorYubiKeyResponseModel`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<PutYubiKeyError> =

@@ -14,16 +14,17 @@ use async_trait::async_trait;
 #[cfg(feature = "mockall")]
 use mockall::automock;
 use reqwest;
-use serde::{de::Error as _, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error as _};
 
-use super::{configuration, Error};
+use super::{Error, configuration};
 use crate::{
     apis::{ContentType, ResponseContent},
     models,
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait LicensesApi: Send + Sync {
     /// GET /licenses/user/{id}
     async fn get_user<'a>(
@@ -52,7 +53,8 @@ impl LicensesApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl LicensesApi for LicensesApiClient {
     async fn get_user<'a>(
         &self,
@@ -98,8 +100,16 @@ impl LicensesApi for LicensesApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::UserLicense`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::UserLicense`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::UserLicense`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::UserLicense`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<GetUserError> =
@@ -157,8 +167,16 @@ impl LicensesApi for LicensesApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             match local_var_content_type {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Err(Error::from(serde_json::Error::custom("Received `text/plain` content type response that cannot be converted to `models::OrganizationLicense`"))),
-                ContentType::Unsupported(local_var_unknown_type) => return Err(Error::from(serde_json::Error::custom(format!("Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationLicense`")))),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationLicense`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationLicense`"
+                    ))));
+                }
             }
         } else {
             let local_var_entity: Option<OrganizationSyncError> =

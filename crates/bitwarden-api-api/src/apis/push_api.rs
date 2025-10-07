@@ -14,16 +14,17 @@ use async_trait::async_trait;
 #[cfg(feature = "mockall")]
 use mockall::automock;
 use reqwest;
-use serde::{de::Error as _, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error as _};
 
-use super::{configuration, Error};
+use super::{Error, configuration};
 use crate::{
     apis::{ContentType, ResponseContent},
     models,
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait PushApi: Send + Sync {
     /// PUT /push/add-organization
     async fn add_organization<'a>(
@@ -66,7 +67,8 @@ impl PushApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl PushApi for PushApiClient {
     async fn add_organization<'a>(
         &self,

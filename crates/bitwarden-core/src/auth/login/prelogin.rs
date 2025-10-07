@@ -2,7 +2,7 @@ use bitwarden_api_identity::models::{PreloginRequestModel, PreloginResponseModel
 use bitwarden_crypto::Kdf;
 use thiserror::Error;
 
-use crate::{require, ApiError, Client, MissingFieldError};
+use crate::{ApiError, Client, MissingFieldError, require};
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]

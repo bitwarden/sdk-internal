@@ -17,7 +17,7 @@ use tsify::Tsify;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::cipher::CipherKind;
-use crate::{cipher::cipher::CopyableCipherFields, Cipher, VaultParseError};
+use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
 
 #[allow(missing_docs)]
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
@@ -592,8 +592,8 @@ impl CipherKind for Login {
 #[cfg(test)]
 mod tests {
     use crate::{
-        cipher::cipher::{CipherKind, CopyableCipherFields},
         Login,
+        cipher::cipher::{CipherKind, CopyableCipherFields},
     };
 
     #[test]

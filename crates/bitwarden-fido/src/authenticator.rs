@@ -8,19 +8,19 @@ use log::error;
 use passkey::{
     authenticator::{Authenticator, DiscoverabilitySupport, StoreInfo, UIHint, UserCheck},
     types::{
-        ctap2::{self, Ctap2Error, StatusCode, VendorError},
         Passkey,
+        ctap2::{self, Ctap2Error, StatusCode, VendorError},
     },
 };
 use thiserror::Error;
 
 use super::{
-    try_from_credential_new_view, types::*, CheckUserOptions, CipherViewContainer,
-    Fido2CredentialStore, Fido2UserInterface, SelectedCredential, UnknownEnumError, AAGUID,
+    AAGUID, CheckUserOptions, CipherViewContainer, Fido2CredentialStore, Fido2UserInterface,
+    SelectedCredential, UnknownEnumError, try_from_credential_new_view, types::*,
 };
 use crate::{
-    fill_with_credential, string_to_guid_bytes, try_from_credential_full, Fido2CallbackError,
-    FillCredentialError, InvalidGuidError,
+    Fido2CallbackError, FillCredentialError, InvalidGuidError, fill_with_credential,
+    string_to_guid_bytes, try_from_credential_full,
 };
 
 #[derive(Debug, Error)]

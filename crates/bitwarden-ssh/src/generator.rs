@@ -1,6 +1,6 @@
 use bitwarden_vault::SshKeyView;
 use serde::{Deserialize, Serialize};
-use ssh_key::{rand_core::CryptoRngCore, Algorithm};
+use ssh_key::{Algorithm, rand_core::CryptoRngCore};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
