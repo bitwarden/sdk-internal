@@ -1,30 +1,53 @@
 # Bitwarden Internal SDK
 
-Rust SDK centralizing business logic **Internal use only**
+Rust SDK centralizing business logic. You're reviewing code as a senior Rust engineer mentoring
+teammates.
 
 ## Client Pattern
 
 PasswordManagerClient ([bitwarden-pm](crates/bitwarden-pm/src/lib.rs)) wraps
 [bitwarden_core::Client](crates/bitwarden-core/src/client/client.rs) and exposes sub-clients:
-`auth()`, `vault()`, `crypto()`, `sends()`, `generator()`, `exporters()`.
+`auth()`, `vault()`, `crypto()`, `sends()`, `generators()`, `exporters()`.
 
 **Lifecycle**: Init → Lock/Unlock → Logout (drops instance). Memento pattern for state resurrection.
 
 **Storage**: Consuming apps use `HashMap<UserId, PasswordManagerClient>`.
 
-## Crate Organization
+## Issues necessitating comments
 
-- `bitwarden-core` - Core Client struct (avoid editing, use feature crates)
-- `bitwarden-crypto` - Crypto primitives (edit with extreme care, multi-team ownership)
-  - `derive_*` = deterministic key derivation, `make_*` = non-deterministic generation
-  - Memory zeroed on drop by default
-- `bitwarden-{auth,vault,send,generators}` - Domain features
-- `bitwarden-uniffi` - Mobile bindings (no lifetimes in FFI types)
-- `bitwarden-wasm-internal` - Web bindings (no logic, only conversions)
-- `bitwarden-api-*` - Auto-generated (regenerate via `./support/build-api.sh`, revert Cargo.toml)
+**Auto-generated code changes:**
 
-## Non-Obvious Constraints
+- Changes to `bitwarden-api-api/` or `bitwarden-api-identity/` are generally discouraged. These are
+  auto-generated from swagger specs.
 
-- Clippy allows `.unwrap()` and `.expect()` in tests only
-- `bitwarden-wasm-internal` must remain logic-free (business logic belongs in feature crates)
-- Serializable crypto representations must maintain backward compatibility indefinitely
+**Secrets in logs/errors:**
+
+- Do not log keys, passwords, or vault data in logs or error paths. Redact sensitive data.
+
+**Business logic in WASM:** `bitwarden-wasm-internal` contains only thin bindings. Move business
+logic to feature crates.
+
+**Unsafe without justification:**
+
+- Any `unsafe` block needs a comment explaining why it's safe and what invariants are being upheld.
+
+**Changes to `bitwarden-crypto/` core functionality**
+
+- Generally speaking, this crate should not be modified. Changes need a comment explaining why.
+
+**New crypto algorithms or key derivation**
+
+- Detailed description, review and audit trail required. Document algorithm choice rationale and
+  test vectors.
+
+**Encryption/decryption modifications**
+
+- Verify backward compatibility. Existing encrypted data must remain decryptable.
+
+**Breaking serialization:**
+
+- Backward compatibility required. Users must decrypt vaults from older versions.
+
+**Breaking API changes:**
+
+- Document migration path for clients.
