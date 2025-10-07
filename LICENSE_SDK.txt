@@ -1,11 +1,11 @@
 BITWARDEN SOFTWARE DEVELOPMENT KIT LICENSE AGREEMENT
-Version 1, 17 March 2023
+Version 2, 7 October 2025
 
 1. Introduction
 
 1.1 The Bitwarden Software Development Kit (referred to in the License Agreement
 as the "SDK" and available for download at the following URL
-https://github.com/bitwarden/sdk) is licensed to you subject to the terms of
+https://github.com/bitwarden/sdk-internal) is licensed to you subject to the terms of
 this License Agreement. The License Agreement forms a legally binding contract
 between you and the Company in relation to your use of the SDK.
 
