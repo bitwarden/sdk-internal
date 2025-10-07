@@ -327,6 +327,7 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     Ok(key_store.decrypt(&cipher)?)
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     /// Edit an existing [Cipher] and save it to the server.
     pub async fn edit(&self, request: CipherEditRequest) -> Result<CipherView, EditCipherError> {

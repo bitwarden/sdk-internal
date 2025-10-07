@@ -201,6 +201,7 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     Ok(key_store.decrypt(&cipher)?)
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     /// Create a new [Cipher] and save it to the server.
     pub async fn create(
