@@ -56,8 +56,8 @@ pub fn dangerous_get_v2_rotated_account_keys<Ids: KeyIds>(
 /// and the `PublicKey` is protected by the `DownstreamKey`. This setup allows:
 ///
 ///   - Access to `DownstreamKey` by knowing the `UpstreamKey`
-///   - Rotation to a `NewDownstreamKey` by knowing the current `DownstreamKey`, without needing access to
-///     the `UpstreamKey`
+///   - Rotation to a `NewDownstreamKey` by knowing the current `DownstreamKey`, without needing
+///     access to the `UpstreamKey`
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -105,7 +105,7 @@ impl RotateableKeySet {
         let encrypted_encapsulation_key = key_pair
             .to_public_key()
             .to_der()?
-            .encrypt_with_key(&downstream_key)?;
+            .encrypt_with_key(downstream_key)?;
 
         Ok(RotateableKeySet {
             encapsulated_downstream_key,

@@ -4,10 +4,8 @@ use crate::{CryptoError, SymmetricCryptoKey, utils::stretch_key};
 ///
 /// The PRF output must be at least 32 bytes long.
 pub fn derive_symmetric_key_from_prf(prf: &[u8]) -> Result<SymmetricCryptoKey, CryptoError> {
-    let (secret, _) = prf
-        .split_at_checked(32)
-        .ok_or_else(|| CryptoError::InvalidKeyLen)?;
-    let secret: [u8; 32] = secret.try_into().unwrap();
+    let (secret, _) = prf.split_at_checked(32).ok_or(CryptoError::InvalidKeyLen)?;
+    let secret: [u8; 32] = secret.try_into().expect("length to be 32 bytes");
     // Don't allow uninitialized PRFs
     if secret.iter().all(|b| *b == b'\0') {
         return Err(CryptoError::ZeroNumber);
