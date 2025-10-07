@@ -42,7 +42,7 @@ pub enum CreateCipherError {
 }
 
 /// Request to add a cipher.
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -53,7 +53,7 @@ pub struct CipherCreateRequest {
     pub notes: Option<String>,
     pub favorite: bool,
     pub reprompt: CipherRepromptType,
-    pub type_data: Option<CipherViewType>,
+    pub r#type: CipherViewType,
     pub fields: Vec<FieldView>,
     /// For internal use only. Do not set this from clients.
     pub key: Option<EncString>,
@@ -72,7 +72,7 @@ impl CipherCreateRequest {
         const NEW_KEY_ID: SymmetricKeyId = SymmetricKeyId::Local("new_cipher_key");
 
         let new_key = ctx.generate_symmetric_key(NEW_KEY_ID)?;
-        self.type_data
+        self.r#type
             .as_login_view_mut()
             .map(|l| l.reencrypt_fido2_credentials(ctx, old_key, new_key))
             .transpose()?;
@@ -82,7 +82,7 @@ impl CipherCreateRequest {
     }
 
     fn generate_checksums(&mut self) {
-        if let Some(login) = &mut self.type_data.as_login_view_mut() {
+        if let Some(login) = &mut self.r#type.as_login_view_mut() {
             login.generate_checksums();
         }
     }
@@ -102,11 +102,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
 
         let cipher_request = CipherRequestModel {
             encrypted_for: None,
-            r#type: cipher_data
-                .type_data
-                .as_ref()
-                .map(CipherViewType::get_cipher_type)
-                .map(<_ as Into<_>>::into),
+            r#type: Some(cipher_data.r#type.get_cipher_type().into()),
             organization_id: cipher_data.organization_id.map(|id| id.to_string()),
             folder_id: cipher_data.folder_id.map(|id| id.to_string()),
             favorite: Some(cipher_data.favorite),
@@ -120,35 +116,35 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
                 .transpose()?
                 .map(|n| n.to_string()),
             login: cipher_data
-                .type_data
+                .r#type
                 .as_login_view()
                 .as_ref()
                 .map(|l| l.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|l| Box::new(l.into())),
             card: cipher_data
-                .type_data
+                .r#type
                 .as_card_view()
                 .as_ref()
                 .map(|c| c.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|c| Box::new(c.into())),
             identity: cipher_data
-                .type_data
+                .r#type
                 .as_identity_view()
                 .as_ref()
                 .map(|i| i.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|i| Box::new(i.into())),
             secure_note: cipher_data
-                .type_data
+                .r#type
                 .as_secure_note_view()
                 .as_ref()
                 .map(|s| s.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|s| Box::new(s.into())),
             ssh_key: cipher_data
-                .type_data
+                .r#type
                 .as_ssh_key_view()
                 .as_ref()
                 .map(|s| s.encrypt_composite(ctx, cipher_key))
@@ -260,7 +256,7 @@ mod tests {
         CipherCreateRequest {
             name: "Test Login".to_string(),
             notes: Some("Test notes".to_string()),
-            type_data: Some(CipherViewType::Login(LoginView {
+            r#type: CipherViewType::Login(LoginView {
                 username: Some("test@example.com".to_string()),
                 password: Some("password123".to_string()),
                 password_revision_date: None,
@@ -268,8 +264,13 @@ mod tests {
                 totp: None,
                 autofill_on_page_load: None,
                 fido2_credentials: None,
-            })),
-            ..Default::default()
+            }),
+            organization_id: Default::default(),
+            folder_id: Default::default(),
+            favorite: Default::default(),
+            reprompt: Default::default(),
+            fields: Default::default(),
+            key: Default::default(),
         }
     }
 
