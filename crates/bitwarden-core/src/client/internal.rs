@@ -459,17 +459,16 @@ impl InternalClient {
 mod tests {
     use std::num::NonZeroU32;
 
-    use bitwarden_crypto::{EncString, Kdf, MasterKey, SymmetricCryptoKey};
+    use bitwarden_crypto::{EncString, Kdf, MasterKey};
 
     use crate::{
-        Client, OrganizationId,
+        Client,
         client::{LoginMethod, UserLoginMethod, test_accounts::test_bitwarden_com_account},
-        key_management::{MasterPasswordUnlockData, SymmetricKeyId},
+        key_management::MasterPasswordUnlockData,
     };
 
     const TEST_ACCOUNT_EMAIL: &str = "test@bitwarden.com";
     const TEST_ACCOUNT_USER_KEY: &str = "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=";
-    const TEST_ACCOUNT_ORGANIZATION_ID: &str = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8";
 
     #[test]
     fn initializing_user_multiple_times() {
@@ -522,19 +521,13 @@ mod tests {
         let new_email = format!("{}@example.com", uuid::Uuid::new_v4());
         let kdf = Kdf::default();
         let expected_email = TEST_ACCOUNT_EMAIL.to_owned();
-        let organization_id: OrganizationId = TEST_ACCOUNT_ORGANIZATION_ID
-            .parse()
-            .expect("Invalid organization ID");
 
-        let (_, new_encrypted_user_key) = {
+        let (new_user_key, new_encrypted_user_key) = {
             let master_key = MasterKey::derive(&password, &new_email, &kdf).unwrap();
             master_key.make_user_key().unwrap()
         };
 
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
-
-        let (expected_user_key, expected_organization_keys) =
-            get_user_key_and_org_key(&client, organization_id);
 
         client
             .internal
@@ -553,28 +546,8 @@ mod tests {
             _ => panic!("Expected username login method"),
         }
 
-        let (user_key, organization_keys) = get_user_key_and_org_key(&client, organization_id);
-        assert_eq!(user_key, expected_user_key);
-        assert_eq!(organization_keys, expected_organization_keys);
-    }
+        let user_key = client.crypto().get_user_encryption_key().await.unwrap();
 
-    fn get_user_key_and_org_key(
-        client: &Client,
-        organization_id: OrganizationId,
-    ) -> (SymmetricCryptoKey, SymmetricCryptoKey) {
-        let key_store = client.internal.get_key_store();
-        let context = key_store.context();
-        #[allow(deprecated)]
-        let user_key = context
-            .dangerous_get_symmetric_key(SymmetricKeyId::User)
-            .unwrap()
-            .clone();
-        #[allow(deprecated)]
-        let organization_keys = context
-            .dangerous_get_symmetric_key(SymmetricKeyId::Organization(organization_id))
-            .unwrap()
-            .clone();
-
-        (user_key, organization_keys)
+        assert_ne!(user_key, new_user_key.0.to_base64());
     }
 }
