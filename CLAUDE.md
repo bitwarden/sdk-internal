@@ -9,25 +9,30 @@ PasswordManagerClient ([bitwarden-pm](crates/bitwarden-pm/src/lib.rs)) wraps
 [bitwarden_core::Client](crates/bitwarden-core/src/client/client.rs) and exposes sub-clients:
 `auth()`, `vault()`, `crypto()`, `sends()`, `generators()`, `exporters()`.
 
-**Lifecycle**: Init → Lock/Unlock → Logout (drops instance). Memento pattern for state resurrection.
+**Lifecycle**
 
-**Storage**: Consuming apps use `HashMap<UserId, PasswordManagerClient>`.
+- Init → Lock/Unlock → Logout (drops instance). Memento pattern for state resurrection.
+
+**Storage**
+
+- Consuming apps use `HashMap<UserId, PasswordManagerClient>`.
 
 ## Issues necessitating comments
 
-**Auto-generated code changes:**
+**Auto-generated code changes**
 
 - Changes to `bitwarden-api-api/` or `bitwarden-api-identity/` are generally discouraged. These are
   auto-generated from swagger specs.
 
-**Secrets in logs/errors:**
+**Secrets in logs/errors**
 
 - Do not log keys, passwords, or vault data in logs or error paths. Redact sensitive data.
 
-**Business logic in WASM:** `bitwarden-wasm-internal` contains only thin bindings. Move business
-logic to feature crates.
+**Business logic in WASM**
 
-**Unsafe without justification:**
+- `bitwarden-wasm-internal` contains only thin bindings. Move business logic to feature crates.
+
+**Unsafe without justification**
 
 - Any `unsafe` block needs a comment explaining why it's safe and what invariants are being upheld.
 
@@ -44,10 +49,10 @@ logic to feature crates.
 
 - Verify backward compatibility. Existing encrypted data must remain decryptable.
 
-**Breaking serialization:**
+**Breaking serialization**
 
 - Backward compatibility required. Users must decrypt vaults from older versions.
 
-**Breaking API changes:**
+**Breaking API changes**
 
 - Document migration path for clients.
