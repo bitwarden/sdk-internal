@@ -1,11 +1,10 @@
-use bitwarden_crypto::{EncString, MasterKey};
+use bitwarden_crypto::EncString;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     Client,
     auth::{
-        JwtToken,
         api::{request::ApiTokenRequest, response::IdentityTokenResponse},
         login::{LoginError, PasswordLoginResponse, response::two_factor::TwoFactorProviders},
     },
@@ -24,15 +23,6 @@ pub(crate) async fn login_api_key(
     let response = request_api_identity_tokens(client, input).await?;
 
     if let IdentityTokenResponse::Authenticated(r) = &response {
-        let access_token_obj: JwtToken = r.access_token.parse()?;
-
-        // This should always be Some() when logging in with an api key
-        let email = access_token_obj
-            .email
-            .ok_or(LoginError::JwtTokenMissingEmail)?;
-
-        let kdf = client.auth().prelogin(email.clone()).await?;
-
         client.internal.set_tokens(
             r.access_token.clone(),
             r.refresh_token.clone(),
@@ -53,44 +43,23 @@ pub(crate) async fn login_api_key(
             .map(UserDecryptionData::try_from)
             .transpose()?
             .and_then(|user_decryption| user_decryption.master_password_unlock);
-        match master_password_unlock {
-            Some(master_password_unlock) => {
-                client
-                    .internal
-                    .initialize_user_crypto_master_password_unlock(
-                        input.password.clone(),
-                        master_password_unlock.clone(),
-                        user_key_state,
-                    )?;
-
-                client
-                    .internal
-                    .set_login_method(LoginMethod::User(UserLoginMethod::ApiKey {
-                        client_id: input.client_id.clone(),
-                        client_secret: input.client_secret.clone(),
-                        email: master_password_unlock.salt,
-                        kdf: master_password_unlock.kdf,
-                    }));
-            }
-            None => {
-                let user_key: EncString = require!(&r.key).parse()?;
-                let master_key = MasterKey::derive(&input.password, &email, &kdf)?;
-
-                client.internal.initialize_user_crypto_master_key(
-                    master_key,
-                    user_key,
+        if let Some(master_password_unlock) = master_password_unlock {
+            client
+                .internal
+                .initialize_user_crypto_master_password_unlock(
+                    input.password.clone(),
+                    master_password_unlock.clone(),
                     user_key_state,
                 )?;
 
-                client
-                    .internal
-                    .set_login_method(LoginMethod::User(UserLoginMethod::ApiKey {
-                        client_id: input.client_id.clone(),
-                        client_secret: input.client_secret.clone(),
-                        email,
-                        kdf,
-                    }));
-            }
+            client
+                .internal
+                .set_login_method(LoginMethod::User(UserLoginMethod::ApiKey {
+                    client_id: input.client_id.clone(),
+                    client_secret: input.client_secret.clone(),
+                    email: master_password_unlock.salt,
+                    kdf: master_password_unlock.kdf,
+                }));
         }
     }
 

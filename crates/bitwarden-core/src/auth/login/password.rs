@@ -19,7 +19,7 @@ pub(crate) async fn login_password(
     client: &Client,
     input: &PasswordLoginRequest,
 ) -> Result<PasswordLoginResponse, LoginError> {
-    use bitwarden_crypto::{EncString, MasterKey};
+    use bitwarden_crypto::EncString;
 
     use crate::{
         client::{UserLoginMethod, internal::UserKeyState},
@@ -60,43 +60,23 @@ pub(crate) async fn login_password(
             .map(UserDecryptionData::try_from)
             .transpose()?
             .and_then(|user_decryption| user_decryption.master_password_unlock);
-        match master_password_unlock {
-            Some(master_password_unlock) => {
-                client
-                    .internal
-                    .initialize_user_crypto_master_password_unlock(
-                        input.password.clone(),
-                        master_password_unlock.clone(),
-                        user_key_state,
-                    )?;
-
-                client
-                    .internal
-                    .set_login_method(LoginMethod::User(UserLoginMethod::Username {
-                        client_id: "web".to_owned(),
-                        email: master_password_unlock.salt,
-                        kdf: master_password_unlock.kdf,
-                    }));
-            }
-            None => {
-                let user_key: EncString = require!(&r.key).parse()?;
-                let master_key = MasterKey::derive(&input.password, &input.email, &kdf)?;
-
-                client.internal.initialize_user_crypto_master_key(
-                    master_key,
-                    user_key,
+        if let Some(master_password_unlock) = master_password_unlock {
+            client
+                .internal
+                .initialize_user_crypto_master_password_unlock(
+                    input.password.clone(),
+                    master_password_unlock.clone(),
                     user_key_state,
                 )?;
 
-                client
-                    .internal
-                    .set_login_method(LoginMethod::User(UserLoginMethod::Username {
-                        client_id: "web".to_owned(),
-                        email: input.email.clone(),
-                        kdf,
-                    }));
-            }
-        };
+            client
+                .internal
+                .set_login_method(LoginMethod::User(UserLoginMethod::Username {
+                    client_id: "web".to_owned(),
+                    email: master_password_unlock.salt,
+                    kdf: master_password_unlock.kdf,
+                }));
+        }
     }
 
     Ok(PasswordLoginResponse::process_response(response))

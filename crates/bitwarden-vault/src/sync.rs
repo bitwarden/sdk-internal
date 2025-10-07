@@ -48,13 +48,13 @@ pub(crate) async fn sync(client: &Client, input: &SyncRequest) -> Result<SyncRes
         .await
         .map_err(|e| SyncError::Api(e.into()))?;
 
-    if let Some(master_password_unlock) = sync
+    let master_password_unlock = sync
         .user_decryption
         .as_deref()
         .map(UserDecryptionData::try_from)
         .transpose()?
-        .and_then(|user_decryption| user_decryption.master_password_unlock)
-    {
+        .and_then(|user_decryption| user_decryption.master_password_unlock);
+    if let Some(master_password_unlock) = master_password_unlock {
         client
             .internal
             .update_user_master_password_unlock(master_password_unlock)?;
