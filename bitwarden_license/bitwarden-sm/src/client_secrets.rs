@@ -3,12 +3,11 @@ use bitwarden_core::Client;
 use crate::{
     error::SecretsManagerError,
     secrets::{
-        create_secret, delete_secrets, get_secret, get_secrets_by_ids, list_secrets,
-        list_secrets_by_project, sync_secrets, update_secret, SecretCreateRequest,
-        SecretGetRequest, SecretIdentifiersByProjectRequest, SecretIdentifiersRequest,
-        SecretIdentifiersResponse, SecretPutRequest, SecretResponse, SecretsDeleteRequest,
-        SecretsDeleteResponse, SecretsGetRequest, SecretsResponse, SecretsSyncRequest,
-        SecretsSyncResponse,
+        SecretCreateRequest, SecretGetRequest, SecretIdentifiersByProjectRequest,
+        SecretIdentifiersRequest, SecretIdentifiersResponse, SecretPutRequest, SecretResponse,
+        SecretsDeleteRequest, SecretsDeleteResponse, SecretsGetRequest, SecretsResponse,
+        SecretsSyncRequest, SecretsSyncResponse, create_secret, delete_secrets, get_secret,
+        get_secrets_by_ids, list_secrets, list_secrets_by_project, sync_secrets, update_secret,
     },
 };
 
@@ -118,12 +117,12 @@ impl SecretsClientExt for Client {
 #[cfg(test)]
 mod tests {
     use bitwarden_core::{
-        auth::login::AccessTokenLoginRequest, Client, ClientSettings, DeviceType,
+        Client, ClientSettings, DeviceType, auth::login::AccessTokenLoginRequest,
     };
 
     use crate::{
-        secrets::{SecretGetRequest, SecretIdentifiersRequest},
         ClientSecretsExt,
+        secrets::{SecretGetRequest, SecretIdentifiersRequest},
     };
 
     async fn start_mock(mocks: Vec<wiremock::Mock>) -> (wiremock::MockServer, Client) {
@@ -145,7 +144,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_access_token_login() {
-        use wiremock::{matchers, Mock, ResponseTemplate};
+        use wiremock::{Mock, ResponseTemplate, matchers};
 
         // Create the mock server with the necessary routes for this test
         let (_server, client) = start_mock(vec![

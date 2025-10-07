@@ -10,7 +10,7 @@
 //!   [CompositeEncryptable](bitwarden_crypto::CompositeEncryptable), and
 //!   [Decryptable](bitwarden_crypto::Decryptable).
 
-use bitwarden_crypto::{key_ids, KeyStore, SymmetricCryptoKey};
+use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, key_ids};
 
 #[cfg(feature = "internal")]
 pub mod crypto;

@@ -1,23 +1,22 @@
 use std::pin::Pin;
 
-use ciborium::{value::Integer, Value};
+use ciborium::{Value, value::Integer};
 use coset::{
-    iana::{Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter},
     CborSerializable, CoseKey, RegisteredLabel, RegisteredLabelWithPrivate,
+    iana::{Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter},
 };
 use ed25519_dalek::Signer;
 
 use super::{
-    ed25519_signing_key, key_id,
+    SignatureAlgorithm, ed25519_signing_key, key_id,
     verifying_key::{RawVerifyingKey, VerifyingKey},
-    SignatureAlgorithm,
 };
 use crate::{
+    CoseKeyBytes, CryptoKey,
     content_format::CoseKeyContentFormat,
     cose::CoseSerializable,
     error::{EncodingError, Result},
     keys::KeyId,
-    CoseKeyBytes, CryptoKey,
 };
 
 /// A `SigningKey` without the key id. This enum contains a variant for each supported signature
@@ -149,8 +148,10 @@ mod tests {
         let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
         let signature = signing_key.sign_raw("Test message".as_bytes());
         let verifying_key = signing_key.to_verifying_key();
-        assert!(verifying_key
-            .verify_raw(&signature, "Test message".as_bytes())
-            .is_ok());
+        assert!(
+            verifying_key
+                .verify_raw(&signature, "Test message".as_bytes())
+                .is_ok()
+        );
     }
 }

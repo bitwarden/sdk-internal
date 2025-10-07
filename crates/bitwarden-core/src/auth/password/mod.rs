@@ -2,8 +2,8 @@ use bitwarden_crypto::{CryptoError, HashPurpose, Kdf, MasterKey};
 
 mod policy;
 use bitwarden_encoding::B64;
-pub(crate) use policy::satisfies_policy;
 pub use policy::MasterPasswordPolicyOptions;
+pub(crate) use policy::satisfies_policy;
 mod validate;
 pub(crate) use validate::{validate_password, validate_password_user_key};
 mod strength;

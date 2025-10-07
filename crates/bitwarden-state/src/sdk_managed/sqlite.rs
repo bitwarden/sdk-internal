@@ -5,7 +5,7 @@ use tokio::sync::Mutex;
 
 use crate::{
     repository::{
-        validate_registry_name, RepositoryItem, RepositoryMigrationStep, RepositoryMigrations,
+        RepositoryItem, RepositoryMigrationStep, RepositoryMigrations, validate_registry_name,
     },
     sdk_managed::{Database, DatabaseConfiguration, DatabaseError},
 };

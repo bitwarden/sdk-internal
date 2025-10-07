@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use bitwarden_core::{platform::FingerprintRequest, Client};
+use bitwarden_core::{Client, platform::FingerprintRequest};
 use bitwarden_fido::ClientFido2Ext;
 use bitwarden_state::DatabaseConfiguration;
 use bitwarden_vault::Cipher;

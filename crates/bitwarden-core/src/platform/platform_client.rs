@@ -1,10 +1,11 @@
 use crate::{
-    platform::{
-        generate_fingerprint::{generate_fingerprint, generate_user_fingerprint},
-        get_user_api_key, FingerprintError, FingerprintRequest, SecretVerificationRequest,
-        UserApiKeyError, UserApiKeyResponse, UserFingerprintError,
-    },
     Client,
+    platform::{
+        FingerprintError, FingerprintRequest, SecretVerificationRequest, UserApiKeyError,
+        UserApiKeyResponse, UserFingerprintError,
+        generate_fingerprint::{generate_fingerprint, generate_user_fingerprint},
+        get_user_api_key,
+    },
 };
 
 /// Wrapper for platform specific functionality.
