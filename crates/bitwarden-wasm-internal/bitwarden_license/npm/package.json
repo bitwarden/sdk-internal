@@ -1,7 +1,7 @@
 {
   "name": "@bitwarden/commercial-sdk-internal",
   "version": "0.1.0",
-  "license": "GPL-3.0",
+  "license": "BITWARDEN SOFTWARE DEVELOPMENT KIT LICENSE AGREEMENT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bitwarden/sdk-internal.git"
