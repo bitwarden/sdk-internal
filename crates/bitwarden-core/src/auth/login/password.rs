@@ -11,7 +11,7 @@ use crate::{
     Client,
     auth::{api::request::PasswordTokenRequest, login::LoginError, login::TwoFactorRequest},
     client::LoginMethod,
-    key_management::UserDecryptionData,
+    key_management::{MasterPasswordAuthenticationData, UserDecryptionData},
 };
 
 #[cfg(feature = "internal")]
@@ -19,7 +19,7 @@ pub(crate) async fn login_password(
     client: &Client,
     input: &PasswordLoginRequest,
 ) -> Result<PasswordLoginResponse, LoginError> {
-    use bitwarden_crypto::{EncString, HashPurpose, MasterKey};
+    use bitwarden_crypto::{EncString, MasterKey};
 
     use crate::{
         client::{UserLoginMethod, internal::UserKeyState},
@@ -30,11 +30,14 @@ pub(crate) async fn login_password(
 
     let kdf = client.auth().prelogin(input.email.clone()).await?;
 
-    let master_key = MasterKey::derive(&input.password, &input.email, &kdf)?;
-    let password_hash = master_key
-        .derive_master_key_hash(input.password.as_bytes(), HashPurpose::ServerAuthorization);
+    let master_password_authentication =
+        MasterPasswordAuthenticationData::derive(&input.password, &kdf, &input.email)?;
 
-    let response = request_identity_tokens(client, input, &password_hash.to_string()).await?;
+    let password_hash = master_password_authentication
+        .master_password_authentication_hash
+        .to_string();
+
+    let response = request_identity_tokens(client, input, &password_hash).await?;
 
     if let IdentityTokenResponse::Authenticated(r) = &response {
         client.internal.set_tokens(
@@ -59,11 +62,13 @@ pub(crate) async fn login_password(
             .and_then(|user_decryption| user_decryption.master_password_unlock);
         match master_password_unlock {
             Some(master_password_unlock) => {
-                client.internal.initialize_user_crypto_master_key(
-                    master_key,
-                    master_password_unlock.master_key_wrapped_user_key,
-                    user_key_state,
-                )?;
+                client
+                    .internal
+                    .initialize_user_crypto_master_password_unlock(
+                        input.password.clone(),
+                        master_password_unlock.clone(),
+                        user_key_state,
+                    )?;
 
                 client
                     .internal
@@ -75,6 +80,7 @@ pub(crate) async fn login_password(
             }
             None => {
                 let user_key: EncString = require!(&r.key).parse()?;
+                let master_key = MasterKey::derive(&input.password, &input.email, &kdf)?;
 
                 client.internal.initialize_user_crypto_master_key(
                     master_key,

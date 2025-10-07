@@ -24,7 +24,7 @@ mod master_password;
 #[cfg(feature = "internal")]
 pub use master_password::MasterPasswordError;
 #[cfg(feature = "internal")]
-pub(crate) use master_password::MasterPasswordUnlockData;
+pub(crate) use master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData};
 #[cfg(feature = "internal")]
 mod non_generic_wrappers;
 #[cfg(feature = "internal")]

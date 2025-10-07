@@ -81,6 +81,13 @@ pub enum InitUserCryptoMethod {
         /// The user's encrypted symmetric crypto key
         user_key: EncString,
     },
+    /// Master Password Unlock
+    MasterPasswordUnlock {
+        /// The user's master password
+        password: String,
+        /// Contains the data needed to unlock with the master password
+        master_password_unlock: MasterPasswordUnlockData,
+    },
     /// Never lock and/or biometric unlock
     DecryptedKey {
         /// The user's decrypted encryption key, obtained using `get_user_encryption_key`
@@ -167,6 +174,18 @@ pub(super) async fn initialize_user_crypto(
             client
                 .internal
                 .initialize_user_crypto_master_key(master_key, user_key, key_state)?;
+        }
+        InitUserCryptoMethod::MasterPasswordUnlock {
+            password,
+            master_password_unlock,
+        } => {
+            client
+                .internal
+                .initialize_user_crypto_master_password_unlock(
+                    password,
+                    master_password_unlock,
+                    key_state,
+                )?;
         }
         InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
             let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
@@ -837,6 +856,11 @@ mod tests {
     const TEST_VECTOR_VERIFYING_KEY_V2: &str =
         "pgEBAlAmkP0QgfdMVbIujX55W/yNAycEgQIgBiFYIEM6JxBmjWQTruAm3s6BTaJy1q6BzQetMBacNeRJ0kxR";
     const TEST_VECTOR_SECURITY_STATE_V2: &str = "hFgepAEnAxg8BFAmkP0QgfdMVbIujX55W/yNOgABOH8CoFgkomhlbnRpdHlJZFBHOOw2BI9OQoNq+Vl1xZZKZ3ZlcnNpb24CWEAlchbJR0vmRfShG8On7Q2gknjkw4Dd6MYBLiH4u+/CmfQdmjNZdf6kozgW/6NXyKVNu8dAsKsin+xxXkDyVZoG";
+
+    const TEST_USER_EMAIL: &str = "test@bitwarden.com";
+    const TEST_USER_PASSWORD: &str = "asdfasdfasdf";
+    const TEST_ACCOUNT_USER_KEY: &str = "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=";
+    const TEST_ACCOUNT_PRIVATE_KEY: &str = "2.yN7l00BOlUE0Sb0M//Q53w==|EwKG/BduQRQ33Izqc/ogoBROIoI5dmgrxSo82sgzgAMIBt3A2FZ9vPRMY+GWT85JiqytDitGR3TqwnFUBhKUpRRAq4x7rA6A1arHrFp5Tp1p21O3SfjtvB3quiOKbqWk6ZaU1Np9HwqwAecddFcB0YyBEiRX3VwF2pgpAdiPbSMuvo2qIgyob0CUoC/h4Bz1be7Qa7B0Xw9/fMKkB1LpOm925lzqosyMQM62YpMGkjMsbZz0uPopu32fxzDWSPr+kekNNyLt9InGhTpxLmq1go/pXR2uw5dfpXc5yuta7DB0EGBwnQ8Vl5HPdDooqOTD9I1jE0mRyuBpWTTI3FRnu3JUh3rIyGBJhUmHqGZvw2CKdqHCIrQeQkkEYqOeJRJVdBjhv5KGJifqT3BFRwX/YFJIChAQpebNQKXe/0kPivWokHWwXlDB7S7mBZzhaAPidZvnuIhalE2qmTypDwHy22FyqV58T8MGGMchcASDi/QXI6kcdpJzPXSeU9o+NC68QDlOIrMVxKFeE7w7PvVmAaxEo0YwmuAzzKy9QpdlK0aab/xEi8V4iXj4hGepqAvHkXIQd+r3FNeiLfllkb61p6WTjr5urcmDQMR94/wYoilpG5OlybHdbhsYHvIzYoLrC7fzl630gcO6t4nM24vdB6Ymg9BVpEgKRAxSbE62Tqacxqnz9AcmgItb48NiR/He3n3ydGjPYuKk/ihZMgEwAEZvSlNxYONSbYrIGDtOY+8Nbt6KiH3l06wjZW8tcmFeVlWv+tWotnTY9IqlAfvNVTjtsobqtQnvsiDjdEVtNy/s2ci5TH+NdZluca2OVEr91Wayxh70kpM6ib4UGbfdmGgCo74gtKvKSJU0rTHakQ5L9JlaSDD5FamBRyI0qfL43Ad9qOUZ8DaffDCyuaVyuqk7cz9HwmEmvWU3VQ+5t06n/5kRDXttcw8w+3qClEEdGo1KeENcnXCB32dQe3tDTFpuAIMLqwXs6FhpawfZ5kPYvLPczGWaqftIs/RXJ/EltGc0ugw2dmTLpoQhCqrcKEBDoYVk0LDZKsnzitOGdi9mOWse7Se8798ib1UsHFUjGzISEt6upestxOeupSTOh0v4+AjXbDzRUyogHww3V+Bqg71bkcMxtB+WM+pn1XNbVTyl9NR040nhP7KEf6e9ruXAtmrBC2ah5cFEpLIot77VFZ9ilLuitSz+7T8n1yAh1IEG6xxXxninAZIzi2qGbH69O5RSpOJuJTv17zTLJQIIc781JwQ2TTwTGnx5wZLbffhCasowJKd2EVcyMJyhz6ru0PvXWJ4hUdkARJs3Xu8dus9a86N8Xk6aAPzBDqzYb1vyFIfBxP0oO8xFHgd30Cgmz8UrSE3qeWRrF8ftrI6xQnFjHBGWD/JWSvd6YMcQED0aVuQkuNW9ST/DzQThPzRfPUoiL10yAmV7Ytu4fR3x2sF0Yfi87YhHFuCMpV/DsqxmUizyiJuD938eRcH8hzR/VO53Qo3UIsqOLcyXtTv6THjSlTopQ+JOLOnHm1w8dzYbLN44OG44rRsbihMUQp+wUZ6bsI8rrOnm9WErzkbQFbrfAINdoCiNa6cimYIjvvnMTaFWNymqY1vZxGztQiMiHiHYwTfwHTXrb9j0uPM=|09J28iXv9oWzYtzK2LBT6Yht4IT4MijEkk0fwFdrVQ4=";
 
     #[tokio::test]
     async fn test_update_kdf() {
@@ -1510,5 +1534,60 @@ mod tests {
         .unwrap();
 
         assert!(get_v2_rotated_account_keys(&client).is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_initialize_user_crypto_master_password_unlock() {
+        let client = Client::new(None);
+
+        initialize_user_crypto(
+            &client,
+            InitUserCryptoRequest {
+                user_id: Some(UserId::new_v4()),
+                kdf_params: Kdf::PBKDF2 {
+                    iterations: 600_000.try_into().unwrap(),
+                },
+                email: TEST_USER_EMAIL.to_string(),
+                private_key: TEST_ACCOUNT_PRIVATE_KEY.parse().unwrap(),
+                signing_key: None,
+                security_state: None,
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
+                    password: TEST_USER_PASSWORD.to_string(),
+                    master_password_unlock: MasterPasswordUnlockData {
+                        kdf: Kdf::PBKDF2 {
+                            iterations: 600_000.try_into().unwrap(),
+                        },
+                        master_key_wrapped_user_key: TEST_ACCOUNT_USER_KEY.parse().unwrap(),
+                        salt: TEST_USER_EMAIL.to_string(),
+                    },
+                },
+            },
+        )
+        .await
+        .unwrap();
+
+        let key_store = client.internal.get_key_store();
+        let context = key_store.context();
+        assert!(context.has_symmetric_key(SymmetricKeyId::User));
+        assert!(context.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey));
+        let login_method = client.internal.get_login_method().unwrap();
+        if let LoginMethod::User(UserLoginMethod::Username {
+            email,
+            kdf,
+            client_id,
+            ..
+        }) = login_method.as_ref()
+        {
+            assert_eq!(*email, TEST_USER_EMAIL);
+            assert_eq!(
+                *kdf,
+                Kdf::PBKDF2 {
+                    iterations: 600_000.try_into().unwrap(),
+                }
+            );
+            assert_eq!(*client_id, "");
+        } else {
+            panic!("Expected username login method");
+        }
     }
 }

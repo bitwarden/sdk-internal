@@ -391,6 +391,23 @@ impl InternalClient {
         EncryptionSettings::set_org_keys(org_keys, &self.key_store)
     }
 
+    #[cfg(feature = "internal")]
+    pub(crate) fn initialize_user_crypto_master_password_unlock(
+        &self,
+        password: String,
+        master_password_unlock: MasterPasswordUnlockData,
+        key_state: UserKeyState,
+    ) -> Result<(), EncryptionSettingsError> {
+        let master_key = MasterKey::derive(
+            &password,
+            &master_password_unlock.salt,
+            &master_password_unlock.kdf,
+        )?;
+        let user_key =
+            master_key.decrypt_user_key(master_password_unlock.master_key_wrapped_user_key)?;
+        self.initialize_user_crypto_decrypted_key(user_key, key_state)
+    }
+
     /// Updates user's KDF for the master password unlock login method.
     /// Salt and user key update is not supported yet.
     #[cfg(feature = "internal")]
@@ -481,11 +498,10 @@ mod tests {
             parallelism: NonZeroU32::new(5).unwrap(),
         };
 
-        let test_account = test_bitwarden_com_account();
         let user_key: EncString = TEST_ACCOUNT_USER_KEY.parse().expect("Invalid user key");
         let email = TEST_ACCOUNT_EMAIL.to_owned();
 
-        let client = Client::init_test_account(test_account).await;
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
         client
             .internal
@@ -504,7 +520,6 @@ mod tests {
     async fn test_update_user_master_password_unlock_email_and_keys_not_updated() {
         let password = "asdfasdfasdf".to_string();
         let new_email = format!("{}@example.com", uuid::Uuid::new_v4());
-        let test_account = test_bitwarden_com_account();
         let kdf = Kdf::default();
         let expected_email = TEST_ACCOUNT_EMAIL.to_owned();
         let organization_id: OrganizationId = TEST_ACCOUNT_ORGANIZATION_ID
@@ -516,7 +531,7 @@ mod tests {
             master_key.make_user_key().unwrap()
         };
 
-        let client = Client::init_test_account(test_account).await;
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
         let (expected_user_key, expected_organization_keys) =
             get_user_key_and_org_key(&client, organization_id);

@@ -33,8 +33,6 @@ pub(crate) async fn login_api_key(
 
         let kdf = client.auth().prelogin(email.clone()).await?;
 
-        let master_key = MasterKey::derive(&input.password, &email, &kdf)?;
-
         client.internal.set_tokens(
             r.access_token.clone(),
             r.refresh_token.clone(),
@@ -57,11 +55,13 @@ pub(crate) async fn login_api_key(
             .and_then(|user_decryption| user_decryption.master_password_unlock);
         match master_password_unlock {
             Some(master_password_unlock) => {
-                client.internal.initialize_user_crypto_master_key(
-                    master_key,
-                    master_password_unlock.master_key_wrapped_user_key,
-                    user_key_state,
-                )?;
+                client
+                    .internal
+                    .initialize_user_crypto_master_password_unlock(
+                        input.password.clone(),
+                        master_password_unlock.clone(),
+                        user_key_state,
+                    )?;
 
                 client
                     .internal
@@ -74,6 +74,7 @@ pub(crate) async fn login_api_key(
             }
             None => {
                 let user_key: EncString = require!(&r.key).parse()?;
+                let master_key = MasterKey::derive(&input.password, &email, &kdf)?;
 
                 client.internal.initialize_user_crypto_master_key(
                     master_key,
