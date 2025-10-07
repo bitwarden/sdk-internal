@@ -16,20 +16,21 @@
 use std::{marker::PhantomData, num::TryFromIntError, str::FromStr};
 
 use argon2::Params;
-use bitwarden_encoding::{FromStrVisitor, B64};
-use ciborium::{value::Integer, Value};
+use bitwarden_encoding::{B64, FromStrVisitor};
+use ciborium::{Value, value::Integer};
 use coset::{CborSerializable, CoseError, Header, HeaderBuilder};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    cose::{
-        extract_bytes, extract_integer, CoseExtractError, ALG_ARGON2ID13, ARGON2_ITERATIONS,
-        ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
-    },
-    xchacha20, BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KeyIds,
+    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KeyIds,
     KeyStoreContext, SymmetricCryptoKey,
+    cose::{
+        ALG_ARGON2ID13, ARGON2_ITERATIONS, ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
+        CoseExtractError, extract_bytes, extract_integer,
+    },
+    xchacha20,
 };
 
 /// 16 is the RECOMMENDED salt size for all applications:
@@ -450,8 +451,8 @@ impl From<TryFromIntError> for PasswordProtectedKeyEnvelopeError {
 mod tests {
     use super::*;
     use crate::{
-        traits::tests::{TestIds, TestSymmKey},
         KeyStore,
+        traits::tests::{TestIds, TestSymmKey},
     };
 
     const TEST_UNSEALED_COSEKEY_ENCODED: &[u8] = &[

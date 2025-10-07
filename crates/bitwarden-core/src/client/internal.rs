@@ -14,8 +14,8 @@ use crate::client::encryption_settings::EncryptionSettings;
 #[cfg(feature = "secrets")]
 use crate::client::login_method::ServiceAccountLoginMethod;
 use crate::{
-    auth::renew::renew_token, client::login_method::LoginMethod, error::UserIdAlreadySetError,
-    key_management::KeyIds, DeviceType, OrganizationId, UserId,
+    DeviceType, OrganizationId, UserId, auth::renew::renew_token,
+    client::login_method::LoginMethod, error::UserIdAlreadySetError, key_management::KeyIds,
 };
 #[cfg(feature = "internal")]
 use crate::{
@@ -26,8 +26,8 @@ use crate::{
     },
     error::NotAuthenticatedError,
     key_management::{
-        crypto::InitUserCryptoRequest, MasterPasswordUnlockData, PasswordProtectedKeyEnvelope,
-        SecurityState, SignedSecurityState,
+        MasterPasswordUnlockData, PasswordProtectedKeyEnvelope, SecurityState, SignedSecurityState,
+        crypto::InitUserCryptoRequest,
     },
 };
 
@@ -50,11 +50,50 @@ impl From<&InitUserCryptoRequest> for UserKeyState {
 }
 
 #[allow(missing_docs)]
-#[derive(Debug, Clone)]
 pub struct ApiConfigurations {
-    pub identity: bitwarden_api_identity::apis::configuration::Configuration,
-    pub api: bitwarden_api_api::apis::configuration::Configuration,
+    pub identity_client: bitwarden_api_identity::apis::ApiClient,
+    pub api_client: bitwarden_api_api::apis::ApiClient,
+    pub identity_config: bitwarden_api_identity::apis::configuration::Configuration,
+    pub api_config: bitwarden_api_api::apis::configuration::Configuration,
     pub device_type: DeviceType,
+}
+
+impl std::fmt::Debug for ApiConfigurations {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ApiConfigurations")
+            .field("device_type", &self.device_type)
+            .finish_non_exhaustive()
+    }
+}
+
+impl ApiConfigurations {
+    pub(crate) fn new(
+        identity_config: bitwarden_api_identity::apis::configuration::Configuration,
+        api_config: bitwarden_api_api::apis::configuration::Configuration,
+        device_type: DeviceType,
+    ) -> Arc<Self> {
+        let identity = Arc::new(identity_config.clone());
+        let api = Arc::new(api_config.clone());
+        let identity_client = bitwarden_api_identity::apis::ApiClient::new(&identity);
+        let api_client = bitwarden_api_api::apis::ApiClient::new(&api);
+        Arc::new(Self {
+            identity_client,
+            api_client,
+            identity_config,
+            api_config,
+            device_type,
+        })
+    }
+
+    pub fn set_tokens(self: &mut Arc<Self>, token: String) {
+        let mut identity = self.identity_config.clone();
+        let mut api = self.api_config.clone();
+
+        identity.oauth_access_token = Some(token.clone());
+        api.oauth_access_token = Some(token);
+
+        *self = ApiConfigurations::new(identity, api, self.device_type);
+    }
 }
 
 /// Access and refresh tokens used for authentication and authorization.
@@ -65,6 +104,7 @@ pub(crate) enum Tokens {
 }
 
 /// Access tokens managed by client applications, such as the web or mobile apps.
+#[cfg_attr(feature = "uniffi", uniffi::export(with_foreign))]
 #[async_trait::async_trait]
 pub trait ClientManagedTokens: std::fmt::Debug + Send + Sync {
     /// Returns the access token, if available.
@@ -170,14 +210,10 @@ impl InternalClient {
 
     /// Sets api tokens for only internal API clients, use `set_tokens` for SdkManagedTokens.
     pub(crate) fn set_api_tokens_internal(&self, token: String) {
-        let mut guard = self
-            .__api_configurations
+        self.__api_configurations
             .write()
-            .expect("RwLock is not poisoned");
-
-        let inner = Arc::make_mut(&mut guard);
-        inner.identity.oauth_access_token = Some(token.clone());
-        inner.api.oauth_access_token = Some(token);
+            .expect("RwLock is not poisoned")
+            .set_tokens(token);
     }
 
     #[allow(missing_docs)]
@@ -409,9 +445,9 @@ mod tests {
     use bitwarden_crypto::{EncString, Kdf, MasterKey, SymmetricCryptoKey};
 
     use crate::{
-        client::{test_accounts::test_bitwarden_com_account, LoginMethod, UserLoginMethod},
-        key_management::{MasterPasswordUnlockData, SymmetricKeyId},
         Client, OrganizationId,
+        client::{LoginMethod, UserLoginMethod, test_accounts::test_bitwarden_com_account},
+        key_management::{MasterPasswordUnlockData, SymmetricKeyId},
     };
 
     const TEST_ACCOUNT_EMAIL: &str = "test@bitwarden.com";

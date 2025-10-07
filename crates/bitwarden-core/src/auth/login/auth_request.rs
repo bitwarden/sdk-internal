@@ -1,22 +1,20 @@
-use bitwarden_api_api::{
-    apis::auth_requests_api::{auth_requests_get_response, auth_requests_post},
-    models::{AuthRequestCreateRequestModel, AuthRequestType},
-};
+use bitwarden_api_api::models::{AuthRequestCreateRequestModel, AuthRequestType};
 use bitwarden_crypto::Kdf;
 use bitwarden_encoding::B64;
 use uuid::Uuid;
 
 use super::LoginError;
 use crate::{
+    ApiError, Client,
     auth::{
         api::{request::AuthRequestTokenRequest, response::IdentityTokenResponse},
         auth_request::new_auth_request,
     },
     key_management::{
-        crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
         UserDecryptionData,
+        crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
     },
-    require, ApiError, Client,
+    require,
 };
 
 #[allow(missing_docs)]
@@ -46,7 +44,10 @@ pub(crate) async fn send_new_auth_request(
         r#type: AuthRequestType::AuthenticateAndUnlock,
     };
 
-    let res = auth_requests_post(&config.api, Some(req))
+    let res = config
+        .api_client
+        .auth_requests_api()
+        .post(Some(req))
         .await
         .map_err(ApiError::from)?;
 
@@ -65,14 +66,12 @@ pub(crate) async fn complete_auth_request(
     auth_req: NewAuthRequestResponse,
 ) -> Result<(), LoginError> {
     let config = client.internal.get_api_configurations().await;
-
-    let res = auth_requests_get_response(
-        &config.api,
-        auth_req.auth_request_id,
-        Some(&auth_req.access_code),
-    )
-    .await
-    .map_err(ApiError::from)?;
+    let res = config
+        .api_client
+        .auth_requests_api()
+        .get_response(auth_req.auth_request_id, Some(&auth_req.access_code))
+        .await
+        .map_err(ApiError::from)?;
 
     let approved = res.request_approved.unwrap_or(false);
 

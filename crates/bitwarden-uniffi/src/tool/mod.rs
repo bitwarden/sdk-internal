@@ -5,7 +5,7 @@ use bitwarden_generators::{
 };
 use bitwarden_vault::{Cipher, Folder};
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 
 mod sends;
 pub use sends::SendClient;
@@ -20,17 +20,17 @@ pub struct GeneratorClients(pub(crate) bitwarden_generators::GeneratorClient);
 impl GeneratorClients {
     /// Generate Password
     pub fn password(&self, settings: PasswordGeneratorRequest) -> Result<String> {
-        Ok(self.0.password(settings).map_err(Error::Password)?)
+        Ok(self.0.password(settings)?)
     }
 
     /// Generate Passphrase
     pub fn passphrase(&self, settings: PassphraseGeneratorRequest) -> Result<String> {
-        Ok(self.0.passphrase(settings).map_err(Error::Passphrase)?)
+        Ok(self.0.passphrase(settings)?)
     }
 
     /// Generate Username
     pub async fn username(&self, settings: UsernameGeneratorRequest) -> Result<String> {
-        Ok(self.0.username(settings).await.map_err(Error::Username)?)
+        Ok(self.0.username(settings).await?)
     }
 }
 
@@ -46,10 +46,7 @@ impl ExporterClient {
         ciphers: Vec<Cipher>,
         format: ExportFormat,
     ) -> Result<String> {
-        Ok(self
-            .0
-            .export_vault(folders, ciphers, format)
-            .map_err(Error::Export)?)
+        Ok(self.0.export_vault(folders, ciphers, format)?)
     }
 
     /// Export organization vault
@@ -61,8 +58,7 @@ impl ExporterClient {
     ) -> Result<String> {
         Ok(self
             .0
-            .export_organization_vault(collections, ciphers, format)
-            .map_err(Error::Export)?)
+            .export_organization_vault(collections, ciphers, format)?)
     }
 
     /// Credential Exchange Format (CXF)
@@ -72,7 +68,7 @@ impl ExporterClient {
     /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
     /// Ideally the output should be immediately deserialized to [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
     pub fn export_cxf(&self, account: Account, ciphers: Vec<Cipher>) -> Result<String> {
-        Ok(self.0.export_cxf(account, ciphers).map_err(Error::Export)?)
+        Ok(self.0.export_cxf(account, ciphers)?)
     }
 
     /// Credential Exchange Format (CXF)
@@ -82,6 +78,6 @@ impl ExporterClient {
     /// For use with Apple using [ASCredentialExportManager](https://developer.apple.com/documentation/authenticationservices/ascredentialexportmanager).
     /// Ideally the input should be immediately serialized from [ASImportableAccount](https://developer.apple.com/documentation/authenticationservices/asimportableaccount).
     pub fn import_cxf(&self, payload: String) -> Result<Vec<Cipher>> {
-        Ok(self.0.import_cxf(payload).map_err(Error::Export)?)
+        Ok(self.0.import_cxf(payload)?)
     }
 }

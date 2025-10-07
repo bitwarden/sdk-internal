@@ -3,14 +3,15 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    Client,
     auth::{
-        api::{request::ApiTokenRequest, response::IdentityTokenResponse},
-        login::{response::two_factor::TwoFactorProviders, LoginError, PasswordLoginResponse},
         JwtToken,
+        api::{request::ApiTokenRequest, response::IdentityTokenResponse},
+        login::{LoginError, PasswordLoginResponse, response::two_factor::TwoFactorProviders},
     },
-    client::{internal::UserKeyState, LoginMethod, UserLoginMethod},
+    client::{LoginMethod, UserLoginMethod, internal::UserKeyState},
     key_management::UserDecryptionData,
-    require, Client,
+    require,
 };
 
 pub(crate) async fn login_api_key(

@@ -1,6 +1,6 @@
 use bitwarden_threading::ThreadBoundRunner;
 use serde::{Deserialize, Serialize};
-use tsify::{serde_wasm_bindgen, Tsify};
+use tsify::{Tsify, serde_wasm_bindgen};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::wasm_bindgen_test;
 

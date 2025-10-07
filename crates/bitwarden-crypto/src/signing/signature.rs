@@ -1,16 +1,16 @@
 use ciborium::value::Integer;
-use coset::{iana::CoapContentFormat, CborSerializable, CoseSign1};
+use coset::{CborSerializable, CoseSign1, iana::CoapContentFormat};
 use serde::Serialize;
 
 use super::{
-    content_type, message::SerializedMessage, namespace, signing_key::SigningKey, SigningNamespace,
-    VerifyingKey,
+    SigningNamespace, VerifyingKey, content_type, message::SerializedMessage, namespace,
+    signing_key::SigningKey,
 };
 use crate::{
+    CoseSign1Bytes, CryptoError,
     content_format::CoseSign1ContentFormat,
     cose::{CoseSerializable, SIGNING_NAMESPACE},
     error::{EncodingError, SignatureError},
-    CoseSign1Bytes, CryptoError,
 };
 
 /// A signature cryptographically attests to a (namespace, data) pair. The namespace is included in

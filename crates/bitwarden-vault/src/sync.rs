@@ -3,9 +3,10 @@ use bitwarden_api_api::models::{
 };
 use bitwarden_collections::{collection::Collection, error::CollectionsParseError};
 use bitwarden_core::{
+    Client, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
     client::encryption_settings::EncryptionSettingsError,
     key_management::{MasterPasswordError, UserDecryptionData},
-    require, Client, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
+    require,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -40,7 +41,10 @@ pub struct SyncRequest {
 
 pub(crate) async fn sync(client: &Client, input: &SyncRequest) -> Result<SyncResponse, SyncError> {
     let config = client.internal.get_api_configurations().await;
-    let sync = bitwarden_api_api::apis::sync_api::sync_get(&config.api, input.exclude_subdomains)
+    let sync = config
+        .api_client
+        .sync_api()
+        .get(input.exclude_subdomains)
         .await
         .map_err(|e| SyncError::Api(e.into()))?;
 
@@ -192,15 +196,15 @@ mod tests {
         UserDecryptionResponseModel,
     };
     use bitwarden_core::{
-        key_management::{
-            crypto::{InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest},
-            SymmetricKeyId,
-        },
         ClientSettings, DeviceType,
+        key_management::{
+            SymmetricKeyId,
+            crypto::{InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest},
+        },
     };
     use bitwarden_crypto::{EncString, Kdf, UnsignedSharedKey};
     use bitwarden_test::start_api_mock;
-    use wiremock::{matchers, Mock, MockServer, Request, ResponseTemplate};
+    use wiremock::{Mock, MockServer, Request, ResponseTemplate, matchers};
 
     use super::*;
 
@@ -238,11 +242,13 @@ mod tests {
         user_crypto_request: InitUserCryptoRequest,
         org_crypto_request: Option<InitOrgCryptoRequest>,
     ) -> (MockServer, Client) {
-        let (server, api_config) = start_api_mock(vec![Mock::given(matchers::path("/sync"))
-            .respond_with(move |_: &Request| {
-                ResponseTemplate::new(200).set_body_json(response.to_owned())
-            })
-            .expect(1)])
+        let (server, api_config) = start_api_mock(vec![
+            Mock::given(matchers::path("/sync"))
+                .respond_with(move |_: &Request| {
+                    ResponseTemplate::new(200).set_body_json(response.to_owned())
+                })
+                .expect(1),
+        ])
         .await;
 
         let client = Client::new(Some(ClientSettings {
@@ -310,11 +316,13 @@ mod tests {
         assert!(sync_response.folders.is_empty());
         assert!(sync_response.collections.is_empty());
         assert!(sync_response.domains.is_none());
-        assert!(!client
-            .internal
-            .get_key_store()
-            .context()
-            .has_symmetric_key(SymmetricKeyId::Organization(organization_id)));
+        assert!(
+            !client
+                .internal
+                .get_key_store()
+                .context()
+                .has_symmetric_key(SymmetricKeyId::Organization(organization_id))
+        );
     }
 
     #[tokio::test]
@@ -358,11 +366,13 @@ mod tests {
         assert!(sync_response.folders.is_empty());
         assert!(sync_response.collections.is_empty());
         assert!(sync_response.domains.is_none());
-        assert!(client
-            .internal
-            .get_key_store()
-            .context()
-            .has_symmetric_key(SymmetricKeyId::Organization(organization_id)));
+        assert!(
+            client
+                .internal
+                .get_key_store()
+                .context()
+                .has_symmetric_key(SymmetricKeyId::Organization(organization_id))
+        );
     }
 
     #[tokio::test]

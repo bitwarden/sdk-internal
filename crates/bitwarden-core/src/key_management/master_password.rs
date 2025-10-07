@@ -1,7 +1,7 @@
 use std::num::NonZeroU32;
 
 use bitwarden_api_api::models::{
-    master_password_unlock_response_model::MasterPasswordUnlockResponseModel, KdfType,
+    KdfType, master_password_unlock_response_model::MasterPasswordUnlockResponseModel,
 };
 use bitwarden_crypto::{EncString, Kdf, MasterKey, SymmetricCryptoKey};
 use bitwarden_encoding::B64;
@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::{require, MissingFieldError};
+use crate::{MissingFieldError, require};
 
 /// Error for master password related operations.
 #[allow(dead_code)]
@@ -265,8 +265,8 @@ mod tests {
     }
 
     #[test]
-    fn test_try_from_master_password_unlock_response_model_invalid_user_key_encryption_kdf_malformed_error(
-    ) {
+    fn test_try_from_master_password_unlock_response_model_invalid_user_key_encryption_kdf_malformed_error()
+     {
         let response = create_pbkdf2_response(
             Some(TEST_INVALID_USER_KEY.to_string()),
             Some(TEST_SALT.to_string()),
@@ -307,8 +307,8 @@ mod tests {
     }
 
     #[test]
-    fn test_try_from_master_password_unlock_response_model_argon2id_kdf_memory_none_missing_field_error(
-    ) {
+    fn test_try_from_master_password_unlock_response_model_argon2id_kdf_memory_none_missing_field_error()
+     {
         let response = MasterPasswordUnlockResponseModel {
             kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
                 kdf_type: KdfType::Argon2id,
@@ -330,8 +330,8 @@ mod tests {
     }
 
     #[test]
-    fn test_try_from_master_password_unlock_response_model_argon2id_kdf_memory_zero_kdf_malformed_error(
-    ) {
+    fn test_try_from_master_password_unlock_response_model_argon2id_kdf_memory_zero_kdf_malformed_error()
+     {
         let response = MasterPasswordUnlockResponseModel {
             kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
                 kdf_type: KdfType::Argon2id,
@@ -348,8 +348,8 @@ mod tests {
     }
 
     #[test]
-    fn test_try_from_master_password_unlock_response_model_argon2id_kdf_parallelism_none_missing_field_error(
-    ) {
+    fn test_try_from_master_password_unlock_response_model_argon2id_kdf_parallelism_none_missing_field_error()
+     {
         let response = MasterPasswordUnlockResponseModel {
             kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
                 kdf_type: KdfType::Argon2id,
@@ -371,8 +371,8 @@ mod tests {
     }
 
     #[test]
-    fn test_try_from_master_password_unlock_response_model_argon2id_kdf_parallelism_zero_kdf_malformed_error(
-    ) {
+    fn test_try_from_master_password_unlock_response_model_argon2id_kdf_parallelism_zero_kdf_malformed_error()
+     {
         let response = MasterPasswordUnlockResponseModel {
             kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
                 kdf_type: KdfType::Argon2id,
@@ -389,8 +389,8 @@ mod tests {
     }
 
     #[test]
-    fn test_try_from_master_password_unlock_response_model_pbkdf2_kdf_iterations_zero_kdf_malformed_error(
-    ) {
+    fn test_try_from_master_password_unlock_response_model_pbkdf2_kdf_iterations_zero_kdf_malformed_error()
+     {
         let response = create_pbkdf2_response(
             Some(TEST_USER_KEY.to_string()),
             Some(TEST_SALT.to_string()),
@@ -402,8 +402,8 @@ mod tests {
     }
 
     #[test]
-    fn test_try_from_master_password_unlock_response_model_argon2id_kdf_iterations_zero_kdf_malformed_error(
-    ) {
+    fn test_try_from_master_password_unlock_response_model_argon2id_kdf_iterations_zero_kdf_malformed_error()
+     {
         let response = MasterPasswordUnlockResponseModel {
             kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
                 kdf_type: KdfType::Argon2id,

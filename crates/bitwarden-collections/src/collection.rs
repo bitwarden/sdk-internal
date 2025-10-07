@@ -1,7 +1,8 @@
 use bitwarden_api_api::models::CollectionDetailsResponseModel;
 use bitwarden_core::{
+    OrganizationId,
     key_management::{KeyIds, SymmetricKeyId},
-    require, OrganizationId,
+    require,
 };
 use bitwarden_crypto::{CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext};
 use bitwarden_uuid::uuid_newtype;

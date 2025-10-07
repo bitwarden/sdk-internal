@@ -19,7 +19,6 @@ no-memory-hardening = [
     "bitwarden-core/no-memory-hardening"
 ] # Disable memory hardening features
 uniffi = [
-    "bitwarden-auth/uniffi",
     "bitwarden-core/uniffi",
     "bitwarden-exporters/uniffi",
     "bitwarden-fido/uniffi",
@@ -48,7 +47,6 @@ bitwarden-generators = { workspace = true }
 bitwarden-send = { workspace = true }
 bitwarden-vault = { workspace = true }
 
-thiserror = { workspace = true }
 tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true, features = ["tokio"] }
 wasm-bindgen = { workspace = true, optional = true }

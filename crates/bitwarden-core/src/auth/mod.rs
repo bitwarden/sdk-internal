@@ -30,9 +30,9 @@ pub use jwt_token::*;
 #[cfg(feature = "internal")]
 mod auth_request;
 #[cfg(feature = "internal")]
-pub(crate) use auth_request::{auth_request_decrypt_master_key, auth_request_decrypt_user_key};
-#[cfg(feature = "internal")]
 pub use auth_request::{ApproveAuthRequestError, AuthRequestResponse};
+#[cfg(feature = "internal")]
+pub(crate) use auth_request::{auth_request_decrypt_master_key, auth_request_decrypt_user_key};
 
 #[cfg(feature = "internal")]
 mod register;
@@ -51,6 +51,7 @@ pub use key_connector::KeyConnectorResponse;
 /// Error for authentication related operations
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum AuthValidateError {
     #[error(transparent)]
     NotAuthenticated(#[from] NotAuthenticatedError),

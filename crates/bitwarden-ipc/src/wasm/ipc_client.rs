@@ -5,10 +5,10 @@ use wasm_bindgen::prelude::*;
 
 use super::communication_backend::JsCommunicationBackend;
 use crate::{
+    IpcClient,
     ipc_client::{IpcClientSubscription, ReceiveError, SubscribeError},
     message::{IncomingMessage, OutgoingMessage},
     traits::{InMemorySessionRepository, NoEncryptionCryptoProvider},
-    IpcClient,
 };
 
 /// JavaScript wrapper around the IPC client. For more information, see the

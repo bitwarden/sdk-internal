@@ -8,10 +8,10 @@ use crate::auth::{
 };
 #[cfg(feature = "internal")]
 use crate::{
+    Client,
     auth::{api::request::PasswordTokenRequest, login::LoginError, login::TwoFactorRequest},
     client::LoginMethod,
     key_management::UserDecryptionData,
-    Client,
 };
 
 #[cfg(feature = "internal")]
@@ -22,7 +22,7 @@ pub(crate) async fn login_password(
     use bitwarden_crypto::{EncString, HashPurpose, MasterKey};
 
     use crate::{
-        client::{internal::UserKeyState, UserLoginMethod},
+        client::{UserLoginMethod, internal::UserKeyState},
         require,
     };
 
