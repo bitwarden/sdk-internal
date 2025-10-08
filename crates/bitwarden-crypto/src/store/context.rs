@@ -3,6 +3,7 @@ use std::{
     sync::{RwLockReadGuard, RwLockWriteGuard},
 };
 
+use coset::iana::KeyOperation;
 use serde::Serialize;
 use zeroize::Zeroizing;
 
@@ -11,8 +12,8 @@ use crate::{
     AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CoseEncrypt0Bytes, CryptoError,
     EncString, KeyId, KeyIds, PublicKeyEncryptionAlgorithm, Result, RotatedUserKeys, Signature,
     SignatureAlgorithm, SignedObject, SignedPublicKey, SignedPublicKeyMessage, SigningKey,
-    SymmetricCryptoKey, UnsignedSharedKey, derive_shareable_key, error::UnsupportedOperationError,
-    signing, store::backend::StoreBackend,
+    SymmetricCryptoKey, UnsignedSharedKey, derive_shareable_key, ensure,
+    error::UnsupportedOperationError, signing, store::backend::StoreBackend,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -520,6 +521,9 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
             )),
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {
+                ensure!(
+                    key.key_operations.contains(&KeyOperation::Encrypt) => CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt)
+                );
                 EncString::encrypt_xchacha20_poly1305(data, key, content_format)
             }
         }
@@ -852,6 +856,30 @@ mod tests {
                 .to_public_key()
                 .to_der()
                 .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_encrypt_fails_when_operation_not_allowed() {
+        use coset::iana::KeyOperation;
+        let store = KeyStore::<TestIds>::default();
+        let mut ctx = store.context_mut();
+        let key_id = TestSymmKey::A(0);
+        // Key with only Decrypt allowed
+        let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
+            key_id: [0u8; 16],
+            enc_key: Box::pin([0u8; 32].into()),
+            key_operations: vec![KeyOperation::Decrypt],
+        });
+        ctx.set_symmetric_key(key_id, key).unwrap();
+        let data = DataView("should fail".to_string(), key_id);
+        let result = data.encrypt_composite(&mut ctx, key_id);
+        assert!(
+            matches!(
+                result,
+                Err(CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt))
+            ),
+            "Expected encrypt to fail with KeyOperationNotSupported",
         );
     }
 }

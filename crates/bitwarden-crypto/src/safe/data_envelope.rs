@@ -360,6 +360,42 @@ mod tests {
     }
     impl SealableData for TestData {}
 
+    const TEST_VECTOR_CEK: &str =
+        "pQEEAlDI6siwJ+XRw5/Dqb0imZkmAzoAARFvBIEEIFgg/LZGMeNOnBi/cMyAbeaZL9hN3owKxTHOYvbIAuwSdeIB";
+    const TEST_VECTOR_ENVELOPE: &str = "g1gipAE6AAERbwMYPARQyOrIsCfl0cOfw6m9IpmZJjoAATiAIKEFWBi9F7Vx3IqByTEOsDOjXkSZZ0fCRueolG5YGkGeh20fm9wGww2LovW2QQXFt3UfFCUv2oCI";
+
+    #[test]
+    #[ignore]
+    fn generate_test_vectors() {
+        let data = TestData { field2: 123 };
+        let (envelope, cek) =
+            DataEnvelope::seal_ref(&data, &DataEnvelopeNamespace::ExampleNamespace).unwrap();
+        let unsealed_data: TestData = envelope
+            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace, &cek)
+            .unwrap();
+        assert_eq!(unsealed_data, data);
+        println!(
+            "CEK: {}",
+            B64::from(SymmetricCryptoKey::XChaCha20Poly1305Key(cek).to_encoded())
+        );
+        println!("Envelope: {}", String::from(envelope));
+    }
+
+    #[test]
+    fn test_data_envelope_test_vector() {
+        let cek = SymmetricCryptoKey::try_from(B64::try_from(TEST_VECTOR_CEK).unwrap()).unwrap();
+        let cek = match cek {
+            SymmetricCryptoKey::XChaCha20Poly1305Key(ref key) => key.clone(),
+            _ => panic!("Invalid CEK type"),
+        };
+
+        let envelope: DataEnvelope = TEST_VECTOR_ENVELOPE.parse().unwrap();
+        let unsealed_data: TestData = envelope
+            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace, &cek)
+            .unwrap();
+        assert_eq!(unsealed_data, TestData { field2: 123 });
+    }
+
     #[test]
     fn test_data_envelope() {
         // Create an instance of TestData

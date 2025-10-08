@@ -41,3 +41,21 @@ macro_rules! ensure_equal {
         }
     };
 }
+
+/// Ensures that an expression is true. Otherwise an error is returned.
+/// ```
+/// use bitwarden_crypto::ensure;
+/// use bitwarden_crypto::CryptoError;
+/// fn example(value: bool) -> Result<(), CryptoError> {
+///   ensure!(value => CryptoError::InvalidKey);
+///   Ok(())
+/// }
+/// ```
+#[macro_export]
+macro_rules! ensure {
+    ($cond:expr => $err:expr) => {
+        if !$cond {
+            return Err($err);
+        }
+    };
+}

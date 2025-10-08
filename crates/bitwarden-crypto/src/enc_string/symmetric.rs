@@ -1,13 +1,13 @@
 use std::{borrow::Cow, str::FromStr};
 
 use bitwarden_encoding::{B64, FromStrVisitor};
-use coset::CborSerializable;
+use coset::{CborSerializable, iana::KeyOperation};
 use serde::Deserialize;
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
     Aes256CbcHmacKey, ContentFormat, CoseEncrypt0Bytes, KeyDecryptable, KeyEncryptable,
-    KeyEncryptableWithContentType, SymmetricCryptoKey, Utf8Bytes, XChaCha20Poly1305Key,
+    KeyEncryptableWithContentType, SymmetricCryptoKey, Utf8Bytes, XChaCha20Poly1305Key, ensure,
     error::{CryptoError, EncStringParseError, Result, UnsupportedOperationError},
 };
 
@@ -293,6 +293,12 @@ impl KeyEncryptableWithContentType<SymmetricCryptoKey, EncString> for &[u8] {
         match key {
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(self, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(inner_key) => {
+                ensure!(
+                    inner_key
+                        .key_operations
+                        .contains(&KeyOperation::Encrypt) =>
+                    CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt)
+                );
                 EncString::encrypt_xchacha20_poly1305(self, inner_key, content_format)
             }
             SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
@@ -360,6 +366,7 @@ impl schemars::JsonSchema for EncString {
 
 #[cfg(test)]
 mod tests {
+    use coset::iana::KeyOperation;
     use schemars::schema_for;
 
     use super::EncString;
@@ -578,6 +585,28 @@ mod tests {
 
         let result: Result<String, CryptoError> = enc_string.decrypt_with_key(&key);
         assert!(matches!(result, Err(CryptoError::WrongKeyType)));
+    }
+
+    #[test]
+    fn test_encrypt_fails_when_operation_not_allowed() {
+        // Key with only Decrypt allowed
+        let key_id = [0u8; KEY_ID_SIZE];
+        let enc_key = [0u8; 32];
+        let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
+            key_id,
+            enc_key: Box::pin(enc_key.into()),
+            key_operations: vec![KeyOperation::Decrypt],
+        });
+
+        let plaintext = "should fail";
+        let result = plaintext.encrypt_with_key(&key);
+        assert!(
+            matches!(
+                result,
+                Err(CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt))
+            ),
+            "Expected encrypt to fail with KeyOperationNotSupported, got: {result:?}"
+        );
     }
 
     #[test]
