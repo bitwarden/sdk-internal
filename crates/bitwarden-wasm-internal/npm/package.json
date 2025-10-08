@@ -28,7 +28,7 @@
     "./bitwarden_wasm_internal.js"
   ],
   "dependencies": {
-    "type-fest": "^4.41.0"
+    "type-fest": "^5.0.0"
   },
   "devDependencies": {
     "typescript": "5.9.2"
