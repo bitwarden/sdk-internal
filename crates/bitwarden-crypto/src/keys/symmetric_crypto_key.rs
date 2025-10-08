@@ -86,6 +86,7 @@ impl XChaCha20Poly1305Key {
         rng.fill(enc_key.as_mut_slice());
         let mut key_id = [0u8; KEY_ID_SIZE];
         rng.fill(&mut key_id);
+
         Self {
             enc_key,
             key_id,
