@@ -13,7 +13,7 @@ use crate::{
     CoseEncrypt0Bytes, CryptoError, KeyIds, SerializedMessage, SymmetricCryptoKey,
     XChaCha20Poly1305Key,
     cose::{DATA_ENVELOPE_NAMESPACE, XCHACHA20_POLY1305},
-    error::EncStringParseError,
+    ensure_equal, ensure_matches,
     safe::DataEnvelopeNamespace,
     xchacha20,
 };
@@ -27,6 +27,8 @@ pub trait SealableData {}
 /// content-encryption-key must be provided again when unsealing the data. A content encryption key
 /// allows easy key-rotation of the encrypting-key, as now just the content-encryption-keys need to
 /// be re-uploaded, instead of all data.
+///
+/// The content-encryption-key cannot be re-used for encrypting other data.
 ///
 /// Note: This is explicitly meant for structured data, not large binary blobs (files).
 pub struct DataEnvelope {
@@ -54,9 +56,8 @@ impl DataEnvelope {
         T: Serialize + SealableData,
     {
         let (envelope, cek) = Self::seal_ref(&data, namespace)?;
-        #[allow(deprecated)]
-        ctx.set_symmetric_key(cek_keyslot, SymmetricCryptoKey::XChaCha20Poly1305Key(cek))
-            .map_err(|_| DataEnvelopeError::KeyStoreError("Failed to set symmetric key".into()))?;
+        ctx.set_symmetric_key_internal(cek_keyslot, SymmetricCryptoKey::XChaCha20Poly1305Key(cek))
+            .map_err(|_| DataEnvelopeError::KeyStoreError)?;
         Ok(envelope)
     }
 
@@ -69,12 +70,13 @@ impl DataEnvelope {
     where
         T: Serialize + SealableData,
     {
-        let cek = XChaCha20Poly1305Key::make();
+        let mut cek = XChaCha20Poly1305Key::make();
 
-        let serialized_message = SerializedMessage::encode(&data).map_err(|e| {
-            DataEnvelopeError::EncodingError(format!("Failed to encode serialized message: {}", e))
-        })?;
+        // Serialize the message
+        let serialized_message =
+            SerializedMessage::encode(&data).map_err(|_| DataEnvelopeError::EncodingError)?;
 
+        // Build the COSE headers
         let mut protected_header = coset::HeaderBuilder::new()
             .key_id(cek.key_id.to_vec())
             .content_format(serialized_message.content_type())
@@ -85,6 +87,7 @@ impl DataEnvelope {
             .build();
         protected_header.alg = Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305));
 
+        // Encrypt the message
         let mut nonce = [0u8; xchacha20::NONCE_SIZE];
         let encrypt0 = coset::CoseEncrypt0Builder::new()
             .protected(protected_header)
@@ -97,13 +100,16 @@ impl DataEnvelope {
             .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
             .build();
 
+        // Serialize the COSE message
         let envelope_data = encrypt0
             .to_vec()
-            .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))
             .map(CoseEncrypt0Bytes::from)
-            .map_err(|_| {
-                DataEnvelopeError::EncodingError("Failed to encode COSE Encrypt0".into())
-            })?;
+            .map_err(|_| DataEnvelopeError::EncodingError)?;
+
+        // Disable key operations other than decrypt on the CEK
+        cek.disable_key_operation(coset::iana::KeyOperation::Encrypt)
+            .disable_key_operation(coset::iana::KeyOperation::WrapKey)
+            .disable_key_operation(coset::iana::KeyOperation::UnwrapKey);
 
         Ok((DataEnvelope { envelope_data }, cek.clone()))
     }
@@ -119,10 +125,9 @@ impl DataEnvelope {
     where
         T: DeserializeOwned + SealableData,
     {
-        #[allow(deprecated)]
         let cek = ctx
-            .dangerous_get_symmetric_key(cek_keyslot)
-            .map_err(|_| DataEnvelopeError::KeyStoreError("Failed to get symmetric key".into()))?;
+            .get_symmetric_key(cek_keyslot)
+            .map_err(|_| DataEnvelopeError::KeyStoreError)?;
 
         match cek {
             SymmetricCryptoKey::XChaCha20Poly1305Key(key) => self.unseal_ref(namespace, key),
@@ -139,31 +144,19 @@ impl DataEnvelope {
     where
         T: DeserializeOwned + SealableData,
     {
-        let msg = coset::CoseEncrypt0::from_slice(self.envelope_data.as_ref()).map_err(|err| {
-            DataEnvelopeError::DecodingError(format!(
-                "Failed to decode COSE Encrypt0 message: {}",
-                err
-            ))
-        })?;
-
-        let Some(ref alg) = msg.protected.header.alg else {
-            return Err(DataEnvelopeError::DecryptionError);
-        };
-
-        if *alg != coset::Algorithm::PrivateUse(XCHACHA20_POLY1305) {
-            return Err(DataEnvelopeError::DecryptionError);
-        }
-
-        if cek.key_id != *msg.protected.header.key_id {
-            return Err(DataEnvelopeError::DecryptionError);
-        }
-
-        // Validate namespace
+        // Parse the COSE message
+        let msg = coset::CoseEncrypt0::from_slice(self.envelope_data.as_ref())
+            .map_err(|_| DataEnvelopeError::CoseDecodingError)?;
         let envelope_namespace = extract_namespace(&msg.protected.header)?;
-        if envelope_namespace != *namespace {
-            return Err(DataEnvelopeError::InvalidNamespace);
-        }
+        let content_type =
+            content_type(&msg.protected).map_err(|_| DataEnvelopeError::DecodingError)?;
 
+        // Validate the message
+        ensure_matches!(msg.protected.header.alg, Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305)) => DataEnvelopeError::DecryptionError);
+        ensure_equal!(msg.protected.header.key_id, cek.key_id => DataEnvelopeError::WrongKey);
+        ensure_equal!(envelope_namespace, *namespace => DataEnvelopeError::InvalidNamespace);
+
+        // Decrypt the message
         let decrypted_message = msg
             .decrypt(&[], |data, aad| {
                 let nonce = msg.unprotected.iv.as_slice();
@@ -178,12 +171,11 @@ impl DataEnvelope {
             })
             .map_err(|_| DataEnvelopeError::DecryptionError)?;
 
-        let content_type =
-            content_type(&msg.protected).map_err(|_| DataEnvelopeError::DecryptionError)?;
+        // Deserialize the message
         let serialized_message = SerializedMessage::from_bytes(decrypted_message, content_type);
-        serialized_message.decode().map_err(|_| {
-            DataEnvelopeError::DecodingError("Failed to decode serialized message".into())
-        })
+        serialized_message
+            .decode()
+            .map_err(|_| DataEnvelopeError::DecodingError)
     }
 }
 
@@ -304,14 +296,17 @@ pub enum DataEnvelopeError {
     #[error("Unsupported content format")]
     UnsupportedContentFormat,
     /// Indicates that there was an error during decoding of the message.
-    #[error("Decoding error: {0}")]
-    DecodingError(String),
+    #[error("Failed to decode COSE message")]
+    CoseDecodingError,
+    /// Indicates that there was an error during decoding of the message.
+    #[error("Failed to decode the content of the envelope")]
+    DecodingError,
     /// Indicates that there was an error during encoding of the message.
-    #[error("Encoding error: {0}")]
-    EncodingError(String),
+    #[error("Encoding error")]
+    EncodingError,
     /// Indicates that there was an error with the key store.
-    #[error("KeyStore error: {0}")]
-    KeyStoreError(String),
+    #[error("KeyStore error")]
+    KeyStoreError,
     /// Indicates that there was an error during decryption.
     #[error("Decryption error")]
     DecryptionError,
@@ -324,6 +319,9 @@ pub enum DataEnvelopeError {
     /// Indicates that the data envelope namespace is invalid.
     #[error("Invalid namespace")]
     InvalidNamespace,
+    /// Indicates that the wrong key was used for decryption.
+    #[error("Wrong key used for decryption")]
+    WrongKey,
 }
 
 #[cfg(feature = "wasm")]

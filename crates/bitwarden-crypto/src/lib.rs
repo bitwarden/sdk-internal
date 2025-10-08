@@ -35,6 +35,7 @@ pub use store::{
     KeyStore, KeyStoreContext, RotatedUserKeys, dangerous_get_v2_rotated_account_keys,
 };
 mod cose;
+mod ensure;
 pub use cose::CoseSerializable;
 pub mod safe;
 mod signing;

@@ -5,7 +5,7 @@
 
 use coset::{
     CborSerializable, ContentType, Header, Label,
-    iana::{self, CoapContentFormat},
+    iana::{self, CoapContentFormat, KeyOperation},
 };
 use generic_array::GenericArray;
 use thiserror::Error;
@@ -144,6 +144,25 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
             })
             .ok_or(CryptoError::InvalidKey)?;
         let alg = cose_key.alg.as_ref().ok_or(CryptoError::InvalidKey)?;
+        let key_opts = cose_key
+            .key_ops
+            .iter()
+            .map(|op| match op {
+                coset::RegisteredLabel::Assigned(iana::KeyOperation::Encrypt) => {
+                    Ok(KeyOperation::Encrypt)
+                }
+                coset::RegisteredLabel::Assigned(iana::KeyOperation::Decrypt) => {
+                    Ok(KeyOperation::Decrypt)
+                }
+                coset::RegisteredLabel::Assigned(iana::KeyOperation::WrapKey) => {
+                    Ok(KeyOperation::WrapKey)
+                }
+                coset::RegisteredLabel::Assigned(iana::KeyOperation::UnwrapKey) => {
+                    Ok(KeyOperation::UnwrapKey)
+                }
+                _ => Err(CryptoError::InvalidKey),
+            })
+            .collect::<Result<Vec<KeyOperation>, CryptoError>>()?;
 
         match alg {
             coset::Algorithm::PrivateUse(XCHACHA20_POLY1305) => {
@@ -159,7 +178,11 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
                     .try_into()
                     .map_err(|_| CryptoError::InvalidKey)?;
                 Ok(SymmetricCryptoKey::XChaCha20Poly1305Key(
-                    XChaCha20Poly1305Key { enc_key, key_id },
+                    XChaCha20Poly1305Key {
+                        enc_key,
+                        key_id,
+                        key_operations: key_opts,
+                    },
                 ))
             }
             _ => Err(CryptoError::InvalidKey),
@@ -370,6 +393,12 @@ mod test {
         let key = XChaCha20Poly1305Key {
             key_id: KEY_ID,
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
+            key_operations: vec![
+                KeyOperation::Decrypt,
+                KeyOperation::Encrypt,
+                KeyOperation::WrapKey,
+                KeyOperation::UnwrapKey,
+            ],
         };
         let decrypted =
             decrypt_xchacha20_poly1305(&CoseEncrypt0Bytes::from(TEST_VECTOR_COSE_ENCRYPT0), &key)
@@ -385,6 +414,12 @@ mod test {
         let key = XChaCha20Poly1305Key {
             key_id: [1; 16], // Different key ID
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
+            key_operations: vec![
+                KeyOperation::Decrypt,
+                KeyOperation::Encrypt,
+                KeyOperation::WrapKey,
+                KeyOperation::UnwrapKey,
+            ],
         };
         assert!(matches!(
             decrypt_xchacha20_poly1305(&CoseEncrypt0Bytes::from(TEST_VECTOR_COSE_ENCRYPT0), &key),
@@ -409,6 +444,12 @@ mod test {
         let key = XChaCha20Poly1305Key {
             key_id: KEY_ID,
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
+            key_operations: vec![
+                KeyOperation::Decrypt,
+                KeyOperation::Encrypt,
+                KeyOperation::WrapKey,
+                KeyOperation::UnwrapKey,
+            ],
         };
         assert!(matches!(
             decrypt_xchacha20_poly1305(&serialized_message, &key),

@@ -374,6 +374,12 @@ mod tests {
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
             key_id,
             enc_key: Box::pin(enc_key.into()),
+            key_operations: vec![
+                coset::iana::KeyOperation::Decrypt,
+                coset::iana::KeyOperation::Encrypt,
+                coset::iana::KeyOperation::WrapKey,
+                coset::iana::KeyOperation::UnwrapKey,
+            ],
         });
 
         plaintext.encrypt_with_key(&key).expect("encryption works")
@@ -413,6 +419,12 @@ mod tests {
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
             key_id,
             enc_key: Box::pin(enc_key.into()),
+            key_operations: vec![
+                coset::iana::KeyOperation::Decrypt,
+                coset::iana::KeyOperation::Encrypt,
+                coset::iana::KeyOperation::WrapKey,
+                coset::iana::KeyOperation::UnwrapKey,
+            ],
         });
 
         let test_string = "encrypted_test_string";
@@ -439,6 +451,12 @@ mod tests {
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
             key_id,
             enc_key: Box::pin(enc_key.into()),
+            key_operations: vec![
+                coset::iana::KeyOperation::Decrypt,
+                coset::iana::KeyOperation::Encrypt,
+                coset::iana::KeyOperation::WrapKey,
+                coset::iana::KeyOperation::UnwrapKey,
+            ],
         });
 
         let test_string = "";

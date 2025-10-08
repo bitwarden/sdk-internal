@@ -393,7 +393,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(signed_public_key)
     }
 
-    fn get_symmetric_key(&self, key_id: Ids::Symmetric) -> Result<&SymmetricCryptoKey> {
+    pub(crate) fn get_symmetric_key(&self, key_id: Ids::Symmetric) -> Result<&SymmetricCryptoKey> {
         if key_id.is_local() {
             self.local_symmetric_keys.get(key_id)
         } else {
@@ -426,6 +426,14 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     #[deprecated(note = "This function should ideally never be used outside this crate")]
     #[allow(missing_docs)]
     pub fn set_symmetric_key(
+        &mut self,
+        key_id: Ids::Symmetric,
+        key: SymmetricCryptoKey,
+    ) -> Result<()> {
+        self.set_symmetric_key_internal(key_id, key)
+    }
+
+    pub(crate) fn set_symmetric_key_internal(
         &mut self,
         key_id: Ids::Symmetric,
         key: SymmetricCryptoKey,
