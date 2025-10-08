@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait OrganizationsApi: Send + Sync {
     /// POST /organizations/{id}/api-key
     async fn api_key<'a>(
@@ -246,7 +247,8 @@ impl OrganizationsApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl OrganizationsApi for OrganizationsApiClient {
     async fn api_key<'a>(
         &self,

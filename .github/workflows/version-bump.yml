@@ -61,6 +61,7 @@ jobs:
         with:
           ref: main
           repository: bitwarden/sdk
+          persist-credentials: true
 
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@cb9bde2e2525e640591a934b1fd28eef1dcaf5e5 # v6.2.0
@@ -79,8 +80,12 @@ jobs:
 
       - name: Create Version Branch
         id: create-branch
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          PROJECT: ${{ inputs.project }}
+          VERSION_NUMBER: ${{ inputs.version_number }}
         run: |
-          NAME=version_bump_${{ github.ref_name }}_${{ inputs.project }}_${{ inputs.version_number }}
+          NAME=version_bump_$REF_NAME_$PROJECT_$VERSION_NUMBER
           git switch -c $NAME
           echo "name=$NAME" >> $GITHUB_OUTPUT
 
@@ -91,7 +96,9 @@ jobs:
       ### bitwarden
       - name: Bump bitwarden-core crate Version
         if: ${{ inputs.project == 'bitwarden-core' }}
-        run: cargo set-version -p bitwarden-core ${{ inputs.version_number }}
+        env:
+          VERSION_NUMBER: ${{ inputs.version_number }}
+        run: cargo set-version -p bitwarden-core "$VERSION_NUMBER"
 
       ############################
       # VERSION BUMP SECTION END #
@@ -120,7 +127,10 @@ jobs:
 
       - name: Commit files
         if: ${{ steps.version-changed.outputs.changes_to_commit == 'TRUE' }}
-        run: git commit -m "Bumped sdk-${{ inputs.project }} version to ${{ inputs.version_number }}" -a
+        env:
+          VERSION_NUMBER: ${{ inputs.version_number }}
+          PROJECT: ${{ inputs.project }}
+        run: git commit -m "Bumped sdk-$PROJECT version to $VERSION_NUMBER" -a
 
       - name: Push changes
         if: ${{ steps.version-changed.outputs.changes_to_commit == 'TRUE' }}
@@ -135,6 +145,8 @@ jobs:
           GH_TOKEN: ${{ steps.retrieve-secrets.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
           PR_BRANCH: ${{ steps.create-branch.outputs.name }}
           TITLE: "Bump ${{ inputs.project }} version to ${{ inputs.version_number }}"
+          PROJECT: ${{ inputs.project }}
+          VERSION_NUMBER: ${{ inputs.version_number }}
         run: |
           PR_URL=$(gh pr create --title "$TITLE" \
             --base "main" \
@@ -150,7 +162,7 @@ jobs:
               - [X] Other
 
               ## Objective
-              Automated ${{ inputs.project }} version bump to ${{ inputs.version_number }}")
+              Automated $PROJECT version bump to $VERSION_NUMBER.")
           echo "pr_number=${PR_URL##*/}" >> $GITHUB_OUTPUT
 
       - name: Approve PR
@@ -177,6 +189,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: main
+          persist-credentials: true
 
       - name: Check if RC branch exists
         run: |

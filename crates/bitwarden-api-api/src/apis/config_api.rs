@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait ConfigApi: Send + Sync {
     /// GET /config
     async fn get_configs(&self) -> Result<models::ConfigResponseModel, Error<GetConfigsError>>;
@@ -39,7 +40,8 @@ impl ConfigApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl ConfigApi for ConfigApiClient {
     async fn get_configs(&self) -> Result<models::ConfigResponseModel, Error<GetConfigsError>> {
         let local_var_configuration = &self.configuration;

@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait FoldersApi: Send + Sync {
     /// DELETE /folders/{id}
     async fn delete<'a>(&self, id: &'a str) -> Result<(), Error<DeleteError>>;
@@ -63,7 +64,8 @@ impl FoldersApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl FoldersApi for FoldersApiClient {
     async fn delete<'a>(&self, id: &'a str) -> Result<(), Error<DeleteError>> {
         let local_var_configuration = &self.configuration;

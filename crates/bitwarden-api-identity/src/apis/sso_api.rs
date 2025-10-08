@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait SsoApi: Send + Sync {
     /// GET /sso/ExternalCallback
     async fn external_callback(&self) -> Result<(), Error<ExternalCallbackError>>;
@@ -57,7 +58,8 @@ impl SsoApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl SsoApi for SsoApiClient {
     async fn external_callback(&self) -> Result<(), Error<ExternalCallbackError>> {
         let local_var_configuration = &self.configuration;

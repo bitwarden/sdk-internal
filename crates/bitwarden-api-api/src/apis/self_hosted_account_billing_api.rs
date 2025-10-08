@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait SelfHostedAccountBillingApi: Send + Sync {
     /// POST /account/billing/vnext/self-host/license
     async fn upload_license<'a>(
@@ -85,7 +86,8 @@ impl SelfHostedAccountBillingApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl SelfHostedAccountBillingApi for SelfHostedAccountBillingApiClient {
     async fn upload_license<'a>(
         &self,

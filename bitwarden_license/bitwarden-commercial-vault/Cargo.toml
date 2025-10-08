@@ -1,0 +1,37 @@
+[package]
+name = "bitwarden-commercial-vault"
+description = """
+Internal commercial crate for the bitwarden crate. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file = "../../LICENSE_BITWARDEN.txt"
+keywords.workspace = true
+
+[features]
+uniffi = ["dep:uniffi"] # Uniffi bindings
+wasm = [
+    "dep:tsify",
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures"
+] # WASM support
+
+[dependencies]
+bitwarden-core = { workspace = true, features = ["internal"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_repr = { workspace = true }
+tsify = { workspace = true, optional = true }
+uniffi = { workspace = true, optional = true }
+uuid = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
+
+[lints]
+workspace = true

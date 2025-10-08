@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait EventsApi: Send + Sync {
     /// GET /ciphers/{id}/events
     async fn get_cipher<'a>(
@@ -111,7 +112,8 @@ impl EventsApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl EventsApi for EventsApiClient {
     async fn get_cipher<'a>(
         &self,

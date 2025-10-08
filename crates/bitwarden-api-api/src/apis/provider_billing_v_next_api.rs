@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait ProviderBillingVNextApi: Send + Sync {
     /// POST /providers/{providerId}/billing/vnext/credit/bitpay
     async fn add_credit_via_bit_pay<'a>(
@@ -221,7 +222,8 @@ impl ProviderBillingVNextApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
     async fn add_credit_via_bit_pay<'a>(
         &self,
