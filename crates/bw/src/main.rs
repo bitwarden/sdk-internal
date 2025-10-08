@@ -39,7 +39,7 @@ async fn main() -> Result<()> {
     render_config.render_result(result)
 }
 
-async fn process_commands(command: Commands, _session: Option<String>) -> CommandResult {
+async fn process_commands(command: Commands, session: Option<String>) -> CommandResult {
     // Try to initialize the client with the session if provided
     // Ideally we'd have separate clients and this would be an enum, something like:
     // enum CliClient {
@@ -51,6 +51,15 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
     // This would allow each command to match on the client type that they need, and we don't need
     // to do two matches over the whole command tree
     let client = bitwarden_pm::PasswordManagerClient::new(None);
+
+    // If a session was provided, import it to restore the client state
+    if let Some(ref session_str) = session {
+        client
+            .0
+            .internal
+            .import_session(session_str)
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to import session: {}", e))?;
+    }
 
     match command {
         // Auth commands
@@ -94,7 +103,27 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         Commands::Item { command: _ } => todo!(),
         Commands::Template { command } => command.run(),
 
-        Commands::List => todo!(),
+        Commands::List {
+            object,
+            search,
+            folderid,
+            collectionid,
+            organizationid,
+            trash,
+        } => {
+            vault::list(
+                &client.0,
+                vault::ListOptions {
+                    object,
+                    search,
+                    folderid,
+                    collectionid,
+                    organizationid,
+                    trash,
+                },
+            )
+            .await
+        }
         Commands::Get => todo!(),
         Commands::Create => todo!(),
         Commands::Edit => todo!(),

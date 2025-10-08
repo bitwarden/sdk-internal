@@ -47,19 +47,23 @@ impl LoginArgs {
             // FIXME: Rust CLI will not support password login!
             LoginCommands::Password { email } => {
                 login::login_password(client, email).await?;
+                Ok("Successfully logged in!".into())
             }
             LoginCommands::ApiKey {
                 client_id,
                 client_secret,
-            } => login::login_api_key(client, client_id, client_secret).await?,
+            } => {
+                let session = login::login_api_key(client, client_id, client_secret).await?;
+                Ok(session.into())
+            }
             LoginCommands::Device {
                 email,
                 device_identifier,
             } => {
                 login::login_device(client, email, device_identifier).await?;
+                Ok("Successfully logged in!".into())
             }
         }
-        Ok("Successfully logged in!".into())
     }
 }
 

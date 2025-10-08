@@ -2,6 +2,9 @@ use clap::Subcommand;
 
 use crate::render::{CommandOutput, CommandResult};
 
+pub mod list;
+pub use list::{ListOptions, list};
+
 #[derive(Subcommand, Clone)]
 pub enum ItemCommands {
     Get { id: String },
