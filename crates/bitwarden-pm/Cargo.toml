@@ -24,6 +24,7 @@ uniffi = [
     "bitwarden-fido/uniffi",
     "bitwarden-generators/uniffi",
     "bitwarden-send/uniffi",
+    "bitwarden-state/uniffi",
     "bitwarden-vault/uniffi",
     "dep:uniffi"
 ] # Uniffi bindings
@@ -33,6 +34,7 @@ wasm = [
     "bitwarden-core/wasm",
     "bitwarden-exporters/wasm",
     "bitwarden-generators/wasm",
+    "bitwarden-state/wasm",
     "bitwarden-vault/wasm",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
@@ -48,6 +50,7 @@ bitwarden-exporters = { workspace = true }
 bitwarden-fido = { workspace = true }
 bitwarden-generators = { workspace = true }
 bitwarden-send = { workspace = true }
+bitwarden-state = { workspace = true }
 bitwarden-vault = { workspace = true }
 
 tsify = { workspace = true, optional = true }
