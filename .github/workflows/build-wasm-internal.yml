@@ -23,11 +23,11 @@ jobs:
     strategy:
       matrix:
         license_type:
-          - artifact_name: "wasm-internal"
+          - artifact_name: "sdk-internal"
             build_flags: ""
             npm_folder: "npm"
             readable: "open source license"
-          - artifact_name: "commercial-wasm-internal"
+          - artifact_name: "commercial-sdk-internal"
             build_flags: "-b"
             npm_folder: "bitwarden_license/npm"
             readable: "commercial license"
