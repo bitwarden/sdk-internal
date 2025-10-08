@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait TaxApi: Send + Sync {
     /// POST /tax/preview-amount/organization-trial
     async fn preview_tax_amount_for_organization_trial<'a>(
@@ -44,7 +45,8 @@ impl TaxApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl TaxApi for TaxApiClient {
     async fn preview_tax_amount_for_organization_trial<'a>(
         &self,

@@ -492,6 +492,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-commercial-vault"
+version = "1.0.0"
+dependencies = [
+ "bitwarden-core",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "tsify",
+ "uniffi",
+ "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "bitwarden-core"
 version = "1.0.0"
 dependencies = [
@@ -713,6 +728,7 @@ name = "bitwarden-pm"
 version = "1.0.0"
 dependencies = [
  "bitwarden-auth",
+ "bitwarden-commercial-vault",
  "bitwarden-core",
  "bitwarden-exporters",
  "bitwarden-fido",
@@ -928,6 +944,7 @@ name = "bitwarden-wasm-internal"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "bitwarden-commercial-vault",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",

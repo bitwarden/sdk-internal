@@ -25,6 +25,7 @@ bitwarden-api-identity = { path = "crates/bitwarden-api-identity", version = "=1
 bitwarden-auth = { path = "crates/bitwarden-auth", version = "=1.0.0" }
 bitwarden-cli = { path = "crates/bitwarden-cli", version = "=1.0.0" }
 bitwarden-collections = { path = "crates/bitwarden-collections", version = "=1.0.0" }
+bitwarden-commercial-vault = { path = "bitwarden_license/bitwarden-commercial-vault", version = "=1.0.0" }
 bitwarden-core = { path = "crates/bitwarden-core", version = "=1.0.0" }
 bitwarden-crypto = { path = "crates/bitwarden-crypto", version = "=1.0.0" }
 bitwarden-encoding = { path = "crates/bitwarden-encoding", version = "=1.0.0" }

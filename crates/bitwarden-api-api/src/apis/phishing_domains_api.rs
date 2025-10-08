@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait PhishingDomainsApi: Send + Sync {
     /// GET /phishing-domains/checksum
     async fn get_checksum(&self) -> Result<String, Error<GetChecksumError>>;
@@ -42,7 +43,8 @@ impl PhishingDomainsApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl PhishingDomainsApi for PhishingDomainsApiClient {
     async fn get_checksum(&self) -> Result<String, Error<GetChecksumError>> {
         let local_var_configuration = &self.configuration;

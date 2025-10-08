@@ -4,15 +4,25 @@
 #
 # https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
+# We have a few ownership models in use here, applied to team-owned crates as well as CLI code:
+# 1. Full ownership by team-platform-dev, for cases where teams have not yet onboarded at all.
+# 2. Joint team ownership with team-platform-dev, as a team onboards into SDK development and close guidance is necessary.
+# 3. Joint team ownership with team-sdk-sme, once a team is comfortable with SDK development but still would benefit from architectural oversight.
+# 4. Full team ownership, once a team is comfortable with SDK development and has enough shared experience to  ensure alignment with SDK architecture.
+
 # Platform is the default owner for all files
 * @bitwarden/team-platform-dev
 
+# Team-owned crates
 crates/bitwarden-auth/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
+crates/bitwarden-crypto/** @bitwarden/team-key-management-dev @bitwarden/team-platform-dev @bitwarden/dept-architecture 
+crates/bitwarden-vault/** @bitwarden/team-vault-dev @bitwarden/team-sdk-sme
 
-crates/bitwarden-vault/** @bitwarden/team-vault-dev @bitwarden/team-platform-dev
-
-# Temporarily owned by multiple teams
-/crates/bitwarden-crypto/ @bitwarden/team-platform-dev @bitwarden/dept-architecture @bitwarden/team-key-management-dev
+# BW CLI
+crates/bw/src/admin_console/** @bitwarden/team-platform-dev
+crates/bw/src/auth/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
+crates/bw/src/tools/** @bitwarden/team-platform-dev
+crates/bw/src/vault/** @bitwarden/team-vault-dev @bitwarden/team-sdk-sme
 
 # BRE for publish workflow changes
 .github/workflows/publish-*.yml @bitwarden/dept-bre

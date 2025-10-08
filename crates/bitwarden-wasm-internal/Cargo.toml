@@ -12,11 +12,17 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
+[features]
+bitwarden-license = ["bitwarden-pm/bitwarden-license", "dep:bitwarden-commercial-vault"]
+
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
 async-trait = { workspace = true }
+bitwarden-commercial-vault = { workspace = true, optional = true, features = [
+  "wasm",
+] }
 bitwarden-core = { workspace = true, features = ["wasm", "internal"] }
 bitwarden-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-error = { workspace = true }

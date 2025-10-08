@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait OrganizationDomainApi: Send + Sync {
     /// GET /organizations/{orgId}/domain/{id}
     async fn get<'a>(
@@ -89,7 +90,8 @@ impl OrganizationDomainApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl OrganizationDomainApi for OrganizationDomainApiClient {
     async fn get<'a>(
         &self,
