@@ -1,0 +1,9 @@
+[bindings.kotlin]
+package_name = "com.bitwarden.commercial.vault"
+generate_immutable_records = true
+android = true
+
+[bindings.swift]
+ffi_module_name = "BitwardenCommercialVaultFFI"
+module_name = "BitwardenCommercialVault"
+generate_immutable_records = true

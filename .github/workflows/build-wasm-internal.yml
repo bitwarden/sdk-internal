@@ -16,10 +16,21 @@ defaults:
 
 jobs:
   build:
-    name: Building @bitwarden/sdk-wasm-internal
+    name: Building @bitwarden/sdk-wasm-internal - ${{matrix.license_type.readable}}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
+    strategy:
+      matrix:
+        license_type:
+          - artifact_name: "wasm-internal"
+            build_flags: ""
+            npm_folder: "npm"
+            readable: "open source license"
+          - artifact_name: "commercial-wasm-internal"
+            build_flags: "-b"
+            npm_folder: "bitwarden_license/npm"
+            readable: "commercial license"
 
     steps:
       - name: Checkout repo
@@ -64,7 +75,7 @@ jobs:
 
       - name: NPM setup
         run: npm ci
-        working-directory: crates/bitwarden-wasm-internal/npm
+        working-directory: crates/bitwarden-wasm-internal/${{ matrix.license_type.npm_folder }}
 
       - name: Install rust
         uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # stable
@@ -82,13 +93,13 @@ jobs:
         run: cargo install wasm-bindgen-cli --version 0.2.100
 
       - name: Build
-        run: ./build.sh -r
+        run: ./build.sh -r ${{ matrix.license_type.build_flags }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
-          name: sdk-internal
-          path: ${{ github.workspace }}/crates/bitwarden-wasm-internal/npm/*
+          name: ${{ matrix.license_type.artifact_name }}
+          path: ${{ github.workspace }}/crates/bitwarden-wasm-internal/${{ matrix.license_type.npm_folder }}/*
           if-no-files-found: error
 
   trigger-wasm-publish:
