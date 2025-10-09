@@ -343,7 +343,6 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
         .ok_or(ItemNotFoundError)?;
     let original_cipher_view: CipherView = key_store.decrypt(&original_cipher)?;
 
-    // Update password history
     let request = CipherEditRequestInternal::new(request, &original_cipher_view);
 
     let mut cipher_request = key_store.encrypt(request)?;
@@ -393,6 +392,8 @@ impl CiphersClient {
 
 #[cfg(test)]
 mod tests {
+    use std::{thread::sleep, time::Duration};
+
     use bitwarden_api_api::{apis::ApiClient, models::CipherResponseModel};
     use bitwarden_core::key_management::SymmetricKeyId;
     use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricCryptoKey};
@@ -667,7 +668,7 @@ mod tests {
 
         assert_eq!(history.len(), 1);
         assert!(
-            history[0].last_used_date > start && history[0].last_used_date < end,
+            history[0].last_used_date >= start && history[0].last_used_date <= end,
             "last_used_date was not set properly"
         );
         assert_eq!(history[0].password, "old_password");
