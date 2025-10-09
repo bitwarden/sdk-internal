@@ -20,7 +20,7 @@ use wasm_bindgen::prelude::*;
 use super::CiphersClient;
 use crate::{
     Cipher, CipherRepromptType, CipherView, FieldView, FolderId, VaultParseError,
-    cipher_view_type::{CipherViewType, CipherViewTypeExt},
+    cipher_view_type::CipherViewType,
 };
 
 #[allow(missing_docs)]

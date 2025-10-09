@@ -23,8 +23,7 @@ use wasm_bindgen::prelude::*;
 use super::CiphersClient;
 use crate::{
     Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldType, FieldView, FolderId,
-    ItemNotFoundError, PasswordHistoryView, VaultParseError,
-    cipher_view_type::{CipherViewType, CipherViewTypeExt},
+    ItemNotFoundError, PasswordHistoryView, VaultParseError, cipher_view_type::CipherViewType,
 };
 
 /// Maximum number of password history entries to retain
