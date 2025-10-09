@@ -3,8 +3,8 @@ use bitwarden_core::Client;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    AttachmentsClient, CiphersClient, FoldersClient, PasswordHistoryClient, SyncRequest,
-    SyncResponse, TotpClient,
+    AttachmentsClient, CipherRiskClient, CiphersClient, FoldersClient, PasswordHistoryClient,
+    SyncRequest, SyncResponse, TotpClient,
     collection_client::CollectionsClient,
     sync::{SyncError, sync},
 };
@@ -67,6 +67,13 @@ impl VaultClient {
     /// Collection related operations.
     pub fn collections(&self) -> CollectionsClient {
         CollectionsClient {
+            client: self.client.clone(),
+        }
+    }
+
+    /// Cipher risk evaluation operations.
+    pub fn cipher_risk(&self) -> CipherRiskClient {
+        CipherRiskClient {
             client: self.client.clone(),
         }
     }

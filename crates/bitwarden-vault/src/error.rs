@@ -31,3 +31,14 @@ pub enum VaultParseError {
     #[error(transparent)]
     MissingField(#[from] bitwarden_core::MissingFieldError),
 }
+
+/// Error type for cipher risk evaluation operations
+#[allow(missing_docs)]
+#[bitwarden_error(flat)]
+#[derive(Debug, Error)]
+pub enum CipherRiskError {
+    #[error("Network error while checking password exposure: {0}")]
+    Network(String),
+    #[error("Invalid password format")]
+    InvalidPassword,
+}

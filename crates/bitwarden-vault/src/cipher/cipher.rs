@@ -486,6 +486,23 @@ impl CipherView {
         }
     }
 
+    /// Extract login details for risk evaluation (login ciphers only).
+    ///
+    /// Returns `Some(CipherLoginDetails)` if this is a login cipher with a password,
+    /// otherwise returns `None`.
+    pub fn to_login_details(&self) -> Option<crate::cipher::cipher_risk::CipherLoginDetails> {
+        if let Some(login) = &self.login {
+            if let Some(password) = &login.password {
+                return Some(crate::cipher::cipher_risk::CipherLoginDetails {
+                    id: self.id,
+                    password: password.clone(),
+                    username: login.username.clone(),
+                });
+            }
+        }
+        None
+    }
+
     fn reencrypt_attachment_keys(
         &mut self,
         ctx: &mut KeyStoreContext<KeyIds>,

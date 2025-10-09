@@ -5,6 +5,8 @@ pub(crate) mod card;
 pub(crate) mod cipher;
 pub(crate) mod cipher_client;
 pub(crate) mod cipher_permissions;
+pub(crate) mod cipher_risk;
+pub(crate) mod cipher_risk_client;
 pub(crate) mod field;
 pub(crate) mod identity;
 pub(crate) mod linked_id;
@@ -23,6 +25,8 @@ pub use cipher::{
     CipherType, CipherView, DecryptCipherListResult, EncryptionContext,
 };
 pub use cipher_client::CiphersClient;
+pub use cipher_risk::{CipherLoginDetails, CipherRisk, CipherRiskOptions, PasswordReuseMap};
+pub use cipher_risk_client::CipherRiskClient;
 pub use field::{FieldType, FieldView};
 pub use identity::IdentityView;
 pub use login::{
