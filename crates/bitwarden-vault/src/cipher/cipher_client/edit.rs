@@ -100,11 +100,46 @@ impl TryFrom<CipherView> for CipherEditRequest {
     }
 }
 
-impl CipherEditRequest {
-    fn generate_password_history(
-        &mut self,
-        original_cipher: &CipherView,
-    ) -> Vec<PasswordHistoryView> {
+/// Used as an intermediary between the public-facing [CipherEditRequest], and the encrypted
+/// value. This allows us to calculate password history safely, without risking misuse.
+#[derive(Clone, Debug)]
+struct CipherEditRequestInternal {
+    pub organization_id: Option<OrganizationId>,
+    pub folder_id: Option<FolderId>,
+    pub favorite: bool,
+    pub reprompt: CipherRepromptType,
+    pub name: String,
+    pub notes: Option<String>,
+    pub fields: Vec<FieldView>,
+    pub r#type: CipherViewType,
+    pub revision_date: DateTime<Utc>,
+    pub archived_date: Option<DateTime<Utc>>,
+    pub password_history: Vec<PasswordHistoryView>,
+    pub key: Option<EncString>,
+}
+
+impl CipherEditRequestInternal {
+    fn new(req: CipherEditRequest, orig_cipher: &CipherView) -> Self {
+        let mut internal_req = Self {
+            organization_id: req.organization_id,
+            folder_id: req.folder_id,
+            favorite: req.favorite,
+            reprompt: req.reprompt,
+            name: req.name,
+            notes: req.notes,
+            fields: req.fields,
+            r#type: req.r#type,
+            revision_date: req.revision_date,
+            archived_date: req.archived_date,
+            key: req.key,
+            password_history: vec![],
+        };
+        internal_req.update_password_history(&orig_cipher);
+
+        internal_req
+    }
+
+    fn update_password_history(&mut self, original_cipher: &CipherView) {
         let changes = self
             .detect_login_password_changes(original_cipher)
             .into_iter()
@@ -115,7 +150,7 @@ impl CipherEditRequest {
             .take(MAX_PASSWORD_HISTORY_ENTRIES)
             .collect();
 
-        history
+        self.password_history = history;
     }
 
     fn detect_login_password_changes(
@@ -197,7 +232,9 @@ impl CipherEditRequest {
     }
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for CipherEditRequest {
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
+    for CipherEditRequestInternal
+{
     fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -231,7 +268,14 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
                     .map(|f| f.into())
                     .collect(),
             ),
-            password_history: None, // TODO: Need to calculate this and re-encrypt after encryption.
+            password_history: Some(
+                cipher_data
+                    .password_history
+                    .encrypt_composite(ctx, cipher_key)?
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
+            ),
             attachments: None,
             attachments2: None,
             login: cipher_data
@@ -275,7 +319,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
     }
 }
 
-impl IdentifyKey<SymmetricKeyId> for CipherEditRequest {
+impl IdentifyKey<SymmetricKeyId> for CipherEditRequestInternal {
     fn key_identifier(&self) -> SymmetricKeyId {
         match self.organization_id {
             Some(organization_id) => SymmetricKeyId::Organization(organization_id),
@@ -289,7 +333,7 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
     encrypted_for: UserId,
-    mut request: CipherEditRequest,
+    request: CipherEditRequest,
 ) -> Result<CipherView, EditCipherError> {
     let cipher_id = request.id;
 
@@ -300,14 +344,10 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     let original_cipher_view: CipherView = key_store.decrypt(&original_cipher)?;
 
     // Update password history
-    let password_history = request.generate_password_history(&original_cipher_view);
-    let enc_password_history =
-        password_history.encrypt_composite(&mut key_store.context(), request.key_identifier())?;
+    let request = CipherEditRequestInternal::new(request, &original_cipher_view);
 
     let mut cipher_request = key_store.encrypt(request)?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
-    cipher_request.password_history =
-        Some(enc_password_history.into_iter().map(Into::into).collect());
 
     let response = api_client
         .ciphers_api()
@@ -617,11 +657,12 @@ mod tests {
     #[test]
     fn test_password_history_on_password_change() {
         let original_cipher = create_test_login_cipher("old_password");
-        let mut edit_request =
+        let edit_request =
             CipherEditRequest::try_from(create_test_login_cipher("new_password")).unwrap();
 
         let start = Utc::now();
-        let history = edit_request.generate_password_history(&original_cipher);
+        let internal_req = CipherEditRequestInternal::new(edit_request, &original_cipher);
+        let history = internal_req.password_history;
         let end = Utc::now();
 
         assert_eq!(history.len(), 1);
@@ -635,10 +676,11 @@ mod tests {
     #[test]
     fn test_password_history_on_unchanged_password() {
         let original_cipher = create_test_login_cipher("same_password");
-        let mut edit_request =
+        let edit_request =
             CipherEditRequest::try_from(create_test_login_cipher("same_password")).unwrap();
 
-        let password_history = edit_request.generate_password_history(&original_cipher);
+        let internal_req = CipherEditRequestInternal::new(edit_request, &original_cipher);
+        let password_history = internal_req.password_history;
 
         assert!(password_history.is_empty());
     }
@@ -655,12 +697,13 @@ mod tests {
                 .collect(),
         );
 
-        let mut edit_request =
+        let edit_request =
             CipherEditRequest::try_from(create_test_login_cipher("same_password")).unwrap();
-
-        let history = edit_request.generate_password_history(&original_cipher);
+        let internal_req = CipherEditRequestInternal::new(edit_request, &original_cipher);
+        let history = internal_req.password_history;
 
         assert_eq!(history[0].password, "old_password_0");
+
         assert_eq!(
             history[0].last_used_date,
             Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap()
@@ -700,9 +743,10 @@ mod tests {
             linked_id: None,
         }]);
 
-        let mut edit_request = CipherEditRequest::try_from(new_cipher).unwrap();
+        let edit_request = CipherEditRequest::try_from(new_cipher).unwrap();
 
-        let history = edit_request.generate_password_history(&original_cipher);
+        let internal_req = CipherEditRequestInternal::new(edit_request, &original_cipher);
+        let history = internal_req.password_history;
 
         assert_eq!(history.len(), 1);
         assert_eq!(history[0].password, "Secret Key: old_secret_value");
@@ -721,10 +765,11 @@ mod tests {
         );
 
         // Create edit request with new password (no existing history)
-        let mut edit_request =
+        let edit_request =
             CipherEditRequest::try_from(create_test_login_cipher("new_password")).unwrap();
 
-        let history = edit_request.generate_password_history(&original_cipher);
+        let internal_req = CipherEditRequestInternal::new(edit_request, &original_cipher);
+        let history = internal_req.password_history;
 
         assert_eq!(history.len(), MAX_PASSWORD_HISTORY_ENTRIES);
         // Most recent change (original password) should be first
