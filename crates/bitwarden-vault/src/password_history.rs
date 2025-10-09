@@ -88,16 +88,15 @@ impl From<PasswordHistory> for CipherPasswordHistoryModel {
     }
 }
 
-#[allow(missing_docs)]
 impl PasswordHistoryView {
-    pub fn new_password(old_password: &str) -> Self {
+    pub(crate) fn new_password(old_password: &str) -> Self {
         Self {
             password: old_password.to_string(),
             last_used_date: Utc::now(),
         }
     }
 
-    pub fn new_field(field_name: &str, old_value: &str) -> Self {
+    pub(crate) fn new_field(field_name: &str, old_value: &str) -> Self {
         Self {
             password: format!("{field_name}: {old_value}"),
             last_used_date: Utc::now(),
