@@ -61,6 +61,11 @@ pub struct EventResponseModel {
     pub project_id: Option<uuid::Uuid>,
     #[serde(rename = "serviceAccountId", skip_serializing_if = "Option::is_none")]
     pub service_account_id: Option<uuid::Uuid>,
+    #[serde(
+        rename = "grantedServiceAccountId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub granted_service_account_id: Option<uuid::Uuid>,
 }
 
 impl EventResponseModel {
@@ -88,6 +93,7 @@ impl EventResponseModel {
             secret_id: None,
             project_id: None,
             service_account_id: None,
+            granted_service_account_id: None,
         }
     }
 }
