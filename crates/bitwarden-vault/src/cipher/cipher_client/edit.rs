@@ -104,18 +104,18 @@ impl TryFrom<CipherView> for CipherEditRequest {
 /// value. This allows us to calculate password history safely, without risking misuse.
 #[derive(Clone, Debug)]
 struct CipherEditRequestInternal {
-    pub organization_id: Option<OrganizationId>,
-    pub folder_id: Option<FolderId>,
-    pub favorite: bool,
-    pub reprompt: CipherRepromptType,
-    pub name: String,
-    pub notes: Option<String>,
-    pub fields: Vec<FieldView>,
-    pub r#type: CipherViewType,
-    pub revision_date: DateTime<Utc>,
-    pub archived_date: Option<DateTime<Utc>>,
-    pub password_history: Vec<PasswordHistoryView>,
-    pub key: Option<EncString>,
+    organization_id: Option<OrganizationId>,
+    folder_id: Option<FolderId>,
+    favorite: bool,
+    reprompt: CipherRepromptType,
+    name: String,
+    notes: Option<String>,
+    fields: Vec<FieldView>,
+    r#type: CipherViewType,
+    revision_date: DateTime<Utc>,
+    archived_date: Option<DateTime<Utc>>,
+    password_history: Vec<PasswordHistoryView>,
+    key: Option<EncString>,
 }
 
 impl CipherEditRequestInternal {
