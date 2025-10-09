@@ -134,7 +134,7 @@ impl CipherEditRequestInternal {
             key: req.key,
             password_history: vec![],
         };
-        internal_req.update_password_history(&orig_cipher);
+        internal_req.update_password_history(orig_cipher);
 
         internal_req
     }
@@ -392,8 +392,6 @@ impl CiphersClient {
 
 #[cfg(test)]
 mod tests {
-    use std::{thread::sleep, time::Duration};
-
     use bitwarden_api_api::{apis::ApiClient, models::CipherResponseModel};
     use bitwarden_core::key_management::SymmetricKeyId;
     use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricCryptoKey};
