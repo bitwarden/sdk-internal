@@ -55,11 +55,40 @@ pub struct CipherCreateRequest {
     pub reprompt: CipherRepromptType,
     pub r#type: CipherViewType,
     pub fields: Vec<FieldView>,
-    /// For internal use only. Do not set this from clients.
-    pub key: Option<EncString>,
 }
 
-impl CipherCreateRequest {
+/// Used as an intermediary between the public-facing [CipherCreateRequest], and the encrypted
+/// value. This allows us to manage the cipher key creation internally.
+#[derive(Clone, Debug)]
+struct CipherCreateRequestInternal {
+    organization_id: Option<OrganizationId>,
+    folder_id: Option<FolderId>,
+    name: String,
+    notes: Option<String>,
+    favorite: bool,
+    reprompt: CipherRepromptType,
+    r#type: CipherViewType,
+    fields: Vec<FieldView>,
+    key: Option<EncString>,
+}
+
+impl From<CipherCreateRequest> for CipherCreateRequestInternal {
+    fn from(req: CipherCreateRequest) -> Self {
+        Self {
+            organization_id: req.organization_id,
+            folder_id: req.folder_id,
+            name: req.name,
+            notes: req.notes,
+            favorite: req.favorite,
+            reprompt: req.reprompt,
+            r#type: req.r#type,
+            fields: req.fields,
+            key: None,
+        }
+    }
+}
+
+impl CipherCreateRequestInternal {
     /// Generate a new key for the cipher, re-encrypting internal data, if necessary, and stores the
     /// encrypted key to the cipher data.
     fn generate_cipher_key(
@@ -88,7 +117,9 @@ impl CipherCreateRequest {
     }
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for CipherCreateRequest {
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
+    for CipherCreateRequestInternal
+{
     fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -170,7 +201,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel> for Cipher
     }
 }
 
-impl IdentifyKey<SymmetricKeyId> for CipherCreateRequest {
+impl IdentifyKey<SymmetricKeyId> for CipherCreateRequestInternal {
     fn key_identifier(&self) -> SymmetricKeyId {
         match self.organization_id {
             Some(organization_id) => SymmetricKeyId::Organization(organization_id),
@@ -184,7 +215,7 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
     encrypted_for: UserId,
-    request: CipherCreateRequest,
+    request: CipherCreateRequestInternal,
 ) -> Result<CipherView, CreateCipherError> {
     let mut cipher_request = key_store.encrypt(request)?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
@@ -206,11 +237,12 @@ impl CiphersClient {
     /// Create a new [Cipher] and save it to the server.
     pub async fn create(
         &self,
-        mut request: CipherCreateRequest,
+        request: CipherCreateRequest,
     ) -> Result<CipherView, CreateCipherError> {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations().await;
         let repository = self.get_repository()?;
+        let mut internal_request: CipherCreateRequestInternal = request.into();
 
         let user_id = self
             .client
@@ -226,8 +258,8 @@ impl CiphersClient {
             .get_flags()
             .enable_cipher_key_encryption
         {
-            let key = request.key_identifier();
-            request.generate_cipher_key(&mut key_store.context(), key)?;
+            let key = internal_request.key_identifier();
+            internal_request.generate_cipher_key(&mut key_store.context(), key)?;
         }
 
         create_cipher(
@@ -235,7 +267,7 @@ impl CiphersClient {
             &config.api_client,
             repository.as_ref(),
             user_id,
-            request,
+            internal_request,
         )
         .await
     }
@@ -271,7 +303,6 @@ mod tests {
             favorite: Default::default(),
             reprompt: Default::default(),
             fields: Default::default(),
-            key: Default::default(),
         }
     }
 
@@ -338,7 +369,7 @@ mod tests {
             &api_client,
             &repository,
             TEST_USER_ID.parse().unwrap(),
-            request,
+            request.into(),
         )
         .await
         .unwrap();
@@ -401,7 +432,7 @@ mod tests {
             &api_client,
             &repository,
             TEST_USER_ID.parse().unwrap(),
-            request,
+            request.into(),
         )
         .await;
 
