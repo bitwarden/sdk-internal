@@ -38,6 +38,8 @@ pub struct CipherFido2CredentialModel {
     pub counter: Option<String>,
     #[serde(rename = "discoverable", skip_serializing_if = "Option::is_none")]
     pub discoverable: Option<String>,
+    #[serde(rename = "hmac_secret", skip_serializing_if = "Option::is_none")]
+    pub hmac_secret: Option<String>,
     #[serde(rename = "creationDate")]
     pub creation_date: String,
 }
@@ -57,6 +59,7 @@ impl CipherFido2CredentialModel {
             user_display_name: None,
             counter: None,
             discoverable: None,
+            hmac_secret: None,
             creation_date,
         }
     }

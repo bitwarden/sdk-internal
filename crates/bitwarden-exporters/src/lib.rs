@@ -345,6 +345,7 @@ pub struct Fido2Credential {
     pub rp_name: Option<String>,
     pub user_display_name: Option<String>,
     pub discoverable: String,
+    pub hmac_secret: Option<String>,
     pub creation_date: DateTime<Utc>,
 }
 
@@ -363,6 +364,7 @@ impl From<Fido2Credential> for Fido2CredentialFullView {
             rp_name: value.rp_name,
             user_display_name: value.user_display_name,
             discoverable: value.discoverable,
+            hmac_secret: value.hmac_secret,
             creation_date: value.creation_date,
         }
     }

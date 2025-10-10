@@ -101,6 +101,7 @@ pub struct Fido2Credential {
     pub rp_name: Option<EncString>,
     pub user_display_name: Option<EncString>,
     pub discoverable: EncString,
+    pub hmac_secret: Option<EncString>,
     pub creation_date: DateTime<Utc>,
 }
 
@@ -137,6 +138,9 @@ pub struct Fido2CredentialView {
     pub rp_name: Option<String>,
     pub user_display_name: Option<String>,
     pub discoverable: String,
+    // This value doesn't need to be returned to the client
+    // so we keep it encrypted until we need it
+    pub hmac_secret: Option<EncString>,
     pub creation_date: DateTime<Utc>,
 }
 
@@ -159,6 +163,7 @@ pub struct Fido2CredentialFullView {
     pub rp_name: Option<String>,
     pub user_display_name: Option<String>,
     pub discoverable: String,
+    pub hmac_secret: Option<String>,
     pub creation_date: DateTime<Utc>,
 }
 
@@ -225,6 +230,11 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2Cred
             rp_name: self.rp_name.encrypt(ctx, key)?,
             user_display_name: self.user_display_name.encrypt(ctx, key)?,
             discoverable: self.discoverable.encrypt(ctx, key)?,
+            hmac_secret: self
+                .hmac_secret
+                .as_ref()
+                .map(|s| s.encrypt(ctx, key))
+                .transpose()?,
             creation_date: self.creation_date,
         })
     }
@@ -249,6 +259,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, Fido2CredentialFullView> for Fido2Crede
             rp_name: self.rp_name.decrypt(ctx, key)?,
             user_display_name: self.user_display_name.decrypt(ctx, key)?,
             discoverable: self.discoverable.decrypt(ctx, key)?,
+            hmac_secret: self.hmac_secret.decrypt(ctx, key)?,
             creation_date: self.creation_date,
         })
     }
@@ -273,6 +284,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, Fido2CredentialFullView> for Fido2Crede
             rp_name: self.rp_name.clone(),
             user_display_name: self.user_display_name.clone(),
             discoverable: self.discoverable.clone(),
+            hmac_secret: self.hmac_secret.decrypt(ctx, key)?,
             creation_date: self.creation_date,
         })
     }
@@ -438,6 +450,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Fido2Credential> for Fido2Cred
             rp_name: self.rp_name.encrypt(ctx, key)?,
             user_display_name: self.user_display_name.encrypt(ctx, key)?,
             discoverable: self.discoverable.encrypt(ctx, key)?,
+            hmac_secret: self.hmac_secret.clone(),
             creation_date: self.creation_date,
         })
     }
@@ -462,6 +475,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, Fido2CredentialView> for Fido2Credentia
             rp_name: self.rp_name.decrypt(ctx, key)?,
             user_display_name: self.user_display_name.decrypt(ctx, key)?,
             discoverable: self.discoverable.decrypt(ctx, key)?,
+            hmac_secret: self.hmac_secret.clone(),
             creation_date: self.creation_date,
         })
     }
@@ -557,6 +571,9 @@ impl TryFrom<bitwarden_api_api::models::CipherFido2CredentialModel> for Fido2Cre
                 .ok()
                 .flatten(),
             discoverable: require!(value.discoverable).parse()?,
+            hmac_secret: EncString::try_from_optional(value.hmac_secret)
+                .ok()
+                .flatten(),
             creation_date: value.creation_date.parse()?,
         })
     }
