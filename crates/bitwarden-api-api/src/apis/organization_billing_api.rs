@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait OrganizationBillingApi: Send + Sync {
     /// POST /organizations/{organizationId}/billing/change-frequency
     async fn change_plan_subscription_frequency<'a>(
@@ -123,7 +124,8 @@ impl OrganizationBillingApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl OrganizationBillingApi for OrganizationBillingApiClient {
     async fn change_plan_subscription_frequency<'a>(
         &self,

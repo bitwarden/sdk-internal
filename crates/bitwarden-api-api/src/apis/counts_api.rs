@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait CountsApi: Send + Sync {
     /// GET /organizations/{organizationId}/sm-counts
     async fn get_by_organization<'a>(
@@ -54,7 +55,8 @@ impl CountsApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl CountsApi for CountsApiClient {
     async fn get_by_organization<'a>(
         &self,

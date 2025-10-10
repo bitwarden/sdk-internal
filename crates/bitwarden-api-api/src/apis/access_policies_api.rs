@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait AccessPoliciesApi: Send + Sync {
     /// GET /organizations/{id}/access-policies/people/potential-grantees
     async fn get_people_potential_grantees<'a>(
@@ -149,7 +150,8 @@ impl AccessPoliciesApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl AccessPoliciesApi for AccessPoliciesApiClient {
     async fn get_people_potential_grantees<'a>(
         &self,

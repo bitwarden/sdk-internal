@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait CollectionsApi: Send + Sync {
     /// DELETE /organizations/{orgId}/collections/{id}
     async fn delete<'a>(
@@ -113,7 +114,8 @@ impl CollectionsApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl CollectionsApi for CollectionsApiClient {
     async fn delete<'a>(
         &self,

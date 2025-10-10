@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait InvoicesApi: Send + Sync {
     /// POST /invoices/preview-organization
     async fn preview_invoice<'a>(
@@ -44,7 +45,8 @@ impl InvoicesApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl InvoicesApi for InvoicesApiClient {
     async fn preview_invoice<'a>(
         &self,
