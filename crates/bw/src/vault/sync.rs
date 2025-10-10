@@ -8,10 +8,9 @@ use bitwarden_core::{
     key_management::{MasterPasswordError, UserDecryptionData},
     require,
 };
+use bitwarden_vault::{Cipher, Folder, GlobalDomains, VaultParseError};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
-use crate::{Cipher, Folder, GlobalDomains, VaultParseError};
 
 #[derive(Debug, Error)]
 pub enum SyncError {
