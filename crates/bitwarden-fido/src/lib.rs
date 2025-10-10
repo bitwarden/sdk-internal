@@ -7,7 +7,7 @@ use bitwarden_vault::{
     CipherError, CipherView, Fido2CredentialFullView, Fido2CredentialNewView, Fido2CredentialView,
 };
 use crypto::{CoseKeyToPkcs8Error, PrivateKeyFromSecretKeyError};
-use passkey::types::{Passkey, ctap2::Aaguid};
+use passkey::types::{CredentialExtensions, Passkey, ctap2::Aaguid};
 
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
@@ -117,6 +117,9 @@ fn try_from_credential_full_view(value: Fido2CredentialFullView) -> Result<Passk
     let counter = (counter != 0).then_some(counter);
     let key_value = B64Url::try_from(value.key_value)?;
     let user_handle = value.user_handle.map(B64Url::try_from).transpose()?;
+    let extensions = CredentialExtensions {
+        hmac_secret: None,
+    };
 
     let key = pkcs8_to_cose_key(key_value.as_bytes())?;
 
@@ -126,6 +129,7 @@ fn try_from_credential_full_view(value: Fido2CredentialFullView) -> Result<Passk
         rp_id: value.rp_id.clone(),
         user_handle: user_handle.map(|u| u.into_bytes().into()),
         counter,
+        extensions,
     })
 }
 
