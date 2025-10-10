@@ -19,7 +19,10 @@ use crate::{
 };
 
 /// Marker trait for data that can be sealed in a `DataEnvelope`.
-pub trait SealableData {}
+pub trait SealableData {
+    /// The namespace to use when sealing this type of data. This must be unique per struct.
+    const NAMESPACE: DataEnvelopeNamespace;
+}
 
 /// `DataEnvelope` allows sealing structs entire structs to encrypted blobs.
 ///
@@ -48,14 +51,13 @@ impl DataEnvelope {
     /// context.
     pub fn seal<Ids: KeyIds, T>(
         data: T,
-        namespace: &DataEnvelopeNamespace,
         cek_keyslot: Ids::Symmetric,
         ctx: &mut crate::store::KeyStoreContext<Ids>,
     ) -> Result<Self, DataEnvelopeError>
     where
         T: Serialize + SealableData,
     {
-        let (envelope, cek) = Self::seal_ref(&data, namespace)?;
+        let (envelope, cek) = Self::seal_ref(&data, &T::NAMESPACE)?;
         ctx.set_symmetric_key_internal(cek_keyslot, SymmetricCryptoKey::XChaCha20Poly1305Key(cek))
             .map_err(|_| DataEnvelopeError::KeyStoreError)?;
         Ok(envelope)
@@ -358,7 +360,9 @@ mod tests {
     struct TestData {
         field2: u32,
     }
-    impl SealableData for TestData {}
+    impl SealableData for TestData {
+        const NAMESPACE: DataEnvelopeNamespace = DataEnvelopeNamespace::ExampleNamespace;
+    }
 
     const TEST_VECTOR_CEK: &str =
         "pQEEAlDI6siwJ+XRw5/Dqb0imZkmAzoAARFvBIEEIFgg/LZGMeNOnBi/cMyAbeaZL9hN3owKxTHOYvbIAuwSdeIB";
@@ -460,13 +464,8 @@ mod tests {
         let mut ctx = key_store.context_mut();
 
         // Seal with keystore using ExampleNamespace
-        let envelope = DataEnvelope::seal(
-            data,
-            &DataEnvelopeNamespace::ExampleNamespace,
-            crate::traits::tests::TestSymmKey::A(0),
-            &mut ctx,
-        )
-        .unwrap();
+        let envelope =
+            DataEnvelope::seal(data, crate::traits::tests::TestSymmKey::A(0), &mut ctx).unwrap();
 
         // Try to unseal with wrong namespace - should fail
         let result: Result<TestData, DataEnvelopeError> = envelope.unseal(

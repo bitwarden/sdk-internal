@@ -21,7 +21,9 @@ enum MyItem {
     V1 { a: u32, b: String },
     V2 { a: u32, b: bool, c: bool },
 }
-impl SealableData for MyItem {}
+impl SealableData for MyItem {
+    const NAMESPACE: DataEnvelopeNamespace = DataEnvelopeNamespace::VaultItem;
+}
 
 fn main() {
     let store: bitwarden_crypto::KeyStore<ExampleIds> =
@@ -35,13 +37,8 @@ fn main() {
     };
 
     // Seal the item into an encrypted blob, and store the content-encryption-key in the context.
-    let sealed_item = DataEnvelope::seal(
-        my_item,
-        &DataEnvelopeNamespace::VaultItem,
-        ExampleSymmetricKey::ItemKey,
-        &mut ctx,
-    )
-    .expect("Sealing should work");
+    let sealed_item = DataEnvelope::seal(my_item, ExampleSymmetricKey::ItemKey, &mut ctx)
+        .expect("Sealing should work");
 
     // Store the sealed item on disk
     disk.save("sealed_item", (&sealed_item).into());
