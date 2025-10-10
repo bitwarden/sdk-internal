@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use bitwarden_crypto::{BitwardenLegacyKeyBytes, SymmetricCryptoKey};
 use bitwarden_fido::{
-    CheckUserOptions, ClientData, Fido2CallbackError as BitFido2CallbackError,
-    Fido2CredentialAutofillView, GetAssertionRequest, GetAssertionResult, MakeCredentialRequest,
-    MakeCredentialResult, Origin, PublicKeyCredentialAuthenticatorAssertionResponse,
+    CheckUserOptions, ClientData, Fido2AuthenticatorOptions,
+    Fido2CallbackError as BitFido2CallbackError, Fido2CredentialAutofillView, GetAssertionRequest,
+    GetAssertionResult, MakeCredentialRequest, MakeCredentialResult, Origin,
+    PublicKeyCredentialAuthenticatorAssertionResponse,
     PublicKeyCredentialAuthenticatorAttestationResponse, PublicKeyCredentialRpEntity,
     PublicKeyCredentialUserEntity,
 };
@@ -26,7 +27,10 @@ impl ClientFido2 {
             self.0.clone(),
             user_interface,
             credential_store,
-            None,
+            Fido2AuthenticatorOptions {
+                enable_hmac_secret: false,
+                external_encryption_key: None,
+            },
         ))
     }
 
@@ -42,7 +46,10 @@ impl ClientFido2 {
             self.0.clone(),
             user_interface,
             credential_store,
-            Some(key),
+            Fido2AuthenticatorOptions {
+                enable_hmac_secret: true,
+                external_encryption_key: Some(key),
+            },
         ))
     }
 
@@ -55,7 +62,10 @@ impl ClientFido2 {
             self.0.clone(),
             user_interface,
             credential_store,
-            None,
+            Fido2AuthenticatorOptions {
+                enable_hmac_secret: false,
+                external_encryption_key: None,
+            },
         )))
     }
 
@@ -82,7 +92,7 @@ pub struct ClientFido2Authenticator(
     pub(crate) bitwarden_fido::ClientFido2,
     pub(crate) Arc<dyn Fido2UserInterface>,
     pub(crate) Arc<dyn Fido2CredentialStore>,
-    pub(crate) Option<SymmetricCryptoKey>,
+    pub(crate) Fido2AuthenticatorOptions,
 );
 
 #[uniffi::export]
@@ -93,7 +103,8 @@ impl ClientFido2Authenticator {
     ) -> Result<MakeCredentialResult> {
         let ui = UniffiTraitBridge(self.1.as_ref());
         let cs = UniffiTraitBridge(self.2.as_ref());
-        let mut auth = self.0.create_authenticator(&ui, &cs, self.3.clone());
+        let opts = self.3.clone();
+        let mut auth = self.0.create_authenticator(&ui, &cs, opts);
 
         let result = auth
             .make_credential(request)
@@ -105,7 +116,8 @@ impl ClientFido2Authenticator {
     pub async fn get_assertion(&self, request: GetAssertionRequest) -> Result<GetAssertionResult> {
         let ui = UniffiTraitBridge(self.1.as_ref());
         let cs = UniffiTraitBridge(self.2.as_ref());
-        let mut auth = self.0.create_authenticator(&ui, &cs, self.3.clone());
+        let opts = self.3.clone();
+        let mut auth = self.0.create_authenticator(&ui, &cs, opts);
 
         let result = auth
             .get_assertion(request)
@@ -121,7 +133,8 @@ impl ClientFido2Authenticator {
     ) -> Result<Vec<Fido2CredentialAutofillView>> {
         let ui = UniffiTraitBridge(self.1.as_ref());
         let cs = UniffiTraitBridge(self.2.as_ref());
-        let mut auth = self.0.create_authenticator(&ui, &cs, self.3.clone());
+        let opts = self.3.clone();
+        let mut auth = self.0.create_authenticator(&ui, &cs, opts);
 
         let result = auth
             .silently_discover_credentials(rp_id, user_handle)
@@ -133,7 +146,8 @@ impl ClientFido2Authenticator {
     pub async fn credentials_for_autofill(&self) -> Result<Vec<Fido2CredentialAutofillView>> {
         let ui = UniffiTraitBridge(self.1.as_ref());
         let cs = UniffiTraitBridge(self.2.as_ref());
-        let mut auth = self.0.create_authenticator(&ui, &cs, self.3.clone());
+        let opts = self.3.clone();
+        let mut auth = self.0.create_authenticator(&ui, &cs, opts);
 
         let result = auth
             .credentials_for_autofill()

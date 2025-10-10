@@ -4,15 +4,14 @@ use bitwarden_vault::CipherView;
 use thiserror::Error;
 
 use crate::{
-    Fido2Authenticator, Fido2Client, Fido2CredentialAutofillView, Fido2CredentialAutofillViewError,
-    Fido2CredentialStore, Fido2UserInterface,
+    Fido2Authenticator, Fido2AuthenticatorOptions, Fido2Client, Fido2CredentialAutofillView,
+    Fido2CredentialAutofillViewError, Fido2CredentialStore, Fido2UserInterface,
 };
 
 #[allow(missing_docs)]
 #[derive(Clone)]
 pub struct ClientFido2 {
     pub(crate) client: Client,
-    enable_hmac_secret: bool,
 }
 
 #[allow(missing_docs)]
@@ -25,11 +24,8 @@ pub enum DecryptFido2AutofillCredentialsError {
 
 impl ClientFido2 {
     #[allow(missing_docs)]
-    pub fn new(client: Client, enable_hmac_secret: bool) -> Self {
-        Self {
-            client,
-            enable_hmac_secret,
-        }
+    pub fn new(client: Client) -> Self {
+        Self { client }
     }
 
     #[allow(missing_docs)]
@@ -37,15 +33,9 @@ impl ClientFido2 {
         &'a self,
         user_interface: &'a dyn Fido2UserInterface,
         credential_store: &'a dyn Fido2CredentialStore,
-        encryption_key: Option<SymmetricCryptoKey>,
+        options: Fido2AuthenticatorOptions,
     ) -> Fido2Authenticator<'a> {
-        Fido2Authenticator::new(
-            &self.client,
-            user_interface,
-            credential_store,
-            self.enable_hmac_secret,
-            encryption_key,
-        )
+        Fido2Authenticator::new(&self.client, user_interface, credential_store, options)
     }
 
     #[allow(missing_docs)]
@@ -55,7 +45,14 @@ impl ClientFido2 {
         credential_store: &'a dyn Fido2CredentialStore,
     ) -> Fido2Client<'a> {
         Fido2Client {
-            authenticator: self.create_authenticator(user_interface, credential_store, None),
+            authenticator: self.create_authenticator(
+                user_interface,
+                credential_store,
+                Fido2AuthenticatorOptions {
+                    enable_hmac_secret: false,
+                    external_encryption_key: None,
+                },
+            ),
         }
     }
 
@@ -79,11 +76,11 @@ impl ClientFido2 {
 
 #[allow(missing_docs)]
 pub trait ClientFido2Ext {
-    fn fido2(&self, enable_hmac_secret: bool) -> ClientFido2;
+    fn fido2(&self) -> ClientFido2;
 }
 
 impl ClientFido2Ext for Client {
-    fn fido2(&self, enable_hmac_secret: bool) -> ClientFido2 {
-        ClientFido2::new(self.clone(), enable_hmac_secret)
+    fn fido2(&self) -> ClientFido2 {
+        ClientFido2::new(self.clone())
     }
 }

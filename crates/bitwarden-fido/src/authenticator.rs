@@ -120,17 +120,16 @@ impl<'a> Fido2Authenticator<'a> {
         client: &'a Client,
         user_interface: &'a dyn Fido2UserInterface,
         credential_store: &'a dyn Fido2CredentialStore,
-        enable_hmac_secret: bool,
-        encryption_key: Option<SymmetricCryptoKey>,
+        options: Fido2AuthenticatorOptions,
     ) -> Fido2Authenticator<'a> {
         Fido2Authenticator {
             client,
             user_interface,
             credential_store,
-            encryption_key,
+            encryption_key: options.external_encryption_key,
+            enable_hmac_secret: options.enable_hmac_secret,
             selected_cipher: Mutex::new(None),
             requested_uv: Mutex::new(None),
-            enable_hmac_secret,
         }
     }
 
@@ -365,6 +364,18 @@ impl<'a> Fido2Authenticator<'a> {
 
         Ok(SelectedCredential { cipher, credential })
     }
+}
+
+/// Options for configuring FIDO2 authenticator behavior.
+#[derive(Debug, Clone)]
+pub struct Fido2AuthenticatorOptions {
+    /// Whether to enable hmac-secret extension support on the authenticator.
+    pub enable_hmac_secret: bool,
+
+    /// External encryption key provided by the consumer. If specified, this key
+    /// will be used to encrypt any credentials created with the authenticator
+    /// instead of the user key.
+    pub external_encryption_key: Option<SymmetricCryptoKey>,
 }
 
 pub(super) struct CredentialStoreImpl<'a> {
