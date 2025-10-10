@@ -16,6 +16,7 @@ keywords.workspace = true
 
 [features]
 uniffi = [
+    "bitwarden-collections/uniffi",
     "bitwarden-core/uniffi",
     "bitwarden-crypto/uniffi",
     "dep:uniffi",
@@ -30,12 +31,11 @@ wasm = [
 ] # WASM support
 
 [dependencies]
-base64 = ">=0.22.1, <0.23"
 bitwarden-api-api = { workspace = true }
 bitwarden-collections = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
-bitwarden-encoding.workspace = true
+bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-state = { workspace = true }
 bitwarden-uuid = { workspace = true }
@@ -59,9 +59,9 @@ wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
 
 [dev-dependencies]
+bitwarden-api-api = { workspace = true, features = ["mockall"] }
 bitwarden-test = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
-wiremock = { workspace = true }
 
 [lints]
 workspace = true

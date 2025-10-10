@@ -1,12 +1,12 @@
 use std::pin::Pin;
 
-use rsa::{pkcs8::DecodePublicKey, RsaPrivateKey, RsaPublicKey};
+use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::DecodePublicKey};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use super::key_encryptable::CryptoKey;
 use crate::{
-    error::{CryptoError, Result},
     Pkcs8PrivateKeyBytes, SpkiPublicKeyBytes,
+    error::{CryptoError, Result},
 };
 
 /// Algorithm / public key encryption scheme used for encryption/decryption.
@@ -76,11 +76,9 @@ pub struct AsymmetricCryptoKey {
 
 // Note that RsaPrivateKey already implements ZeroizeOnDrop, so we don't need to do anything
 // We add this assertion to make sure that this is still true in the future
-const _: () = {
+const _: fn() = || {
     fn assert_zeroize_on_drop<T: zeroize::ZeroizeOnDrop>() {}
-    fn assert_all() {
-        assert_zeroize_on_drop::<RsaPrivateKey>();
-    }
+    assert_zeroize_on_drop::<RsaPrivateKey>();
 };
 impl zeroize::ZeroizeOnDrop for AsymmetricCryptoKey {}
 impl CryptoKey for AsymmetricCryptoKey {}
@@ -167,9 +165,9 @@ mod tests {
     use bitwarden_encoding::B64;
 
     use crate::{
-        content_format::{Bytes, Pkcs8PrivateKeyDerContentFormat},
         AsymmetricCryptoKey, AsymmetricPublicCryptoKey, Pkcs8PrivateKeyBytes, SpkiPublicKeyBytes,
         SymmetricCryptoKey, UnsignedSharedKey,
+        content_format::{Bytes, Pkcs8PrivateKeyDerContentFormat},
     };
 
     #[test]

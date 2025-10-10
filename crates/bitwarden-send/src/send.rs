@@ -1,16 +1,13 @@
-use base64::{
-    engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
-    Engine,
-};
 use bitwarden_api_api::models::{SendFileModel, SendResponseModel, SendTextModel};
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
     require,
 };
 use bitwarden_crypto::{
-    generate_random_bytes, CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey,
-    KeyStoreContext, OctetStreamBytes, PrimitiveEncryptable,
+    CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
+    OctetStreamBytes, PrimitiveEncryptable, generate_random_bytes,
 };
+use bitwarden_encoding::{B64, B64Url};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -254,7 +251,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, SendView> for Send {
 
             name: self.name.decrypt(ctx, key).ok().unwrap_or_default(),
             notes: self.notes.decrypt(ctx, key).ok().flatten(),
-            key: Some(URL_SAFE_NO_PAD.encode(k)),
+            key: Some(B64Url::from(k).to_string()),
             new_password: None,
             has_password: self.password.is_some(),
 
@@ -312,9 +309,10 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Send> for SendView {
         // the stretched key
         let k = match (&self.key, &self.id) {
             // Existing send, decrypt key
-            (Some(k), _) => URL_SAFE_NO_PAD
-                .decode(k)
-                .map_err(|_| CryptoError::InvalidKey)?,
+            (Some(k), _) => B64Url::try_from(k.as_str())
+                .map_err(|_| CryptoError::InvalidKey)?
+                .as_bytes()
+                .to_vec(),
             // New send, generate random key
             (None, None) => {
                 let key = generate_random_bytes::<[u8; 16]>();
@@ -334,7 +332,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Send> for SendView {
             key: OctetStreamBytes::from(k.clone()).encrypt(ctx, key)?,
             password: self.new_password.as_ref().map(|password| {
                 let password = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
-                STANDARD.encode(password)
+                B64::from(password.as_slice()).to_string()
             }),
 
             r#type: self.r#type,
@@ -434,7 +432,10 @@ mod tests {
         #[allow(deprecated)]
         let send_key = ctx.dangerous_get_symmetric_key(send_key).unwrap();
         let send_key_b64 = send_key.to_base64();
-        assert_eq!(send_key_b64.to_string(), "IR9ImHGm6rRuIjiN7csj94bcZR5WYTJj5GtNfx33zm6tJCHUl+QZlpNPba8g2yn70KnOHsAODLcR0um6E3MAlg==");
+        assert_eq!(
+            send_key_b64.to_string(),
+            "IR9ImHGm6rRuIjiN7csj94bcZR5WYTJj5GtNfx33zm6tJCHUl+QZlpNPba8g2yn70KnOHsAODLcR0um6E3MAlg=="
+        );
     }
 
     #[test]

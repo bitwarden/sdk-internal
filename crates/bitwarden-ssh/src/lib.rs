@@ -2,6 +2,8 @@
 
 #[allow(missing_docs)]
 pub mod error;
+mod export;
+pub use export::export_pkcs8_der_key;
 #[allow(missing_docs)]
 pub mod generator;
 #[allow(missing_docs)]
@@ -18,7 +20,7 @@ uniffi::setup_scaffolding!();
 fn ssh_private_key_to_view(value: PrivateKey) -> Result<SshKeyView, SshKeyExportError> {
     let private_key_openssh = value
         .to_openssh(LineEnding::LF)
-        .map_err(|_| SshKeyExportError::KeyConversionError)?;
+        .map_err(|_| SshKeyExportError::KeyConversion)?;
 
     Ok(SshKeyView {
         private_key: private_key_openssh.to_string(),

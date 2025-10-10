@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::ProjectCreateRequestModel;
-use bitwarden_core::{key_management::SymmetricKeyId, Client, OrganizationId};
+use bitwarden_core::{Client, OrganizationId, key_management::SymmetricKeyId};
 use bitwarden_crypto::PrimitiveEncryptable;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -7,7 +7,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    error::{validate_only_whitespaces, SecretsManagerError},
+    error::{SecretsManagerError, validate_only_whitespaces},
     projects::ProjectResponse,
 };
 
@@ -40,12 +40,11 @@ pub(crate) async fn create_project(
     });
 
     let config = client.internal.get_api_configurations().await;
-    let res = bitwarden_api_api::apis::projects_api::organizations_organization_id_projects_post(
-        &config.api,
-        input.organization_id,
-        project,
-    )
-    .await?;
+    let res = config
+        .api_client
+        .projects_api()
+        .create(input.organization_id, project)
+        .await?;
 
     ProjectResponse::process_response(res, &mut key_store.context())
 }

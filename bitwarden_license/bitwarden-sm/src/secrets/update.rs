@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::SecretUpdateRequestModel;
-use bitwarden_core::{key_management::SymmetricKeyId, Client, OrganizationId};
+use bitwarden_core::{Client, OrganizationId, key_management::SymmetricKeyId};
 use bitwarden_crypto::PrimitiveEncryptable;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -7,7 +7,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    error::{validate_only_whitespaces, SecretsManagerError},
+    error::{SecretsManagerError, validate_only_whitespaces},
     secrets::SecretResponse,
 };
 
@@ -54,8 +54,11 @@ pub(crate) async fn update_secret(
     };
 
     let config = client.internal.get_api_configurations().await;
-    let res =
-        bitwarden_api_api::apis::secrets_api::secrets_id_put(&config.api, input.id, secret).await?;
+    let res = config
+        .api_client
+        .secrets_api()
+        .update_secret(input.id, secret)
+        .await?;
 
     SecretResponse::process_response(res, &mut key_store.context())
 }

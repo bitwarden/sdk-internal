@@ -2,26 +2,27 @@ use passkey::client::WebauthnError;
 use thiserror::Error;
 
 use super::{
+    Fido2Authenticator, PublicKeyCredentialAuthenticatorAssertionResponse,
+    PublicKeyCredentialAuthenticatorAttestationResponse,
     authenticator::GetSelectedCredentialError,
     get_string_name_from_enum,
     types::{
         AuthenticatorAssertionResponse, AuthenticatorAttestationResponse, ClientData,
         ClientExtensionResults, CredPropsResult, Origin,
     },
-    Fido2Authenticator, PublicKeyCredentialAuthenticatorAssertionResponse,
-    PublicKeyCredentialAuthenticatorAttestationResponse,
 };
 use crate::types::InvalidOriginError;
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum Fido2ClientError {
     #[error(transparent)]
     InvalidOrigin(#[from] InvalidOriginError),
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
-    GetSelectedCredentialError(#[from] GetSelectedCredentialError),
+    GetSelectedCredential(#[from] GetSelectedCredentialError),
 
     #[error("Webauthn error: {0:?}")]
     Webauthn(WebauthnError),

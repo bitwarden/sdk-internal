@@ -1,7 +1,7 @@
 use std::{fmt::Debug, str::FromStr};
 
-use bitwarden_crypto::{derive_shareable_key, SymmetricCryptoKey};
-use bitwarden_encoding::{NotB64Encoded, B64};
+use bitwarden_crypto::{SymmetricCryptoKey, derive_shareable_key};
+use bitwarden_encoding::{B64, NotB64EncodedError};
 use thiserror::Error;
 use uuid::Uuid;
 use zeroize::Zeroizing;
@@ -19,7 +19,7 @@ pub enum AccessTokenInvalidError {
     InvalidUuid,
 
     #[error("Error decoding base64: {0}")]
-    InvalidBase64(#[from] NotB64Encoded),
+    InvalidBase64(#[from] NotB64EncodedError),
 
     #[error("Invalid base64 length: expected {expected}, got {got}")]
     InvalidBase64Length { expected: usize, got: usize },
@@ -101,7 +101,10 @@ mod tests {
             "ec2c1d46-6a4b-4751-a310-af9601317f2d"
         );
         assert_eq!(token.client_secret, "C2IgxjjLF7qSshsbwe8JGcbM075YXw");
-        assert_eq!(token.encryption_key.to_base64().to_string(), "H9/oIRLtL9nGCQOVDjSMoEbJsjWXSOCb3qeyDt6ckzS3FhyboEDWyTP/CQfbIszNmAVg2ExFganG1FVFGXO/Jg==");
+        assert_eq!(
+            token.encryption_key.to_base64().to_string(),
+            "H9/oIRLtL9nGCQOVDjSMoEbJsjWXSOCb3qeyDt6ckzS3FhyboEDWyTP/CQfbIszNmAVg2ExFganG1FVFGXO/Jg=="
+        );
     }
 
     #[test]

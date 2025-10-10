@@ -1,148 +1,31 @@
 #![doc = include_str!("../README.md")]
 
-use bitwarden_cli::{install_color_eyre, Color};
-use bitwarden_core::ClientSettings;
-use bitwarden_generators::{
-    GeneratorClientsExt, PassphraseGeneratorRequest, PasswordGeneratorRequest,
-};
-use clap::{command, Args, CommandFactory, Parser, Subcommand};
+use base64::{Engine, engine::general_purpose::STANDARD};
+use bitwarden_cli::install_color_eyre;
+use clap::{CommandFactory, Parser};
+use clap_complete::Shell;
 use color_eyre::eyre::Result;
-use render::Output;
+use env_logger::Target;
 
+use crate::{command::*, render::CommandResult};
+
+mod admin_console;
 mod auth;
+mod command;
+mod platform;
 mod render;
-
-#[derive(Parser, Clone)]
-#[command(name = "Bitwarden CLI", version, about = "Bitwarden CLI", long_about = None)]
-struct Cli {
-    // Optional as a workaround for https://github.com/clap-rs/clap/issues/3572
-    #[command(subcommand)]
-    command: Option<Commands>,
-
-    #[arg(short = 'o', long, global = true, value_enum, default_value_t = Output::JSON)]
-    output: Output,
-
-    #[arg(short = 'c', long, global = true, value_enum, default_value_t = Color::Auto)]
-    color: Color,
-}
-
-#[derive(Subcommand, Clone)]
-enum Commands {
-    Login(LoginArgs),
-
-    #[command(long_about = "Register")]
-    Register {
-        #[arg(short = 'e', long, help = "Email address")]
-        email: Option<String>,
-
-        name: Option<String>,
-
-        password_hint: Option<String>,
-
-        #[arg(short = 's', long, global = true, help = "Server URL")]
-        server: Option<String>,
-    },
-
-    #[command(long_about = "Manage vault items")]
-    Item {
-        #[command(subcommand)]
-        command: ItemCommands,
-    },
-
-    #[command(long_about = "Pull the latest vault data from the server")]
-    Sync {},
-
-    #[command(long_about = "Password and passphrase generators")]
-    Generate {
-        #[command(subcommand)]
-        command: GeneratorCommands,
-    },
-}
-
-#[derive(Args, Clone)]
-struct LoginArgs {
-    #[command(subcommand)]
-    command: LoginCommands,
-
-    #[arg(short = 's', long, global = true, help = "Server URL")]
-    server: Option<String>,
-}
-
-#[derive(Subcommand, Clone)]
-enum LoginCommands {
-    Password {
-        #[arg(short = 'e', long, help = "Email address")]
-        email: Option<String>,
-    },
-    ApiKey {
-        client_id: Option<String>,
-        client_secret: Option<String>,
-    },
-    Device {
-        #[arg(short = 'e', long, help = "Email address")]
-        email: Option<String>,
-        device_identifier: Option<String>,
-    },
-}
-
-#[derive(Subcommand, Clone)]
-enum ItemCommands {
-    Get { id: String },
-    Create {},
-}
-
-#[derive(Subcommand, Clone)]
-enum GeneratorCommands {
-    Password(PasswordGeneratorArgs),
-    Passphrase(PassphraseGeneratorArgs),
-}
-
-#[derive(Args, Clone)]
-struct PasswordGeneratorArgs {
-    #[arg(short = 'l', long, action, help = "Include lowercase characters (a-z)")]
-    lowercase: bool,
-
-    #[arg(short = 'u', long, action, help = "Include uppercase characters (A-Z)")]
-    uppercase: bool,
-
-    #[arg(short = 'n', long, action, help = "Include numbers (0-9)")]
-    numbers: bool,
-
-    #[arg(
-        short = 's',
-        long,
-        action,
-        help = "Include special characters (!@#$%^&*)"
-    )]
-    special: bool,
-
-    #[arg(long, default_value = "16", help = "Length of generated password")]
-    length: u8,
-}
-
-#[derive(Args, Clone)]
-struct PassphraseGeneratorArgs {
-    #[arg(long, default_value = "3", help = "Number of words in the passphrase")]
-    words: u8,
-    #[arg(long, default_value = " ", help = "Separator between words")]
-    separator: char,
-    #[arg(long, action, help = "Capitalize the first letter of each word")]
-    capitalize: bool,
-    #[arg(long, action, help = "Include a number in one of the words")]
-    include_number: bool,
-}
+mod tools;
+mod vault;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
+        .target(Target::Stderr)
+        .init();
 
-    process_commands().await
-}
-
-async fn process_commands() -> Result<()> {
     let cli = Cli::parse();
-
     install_color_eyre(cli.color)?;
+    let render_config = render::RenderConfig::new(&cli);
 
     let Some(command) = cli.command else {
         let mut cmd = Cli::command();
@@ -150,86 +33,84 @@ async fn process_commands() -> Result<()> {
         return Ok(());
     };
 
-    match command.clone() {
-        Commands::Login(args) => {
-            let settings = args.server.map(|server| ClientSettings {
-                api_url: format!("{server}/api"),
-                identity_url: format!("{server}/identity"),
-                ..Default::default()
-            });
-            let client = bitwarden_core::Client::new(settings);
+    let result = process_commands(command, cli.session).await;
 
-            match args.command {
-                // FIXME: Rust CLI will not support password login!
-                LoginCommands::Password { email } => {
-                    auth::login_password(client, email).await?;
-                }
-                LoginCommands::ApiKey {
-                    client_id,
-                    client_secret,
-                } => auth::login_api_key(client, client_id, client_secret).await?,
-                LoginCommands::Device {
-                    email,
-                    device_identifier,
-                } => {
-                    auth::login_device(client, email, device_identifier).await?;
-                }
-            }
-            return Ok(());
-        }
-        Commands::Register {
-            email: _,
-            name: _,
-            password_hint: _,
-            server: _,
-        } => {
-            unimplemented!()
-        }
-        _ => {}
-    }
-
-    // Not login, assuming we have a config
-    let client = bitwarden_core::Client::new(None);
-
-    // And finally we process all the commands which require authentication
-    match command {
-        Commands::Login(_) => unreachable!(),
-        Commands::Register { .. } => unreachable!(),
-        Commands::Item { command: _ } => todo!(),
-        Commands::Sync {} => todo!(),
-        Commands::Generate { command } => match command {
-            GeneratorCommands::Password(args) => {
-                let password = client.generator().password(PasswordGeneratorRequest {
-                    lowercase: args.lowercase,
-                    uppercase: args.uppercase,
-                    numbers: args.numbers,
-                    special: args.special,
-                    length: args.length,
-                    ..Default::default()
-                })?;
-
-                println!("{password}");
-            }
-            GeneratorCommands::Passphrase(args) => {
-                let passphrase = client.generator().passphrase(PassphraseGeneratorRequest {
-                    num_words: args.words,
-                    word_separator: args.separator.to_string(),
-                    capitalize: args.capitalize,
-                    include_number: args.include_number,
-                })?;
-
-                println!("{passphrase}");
-            }
-        },
-    };
-
-    Ok(())
+    // Render the result of the command
+    render_config.render_result(result)
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+async fn process_commands(command: Commands, _session: Option<String>) -> CommandResult {
+    // Try to initialize the client with the session if provided
+    // Ideally we'd have separate clients and this would be an enum, something like:
+    // enum CliClient {
+    //   Unlocked(_),  // If the user already logged in and the provided session is valid
+    //   Locked(_),    // If the user is logged in, but the session hasn't been provided
+    //   LoggedOut(_), // If the user is not logged in
+    // }
+    // If the session was invalid, we'd just return an error immediately
+    // This would allow each command to match on the client type that they need, and we don't need
+    // to do two matches over the whole command tree
+    let client = bitwarden_pm::PasswordManagerClient::new(None);
+
+    match command {
+        // Auth commands
+        Commands::Login(args) => args.run().await,
+        Commands::Logout => todo!(),
+        Commands::Register(register) => register.run().await,
+
+        // KM commands
+        Commands::Unlock(_args) => todo!(),
+
+        // Platform commands
+        Commands::Sync { .. } => todo!(),
+
+        Commands::Encode => {
+            let input = std::io::read_to_string(std::io::stdin())?;
+            let encoded = STANDARD.encode(input);
+            Ok(encoded.into())
+        }
+
+        Commands::Config { command } => command.run().await,
+
+        Commands::Update { .. } => todo!(),
+
+        Commands::Completion { shell } => {
+            let Some(shell) = shell.or_else(Shell::from_env) else {
+                return Ok(
+                    "Couldn't autodetect a valid shell. Run `bw completion --help` for more info."
+                        .into(),
+                );
+            };
+
+            let mut cmd = Cli::command();
+            let name = cmd.get_name().to_string();
+            clap_complete::generate(shell, &mut cmd, name, &mut std::io::stdout());
+            Ok(().into())
+        }
+
+        Commands::Status => todo!(),
+
+        // Vault commands
+        Commands::Item { command: _ } => todo!(),
+        Commands::Template { command } => command.run(),
+
+        Commands::List => todo!(),
+        Commands::Get => todo!(),
+        Commands::Create => todo!(),
+        Commands::Edit => todo!(),
+        Commands::Delete => todo!(),
+        Commands::Restore => todo!(),
+        Commands::Move => todo!(),
+
+        // Admin console commands
+        Commands::Confirm { .. } => todo!(),
+
+        // Tools commands
+        Commands::Generate(arg) => arg.run(&client),
+        Commands::Import => todo!(),
+        Commands::Export => todo!(),
+        Commands::Share => todo!(),
+        Commands::Send => todo!(),
+        Commands::Receive => todo!(),
     }
 }

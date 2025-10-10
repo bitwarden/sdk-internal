@@ -7,6 +7,7 @@ use thiserror::Error;
 use tokio::{select, sync::RwLock};
 
 use crate::{
+    RpcHandler,
     constants::CHANNEL_BUFFER_CAPACITY,
     endpoint::Endpoint,
     message::{
@@ -17,12 +18,11 @@ use crate::{
         error::RpcError,
         exec::handler_registry::RpcHandlerRegistry,
         request::RpcRequest,
-        request_message::{RpcRequestMessage, RpcRequestPayload, RPC_REQUEST_PAYLOAD_TYPE_NAME},
+        request_message::{RPC_REQUEST_PAYLOAD_TYPE_NAME, RpcRequestMessage, RpcRequestPayload},
         response_message::{IncomingRpcResponseMessage, OutgoingRpcResponseMessage},
     },
     serde_utils,
     traits::{CommunicationBackend, CryptoProvider, SessionRepository},
-    RpcHandler,
 };
 
 /// An IPC client that handles communication between different components and clients.
@@ -127,7 +127,7 @@ pub enum RequestError {
     Send(String),
 
     #[error("Error occured on the remote target: {0}")]
-    RpcError(#[from] RpcError),
+    Rpc(#[from] RpcError),
 }
 
 impl<Crypto, Com, Ses> IpcClient<Crypto, Com, Ses>
@@ -313,7 +313,7 @@ where
         }
         .try_into()
         .map_err(|e: serde_utils::DeserializeError| {
-            RequestError::RpcError(RpcError::RequestSerializationError(e.to_string()))
+            RequestError::Rpc(RpcError::RequestSerialization(e.to_string()))
         })?;
 
         self.send(message)
@@ -448,7 +448,7 @@ mod tests {
     use crate::{
         endpoint::Endpoint,
         traits::{
-            tests::TestCommunicationBackend, InMemorySessionRepository, NoEncryptionCryptoProvider,
+            InMemorySessionRepository, NoEncryptionCryptoProvider, tests::TestCommunicationBackend,
         },
     };
 

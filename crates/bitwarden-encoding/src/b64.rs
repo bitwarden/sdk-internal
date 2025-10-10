@@ -16,7 +16,7 @@ use crate::FromStrVisitor;
 #[serde(into = "String")]
 #[derive(Tsify)]
 #[tsify(into_wasm_abi, from_wasm_abi)]
-pub struct B64(#[tsify(type = "String")] Vec<u8>);
+pub struct B64(#[tsify(type = "string")] Vec<u8>);
 
 /// Base64 encoded data
 ///
@@ -30,6 +30,11 @@ impl B64 {
     /// Returns a byte slice of the inner vector.
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
+    }
+
+    /// Returns the inner byte vector.
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.0
     }
 }
 
@@ -81,7 +86,7 @@ impl std::fmt::Display for B64 {
 /// An error returned when a string is not base64 decodable.
 #[derive(Debug, Error)]
 #[error("Data isn't base64 encoded")]
-pub struct NotB64Encoded;
+pub struct NotB64EncodedError;
 
 const BASE64_PERMISSIVE: data_encoding::Encoding = data_encoding_macro::new_encoding! {
     symbols: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",
@@ -91,7 +96,7 @@ const BASE64_PERMISSIVE: data_encoding::Encoding = data_encoding_macro::new_enco
 const BASE64_PADDING: &str = "=";
 
 impl TryFrom<String> for B64 {
-    type Error = NotB64Encoded;
+    type Error = NotB64EncodedError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Self::try_from(value.as_str())
@@ -99,19 +104,19 @@ impl TryFrom<String> for B64 {
 }
 
 impl TryFrom<&str> for B64 {
-    type Error = NotB64Encoded;
+    type Error = NotB64EncodedError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let sane_string = value.trim_end_matches(BASE64_PADDING);
         BASE64_PERMISSIVE
             .decode(sane_string.as_bytes())
             .map(Self)
-            .map_err(|_| NotB64Encoded)
+            .map_err(|_| NotB64EncodedError)
     }
 }
 
 impl FromStr for B64 {
-    type Err = NotB64Encoded;
+    type Err = NotB64EncodedError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::try_from(s)
@@ -219,7 +224,7 @@ mod tests {
 
     #[test]
     fn test_not_b64_encoded_error_display() {
-        let error = NotB64Encoded;
+        let error = NotB64EncodedError;
         assert_eq!(error.to_string(), "Data isn't base64 encoded");
     }
 

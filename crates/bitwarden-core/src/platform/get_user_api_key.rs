@@ -14,10 +14,7 @@
 
 use std::sync::Arc;
 
-use bitwarden_api_api::{
-    apis::accounts_api::accounts_api_key_post,
-    models::{ApiKeyResponseModel, SecretVerificationRequestModel},
-};
+use bitwarden_api_api::models::{ApiKeyResponseModel, SecretVerificationRequestModel};
 use bitwarden_crypto::{CryptoError, HashPurpose, MasterKey};
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
@@ -25,8 +22,9 @@ use thiserror::Error;
 
 use super::SecretVerificationRequest;
 use crate::{
+    ApiError, Client, MissingFieldError, NotAuthenticatedError,
     client::{LoginMethod, UserLoginMethod},
-    require, ApiError, Client, MissingFieldError, NotAuthenticatedError,
+    require,
 };
 
 #[allow(missing_docs)]
@@ -56,7 +54,10 @@ pub(crate) async fn get_user_api_key(
     let config = client.internal.get_api_configurations().await;
 
     let request = build_secret_verification_request(&auth_settings, input)?;
-    let response = accounts_api_key_post(&config.api, Some(request))
+    let response = config
+        .api_client
+        .accounts_api()
+        .api_key(Some(request))
         .await
         .map_err(ApiError::from)?;
     UserApiKeyResponse::process_response(response)

@@ -4,7 +4,7 @@ use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
 
-use crate::{Folder, FolderView, ItemNotFoundError};
+use crate::{Folder, FolderId, FolderView, ItemNotFoundError};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -15,13 +15,13 @@ pub enum GetFolderError {
     #[error(transparent)]
     Crypto(#[from] CryptoError),
     #[error(transparent)]
-    RepositoryError(#[from] RepositoryError),
+    Repository(#[from] RepositoryError),
 }
 
 pub(super) async fn get_folder(
     store: &KeyStore<KeyIds>,
     repository: &dyn Repository<Folder>,
-    id: &str,
+    id: FolderId,
 ) -> Result<FolderView, GetFolderError> {
     let folder = repository
         .get(id.to_string())

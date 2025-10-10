@@ -7,11 +7,10 @@
 use std::collections::HashMap;
 
 use bitwarden_crypto::{
-    dangerous_get_v2_rotated_account_keys, safe::PasswordProtectedKeyEnvelopeError,
     AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
     KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, SignatureAlgorithm,
     SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey,
-    UserKey,
+    UserKey, dangerous_get_v2_rotated_account_keys, safe::PasswordProtectedKeyEnvelopeError,
 };
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
@@ -21,13 +20,14 @@ use serde::{Deserialize, Serialize};
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{
-    client::{encryption_settings::EncryptionSettingsError, LoginMethod, UserLoginMethod},
+    Client, NotAuthenticatedError, OrganizationId, UserId, WrongPasswordError,
+    client::{LoginMethod, UserLoginMethod, encryption_settings::EncryptionSettingsError},
     error::StatefulCryptoError,
     key_management::{
-        non_generic_wrappers::PasswordProtectedKeyEnvelope, AsymmetricKeyId, SecurityState,
-        SignedSecurityState, SigningKeyId, SymmetricKeyId,
+        AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
+        master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData},
+        non_generic_wrappers::PasswordProtectedKeyEnvelope,
     },
-    Client, NotAuthenticatedError, OrganizationId, UserId, VaultLockedError, WrongPasswordError,
 };
 
 /// Catch all error for mobile crypto operations.
@@ -38,9 +38,9 @@ pub enum CryptoClientError {
     #[error(transparent)]
     NotAuthenticated(#[from] NotAuthenticatedError),
     #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
-    #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
+    #[error("Invalid KDF settings")]
+    InvalidKdfSettings,
     #[error(transparent)]
     PasswordProtectedKeyEnvelope(#[from] PasswordProtectedKeyEnvelopeError),
 }
@@ -233,7 +233,7 @@ pub(super) async fn initialize_user_crypto(
             master_key,
             user_key,
         } => {
-            let mut bytes = master_key.as_bytes().to_vec();
+            let mut bytes = master_key.into_bytes();
             let master_key = MasterKey::try_from(bytes.as_mut_slice())?;
 
             client
@@ -285,6 +285,64 @@ pub(super) async fn get_user_encryption_key(client: &Client) -> Result<B64, Cryp
     Ok(user_key.to_base64())
 }
 
+/// Response from the `update_kdf` function
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct UpdateKdfResponse {
+    /// The authentication data for the new KDF setting
+    master_password_authentication_data: MasterPasswordAuthenticationData,
+    /// The unlock data for the new KDF setting
+    master_password_unlock_data: MasterPasswordUnlockData,
+    /// The authentication data for the KDF setting prior to the change
+    old_master_password_authentication_data: MasterPasswordAuthenticationData,
+}
+
+pub(super) fn make_update_kdf(
+    client: &Client,
+    password: &str,
+    new_kdf: &Kdf,
+) -> Result<UpdateKdfResponse, CryptoClientError> {
+    let key_store = client.internal.get_key_store();
+    let ctx = key_store.context();
+    // FIXME: [PM-18099] Once MasterKey deals with KeyIds, this should be updated
+    #[allow(deprecated)]
+    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+
+    let login_method = client
+        .internal
+        .get_login_method()
+        .ok_or(NotAuthenticatedError)?;
+    let email = match login_method.as_ref() {
+        LoginMethod::User(
+            UserLoginMethod::Username { email, .. } | UserLoginMethod::ApiKey { email, .. },
+        ) => email,
+        #[cfg(feature = "secrets")]
+        LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
+    };
+
+    let authentication_data = MasterPasswordAuthenticationData::derive(password, new_kdf, email)
+        .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
+    let unlock_data = MasterPasswordUnlockData::derive(password, new_kdf, email, user_key)
+        .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
+    let old_authentication_data = MasterPasswordAuthenticationData::derive(
+        password,
+        &client
+            .internal
+            .get_kdf()
+            .map_err(|_| NotAuthenticatedError)?,
+        email,
+    )
+    .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
+
+    Ok(UpdateKdfResponse {
+        master_password_authentication_data: authentication_data,
+        master_password_unlock_data: unlock_data,
+        old_master_password_authentication_data: old_authentication_data,
+    })
+}
+
 /// Response from the `update_password` function
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -297,7 +355,7 @@ pub struct UpdatePasswordResponse {
     new_key: EncString,
 }
 
-pub(super) fn update_password(
+pub(super) fn make_update_password(
     client: &Client,
     new_password: String,
 ) -> Result<UpdatePasswordResponse, CryptoClientError> {
@@ -444,8 +502,6 @@ fn derive_pin_protected_user_key(
 #[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
 pub enum EnrollAdminPasswordResetError {
-    #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
 }
@@ -668,7 +724,7 @@ pub(crate) fn make_v2_keys_for_v1_user(
     // V1 user must have a private key to upgrade. This should be ensured by the client before
     // calling the upgrade function.
     if !ctx.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey) {
-        return Err(StatefulCryptoError::CryptoError(CryptoError::MissingKeyId(
+        return Err(StatefulCryptoError::Crypto(CryptoError::MissingKeyId(
             "UserPrivateKey".to_string(),
         )));
     }
@@ -771,7 +827,7 @@ mod tests {
     use bitwarden_crypto::RsaKeyPair;
 
     use super::*;
-    use crate::{client::internal::UserKeyState, Client};
+    use crate::{Client, client::internal::UserKeyState};
     const TEST_VECTOR_USER_KEY_V2_B64: &str = "pQEEAlACHUUoybNAuJoZzqNMxz2bAzoAARFvBIQDBAUGIFggAvGl4ifaUAomQdCdUPpXLHtypiQxHjZwRHeI83caZM4B";
     const TEST_VECTOR_PRIVATE_KEY_V2: &str = "7.g1gdowE6AAERbwMZARwEUAIdRSjJs0C4mhnOo0zHPZuhBVgYthGLGqVLPeidY8mNMxpLJn3fyeSxyaWsWQTR6pxmRV2DyGZXly/0l9KK+Rsfetl9wvYIz0O4/RW3R6wf7eGxo5XmicV3WnFsoAmIQObxkKWShxFyjzg+ocKItQDzG7Gp6+MW4biTrAlfK51ML/ZS+PCjLmgI1QQr4eMHjiwA2TBKtKkxfjoTJkMXECpRVLEXOo8/mbIGYkuabbSA7oU+TJ0yXlfKDtD25gnyO7tjW/0JMFUaoEKRJOuKoXTN4n/ks4Hbxk0X5/DzfG05rxWad2UNBjNg7ehW99WrQ+33ckdQFKMQOri/rt8JzzrF1k11/jMJ+Y2TADKNHr91NalnUX+yqZAAe3sRt5Pv5ZhLIwRMKQi/1NrLcsQPRuUnogVSPOoMnE/eD6F70iU60Z6pvm1iBw2IvELZcrs/oxpO2SeCue08fIZW/jNZokbLnm90tQ7QeZTUpiPALhUgfGOa3J9VOJ7jQGCqDjd9CzV2DCVfhKCapeTbldm+RwEWBz5VvorH5vMx1AzbPRJxdIQuxcg3NqRrXrYC7fyZljWaPB9qP1tztiPtd1PpGEgxLByIfR6fqyZMCvOBsWbd0H6NhF8mNVdDw60+skFRdbRBTSCjCtKZeLVuVFb8ioH45PR5oXjtx4atIDzu6DKm6TTMCbR6DjZuZZ8GbwHxuUD2mDD3pAFhaof9kR3lQdjy7Zb4EzUUYskQxzcLPcqzp9ZgB3Rg91SStBCCMhdQ6AnhTy+VTGt/mY5AbBXNRSL6fI0r+P9K8CcEI4bNZCDkwwQr5v4O4ykSUzIvmVU0zKzDngy9bteIZuhkvGUoZlQ9UATNGPhoLfqq2eSvqEXkCbxTVZ5D+Ww9pHmWeVcvoBhcl5MvicfeQt++dY3tPjIfZq87nlugG4HiNbcv9nbVpgwe3v8cFetWXQgnO4uhx8JHSwGoSuxHFZtl2sdahjTHavRHnYjSABEFrViUKgb12UDD5ow1GAL62wVdSJKRf9HlLbJhN3PBxuh5L/E0wy1wGA9ecXtw/R1ktvXZ7RklGAt1TmNzZv6vI2J/CMXvndOX9rEpjKMbwbIDAjQ9PxiWdcnmc5SowT9f6yfIjbjXnRMWWidPAua7sgrtej4HP4Qjz1fpgLMLCRyF97tbMTmsAI5Cuj98Buh9PwcdyXj5SbVuHdJS1ehv9b5SWPsD4pwOm3+otVNK6FTazhoUl47AZoAoQzXfsXxrzqYzvF0yJkCnk9S1dcij1L569gQ43CJO6o6jIZFJvA4EmZDl95ELu+BC+x37Ip8dq4JLPsANDVSqvXO9tfDUIXEx25AaOYhW2KAUoDve/fbsU8d0UZR1o/w+ZrOQwawCIPeVPtbh7KFRVQi/rPI+Abl6XR6qMJbKPegliYGUuGF2oEMEc6QLTsMRCEPuw0S3kxbNfVPqml8nGhB2r8zUHBY1diJEmipVghnwH74gIKnyJ2C9nKjV8noUfKzqyV8vxUX2G5yXgodx8Jn0cWs3XhWuApFla9z4R28W/4jA1jK2WQMlx+b6xKUWgRk8+fYsc0HSt2fDrQ9pLpnjb8ME59RCxSPV++PThpnR2JtastZBZur2hBIJsGILCAmufUU4VC4gBKPhNfu/OK4Ktgz+uQlUa9fEC/FnkpTRQPxHuQjSQSNrIIyW1bIRBtnwjvvvNoui9FZJ";
     #[allow(unused)]
@@ -783,6 +839,100 @@ mod tests {
     const TEST_VECTOR_VERIFYING_KEY_V2: &str =
         "pgEBAlAmkP0QgfdMVbIujX55W/yNAycEgQIgBiFYIEM6JxBmjWQTruAm3s6BTaJy1q6BzQetMBacNeRJ0kxR";
     const TEST_VECTOR_SECURITY_STATE_V2: &str = "hFgepAEnAxg8BFAmkP0QgfdMVbIujX55W/yNOgABOH8CoFgkomhlbnRpdHlJZFBHOOw2BI9OQoNq+Vl1xZZKZ3ZlcnNpb24CWEAlchbJR0vmRfShG8On7Q2gknjkw4Dd6MYBLiH4u+/CmfQdmjNZdf6kozgW/6NXyKVNu8dAsKsin+xxXkDyVZoG";
+
+    #[tokio::test]
+    async fn test_update_kdf() {
+        let client = Client::new(None);
+
+        let priv_key: EncString = "2.kmLY8NJVuiKBFJtNd/ZFpA==|qOodlRXER+9ogCe3yOibRHmUcSNvjSKhdDuztLlucs10jLiNoVVVAc+9KfNErLSpx5wmUF1hBOJM8zwVPjgQTrmnNf/wuDpwiaCxNYb/0v4FygPy7ccAHK94xP1lfqq7U9+tv+/yiZSwgcT+xF0wFpoxQeNdNRFzPTuD9o4134n8bzacD9DV/WjcrXfRjbBCzzuUGj1e78+A7BWN7/5IWLz87KWk8G7O/W4+8PtEzlwkru6Wd1xO19GYU18oArCWCNoegSmcGn7w7NDEXlwD403oY8Oa7ylnbqGE28PVJx+HLPNIdSC6YKXeIOMnVs7Mctd/wXC93zGxAWD6ooTCzHSPVV50zKJmWIG2cVVUS7j35H3rGDtUHLI+ASXMEux9REZB8CdVOZMzp2wYeiOpggebJy6MKOZqPT1R3X0fqF2dHtRFPXrNsVr1Qt6bS9qTyO4ag1/BCvXF3P1uJEsI812BFAne3cYHy5bIOxuozPfipJrTb5WH35bxhElqwT3y/o/6JWOGg3HLDun31YmiZ2HScAsUAcEkA4hhoTNnqy4O2s3yVbCcR7jF7NLsbQc0MDTbnjxTdI4VnqUIn8s2c9hIJy/j80pmO9Bjxp+LQ9a2hUkfHgFhgHxZUVaeGVth8zG2kkgGdrp5VHhxMVFfvB26Ka6q6qE/UcS2lONSv+4T8niVRJz57qwctj8MNOkA3PTEfe/DP/LKMefke31YfT0xogHsLhDkx+mS8FCc01HReTjKLktk/Jh9mXwC5oKwueWWwlxI935ecn+3I2kAuOfMsgPLkoEBlwgiREC1pM7VVX1x8WmzIQVQTHd4iwnX96QewYckGRfNYWz/zwvWnjWlfcg8kRSe+68EHOGeRtC5r27fWLqRc0HNcjwpgHkI/b6czerCe8+07TWql4keJxJxhBYj3iOH7r9ZS8ck51XnOb8tGL1isimAJXodYGzakwktqHAD7MZhS+P02O+6jrg7d+yPC2ZCuS/3TOplYOCHQIhnZtR87PXTUwr83zfOwAwCyv6KP84JUQ45+DItrXLap7nOVZKQ5QxYIlbThAO6eima6Zu5XHfqGPMNWv0bLf5+vAjIa5np5DJrSwz9no/hj6CUh0iyI+SJq4RGI60lKtypMvF6MR3nHLEHOycRUQbZIyTHWl4QQLdHzuwN9lv10ouTEvNr6sFflAX2yb6w3hlCo7oBytH3rJekjb3IIOzBpeTPIejxzVlh0N9OT5MZdh4sNKYHUoWJ8mnfjdM+L4j5Q2Kgk/XiGDgEebkUxiEOQUdVpePF5uSCE+TPav/9FIRGXGiFn6NJMaU7aBsDTFBLloffFLYDpd8/bTwoSvifkj7buwLYM+h/qcnfdy5FWau1cKav+Blq/ZC0qBpo658RTC8ZtseAFDgXoQZuksM10hpP9bzD04Bx30xTGX81QbaSTNwSEEVrOtIhbDrj9OI43KH4O6zLzK+t30QxAv5zjk10RZ4+5SAdYndIlld9Y62opCfPDzRy3ubdve4ZEchpIKWTQvIxq3T5ogOhGaWBVYnkMtM2GVqvWV//46gET5SH/MdcwhACUcZ9kCpMnWH9CyyUwYvTT3UlNyV+DlS27LMPvaw7tx7qa+GfNCoCBd8S4esZpQYK/WReiS8=|pc7qpD42wxyXemdNPuwxbh8iIaryrBPu8f/DGwYdHTw=".parse().unwrap();
+
+        let kdf = Kdf::PBKDF2 {
+            iterations: 100_000.try_into().unwrap(),
+        };
+
+        initialize_user_crypto(
+            & client,
+            InitUserCryptoRequest {
+                user_id: Some(UserId::new_v4()),
+                kdf_params: kdf.clone(),
+                email: "test@bitwarden.com".into(),
+                private_key: priv_key.to_owned(),
+                signing_key: None,
+                security_state: None,
+                method: InitUserCryptoMethod::Password {
+                    password: "asdfasdfasdf".into(),
+                    user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
+                },
+            },
+        )
+        .await
+        .unwrap();
+
+        let new_kdf = Kdf::PBKDF2 {
+            iterations: 600_000.try_into().unwrap(),
+        };
+        let new_kdf_response = make_update_kdf(&client, "123412341234", &new_kdf).unwrap();
+
+        let client2 = Client::new(None);
+
+        initialize_user_crypto(
+            &client2,
+            InitUserCryptoRequest {
+                user_id: Some(UserId::new_v4()),
+                kdf_params: new_kdf.clone(),
+                email: "test@bitwarden.com".into(),
+                private_key: priv_key.to_owned(),
+                signing_key: None,
+                security_state: None,
+                method: InitUserCryptoMethod::Password {
+                    password: "123412341234".into(),
+                    user_key: new_kdf_response
+                        .master_password_unlock_data
+                        .master_key_wrapped_user_key,
+                },
+            },
+        )
+        .await
+        .unwrap();
+
+        let new_hash = client2
+            .kdf()
+            .hash_password(
+                "test@bitwarden.com".into(),
+                "123412341234".into(),
+                new_kdf.clone(),
+                bitwarden_crypto::HashPurpose::ServerAuthorization,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            new_hash,
+            new_kdf_response
+                .master_password_authentication_data
+                .master_password_authentication_hash
+        );
+
+        let client_key = {
+            let key_store = client.internal.get_key_store();
+            let ctx = key_store.context();
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+                .unwrap()
+                .to_base64()
+        };
+
+        let client2_key = {
+            let key_store = client2.internal.get_key_store();
+            let ctx = key_store.context();
+            #[allow(deprecated)]
+            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+                .unwrap()
+                .to_base64()
+        };
+
+        assert_eq!(client_key, client2_key);
+    }
 
     #[tokio::test]
     async fn test_update_password() {
@@ -812,7 +962,7 @@ mod tests {
         .await
         .unwrap();
 
-        let new_password_response = update_password(&client, "123412341234".into()).unwrap();
+        let new_password_response = make_update_password(&client, "123412341234".into()).unwrap();
 
         let client2 = Client::new(None);
 

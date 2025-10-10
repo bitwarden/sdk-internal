@@ -2,12 +2,12 @@
 //!
 //! This module contains the logic for generating fingerprints.
 
-use bitwarden_crypto::{fingerprint, SpkiPublicKeyBytes};
+use bitwarden_crypto::{SpkiPublicKeyBytes, fingerprint};
 use bitwarden_encoding::B64;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{key_management::AsymmetricKeyId, MissingPrivateKeyError, VaultLockedError};
+use crate::{MissingPrivateKeyError, key_management::AsymmetricKeyId};
 
 /// Request to generate a fingerprint.
 #[derive(Serialize, Deserialize, Debug)]
@@ -33,9 +33,10 @@ pub struct FingerprintResponse {
 /// Errors that can occur when computing a fingerprint.
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error))]
 pub enum FingerprintError {
     #[error(transparent)]
-    CryptoError(#[from] bitwarden_crypto::CryptoError),
+    Crypto(#[from] bitwarden_crypto::CryptoError),
 }
 
 pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<String, FingerprintError> {
@@ -48,11 +49,10 @@ pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<String,
 /// Errors that can occur when computing a fingerprint.
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum UserFingerprintError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
-    #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
     #[error(transparent)]
     MissingPrivateKey(#[from] MissingPrivateKeyError),
 }
@@ -81,7 +81,7 @@ mod tests {
     use bitwarden_crypto::{Kdf, MasterKey};
 
     use super::*;
-    use crate::{client::internal::UserKeyState, Client};
+    use crate::{Client, client::internal::UserKeyState};
 
     #[test]
     fn test_generate_user_fingerprint() {

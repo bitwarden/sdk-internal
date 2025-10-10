@@ -10,7 +10,7 @@
 //!   [CompositeEncryptable](bitwarden_crypto::CompositeEncryptable), and
 //!   [Decryptable](bitwarden_crypto::Decryptable).
 
-use bitwarden_crypto::{key_ids, KeyStore, SymmetricCryptoKey};
+use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, key_ids};
 
 #[cfg(feature = "internal")]
 pub mod crypto;
@@ -20,11 +20,15 @@ mod crypto_client;
 pub use crypto_client::CryptoClient;
 
 #[cfg(feature = "internal")]
+mod master_password;
+#[cfg(feature = "internal")]
 mod non_generic_wrappers;
 #[cfg(feature = "internal")]
 pub(crate) use non_generic_wrappers::*;
 #[cfg(feature = "internal")]
 mod security_state;
+#[cfg(feature = "internal")]
+mod user_decryption;
 #[cfg(feature = "internal")]
 pub use security_state::{SecurityState, SignedSecurityState};
 

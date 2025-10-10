@@ -1,12 +1,16 @@
 use bitwarden_vault::{Totp, TotpAlgorithm};
 use credential_exchange_format::{
-    Account as CxfAccount, Credential, Item, NoteCredential, OTPHashAlgorithm, TotpCredential,
+    Account as CxfAccount, Credential, CustomFieldsCredential, EditableFieldValue, Item,
+    NoteCredential, OTPHashAlgorithm, TotpCredential,
 };
 use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
-use crate::{cxf::CxfError, Cipher, CipherType, Login};
+use crate::{
+    Cipher, CipherType, Login,
+    cxf::{CxfError, editable_field::field_to_editable_field_value},
+};
 
 /// Temporary struct to hold metadata related to current account
 ///
@@ -56,6 +60,24 @@ impl TryFrom<Cipher> for Item {
             })));
         }
 
+        // Convert Bitwarden custom fields to CustomFieldsCredential
+        if !value.fields.is_empty() {
+            let custom_fields: Vec<EditableFieldValue> = value
+                .fields
+                .into_iter()
+                .filter_map(field_to_editable_field_value)
+                .collect();
+
+            if !custom_fields.is_empty() {
+                credentials.push(Credential::CustomFields(Box::new(CustomFieldsCredential {
+                    id: None,
+                    label: None,
+                    fields: custom_fields,
+                    extensions: vec![],
+                })));
+            }
+        }
+
         Ok(Self {
             id: value.id.as_bytes().as_slice().into(),
             creation_at: Some(value.creation_date.timestamp() as u64),
@@ -78,15 +100,12 @@ impl From<CipherType> for Vec<Credential> {
     fn from(value: CipherType) -> Self {
         match value {
             CipherType::Login(login) => (*login).into(),
-            // TODO(PM-15450): Add support for credit cards.
             CipherType::Card(card) => (*card).into(),
-            // TODO(PM-15451): Add support for identities.
-            CipherType::Identity(_) => vec![],
+            CipherType::Identity(identity) => (*identity).into(),
             // Secure Notes only contains a note field which is handled by `TryFrom<Cipher> for
             // Item`.
             CipherType::SecureNote(_) => vec![],
-            // TODO(PM-15448): Add support for SSH Keys.
-            CipherType::SshKey(_) => vec![],
+            CipherType::SshKey(ssh) => (*ssh).try_into().unwrap_or_default(),
         }
     }
 }
@@ -250,7 +269,7 @@ mod tests {
         );
         assert!(item.extensions.is_none());
 
-        assert_eq!(item.credentials.len(), 4);
+        assert_eq!(item.credentials.len(), 5);
 
         let credential = &item.credentials[0];
 
@@ -302,7 +321,61 @@ mod tests {
             Credential::Note(n) => {
                 assert_eq!(n.content.value.0, "My note");
             }
-            _ => panic!("Expected Credential::Passkey"),
+            _ => panic!("Expected Credential::Note"),
+        }
+
+        let credential = &item.credentials[4];
+
+        match credential {
+            Credential::CustomFields(custom_fields) => {
+                assert_eq!(custom_fields.fields.len(), 5); // Text, Hidden, Boolean true, Boolean false, Linked
+
+                // Check Text field
+                match &custom_fields.fields[0] {
+                    EditableFieldValue::String(field) => {
+                        assert_eq!(field.label.as_ref().unwrap(), "Text");
+                        assert_eq!(field.value.0, "A");
+                    }
+                    _ => panic!("Expected String field"),
+                }
+
+                // Check Hidden field
+                match &custom_fields.fields[1] {
+                    EditableFieldValue::ConcealedString(field) => {
+                        assert_eq!(field.label.as_ref().unwrap(), "Hidden");
+                        assert_eq!(field.value.0, "B");
+                    }
+                    _ => panic!("Expected ConcealedString field"),
+                }
+
+                // Check Boolean true field
+                match &custom_fields.fields[2] {
+                    EditableFieldValue::Boolean(field) => {
+                        assert_eq!(field.label.as_ref().unwrap(), "Boolean (true)");
+                        assert!(field.value.0);
+                    }
+                    _ => panic!("Expected Boolean field"),
+                }
+
+                // Check Boolean false field
+                match &custom_fields.fields[3] {
+                    EditableFieldValue::Boolean(field) => {
+                        assert_eq!(field.label.as_ref().unwrap(), "Boolean (false)");
+                        assert!(!field.value.0);
+                    }
+                    _ => panic!("Expected Boolean field"),
+                }
+
+                // Check Linked field
+                match &custom_fields.fields[4] {
+                    EditableFieldValue::String(field) => {
+                        assert_eq!(field.label.as_ref().unwrap(), "Linked");
+                        assert_eq!(field.value.0, "101"); // linked_id as string
+                    }
+                    _ => panic!("Expected String field for Linked"),
+                }
+            }
+            _ => panic!("Expected Credential::CustomFields"),
         }
     }
 }

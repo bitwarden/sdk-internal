@@ -1,8 +1,12 @@
-use bitwarden_ssh::{error::SshKeyImportError, import::import_pkcs8_der_key};
+use bitwarden_ssh::{
+    error::{SshKeyExportError, SshKeyImportError},
+    export_pkcs8_der_key,
+    import::import_pkcs8_der_key,
+};
 use bitwarden_vault::FieldType;
-use credential_exchange_format::SshKeyCredential;
+use credential_exchange_format::{B64Url, Credential, SshKeyCredential};
 
-use crate::{cxf::editable_field::create_field, Field, SshKey};
+use crate::{Field, SshKey, cxf::editable_field::create_field};
 
 /// Convert SSH key credentials to SshKey and custom fields
 pub(super) fn to_ssh(
@@ -45,6 +49,41 @@ pub(super) fn to_ssh(
     Ok((ssh, fields))
 }
 
+impl TryFrom<SshKey> for Vec<Credential> {
+    type Error = SshKeyExportError;
+
+    fn try_from(ssh_key: SshKey) -> Result<Self, Self::Error> {
+        let der_bytes = export_pkcs8_der_key(&ssh_key.private_key)?;
+
+        let private_key = B64Url::from(der_bytes);
+
+        // Extract key type from public key
+        let key_type = extract_key_type(&ssh_key.public_key)?;
+
+        let ssh_credential = SshKeyCredential {
+            key_type,
+            private_key,
+            key_comment: None,
+            creation_date: None,
+            expiry_date: None,
+            key_generation_source: None,
+        };
+
+        Ok(vec![Credential::SshKey(Box::new(ssh_credential))])
+    }
+}
+
+/// Extract the key type from an SSH public key
+fn extract_key_type(public_key: &str) -> Result<String, SshKeyExportError> {
+    // SSH public keys start with the key type (ssh-rsa, ssh-ed25519, etc.)
+    let key_type = public_key
+        .split_whitespace()
+        .next()
+        .ok_or(SshKeyExportError::KeyConversion)?;
+
+    Ok(key_type.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use bitwarden_vault::FieldType;
@@ -72,7 +111,10 @@ mod tests {
 
         let (ssh, fields) = to_ssh(&credential).unwrap();
 
-        assert_eq!(ssh.private_key, "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABlwAAAAdzc2gtcn\nNhAAAAAwEAAQAAAYEAp+PkIiaI2fZoHPSmCSLw1hms+KhYX9AgbrYOi/MxKBysLojfpqnB\nHIggjmvQTYiZpvDU03oWb664JRhufcyG6mLQwB41Z/r7W+PcT8yL/jOudWKo9PJSG0fbRC\nBygqu2h/BpQ5vDYBvRMyRo5S+6JEMpuEx9TB5frOJlMq/6m9rp5WQQ4sQELKYVPIgi37bp\nFgiJJkIOAko9Rod1mwZWfhF+XltBF7gMOF7EmwU1lfQh0aMFSKWKj7xGEqR7KAoxHHffPK\ndfYaYhpJwNCeM+yX1JTYMk/9XIW/Bgkw0/tgwgUQKW7CIOkzgVUvj0enpgEN3mc1FtPt/6\nETOIqdLo5bUMvLlOoL2CAKsecFxjE4VaWXFIGoSokrFaP7OG/OIjHuAxt1vI8+Koussjb9\nFXnRMz1GdZV3dRiRaMvbijbkk3vtZLInAHJbmTei7jbDx3D8RQsznJqDZ1VxCgFyJ7fsrP\n/+Qg1WrK6GUgB2Zw41A+KDbCyN1SDpxsYF65MEh9AAAFeFAMoMtQDKDLAAAAB3NzaC1yc2\nEAAAGBAKfj5CImiNn2aBz0pgki8NYZrPioWF/QIG62DovzMSgcrC6I36apwRyIII5r0E2I\nmabw1NN6Fm+uuCUYbn3Mhupi0MAeNWf6+1vj3E/Mi/4zrnViqPTyUhtH20QgcoKrtofwaU\nObw2Ab0TMkaOUvuiRDKbhMfUweX6ziZTKv+pva6eVkEOLEBCymFTyIIt+26RYIiSZCDgJK\nPUaHdZsGVn4Rfl5bQRe4DDhexJsFNZX0IdGjBUilio+8RhKkeygKMRx33zynX2GmIaScDQ\nnjPsl9SU2DJP/VyFvwYJMNP7YMIFECluwiDpM4FVL49Hp6YBDd5nNRbT7f+hEziKnS6OW1\nDLy5TqC9ggCrHnBcYxOFWllxSBqEqJKxWj+zhvziIx7gMbdbyPPiqLrLI2/RV50TM9RnWV\nd3UYkWjL24o25JN77WSyJwByW5k3ou42w8dw/EULM5yag2dVcQoBcie37Kz//kINVqyuhl\nIAdmcONQPig2wsjdUg6cbGBeuTBIfQAAAAMBAAEAAAGAANkgzH+zgR8NThjPTkGtWUuLvp\nLX0B4Z99fhcW64VhqfpQ7fIGAAVX+mOHSjeqzLZ+w/YFUgJWQgJ9x8fGlgL3Fx2rKcXvWF\n4mQ04finfBCF8QUJ/k4gwOSx9Ha8gAapjKdtL2CrUezkt5SCF3xQUqwTMHbpysy8JisGS1\nqtEln+r1W8KcUckfQsgcqHReg45mSt0AdqkN46pS9R1ly9FZ8gK2Oxy71L3yyyuLzD6p7E\nh/hXR74XBIcKjJVk+OIPn4alrQiTZ4w4CytxT2yPD8/UxfHVibzpqeUOokgbmtXvcdi4s1\nbjUqohXO2Uy3qBuJw4+09gbagdBNazVAxDdWgaPlGZhySuy6831vwfrLItlsCKX8WGtZTu\nhxaHef2EIl1dRrp8h9XIQrG7zhbV7wBwEjuB0ypSTW1oURdRl6pyqQGhwzwlbsKd3qumH9\nKC216y9yhWd48Folm6UF0Vb6as2icGZ9wjdckIGEvY9e2vcKz5MvgaCcV42f6CJlixAAAA\nwQCVYwwKCHNlZxl0/NMkDJ+hp7/InHF6mz/3VO58iCb19TLDVUC2dDGPXNYwWTT9Pclefw\nV5HNBHcAfTzgB4dpQyNiDyV914HL7DFEGduoPnwBYjeFre54v0YjjnskjJO7myircdbdX/\n/i+7LMUw5aZZXCC8a5BD/rdV6IKJWJG5QBXbe5fVf1XwOjBTzlhIPIqhNFfSu+mFikp5BR\nwHGBqsKMju6inYmW6YADeY/SvOQjDEB37RqGZxqyIx8V2ZYwUAAADBANJZC8Ih75k2BUwg\nuzzfd/AIJPfzULOT0NfDEZ/TiZsn0qWKn/4DafjHe8VILRfzE4n+7npadiew2H+n4/RGH/\nYOBLlvkkIBT+KX4iZ9fsxhXk0KtSEr8I7AOBPGUrfhiLpo2U4OmIi9fwO/buMJtuLMLe4q\np1VYjj7TxjjN+EtbQGpo2c6tnmQ5gBeqQH5rkzHYpwjEdRNZDSWG8Xqi4qkAl7sAQZxzjj\niaHzdwJL840VAQfbnb54qmMR9z0HMT8QAAAMEAzFPkrAGFmGcl51g3zsqRymXvF0ySlTxv\n5pd5mg3KQJ6gL7CAhB7GdJaYWTgc+QI3G8JaVuQ5PUwetMAoWdo7DDbc5v5WLoD2fSujOj\n2+2gmKDXXgYHSBSoSa18uE7U/kATzLOiAT4gsfKnQGpe3y8Yh/OkOcKQ34YqXyA44w+tHg\n0Bws75GyFzmcuzsEYHhISLXbpjqZJ+nzmbT77VCFYzP0fOokQcJYpVxlh0J0Q40/2OzTgR\nScrfcq2UkhbNlNAAAAAAEC\n-----END OPENSSH PRIVATE KEY-----\n");
+        assert_eq!(
+            ssh.private_key,
+            "-----BEGIN OPENSSH PRIVATE KEY-----\n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\nScrfcq2UkhbNlNAAAAAAEC\n-----END OPENSSH PRIVATE KEY-----\n"
+        );
         assert_eq!(
             ssh.public_key,
             "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCn4+QiJojZ9mgc9KYJIvDWGaz4qFhf0CButg6L8zEoHKwuiN+mqcEciCCOa9BNiJmm8NTTehZvrrglGG59zIbqYtDAHjVn+vtb49xPzIv+M651Yqj08lIbR9tEIHKCq7aH8GlDm8NgG9EzJGjlL7okQym4TH1MHl+s4mUyr/qb2unlZBDixAQsphU8iCLftukWCIkmQg4CSj1Gh3WbBlZ+EX5eW0EXuAw4XsSbBTWV9CHRowVIpYqPvEYSpHsoCjEcd988p19hpiGknA0J4z7JfUlNgyT/1chb8GCTDT+2DCBRApbsIg6TOBVS+PR6emAQ3eZzUW0+3/oRM4ip0ujltQy8uU6gvYIAqx5wXGMThVpZcUgahKiSsVo/s4b84iMe4DG3W8jz4qi6yyNv0VedEzPUZ1lXd1GJFoy9uKNuSTe+1ksicAcluZN6LuNsPHcPxFCzOcmoNnVXEKAXInt+ys//5CDVasroZSAHZnDjUD4oNsLI3VIOnGxgXrkwSH0="
@@ -95,5 +137,40 @@ mod tests {
         assert_eq!(fields[1].value.as_deref(), Some("2023-01-01"));
         assert_eq!(fields[2].value.as_deref(), Some("2025-01-01"));
         assert_eq!(fields[3].value.as_deref(), Some("Generated using OpenSSH"));
+    }
+
+    #[test]
+    fn test_try_into_credentials() {
+        let ssh = SshKey {
+            private_key: "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\nQyNTUxOQAAACAyQo22TXXNqvF+L8jUSSNeu8UqrsDjvf9pwIwDC9ML6gAAAJDSHpL60h6S\n+gAAAAtzc2gtZWQyNTUxOQAAACAyQo22TXXNqvF+L8jUSSNeu8UqrsDjvf9pwIwDC9ML6g\nAAAECLdlFLIJbEiFo/f0ROdXMNZAPHGPNhvbbftaPsUZEjaDJCjbZNdc2q8X4vyNRJI167\nxSquwOO9/2nAjAML0wvqAAAAB3Rlc3RrZXkBAgMEBQY=\n-----END OPENSSH PRIVATE KEY-----\n".to_string(),
+            public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDJCjbZNdc2q8X4vyNRJI167xSquwOO9/2nAjAML0wvq testkey".to_string(),
+            fingerprint: "SHA256:oaEiIEZe8SyB9Dh+eHD/SRkUj8enzP39H/sctgzbDb8".to_string(),
+        };
+
+        let credentials: Vec<Credential> = ssh.try_into().unwrap();
+
+        if let Credential::SshKey(ssh_credential) = credentials.first().unwrap() {
+            // Verify key type is extracted correctly
+            assert_eq!(ssh_credential.key_type, "ssh-ed25519");
+
+            // Verify optional fields are None
+            assert_eq!(ssh_credential.key_comment, None);
+            assert_eq!(ssh_credential.creation_date, None);
+            assert_eq!(ssh_credential.expiry_date, None);
+            assert_eq!(ssh_credential.key_generation_source, None);
+
+            // Verify roundtrip conversion works
+            let (ssh_converted, _) = to_ssh(ssh_credential).unwrap();
+            assert_eq!(
+                "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDJCjbZNdc2q8X4vyNRJI167xSquwOO9/2nAjAML0wvq",
+                ssh_converted.public_key
+            );
+            assert_eq!(
+                "SHA256:oaEiIEZe8SyB9Dh+eHD/SRkUj8enzP39H/sctgzbDb8",
+                ssh_converted.fingerprint
+            );
+        } else {
+            panic!("Expected Credential::SshKey");
+        }
     }
 }

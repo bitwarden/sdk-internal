@@ -13,13 +13,13 @@ use bitwarden_error::bitwarden_error;
 use log::warn;
 use thiserror::Error;
 
+#[cfg(any(feature = "secrets", feature = "internal"))]
+use crate::OrganizationId;
 #[cfg(feature = "internal")]
 use crate::key_management::{AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId};
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::key_management::{KeyIds, SymmetricKeyId};
-#[cfg(any(feature = "secrets", feature = "internal"))]
-use crate::OrganizationId;
-use crate::{error::UserIdAlreadySetError, MissingPrivateKeyError, VaultLockedError};
+use crate::{MissingPrivateKeyError, error::UserIdAlreadySetError};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -27,9 +27,6 @@ use crate::{error::UserIdAlreadySetError, MissingPrivateKeyError, VaultLockedErr
 pub enum EncryptionSettingsError {
     #[error("Cryptography error, {0}")]
     Crypto(#[from] bitwarden_crypto::CryptoError),
-
-    #[error(transparent)]
-    VaultLocked(#[from] VaultLockedError),
 
     #[error("Invalid private key")]
     InvalidPrivateKey,
@@ -44,7 +41,7 @@ pub enum EncryptionSettingsError {
     MissingPrivateKey(#[from] MissingPrivateKeyError),
 
     #[error(transparent)]
-    UserIdAlreadySetError(#[from] UserIdAlreadySetError),
+    UserIdAlreadySet(#[from] UserIdAlreadySetError),
 
     #[error("Wrong Pin")]
     WrongPin,

@@ -1,13 +1,13 @@
 use bitwarden_encoding::B64;
 use rsa::{
-    pkcs8::{EncodePrivateKey, EncodePublicKey},
     Oaep, RsaPrivateKey, RsaPublicKey,
+    pkcs8::{EncodePrivateKey, EncodePublicKey},
 };
 use sha1::Sha1;
 
 use crate::{
-    error::{Result, RsaError, UnsupportedOperation},
     CryptoError, EncString, SymmetricCryptoKey,
+    error::{Result, RsaError, UnsupportedOperationError},
 };
 
 /// RSA Key Pair
@@ -41,10 +41,10 @@ pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
             EncString::encrypt_aes256_hmac(pkcs.as_bytes(), key)
         }
         SymmetricCryptoKey::XChaCha20Poly1305Key(_) => Err(CryptoError::OperationNotSupported(
-            UnsupportedOperation::EncryptionNotImplementedForKey,
+            UnsupportedOperationError::EncryptionNotImplementedForKey,
         )),
         SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
-            UnsupportedOperation::EncryptionNotImplementedForKey,
+            UnsupportedOperationError::EncryptionNotImplementedForKey,
         )),
     }?;
 
@@ -61,5 +61,5 @@ pub(super) fn encrypt_rsa2048_oaep_sha1(public_key: &RsaPublicKey, data: &[u8]) 
     let padding = Oaep::new::<Sha1>();
     public_key
         .encrypt(&mut rng, padding, data)
-        .map_err(|e| CryptoError::RsaError(e.into()))
+        .map_err(|e| CryptoError::Rsa(e.into()))
 }

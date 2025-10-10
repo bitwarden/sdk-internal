@@ -27,6 +27,10 @@ stored:
 - If the SDK itself will handle data storage, we call that approach `SDK-Managed State`. The
   implementation of this is will a work in progress.
 
+Note that these approaches aren't mutually exclusive: a repository item can use both client and SDK
+managed state at the same time. However, this mixed approach is only recommended during migration
+scenarios to avoid potential confusion.
+
 ## Client-Managed State
 
 With `Client-Managed State` the application and SDK will both access the same data pool, which
@@ -35,25 +39,24 @@ need to define some functions in `bitwarden-wasm-internal` and `bitwarden-uniffi
 applications to provide their `Repository` implementations. The implementations themselves will be
 very simple as we provide macros that take care of the brunt of the work.
 
-### Client-Managed State in WASM
+To add support for a new `Repository`, add it to the list defined at the end of
+`crates/bitwarden-pm/src/migrations.rs`.
 
-For WASM, we need to define a new `Repository` for our type and provide a function that will accept
-it. This is done in the file `crates/bitwarden-wasm-internal/src/platform/mod.rs`, you can check the
-provided example:
-
-```rust,ignore
-repository::create_wasm_repository!(CipherRepository, Cipher, "Repository<Cipher>");
-
-#[wasm_bindgen]
-impl StateClient {
-    pub fn register_cipher_repository(&self, store: CipherRepository) {
-        let store = store.into_channel_impl();
-        self.0.platform().state().register_client_managed(store)
-    }
+```rust
+macro_rules! create_client_managed_repositories {
+    ($container_name:ident, $macro:ident) => {
+        $macro! {
+            $container_name;
+            // List any SDK-managed repositories here. The format is:
+            // <fully qualified path to the item>, <item type idenfier>, <field name>, <name of the repository implementation>
+            ::bitwarden_vault::Cipher, Cipher, cipher, CipherRepository;
+            ::bitwarden_vault::Folder, Folder, folder, FolderRepository;
+        }
+    };
 }
 ```
 
-#### How to use it on web clients
+#### How to initialize Client-Managed State on the web clients
 
 Once we have the function defined in `bitwarden-wasm-internal`, we can use it from the web clients.
 For that, the first thing we need to do is create a mapper between the client and SDK types. This
@@ -86,34 +89,13 @@ export async function initializeState(
   stateClient: StateClient,
   stateProvider: StateProvider,
 ): Promise<void> {
-  await stateClient.register_cipher_repository(
-    new RepositoryRecord(userId, stateProvider, new CipherRecordMapper()),
-  );
+  stateClient.register_client_managed_repositories({
+    cipher: new RepositoryRecord(userId, stateProvider, new CipherRecordMapper()),
+  });
 }
 ```
 
-### Client-Managed State in UniFFI
-
-For UniFFI, we need to define a new `Repository` for our type and provide a function that will
-accept it. This is done in the file `crates/bitwarden-uniffi/src/platform/mod.rs`, you can check the
-provided example:
-
-```rust,ignore
-repository::create_uniffi_repository!(CipherRepository, Cipher);
-
-#[uniffi::export]
-impl StateClient {
-    pub fn register_cipher_repository(&self, store: Arc<dyn CipherRepository>) {
-        let store_internal = UniffiRepositoryBridge::new(store);
-        self.0
-            .platform()
-            .state()
-            .register_client_managed(store_internal)
-    }
-}
-```
-
-#### How to use it on iOS
+#### How to initialize Client-Managed State on iOS
 
 Once we have the function defined in `bitwarden-uniffi`, we can use it from the iOS application:
 
@@ -144,7 +126,7 @@ let store = CipherStoreImpl(cipherDataStore: self.cipherDataStore, userId: userI
 try await self.clientService.platform().store().registerCipherStore(store: store);
 ```
 
-### How to use it on Android
+### How to initialize Client-Managed State on Android
 
 Once we have the function defined in `bitwarden-uniffi`, we can use it from the Android application:
 
@@ -172,4 +154,29 @@ class CipherStoreImpl: CipherStore {
 }
 
 getClient(userId = userId).platform().store().registerCipherStore(CipherStoreImpl());
+```
+
+## SDK-Managed State
+
+With `SDK-Managed State`, the SDK will be exclusively responsible for the data storage. This means
+that the clients don't need to make any changes themselves, as the implementation is internal to the
+SDK. To add support for an SDK managed `Repository`, a new migration step needs to be added to the
+`bitwarden-state-migrations` crate.
+
+### How to initialize SDK-Managed State
+
+Go to `crates/bitwarden-pm/src/migrations.rs` and add a line with your type, as shown below. In this
+example we're registering `Cipher` and `Folder` as SDK managed.
+
+```rust,ignore
+/// Returns a list of all SDK-managed repository migrations.
+pub fn get_sdk_managed_migrations() -> RepositoryMigrations {
+    use RepositoryMigrationStep::*;
+    RepositoryMigrations::new(vec![
+        // Add any new migrations here. Note that order matters, and that removing a repository
+        // requires a separate migration step using `Remove(...)`.
+        Add(Cipher::data()),
+        Add(Folder::data()),
+    ])
+}
 ```
