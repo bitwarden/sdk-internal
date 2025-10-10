@@ -85,6 +85,11 @@ pub(crate) async fn login_access_token(
             r.refresh_token.clone(),
             r.expires_in,
         );
+
+        client
+            .internal
+            .initialize_crypto_single_org_key(organization_id, encryption_key);
+
         client
             .internal
             .set_login_method(LoginMethod::ServiceAccount(
@@ -94,10 +99,6 @@ pub(crate) async fn login_access_token(
                     state_file: input.state_file.clone(),
                 },
             ));
-
-        client
-            .internal
-            .initialize_crypto_single_org_key(organization_id, encryption_key);
     }
 
     AccessTokenLoginResponse::process_response(response)
