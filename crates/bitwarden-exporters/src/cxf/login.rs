@@ -89,6 +89,11 @@ pub(super) fn to_login(
                 rp_name: Some(p.rp_id.clone()),
                 user_display_name: Some(p.user_display_name.clone()),
                 discoverable: "true".to_string(),
+                hmac_secret: p
+                    .fido2_extensions
+                    .as_ref()
+                    .and_then(|ext| ext.hmac_credentials.as_ref())
+                    .map(|s| s.cred_with_uv.to_string()),
                 creation_date,
             }]
         }),
@@ -283,6 +288,7 @@ mod tests {
             rp_name: None,
             user_display_name: None,
             discoverable: "true".to_string(),
+            hmac_secret: Some("AAECAwQFBg".to_string()),
             creation_date: "2024-06-07T14:12:36.150Z".parse().unwrap(),
         };
 

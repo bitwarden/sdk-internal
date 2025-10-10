@@ -116,6 +116,7 @@ impl From<Fido2CredentialFullView> for crate::Fido2Credential {
             rp_name: value.rp_name,
             user_display_name: value.user_display_name,
             discoverable: value.discoverable,
+            hmac_secret: value.hmac_secret,
             creation_date: value.creation_date,
         }
     }
