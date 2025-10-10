@@ -5,7 +5,10 @@ use bitwarden_crypto::CryptoError;
 use bitwarden_vault::{CipherError, CipherView, EncryptionContext};
 use itertools::Itertools;
 use passkey::{
-    authenticator::{Authenticator, DiscoverabilitySupport, StoreInfo, UiHint, UserCheck},
+    authenticator::{
+        Authenticator, DiscoverabilitySupport, StoreInfo, UiHint, UserCheck,
+        extensions::HmacSecretConfig,
+    },
     types::{
         Passkey,
         ctap2::{
@@ -107,6 +110,7 @@ pub struct Fido2Authenticator<'a> {
 
     pub(crate) selected_cipher: Mutex<Option<CipherView>>,
     pub(crate) requested_uv: Mutex<Option<UV>>,
+    enable_hmac_secret: bool,
 }
 
 impl<'a> Fido2Authenticator<'a> {
@@ -115,6 +119,7 @@ impl<'a> Fido2Authenticator<'a> {
         client: &'a Client,
         user_interface: &'a dyn Fido2UserInterface,
         credential_store: &'a dyn Fido2CredentialStore,
+        enable_hmac_secret: bool,
     ) -> Fido2Authenticator<'a> {
         Fido2Authenticator {
             client,
@@ -122,6 +127,7 @@ impl<'a> Fido2Authenticator<'a> {
             credential_store,
             selected_cipher: Mutex::new(None),
             requested_uv: Mutex::new(None),
+            enable_hmac_secret,
         }
     }
 
@@ -182,7 +188,7 @@ impl<'a> Fido2Authenticator<'a> {
             .attested_credential_data
             .ok_or(MakeCredentialError::MissingAttestedCredentialData)?;
         let credential_id = attested_credential_data.credential_id().to_vec();
-        let extensions = MakeCredentialExtensionsOutput {};
+        let extensions = response.unsigned_extension_outputs.into();
 
         Ok(MakeCredentialResult {
             authenticator_data,
@@ -236,7 +242,7 @@ impl<'a> Fido2Authenticator<'a> {
         let selected_credential = self.get_selected_credential()?;
         let authenticator_data = response.auth_data.to_vec();
         let credential_id = string_to_guid_bytes(&selected_credential.credential.credential_id)?;
-        let extensions = GetAssertionExtensionsOutput {};
+        let extensions = response.unsigned_extension_outputs.into();
 
         Ok(GetAssertionResult {
             credential_id,
@@ -298,7 +304,7 @@ impl<'a> Fido2Authenticator<'a> {
         &self,
         create_credential: bool,
     ) -> Authenticator<CredentialStoreImpl<'_>, UserValidationMethodImpl<'_>> {
-        Authenticator::new(
+        let authenticator = Authenticator::new(
             AAGUID,
             CredentialStoreImpl {
                 authenticator: self,
@@ -307,7 +313,13 @@ impl<'a> Fido2Authenticator<'a> {
             UserValidationMethodImpl {
                 authenticator: self,
             },
-        )
+        );
+        if self.enable_hmac_secret {
+            authenticator
+                .hmac_secret(HmacSecretConfig::new_with_uv_only().enable_on_make_credential())
+        } else {
+            authenticator
+        }
     }
 
     fn convert_requested_uv(&self, uv: UV) -> bool {

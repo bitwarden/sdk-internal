@@ -675,6 +675,7 @@ impl From<Fido2Credential> for bitwarden_api_api::models::CipherFido2CredentialM
             user_display_name: cred.user_display_name.map(|n| n.to_string()),
             discoverable: Some(cred.discoverable.to_string()),
             creation_date: cred.creation_date.to_rfc3339(),
+            hmac_secret: cred.hmac_secret.map(|h| h.to_string()),
         }
     }
 }

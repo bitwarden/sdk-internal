@@ -35,7 +35,9 @@ impl PlatformClient {
 
     /// FIDO2 operations
     pub fn fido2(&self) -> fido2::ClientFido2 {
-        fido2::ClientFido2(self.0.fido2())
+        // Do not expose HMAC secret to vault authenticator yet.
+        let enable_hmac_secret = false;
+        fido2::ClientFido2(self.0.fido2(enable_hmac_secret))
     }
 
     pub fn state(&self) -> StateClient {
