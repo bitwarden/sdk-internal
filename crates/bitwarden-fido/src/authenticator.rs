@@ -6,7 +6,10 @@ use bitwarden_vault::{CipherError, CipherView, EncryptionContext};
 use itertools::Itertools;
 use log::error;
 use passkey::{
-    authenticator::{Authenticator, DiscoverabilitySupport, StoreInfo, UIHint, UserCheck},
+    authenticator::{
+        Authenticator, DiscoverabilitySupport, StoreInfo, UIHint, UserCheck,
+        extensions::HmacSecretConfig,
+    },
     types::{
         Passkey,
         ctap2::{
@@ -304,6 +307,7 @@ impl<'a> Fido2Authenticator<'a> {
                 authenticator: self,
             },
         )
+        .hmac_secret(HmacSecretConfig::new_with_uv_only().enable_on_make_credential())
     }
 
     async fn convert_requested_uv(&self, uv: UV) -> bool {
