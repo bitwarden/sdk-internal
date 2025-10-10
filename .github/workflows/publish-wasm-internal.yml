@@ -16,10 +16,6 @@ on:
         description: "Release Version"
         required: false
 
-defaults:
-  run:
-    working-directory: crates/bitwarden-wasm-internal/npm
-
 jobs:
   setup:
     name: Setup
@@ -94,6 +90,7 @@ jobs:
           path: crates/bitwarden-wasm-internal/${{ matrix.license_type.npm_folder }}
 
       - name: Set version
+        working-directory: crates/bitwarden-wasm-internal/${{ matrix.license_type.npm_folder }}
         run: |
           npm version --no-git-tag-version $VERSION
         env:
@@ -101,4 +98,5 @@ jobs:
 
       - name: Publish NPM
         if: ${{ inputs.release_type != 'Dry Run' }}
+        working-directory: crates/bitwarden-wasm-internal/${{ matrix.license_type.npm_folder }}
         run: npm publish --access public --tag latest
