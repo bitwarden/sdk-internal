@@ -4,7 +4,10 @@ use bitwarden_core::key_management::KeyIds;
 use bitwarden_crypto::{CryptoError, KeyStoreContext};
 use bitwarden_encoding::{B64Url, NotB64UrlEncodedError};
 use bitwarden_vault::{CipherListView, CipherListViewType, CipherView, LoginListView};
-use passkey::types::webauthn::UserVerificationRequirement;
+use passkey::types::{
+    ctap2::{get_assertion, make_credential},
+    webauthn::UserVerificationRequirement,
+};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -223,8 +226,6 @@ impl TryFrom<PublicKeyCredentialDescriptor>
     }
 }
 
-pub type Extensions = Option<String>;
-
 #[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct MakeCredentialRequest {
@@ -234,7 +235,7 @@ pub struct MakeCredentialRequest {
     pub pub_key_cred_params: Vec<PublicKeyCredentialParameters>,
     pub exclude_list: Option<Vec<PublicKeyCredentialDescriptor>>,
     pub options: Options,
-    pub extensions: Extensions,
+    pub extensions: Option<MakeCredentialExtensionsInput>,
 }
 
 #[allow(missing_docs)]
@@ -243,6 +244,37 @@ pub struct MakeCredentialResult {
     pub authenticator_data: Vec<u8>,
     pub attestation_object: Vec<u8>,
     pub credential_id: Vec<u8>,
+    /// Mix of CTAP unsigned extension output and WebAuthn client extensions
+    /// output returned by the authenticator
+    pub extensions: MakeCredentialExtensionsOutput,
+}
+
+#[allow(missing_docs)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[derive(Debug)]
+pub struct MakeCredentialExtensionsInput {}
+
+impl From<MakeCredentialExtensionsInput>
+    for passkey::types::ctap2::make_credential::ExtensionInputs
+{
+    fn from(_value: MakeCredentialExtensionsInput) -> Self {
+        Self {
+            hmac_secret: None,
+            hmac_secret_mc: None,
+            prf: None,
+        }
+    }
+}
+
+#[allow(missing_docs)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[derive(Debug)]
+pub struct MakeCredentialExtensionsOutput {}
+
+impl From<make_credential::UnsignedExtensionOutputs> for MakeCredentialExtensionsOutput {
+    fn from(_value: make_credential::UnsignedExtensionOutputs) -> Self {
+        MakeCredentialExtensionsOutput {}
+    }
 }
 
 #[allow(missing_docs)]
@@ -252,7 +284,7 @@ pub struct GetAssertionRequest {
     pub client_data_hash: Vec<u8>,
     pub allow_list: Option<Vec<PublicKeyCredentialDescriptor>>,
     pub options: Options,
-    pub extensions: Extensions,
+    pub extensions: Option<GetAssertionExtensionsInput>,
 }
 
 #[allow(missing_docs)]
@@ -327,6 +359,34 @@ pub struct GetAssertionResult {
     pub user_handle: Vec<u8>,
 
     pub selected_credential: SelectedCredential,
+    /// Mix of CTAP unsigned extension output and WebAuthn client extension output.
+    /// Signed extensions can be retrieved from authenticator data.
+    pub extensions: GetAssertionExtensionsOutput,
+}
+
+#[allow(missing_docs)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[derive(Debug)]
+pub struct GetAssertionExtensionsInput {}
+
+impl From<GetAssertionExtensionsInput> for get_assertion::ExtensionInputs {
+    fn from(_value: GetAssertionExtensionsInput) -> Self {
+        Self {
+            hmac_secret: None,
+            prf: None,
+        }
+    }
+}
+
+#[allow(missing_docs)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[derive(Debug)]
+pub struct GetAssertionExtensionsOutput {}
+
+impl From<get_assertion::UnsignedExtensionOutputs> for GetAssertionExtensionsOutput {
+    fn from(_value: get_assertion::UnsignedExtensionOutputs) -> Self {
+        Self {}
+    }
 }
 
 #[allow(missing_docs)]

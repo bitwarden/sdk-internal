@@ -8,7 +8,10 @@ use passkey::{
     authenticator::{Authenticator, DiscoverabilitySupport, StoreInfo, UiHint, UserCheck},
     types::{
         Passkey,
-        ctap2::{self, Ctap2Error, StatusCode, VendorError},
+        ctap2::{
+            self, Ctap2Error, StatusCode, VendorError, get_assertion,
+            make_credential::ExtensionInputs,
+        },
     },
 };
 use thiserror::Error;
@@ -156,10 +159,7 @@ impl<'a> Fido2Authenticator<'a> {
                     .exclude_list
                     .map(|x| x.into_iter().map(TryInto::try_into).collect())
                     .transpose()?,
-                extensions: request
-                    .extensions
-                    .map(|e| serde_json::from_str(&e))
-                    .transpose()?,
+                extensions: request.extensions.map(ExtensionInputs::from),
                 options: passkey::types::ctap2::make_credential::Options {
                     rk: request.options.rk,
                     up: true,
@@ -182,11 +182,13 @@ impl<'a> Fido2Authenticator<'a> {
             .attested_credential_data
             .ok_or(MakeCredentialError::MissingAttestedCredentialData)?;
         let credential_id = attested_credential_data.credential_id().to_vec();
+        let extensions = MakeCredentialExtensionsOutput {};
 
         Ok(MakeCredentialResult {
             authenticator_data,
             attestation_object,
             credential_id,
+            extensions,
         })
     }
 
@@ -215,10 +217,7 @@ impl<'a> Fido2Authenticator<'a> {
                             .collect::<Result<Vec<_>, _>>()
                     })
                     .transpose()?,
-                extensions: request
-                    .extensions
-                    .map(|e| serde_json::from_str(&e))
-                    .transpose()?,
+                extensions: request.extensions.map(get_assertion::ExtensionInputs::from),
                 options: passkey::types::ctap2::make_credential::Options {
                     rk: request.options.rk,
                     up: true,
@@ -237,6 +236,7 @@ impl<'a> Fido2Authenticator<'a> {
         let selected_credential = self.get_selected_credential()?;
         let authenticator_data = response.auth_data.to_vec();
         let credential_id = string_to_guid_bytes(&selected_credential.credential.credential_id)?;
+        let extensions = GetAssertionExtensionsOutput {};
 
         Ok(GetAssertionResult {
             credential_id,
@@ -248,6 +248,7 @@ impl<'a> Fido2Authenticator<'a> {
                 .id
                 .into(),
             selected_credential,
+            extensions,
         })
     }
 
