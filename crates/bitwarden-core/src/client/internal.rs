@@ -408,10 +408,10 @@ impl InternalClient {
         self.initialize_user_crypto_decrypted_key(user_key, key_state)
     }
 
-    /// Updates user's KDF for the master password unlock login method.
+    /// Sets the local KDF state for the master password unlock login method.
     /// Salt and user key update is not supported yet.
     #[cfg(feature = "internal")]
-    pub fn update_user_master_password_unlock(
+    pub fn set_user_master_password_unlock(
         &self,
         master_password_unlock: MasterPasswordUnlockData,
     ) -> Result<(), NotAuthenticatedError> {
@@ -419,14 +419,9 @@ impl InternalClient {
 
         let login_method = self.get_login_method().ok_or(NotAuthenticatedError)?;
 
-        let kdf = match login_method.as_ref() {
-            LoginMethod::User(UserLoginMethod::Username { kdf, .. }) => kdf,
-            LoginMethod::User(UserLoginMethod::ApiKey { kdf, .. }) => kdf,
-            #[cfg(feature = "secrets")]
-            LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError),
-        };
+        let kdf = self.get_kdf()?;
 
-        if *kdf != new_kdf {
+        if kdf != new_kdf {
             match login_method.as_ref() {
                 LoginMethod::User(UserLoginMethod::Username {
                     client_id, email, ..
@@ -490,7 +485,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_update_user_master_password_unlock_kdf_updated() {
+    async fn test_set_user_master_password_unlock_kdf_updated() {
         let new_kdf = Kdf::Argon2id {
             iterations: NonZeroU32::new(4).unwrap(),
             memory: NonZeroU32::new(65).unwrap(),
@@ -504,7 +499,7 @@ mod tests {
 
         client
             .internal
-            .update_user_master_password_unlock(MasterPasswordUnlockData {
+            .set_user_master_password_unlock(MasterPasswordUnlockData {
                 kdf: new_kdf.clone(),
                 master_key_wrapped_user_key: user_key,
                 salt: email,
@@ -516,7 +511,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_update_user_master_password_unlock_email_and_keys_not_updated() {
+    async fn test_set_user_master_password_unlock_email_and_keys_not_updated() {
         let password = "asdfasdfasdf".to_string();
         let new_email = format!("{}@example.com", uuid::Uuid::new_v4());
         let kdf = Kdf::default();
@@ -531,7 +526,7 @@ mod tests {
 
         client
             .internal
-            .update_user_master_password_unlock(MasterPasswordUnlockData {
+            .set_user_master_password_unlock(MasterPasswordUnlockData {
                 kdf,
                 master_key_wrapped_user_key: new_encrypted_user_key,
                 salt: new_email,

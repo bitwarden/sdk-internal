@@ -56,7 +56,7 @@ pub(crate) async fn sync(client: &Client, input: &SyncRequest) -> Result<SyncRes
     if let Some(master_password_unlock) = master_password_unlock {
         client
             .internal
-            .update_user_master_password_unlock(master_password_unlock)?;
+            .set_user_master_password_unlock(master_password_unlock)?;
     }
 
     let org_keys: Vec<_> = require!(sync.profile.as_ref())
