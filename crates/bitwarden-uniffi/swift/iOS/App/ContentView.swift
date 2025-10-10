@@ -345,7 +345,7 @@ struct ContentView: View {
     func authenticatorTest(clientFido: ClientFido2) async throws {
         let ui = Fido2UserInterfaceImpl()
         let cs = Fido2CredentialStoreImpl()
-        let authenticator = clientFido.authenticator(userInterface: ui, credentialStore: cs)
+        let authenticator = clientFido.vaultAuthenticator(userInterface: ui, credentialStore: cs)
 
         // Make credential
         let _ = try await authenticator.makeCredential(request: MakeCredentialRequest(

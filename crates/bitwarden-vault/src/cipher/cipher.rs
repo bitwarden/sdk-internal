@@ -694,8 +694,9 @@ impl CipherView {
     pub fn decrypt_fido2_credentials(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
+        key_id: Option<SymmetricKeyId>,
     ) -> Result<Vec<Fido2CredentialView>, CryptoError> {
-        let key = self.key_identifier();
+        let key = key_id.unwrap_or_else(|| self.key_identifier());
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
         Ok(self
@@ -775,9 +776,10 @@ impl CipherView {
     pub fn set_new_fido2_credentials(
         &mut self,
         ctx: &mut KeyStoreContext<KeyIds>,
+        key_id: Option<SymmetricKeyId>,
         creds: Vec<Fido2CredentialFullView>,
     ) -> Result<(), CipherError> {
-        let key = self.key_identifier();
+        let key = key_id.unwrap_or_else(|| self.key_identifier());
 
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
@@ -791,8 +793,9 @@ impl CipherView {
     pub fn get_fido2_credentials(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
+        key_id: Option<SymmetricKeyId>,
     ) -> Result<Vec<Fido2CredentialFullView>, CipherError> {
-        let key = self.key_identifier();
+        let key = key_id.unwrap_or_else(|| self.key_identifier());
 
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
@@ -806,8 +809,9 @@ impl CipherView {
     pub fn decrypt_fido2_private_key(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
+        key_id: Option<SymmetricKeyId>,
     ) -> Result<String, CipherError> {
-        let fido2_credential = self.get_fido2_credentials(ctx)?;
+        let fido2_credential = self.get_fido2_credentials(ctx, key_id)?;
 
         Ok(fido2_credential[0].key_value.clone())
     }
@@ -1738,7 +1742,9 @@ mod tests {
         cipher_view.login.as_mut().unwrap().fido2_credentials =
             Some(vec![fido2_credential.clone()]);
 
-        let decrypted_key_value = cipher_view.decrypt_fido2_private_key(&mut ctx).unwrap();
+        let decrypted_key_value = cipher_view
+            .decrypt_fido2_private_key(&mut ctx, None)
+            .unwrap();
         assert_eq!(decrypted_key_value, "123");
     }
 

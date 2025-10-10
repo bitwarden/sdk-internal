@@ -42,8 +42,11 @@ impl CiphersClient {
     pub fn decrypt_fido2_credentials(
         &self,
         cipher_view: CipherView,
+        encryption_key: Option<Vec<u8>>,
     ) -> Result<Vec<Fido2CredentialView>> {
-        Ok(self.0.decrypt_fido2_credentials(cipher_view)?)
+        Ok(self
+            .0
+            .decrypt_fido2_credentials(cipher_view, encryption_key)?)
     }
 
     /// Move a cipher to an organization, reencrypting the cipher key if necessary

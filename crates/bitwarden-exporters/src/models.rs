@@ -82,7 +82,9 @@ fn from_login(
             .collect(),
         totp: l.totp,
         fido2_credentials: l.fido2_credentials.as_ref().and_then(|_| {
-            let credentials = view.get_fido2_credentials(&mut key_store.context()).ok()?;
+            let credentials = view
+                .get_fido2_credentials(&mut key_store.context(), None)
+                .ok()?;
             if credentials.is_empty() {
                 None
             } else {

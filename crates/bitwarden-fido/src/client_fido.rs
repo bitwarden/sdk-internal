@@ -1,4 +1,5 @@
 use bitwarden_core::Client;
+use bitwarden_crypto::SymmetricCryptoKey;
 use bitwarden_vault::CipherView;
 use thiserror::Error;
 
@@ -36,12 +37,14 @@ impl ClientFido2 {
         &'a self,
         user_interface: &'a dyn Fido2UserInterface,
         credential_store: &'a dyn Fido2CredentialStore,
+        encryption_key: Option<SymmetricCryptoKey>,
     ) -> Fido2Authenticator<'a> {
         Fido2Authenticator::new(
             &self.client,
             user_interface,
             credential_store,
             self.enable_hmac_secret,
+            encryption_key,
         )
     }
 
@@ -52,7 +55,7 @@ impl ClientFido2 {
         credential_store: &'a dyn Fido2CredentialStore,
     ) -> Fido2Client<'a> {
         Fido2Client {
-            authenticator: self.create_authenticator(user_interface, credential_store),
+            authenticator: self.create_authenticator(user_interface, credential_store, None),
         }
     }
 
@@ -60,12 +63,16 @@ impl ClientFido2 {
     pub fn decrypt_fido2_autofill_credentials(
         &self,
         cipher_view: CipherView,
+        encryption_key: Option<SymmetricCryptoKey>,
     ) -> Result<Vec<Fido2CredentialAutofillView>, DecryptFido2AutofillCredentialsError> {
         let key_store = self.client.internal.get_key_store();
+        let mut ctx = key_store.context();
+        let key_id = encryption_key.map(|key| ctx.add_local_symmetric_key(key.clone()));
 
         Ok(Fido2CredentialAutofillView::from_cipher_view(
             &cipher_view,
-            &mut key_store.context(),
+            &mut ctx,
+            key_id,
         )?)
     }
 }

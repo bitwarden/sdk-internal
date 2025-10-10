@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 
 use bitwarden_core::Client;
-use bitwarden_crypto::CryptoError;
+use bitwarden_crypto::{CompositeEncryptable, CryptoError, SymmetricCryptoKey};
 use bitwarden_vault::{CipherError, CipherView, EncryptionContext};
 use itertools::Itertools;
 use passkey::{
@@ -107,6 +107,7 @@ pub struct Fido2Authenticator<'a> {
     pub client: &'a Client,
     pub user_interface: &'a dyn Fido2UserInterface,
     pub credential_store: &'a dyn Fido2CredentialStore,
+    pub encryption_key: Option<SymmetricCryptoKey>,
 
     pub(crate) selected_cipher: Mutex<Option<CipherView>>,
     pub(crate) requested_uv: Mutex<Option<UV>>,
@@ -120,11 +121,13 @@ impl<'a> Fido2Authenticator<'a> {
         user_interface: &'a dyn Fido2UserInterface,
         credential_store: &'a dyn Fido2CredentialStore,
         enable_hmac_secret: bool,
+        encryption_key: Option<SymmetricCryptoKey>,
     ) -> Fido2Authenticator<'a> {
         Fido2Authenticator {
             client,
             user_interface,
             credential_store,
+            encryption_key,
             selected_cipher: Mutex::new(None),
             requested_uv: Mutex::new(None),
             enable_hmac_secret,
@@ -271,11 +274,15 @@ impl<'a> Fido2Authenticator<'a> {
             .await?;
 
         let mut ctx = key_store.context();
+        let key_id = self
+            .encryption_key
+            .as_ref()
+            .map(|key| ctx.add_local_symmetric_key(key.clone()));
         result
             .into_iter()
             .map(
                 |cipher| -> Result<Vec<Fido2CredentialAutofillView>, SilentlyDiscoverCredentialsError> {
-                    Ok(Fido2CredentialAutofillView::from_cipher_view(&cipher, &mut ctx)?)
+                    Ok(Fido2CredentialAutofillView::from_cipher_view(&cipher, &mut ctx, key_id)?)
                 },
             )
             .flatten_ok()
@@ -344,7 +351,12 @@ impl<'a> Fido2Authenticator<'a> {
             .clone()
             .ok_or(GetSelectedCredentialError::NoSelectedCredential)?;
 
-        let creds = cipher.decrypt_fido2_credentials(&mut key_store.context())?;
+        let mut ctx = key_store.context();
+        let key_id = self
+            .encryption_key
+            .as_ref()
+            .map(|key| ctx.add_local_symmetric_key(key.clone()));
+        let creds = cipher.decrypt_fido2_credentials(&mut ctx, key_id)?;
 
         let credential = creds
             .first()
@@ -413,9 +425,15 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
 
             // When using the credential for authentication we have to ask the user to pick one.
             if this.create_credential {
+                let mut ctx = key_store.context();
+                let key_id = this
+                    .authenticator
+                    .encryption_key
+                    .as_ref()
+                    .map(|key| ctx.add_local_symmetric_key(key.clone()));
                 Ok(creds
                     .into_iter()
-                    .map(|c| CipherViewContainer::new(c, &mut key_store.context()))
+                    .map(|c| CipherViewContainer::new(c, &mut ctx, key_id))
                     .collect::<Result<_, _>>()?)
             } else {
                 let picked = this
@@ -431,10 +449,13 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                     .expect("Mutex is not poisoned")
                     .replace(picked.clone());
 
-                Ok(vec![CipherViewContainer::new(
-                    picked,
-                    &mut key_store.context(),
-                )?])
+                let mut ctx = key_store.context();
+                let key_id = this
+                    .authenticator
+                    .encryption_key
+                    .as_ref()
+                    .map(|key| ctx.add_local_symmetric_key(key.clone()));
+                Ok(vec![CipherViewContainer::new(picked, &mut ctx, key_id)?])
             }
         }
 
@@ -497,7 +518,15 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
 
             let key_store = this.authenticator.client.internal.get_key_store();
 
-            selected.set_new_fido2_credentials(&mut key_store.context(), vec![cred])?;
+            {
+                let mut ctx = key_store.context();
+                let key_id = this
+                    .authenticator
+                    .encryption_key
+                    .as_ref()
+                    .map(|key| ctx.add_local_symmetric_key(key.clone()));
+                selected.set_new_fido2_credentials(&mut ctx, key_id, vec![cred])?;
+            }
 
             // Store the updated credential for later use
             this.authenticator
@@ -506,13 +535,19 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                 .expect("Mutex is not poisoned")
                 .replace(selected.clone());
 
-            // Encrypt the updated cipher before sending it to the clients to be stored
-            let encrypted = key_store.encrypt(selected)?;
+            let cipher = if let Some(encryption_key) = &this.authenticator.encryption_key {
+                let mut ctx = key_store.context();
+                let key_id = ctx.add_local_symmetric_key(encryption_key.clone());
+                selected.encrypt_composite(&mut ctx, key_id)?
+            } else {
+                // Encrypt the updated cipher before sending it to the clients to be stored
+                key_store.encrypt(selected)?
+            };
 
             this.authenticator
                 .credential_store
                 .save_credential(EncryptionContext {
-                    cipher: encrypted,
+                    cipher,
                     encrypted_for: user_id,
                 })
                 .await?;
@@ -573,9 +608,18 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             let cred = fill_with_credential(&selected.credential, cred)?;
 
             let key_store = this.authenticator.client.internal.get_key_store();
+            let selected = {
+                let mut ctx = key_store.context();
+                let key_id = this
+                    .authenticator
+                    .encryption_key
+                    .as_ref()
+                    .map(|key| ctx.add_local_symmetric_key(key.clone()));
 
-            let mut selected = selected.cipher;
-            selected.set_new_fido2_credentials(&mut key_store.context(), vec![cred])?;
+                let mut selected = selected.cipher;
+                selected.set_new_fido2_credentials(&mut key_store.context(), key_id, vec![cred])?;
+                selected
+            };
 
             // Store the updated credential for later use
             this.authenticator

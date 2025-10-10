@@ -1,6 +1,6 @@
 use std::{borrow::Cow, collections::HashMap};
 
-use bitwarden_core::key_management::KeyIds;
+use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{CryptoError, KeyStoreContext};
 use bitwarden_encoding::{B64Url, NotB64UrlEncodedError};
 use bitwarden_vault::{CipherListView, CipherListViewType, CipherView, LoginListView};
@@ -79,8 +79,9 @@ impl Fido2CredentialAutofillView {
     pub fn from_cipher_view(
         cipher: &CipherView,
         ctx: &mut KeyStoreContext<KeyIds>,
+        key_id: Option<SymmetricKeyId>,
     ) -> Result<Vec<Fido2CredentialAutofillView>, Fido2CredentialAutofillViewError> {
-        let credentials = cipher.decrypt_fido2_credentials(ctx)?;
+        let credentials = cipher.decrypt_fido2_credentials(ctx, key_id)?;
 
         credentials
             .iter()

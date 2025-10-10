@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use bitwarden_crypto::{BitwardenLegacyKeyBytes, SymmetricCryptoKey};
 use bitwarden_fido::{
     CheckUserOptions, ClientData, Fido2CallbackError as BitFido2CallbackError,
     Fido2CredentialAutofillView, GetAssertionRequest, GetAssertionResult, MakeCredentialRequest,
@@ -16,7 +17,7 @@ pub struct ClientFido2(pub(crate) bitwarden_fido::ClientFido2);
 
 #[uniffi::export]
 impl ClientFido2 {
-    pub fn authenticator(
+    pub fn vault_authenticator(
         &self,
         user_interface: Arc<dyn Fido2UserInterface>,
         credential_store: Arc<dyn Fido2CredentialStore>,
@@ -25,6 +26,23 @@ impl ClientFido2 {
             self.0.clone(),
             user_interface,
             credential_store,
+            None,
+        ))
+    }
+
+    pub fn device_authenticator(
+        &self,
+        user_interface: Arc<dyn Fido2UserInterface>,
+        credential_store: Arc<dyn Fido2CredentialStore>,
+        encryption_key: Vec<u8>,
+    ) -> Arc<ClientFido2Authenticator> {
+        let key =
+            SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(encryption_key)).unwrap();
+        Arc::new(ClientFido2Authenticator(
+            self.0.clone(),
+            user_interface,
+            credential_store,
+            Some(key),
         ))
     }
 
@@ -37,16 +55,22 @@ impl ClientFido2 {
             self.0.clone(),
             user_interface,
             credential_store,
+            None,
         )))
     }
 
     pub fn decrypt_fido2_autofill_credentials(
         &self,
         cipher_view: CipherView,
+        encryption_key: Option<Vec<u8>>,
     ) -> Result<Vec<Fido2CredentialAutofillView>> {
+        let key = encryption_key
+            .map(|key| SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(key)))
+            .transpose()?;
+
         let result = self
             .0
-            .decrypt_fido2_autofill_credentials(cipher_view)
+            .decrypt_fido2_autofill_credentials(cipher_view, key)
             .map_err(Error::DecryptFido2AutofillCredentials)?;
 
         Ok(result)
@@ -58,6 +82,7 @@ pub struct ClientFido2Authenticator(
     pub(crate) bitwarden_fido::ClientFido2,
     pub(crate) Arc<dyn Fido2UserInterface>,
     pub(crate) Arc<dyn Fido2CredentialStore>,
+    pub(crate) Option<SymmetricCryptoKey>,
 );
 
 #[uniffi::export]
@@ -68,7 +93,7 @@ impl ClientFido2Authenticator {
     ) -> Result<MakeCredentialResult> {
         let ui = UniffiTraitBridge(self.1.as_ref());
         let cs = UniffiTraitBridge(self.2.as_ref());
-        let mut auth = self.0.create_authenticator(&ui, &cs);
+        let mut auth = self.0.create_authenticator(&ui, &cs, self.3.clone());
 
         let result = auth
             .make_credential(request)
@@ -80,7 +105,7 @@ impl ClientFido2Authenticator {
     pub async fn get_assertion(&self, request: GetAssertionRequest) -> Result<GetAssertionResult> {
         let ui = UniffiTraitBridge(self.1.as_ref());
         let cs = UniffiTraitBridge(self.2.as_ref());
-        let mut auth = self.0.create_authenticator(&ui, &cs);
+        let mut auth = self.0.create_authenticator(&ui, &cs, self.3.clone());
 
         let result = auth
             .get_assertion(request)
@@ -96,7 +121,7 @@ impl ClientFido2Authenticator {
     ) -> Result<Vec<Fido2CredentialAutofillView>> {
         let ui = UniffiTraitBridge(self.1.as_ref());
         let cs = UniffiTraitBridge(self.2.as_ref());
-        let mut auth = self.0.create_authenticator(&ui, &cs);
+        let mut auth = self.0.create_authenticator(&ui, &cs, self.3.clone());
 
         let result = auth
             .silently_discover_credentials(rp_id, user_handle)
@@ -108,7 +133,7 @@ impl ClientFido2Authenticator {
     pub async fn credentials_for_autofill(&self) -> Result<Vec<Fido2CredentialAutofillView>> {
         let ui = UniffiTraitBridge(self.1.as_ref());
         let cs = UniffiTraitBridge(self.2.as_ref());
-        let mut auth = self.0.create_authenticator(&ui, &cs);
+        let mut auth = self.0.create_authenticator(&ui, &cs, self.3.clone());
 
         let result = auth
             .credentials_for_autofill()

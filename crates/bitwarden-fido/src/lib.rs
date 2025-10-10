@@ -1,6 +1,6 @@
 #![doc = include_str!("../README.md")]
 
-use bitwarden_core::key_management::KeyIds;
+use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::KeyStoreContext;
 use bitwarden_encoding::{B64Url, NotB64UrlEncodedError};
 use bitwarden_vault::{
@@ -65,8 +65,12 @@ pub(crate) struct CipherViewContainer {
 }
 
 impl CipherViewContainer {
-    fn new(cipher: CipherView, ctx: &mut KeyStoreContext<KeyIds>) -> Result<Self, CipherError> {
-        let fido2_credentials = cipher.get_fido2_credentials(ctx)?;
+    fn new(
+        cipher: CipherView,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key_id: Option<SymmetricKeyId>,
+    ) -> Result<Self, CipherError> {
+        let fido2_credentials = cipher.get_fido2_credentials(ctx, key_id)?;
         Ok(Self {
             cipher,
             fido2_credentials,
