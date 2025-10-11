@@ -25,7 +25,7 @@
 //! 4. Filter out singleton buckets; collapse identical membership by precedence.
 //! 5. Produce stable, human-readable display keys for UI consumption via [`find_duplicate_sets`].
 
-use std::collections::{hash_map::Entry, HashMap, HashSet};
+use std::collections::{HashMap, HashSet, hash_map::Entry};
 
 use url::Url;
 
@@ -388,6 +388,7 @@ mod tests {
             creation_date: Utc::now(),
             deleted_date: None,
             revision_date: Utc::now(),
+            archived_date: None,
         }
     }
 
@@ -420,6 +421,7 @@ mod tests {
             creation_date: Utc::now(),
             deleted_date: None,
             revision_date: Utc::now(),
+            archived_date: None,
         }
     }
 
