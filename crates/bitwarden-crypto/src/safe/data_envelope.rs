@@ -19,7 +19,7 @@ use crate::{
 };
 
 /// Marker trait for data that can be sealed in a `DataEnvelope`.
-pub trait SealableData {
+pub trait SealableData: Serialize + Deserialize {
     /// The namespace to use when sealing this type of data. This must be unique per struct.
     const NAMESPACE: DataEnvelopeNamespace;
 }
