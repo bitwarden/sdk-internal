@@ -2,7 +2,7 @@ use std::{num::NonZeroU32, str::FromStr};
 
 use bitwarden_uniffi_error::convert_result;
 
-use crate::{CryptoError, EncString, SignedPublicKey, UnsignedSharedKey};
+use crate::{CryptoError, EncString, SignedPublicKey, UnsignedSharedKey, safe::DataEnvelope};
 
 uniffi::custom_type!(NonZeroU32, u32, {
     remote,
@@ -31,4 +31,10 @@ uniffi::custom_type!(SignedPublicKey, String, {
         convert_result(SignedPublicKey::from_str(&val))
     },
     lower: |obj| obj.into(),
+});
+
+uniffi::custom_type!(DataEnvelope, String, {
+    try_lift: |val| DataEnvelope::from_str(val.as_str())
+        .map_err(|e| e.into()),
+    lower: |obj| obj.to_string(),
 });
