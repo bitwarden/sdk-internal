@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use bitwarden_core::Client;
 use futures::{StreamExt, TryStreamExt, stream};
@@ -53,10 +53,13 @@ impl CipherRiskClient {
         login_details: Vec<CipherLoginDetails>,
         options: CipherRiskOptions,
     ) -> Result<Vec<CipherRisk>, CipherRiskError> {
+        // Wrap password_map in Arc to avoid cloning the HashMap for each future
+        let password_map = options.password_map.map(Arc::new);
+
         // Create futures that can run concurrently
         let futures = login_details.into_iter().map(|details| {
             let http_client = self.client.internal.get_http_client().clone();
-            let password_map = options.password_map.clone();
+            let password_map = password_map.clone();
             let base_url = options
                 .hibp_base_url
                 .clone()
@@ -361,7 +364,7 @@ mod tests {
         let password_map = risk_client.password_reuse_map(login_details).unwrap();
 
         // Empty passwords should not be in the map
-        assert!(password_map.map.get("").is_none());
+        assert!(!password_map.map.contains_key(""));
         assert_eq!(password_map.map.get("valid_password"), Some(&1));
     }
 
