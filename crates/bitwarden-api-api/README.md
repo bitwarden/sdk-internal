@@ -12,7 +12,7 @@ client.
 - API version: latest
 - Package version: 1.0.0
 - Server Git commit:
-  [`ac20c84611686906f27cd91739f579eb7be3e5d4`](https://github.com/bitwarden/server/commit/ac20c84611686906f27cd91739f579eb7be3e5d4)
+  [`fedc6b865b359aa68598df68b928a4c06246cfc0`](https://github.com/bitwarden/server/commit/fedc6b865b359aa68598df68b928a4c06246cfc0)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -254,6 +254,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationBillingVNextApi_             | [**add_credit_via_bit_pay**](docs/OrganizationBillingVNextApi.md#organization_billing_v_next_add_credit_via_bit_pay)                                             | **POST** /organizations/{organizationId}/billing/vnext/credit/bitpay                                     |
 | _OrganizationBillingVNextApi_             | [**get_billing_address**](docs/OrganizationBillingVNextApi.md#organization_billing_v_next_get_billing_address)                                                   | **GET** /organizations/{organizationId}/billing/vnext/address                                            |
 | _OrganizationBillingVNextApi_             | [**get_credit**](docs/OrganizationBillingVNextApi.md#organization_billing_v_next_get_credit)                                                                     | **GET** /organizations/{organizationId}/billing/vnext/credit                                             |
+| _OrganizationBillingVNextApi_             | [**get_metadata**](docs/OrganizationBillingVNextApi.md#organization_billing_v_next_get_metadata)                                                                 | **GET** /organizations/{organizationId}/billing/vnext/metadata                                           |
 | _OrganizationBillingVNextApi_             | [**get_payment_method**](docs/OrganizationBillingVNextApi.md#organization_billing_v_next_get_payment_method)                                                     | **GET** /organizations/{organizationId}/billing/vnext/payment-method                                     |
 | _OrganizationBillingVNextApi_             | [**get_warnings**](docs/OrganizationBillingVNextApi.md#organization_billing_v_next_get_warnings)                                                                 | **GET** /organizations/{organizationId}/billing/vnext/warnings                                           |
 | _OrganizationBillingVNextApi_             | [**restart_subscription**](docs/OrganizationBillingVNextApi.md#organization_billing_v_next_restart_subscription)                                                 | **POST** /organizations/{organizationId}/billing/vnext/subscription/restart                              |
