@@ -10,13 +10,16 @@ use thiserror::Error;
 use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
-    CoseEncrypt0Bytes, CryptoError, KeyIds, SerializedMessage, SymmetricCryptoKey,
-    XChaCha20Poly1305Key,
+    CONTENT_TYPE_PADDED_CBOR, CoseEncrypt0Bytes, CryptoError, EncodingError, KeyIds,
+    SerializedMessage, SymmetricCryptoKey, XChaCha20Poly1305Key,
     cose::{DATA_ENVELOPE_NAMESPACE, XCHACHA20_POLY1305},
     ensure_equal, ensure_matches,
     safe::DataEnvelopeNamespace,
+    utils::pad_bytes,
     xchacha20,
 };
+
+pub(crate) const DATA_ENVELOPE_PADDING_SIZE: usize = 64;
 
 /// Marker trait for data that can be sealed in a `DataEnvelope`.
 ///
@@ -94,11 +97,14 @@ impl DataEnvelope {
         // Serialize the message
         let serialized_message =
             SerializedMessage::encode(&data).map_err(|_| DataEnvelopeError::EncodingError)?;
+        ensure_equal!(serialized_message.content_type(), coset::iana::CoapContentFormat::Cbor => DataEnvelopeError::UnsupportedContentFormat);
+        let serialized_and_padded_message = pad_cbor(serialized_message.as_bytes())
+            .map_err(|_| DataEnvelopeError::EncodingError)?;
 
         // Build the COSE headers
         let mut protected_header = coset::HeaderBuilder::new()
             .key_id(cek.key_id.to_vec())
-            .content_format(serialized_message.content_type())
+            .content_type(CONTENT_TYPE_PADDED_CBOR.to_string())
             .value(
                 DATA_ENVELOPE_NAMESPACE,
                 ciborium::Value::Integer(Integer::from(namespace.as_i64())),
@@ -110,7 +116,7 @@ impl DataEnvelope {
         let mut nonce = [0u8; xchacha20::NONCE_SIZE];
         let encrypt0 = coset::CoseEncrypt0Builder::new()
             .protected(protected_header)
-            .create_ciphertext(serialized_message.as_bytes(), &[], |data, aad| {
+            .create_ciphertext(&serialized_and_padded_message, &[], |data, aad| {
                 let ciphertext =
                     crate::xchacha20::encrypt_xchacha20_poly1305(&(*cek.enc_key).into(), data, aad);
                 nonce = ciphertext.nonce();
@@ -167,13 +173,14 @@ impl DataEnvelope {
         let msg = coset::CoseEncrypt0::from_slice(self.envelope_data.as_ref())
             .map_err(|_| DataEnvelopeError::CoseDecodingError)?;
         let envelope_namespace = extract_namespace(&msg.protected.header)?;
-        let content_type =
-            content_type(&msg.protected).map_err(|_| DataEnvelopeError::DecodingError)?;
+        let content_format =
+            content_format(&msg.protected).map_err(|_| DataEnvelopeError::DecodingError)?;
 
         // Validate the message
         ensure_matches!(msg.protected.header.alg, Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305)) => DataEnvelopeError::DecryptionError);
         ensure_equal!(msg.protected.header.key_id, cek.key_id => DataEnvelopeError::WrongKey);
         ensure_equal!(envelope_namespace, *namespace => DataEnvelopeError::InvalidNamespace);
+        ensure_equal!(content_format, CONTENT_TYPE_PADDED_CBOR => DataEnvelopeError::UnsupportedContentFormat);
 
         // Decrypt the message
         let decrypted_message = msg
@@ -190,8 +197,12 @@ impl DataEnvelope {
             })
             .map_err(|_| DataEnvelopeError::DecryptionError)?;
 
+        let unpadded_message =
+            unpad_cbor(&decrypted_message).map_err(|_| DataEnvelopeError::DecryptionError)?;
+
         // Deserialize the message
-        let serialized_message = SerializedMessage::from_bytes(decrypted_message, content_type);
+        let serialized_message =
+            SerializedMessage::from_bytes(unpadded_message, CoapContentFormat::Cbor);
         serialized_message
             .decode()
             .map_err(|_| DataEnvelopeError::DecodingError)
@@ -228,18 +239,16 @@ fn extract_namespace(header: &coset::Header) -> Result<DataEnvelopeNamespace, Da
 /// Helper function to extract the content type from a `ProtectedHeader`. The content type is a
 /// standardized header set on the protected headers of the signature object. Currently we only
 /// support registered values, but PrivateUse values are also allowed in the COSE specification.
-pub(super) fn content_type(
-    protected_header: &ProtectedHeader,
-) -> Result<coset::iana::CoapContentFormat, CryptoError> {
+pub(super) fn content_format(protected_header: &ProtectedHeader) -> Result<String, EncodingError> {
     protected_header
         .header
         .content_type
         .as_ref()
         .and_then(|ct| match ct {
-            RegisteredLabel::Assigned(content_format) => Some(*content_format),
+            RegisteredLabel::Text(content_format) => Some(content_format.clone()),
             _ => None,
         })
-        .ok_or_else(|| DataEnvelopeError::DecryptionError.into())
+        .ok_or_else(|| EncodingError::InvalidCoseEncoding)
 }
 
 impl From<&DataEnvelope> for Vec<u8> {
@@ -366,6 +375,17 @@ impl FromWasmAbi for DataEnvelope {
     }
 }
 
+fn pad_cbor(data: &[u8]) -> Result<Vec<u8>, CryptoError> {
+    let mut data = data.to_vec();
+    pad_bytes(&mut data, DATA_ENVELOPE_PADDING_SIZE).map_err(|_| CryptoError::InvalidPadding)?;
+    Ok(data)
+}
+
+fn unpad_cbor(data: &[u8]) -> Result<Vec<u8>, CryptoError> {
+    let unpadded = crate::utils::unpad_bytes(data).map_err(|_| CryptoError::InvalidPadding)?;
+    Ok(unpadded.to_vec())
+}
+
 /// Generates a versioned enum that implements `SealableData`.
 ///
 /// This serializes to an adjacently tagged enum, with the "version" field being set to the provided
@@ -463,8 +483,8 @@ mod tests {
     );
 
     const TEST_VECTOR_CEK: &str =
-        "pQEEAlD9phi2lVsBjF++dRI4oNjMAzoAARFvBIEEIFgg5yDtjcRbcEjtMWqyi09h6hsan9agCU5bI/TIJLvOEpEB";
-    const TEST_VECTOR_ENVELOPE: &str = "g1gipAE6AAERbwMYPARQ/aYYtpVbAYxfvnUSOKDYzDoAATiAIKEFWBhvMwS5GvysDMS5QjEsAVCHnpWulEHdcuZYLNf3/wlZBju9RDsvR5DseS45b8BL9KcI5XOtXO8foj2xbV/caXOVSdwb1JIA";
+        "pQEEAlAiZII8tW5Lu9YH2bND5qx4AzoAARFvBIEEIFggnlL+dg+plLs+YqbUS00NYjwvir9E7O5pTJgX/O++XuQB";
+    const TEST_VECTOR_ENVELOPE: &str = "g1hFpAE6AAERbwN4I2FwcGxpY2F0aW9uL3guYml0d2FyZGVuLmNib3ItcGFkZGVkBFAiZII8tW5Lu9YH2bND5qx4OgABOIAgoQVYGDjsL+Q0npomBf7fVsefBkXNJT/OkMncuVhQ8VSz8YWHIRylVilXRDrQp3LRSnDHQKIU4F0A49yi8W2tmRATUcPkU87eI9xbRvxjdUY/X4wL26MoFsqbWxyMJHcj8svQWwL3Jq3OvK9VS6A=";
 
     #[test]
     #[ignore]

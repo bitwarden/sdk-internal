@@ -36,6 +36,7 @@ pub use store::{
 };
 mod cose;
 mod ensure;
+pub(crate) use cose::CONTENT_TYPE_PADDED_CBOR;
 pub use cose::CoseSerializable;
 pub mod safe;
 mod signing;
