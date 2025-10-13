@@ -8,6 +8,12 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use super::cipher_risk::{CipherLoginDetails, CipherRisk, CipherRiskOptions, PasswordReuseMap};
 use crate::CipherRiskError;
 
+/// Default base URL for the Have I Been Pwned (HIBP) Pwned Passwords API.
+const HIBP_DEFAULT_BASE_URL: &str = "https://api.pwnedpasswords.com";
+
+/// Maximum number of concurrent requests when checking passwords.
+const MAX_CONCURRENT_REQUESTS: usize = 100;
+
 /// Client for evaluating credential risk for login ciphers.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CipherRiskClient {
@@ -63,7 +69,7 @@ impl CipherRiskClient {
             let base_url = options
                 .hibp_base_url
                 .clone()
-                .unwrap_or_else(|| "https://api.pwnedpasswords.com".to_string());
+                .unwrap_or_else(|| HIBP_DEFAULT_BASE_URL.to_string());
 
             async move {
                 let password_strength = Self::calculate_password_strength(
@@ -98,9 +104,9 @@ impl CipherRiskClient {
             }
         });
 
-        // Process up to 100 futures concurrently, fail fast on first error
+        // Process up to MAX_CONCURRENT_REQUESTS futures concurrently, fail fast on first error
         let results: Vec<CipherRisk> = stream::iter(futures)
-            .buffer_unordered(100)
+            .buffer_unordered(MAX_CONCURRENT_REQUESTS)
             .try_collect()
             .await?;
 
