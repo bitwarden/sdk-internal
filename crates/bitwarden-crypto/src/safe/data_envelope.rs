@@ -248,7 +248,7 @@ pub(super) fn content_format(protected_header: &ProtectedHeader) -> Result<Strin
             RegisteredLabel::Text(content_format) => Some(content_format.clone()),
             _ => None,
         })
-        .ok_or_else(|| EncodingError::InvalidCoseEncoding)
+        .ok_or(EncodingError::InvalidCoseEncoding)
 }
 
 impl From<&DataEnvelope> for Vec<u8> {
