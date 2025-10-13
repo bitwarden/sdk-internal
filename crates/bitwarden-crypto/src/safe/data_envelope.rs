@@ -19,10 +19,27 @@ use crate::{
 };
 
 /// Marker trait for data that can be sealed in a `DataEnvelope`.
-pub trait SealableData: Serialize + DeserializeOwned {
+///
+/// Do not manually implement this! Use the generate_versioned_sealable! macro instead.
+pub trait SealableVersionedData: Serialize + DeserializeOwned {
     /// The namespace to use when sealing this type of data. This must be unique per struct.
     const NAMESPACE: DataEnvelopeNamespace;
 }
+
+/// Marker trait for data that can be sealed in a `DataEnvelope`.
+///
+/// Note: If you implement this trait, you agree to the following:
+/// The struct serialization format is stable. You may not mutate the struct so that old structs
+/// no longer deserialize correctly. A change such as adding an optional field to your struct is
+/// permitted, anything breaking old formats is not.
+///
+/// Ideally, when creating a new struct, create a test vector (a sealed DataEnvelope for a test
+/// value), and create a unit test ensuring that it permanently deserializes correctly.
+///
+/// To make breaking changes, introduce a new version. This should use the
+/// `generate_versioned_sealable!` macro to auto-generate the versioning code. Please see the
+/// examples directory.
+pub trait SealableData: Serialize + DeserializeOwned {}
 
 /// `DataEnvelope` allows sealing structs entire structs to encrypted blobs.
 ///
@@ -55,7 +72,7 @@ impl DataEnvelope {
         ctx: &mut crate::store::KeyStoreContext<Ids>,
     ) -> Result<Self, DataEnvelopeError>
     where
-        T: Serialize + SealableData,
+        T: Serialize + SealableVersionedData,
     {
         let (envelope, cek) = Self::seal_ref(&data, &T::NAMESPACE)?;
         ctx.set_symmetric_key_internal(cek_keyslot, SymmetricCryptoKey::XChaCha20Poly1305Key(cek))
@@ -70,7 +87,7 @@ impl DataEnvelope {
         namespace: &DataEnvelopeNamespace,
     ) -> Result<(DataEnvelope, XChaCha20Poly1305Key), DataEnvelopeError>
     where
-        T: Serialize + SealableData,
+        T: Serialize + SealableVersionedData,
     {
         let mut cek = XChaCha20Poly1305Key::make();
 
@@ -125,7 +142,7 @@ impl DataEnvelope {
         ctx: &mut crate::store::KeyStoreContext<Ids>,
     ) -> Result<T, DataEnvelopeError>
     where
-        T: DeserializeOwned + SealableData,
+        T: DeserializeOwned + SealableVersionedData,
     {
         let cek = ctx
             .get_symmetric_key(cek_keyslot)
@@ -144,7 +161,7 @@ impl DataEnvelope {
         cek: &XChaCha20Poly1305Key,
     ) -> Result<T, DataEnvelopeError>
     where
-        T: DeserializeOwned + SealableData,
+        T: DeserializeOwned + SealableVersionedData,
     {
         // Parse the COSE message
         let msg = coset::CoseEncrypt0::from_slice(self.envelope_data.as_ref())
@@ -349,6 +366,81 @@ impl FromWasmAbi for DataEnvelope {
     }
 }
 
+/// Generates a versioned enum that implements `SealableData`.
+///
+/// This serializes to an adjacently tagged enum, with the "version" field being set to the provided
+/// version, and the "content" field being the serialized struct.
+///
+///
+/// ```
+/// use bitwarden_crypto::{safe::{DataEnvelopeNamespace, SealableData, SealableVersionedData}, generate_versioned_sealable};
+/// use serde::{Deserialize, Serialize};
+///
+/// #[derive(Serialize, Deserialize, PartialEq, Debug)]
+/// struct MyItemV1 {
+///     a: u32,
+///     b: String,
+/// }
+/// impl SealableData for MyItemV1 {}
+///
+/// #[derive(Serialize, Deserialize, PartialEq, Debug)]
+/// struct MyItemV2 {
+///     a: u32,
+///     b: bool,
+///     c: bool,
+/// }
+/// impl SealableData for MyItemV2 {}
+///
+/// generate_versioned_sealable!(
+///     MyItem,
+///     DataEnvelopeNamespace::VaultItem,
+///     [
+///         MyItemV1 => "1",
+///         MyItemV2 => "2",
+///     ]
+/// );
+/// ```
+#[macro_export]
+macro_rules! generate_versioned_sealable {
+    (
+        // Provide the name
+        $enum_name:ident,
+        // Provide the namespace
+        $namespace:path,
+        // Provide mappings from the variant to version. This must not be changed later.
+        [ $( $variant_ty:ident => $rename:literal ),+ $(,)? ]
+    ) => {
+        // Implement the enum
+        #[derive(Serialize, Deserialize, Debug, PartialEq)]
+        #[serde(tag = "version", content = "content")]
+        enum $enum_name {
+            $(
+                #[serde(rename = $rename)]
+                // Strip the `MyItem` prefix from type name if you want shorter variant names
+                $variant_ty($variant_ty),
+            )+
+        }
+
+        // Implement the SealableVersionedData trait for the enum
+        impl SealableVersionedData for $enum_name
+        where
+            $( $variant_ty: SealableData ),+
+        {
+            // Implement with the specified namespace
+            const NAMESPACE: DataEnvelopeNamespace = $namespace;
+        }
+
+        // Implement Into from each variant to the enum
+        $(
+            impl From<$variant_ty> for $enum_name {
+                fn from(value: $variant_ty) -> Self {
+                    Self::$variant_ty(value)
+                }
+            }
+        )+
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use serde::Deserialize;
@@ -357,21 +449,27 @@ mod tests {
     use crate::traits::tests::TestIds;
 
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
-    struct TestData {
-        field2: u32,
+    struct TestDataV1 {
+        field: u32,
     }
-    impl SealableData for TestData {
-        const NAMESPACE: DataEnvelopeNamespace = DataEnvelopeNamespace::ExampleNamespace;
-    }
+    impl SealableData for TestDataV1 {}
+
+    generate_versioned_sealable!(
+        TestData,
+        DataEnvelopeNamespace::ExampleNamespace,
+        [
+            TestDataV1 => "1",
+        ]
+    );
 
     const TEST_VECTOR_CEK: &str =
-        "pQEEAlDI6siwJ+XRw5/Dqb0imZkmAzoAARFvBIEEIFgg/LZGMeNOnBi/cMyAbeaZL9hN3owKxTHOYvbIAuwSdeIB";
-    const TEST_VECTOR_ENVELOPE: &str = "g1gipAE6AAERbwMYPARQyOrIsCfl0cOfw6m9IpmZJjoAATiAIKEFWBi9F7Vx3IqByTEOsDOjXkSZZ0fCRueolG5YGkGeh20fm9wGww2LovW2QQXFt3UfFCUv2oCI";
+        "pQEEAlD9phi2lVsBjF++dRI4oNjMAzoAARFvBIEEIFgg5yDtjcRbcEjtMWqyi09h6hsan9agCU5bI/TIJLvOEpEB";
+    const TEST_VECTOR_ENVELOPE: &str = "g1gipAE6AAERbwMYPARQ/aYYtpVbAYxfvnUSOKDYzDoAATiAIKEFWBhvMwS5GvysDMS5QjEsAVCHnpWulEHdcuZYLNf3/wlZBju9RDsvR5DseS45b8BL9KcI5XOtXO8foj2xbV/caXOVSdwb1JIA";
 
     #[test]
     #[ignore]
     fn generate_test_vectors() {
-        let data = TestData { field2: 123 };
+        let data: TestData = TestDataV1 { field: 123 }.into();
         let (envelope, cek) =
             DataEnvelope::seal_ref(&data, &DataEnvelopeNamespace::ExampleNamespace).unwrap();
         let unsealed_data: TestData = envelope
@@ -397,13 +495,13 @@ mod tests {
         let unsealed_data: TestData = envelope
             .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace, &cek)
             .unwrap();
-        assert_eq!(unsealed_data, TestData { field2: 123 });
+        assert_eq!(unsealed_data, TestDataV1 { field: 123 }.into());
     }
 
     #[test]
     fn test_data_envelope() {
         // Create an instance of TestData
-        let data = TestData { field2: 42 };
+        let data: TestData = TestDataV1 { field: 42 }.into();
 
         // Seal the data
         let (envelope, cek) =
@@ -418,7 +516,7 @@ mod tests {
 
     #[test]
     fn test_namespace_validation_success() {
-        let data = TestData { field2: 123 };
+        let data: TestData = TestDataV1 { field: 123 }.into();
 
         // Test with ExampleNamespace
         let (envelope1, cek1) =
@@ -439,7 +537,7 @@ mod tests {
 
     #[test]
     fn test_namespace_validation_failure() {
-        let data = TestData { field2: 456 };
+        let data: TestData = TestDataV1 { field: 456 }.into();
 
         // Seal with ExampleNamespace
         let (envelope, cek) =
@@ -459,7 +557,7 @@ mod tests {
 
     #[test]
     fn test_namespace_validation_with_keystore() {
-        let data = TestData { field2: 789 };
+        let data: TestData = TestDataV1 { field: 789 }.into();
         let key_store = crate::store::KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
@@ -483,13 +581,14 @@ mod tests {
                 &mut ctx,
             )
             .unwrap();
-        assert_eq!(unsealed_data.field2, 789);
+        let TestData::TestDataV1(unsealed_data) = unsealed_data;
+        assert_eq!(unsealed_data.field, 789);
     }
 
     #[test]
     fn test_namespace_cross_contamination_protection() {
-        let data1 = TestData { field2: 111 };
-        let data2 = TestData { field2: 222 };
+        let data1: TestData = TestDataV1 { field: 111 }.into();
+        let data2: TestData = TestDataV1 { field: 222 }.into();
 
         // Seal two different pieces of data with different namespaces
         let (envelope1, cek1) =

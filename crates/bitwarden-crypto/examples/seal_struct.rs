@@ -9,21 +9,34 @@
 //! In general, if a struct of data should be protected, the `DataEnvelope` should be used.
 
 use bitwarden_crypto::{
-    key_ids,
-    safe::{DataEnvelope, DataEnvelopeNamespace, SealableData},
+    generate_versioned_sealable, key_ids,
+    safe::{DataEnvelope, DataEnvelopeNamespace, SealableData, SealableVersionedData},
 };
 use serde::{Deserialize, Serialize};
 
-/// An example of a versioned piece of data. Since the versioning is handled by the serialization
-/// only one namespace is needed.
-#[derive(Serialize, Deserialize)]
-enum MyItem {
-    V1 { a: u32, b: String },
-    V2 { a: u32, b: bool, c: bool },
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+struct MyItemV1 {
+    a: u32,
+    b: String,
 }
-impl SealableData for MyItem {
-    const NAMESPACE: DataEnvelopeNamespace = DataEnvelopeNamespace::VaultItem;
+impl SealableData for MyItemV1 {}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+struct MyItemV2 {
+    a: u32,
+    b: bool,
+    c: bool,
 }
+impl SealableData for MyItemV2 {}
+
+generate_versioned_sealable!(
+    MyItem,
+    DataEnvelopeNamespace::VaultItem,
+    [
+        MyItemV1 => "1",
+        MyItemV2 => "2",
+    ]
+);
 
 fn main() {
     let store: bitwarden_crypto::KeyStore<ExampleIds> =
@@ -31,10 +44,11 @@ fn main() {
     let mut ctx: bitwarden_crypto::KeyStoreContext<'_, ExampleIds> = store.context_mut();
     let mut disk = MockDisk::new();
 
-    let my_item = MyItem::V1 {
+    let my_item: MyItem = MyItemV1 {
         a: 42,
         b: "Hello, World!".to_string(),
-    };
+    }
+    .into();
 
     // Seal the item into an encrypted blob, and store the content-encryption-key in the context.
     let sealed_item = DataEnvelope::seal(my_item, ExampleSymmetricKey::ItemKey, &mut ctx)
@@ -56,7 +70,7 @@ fn main() {
             &mut ctx,
         )
         .expect("Unsealing should work");
-    assert!(matches!(my_item, MyItem::V1 { a: 42, b } if b == "Hello, World!"));
+    assert!(matches!(my_item, MyItem::MyItemV1(item) if item.a == 42 && item.b == "Hello, World!"));
 }
 
 pub(crate) struct MockDisk {
