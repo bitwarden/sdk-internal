@@ -12,7 +12,7 @@ client.
 - API version: latest
 - Package version: 1.0.0
 - Server Git commit:
-  [`d2577f670e1cf9ca32791135d2197cff1fe12096`](https://github.com/bitwarden/server/commit/d2577f670e1cf9ca32791135d2197cff1fe12096)
+  [`ac20c84611686906f27cd91739f579eb7be3e5d4`](https://github.com/bitwarden/server/commit/ac20c84611686906f27cd91739f579eb7be3e5d4)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -477,6 +477,9 @@ All URIs are relative to *https://api.bitwarden.com*
 | _TaxApi_                                  | [**preview_organization_subscription_purchase_tax**](docs/TaxApi.md#tax_preview_organization_subscription_purchase_tax)                                          | **POST** /billing/tax/organizations/subscriptions/purchase                                               |
 | _TaxApi_                                  | [**preview_organization_subscription_update_tax**](docs/TaxApi.md#tax_preview_organization_subscription_update_tax)                                              | **PUT** /billing/tax/organizations/{organizationId}/subscription/update                                  |
 | _TaxApi_                                  | [**preview_premium_subscription_purchase_tax**](docs/TaxApi.md#tax_preview_premium_subscription_purchase_tax)                                                    | **POST** /billing/tax/premium/subscriptions/purchase                                                     |
+| _TeamsIntegrationApi_                     | [**create**](docs/TeamsIntegrationApi.md#teams_integration_create)                                                                                               | **GET** /organizations/integrations/teams/create                                                         |
+| _TeamsIntegrationApi_                     | [**incoming_post**](docs/TeamsIntegrationApi.md#teams_integration_incoming_post)                                                                                 | **POST** /organizations/integrations/teams/incoming                                                      |
+| _TeamsIntegrationApi_                     | [**redirect**](docs/TeamsIntegrationApi.md#teams_integration_redirect)                                                                                           | **GET** /organizations/{organizationId}/integrations/teams/redirect                                      |
 | _TrashApi_                                | [**empty_trash**](docs/TrashApi.md#trash_empty_trash)                                                                                                            | **POST** /secrets/{organizationId}/trash/empty                                                           |
 | _TrashApi_                                | [**list_by_organization**](docs/TrashApi.md#trash_list_by_organization)                                                                                          | **GET** /secrets/{organizationId}/trash                                                                  |
 | _TrashApi_                                | [**restore_trash**](docs/TrashApi.md#trash_restore_trash)                                                                                                        | **POST** /secrets/{organizationId}/trash/restore                                                         |
