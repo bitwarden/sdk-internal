@@ -56,6 +56,7 @@ uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
 zxcvbn = ">=3.0.1, <4.0"
+futures = "0.3"
 
 [dev-dependencies]
 bitwarden-api-api = { workspace = true, features = ["mockall"] }

@@ -6,60 +6,62 @@ use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 use crate::CipherId;
 
-/// Minimal login cipher data needed for risk evaluation
+/// Login cipher data needed for risk evaluation.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CipherLoginDetails {
-    /// Cipher ID to identify which cipher in results
+    /// Cipher ID to identify which cipher in results.
     pub id: Option<CipherId>,
-    /// The decrypted password to evaluate
+    /// The decrypted password to evaluate.
     pub password: String,
-    /// Username or email (login ciphers only have one field)
+    /// Username or email (login ciphers only have one field).
     pub username: Option<String>,
 }
 
-/// Password reuse map wrapper for WASM compatibility
+/// Password reuse map wrapper for WASM compatibility.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(transparent)]
 pub struct PasswordReuseMap {
-    /// Map of passwords to their occurrence count
+    /// Map of passwords to their occurrence count.
     #[cfg_attr(feature = "wasm", tsify(type = "Record<string, number>"))]
     pub map: HashMap<String, u32>,
 }
 
-/// Options for configuring risk computation
-#[derive(Serialize, Deserialize, Debug, Clone)]
+/// Options for configuring risk computation.
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
-#[derive(Default)]
 pub struct CipherRiskOptions {
-    /// Pre-computed password reuse map (password → count)
-    /// If provided, enables reuse detection across ciphers
+    /// Pre-computed password reuse map (password → count).
+    /// If provided, enables reuse detection across ciphers.
     pub password_map: Option<PasswordReuseMap>,
-    /// Whether to check passwords against Have I Been Pwned API
-    /// When true, makes network requests to check for exposed passwords
+    /// Whether to check passwords against Have I Been Pwned API.
+    /// When true, makes network requests to check for exposed passwords.
     pub check_exposed: bool,
+    /// Optional HIBP API base URL override. When None, uses the production HIBP URL.
+    /// Can be used for testing or alternative password breach checking services.
+    pub hibp_base_url: Option<String>,
 }
 
-/// Risk evaluation result for a single cipher
+/// Risk evaluation result for a single cipher.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CipherRisk {
-    /// Cipher ID matching the input CipherLoginDetails
+    /// Cipher ID matching the input CipherLoginDetails.
     pub id: Option<CipherId>,
-    /// Password strength score from 0 (weakest) to 4 (strongest)
-    /// Calculated using zxcvbn with cipher-specific context
+    /// Password strength score from 0 (weakest) to 4 (strongest).
+    /// Calculated using zxcvbn with cipher-specific context.
     pub password_strength: u8,
-    /// Number of times password appears in HIBP database
-    /// None if check_exposed was false in options
+    /// Number of times password appears in HIBP database.
+    /// None if check_exposed was false in options.
     pub exposed_count: Option<u32>,
-    /// Number of times this password appears in the provided cipher list
-    /// Minimum value is 1 (the cipher itself)
+    /// Number of times this password appears in the provided cipher list.
+    /// Minimum value is 1 (the cipher itself).
     pub reuse_count: u32,
 }
 

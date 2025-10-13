@@ -37,8 +37,6 @@ pub enum VaultParseError {
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum CipherRiskError {
-    #[error("Network error while checking password exposure: {0}")]
-    Network(String),
-    #[error("Invalid password format")]
-    InvalidPassword,
+    #[error(transparent)]
+    Reqwest(#[from] reqwest::Error),
 }

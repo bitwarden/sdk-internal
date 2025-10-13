@@ -922,6 +922,7 @@ dependencies = [
  "bitwarden-uuid",
  "chrono",
  "data-encoding",
+ "futures",
  "hmac",
  "percent-encoding",
  "reqwest",
