@@ -1,12 +1,12 @@
 use std::pin::Pin;
 
-use rsa::{pkcs8::DecodePublicKey, RsaPrivateKey, RsaPublicKey};
+use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::DecodePublicKey};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use super::key_encryptable::CryptoKey;
 use crate::{
-    error::{CryptoError, Result},
     Pkcs8PrivateKeyBytes, SpkiPublicKeyBytes,
+    error::{CryptoError, Result},
 };
 
 /// Algorithm / public key encryption scheme used for encryption/decryption.
@@ -165,9 +165,9 @@ mod tests {
     use bitwarden_encoding::B64;
 
     use crate::{
-        content_format::{Bytes, Pkcs8PrivateKeyDerContentFormat},
         AsymmetricCryptoKey, AsymmetricPublicCryptoKey, Pkcs8PrivateKeyBytes, SpkiPublicKeyBytes,
         SymmetricCryptoKey, UnsignedSharedKey,
+        content_format::{Bytes, Pkcs8PrivateKeyDerContentFormat},
     };
 
     #[test]

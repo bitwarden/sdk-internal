@@ -24,9 +24,11 @@ uniffi = [
     "internal",
     "bitwarden-crypto/uniffi",
     "bitwarden-encoding/uniffi",
+    "dep:bitwarden-uniffi-error",
     "dep:uniffi"
 ] # Uniffi bindings
 wasm = [
+    "bitwarden-crypto/wasm",
     "bitwarden-encoding/wasm",
     "bitwarden-error/wasm",
     "dep:wasm-bindgen",
@@ -42,7 +44,7 @@ bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-state = { workspace = true }
-bitwarden-uniffi-error = { workspace = true }
+bitwarden-uniffi-error = { workspace = true, optional = true }
 bitwarden-uuid = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
 # We don't use this directly (it's used by rand), but we need it here to enable WASM support

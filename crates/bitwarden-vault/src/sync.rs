@@ -3,8 +3,8 @@ use bitwarden_api_api::models::{
 };
 use bitwarden_collections::{collection::Collection, error::CollectionsParseError};
 use bitwarden_core::{
-    client::encryption_settings::EncryptionSettingsError, require, Client, MissingFieldError,
-    OrganizationId, UserId,
+    Client, MissingFieldError, OrganizationId, UserId,
+    client::encryption_settings::EncryptionSettingsError, require,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -35,7 +35,10 @@ pub struct SyncRequest {
 
 pub(crate) async fn sync(client: &Client, input: &SyncRequest) -> Result<SyncResponse, SyncError> {
     let config = client.internal.get_api_configurations().await;
-    let sync = bitwarden_api_api::apis::sync_api::sync_get(&config.api, input.exclude_subdomains)
+    let sync = config
+        .api_client
+        .sync_api()
+        .get(input.exclude_subdomains)
         .await
         .map_err(|e| SyncError::Api(e.into()))?;
 

@@ -8,7 +8,9 @@ use credential_exchange_format::{
 };
 
 use crate::{
+    CipherType, Field, ImportingCipher, SecureNote, SecureNoteType,
     cxf::{
+        CxfError,
         api_key::api_key_to_fields,
         card::to_card,
         editable_field::create_field,
@@ -20,9 +22,7 @@ use crate::{
         note::extract_note_content,
         ssh::to_ssh,
         wifi::wifi_to_fields,
-        CxfError,
     },
-    CipherType, Field, ImportingCipher, SecureNote, SecureNoteType,
 };
 
 /**
@@ -224,7 +224,7 @@ fn group_credentials_by_type(credentials: Vec<Credential>) -> GroupedCredentials
     macro_rules! extract_credential {
         ($field:ident, $variant:path, $type:ty) => {
             filter_credentials(&credentials, |c| match c {
-                $variant(ref inner) => Some(inner.as_ref()),
+                &$variant(ref inner) => Some(inner.as_ref()),
                 _ => None,
             })
         };

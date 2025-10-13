@@ -2,8 +2,8 @@
 
 mod color;
 
-pub use color::{install_color_eyre, Color};
-use inquire::{error::InquireResult, Text};
+pub use color::{Color, install_color_eyre};
+use inquire::{Text, error::InquireResult};
 
 /// Prompt the user for input if the value is None
 ///

@@ -12,8 +12,8 @@ use tsify::Tsify;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
-    cipher::cipher::{CipherKind, CopyableCipherFields},
     Cipher, VaultParseError,
+    cipher::cipher::{CipherKind, CopyableCipherFields},
 };
 
 #[allow(missing_docs)]
@@ -106,9 +106,9 @@ impl CipherKind for SecureNote {
 #[cfg(test)]
 mod tests {
     use crate::{
+        CipherRepromptType, CipherType, SecureNoteType,
         cipher::cipher::{Cipher, CipherKind, CopyableCipherFields},
         secure_note::SecureNote,
-        CipherRepromptType, CipherType, SecureNoteType,
     };
 
     fn create_cipher_for_note(note: SecureNote) -> Cipher {

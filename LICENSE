@@ -1,6 +1,6 @@
 Source code in this repository is covered by one of two licenses:
   (i) the GNU General Public License (GPL) v3.0
-  (ii) the BITWARDEN SOFTWARE DEVELOPMENT KIT LICENSE v1.0.
+  (ii) the BITWARDEN SOFTWARE DEVELOPMENT KIT LICENSE v2.0.
 
 The default license throughout the repository is your choice of GPL v3.0 OR
 BITWARDEN SOFTWARE DEVELOPMENT KIT LICENSE unless the header specifies another
@@ -10,7 +10,7 @@ covered solely by the BITWARDEN SOFTWARE DEVELOPMENT KIT LICENSE.
 GPL v3.0:
 https://github.com/bitwarden/sdk-internal/blob/main/LICENSE_GPL.txt
 
-BITWARDEN SOFTWARE DEVELOPMENT KIT LICENSE v1.0:
+BITWARDEN SOFTWARE DEVELOPMENT KIT LICENSE v2.0:
 https://github.com/bitwarden/sdk-internal/blob/main/LICENSE_SDK.txt
 
 No grant of any rights in the trademarks, service marks, or logos of Bitwarden is

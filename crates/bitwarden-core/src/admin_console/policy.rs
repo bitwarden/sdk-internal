@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use uuid::Uuid;
 
-use crate::{require, MissingFieldError};
+use crate::{MissingFieldError, require};
 
 /// Represents a policy that can be applied to an organization.
 #[derive(Serialize, Deserialize, Debug)]
@@ -49,6 +49,7 @@ pub enum PolicyType {
     RemoveUnlockWithPin = 14,
     RestrictedItemTypesPolicy = 15,
     UriMatchDefaults = 16,
+    AutotypeDefaultSetting = 17,
 }
 
 impl TryFrom<PolicyResponseModel> for Policy {
@@ -103,6 +104,9 @@ impl From<bitwarden_api_api::models::PolicyType> for PolicyType {
                 PolicyType::RestrictedItemTypesPolicy
             }
             bitwarden_api_api::models::PolicyType::UriMatchDefaults => PolicyType::UriMatchDefaults,
+            bitwarden_api_api::models::PolicyType::AutotypeDefaultSetting => {
+                PolicyType::AutotypeDefaultSetting
+            }
         }
     }
 }

@@ -1,14 +1,14 @@
 use std::{borrow::Cow, str::FromStr};
 
-use bitwarden_encoding::{FromStrVisitor, B64};
+use bitwarden_encoding::{B64, FromStrVisitor};
 use coset::CborSerializable;
 use serde::Deserialize;
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
-    error::{CryptoError, EncStringParseError, Result, UnsupportedOperationError},
     Aes256CbcHmacKey, ContentFormat, KeyDecryptable, KeyEncryptable, KeyEncryptableWithContentType,
     SymmetricCryptoKey, Utf8Bytes, XChaCha20Poly1305Key,
+    error::{CryptoError, EncStringParseError, Result, UnsupportedOperationError},
 };
 
 #[cfg(feature = "wasm")]
@@ -360,8 +360,8 @@ mod tests {
 
     use super::EncString;
     use crate::{
-        derive_symmetric_key, CryptoError, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
-        KEY_ID_SIZE,
+        CryptoError, KEY_ID_SIZE, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
+        derive_symmetric_key,
     };
 
     fn encrypt_with_xchacha20(plaintext: &str) -> EncString {
@@ -512,11 +512,15 @@ mod tests {
         if let EncString::Aes256Cbc_B64 { iv, data } = &enc_string {
             assert_eq!(
                 iv,
-                &[164, 196, 186, 254, 39, 19, 64, 0, 109, 186, 92, 57, 218, 154, 182, 150]
+                &[
+                    164, 196, 186, 254, 39, 19, 64, 0, 109, 186, 92, 57, 218, 154, 182, 150
+                ]
             );
             assert_eq!(
                 data,
-                &[93, 118, 241, 43, 16, 211, 135, 233, 150, 136, 221, 71, 140, 125, 141, 215]
+                &[
+                    93, 118, 241, 43, 16, 211, 135, 233, 150, 136, 221, 71, 140, 125, 141, 215
+                ]
             );
         } else {
             panic!("Invalid variant")
@@ -568,7 +572,7 @@ mod tests {
 
     #[test]
     fn test_debug_format() {
-        let enc_str  = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
+        let enc_str = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
         let enc_string: EncString = enc_str.parse().unwrap();
 
         let debug_string = format!("{enc_string:?}");

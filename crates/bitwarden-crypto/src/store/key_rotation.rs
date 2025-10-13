@@ -49,8 +49,9 @@ pub fn dangerous_get_v2_rotated_account_keys<Ids: KeyIds>(
 mod tests {
     use super::*;
     use crate::{
-        traits::tests::TestIds, AsymmetricCryptoKey, KeyDecryptable, KeyStore,
-        Pkcs8PrivateKeyBytes, SigningKey,
+        AsymmetricCryptoKey, KeyDecryptable, KeyStore, Pkcs8PrivateKeyBytes,
+        PublicKeyEncryptionAlgorithm, SigningKey,
+        traits::tests::{TestAsymmKey, TestIds, TestSigningKey, TestSymmKey},
     };
 
     #[test]

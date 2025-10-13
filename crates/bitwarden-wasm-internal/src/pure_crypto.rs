@@ -304,6 +304,20 @@ impl PureCrypto {
         #[allow(deprecated)]
         dangerous_derive_kdf_material(password, salt, &kdf)
     }
+
+    pub fn decrypt_user_key_with_master_key(
+        encrypted_user_key: String,
+        master_key: Vec<u8>,
+    ) -> Result<Vec<u8>, CryptoError> {
+        let master_key = &BitwardenLegacyKeyBytes::from(master_key);
+        let master_key = &SymmetricCryptoKey::try_from(master_key)?;
+        let master_key = MasterKey::try_from(master_key)?;
+        let encrypted_user_key = EncString::from_str(&encrypted_user_key)?;
+        let result = master_key
+            .decrypt_user_key(encrypted_user_key)
+            .map_err(|_| CryptoError::InvalidKey)?;
+        Ok(result.to_encoded().to_vec())
+    }
 }
 
 #[cfg(test)]
@@ -645,5 +659,26 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         };
         let derived_key = PureCrypto::derive_kdf_material(password, email, kdf).unwrap();
         assert_eq!(derived_key, DERIVED_KDF_MATERIAL_ARGON2ID);
+    }
+
+    #[test]
+    fn test_decrypt_user_key_with_master_key() {
+        let password = "test_password";
+        let email = "test_email@example.com";
+        let kdf = &Kdf::Argon2id {
+            iterations: NonZero::try_from(3).unwrap(),
+            memory: NonZero::try_from(64).unwrap(),
+            parallelism: NonZero::try_from(4).unwrap(),
+        };
+        let master_key = MasterKey::derive(password, email, kdf).unwrap();
+        let (user_key, encrypted_user_key) = master_key.make_user_key().unwrap();
+        let master_key_bytes = master_key.to_base64().into_bytes();
+
+        let decrypted_user_key = PureCrypto::decrypt_user_key_with_master_key(
+            encrypted_user_key.to_string(),
+            master_key_bytes,
+        )
+        .unwrap();
+        assert_eq!(user_key.0.to_encoded().to_vec(), decrypted_user_key);
     }
 }

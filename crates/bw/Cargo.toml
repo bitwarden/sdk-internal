@@ -15,15 +15,25 @@ repository.workspace = true
 license-file.workspace = true
 
 [dependencies]
+base64 = ">=0.22.1, <0.23"
+bat = { version = "0.25.0", features = [
+    "regex-fancy",
+], default-features = false }
 bitwarden-cli = { workspace = true }
 bitwarden-core = { workspace = true }
 bitwarden-generators = { workspace = true }
+bitwarden-pm = { workspace = true }
 bitwarden-vault = { workspace = true }
 clap = { version = "4.5.4", features = ["derive", "env"] }
+clap_complete = "4.5.55"
 color-eyre = "0.6.3"
 env_logger = "0.11.1"
-inquire = "0.7.0"
+erased-serde = "0.4.6"
+inquire = "0.9.1"
 log = "0.4.20"
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = "0.9.33"
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [lints]

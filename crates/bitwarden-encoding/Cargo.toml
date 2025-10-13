@@ -15,11 +15,11 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-uniffi = ["dep:uniffi"]
+uniffi = ["dep:bitwarden-uniffi-error", "dep:uniffi"]
 wasm = ["dep:tsify", "dep:wasm-bindgen"]
 
 [dependencies]
-bitwarden-uniffi-error = { workspace = true }
+bitwarden-uniffi-error = { workspace = true, optional = true }
 data-encoding = { workspace = true }
 data-encoding-macro = "0.1.18"
 serde = { workspace = true }

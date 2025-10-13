@@ -150,8 +150,8 @@ macro_rules! key_ids {
 pub(crate) mod tests {
 
     use crate::{
-        traits::tests::{TestAsymmKey, TestSigningKey, TestSymmKey},
         KeyId, LocalId,
+        traits::tests::{TestAsymmKey, TestSigningKey, TestSymmKey},
     };
 
     #[test]

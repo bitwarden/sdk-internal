@@ -2,9 +2,9 @@ use bitwarden_crypto::{HashPurpose, MasterKey};
 use bitwarden_encoding::B64;
 
 use crate::{
-    auth::{password::determine_password_hash, AuthValidateError},
-    client::{LoginMethod, UserLoginMethod},
     Client, NotAuthenticatedError, WrongPasswordError,
+    auth::{AuthValidateError, password::determine_password_hash},
+    client::{LoginMethod, UserLoginMethod},
 };
 
 /// Validate if the provided password matches the password hash stored in the client.
