@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait MiscApi: Send + Sync {
     /// POST /bitpay-invoice
     async fn post_bit_pay_invoice<'a>(
@@ -45,7 +46,8 @@ impl MiscApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl MiscApi for MiscApiClient {
     async fn post_bit_pay_invoice<'a>(
         &self,

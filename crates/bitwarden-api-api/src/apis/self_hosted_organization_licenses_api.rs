@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait SelfHostedOrganizationLicensesApi: Send + Sync {
     /// POST /organizations/licenses/self-hosted
     async fn create_license<'a>(
@@ -56,7 +57,8 @@ impl SelfHostedOrganizationLicensesApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl SelfHostedOrganizationLicensesApi for SelfHostedOrganizationLicensesApiClient {
     async fn create_license<'a>(
         &self,

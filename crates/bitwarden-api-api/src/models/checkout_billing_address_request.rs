@@ -13,18 +13,18 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct TaxInformationDto {
+pub struct CheckoutBillingAddressRequest {
     #[serde(rename = "country")]
     pub country: String,
     #[serde(rename = "postalCode")]
     pub postal_code: String,
     #[serde(rename = "taxId", skip_serializing_if = "Option::is_none")]
-    pub tax_id: Option<String>,
+    pub tax_id: Option<Box<models::TaxIdRequest>>,
 }
 
-impl TaxInformationDto {
-    pub fn new(country: String, postal_code: String) -> TaxInformationDto {
-        TaxInformationDto {
+impl CheckoutBillingAddressRequest {
+    pub fn new(country: String, postal_code: String) -> CheckoutBillingAddressRequest {
+        CheckoutBillingAddressRequest {
             country,
             postal_code,
             tax_id: None,

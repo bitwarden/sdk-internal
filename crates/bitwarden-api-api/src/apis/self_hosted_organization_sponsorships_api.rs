@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait SelfHostedOrganizationSponsorshipsApi: Send + Sync {
     /// DELETE /organization/sponsorship/self-hosted/{sponsoringOrgId}/{sponsoredFriendlyName}/
     /// revoke
@@ -68,7 +69,8 @@ impl SelfHostedOrganizationSponsorshipsApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl SelfHostedOrganizationSponsorshipsApi for SelfHostedOrganizationSponsorshipsApiClient {
     async fn admin_initiated_revoke_sponsorship<'a>(
         &self,

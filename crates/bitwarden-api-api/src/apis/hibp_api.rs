@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait HibpApi: Send + Sync {
     /// GET /hibp/breach
     async fn get<'a>(&self, username: Option<&'a str>) -> Result<(), Error<GetError>>;
@@ -39,7 +40,8 @@ impl HibpApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl HibpApi for HibpApiClient {
     async fn get<'a>(&self, username: Option<&'a str>) -> Result<(), Error<GetError>> {
         let local_var_configuration = &self.configuration;

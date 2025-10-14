@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait CiphersApi: Send + Sync {
     /// POST /ciphers/attachment/validate/azure
     async fn azure_validate_file(&self) -> Result<(), Error<AzureValidateFileError>>;
@@ -108,6 +109,7 @@ pub trait CiphersApi: Send + Sync {
     async fn get_organization_ciphers<'a>(
         &self,
         organization_id: Option<uuid::Uuid>,
+        include_member_items: Option<bool>,
     ) -> Result<
         models::CipherMiniDetailsResponseModelListResponseModel,
         Error<GetOrganizationCiphersError>,
@@ -319,7 +321,8 @@ impl CiphersApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl CiphersApi for CiphersApiClient {
     async fn azure_validate_file(&self) -> Result<(), Error<AzureValidateFileError>> {
         let local_var_configuration = &self.configuration;
@@ -1094,6 +1097,7 @@ impl CiphersApi for CiphersApiClient {
     async fn get_organization_ciphers<'a>(
         &self,
         organization_id: Option<uuid::Uuid>,
+        include_member_items: Option<bool>,
     ) -> Result<
         models::CipherMiniDetailsResponseModelListResponseModel,
         Error<GetOrganizationCiphersError>,
@@ -1112,6 +1116,10 @@ impl CiphersApi for CiphersApiClient {
         if let Some(ref param_value) = organization_id {
             local_var_req_builder =
                 local_var_req_builder.query(&[("organizationId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = include_member_items {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("includeMemberItems", &param_value.to_string())]);
         }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
