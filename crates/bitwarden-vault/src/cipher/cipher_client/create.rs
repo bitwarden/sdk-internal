@@ -61,28 +61,14 @@ pub struct CipherCreateRequest {
 /// value. This allows us to manage the cipher key creation internally.
 #[derive(Clone, Debug)]
 struct CipherCreateRequestInternal {
-    organization_id: Option<OrganizationId>,
-    folder_id: Option<FolderId>,
-    name: String,
-    notes: Option<String>,
-    favorite: bool,
-    reprompt: CipherRepromptType,
-    r#type: CipherViewType,
-    fields: Vec<FieldView>,
+    create_request: CipherCreateRequest,
     key: Option<EncString>,
 }
 
 impl From<CipherCreateRequest> for CipherCreateRequestInternal {
-    fn from(req: CipherCreateRequest) -> Self {
+    fn from(create_request: CipherCreateRequest) -> Self {
         Self {
-            organization_id: req.organization_id,
-            folder_id: req.folder_id,
-            name: req.name,
-            notes: req.notes,
-            favorite: req.favorite,
-            reprompt: req.reprompt,
-            r#type: req.r#type,
-            fields: req.fields,
+            create_request,
             key: None,
         }
     }
@@ -101,7 +87,8 @@ impl CipherCreateRequestInternal {
         const NEW_KEY_ID: SymmetricKeyId = SymmetricKeyId::Local("new_cipher_key");
 
         let new_key = ctx.generate_symmetric_key(NEW_KEY_ID)?;
-        self.r#type
+        self.create_request
+            .r#type
             .as_login_view_mut()
             .map(|l| l.reencrypt_fido2_credentials(ctx, old_key, new_key))
             .transpose()?;
@@ -111,7 +98,7 @@ impl CipherCreateRequestInternal {
     }
 
     fn generate_checksums(&mut self) {
-        if let Some(login) = &mut self.r#type.as_login_view_mut() {
+        if let Some(login) = &mut self.create_request.r#type.as_login_view_mut() {
             login.generate_checksums();
         }
     }
@@ -133,20 +120,32 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
 
         let cipher_request = CipherRequestModel {
             encrypted_for: None,
-            r#type: Some(cipher_data.r#type.get_cipher_type().into()),
-            organization_id: cipher_data.organization_id.map(|id| id.to_string()),
-            folder_id: cipher_data.folder_id.map(|id| id.to_string()),
-            favorite: Some(cipher_data.favorite),
-            reprompt: Some(cipher_data.reprompt.into()),
+            r#type: Some(cipher_data.create_request.r#type.get_cipher_type().into()),
+            organization_id: cipher_data
+                .create_request
+                .organization_id
+                .map(|id| id.to_string()),
+            folder_id: cipher_data
+                .create_request
+                .folder_id
+                .map(|id| id.to_string()),
+            favorite: Some(cipher_data.create_request.favorite),
+            reprompt: Some(cipher_data.create_request.reprompt.into()),
             key: cipher_data.key.map(|k| k.to_string()),
-            name: cipher_data.name.encrypt(ctx, cipher_key)?.to_string(),
+            name: cipher_data
+                .create_request
+                .name
+                .encrypt(ctx, cipher_key)?
+                .to_string(),
             notes: cipher_data
+                .create_request
                 .notes
                 .as_ref()
                 .map(|n| n.encrypt(ctx, cipher_key))
                 .transpose()?
                 .map(|n| n.to_string()),
             login: cipher_data
+                .create_request
                 .r#type
                 .as_login_view()
                 .as_ref()
@@ -154,6 +153,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
                 .transpose()?
                 .map(|l| Box::new(l.into())),
             card: cipher_data
+                .create_request
                 .r#type
                 .as_card_view()
                 .as_ref()
@@ -161,6 +161,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
                 .transpose()?
                 .map(|c| Box::new(c.into())),
             identity: cipher_data
+                .create_request
                 .r#type
                 .as_identity_view()
                 .as_ref()
@@ -168,6 +169,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
                 .transpose()?
                 .map(|i| Box::new(i.into())),
             secure_note: cipher_data
+                .create_request
                 .r#type
                 .as_secure_note_view()
                 .as_ref()
@@ -175,6 +177,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
                 .transpose()?
                 .map(|s| Box::new(s.into())),
             ssh_key: cipher_data
+                .create_request
                 .r#type
                 .as_ssh_key_view()
                 .as_ref()
@@ -183,6 +186,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
                 .map(|s| Box::new(s.into())),
             fields: Some(
                 cipher_data
+                    .create_request
                     .fields
                     .iter()
                     .map(|f| f.encrypt_composite(ctx, cipher_key))
@@ -203,7 +207,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
 
 impl IdentifyKey<SymmetricKeyId> for CipherCreateRequestInternal {
     fn key_identifier(&self) -> SymmetricKeyId {
-        match self.organization_id {
+        match self.create_request.organization_id {
             Some(organization_id) => SymmetricKeyId::Organization(organization_id),
             None => SymmetricKeyId::User,
         }
