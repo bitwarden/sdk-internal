@@ -78,7 +78,7 @@ impl CipherRiskClient {
                         id: details.id,
                         password_strength: 0,
                         exposed_count: None,
-                        reuse_count: 0,
+                        reuse_count: None,
                     });
                 }
 
@@ -98,12 +98,12 @@ impl CipherRiskClient {
                     None
                 };
 
-                // Check reuse from provided map (default to 1 if not in map)
-                let reuse_count = password_map
-                    .as_ref()
-                    .and_then(|reuse_map| reuse_map.map.get(&details.password))
-                    .copied()
-                    .unwrap_or(1);
+                // Check reuse from provided map
+                let reuse_count = if let Some(map) = &password_map {
+                    map.map.get(&details.password).copied()
+                } else {
+                    None
+                };
 
                 Ok::<CipherRisk, CipherRiskError>(CipherRisk {
                     id: details.id,
@@ -459,7 +459,7 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].password_strength, 0);
         assert_eq!(results[0].exposed_count, None);
-        assert_eq!(results[0].reuse_count, 0);
+        assert_eq!(results[0].reuse_count, None);
     }
 
     #[tokio::test]
@@ -562,8 +562,8 @@ mod tests {
         );
 
         // Both passwords used once
-        assert_eq!(results[0].reuse_count, 1);
-        assert_eq!(results[1].reuse_count, 1);
+        assert_eq!(results[0].reuse_count, Some(1));
+        assert_eq!(results[1].reuse_count, Some(1));
 
         // HIBP not checked
         assert!(results[0].exposed_count.is_none());

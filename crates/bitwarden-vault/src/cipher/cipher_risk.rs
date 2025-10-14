@@ -61,8 +61,8 @@ pub struct CipherRisk {
     /// None if check_exposed was false in options.
     pub exposed_count: Option<u32>,
     /// Number of times this password appears in the provided password_map.
-    /// Minimum value is 1 (the cipher itself).
-    pub reuse_count: u32,
+    /// None if not found or if no password_map was provided.
+    pub reuse_count: Option<u32>,
 }
 
 #[cfg(feature = "wasm")]
