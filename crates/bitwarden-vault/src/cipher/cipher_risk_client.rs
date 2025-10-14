@@ -45,7 +45,7 @@ impl CipherRiskClient {
     /// For each cipher:
     /// 1. Calculates password strength (0-4) using zxcvbn with cipher-specific context
     /// 2. Optionally checks if the password has been exposed via Have I Been Pwned API
-    /// 3. Counts how many times the password is reused across the provided ciphers
+    /// 3. Counts how many times the password is reused in the provided `password_map`.
     ///
     /// Returns a vector of `CipherRisk` results, one for each input cipher.
     ///
@@ -72,6 +72,16 @@ impl CipherRiskClient {
                 .unwrap_or_else(|| HIBP_DEFAULT_BASE_URL.to_string());
 
             async move {
+                if details.password.is_empty() {
+                    // Skip empty passwords, return default risk values
+                    return Ok(CipherRisk {
+                        id: details.id,
+                        password_strength: 0,
+                        exposed_count: None,
+                        reuse_count: 0,
+                    });
+                }
+
                 let password_strength = Self::calculate_password_strength(
                     &details.password,
                     details.username.as_deref(),
@@ -419,6 +429,34 @@ mod tests {
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), CipherRiskError::Reqwest(_)));
+    }
+
+    #[tokio::test]
+    async fn test_compute_risk_skips_empty_passwords() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let risk_client = CipherRiskClient { client };
+
+        let login_details = vec![CipherLoginDetails {
+            id: None,
+            password: "".to_string(),
+            username: Some("user1".to_string()),
+        }];
+
+        let options = CipherRiskOptions {
+            password_map: None,
+            check_exposed: true, // Enable HIBP checking
+            hibp_base_url: None,
+        };
+
+        let result = risk_client.compute_risk(login_details, options).await;
+
+        // Verify that empty passwords are skipped
+        assert!(result.is_ok());
+        let results = result.unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].password_strength, 0);
+        assert_eq!(results[0].exposed_count, None);
+        assert_eq!(results[0].reuse_count, 0);
     }
 
     #[tokio::test]

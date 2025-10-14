@@ -60,7 +60,7 @@ pub struct CipherRisk {
     /// Number of times password appears in HIBP database.
     /// None if check_exposed was false in options.
     pub exposed_count: Option<u32>,
-    /// Number of times this password appears in the provided cipher list.
+    /// Number of times this password appears in the provided password_map.
     /// Minimum value is 1 (the cipher itself).
     pub reuse_count: u32,
 }
