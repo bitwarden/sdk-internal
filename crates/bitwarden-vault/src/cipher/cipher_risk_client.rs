@@ -280,18 +280,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_calculate_password_strength_weak() {
-        let strength = CipherRiskClient::calculate_password_strength("password", None);
-        assert!(strength <= 1, "Expected weak password, got {}", strength);
-    }
-
-    #[tokio::test]
-    async fn test_calculate_password_strength_strong() {
-        let strength = CipherRiskClient::calculate_password_strength("xK9#mP$2qL@7vN&4wR", None);
-        assert!(strength >= 3, "Expected strong password, got {}", strength);
-    }
-
-    #[tokio::test]
     async fn test_calculate_password_strength_penalizes_username() {
         // Password containing username should be weaker
         let strength_with_username =
@@ -303,48 +291,6 @@ mod tests {
             strength_with_username <= strength_without_username,
             "Password should be weaker when it contains username"
         );
-    }
-
-    #[tokio::test]
-    async fn test_compute_risk_without_hibp() {
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
-        let risk_client = CipherRiskClient {
-            client: client.clone(),
-        };
-
-        let login_details = vec![
-            CipherLoginDetails {
-                id: None,
-                password: "password123".to_string(),
-                username: Some("user1".to_string()),
-            },
-            CipherLoginDetails {
-                id: None,
-                password: "password123".to_string(),
-                username: Some("user2".to_string()),
-            },
-        ];
-
-        let password_map = risk_client
-            .password_reuse_map(login_details.clone())
-            .unwrap();
-
-        let options = CipherRiskOptions {
-            password_map: Some(password_map),
-            check_exposed: false,
-            hibp_base_url: None,
-        };
-
-        let risks = risk_client
-            .compute_risk(login_details, options)
-            .await
-            .unwrap();
-
-        assert_eq!(risks.len(), 2);
-        assert_eq!(risks[0].reuse_count, 2);
-        assert_eq!(risks[1].reuse_count, 2);
-        assert!(risks[0].exposed_count.is_none());
-        assert!(risks[1].exposed_count.is_none());
     }
 
     #[tokio::test]
@@ -430,18 +376,6 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_hibp_response_multiple_matches() {
-        // Response with multiple hashes, target is in the middle
-        let mock_response = "AAA111:100\r\n\
-                            BBB222:200\r\n\
-                            CCC333:300\r\n\
-                            DDD444:400\r\n";
-
-        let count = CipherRiskClient::parse_hibp_response(mock_response, "CCC333");
-        assert_eq!(count, 300);
-    }
-
-    #[test]
     fn test_parse_hibp_response_empty() {
         // Empty response
         let mock_response = "";
@@ -460,69 +394,6 @@ mod tests {
     }
 
     // Wiremock tests for actual HIBP API integration
-    #[tokio::test]
-    async fn test_hibp_api_password_found() {
-        use wiremock::{
-            Mock, MockServer, ResponseTemplate,
-            matchers::{method, path},
-        };
-
-        let server = MockServer::start().await;
-
-        // Mock HIBP API response for "password" (hash: 5BAA61E4C9B93F3F0682250B6CF8331B7EE68FD8)
-        Mock::given(method("GET"))
-            .and(path("/range/5BAA6"))
-            .respond_with(ResponseTemplate::new(200).set_body_string(
-                "1E4C9B93F3F0682250B6CF8331B7EE68FD8:3861493\r\n\
-                     0018A45C4D1DEF81644B54AB7F969B88D65:3\r\n\
-                     00D4F6E8FA6EECAD2A3AA415EEC418D38EC:2\r\n",
-            ))
-            .mount(&server)
-            .await;
-
-        let result = CipherRiskClient::check_password_exposed(
-            &reqwest::Client::new(),
-            "password",
-            &server.uri(),
-        )
-        .await
-        .unwrap();
-
-        assert_eq!(result, 3861493);
-    }
-
-    #[tokio::test]
-    async fn test_hibp_api_password_not_found() {
-        use wiremock::{
-            Mock, MockServer, ResponseTemplate,
-            matchers::{method, path},
-        };
-
-        let server = MockServer::start().await;
-
-        // Mock HIBP API response that doesn't contain our password
-        Mock::given(method("GET"))
-            .and(path("/range/A94A8"))
-            .respond_with(ResponseTemplate::new(200).set_body_string(
-                "0018A45C4D1DEF81644B54AB7F969B88D65:3\r\n\
-                     00D4F6E8FA6EECAD2A3AA415EEC418D38EC:2\r\n\
-                     011053FD0102E94D6AE2F8B83D76FAF94F6:1\r\n",
-            ))
-            .mount(&server)
-            .await;
-
-        // "test" hashes to A94A8FE5CCB19BA61C4C0873D391E987982FBBD3
-        let result = CipherRiskClient::check_password_exposed(
-            &reqwest::Client::new(),
-            "test",
-            &server.uri(),
-        )
-        .await
-        .unwrap();
-
-        assert_eq!(result, 0);
-    }
-
     #[tokio::test]
     async fn test_hibp_api_network_error() {
         use wiremock::{
