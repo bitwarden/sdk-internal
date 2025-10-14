@@ -78,13 +78,6 @@ pub trait OrganizationBillingApi: Send + Sync {
         start_after: Option<String>,
     ) -> Result<(), Error<GetTransactionsError>>;
 
-    /// POST /organizations/{organizationId}/billing/restart-subscription
-    async fn restart_subscription<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-        organization_create_request_model: Option<models::OrganizationCreateRequestModel>,
-    ) -> Result<(), Error<RestartSubscriptionError>>;
-
     /// POST /organizations/{organizationId}/billing/setup-business-unit
     async fn setup_business_unit<'a>(
         &self,
@@ -496,52 +489,6 @@ impl OrganizationBillingApi for OrganizationBillingApiClient {
         }
     }
 
-    async fn restart_subscription<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-        organization_create_request_model: Option<models::OrganizationCreateRequestModel>,
-    ) -> Result<(), Error<RestartSubscriptionError>> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/organizations/{organizationId}/billing/restart-subscription",
-            local_var_configuration.base_path,
-            organizationId = organization_id
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
-
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
-        local_var_req_builder = local_var_req_builder.json(&organization_create_request_model);
-
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<RestartSubscriptionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
-    }
-
     async fn setup_business_unit<'a>(
         &self,
         organization_id: uuid::Uuid,
@@ -773,12 +720,6 @@ pub enum GetTaxInformationError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum GetTransactionsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingApi::restart_subscription`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RestartSubscriptionError {
     UnknownValue(serde_json::Value),
 }
 /// struct for typed errors of method [`OrganizationBillingApi::setup_business_unit`]

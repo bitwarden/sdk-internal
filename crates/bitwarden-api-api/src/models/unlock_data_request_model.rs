@@ -15,7 +15,7 @@ use crate::models;
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UnlockDataRequestModel {
     #[serde(rename = "masterPasswordUnlockData")]
-    pub master_password_unlock_data: Box<models::MasterPasswordUnlockDataModel>,
+    pub master_password_unlock_data: Box<models::MasterPasswordUnlockAndAuthenticationDataModel>,
     #[serde(rename = "emergencyAccessUnlockData")]
     pub emergency_access_unlock_data: Option<Vec<models::EmergencyAccessWithIdRequestModel>>,
     #[serde(rename = "organizationAccountRecoveryUnlockData")]
@@ -29,7 +29,7 @@ pub struct UnlockDataRequestModel {
 
 impl UnlockDataRequestModel {
     pub fn new(
-        master_password_unlock_data: models::MasterPasswordUnlockDataModel,
+        master_password_unlock_data: models::MasterPasswordUnlockAndAuthenticationDataModel,
         emergency_access_unlock_data: Option<Vec<models::EmergencyAccessWithIdRequestModel>>,
         organization_account_recovery_unlock_data: Option<
             Vec<models::ResetPasswordWithOrgIdRequestModel>,

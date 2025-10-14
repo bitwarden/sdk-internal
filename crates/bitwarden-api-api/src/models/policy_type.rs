@@ -35,6 +35,7 @@ pub enum PolicyType {
     RemoveUnlockWithPin = 14,
     RestrictedItemTypesPolicy = 15,
     UriMatchDefaults = 16,
+    AutotypeDefaultSetting = 17,
 }
 
 impl std::fmt::Display for PolicyType {
@@ -60,6 +61,7 @@ impl std::fmt::Display for PolicyType {
                 Self::RemoveUnlockWithPin => "14",
                 Self::RestrictedItemTypesPolicy => "15",
                 Self::UriMatchDefaults => "16",
+                Self::AutotypeDefaultSetting => "17",
             }
         )
     }
