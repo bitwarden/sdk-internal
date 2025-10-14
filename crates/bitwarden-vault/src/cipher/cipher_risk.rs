@@ -58,8 +58,10 @@ pub struct CipherRisk {
     /// Calculated using zxcvbn with cipher-specific context.
     pub password_strength: u8,
     /// Number of times password appears in HIBP database.
-    /// None if check_exposed was false in options.
-    pub exposed_count: Option<u32>,
+    /// - `None`: check_exposed was false, or password was empty
+    /// - `Some(Ok(n))`: Successfully checked, found n breaches
+    /// - `Some(Err(msg))`: HIBP API request failed for this cipher with the given error message
+    pub exposed_count: Option<Result<u32, String>>,
     /// Number of times this password appears in the provided password_map.
     /// None if not found or if no password_map was provided.
     pub reuse_count: Option<u32>,

@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use bitwarden_core::Client;
-use futures::{StreamExt, TryStreamExt, stream};
+use futures::{StreamExt, stream};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -49,11 +49,15 @@ impl CipherRiskClient {
     ///
     /// Returns a vector of `CipherRisk` results, one for each input cipher.
     ///
+    /// Individual HIBP API errors are captured per-cipher in `exposed_count` as
+    /// `Some(Err(msg))` where `msg` is the error message string. This allows the operation
+    /// to continue even if some API requests fail, ensuring that one bad request doesn't
+    /// cancel processing of other ciphers.
+    ///
     /// # Errors
     ///
-    /// Returns `CipherRiskError::Reqwest` if HIBP API requests fail when `check_exposed` is
-    /// enabled. Network errors include timeouts, connection failures, HTTP errors, or rate
-    /// limiting. On error, the entire operation fails - no partial results are returned.
+    /// This method only returns an error for internal logic failures. HIBP API errors are
+    /// captured per-cipher in the `exposed_count` field as `Some(Err(String))`.
     pub async fn compute_risk(
         &self,
         login_details: Vec<CipherLoginDetails>,
@@ -74,12 +78,12 @@ impl CipherRiskClient {
             async move {
                 if details.password.is_empty() {
                     // Skip empty passwords, return default risk values
-                    return Ok(CipherRisk {
+                    return CipherRisk {
                         id: details.id,
                         password_strength: 0,
                         exposed_count: None,
                         reuse_count: None,
-                    });
+                    };
                 }
 
                 let password_strength = Self::calculate_password_strength(
@@ -88,11 +92,12 @@ impl CipherRiskClient {
                 );
 
                 // Check exposure via HIBP API if enabled
-                // Network errors now propagate up instead of being silently ignored
+                // Capture errors per-cipher instead of propagating them
                 let exposed_count = if options.check_exposed {
                     Some(
                         Self::check_password_exposed(&http_client, &details.password, &base_url)
-                            .await?,
+                            .await
+                            .map_err(|e| e.to_string()),
                     )
                 } else {
                     None
@@ -105,20 +110,22 @@ impl CipherRiskClient {
                     None
                 };
 
-                Ok::<CipherRisk, CipherRiskError>(CipherRisk {
+                CipherRisk {
                     id: details.id,
                     password_strength,
                     exposed_count,
                     reuse_count,
-                })
+                }
             }
         });
 
-        // Process up to MAX_CONCURRENT_REQUESTS futures concurrently, fail fast on first error
+        // Process up to MAX_CONCURRENT_REQUESTS futures concurrently
+        // Individual HIBP errors are captured per-cipher, so we use collect() instead of
+        // try_collect()
         let results: Vec<CipherRisk> = stream::iter(futures)
             .buffer_unordered(MAX_CONCURRENT_REQUESTS)
-            .try_collect()
-            .await?;
+            .collect()
+            .await;
 
         Ok(results)
     }
@@ -453,7 +460,7 @@ mod tests {
 
         let result = risk_client.compute_risk(login_details, options).await;
 
-        // Verify that empty passwords are skipped
+        // Verify that empty passwords are skipped (no HIBP check performed)
         assert!(result.is_ok());
         let results = result.unwrap();
         assert_eq!(results.len(), 1);
@@ -463,9 +470,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_compute_risk_propagates_network_errors() {
-        // Test that network errors from HIBP API are properly propagated
-        // instead of being silently swallowed
+    async fn test_compute_risk_captures_network_errors_per_cipher() {
+        // Test that network errors from HIBP API are captured per-cipher
+        // instead of canceling the entire batch
         use wiremock::{
             Mock, MockServer, ResponseTemplate,
             matchers::{method, path_regex},
@@ -497,13 +504,110 @@ mod tests {
 
         let result = risk_client.compute_risk(login_details, options).await;
 
-        // Verify error is propagated, not swallowed
-        assert!(result.is_err());
-        let err = result.unwrap_err();
+        // Verify operation succeeds but error is captured per-cipher
+        assert!(result.is_ok());
+        let results = result.unwrap();
+        assert_eq!(results.len(), 1);
+
+        // The exposed_count should be Some(Err(...))
+        assert!(results[0].exposed_count.is_some());
+        let exposed_result = results[0].exposed_count.as_ref().unwrap();
         assert!(
-            matches!(err, CipherRiskError::Reqwest(_)),
-            "Expected CipherRiskError::Reqwest, got {:?}",
-            err
+            exposed_result.is_err(),
+            "Expected Err, but got Ok for exposed_count"
+        );
+
+        // Verify the error message is present
+        if let Err(err_msg) = exposed_result {
+            assert!(!err_msg.is_empty(), "Error message should not be empty");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_compute_risk_partial_failures() {
+        // Test that when some HIBP checks succeed and others fail,
+        // all results are returned with appropriate success/error states
+        use wiremock::{
+            Mock, MockServer, ResponseTemplate,
+            matchers::{method, path},
+        };
+
+        let server = MockServer::start().await;
+
+        // Hash prefix for "password1": E38AD (SHA1: E38AD214943DAAD1D64C102FAEC29DE4AFE9DA3D)
+        // Hash prefix for "password2": 2AA60 (SHA1: 2AA60A8FF7FCD473D321E0146AFD9E26DF395147)
+
+        // Mock success for password1's hash prefix - return the suffix for password1
+        Mock::given(method("GET"))
+            .and(path("/range/E38AD"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string("214943DAAD1D64C102FAEC29DE4AFE9DA3D:5\r\n"),
+            )
+            .mount(&server)
+            .await;
+
+        // Mock failure for password2's hash prefix
+        Mock::given(method("GET"))
+            .and(path("/range/2AA60"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&server)
+            .await;
+
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let risk_client = CipherRiskClient { client };
+
+        let login_details = vec![
+            CipherLoginDetails {
+                id: None,
+                password: "password1".to_string(),
+                username: Some("user1".to_string()),
+            },
+            CipherLoginDetails {
+                id: None,
+                password: "password2".to_string(),
+                username: Some("user2".to_string()),
+            },
+        ];
+
+        let options = CipherRiskOptions {
+            password_map: None,
+            check_exposed: true,
+            hibp_base_url: Some(server.uri()),
+        };
+
+        let result = risk_client.compute_risk(login_details, options).await;
+
+        // Operation should succeed
+        assert!(result.is_ok());
+        let results = result.unwrap();
+        assert_eq!(results.len(), 2);
+
+        // Both should have exposed_count populated (one success, one error)
+        assert!(results[0].exposed_count.is_some());
+        assert!(results[1].exposed_count.is_some());
+
+        // Count successes and failures
+        let mut success_count = 0;
+        let mut error_count = 0;
+
+        for result in &results {
+            match result.exposed_count.as_ref().unwrap() {
+                Ok(_) => success_count += 1,
+                Err(_) => error_count += 1,
+            }
+        }
+
+        // We should have exactly one success and one failure
+        assert_eq!(
+            success_count, 1,
+            "Expected 1 successful HIBP check, got {}",
+            success_count
+        );
+        assert_eq!(
+            error_count, 1,
+            "Expected 1 failed HIBP check, got {}",
+            error_count
         );
     }
 
@@ -634,9 +738,18 @@ mod tests {
         // Verify all results were returned
         assert_eq!(results.len(), 5);
 
-        // Verify all passwords were checked
+        // Verify all passwords were checked successfully
         for result in &results {
-            assert!(result.exposed_count.is_some());
+            assert!(
+                result.exposed_count.is_some(),
+                "exposed_count should be Some for checked passwords"
+            );
+            let exposed_result = result.exposed_count.as_ref().unwrap();
+            assert!(
+                exposed_result.is_ok(),
+                "HIBP check should succeed, got error: {:?}",
+                exposed_result
+            );
         }
 
         // Prove concurrency by analyzing request arrival times
