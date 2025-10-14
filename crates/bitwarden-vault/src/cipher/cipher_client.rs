@@ -1,14 +1,20 @@
-use bitwarden_core::{Client, OrganizationId, key_management::SymmetricKeyId};
-use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, SymmetricCryptoKey};
+#[cfg(feature = "wasm")]
+use bitwarden_core::key_management::SymmetricKeyId;
+use bitwarden_core::{Client, OrganizationId};
+use bitwarden_crypto::IdentifyKey;
+#[cfg(feature = "wasm")]
+use bitwarden_crypto::{CompositeEncryptable, SymmetricCryptoKey};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
+#[cfg(feature = "wasm")]
+use crate::Fido2CredentialFullView;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
-    Fido2CredentialFullView, cipher::cipher::DecryptCipherListResult,
+    cipher::cipher::DecryptCipherListResult,
 };
 
 #[allow(missing_docs)]

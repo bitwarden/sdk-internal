@@ -33,4 +33,6 @@ pub use kdf::{
     default_pbkdf2_iterations,
 };
 pub(crate) use key_id::{KEY_ID_SIZE, KeyId};
+mod prf;
 pub(crate) mod utils;
+pub use prf::derive_symmetric_key_from_prf;

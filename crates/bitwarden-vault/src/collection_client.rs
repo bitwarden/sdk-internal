@@ -5,6 +5,7 @@ use bitwarden_collections::{
     tree::{NodeItem, Tree},
 };
 use bitwarden_core::Client;
+#[cfg(feature = "wasm")]
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
