@@ -19,7 +19,7 @@ uniffi = ["dep:uniffi"] # Uniffi bindings
 wasm = [
     "bitwarden-core/wasm",
     "dep:tsify",
-    "dep:wasm-bindgen"
+    "dep:wasm-bindgen",
 ] # WebAssembly bindings
 
 [dependencies]
