@@ -6,6 +6,20 @@ use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 use crate::CipherId;
 
+/// Result of checking password exposure via HIBP API.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[serde(tag = "type", content = "value")]
+pub enum ExposedPasswordResult {
+    /// Password exposure check was not performed (check_exposed was false or password was empty)
+    NotChecked,
+    /// Successfully checked, found in this many breaches
+    Found(u32),
+    /// HIBP API request failed with error message
+    Error(String),
+}
+
 /// Login cipher data needed for risk evaluation.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -57,11 +71,11 @@ pub struct CipherRisk {
     /// Password strength score from 0 (weakest) to 4 (strongest).
     /// Calculated using zxcvbn with cipher-specific context.
     pub password_strength: u8,
-    /// Number of times password appears in HIBP database.
-    /// - `None`: check_exposed was false, or password was empty
-    /// - `Some(Ok(n))`: Successfully checked, found n breaches
-    /// - `Some(Err(msg))`: HIBP API request failed for this cipher with the given error message
-    pub exposed_count: Option<Result<u32, String>>,
+    /// Result of checking password exposure via HIBP API.
+    /// - `NotChecked`: check_exposed was false, or password was empty
+    /// - `Found(n)`: Successfully checked, found in n breaches
+    /// - `Error(msg)`: HIBP API request failed for this cipher with the given error message
+    pub exposed_result: ExposedPasswordResult,
     /// Number of times this password appears in the provided password_map.
     /// None if not found or if no password_map was provided.
     pub reuse_count: Option<u32>,

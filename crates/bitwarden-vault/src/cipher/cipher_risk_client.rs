@@ -5,7 +5,9 @@ use futures::{StreamExt, stream};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use super::cipher_risk::{CipherLoginDetails, CipherRisk, CipherRiskOptions, PasswordReuseMap};
+use super::cipher_risk::{
+    CipherLoginDetails, CipherRisk, CipherRiskOptions, ExposedPasswordResult, PasswordReuseMap,
+};
 use crate::CipherRiskError;
 
 /// Default base URL for the Have I Been Pwned (HIBP) Pwned Passwords API.
@@ -45,19 +47,23 @@ impl CipherRiskClient {
     /// For each cipher:
     /// 1. Calculates password strength (0-4) using zxcvbn with cipher-specific context
     /// 2. Optionally checks if the password has been exposed via Have I Been Pwned API
-    /// 3. Counts how many times the password is reused in the provided `password_map`.
+    /// 3. Counts how many times the password is reused in the provided `password_map`
     ///
     /// Returns a vector of `CipherRisk` results, one for each input cipher.
     ///
-    /// Individual HIBP API errors are captured per-cipher in `exposed_count` as
-    /// `Some(Err(msg))` where `msg` is the error message string. This allows the operation
-    /// to continue even if some API requests fail, ensuring that one bad request doesn't
-    /// cancel processing of other ciphers.
+    /// ## HIBP Check Results (`exposed_result` field)
+    ///
+    /// The `exposed_result` field uses the `ExposedPasswordResult` enum with three possible states:
+    /// - `NotChecked`: Password exposure check was not performed because:
+    ///   - `check_exposed` option was `false`, or
+    ///   - Password was empty
+    /// - `Found(n)`: Successfully checked via HIBP API, password appears in `n` data breaches
+    /// - `Error(msg)`: HIBP API request failed with error message `msg`
     ///
     /// # Errors
     ///
-    /// This method only returns an error for internal logic failures. HIBP API errors are
-    /// captured per-cipher in the `exposed_count` field as `Some(Err(String))`.
+    /// This method only returns `Err` for internal logic failures. HIBP API errors are
+    /// captured per-cipher in the `exposed_result` field as `ExposedPasswordResult::Error(msg)`.
     pub async fn compute_risk(
         &self,
         login_details: Vec<CipherLoginDetails>,
@@ -81,7 +87,7 @@ impl CipherRiskClient {
                     return CipherRisk {
                         id: details.id,
                         password_strength: 0,
-                        exposed_count: None,
+                        exposed_result: ExposedPasswordResult::NotChecked,
                         reuse_count: None,
                     };
                 }
@@ -93,14 +99,15 @@ impl CipherRiskClient {
 
                 // Check exposure via HIBP API if enabled
                 // Capture errors per-cipher instead of propagating them
-                let exposed_count = if options.check_exposed {
-                    Some(
-                        Self::check_password_exposed(&http_client, &details.password, &base_url)
-                            .await
-                            .map_err(|e| e.to_string()),
-                    )
+                let exposed_result = if options.check_exposed {
+                    match Self::check_password_exposed(&http_client, &details.password, &base_url)
+                        .await
+                    {
+                        Ok(count) => ExposedPasswordResult::Found(count),
+                        Err(e) => ExposedPasswordResult::Error(e.to_string()),
+                    }
                 } else {
-                    None
+                    ExposedPasswordResult::NotChecked
                 };
 
                 // Check reuse from provided map
@@ -113,7 +120,7 @@ impl CipherRiskClient {
                 CipherRisk {
                     id: details.id,
                     password_strength,
-                    exposed_count,
+                    exposed_result,
                     reuse_count,
                 }
             }
@@ -465,7 +472,7 @@ mod tests {
         let results = result.unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].password_strength, 0);
-        assert_eq!(results[0].exposed_count, None);
+        assert_eq!(results[0].exposed_result, ExposedPasswordResult::NotChecked);
         assert_eq!(results[0].reuse_count, None);
     }
 
@@ -509,17 +516,17 @@ mod tests {
         let results = result.unwrap();
         assert_eq!(results.len(), 1);
 
-        // The exposed_count should be Some(Err(...))
-        assert!(results[0].exposed_count.is_some());
-        let exposed_result = results[0].exposed_count.as_ref().unwrap();
-        assert!(
-            exposed_result.is_err(),
-            "Expected Err, but got Ok for exposed_count"
-        );
-
-        // Verify the error message is present
-        if let Err(err_msg) = exposed_result {
-            assert!(!err_msg.is_empty(), "Error message should not be empty");
+        // The exposed_result should be Error(...)
+        match &results[0].exposed_result {
+            ExposedPasswordResult::Error(msg) => {
+                assert!(!msg.is_empty(), "Error message should not be empty");
+            }
+            ExposedPasswordResult::Found(_) => {
+                panic!("Expected Error variant, but got Found");
+            }
+            ExposedPasswordResult::NotChecked => {
+                panic!("Expected Error variant, but got NotChecked");
+            }
         }
     }
 
@@ -583,18 +590,17 @@ mod tests {
         let results = result.unwrap();
         assert_eq!(results.len(), 2);
 
-        // Both should have exposed_count populated (one success, one error)
-        assert!(results[0].exposed_count.is_some());
-        assert!(results[1].exposed_count.is_some());
-
         // Count successes and failures
         let mut success_count = 0;
         let mut error_count = 0;
 
         for result in &results {
-            match result.exposed_count.as_ref().unwrap() {
-                Ok(_) => success_count += 1,
-                Err(_) => error_count += 1,
+            match &result.exposed_result {
+                ExposedPasswordResult::Found(_) => success_count += 1,
+                ExposedPasswordResult::Error(_) => error_count += 1,
+                ExposedPasswordResult::NotChecked => {
+                    panic!("Expected Found or Error, but got NotChecked")
+                }
             }
         }
 
@@ -670,8 +676,8 @@ mod tests {
         assert_eq!(results[1].reuse_count, Some(1));
 
         // HIBP not checked
-        assert!(results[0].exposed_count.is_none());
-        assert!(results[1].exposed_count.is_none());
+        assert_eq!(results[0].exposed_result, ExposedPasswordResult::NotChecked);
+        assert_eq!(results[1].exposed_result, ExposedPasswordResult::NotChecked);
     }
 
     #[tokio::test]
@@ -740,16 +746,17 @@ mod tests {
 
         // Verify all passwords were checked successfully
         for result in &results {
-            assert!(
-                result.exposed_count.is_some(),
-                "exposed_count should be Some for checked passwords"
-            );
-            let exposed_result = result.exposed_count.as_ref().unwrap();
-            assert!(
-                exposed_result.is_ok(),
-                "HIBP check should succeed, got error: {:?}",
-                exposed_result
-            );
+            match &result.exposed_result {
+                ExposedPasswordResult::Found(_) => {
+                    // Success - password was checked
+                }
+                ExposedPasswordResult::Error(err) => {
+                    panic!("HIBP check should succeed, got error: {}", err);
+                }
+                ExposedPasswordResult::NotChecked => {
+                    panic!("All passwords should be checked when check_exposed=true");
+                }
+            }
         }
 
         // Prove concurrency by analyzing request arrival times
