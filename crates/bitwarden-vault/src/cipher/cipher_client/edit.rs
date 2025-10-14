@@ -104,34 +104,14 @@ impl TryFrom<CipherView> for CipherEditRequest {
 /// value. This allows us to calculate password history safely, without risking misuse.
 #[derive(Clone, Debug)]
 struct CipherEditRequestInternal {
-    organization_id: Option<OrganizationId>,
-    folder_id: Option<FolderId>,
-    favorite: bool,
-    reprompt: CipherRepromptType,
-    name: String,
-    notes: Option<String>,
-    fields: Vec<FieldView>,
-    r#type: CipherViewType,
-    revision_date: DateTime<Utc>,
-    archived_date: Option<DateTime<Utc>>,
+    edit_request: CipherEditRequest,
     password_history: Vec<PasswordHistoryView>,
-    key: Option<EncString>,
 }
 
 impl CipherEditRequestInternal {
-    fn new(req: CipherEditRequest, orig_cipher: &CipherView) -> Self {
+    fn new(edit_request: CipherEditRequest, orig_cipher: &CipherView) -> Self {
         let mut internal_req = Self {
-            organization_id: req.organization_id,
-            folder_id: req.folder_id,
-            favorite: req.favorite,
-            reprompt: req.reprompt,
-            name: req.name,
-            notes: req.notes,
-            fields: req.fields,
-            r#type: req.r#type,
-            revision_date: req.revision_date,
-            archived_date: req.archived_date,
-            key: req.key,
+            edit_request,
             password_history: vec![],
         };
         internal_req.update_password_history(orig_cipher);
@@ -157,7 +137,7 @@ impl CipherEditRequestInternal {
         &mut self,
         original_cipher: &CipherView,
     ) -> Vec<PasswordHistoryView> {
-        if !matches!(self.r#type, CipherViewType::Login(_))
+        if !matches!(self.edit_request.r#type, CipherViewType::Login(_))
             || original_cipher.r#type != CipherType::Login
         {
             return vec![];
@@ -165,7 +145,7 @@ impl CipherEditRequestInternal {
 
         let (Some(original_login), Some(current_login)) = (
             original_cipher.login.as_ref(),
-            self.r#type.as_login_view_mut(),
+            self.edit_request.r#type.as_login_view_mut(),
         ) else {
             return vec![];
         };
@@ -196,7 +176,7 @@ impl CipherEditRequestInternal {
     ) -> Vec<PasswordHistoryView> {
         let original_fields =
             Self::extract_hidden_fields(original_cipher.fields.as_deref().unwrap_or_default());
-        let current_fields = Self::extract_hidden_fields(&self.fields);
+        let current_fields = Self::extract_hidden_fields(&self.edit_request.fields);
 
         original_fields
             .into_iter()
@@ -226,7 +206,7 @@ impl CipherEditRequestInternal {
     }
 
     fn generate_checksums(&mut self) {
-        if let Some(login) = &mut self.r#type.as_login_view_mut() {
+        if let Some(login) = &mut self.edit_request.r#type.as_login_view_mut() {
             login.generate_checksums();
         }
     }
@@ -243,18 +223,26 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
         let mut cipher_data = (*self).clone();
         cipher_data.generate_checksums();
 
-        let cipher_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+        let cipher_key = Cipher::decrypt_cipher_key(ctx, key, &self.edit_request.key)?;
 
         let cipher_request = CipherRequestModel {
             encrypted_for: None,
-            r#type: Some(cipher_data.r#type.get_cipher_type().into()),
-            organization_id: cipher_data.organization_id.map(|id| id.to_string()),
-            folder_id: cipher_data.folder_id.map(|id| id.to_string()),
-            favorite: Some(cipher_data.favorite),
-            reprompt: Some(cipher_data.reprompt.into()),
-            key: cipher_data.key.map(|k| k.to_string()),
-            name: cipher_data.name.encrypt(ctx, cipher_key)?.to_string(),
+            r#type: Some(cipher_data.edit_request.r#type.get_cipher_type().into()),
+            organization_id: cipher_data
+                .edit_request
+                .organization_id
+                .map(|id| id.to_string()),
+            folder_id: cipher_data.edit_request.folder_id.map(|id| id.to_string()),
+            favorite: Some(cipher_data.edit_request.favorite),
+            reprompt: Some(cipher_data.edit_request.reprompt.into()),
+            key: cipher_data.edit_request.key.map(|k| k.to_string()),
+            name: cipher_data
+                .edit_request
+                .name
+                .encrypt(ctx, cipher_key)?
+                .to_string(),
             notes: cipher_data
+                .edit_request
                 .notes
                 .as_ref()
                 .map(|n| n.encrypt(ctx, cipher_key))
@@ -262,6 +250,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
                 .map(|n| n.to_string()),
             fields: Some(
                 cipher_data
+                    .edit_request
                     .fields
                     .encrypt_composite(ctx, cipher_key)?
                     .into_iter()
@@ -279,18 +268,21 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
             attachments: None,
             attachments2: None,
             login: cipher_data
+                .edit_request
                 .r#type
                 .as_login_view()
                 .map(|l| l.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|l| Box::new(l.into())),
             card: cipher_data
+                .edit_request
                 .r#type
                 .as_card_view()
                 .map(|c| c.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|c| Box::new(c.into())),
             identity: cipher_data
+                .edit_request
                 .r#type
                 .as_identity_view()
                 .map(|i| i.encrypt_composite(ctx, cipher_key))
@@ -298,20 +290,25 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
                 .map(|c| Box::new(c.into())),
 
             secure_note: cipher_data
+                .edit_request
                 .r#type
                 .as_secure_note_view()
                 .map(|i| i.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|c| Box::new(c.into())),
             ssh_key: cipher_data
+                .edit_request
                 .r#type
                 .as_ssh_key_view()
                 .map(|i| i.encrypt_composite(ctx, cipher_key))
                 .transpose()?
                 .map(|c| Box::new(c.into())),
 
-            last_known_revision_date: Some(cipher_data.revision_date.to_rfc3339()),
-            archived_date: cipher_data.archived_date.map(|d| d.to_rfc3339()),
+            last_known_revision_date: Some(cipher_data.edit_request.revision_date.to_rfc3339()),
+            archived_date: cipher_data
+                .edit_request
+                .archived_date
+                .map(|d| d.to_rfc3339()),
             data: None,
         };
 
@@ -321,7 +318,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
 
 impl IdentifyKey<SymmetricKeyId> for CipherEditRequestInternal {
     fn key_identifier(&self) -> SymmetricKeyId {
-        match self.organization_id {
+        match self.edit_request.organization_id {
             Some(organization_id) => SymmetricKeyId::Organization(organization_id),
             None => SymmetricKeyId::User,
         }
