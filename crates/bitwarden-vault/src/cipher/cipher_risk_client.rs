@@ -219,10 +219,13 @@ impl CipherRiskClient {
         let response = http_client
             .get(&url)
             .send()
-            .await?
-            .error_for_status()?
+            .await
+            .map_err(|e| e.without_url())?
+            .error_for_status()
+            .map_err(|e| e.without_url())?
             .text()
-            .await?;
+            .await
+            .map_err(|e| e.without_url())?;
 
         Ok(Self::parse_hibp_response(&response, &suffix))
     }
