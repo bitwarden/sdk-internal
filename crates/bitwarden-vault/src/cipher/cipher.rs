@@ -30,8 +30,8 @@ use super::{
     secure_note, ssh_key,
 };
 use crate::{
-    EncryptError, Fido2CredentialFullView, Fido2CredentialView, FolderId, Login, LoginView,
-    VaultParseError, password_history,
+    AttachmentView, EncryptError, Fido2CredentialFullView, Fido2CredentialView, FolderId, Login,
+    LoginView, VaultParseError, password_history,
 };
 
 uuid_newtype!(pub CipherId);
@@ -492,13 +492,7 @@ impl CipherView {
         new_key: SymmetricKeyId,
     ) -> Result<(), CryptoError> {
         if let Some(attachments) = &mut self.attachments {
-            for attachment in attachments {
-                if let Some(attachment_key) = &mut attachment.key {
-                    let tmp_attachment_key_id = SymmetricKeyId::Local("attachment_key");
-                    ctx.unwrap_symmetric_key(old_key, tmp_attachment_key_id, attachment_key)?;
-                    *attachment_key = ctx.wrap_symmetric_key(new_key, tmp_attachment_key_id)?;
-                }
-            }
+            AttachmentView::reencrypt_keys(attachments, ctx, old_key, new_key)?;
         }
         Ok(())
     }

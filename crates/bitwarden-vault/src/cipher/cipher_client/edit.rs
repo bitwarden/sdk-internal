@@ -22,8 +22,9 @@ use wasm_bindgen::prelude::*;
 
 use super::CiphersClient;
 use crate::{
-    Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldType, FieldView, FolderId,
-    ItemNotFoundError, PasswordHistoryView, VaultParseError, cipher_view_type::CipherViewType,
+    AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldType,
+    FieldView, FolderId, ItemNotFoundError, PasswordHistoryView, VaultParseError,
+    cipher_view_type::CipherViewType,
 };
 
 /// Maximum number of password history entries to retain
@@ -69,6 +70,7 @@ pub struct CipherEditRequest {
     pub r#type: CipherViewType,
     pub revision_date: DateTime<Utc>,
     pub archived_date: Option<DateTime<Utc>>,
+    pub attachments: Vec<AttachmentView>,
     pub key: Option<EncString>,
 }
 
@@ -94,15 +96,38 @@ impl TryFrom<CipherView> for CipherEditRequest {
             notes: value.notes,
             fields: value.fields.unwrap_or_default(),
             r#type: require!(type_data),
+            attachments: value.attachments.unwrap_or_default(),
             revision_date: value.revision_date,
             archived_date: value.archived_date,
         })
     }
 }
 
+impl CipherEditRequest {
+    fn generate_cipher_key(
+        &mut self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<(), CryptoError> {
+        let old_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+
+        const NEW_KEY_ID: SymmetricKeyId = SymmetricKeyId::Local("new_cipher_key");
+        let new_key = ctx.generate_symmetric_key(NEW_KEY_ID)?;
+
+        // Re-encrypt the internal fields with the new key
+        self.r#type
+            .as_login_view_mut()
+            .map(|l| l.reencrypt_fido2_credentials(ctx, old_key, new_key))
+            .transpose()?;
+        AttachmentView::reencrypt_keys(&mut self.attachments, ctx, old_key, new_key)?;
+        Ok(())
+    }
+}
+
 /// Used as an intermediary between the public-facing [CipherEditRequest], and the encrypted
 /// value. This allows us to calculate password history safely, without risking misuse.
 #[derive(Clone, Debug)]
+
 struct CipherEditRequestInternal {
     edit_request: CipherEditRequest,
     password_history: Vec<PasswordHistoryView>,
@@ -266,7 +291,21 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
                     .collect(),
             ),
             attachments: None,
-            attachments2: None,
+            attachments2: Some(
+                cipher_data
+                    .edit_request
+                    .attachments
+                    .encrypt_composite(ctx, cipher_key)?
+                    .into_iter()
+                    // .map(|a| Ok((require!(a.id), a.into())) as Result<_, CryptoError>)
+                    .map(|a| {
+                        Ok((
+                            a.id.clone().ok_or(CryptoError::MissingField("id"))?,
+                            a.into(),
+                        )) as Result<_, CryptoError>
+                    })
+                    .collect::<Result<_, _>>()?,
+            ),
             login: cipher_data
                 .edit_request
                 .r#type
@@ -316,12 +355,18 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
     }
 }
 
-impl IdentifyKey<SymmetricKeyId> for CipherEditRequestInternal {
+impl IdentifyKey<SymmetricKeyId> for CipherEditRequest {
     fn key_identifier(&self) -> SymmetricKeyId {
-        match self.edit_request.organization_id {
+        match self.organization_id {
             Some(organization_id) => SymmetricKeyId::Organization(organization_id),
             None => SymmetricKeyId::User,
         }
+    }
+}
+
+impl IdentifyKey<SymmetricKeyId> for CipherEditRequestInternal {
+    fn key_identifier(&self) -> SymmetricKeyId {
+        self.edit_request.key_identifier()
     }
 }
 
@@ -365,7 +410,10 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     /// Edit an existing [Cipher] and save it to the server.
-    pub async fn edit(&self, request: CipherEditRequest) -> Result<CipherView, EditCipherError> {
+    pub async fn edit(
+        &self,
+        mut request: CipherEditRequest,
+    ) -> Result<CipherView, EditCipherError> {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations().await;
         let repository = self.get_repository()?;
@@ -375,6 +423,19 @@ impl CiphersClient {
             .internal
             .get_user_id()
             .ok_or(NotAuthenticatedError)?;
+
+        // TODO: Once this flag is removed, the key generation logic should
+        // be moved closer to the actual encryption logic.
+        if request.key.is_none()
+            && self
+                .client
+                .internal
+                .get_flags()
+                .enable_cipher_key_encryption
+        {
+            let key = request.key_identifier();
+            request.generate_cipher_key(&mut key_store.context(), key)?;
+        }
 
         edit_cipher(
             key_store,
