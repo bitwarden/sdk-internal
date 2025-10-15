@@ -35,6 +35,56 @@ impl CipherRiskClient {
         Ok(PasswordReuseMap::new(login_details))
     }
 
+    /// Convert a single login details to CipherRisk.
+    ///
+    /// For the cipher:
+    /// 1. Calculates password strength (0-4) using zxcvbn with cipher-specific context
+    /// 2. Optionally checks if the password has been exposed via Have I Been Pwned API
+    /// 3. Counts how many times the password is reused in the provided `password_map`
+    async fn to_cipher_risk(
+        http_client: reqwest::Client,
+        details: CipherLoginDetails,
+        password_map: Option<Arc<PasswordReuseMap>>,
+        check_exposed: bool,
+        base_url: String,
+    ) -> CipherRisk {
+        if details.password.is_empty() {
+            // Skip empty passwords, return default risk values
+            return CipherRisk {
+                id: details.id,
+                password_strength: 0,
+                exposed_result: ExposedPasswordResult::NotChecked,
+                reuse_count: None,
+            };
+        }
+
+        let password_strength =
+            Self::calculate_password_strength(&details.password, details.username.as_deref());
+
+        // Check exposure via HIBP API if enabled
+        // Capture errors per-cipher instead of propagating them
+        let exposed_result = if check_exposed {
+            match Self::check_password_exposed(&http_client, &details.password, &base_url).await {
+                Ok(count) => ExposedPasswordResult::Found(count),
+                Err(e) => ExposedPasswordResult::Error(e.to_string()),
+            }
+        } else {
+            ExposedPasswordResult::NotChecked
+        };
+
+        // Check reuse from provided map
+        let reuse_count = password_map
+            .as_ref()
+            .and_then(|m| m.map.get(&details.password).copied());
+
+        CipherRisk {
+            id: details.id,
+            password_strength,
+            exposed_result,
+            reuse_count,
+        }
+    }
+
     /// Evaluate security risks for multiple login ciphers concurrently.
     ///
     /// For each cipher:
@@ -64,57 +114,19 @@ impl CipherRiskClient {
     ) -> Result<Vec<CipherRisk>, CipherRiskError> {
         // Wrap password_map in Arc to avoid cloning the HashMap for each future
         let password_map = options.password_map.map(Arc::new);
+        let base_url = options
+                .hibp_base_url
+            .unwrap_or_else(|| HIBP_DEFAULT_BASE_URL.to_string());
 
         // Create futures that can run concurrently
         let futures = login_details.into_iter().map(|details| {
-            let http_client = self.client.internal.get_http_client().clone();
-            let password_map = password_map.clone();
-            let base_url = options
-                .hibp_base_url
-                .clone()
-                .unwrap_or_else(|| HIBP_DEFAULT_BASE_URL.to_string());
-
-            async move {
-                if details.password.is_empty() {
-                    // Skip empty passwords, return default risk values
-                    return CipherRisk {
-                        id: details.id,
-                        password_strength: 0,
-                        exposed_result: ExposedPasswordResult::NotChecked,
-                        reuse_count: None,
-                    };
-                }
-
-                let password_strength = Self::calculate_password_strength(
-                    &details.password,
-                    details.username.as_deref(),
-                );
-
-                // Check exposure via HIBP API if enabled
-                // Capture errors per-cipher instead of propagating them
-                let exposed_result = if options.check_exposed {
-                    match Self::check_password_exposed(&http_client, &details.password, &base_url)
-                        .await
-                    {
-                        Ok(count) => ExposedPasswordResult::Found(count),
-                        Err(e) => ExposedPasswordResult::Error(e.to_string()),
-                    }
-                } else {
-                    ExposedPasswordResult::NotChecked
-                };
-
-                // Check reuse from provided map
-                let reuse_count = password_map
-                    .as_ref()
-                    .and_then(|m| m.map.get(&details.password).copied());
-
-                CipherRisk {
-                    id: details.id,
-                    password_strength,
-                    exposed_result,
-                    reuse_count,
-                }
-            }
+            Self::to_cipher_risk(
+                self.client.internal.get_http_client().clone(),
+                details,
+                password_map.as_ref().map(Arc::clone),
+                options.check_exposed,
+                base_url.clone(),
+            )
         });
 
         // Process up to MAX_CONCURRENT_REQUESTS futures concurrently
