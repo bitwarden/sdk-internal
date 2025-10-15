@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait AuthRequestsApi: Send + Sync {
     /// GET /auth-requests/{id}
     async fn get<'a>(
@@ -81,7 +82,8 @@ impl AuthRequestsApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl AuthRequestsApi for AuthRequestsApiClient {
     async fn get<'a>(
         &self,

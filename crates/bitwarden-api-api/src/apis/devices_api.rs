@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait DevicesApi: Send + Sync {
     /// DELETE /devices/{id}
     async fn deactivate<'a>(&self, id: &'a str) -> Result<(), Error<DeactivateError>>;
@@ -115,7 +116,8 @@ impl DevicesApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl DevicesApi for DevicesApiClient {
     async fn deactivate<'a>(&self, id: &'a str) -> Result<(), Error<DeactivateError>> {
         let local_var_configuration = &self.configuration;
