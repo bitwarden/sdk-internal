@@ -52,12 +52,15 @@ pub struct PasswordReuseMap {
 pub struct CipherRiskOptions {
     /// Pre-computed password reuse map (password → count).
     /// If provided, enables reuse detection across ciphers.
+    #[serde(default)]
     pub password_map: Option<PasswordReuseMap>,
     /// Whether to check passwords against Have I Been Pwned API.
     /// When true, makes network requests to check for exposed passwords.
+    #[serde(default)]
     pub check_exposed: bool,
     /// Optional HIBP API base URL override. When None, uses the production HIBP URL.
     /// Can be used for testing or alternative password breach checking services.
+    #[serde(default)]
     pub hibp_base_url: Option<String>,
 }
 
