@@ -36,12 +36,11 @@ fn main() {
     ctx.clear_local();
 
     // Load the envelope from disk and unseal it with the PIN, and store it in the context.
-    let deserialized: PasswordProtectedKeyEnvelope<ExampleIds> =
-        PasswordProtectedKeyEnvelope::try_from(
-            disk.load("vault_key_envelope")
-                .expect("Loading from disk should work"),
-        )
-        .expect("Deserializing envelope should work");
+    let deserialized: PasswordProtectedKeyEnvelope = PasswordProtectedKeyEnvelope::try_from(
+        disk.load("vault_key_envelope")
+            .expect("Loading from disk should work"),
+    )
+    .expect("Deserializing envelope should work");
     deserialized
         .unseal(ExampleSymmetricKey::VaultKey, pin, &mut ctx)
         .expect("Unsealing should work");
