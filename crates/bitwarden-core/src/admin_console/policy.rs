@@ -49,6 +49,7 @@ pub enum PolicyType {
     RemoveUnlockWithPin = 14,
     RestrictedItemTypesPolicy = 15,
     UriMatchDefaults = 16,
+    AutomaticUserConfirmation = 18,
     AutotypeDefaultSetting = 17,
 }
 
@@ -106,6 +107,9 @@ impl From<bitwarden_api_api::models::PolicyType> for PolicyType {
             bitwarden_api_api::models::PolicyType::UriMatchDefaults => PolicyType::UriMatchDefaults,
             bitwarden_api_api::models::PolicyType::AutotypeDefaultSetting => {
                 PolicyType::AutotypeDefaultSetting
+            }
+            bitwarden_api_api::models::PolicyType::AutomaticUserConfirmation => {
+                PolicyType::AutomaticUserConfirmation
             }
         }
     }
