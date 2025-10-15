@@ -111,11 +111,9 @@ impl CipherRiskClient {
                 };
 
                 // Check reuse from provided map
-                let reuse_count = if let Some(map) = &password_map {
-                    map.map.get(&details.password).copied()
-                } else {
-                    None
-                };
+                let reuse_count = password_map
+                    .as_ref()
+                    .and_then(|m| m.map.get(&details.password).copied());
 
                 CipherRisk {
                     id: details.id,
@@ -161,26 +159,17 @@ impl CipherRiskClient {
     /// - For usernames: tokenizes the entire string
     /// - Splits on non-alphanumeric characters and converts to lowercase
     fn extract_user_inputs(username: &str) -> Vec<String> {
-        // Check if it's email-like (contains @)
-        if let Some((local_part, _domain)) = username.split_once('@') {
+        username
+            // Check if it's email-like (contains @)
+            .split_once('@')
             // Email: extract local part tokens
-            local_part
-                .trim()
-                .to_lowercase()
-                .split(|c: char| !c.is_alphanumeric())
-                .filter(|s| !s.is_empty())
-                .map(str::to_owned)
-                .collect()
-        } else {
-            // Username: split on non-alphanumeric
-            username
-                .trim()
-                .to_lowercase()
-                .split(|c: char| !c.is_alphanumeric())
-                .filter(|s| !s.is_empty())
-                .map(str::to_owned)
-                .collect()
-        }
+            .map_or(username, |(local_part, _domain)| local_part)
+            .trim()
+            .to_lowercase()
+            .split(|c: char| !c.is_alphanumeric())
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned)
+            .collect()
     }
 
     /// Hash password with SHA-1 and split into prefix/suffix for k-anonymity.
@@ -201,14 +190,12 @@ impl CipherRiskClient {
     /// "0018A45C4D1DEF81644B54AB7F969B88D65:3\r\n...").
     /// Returns the number of times the password appears in breaches (0 if not found).
     fn parse_hibp_response(response: &str, target_suffix: &str) -> u32 {
-        for line in response.lines() {
-            if let Some((hash_suffix, count_str)) = line.split_once(':') {
-                if hash_suffix.eq_ignore_ascii_case(target_suffix) {
-                    return count_str.trim().parse().unwrap_or(0);
-                }
-            }
-        }
-        0
+        response
+            .lines()
+            .filter_map(|l| l.split_once(':'))
+            .find(|(hash_suffix, _)| hash_suffix.eq_ignore_ascii_case(target_suffix))
+            .and_then(|(_, count_str)| count_str.trim().parse().ok())
+            .unwrap_or(0)
     }
 
     /// Check password exposure via HIBP API using k-anonymity model.
