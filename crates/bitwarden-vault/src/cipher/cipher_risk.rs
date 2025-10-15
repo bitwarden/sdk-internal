@@ -44,6 +44,19 @@ pub struct PasswordReuseMap {
     pub map: HashMap<String, u32>,
 }
 
+impl PasswordReuseMap {
+    /// Create a new PasswordReuseMap from a list of passwords.
+    pub fn new(passwords: Vec<CipherLoginDetails>) -> Self {
+        let mut map = HashMap::new();
+        for details in passwords {
+            if !details.password.is_empty() {
+                *map.entry(details.password).or_insert(0) += 1;
+            }
+        }
+        Self { map }
+    }
+}
+
 /// Options for configuring risk computation.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]

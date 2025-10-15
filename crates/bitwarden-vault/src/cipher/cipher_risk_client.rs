@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use bitwarden_core::Client;
 use futures::{StreamExt, stream};
@@ -30,16 +30,9 @@ impl CipherRiskClient {
     /// each password appears in the provided list. This map can be passed to `compute_risk()`
     /// to enable password reuse detection.
     pub fn password_reuse_map(
-        &self,
         login_details: Vec<CipherLoginDetails>,
     ) -> Result<PasswordReuseMap, CipherRiskError> {
-        let mut map = HashMap::new();
-        for details in login_details {
-            if !details.password.is_empty() {
-                *map.entry(details.password).or_insert(0) += 1;
-            }
-        }
-        Ok(PasswordReuseMap { map })
+        Ok(PasswordReuseMap::new(login_details))
     }
 
     /// Evaluate security risks for multiple login ciphers concurrently.
@@ -264,11 +257,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_password_reuse_map() {
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
-        let risk_client = CipherRiskClient {
-            client: client.clone(),
-        };
-
         let login_details = vec![
             CipherLoginDetails {
                 id: None,
@@ -287,7 +275,7 @@ mod tests {
             },
         ];
 
-        let password_map = risk_client.password_reuse_map(login_details).unwrap();
+        let password_map = CipherRiskClient::password_reuse_map(login_details).unwrap();
 
         assert_eq!(password_map.map.get("password123"), Some(&2));
         assert_eq!(password_map.map.get("unique_password"), Some(&1));
@@ -309,11 +297,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_password_reuse_map_empty_passwords() {
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
-        let risk_client = CipherRiskClient {
-            client: client.clone(),
-        };
-
         let login_details = vec![
             CipherLoginDetails {
                 id: None,
@@ -327,7 +310,7 @@ mod tests {
             },
         ];
 
-        let password_map = risk_client.password_reuse_map(login_details).unwrap();
+        let password_map = CipherRiskClient::password_reuse_map(login_details).unwrap();
 
         // Empty passwords should not be in the map
         assert!(!password_map.map.contains_key(""));
@@ -627,9 +610,7 @@ mod tests {
             },
         ];
 
-        let password_map = risk_client
-            .password_reuse_map(login_details.clone())
-            .unwrap();
+        let password_map = CipherRiskClient::password_reuse_map(login_details.clone()).unwrap();
 
         let options = CipherRiskOptions {
             password_map: Some(password_map),
