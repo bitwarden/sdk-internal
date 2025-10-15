@@ -29,10 +29,8 @@ impl CipherRiskClient {
     /// Returns a map where keys are passwords and values are the number of times
     /// each password appears in the provided list. This map can be passed to `compute_risk()`
     /// to enable password reuse detection.
-    pub fn password_reuse_map(
-        login_details: Vec<CipherLoginDetails>,
-    ) -> Result<PasswordReuseMap, CipherRiskError> {
-        Ok(PasswordReuseMap::new(login_details))
+    pub fn password_reuse_map(login_details: Vec<CipherLoginDetails>) -> PasswordReuseMap {
+        PasswordReuseMap::new(login_details)
     }
 
     /// Convert a single login details to CipherRisk.
@@ -115,7 +113,7 @@ impl CipherRiskClient {
         // Wrap password_map in Arc to avoid cloning the HashMap for each future
         let password_map = options.password_map.map(Arc::new);
         let base_url = options
-                .hibp_base_url
+            .hibp_base_url
             .unwrap_or_else(|| HIBP_DEFAULT_BASE_URL.to_string());
 
         // Create futures that can run concurrently
@@ -287,7 +285,7 @@ mod tests {
             },
         ];
 
-        let password_map = CipherRiskClient::password_reuse_map(login_details).unwrap();
+        let password_map = CipherRiskClient::password_reuse_map(login_details);
 
         assert_eq!(password_map.map.get("password123"), Some(&2));
         assert_eq!(password_map.map.get("unique_password"), Some(&1));
@@ -322,7 +320,7 @@ mod tests {
             },
         ];
 
-        let password_map = CipherRiskClient::password_reuse_map(login_details).unwrap();
+        let password_map = CipherRiskClient::password_reuse_map(login_details);
 
         // Empty passwords should not be in the map
         assert!(!password_map.map.contains_key(""));
@@ -622,7 +620,7 @@ mod tests {
             },
         ];
 
-        let password_map = CipherRiskClient::password_reuse_map(login_details.clone()).unwrap();
+        let password_map = CipherRiskClient::password_reuse_map(login_details.clone());
 
         let options = CipherRiskOptions {
             password_map: Some(password_map),
