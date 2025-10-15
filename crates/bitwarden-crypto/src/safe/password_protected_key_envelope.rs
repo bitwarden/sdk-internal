@@ -460,8 +460,9 @@ impl FromWasmAbi for PasswordProtectedKeyEnvelope {
     type Abi = <String as FromWasmAbi>::Abi;
 
     unsafe fn from_abi(abi: Self::Abi) -> Self {
-        let s = unsafe { String::from_abi(abi) };
-        Self::from_str(&s).expect("Invalid PasswordProtectedKeyEnvelope")
+        use wasm_bindgen::UnwrapThrowExt;
+        let string = unsafe { String::from_abi(abi) };
+        PasswordProtectedKeyEnvelope::from_str(&string).unwrap_throw()
     }
 }
 
