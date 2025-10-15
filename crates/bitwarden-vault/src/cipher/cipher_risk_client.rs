@@ -29,7 +29,7 @@ impl CipherRiskClient {
     /// Returns a map where keys are passwords and values are the number of times
     /// each password appears in the provided list. This map can be passed to `compute_risk()`
     /// to enable password reuse detection.
-    pub fn password_reuse_map(login_details: Vec<CipherLoginDetails>) -> PasswordReuseMap {
+    pub fn password_reuse_map(&self, login_details: Vec<CipherLoginDetails>) -> PasswordReuseMap {
         PasswordReuseMap::new(login_details)
     }
 
@@ -267,6 +267,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_password_reuse_map() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let risk_client = CipherRiskClient {
+            client: client.clone(),
+        };
+
         let login_details = vec![
             CipherLoginDetails {
                 id: None,
@@ -285,7 +290,7 @@ mod tests {
             },
         ];
 
-        let password_map = CipherRiskClient::password_reuse_map(login_details);
+        let password_map = risk_client.password_reuse_map(login_details);
 
         assert_eq!(password_map.map.get("password123"), Some(&2));
         assert_eq!(password_map.map.get("unique_password"), Some(&1));
@@ -307,6 +312,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_password_reuse_map_empty_passwords() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let risk_client = CipherRiskClient {
+            client: client.clone(),
+        };
+
         let login_details = vec![
             CipherLoginDetails {
                 id: None,
@@ -320,7 +330,7 @@ mod tests {
             },
         ];
 
-        let password_map = CipherRiskClient::password_reuse_map(login_details);
+        let password_map = risk_client.password_reuse_map(login_details);
 
         // Empty passwords should not be in the map
         assert!(!password_map.map.contains_key(""));
@@ -620,7 +630,7 @@ mod tests {
             },
         ];
 
-        let password_map = CipherRiskClient::password_reuse_map(login_details.clone());
+        let password_map = risk_client.password_reuse_map(login_details.clone());
 
         let options = CipherRiskOptions {
             password_map: Some(password_map),
