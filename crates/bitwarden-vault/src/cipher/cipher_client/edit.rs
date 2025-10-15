@@ -297,7 +297,6 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
                     .attachments
                     .encrypt_composite(ctx, cipher_key)?
                     .into_iter()
-                    // .map(|a| Ok((require!(a.id), a.into())) as Result<_, CryptoError>)
                     .map(|a| {
                         Ok((
                             a.id.clone().ok_or(CryptoError::MissingField("id"))?,
