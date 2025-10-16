@@ -120,7 +120,7 @@ pub enum UsernameGeneratorRequest {
 impl ForwarderServiceType {
     /// Generate a username using the specified email forwarding service
     /// This requires an HTTP client to be passed in, as the service will need to make API calls
-    pub async fn generate(
+    async fn generate(
         self,
         http: &reqwest::Client,
         website: Option<String>,
