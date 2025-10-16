@@ -31,3 +31,12 @@ pub enum VaultParseError {
     #[error(transparent)]
     MissingField(#[from] bitwarden_core::MissingFieldError),
 }
+
+/// Error type for cipher risk evaluation operations
+#[allow(missing_docs)]
+#[bitwarden_error(flat)]
+#[derive(Debug, Error)]
+pub enum CipherRiskError {
+    #[error(transparent)]
+    Reqwest(#[from] reqwest::Error),
+}
