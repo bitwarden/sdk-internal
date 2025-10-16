@@ -6,6 +6,10 @@
 
 <!-- Describe what the purpose of this PR is, for example what bug you're fixing or new feature you're adding. -->
 
+## 🚨 Breaking Changes
+
+<!-- Does this PR introduce any breaking changes? If so, please describe the impact and migration path for clients. Otherwise, you can remove this section. -->
+
 ## ⏰ Reminders before review
 
 - Contributor guidelines followed
