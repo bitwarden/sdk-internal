@@ -27,7 +27,7 @@ pub enum SyncError {
     #[error(transparent)]
     MasterPassword(#[from] MasterPasswordError),
     #[error(transparent)]
-    NotAuthenticatedError(#[from] NotAuthenticatedError),
+    NotAuthenticated(#[from] NotAuthenticatedError),
 }
 
 #[allow(missing_docs)]
@@ -255,6 +255,7 @@ mod tests {
             api_url: api_config.base_path,
             user_agent: api_config.user_agent.unwrap(),
             device_type: DeviceType::SDK,
+            bitwarden_client_version: None,
         }));
 
         client
