@@ -4,9 +4,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     AttachmentsClient, CipherRiskClient, CiphersClient, FoldersClient, PasswordHistoryClient,
-    SyncRequest, SyncResponse, TotpClient,
-    collection_client::CollectionsClient,
-    sync::{SyncError, sync},
+    TotpClient, collection_client::CollectionsClient,
 };
 
 #[allow(missing_docs)]
@@ -19,11 +17,6 @@ pub struct VaultClient {
 impl VaultClient {
     fn new(client: Client) -> Self {
         Self { client }
-    }
-
-    #[allow(missing_docs)]
-    pub async fn sync(&self, input: &SyncRequest) -> Result<SyncResponse, SyncError> {
-        sync(&self.client, input).await
     }
 
     /// Password history related operations.

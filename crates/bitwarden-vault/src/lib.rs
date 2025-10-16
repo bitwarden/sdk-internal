@@ -24,9 +24,6 @@ pub use error::{CipherRiskError, DecryptError, EncryptError, VaultParseError};
 mod vault_client;
 pub use vault_client::{VaultClient, VaultClientExt};
 
-mod sync;
-pub use sync::{SyncRequest, SyncResponse};
-
 #[allow(missing_docs)]
 pub mod collection_client;
 mod totp_client;

@@ -1025,10 +1025,14 @@ version = "0.0.2"
 dependencies = [
  "base64",
  "bat",
+ "bitwarden-api-api",
  "bitwarden-cli",
+ "bitwarden-collections",
  "bitwarden-core",
+ "bitwarden-crypto",
  "bitwarden-generators",
  "bitwarden-pm",
+ "bitwarden-test",
  "bitwarden-vault",
  "clap",
  "clap_complete",
@@ -1040,7 +1044,10 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "thiserror 1.0.69",
  "tokio",
+ "uuid",
+ "wiremock",
 ]
 
 [[package]]

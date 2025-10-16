@@ -2,6 +2,9 @@ use clap::Subcommand;
 
 use crate::render::{CommandOutput, CommandResult};
 
+mod sync;
+pub(crate) use sync::{SyncRequest, sync};
+
 #[derive(Subcommand, Clone)]
 pub enum ItemCommands {
     Get { id: String },
