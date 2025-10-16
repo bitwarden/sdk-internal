@@ -4,17 +4,18 @@
 //! be documented publicly.
 
 use coset::{
-    iana::{self, CoapContentFormat},
     CborSerializable, ContentType, Header, Label,
+    iana::{self, CoapContentFormat},
 };
 use generic_array::GenericArray;
 use thiserror::Error;
 use typenum::U32;
 
 use crate::{
+    ContentFormat, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
     content_format::{Bytes, ConstContentFormat, CoseContentFormat},
     error::{EncStringParseError, EncodingError},
-    xchacha20, ContentFormat, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
+    xchacha20,
 };
 
 /// XChaCha20 <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha-03> is used over ChaCha20
@@ -57,7 +58,9 @@ pub(crate) fn encrypt_xchacha20_poly1305(
 
     if should_pad_content(&content_format) {
         // Pad the data to a block size in order to hide plaintext length
-        crate::keys::utils::pad_bytes(&mut plaintext, XCHACHA20_TEXT_PAD_BLOCK_SIZE);
+        let min_length =
+            XCHACHA20_TEXT_PAD_BLOCK_SIZE * (1 + (plaintext.len() / XCHACHA20_TEXT_PAD_BLOCK_SIZE));
+        crate::keys::utils::pad_bytes(&mut plaintext, min_length)?;
     }
 
     let mut nonce = [0u8; xchacha20::NONCE_SIZE];

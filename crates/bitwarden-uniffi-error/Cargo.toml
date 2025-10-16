@@ -1,0 +1,21 @@
+[package]
+name = "bitwarden-uniffi-error"
+description = """
+Internal crate for the bitwarden crate. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[dependencies]
+anyhow = { version = ">=1.0, <2.0" }
+
+[lints]
+workspace = true

@@ -1,0 +1,62 @@
+[package]
+name = "bitwarden-pm"
+description = """
+Internal crate for the bitwarden crate. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[features]
+no-memory-hardening = [
+    "bitwarden-core/no-memory-hardening"
+] # Disable memory hardening features
+uniffi = [
+    "bitwarden-core/uniffi",
+    "bitwarden-exporters/uniffi",
+    "bitwarden-fido/uniffi",
+    "bitwarden-generators/uniffi",
+    "bitwarden-send/uniffi",
+    "bitwarden-state/uniffi",
+    "bitwarden-vault/uniffi",
+    "dep:uniffi"
+] # Uniffi bindings
+wasm = [
+    "bitwarden-auth/wasm",
+    "bitwarden-commercial-vault/wasm",
+    "bitwarden-core/wasm",
+    "bitwarden-exporters/wasm",
+    "bitwarden-generators/wasm",
+    "bitwarden-state/wasm",
+    "bitwarden-vault/wasm",
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+    "dep:tsify"
+] # WASM support
+bitwarden-license = ["dep:bitwarden-commercial-vault"]
+
+[dependencies]
+bitwarden-auth = { workspace = true }
+bitwarden-commercial-vault = { workspace = true, optional = true }
+bitwarden-core = { workspace = true, features = ["internal"] }
+bitwarden-exporters = { workspace = true }
+bitwarden-fido = { workspace = true }
+bitwarden-generators = { workspace = true }
+bitwarden-send = { workspace = true }
+bitwarden-state = { workspace = true }
+bitwarden-vault = { workspace = true }
+
+tsify = { workspace = true, optional = true }
+uniffi = { workspace = true, optional = true, features = ["tokio"] }
+wasm-bindgen = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
+
+[lints]
+workspace = true

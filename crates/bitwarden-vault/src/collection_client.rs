@@ -1,10 +1,13 @@
+use std::collections::HashMap;
+
 use bitwarden_collections::{
-    collection::{Collection, CollectionView},
+    collection::{Collection, CollectionId, CollectionView},
     tree::{NodeItem, Tree},
 };
 use bitwarden_core::Client;
+use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
-use bitwarden_error::js_sys::Map;
+use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -56,6 +59,16 @@ pub struct CollectionViewNodeItem {
     node_item: NodeItem<CollectionView>,
 }
 
+#[cfg_attr(
+    feature = "wasm",
+    derive(Tsify, Serialize, Deserialize),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct AncestorMap {
+    pub ancestors: HashMap<CollectionId, String>,
+}
+
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CollectionViewNodeItem {
     pub fn get_item(&self) -> CollectionView {
@@ -70,26 +83,26 @@ impl CollectionViewNodeItem {
         self.node_item.children.clone()
     }
 
-    #[cfg(feature = "wasm")]
-    pub fn get_ancestors(&self) -> Map {
-        self.node_item
-            .ancestors
-            .iter()
-            .fold(Map::new(), |map, (id, name)| {
-                map.set(&id.to_string().into(), &name.into());
-                map
-            })
+    pub fn get_ancestors(&self) -> AncestorMap {
+        AncestorMap {
+            ancestors: self
+                .node_item
+                .ancestors
+                .iter()
+                .map(|(&uuid, name)| (CollectionId::new(uuid), name.clone()))
+                .collect(),
+        }
     }
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CollectionViewTree {
-    pub fn get_item_by_id(
+    pub fn get_item_for_view(
         &self,
         collection_view: CollectionView,
     ) -> Option<CollectionViewNodeItem> {
         self.tree
-            .get_item_by_id(collection_view.id.unwrap_or_default())
+            .get_item_by_id(collection_view.id.unwrap_or_default().into())
             .map(|n| CollectionViewNodeItem { node_item: n })
     }
 

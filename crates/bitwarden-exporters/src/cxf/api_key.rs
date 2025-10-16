@@ -1,28 +1,34 @@
 use credential_exchange_format::ApiKeyCredential;
 
-use crate::{cxf::editable_field::create_field, Field};
+use crate::{Field, cxf::editable_field::create_field};
 
 /// Convert API key credentials to custom fields
 pub(super) fn api_key_to_fields(api_key: &ApiKeyCredential) -> Vec<Field> {
     [
-        api_key.key.as_ref().map(|key| create_field("API Key", key)),
+        api_key
+            .key
+            .as_ref()
+            .map(|key| create_field(key, Some("API Key"))),
         api_key
             .username
             .as_ref()
-            .map(|username| create_field("Username", username)),
+            .map(|username| create_field(username, Some("Username"))),
         api_key
             .key_type
             .as_ref()
-            .map(|key_type| create_field("Key Type", key_type)),
-        api_key.url.as_ref().map(|url| create_field("URL", url)),
+            .map(|key_type| create_field(key_type, Some("Key Type"))),
+        api_key
+            .url
+            .as_ref()
+            .map(|url| create_field(url, Some("URL"))),
         api_key
             .valid_from
             .as_ref()
-            .map(|valid_from| create_field("Valid From", valid_from)),
+            .map(|valid_from| create_field(valid_from, Some("Valid From"))),
         api_key
             .expiry_date
             .as_ref()
-            .map(|expiry_date| create_field("Expiry Date", expiry_date)),
+            .map(|expiry_date| create_field(expiry_date, Some("Expiry Date"))),
     ]
     .into_iter()
     .flatten()

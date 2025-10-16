@@ -1,6 +1,6 @@
 use bitwarden_crypto::EFF_LONG_WORD_LIST;
 use bitwarden_error::bitwarden_error;
-use rand::{seq::SliceRandom, Rng, RngCore};
+use rand::{Rng, RngCore, seq::SliceRandom};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -10,7 +10,7 @@ use tsify::Tsify;
 use crate::util::capitalize_first_letter;
 
 #[allow(missing_docs)]
-#[bitwarden_error(flat)]
+#[bitwarden_error(full)]
 #[derive(Debug, Error)]
 pub enum PassphraseError {
     #[error("'num_words' must be between {} and {}", minimum, maximum)]

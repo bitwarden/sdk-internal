@@ -1,4 +1,4 @@
-use crate::{error::SignatureError, CryptoError};
+use crate::{CryptoError, error::SignatureError};
 
 /// Signing is domain-separated within bitwarden, to prevent cross protocol attacks.
 ///

@@ -1,12 +1,10 @@
 use std::{fmt::Debug, str::FromStr};
 
-use base64::Engine;
-use bitwarden_crypto::{derive_shareable_key, SymmetricCryptoKey};
+use bitwarden_crypto::{SymmetricCryptoKey, derive_shareable_key};
+use bitwarden_encoding::{B64, NotB64EncodedError};
 use thiserror::Error;
 use uuid::Uuid;
 use zeroize::Zeroizing;
-
-use crate::util::STANDARD_INDIFFERENT;
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
@@ -21,7 +19,7 @@ pub enum AccessTokenInvalidError {
     InvalidUuid,
 
     #[error("Error decoding base64: {0}")]
-    InvalidBase64(#[from] base64::DecodeError),
+    InvalidBase64(#[from] NotB64EncodedError),
 
     #[error("Invalid base64 length: expected {expected}, got {got}")]
     InvalidBase64Length { expected: usize, got: usize },
@@ -67,13 +65,14 @@ impl FromStr for AccessToken {
             return Err(AccessTokenInvalidError::InvalidUuid);
         };
 
-        let encryption_key = STANDARD_INDIFFERENT.decode(encryption_key)?;
-        let encryption_key = Zeroizing::new(encryption_key.try_into().map_err(|e: Vec<_>| {
-            AccessTokenInvalidError::InvalidBase64Length {
-                expected: 16,
-                got: e.len(),
-            }
-        })?);
+        let encryption_key: B64 = encryption_key.parse()?;
+        let encryption_key =
+            Zeroizing::new(encryption_key.as_bytes().try_into().map_err(|_| {
+                AccessTokenInvalidError::InvalidBase64Length {
+                    expected: 16,
+                    got: encryption_key.as_bytes().len(),
+                }
+            })?);
         let encryption_key =
             derive_shareable_key(encryption_key, "accesstoken", Some("sm-access-token"));
 
@@ -102,7 +101,10 @@ mod tests {
             "ec2c1d46-6a4b-4751-a310-af9601317f2d"
         );
         assert_eq!(token.client_secret, "C2IgxjjLF7qSshsbwe8JGcbM075YXw");
-        assert_eq!(token.encryption_key.to_base64(), "H9/oIRLtL9nGCQOVDjSMoEbJsjWXSOCb3qeyDt6ckzS3FhyboEDWyTP/CQfbIszNmAVg2ExFganG1FVFGXO/Jg==");
+        assert_eq!(
+            token.encryption_key.to_base64().to_string(),
+            "H9/oIRLtL9nGCQOVDjSMoEbJsjWXSOCb3qeyDt6ckzS3FhyboEDWyTP/CQfbIszNmAVg2ExFganG1FVFGXO/Jg=="
+        );
     }
 
     #[test]

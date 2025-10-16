@@ -98,10 +98,14 @@ pub mod bulk_deny_admin_auth_request_request_model;
 pub use self::bulk_deny_admin_auth_request_request_model::BulkDenyAdminAuthRequestRequestModel;
 pub mod change_plan_frequency_request;
 pub use self::change_plan_frequency_request::ChangePlanFrequencyRequest;
+pub mod checkout_billing_address_request;
+pub use self::checkout_billing_address_request::CheckoutBillingAddressRequest;
 pub mod cipher;
 pub use self::cipher::Cipher;
 pub mod cipher_attachment_model;
 pub use self::cipher_attachment_model::CipherAttachmentModel;
+pub mod cipher_bulk_archive_request_model;
+pub use self::cipher_bulk_archive_request_model::CipherBulkArchiveRequestModel;
 pub mod cipher_bulk_delete_request_model;
 pub use self::cipher_bulk_delete_request_model::CipherBulkDeleteRequestModel;
 pub mod cipher_bulk_move_request_model;
@@ -110,6 +114,8 @@ pub mod cipher_bulk_restore_request_model;
 pub use self::cipher_bulk_restore_request_model::CipherBulkRestoreRequestModel;
 pub mod cipher_bulk_share_request_model;
 pub use self::cipher_bulk_share_request_model::CipherBulkShareRequestModel;
+pub mod cipher_bulk_unarchive_request_model;
+pub use self::cipher_bulk_unarchive_request_model::CipherBulkUnarchiveRequestModel;
 pub mod cipher_bulk_update_collections_request_model;
 pub use self::cipher_bulk_update_collections_request_model::CipherBulkUpdateCollectionsRequestModel;
 pub mod cipher_card_model;
@@ -174,8 +180,6 @@ pub mod collection_details_response_model;
 pub use self::collection_details_response_model::CollectionDetailsResponseModel;
 pub mod collection_details_response_model_list_response_model;
 pub use self::collection_details_response_model_list_response_model::CollectionDetailsResponseModelListResponseModel;
-pub mod collection_request_model;
-pub use self::collection_request_model::CollectionRequestModel;
 pub mod collection_response_model;
 pub use self::collection_response_model::CollectionResponseModel;
 pub mod collection_response_model_list_response_model;
@@ -188,6 +192,8 @@ pub mod config_response_model;
 pub use self::config_response_model::ConfigResponseModel;
 pub mod create_client_organization_request_body;
 pub use self::create_client_organization_request_body::CreateClientOrganizationRequestBody;
+pub mod create_collection_request_model;
+pub use self::create_collection_request_model::CreateCollectionRequestModel;
 pub mod credential_create_options;
 pub use self::credential_create_options::CredentialCreateOptions;
 pub mod delete_attachment_response_data;
@@ -216,8 +222,6 @@ pub mod device_verification_response_model;
 pub use self::device_verification_response_model::DeviceVerificationResponseModel;
 pub mod domains_response_model;
 pub use self::domains_response_model::DomainsResponseModel;
-pub mod drop_organization_report_request;
-pub use self::drop_organization_report_request::DropOrganizationReportRequest;
 pub mod drop_password_health_report_application_request;
 pub use self::drop_password_health_report_application_request::DropPasswordHealthReportApplicationRequest;
 pub mod email_request_model;
@@ -342,10 +346,14 @@ pub mod keys_response_model;
 pub use self::keys_response_model::KeysResponseModel;
 pub mod license_type;
 pub use self::license_type::LicenseType;
+pub mod master_password_authentication_data_request_model;
+pub use self::master_password_authentication_data_request_model::MasterPasswordAuthenticationDataRequestModel;
 pub mod master_password_policy_response_model;
 pub use self::master_password_policy_response_model::MasterPasswordPolicyResponseModel;
-pub mod master_password_unlock_data_model;
-pub use self::master_password_unlock_data_model::MasterPasswordUnlockDataModel;
+pub mod master_password_unlock_and_authentication_data_model;
+pub use self::master_password_unlock_and_authentication_data_model::MasterPasswordUnlockAndAuthenticationDataModel;
+pub mod master_password_unlock_data_request_model;
+pub use self::master_password_unlock_data_request_model::MasterPasswordUnlockDataRequestModel;
 pub mod master_password_unlock_kdf_response_model;
 pub use self::master_password_unlock_kdf_response_model::MasterPasswordUnlockKdfResponseModel;
 pub mod master_password_unlock_response_model;
@@ -358,6 +366,8 @@ pub mod member_decryption_type;
 pub use self::member_decryption_type::MemberDecryptionType;
 pub mod minimal_billing_address_request;
 pub use self::minimal_billing_address_request::MinimalBillingAddressRequest;
+pub mod minimal_tokenized_payment_method_request;
+pub use self::minimal_tokenized_payment_method_request::MinimalTokenizedPaymentMethodRequest;
 pub mod notification_response_model;
 pub use self::notification_response_model::NotificationResponseModel;
 pub mod notification_response_model_list_response_model;
@@ -408,6 +418,8 @@ pub mod organization_integration_request_model;
 pub use self::organization_integration_request_model::OrganizationIntegrationRequestModel;
 pub mod organization_integration_response_model;
 pub use self::organization_integration_response_model::OrganizationIntegrationResponseModel;
+pub mod organization_integration_status;
+pub use self::organization_integration_status::OrganizationIntegrationStatus;
 pub mod organization_keys_request_model;
 pub use self::organization_keys_request_model::OrganizationKeysRequestModel;
 pub mod organization_keys_response_model;
@@ -420,10 +432,6 @@ pub mod organization_password_manager_request_model;
 pub use self::organization_password_manager_request_model::OrganizationPasswordManagerRequestModel;
 pub mod organization_public_key_response_model;
 pub use self::organization_public_key_response_model::OrganizationPublicKeyResponseModel;
-pub mod organization_report;
-pub use self::organization_report::OrganizationReport;
-pub mod organization_report_summary_model;
-pub use self::organization_report_summary_model::OrganizationReportSummaryModel;
 pub mod organization_response_model;
 pub use self::organization_response_model::OrganizationResponseModel;
 pub mod organization_seat_request_model;
@@ -450,8 +458,14 @@ pub mod organization_sso_response_model;
 pub use self::organization_sso_response_model::OrganizationSsoResponseModel;
 pub mod organization_status_type;
 pub use self::organization_status_type::OrganizationStatusType;
+pub mod organization_subscription_plan_change_request;
+pub use self::organization_subscription_plan_change_request::OrganizationSubscriptionPlanChangeRequest;
+pub mod organization_subscription_purchase_request;
+pub use self::organization_subscription_purchase_request::OrganizationSubscriptionPurchaseRequest;
 pub mod organization_subscription_response_model;
 pub use self::organization_subscription_response_model::OrganizationSubscriptionResponseModel;
+pub mod organization_subscription_update_request;
+pub use self::organization_subscription_update_request::OrganizationSubscriptionUpdateRequest;
 pub mod organization_subscription_update_request_model;
 pub use self::organization_subscription_update_request_model::OrganizationSubscriptionUpdateRequestModel;
 pub mod organization_update_request_model;
@@ -504,8 +518,6 @@ pub mod organization_user_user_mini_details_response_model;
 pub use self::organization_user_user_mini_details_response_model::OrganizationUserUserMiniDetailsResponseModel;
 pub mod organization_user_user_mini_details_response_model_list_response_model;
 pub use self::organization_user_user_mini_details_response_model_list_response_model::OrganizationUserUserMiniDetailsResponseModelListResponseModel;
-pub mod organization_verify_bank_request_model;
-pub use self::organization_verify_bank_request_model::OrganizationVerifyBankRequestModel;
 pub mod organization_verify_delete_recover_request_model;
 pub use self::organization_verify_delete_recover_request_model::OrganizationVerifyDeleteRecoverRequestModel;
 pub mod other_device_keys_update_request_model;
@@ -518,6 +530,10 @@ pub mod password_hint_request_model;
 pub use self::password_hint_request_model::PasswordHintRequestModel;
 pub mod password_manager_plan_features_response_model;
 pub use self::password_manager_plan_features_response_model::PasswordManagerPlanFeaturesResponseModel;
+pub mod password_manager_purchase_selections;
+pub use self::password_manager_purchase_selections::PasswordManagerPurchaseSelections;
+pub mod password_manager_update_selections;
+pub use self::password_manager_update_selections::PasswordManagerUpdateSelections;
 pub mod password_request_model;
 pub use self::password_request_model::PasswordRequestModel;
 pub mod payment_method_type;
@@ -540,6 +556,8 @@ pub mod people_access_policies_request_model;
 pub use self::people_access_policies_request_model::PeopleAccessPoliciesRequestModel;
 pub mod permissions;
 pub use self::permissions::Permissions;
+pub mod plan_cadence_type;
+pub use self::plan_cadence_type::PlanCadenceType;
 pub mod plan_response_model;
 pub use self::plan_response_model::PlanResponseModel;
 pub mod plan_response_model_list_response_model;
@@ -564,18 +582,24 @@ pub mod potential_grantee_response_model_list_response_model;
 pub use self::potential_grantee_response_model_list_response_model::PotentialGranteeResponseModelListResponseModel;
 pub mod pre_validate_sponsorship_response_model;
 pub use self::pre_validate_sponsorship_response_model::PreValidateSponsorshipResponseModel;
+pub mod premium_cloud_hosted_subscription_request;
+pub use self::premium_cloud_hosted_subscription_request::PremiumCloudHostedSubscriptionRequest;
 pub mod preview_individual_invoice_request_body;
 pub use self::preview_individual_invoice_request_body::PreviewIndividualInvoiceRequestBody;
 pub mod preview_organization_invoice_request_body;
 pub use self::preview_organization_invoice_request_body::PreviewOrganizationInvoiceRequestBody;
-pub mod preview_tax_amount_for_organization_trial_request_body;
-pub use self::preview_tax_amount_for_organization_trial_request_body::PreviewTaxAmountForOrganizationTrialRequestBody;
+pub mod preview_organization_subscription_plan_change_tax_request;
+pub use self::preview_organization_subscription_plan_change_tax_request::PreviewOrganizationSubscriptionPlanChangeTaxRequest;
+pub mod preview_organization_subscription_purchase_tax_request;
+pub use self::preview_organization_subscription_purchase_tax_request::PreviewOrganizationSubscriptionPurchaseTaxRequest;
+pub mod preview_organization_subscription_update_tax_request;
+pub use self::preview_organization_subscription_update_tax_request::PreviewOrganizationSubscriptionUpdateTaxRequest;
+pub mod preview_premium_subscription_purchase_tax_request;
+pub use self::preview_premium_subscription_purchase_tax_request::PreviewPremiumSubscriptionPurchaseTaxRequest;
 pub mod priority;
 pub use self::priority::Priority;
 pub mod product_tier_type;
 pub use self::product_tier_type::ProductTierType;
-pub mod product_type;
-pub use self::product_type::ProductType;
 pub mod profile_organization_response_model;
 pub use self::profile_organization_response_model::ProfileOrganizationResponseModel;
 pub mod profile_organization_response_model_list_response_model;
@@ -684,6 +708,8 @@ pub mod reset_password_with_org_id_request_model;
 pub use self::reset_password_with_org_id_request_model::ResetPasswordWithOrgIdRequestModel;
 pub mod response_data;
 pub use self::response_data::ResponseData;
+pub mod restart_subscription_request;
+pub use self::restart_subscription_request::RestartSubscriptionRequest;
 pub mod revoke_access_tokens_request;
 pub use self::revoke_access_tokens_request::RevokeAccessTokensRequest;
 pub mod rotate_user_account_keys_and_data_request_model;
@@ -694,6 +720,8 @@ pub mod saml2_name_id_format;
 pub use self::saml2_name_id_format::Saml2NameIdFormat;
 pub mod saml2_signing_behavior;
 pub use self::saml2_signing_behavior::Saml2SigningBehavior;
+pub mod save_policy_request;
+pub use self::save_policy_request::SavePolicyRequest;
 pub mod secret_access_policies_requests_model;
 pub use self::secret_access_policies_requests_model::SecretAccessPoliciesRequestsModel;
 pub mod secret_access_policies_response_model;
@@ -714,12 +742,16 @@ pub mod secret_with_projects_list_response_model;
 pub use self::secret_with_projects_list_response_model::SecretWithProjectsListResponseModel;
 pub mod secrets_manager_plan_features_response_model;
 pub use self::secrets_manager_plan_features_response_model::SecretsManagerPlanFeaturesResponseModel;
+pub mod secrets_manager_purchase_selections;
+pub use self::secrets_manager_purchase_selections::SecretsManagerPurchaseSelections;
 pub mod secrets_manager_request_model;
 pub use self::secrets_manager_request_model::SecretsManagerRequestModel;
 pub mod secrets_manager_subscribe_request_model;
 pub use self::secrets_manager_subscribe_request_model::SecretsManagerSubscribeRequestModel;
 pub mod secrets_manager_subscription_update_request_model;
 pub use self::secrets_manager_subscription_update_request_model::SecretsManagerSubscriptionUpdateRequestModel;
+pub mod secrets_manager_update_selections;
+pub use self::secrets_manager_update_selections::SecretsManagerUpdateSelections;
 pub mod secrets_sync_response_model;
 pub use self::secrets_sync_response_model::SecretsSyncResponseModel;
 pub mod secrets_with_projects_inner_secret;
@@ -728,6 +760,8 @@ pub mod secure_note_type;
 pub use self::secure_note_type::SecureNoteType;
 pub mod security_task_create_request;
 pub use self::security_task_create_request::SecurityTaskCreateRequest;
+pub mod security_task_metrics_response_model;
+pub use self::security_task_metrics_response_model::SecurityTaskMetricsResponseModel;
 pub mod security_task_status;
 pub use self::security_task_status::SecurityTaskStatus;
 pub mod security_task_type;
@@ -818,8 +852,6 @@ pub mod tax_info_response_model;
 pub use self::tax_info_response_model::TaxInfoResponseModel;
 pub mod tax_info_update_request_model;
 pub use self::tax_info_update_request_model::TaxInfoUpdateRequestModel;
-pub mod tax_information_dto;
-pub use self::tax_information_dto::TaxInformationDto;
 pub mod tax_information_request_body;
 pub use self::tax_information_request_body::TaxInformationRequestBody;
 pub mod tax_information_request_model;
@@ -850,8 +882,6 @@ pub mod two_factor_provider_type;
 pub use self::two_factor_provider_type::TwoFactorProviderType;
 pub mod two_factor_recover_response_model;
 pub use self::two_factor_recover_response_model::TwoFactorRecoverResponseModel;
-pub mod two_factor_recovery_request_model;
-pub use self::two_factor_recovery_request_model::TwoFactorRecoveryRequestModel;
 pub mod two_factor_web_authn_delete_request_model;
 pub use self::two_factor_web_authn_delete_request_model::TwoFactorWebAuthnDeleteRequestModel;
 pub mod two_factor_web_authn_request_model;
@@ -870,10 +900,20 @@ pub mod update_avatar_request_model;
 pub use self::update_avatar_request_model::UpdateAvatarRequestModel;
 pub mod update_client_organization_request_body;
 pub use self::update_client_organization_request_body::UpdateClientOrganizationRequestBody;
+pub mod update_collection_request_model;
+pub use self::update_collection_request_model::UpdateCollectionRequestModel;
 pub mod update_devices_trust_request_model;
 pub use self::update_devices_trust_request_model::UpdateDevicesTrustRequestModel;
 pub mod update_domains_request_model;
 pub use self::update_domains_request_model::UpdateDomainsRequestModel;
+pub mod update_organization_report_application_data_request;
+pub use self::update_organization_report_application_data_request::UpdateOrganizationReportApplicationDataRequest;
+pub mod update_organization_report_data_request;
+pub use self::update_organization_report_data_request::UpdateOrganizationReportDataRequest;
+pub mod update_organization_report_request;
+pub use self::update_organization_report_request::UpdateOrganizationReportRequest;
+pub mod update_organization_report_summary_request;
+pub use self::update_organization_report_summary_request::UpdateOrganizationReportSummaryRequest;
 pub mod update_payment_method_request_body;
 pub use self::update_payment_method_request_body::UpdatePaymentMethodRequestBody;
 pub mod update_profile_request_model;
@@ -906,8 +946,6 @@ pub mod verified_organization_domain_sso_detail_response_model;
 pub use self::verified_organization_domain_sso_detail_response_model::VerifiedOrganizationDomainSsoDetailResponseModel;
 pub mod verified_organization_domain_sso_details_response_model;
 pub use self::verified_organization_domain_sso_details_response_model::VerifiedOrganizationDomainSsoDetailsResponseModel;
-pub mod verify_bank_account_request;
-pub use self::verify_bank_account_request::VerifyBankAccountRequest;
 pub mod verify_bank_account_request_body;
 pub use self::verify_bank_account_request_body::VerifyBankAccountRequestBody;
 pub mod verify_delete_recover_request_model;
@@ -934,42 +972,3 @@ pub mod web_authn_prf_status;
 pub use self::web_authn_prf_status::WebAuthnPrfStatus;
 pub mod web_push_auth_request_model;
 pub use self::web_push_auth_request_model::WebPushAuthRequestModel;
-/*
-use serde::{Deserialize, Deserializer, Serializer};
-use serde_with::{de::DeserializeAsWrap, ser::SerializeAsWrap, DeserializeAs, SerializeAs};
-use std::marker::PhantomData;
-
-pub(crate) struct DoubleOption<T>(PhantomData<T>);
-
-impl<T, TAs> SerializeAs<Option<Option<T>>> for DoubleOption<TAs>
-where
-    TAs: SerializeAs<T>,
-{
-    fn serialize_as<S>(values: &Option<Option<T>>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match values {
-            None => serializer.serialize_unit(),
-            Some(None) => serializer.serialize_none(),
-            Some(Some(v)) => serializer.serialize_some(&SerializeAsWrap::<T, TAs>::new(v)),
-        }
-    }
-}
-
-impl<'de, T, TAs> DeserializeAs<'de, Option<Option<T>>> for DoubleOption<TAs>
-where
-    TAs: DeserializeAs<'de, T>,
-    T: std::fmt::Debug,
-{
-    fn deserialize_as<D>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(Some(
-            DeserializeAsWrap::<Option<T>, Option<TAs>>::deserialize(deserializer)?
-                .into_inner(),
-        ))
-    }
-}
-*/

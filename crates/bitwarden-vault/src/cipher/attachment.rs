@@ -196,7 +196,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, AttachmentView> for Attachment {
             file_name: self.file_name.decrypt(ctx, key)?,
             key: self.key.clone(),
             #[cfg(feature = "wasm")]
-            decrypted_key,
+            decrypted_key: decrypted_key.map(|k| k.to_string()),
         })
     }
 }
@@ -220,13 +220,13 @@ impl TryFrom<bitwarden_api_api::models::AttachmentResponseModel> for Attachment 
 
 #[cfg(test)]
 mod tests {
-    use base64::{engine::general_purpose::STANDARD, Engine};
     use bitwarden_core::key_management::create_test_crypto_with_user_key;
     use bitwarden_crypto::{EncString, SymmetricCryptoKey};
+    use bitwarden_encoding::B64;
 
     use crate::{
-        cipher::cipher::{CipherRepromptType, CipherType},
         AttachmentFile, AttachmentFileView, AttachmentView, Cipher,
+        cipher::cipher::{CipherRepromptType, CipherType},
     };
 
     #[test]
@@ -286,6 +286,7 @@ mod tests {
                 creation_date: "2023-07-24T12:05:09.466666700Z".parse().unwrap(),
                 deleted_date: None,
                 revision_date: "2023-07-27T19:28:05.240Z".parse().unwrap(),
+                archived_date: None,
             },
             attachment,
             contents: contents.as_slice(),
@@ -340,20 +341,21 @@ mod tests {
             creation_date: "2023-07-24T12:05:09.466666700Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2023-07-27T19:28:05.240Z".parse().unwrap(),
+            archived_date: None,
         };
 
-        let enc_file = STANDARD.decode(b"Ao00qr1xLsV+ZNQpYZ/UwEwOWo3hheKwCYcOGIbsorZ6JIG2vLWfWEXCVqP0hDuzRvmx8otApNZr8pJYLNwCe1aQ+ySHQYGkdubFjoMojulMbQ959Y4SJ6Its/EnVvpbDnxpXTDpbutDxyhxfq1P3lstL2G9rObJRrxiwdGlRGu1h94UA1fCCkIUQux5LcqUee6W4MyQmRnsUziH8gGzmtI=").unwrap();
-        let original = STANDARD.decode(b"rMweTemxOL9D0iWWfRxiY3enxiZ5IrwWD6ef2apGO6MvgdGhy2fpwmATmn7BpSj9lRumddLLXm7u8zSp6hnXt1hS71YDNh78LjGKGhGL4sbg8uNnpa/I6GK/83jzqGYN7+ESbg==").unwrap();
+        let enc_file = B64::try_from("Ao00qr1xLsV+ZNQpYZ/UwEwOWo3hheKwCYcOGIbsorZ6JIG2vLWfWEXCVqP0hDuzRvmx8otApNZr8pJYLNwCe1aQ+ySHQYGkdubFjoMojulMbQ959Y4SJ6Its/EnVvpbDnxpXTDpbutDxyhxfq1P3lstL2G9rObJRrxiwdGlRGu1h94UA1fCCkIUQux5LcqUee6W4MyQmRnsUziH8gGzmtI=").unwrap();
+        let original = B64::try_from("rMweTemxOL9D0iWWfRxiY3enxiZ5IrwWD6ef2apGO6MvgdGhy2fpwmATmn7BpSj9lRumddLLXm7u8zSp6hnXt1hS71YDNh78LjGKGhGL4sbg8uNnpa/I6GK/83jzqGYN7+ESbg==").unwrap();
 
         let dec = key_store
             .decrypt(&AttachmentFile {
                 cipher,
                 attachment,
-                contents: EncString::from_buffer(&enc_file).unwrap(),
+                contents: EncString::from_buffer(enc_file.as_bytes()).unwrap(),
             })
             .unwrap();
 
-        assert_eq!(dec, original);
+        assert_eq!(dec, original.as_bytes());
     }
 
     #[test]
@@ -398,19 +400,20 @@ mod tests {
             creation_date: "2023-07-24T12:05:09.466666700Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2023-07-27T19:28:05.240Z".parse().unwrap(),
+            archived_date: None,
         };
 
-        let enc_file = STANDARD.decode(b"AsQLXOBHrJ8porroTUlPxeJOm9XID7LL9D2+KwYATXEpR1EFjLBpcCvMmnqcnYLXIEefe9TCeY4Us50ux43kRSpvdB7YkjxDKV0O1/y6tB7qC4vvv9J9+O/uDEnMx/9yXuEhAW/LA/TsU/WAgxkOM0uTvm8JdD9LUR1z9Ql7zOWycMVzkvGsk2KBNcqAdrotS5FlDftZOXyU8pWecNeyA/w=").unwrap();
-        let original = STANDARD.decode(b"rMweTemxOL9D0iWWfRxiY3enxiZ5IrwWD6ef2apGO6MvgdGhy2fpwmATmn7BpSj9lRumddLLXm7u8zSp6hnXt1hS71YDNh78LjGKGhGL4sbg8uNnpa/I6GK/83jzqGYN7+ESbg==").unwrap();
+        let enc_file = B64::try_from("AsQLXOBHrJ8porroTUlPxeJOm9XID7LL9D2+KwYATXEpR1EFjLBpcCvMmnqcnYLXIEefe9TCeY4Us50ux43kRSpvdB7YkjxDKV0O1/y6tB7qC4vvv9J9+O/uDEnMx/9yXuEhAW/LA/TsU/WAgxkOM0uTvm8JdD9LUR1z9Ql7zOWycMVzkvGsk2KBNcqAdrotS5FlDftZOXyU8pWecNeyA/w=").unwrap();
+        let original = B64::try_from("rMweTemxOL9D0iWWfRxiY3enxiZ5IrwWD6ef2apGO6MvgdGhy2fpwmATmn7BpSj9lRumddLLXm7u8zSp6hnXt1hS71YDNh78LjGKGhGL4sbg8uNnpa/I6GK/83jzqGYN7+ESbg==").unwrap();
 
         let dec = key_store
             .decrypt(&AttachmentFile {
                 cipher,
                 attachment,
-                contents: EncString::from_buffer(&enc_file).unwrap(),
+                contents: EncString::from_buffer(enc_file.as_bytes()).unwrap(),
             })
             .unwrap();
 
-        assert_eq!(dec, original);
+        assert_eq!(dec, original.as_bytes());
     }
 }

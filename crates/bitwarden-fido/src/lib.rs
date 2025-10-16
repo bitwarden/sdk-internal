@@ -1,13 +1,13 @@
 #![doc = include_str!("../README.md")]
 
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use bitwarden_core::key_management::KeyIds;
 use bitwarden_crypto::KeyStoreContext;
+use bitwarden_encoding::{B64Url, NotB64UrlEncodedError};
 use bitwarden_vault::{
     CipherError, CipherView, Fido2CredentialFullView, Fido2CredentialNewView, Fido2CredentialView,
 };
 use crypto::{CoseKeyToPkcs8Error, PrivateKeyFromSecretKeyError};
-use passkey::types::{ctap2::Aaguid, Passkey};
+use passkey::types::{Passkey, ctap2::Aaguid};
 
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
@@ -78,16 +78,16 @@ impl CipherViewContainer {
 #[derive(Debug, Error)]
 pub enum Fido2Error {
     #[error(transparent)]
-    DecodeError(#[from] base64::DecodeError),
+    Decode(#[from] NotB64UrlEncodedError),
 
     #[error(transparent)]
-    UnknownEnum(#[from] UnknownEnum),
+    UnknownEnum(#[from] UnknownEnumError),
 
     #[error(transparent)]
-    InvalidGuid(#[from] InvalidGuid),
+    InvalidGuid(#[from] InvalidGuidError),
 
     #[error(transparent)]
-    PrivateKeyFromSecretKeyError(#[from] PrivateKeyFromSecretKeyError),
+    PrivateKeyFromSecretKey(#[from] PrivateKeyFromSecretKeyError),
 
     #[error("No Fido2 credentials found")]
     NoFido2CredentialsFound,
@@ -115,19 +115,16 @@ fn try_from_credential_full_view(value: Fido2CredentialFullView) -> Result<Passk
         .parse()
         .map_err(|_| Fido2Error::InvalidCounter)?;
     let counter = (counter != 0).then_some(counter);
-    let key_value = URL_SAFE_NO_PAD.decode(value.key_value)?;
-    let user_handle = value
-        .user_handle
-        .map(|u| URL_SAFE_NO_PAD.decode(u))
-        .transpose()?;
+    let key_value = B64Url::try_from(value.key_value)?;
+    let user_handle = value.user_handle.map(B64Url::try_from).transpose()?;
 
-    let key = pkcs8_to_cose_key(&key_value)?;
+    let key = pkcs8_to_cose_key(key_value.as_bytes())?;
 
     Ok(Passkey {
         key,
         credential_id: string_to_guid_bytes(&value.credential_id)?.into(),
         rp_id: value.rp_id.clone(),
-        user_handle: user_handle.map(|u| u.into()),
+        user_handle: user_handle.map(|u| u.into_bytes().into()),
         counter,
     })
 }
@@ -136,9 +133,9 @@ fn try_from_credential_full_view(value: Fido2CredentialFullView) -> Result<Passk
 #[derive(Debug, Error)]
 pub enum FillCredentialError {
     #[error(transparent)]
-    InvalidInputLength(#[from] InvalidInputLength),
+    InvalidInputLength(#[from] InvalidInputLengthError),
     #[error(transparent)]
-    CoseKeyToPkcs8Error(#[from] CoseKeyToPkcs8Error),
+    CoseKeyToPkcs8(#[from] CoseKeyToPkcs8Error),
 }
 
 #[allow(missing_docs)]
@@ -149,8 +146,8 @@ pub fn fill_with_credential(
     let cred_id: Vec<u8> = value.credential_id.into();
     let user_handle = value
         .user_handle
-        .map(|u| URL_SAFE_NO_PAD.encode(u.to_vec()));
-    let key_value = URL_SAFE_NO_PAD.encode(cose_key_to_pkcs8(&value.key)?);
+        .map(|u| B64Url::from(u.to_vec()).to_string());
+    let key_value = B64Url::from(cose_key_to_pkcs8(&value.key)?).to_string();
 
     Ok(Fido2CredentialFullView {
         credential_id: guid_bytes_to_string(&cred_id)?,
@@ -173,9 +170,9 @@ pub fn fill_with_credential(
 pub(crate) fn try_from_credential_new_view(
     user: &passkey::types::ctap2::make_credential::PublicKeyCredentialUserEntity,
     rp: &passkey::types::ctap2::make_credential::PublicKeyCredentialRpEntity,
-) -> Result<Fido2CredentialNewView, InvalidInputLength> {
+) -> Result<Fido2CredentialNewView, InvalidInputLengthError> {
     let cred_id: Vec<u8> = vec![0; 16];
-    let user_handle = URL_SAFE_NO_PAD.encode(user.id.to_vec());
+    let user_handle = B64Url::from(user.id.to_vec()).to_string();
 
     Ok(Fido2CredentialNewView {
         // TODO: Why do we have a credential id here?
@@ -201,8 +198,8 @@ pub(crate) fn try_from_credential_full(
     options: passkey::types::ctap2::get_assertion::Options,
 ) -> Result<Fido2CredentialFullView, FillCredentialError> {
     let cred_id: Vec<u8> = value.credential_id.into();
-    let key_value = URL_SAFE_NO_PAD.encode(cose_key_to_pkcs8(&value.key)?);
-    let user_handle = URL_SAFE_NO_PAD.encode(user.id.to_vec());
+    let key_value = B64Url::from(cose_key_to_pkcs8(&value.key)?).to_string();
+    let user_handle = B64Url::from(user.id.to_vec()).to_string();
 
     Ok(Fido2CredentialFullView {
         credential_id: guid_bytes_to_string(&cred_id)?,
@@ -225,12 +222,12 @@ pub(crate) fn try_from_credential_full(
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 #[error("Input should be a 16 byte array")]
-pub struct InvalidInputLength;
+pub struct InvalidInputLengthError;
 
 #[allow(missing_docs)]
-pub fn guid_bytes_to_string(source: &[u8]) -> Result<String, InvalidInputLength> {
+pub fn guid_bytes_to_string(source: &[u8]) -> Result<String, InvalidInputLengthError> {
     if source.len() != 16 {
-        return Err(InvalidInputLength);
+        return Err(InvalidInputLengthError);
     }
     Ok(uuid::Uuid::from_bytes(source.try_into().expect("Invalid length")).to_string())
 }
@@ -238,18 +235,17 @@ pub fn guid_bytes_to_string(source: &[u8]) -> Result<String, InvalidInputLength>
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 #[error("Invalid GUID")]
-pub struct InvalidGuid;
+pub struct InvalidGuidError;
 
 #[allow(missing_docs)]
-pub fn string_to_guid_bytes(source: &str) -> Result<Vec<u8>, InvalidGuid> {
+pub fn string_to_guid_bytes(source: &str) -> Result<Vec<u8>, InvalidGuidError> {
     if source.starts_with("b64.") {
-        let bytes = URL_SAFE_NO_PAD
-            .decode(source.trim_start_matches("b64."))
-            .map_err(|_| InvalidGuid)?;
-        Ok(bytes)
+        let bytes =
+            B64Url::try_from(source.trim_start_matches("b64.")).map_err(|_| InvalidGuidError)?;
+        Ok(bytes.as_bytes().to_vec())
     } else {
         let Ok(uuid) = uuid::Uuid::try_parse(source) else {
-            return Err(InvalidGuid);
+            return Err(InvalidGuidError);
         };
         Ok(uuid.as_bytes().to_vec())
     }
@@ -258,12 +254,14 @@ pub fn string_to_guid_bytes(source: &str) -> Result<Vec<u8>, InvalidGuid> {
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 #[error("Unknown enum value")]
-pub struct UnknownEnum;
+pub struct UnknownEnumError;
 
 // Some utilities to convert back and forth between enums and strings
-fn get_enum_from_string_name<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, UnknownEnum> {
+fn get_enum_from_string_name<T: serde::de::DeserializeOwned>(
+    s: &str,
+) -> Result<T, UnknownEnumError> {
     let serialized = format!(r#""{s}""#);
-    let deserialized: T = serde_json::from_str(&serialized).map_err(|_| UnknownEnum)?;
+    let deserialized: T = serde_json::from_str(&serialized).map_err(|_| UnknownEnumError)?;
     Ok(deserialized)
 }
 
@@ -298,7 +296,9 @@ mod tests {
         let bytes = super::string_to_guid_bytes(uuid).unwrap();
         assert_eq!(
             bytes,
-            vec![213, 72, 130, 110, 121, 180, 219, 64, 163, 216, 17, 17, 111, 126, 131, 73]
+            vec![
+                213, 72, 130, 110, 121, 180, 219, 64, 163, 216, 17, 17, 111, 126, 131, 73
+            ]
         );
     }
 
@@ -308,7 +308,9 @@ mod tests {
         let bytes = super::string_to_guid_bytes(b64).unwrap();
         assert_eq!(
             bytes,
-            vec![213, 72, 130, 110, 121, 180, 219, 64, 163, 216, 17, 17, 111, 126, 131, 73]
+            vec![
+                213, 72, 130, 110, 121, 180, 219, 64, 163, 216, 17, 17, 111, 126, 131, 73
+            ]
         );
     }
 }

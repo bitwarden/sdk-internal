@@ -2,6 +2,7 @@ use bitwarden_api_api::models::{
     BaseSecretResponseModel, BaseSecretResponseModelListResponseModel, SecretResponseModel,
 };
 use bitwarden_core::{
+    OrganizationId,
     key_management::{KeyIds, SymmetricKeyId},
     require,
 };
@@ -52,7 +53,7 @@ impl SecretResponse {
         ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<SecretResponse, SecretsManagerError> {
         let organization_id = require!(response.organization_id);
-        let enc_key = SymmetricKeyId::Organization(organization_id);
+        let enc_key = SymmetricKeyId::Organization(OrganizationId::new(organization_id));
 
         let key = require!(response.key)
             .parse::<EncString>()?

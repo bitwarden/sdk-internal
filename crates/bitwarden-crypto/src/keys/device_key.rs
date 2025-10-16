@@ -1,7 +1,9 @@
+use bitwarden_encoding::B64;
+
 use super::{AsymmetricCryptoKey, PublicKeyEncryptionAlgorithm};
 use crate::{
-    error::Result, CryptoError, EncString, KeyDecryptable, KeyEncryptable, Pkcs8PrivateKeyBytes,
-    SymmetricCryptoKey, UnsignedSharedKey,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, Pkcs8PrivateKeyBytes,
+    SymmetricCryptoKey, UnsignedSharedKey, error::Result,
 };
 
 /// Device Key
@@ -16,7 +18,7 @@ pub struct DeviceKey(SymmetricCryptoKey);
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct TrustDeviceResponse {
     /// Base64 encoded device key
-    pub device_key: String,
+    pub device_key: B64,
     /// UserKey encrypted with DevicePublicKey
     pub protected_user_key: UnsignedSharedKey,
     /// DevicePrivateKey encrypted with [DeviceKey]
@@ -73,7 +75,7 @@ impl DeviceKey {
         Ok(user_key)
     }
 
-    fn to_base64(&self) -> String {
+    fn to_base64(&self) -> B64 {
         self.0.to_base64()
     }
 }
@@ -89,7 +91,7 @@ impl TryFrom<String> for DeviceKey {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{derive_symmetric_key, BitwardenLegacyKeyBytes};
+    use crate::{BitwardenLegacyKeyBytes, derive_symmetric_key};
 
     #[test]
     fn test_trust_device() {
@@ -97,7 +99,7 @@ mod tests {
 
         let result = DeviceKey::trust_device(&key).unwrap();
 
-        let device_key = DeviceKey::try_from(result.device_key).unwrap();
+        let device_key = DeviceKey::try_from(result.device_key.to_string()).unwrap();
         let decrypted = device_key
             .decrypt_user_key(
                 result.protected_device_private_key,

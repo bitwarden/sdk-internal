@@ -34,6 +34,9 @@ pub enum PolicyType {
     FreeFamiliesSponsorshipPolicy = 13,
     RemoveUnlockWithPin = 14,
     RestrictedItemTypesPolicy = 15,
+    UriMatchDefaults = 16,
+    AutotypeDefaultSetting = 17,
+    AutomaticUserConfirmation = 18,
 }
 
 impl std::fmt::Display for PolicyType {
@@ -58,6 +61,9 @@ impl std::fmt::Display for PolicyType {
                 Self::FreeFamiliesSponsorshipPolicy => "13",
                 Self::RemoveUnlockWithPin => "14",
                 Self::RestrictedItemTypesPolicy => "15",
+                Self::UriMatchDefaults => "16",
+                Self::AutotypeDefaultSetting => "17",
+                Self::AutomaticUserConfirmation => "18",
             }
         )
     }

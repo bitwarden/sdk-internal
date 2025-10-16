@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use bitwarden_crypto::{EncString, Kdf};
 
 use crate::{
+    Client, UserId,
     key_management::crypto::{InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest},
-    Client,
 };
 
 impl Client {
@@ -118,7 +118,7 @@ pub struct TestAccount {
 pub fn test_bitwarden_com_account() -> TestAccount {
     TestAccount {
         user: InitUserCryptoRequest {
-            user_id: Some(uuid::uuid!("060000fb-0922-4dd3-b170-6e15cb5df8c8")),
+            user_id: Some(UserId::new(uuid::uuid!("060000fb-0922-4dd3-b170-6e15cb5df8c8"))),
             kdf_params: Kdf::PBKDF2 {
                 iterations: 600_000.try_into().unwrap(),
             },
@@ -179,7 +179,7 @@ pub fn test_bitwarden_com_account() -> TestAccount {
 pub fn test_legacy_user_key_account() -> TestAccount {
     TestAccount {
         user: InitUserCryptoRequest {
-            user_id: Some(uuid::uuid!("060000fb-0922-4dd3-b170-6e15cb5df8c8")),
+            user_id: Some(UserId::new(uuid::uuid!("060000fb-0922-4dd3-b170-6e15cb5df8c8"))),
             kdf_params: Kdf::PBKDF2 {
                 iterations: 600_000.try_into().unwrap(),
             },

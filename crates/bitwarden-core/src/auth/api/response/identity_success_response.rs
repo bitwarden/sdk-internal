@@ -4,6 +4,8 @@ use bitwarden_api_identity::models::KdfType;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::auth::api::response::user_decryption_options_response::UserDecryptionOptionsResponseModel;
+
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub(crate) struct IdentityTokenSuccessResponse {
     pub access_token: String,
@@ -35,6 +37,9 @@ pub(crate) struct IdentityTokenSuccessResponse {
     #[serde(rename = "keyConnectorUrl", alias = "KeyConnectorUrl")]
     key_connector_url: Option<String>,
 
+    #[serde(rename = "userDecryptionOptions", alias = "UserDecryptionOptions")]
+    pub(crate) user_decryption_options: Option<UserDecryptionOptionsResponseModel>,
+
     /// Stores unknown api response fields
     extra: Option<HashMap<String, Value>>,
 }
@@ -61,6 +66,7 @@ mod test {
                 force_password_reset: Default::default(),
                 api_use_key_connector: Default::default(),
                 key_connector_url: Default::default(),
+                user_decryption_options: Default::default(),
                 extra: Default::default(),
             }
         }

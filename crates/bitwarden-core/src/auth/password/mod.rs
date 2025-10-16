@@ -1,8 +1,9 @@
 use bitwarden_crypto::{CryptoError, HashPurpose, Kdf, MasterKey};
 
 mod policy;
-pub(crate) use policy::satisfies_policy;
+use bitwarden_encoding::B64;
 pub use policy::MasterPasswordPolicyOptions;
+pub(crate) use policy::satisfies_policy;
 mod validate;
 pub(crate) use validate::{validate_password, validate_password_user_key};
 mod strength;
@@ -13,9 +14,9 @@ pub(crate) fn determine_password_hash(
     kdf: &Kdf,
     password: &str,
     purpose: HashPurpose,
-) -> Result<String, CryptoError> {
+) -> Result<B64, CryptoError> {
     let master_key = MasterKey::derive(password, email, kdf)?;
-    master_key.derive_master_key_hash(password.as_bytes(), purpose)
+    Ok(master_key.derive_master_key_hash(password.as_bytes(), purpose))
 }
 
 #[cfg(test)]
@@ -37,6 +38,9 @@ mod tests {
 
         let result = determine_password_hash(email, &kdf, password, purpose).unwrap();
 
-        assert_eq!(result, "7kTqkF1pY/3JeOu73N9kR99fDDe9O1JOZaVc7KH3lsU=");
+        assert_eq!(
+            result.to_string(),
+            "7kTqkF1pY/3JeOu73N9kR99fDDe9O1JOZaVc7KH3lsU="
+        );
     }
 }

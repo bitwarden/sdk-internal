@@ -1,8 +1,10 @@
 use bitwarden_core::Client;
-use bitwarden_vault::{Cipher, Folder};
+use bitwarden_state::DatabaseConfiguration;
 use serde::{Deserialize, Serialize};
 use tsify::Tsify;
-use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
+use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
+
+use crate::platform::repository::create_wasm_repositories;
 
 mod repository;
 pub mod token_provider;
@@ -47,18 +49,53 @@ impl StateClient {
     }
 }
 
-repository::create_wasm_repository!(CipherRepository, Cipher, "Repository<Cipher>");
-repository::create_wasm_repository!(FolderRepository, Folder, "Repository<Folder>");
+bitwarden_pm::create_client_managed_repositories!(Repositories, create_wasm_repositories);
+
+#[derive(Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct IndexedDbConfiguration {
+    pub db_name: String,
+}
 
 #[wasm_bindgen]
 impl StateClient {
-    pub fn register_cipher_repository(&self, store: CipherRepository) {
+    #[allow(deprecated)]
+    #[deprecated(note = "Use `register_client_managed_repositories` instead")]
+    pub fn register_cipher_repository(&self, cipher_repository: CipherRepository) {
+        let cipher = cipher_repository.into_channel_impl();
+        self.0.platform().state().register_client_managed(cipher);
+    }
+
+    #[allow(deprecated)]
+    #[deprecated(note = "Use `register_client_managed_repositories` instead")]
+    pub fn register_folder_repository(&self, store: FolderRepository) {
         let store = store.into_channel_impl();
         self.0.platform().state().register_client_managed(store)
     }
 
-    pub fn register_folder_repository(&self, store: FolderRepository) {
-        let store = store.into_channel_impl();
-        self.0.platform().state().register_client_managed(store)
+    pub fn register_client_managed_repositories(&self, repositories: Repositories) {
+        repositories.register_all(&self.0.platform().state());
+    }
+
+    /// Initialize the database for SDK managed repositories.
+    pub async fn initialize_state(
+        &self,
+        configuration: IndexedDbConfiguration,
+    ) -> Result<(), bitwarden_state::registry::StateRegistryError> {
+        let sdk_managed_repositories = bitwarden_pm::migrations::get_sdk_managed_migrations();
+
+        self.0
+            .platform()
+            .state()
+            .initialize_database(configuration.into(), sdk_managed_repositories)
+            .await
+    }
+}
+
+impl From<IndexedDbConfiguration> for DatabaseConfiguration {
+    fn from(config: IndexedDbConfiguration) -> Self {
+        bitwarden_state::DatabaseConfiguration::IndexedDb {
+            db_name: config.db_name,
+        }
     }
 }

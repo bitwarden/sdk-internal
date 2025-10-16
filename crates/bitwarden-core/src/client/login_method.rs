@@ -2,11 +2,9 @@
 use std::path::PathBuf;
 
 use bitwarden_crypto::Kdf;
-#[cfg(feature = "secrets")]
-use uuid::Uuid;
 
 #[cfg(feature = "secrets")]
-use crate::auth::AccessToken;
+use crate::{OrganizationId, auth::AccessToken};
 
 #[derive(Debug)]
 pub(crate) enum LoginMethod {
@@ -40,7 +38,7 @@ pub(crate) enum UserLoginMethod {
 pub(crate) enum ServiceAccountLoginMethod {
     AccessToken {
         access_token: AccessToken,
-        organization_id: Uuid,
+        organization_id: OrganizationId,
         state_file: Option<PathBuf>,
     },
 }

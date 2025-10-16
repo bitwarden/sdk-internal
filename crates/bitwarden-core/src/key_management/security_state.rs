@@ -22,13 +22,14 @@
 
 use std::str::FromStr;
 
-use base64::{engine::general_purpose::STANDARD, Engine};
 use bitwarden_crypto::{
-    CoseSerializable, CoseSign1Bytes, CryptoError, EncodingError, FromStrVisitor, KeyIds,
-    KeyStoreContext, SignedObject, SigningNamespace, VerifyingKey,
+    CoseSerializable, CoseSign1Bytes, CryptoError, EncodingError, KeyIds, KeyStoreContext,
+    SignedObject, SigningNamespace, VerifyingKey,
 };
+use bitwarden_encoding::{B64, FromStrVisitor};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
+
+use crate::UserId;
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
@@ -46,7 +47,7 @@ export type SignedSecurityState = string;
 pub struct SecurityState {
     /// The entity ID is a permanent, unchangeable, unique identifier for the object this security
     /// state applies to. For users, this is the user ID, which never changes.
-    entity_id: Uuid,
+    entity_id: UserId,
     /// The version of the security state gates feature availability. It can only ever be
     /// incremented. Components can use it to gate format support of specific formats (like
     /// item url hashes).
@@ -56,7 +57,7 @@ pub struct SecurityState {
 impl SecurityState {
     /// Initialize a new `SecurityState` for the given user ID, to the lowest version possible.
     /// The user needs to be a v2 encryption user.
-    pub fn initialize_for_user(user_id: uuid::Uuid) -> Self {
+    pub fn initialize_for_user(user_id: UserId) -> Self {
         SecurityState {
             entity_id: user_id,
             version: 2,
@@ -113,7 +114,7 @@ impl TryFrom<&CoseSign1Bytes> for SignedSecurityState {
 impl From<SignedSecurityState> for String {
     fn from(val: SignedSecurityState) -> Self {
         let bytes: CoseSign1Bytes = val.into();
-        STANDARD.encode(&bytes)
+        B64::from(bytes.as_ref()).to_string()
     }
 }
 
@@ -121,10 +122,8 @@ impl FromStr for SignedSecurityState {
     type Err = EncodingError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let bytes = STANDARD
-            .decode(s)
-            .map_err(|_| EncodingError::InvalidBase64Encoding)?;
-        Self::try_from(&CoseSign1Bytes::from(bytes))
+        let bytes = B64::try_from(s).map_err(|_| EncodingError::InvalidBase64Encoding)?;
+        Self::try_from(&CoseSign1Bytes::from(&bytes))
     }
 }
 
@@ -159,7 +158,7 @@ mod tests {
         let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
-        let user_id = uuid::Uuid::new_v4();
+        let user_id = UserId::new_v4();
         let security_state = SecurityState::initialize_for_user(user_id);
         let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
         #[allow(deprecated)]

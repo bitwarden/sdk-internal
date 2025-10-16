@@ -16,20 +16,21 @@
 use std::{marker::PhantomData, num::TryFromIntError, str::FromStr};
 
 use argon2::Params;
-use base64::{engine::general_purpose::STANDARD, Engine};
-use ciborium::{value::Integer, Value};
+use bitwarden_encoding::{B64, FromStrVisitor};
+use ciborium::{Value, value::Integer};
 use coset::{CborSerializable, CoseError, Header, HeaderBuilder};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
+    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KeyIds,
+    KeyStoreContext, SymmetricCryptoKey,
     cose::{
-        extract_bytes, extract_integer, CoseExtractError, ALG_ARGON2ID13, ARGON2_ITERATIONS,
-        ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
+        ALG_ARGON2ID13, ARGON2_ITERATIONS, ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
+        CoseExtractError, extract_bytes, extract_integer,
     },
-    xchacha20, BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey,
-    FromStrVisitor, KeyIds, KeyStoreContext, SymmetricCryptoKey,
+    xchacha20,
 };
 
 /// 16 is the RECOMMENDED salt size for all applications:
@@ -64,7 +65,7 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
         #[allow(deprecated)]
         let key_ref = ctx
             .dangerous_get_symmetric_key(key_to_seal)
-            .map_err(|_| PasswordProtectedKeyEnvelopeError::KeyMissingError)?;
+            .map_err(|_| PasswordProtectedKeyEnvelopeError::KeyMissing)?;
         Self::seal_ref(key_ref, password)
     }
 
@@ -97,7 +98,7 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
         // The envelope key is directly derived from the KDF and used as the key to encrypt the key
         // that should be sealed.
         let envelope_key = derive_key(kdf_settings, password)
-            .map_err(|_| PasswordProtectedKeyEnvelopeError::KdfError)?;
+            .map_err(|_| PasswordProtectedKeyEnvelopeError::Kdf)?;
 
         let (content_format, key_to_seal_bytes) = match key_to_seal.to_encoded_raw() {
             EncodedSymmetricKey::BitwardenLegacyKey(key_bytes) => {
@@ -145,7 +146,7 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
         let key = self.unseal_ref(password)?;
         #[allow(deprecated)]
         ctx.set_symmetric_key(target_keyslot, key)
-            .map_err(|_| PasswordProtectedKeyEnvelopeError::KeyStoreError)?;
+            .map_err(|_| PasswordProtectedKeyEnvelopeError::KeyStore)?;
         Ok(target_keyslot)
     }
 
@@ -161,34 +162,32 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
             .first()
             .filter(|_| self.cose_encrypt.recipients.len() == 1)
             .ok_or_else(|| {
-                PasswordProtectedKeyEnvelopeError::ParsingError(
+                PasswordProtectedKeyEnvelopeError::Parsing(
                     "Invalid number of recipients".to_string(),
                 )
             })?;
 
         if recipient.protected.header.alg != Some(coset::Algorithm::PrivateUse(ALG_ARGON2ID13)) {
-            return Err(PasswordProtectedKeyEnvelopeError::ParsingError(
+            return Err(PasswordProtectedKeyEnvelopeError::Parsing(
                 "Unknown or unsupported KDF algorithm".to_string(),
             ));
         }
 
         let kdf_settings: Argon2RawSettings =
             (&recipient.unprotected).try_into().map_err(|_| {
-                PasswordProtectedKeyEnvelopeError::ParsingError(
+                PasswordProtectedKeyEnvelopeError::Parsing(
                     "Invalid or missing KDF parameters".to_string(),
                 )
             })?;
         let envelope_key = derive_key(&kdf_settings, password)
-            .map_err(|_| PasswordProtectedKeyEnvelopeError::KdfError)?;
+            .map_err(|_| PasswordProtectedKeyEnvelopeError::Kdf)?;
         let nonce: [u8; crate::xchacha20::NONCE_SIZE] = self
             .cose_encrypt
             .unprotected
             .iv
             .clone()
             .try_into()
-            .map_err(|_| {
-                PasswordProtectedKeyEnvelopeError::ParsingError("Invalid IV".to_string())
-            })?;
+            .map_err(|_| PasswordProtectedKeyEnvelopeError::Parsing("Invalid IV".to_string()))?;
 
         let key_bytes = self
             .cose_encrypt
@@ -201,9 +200,7 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
 
         SymmetricCryptoKey::try_from(
             match ContentFormat::try_from(&self.cose_encrypt.protected.header).map_err(|_| {
-                PasswordProtectedKeyEnvelopeError::ParsingError(
-                    "Invalid content format".to_string(),
-                )
+                PasswordProtectedKeyEnvelopeError::Parsing("Invalid content format".to_string())
             })? {
                 ContentFormat::BitwardenLegacyKey => EncodedSymmetricKey::BitwardenLegacyKey(
                     BitwardenLegacyKeyBytes::from(key_bytes),
@@ -212,15 +209,13 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
                     EncodedSymmetricKey::CoseKey(CoseKeyBytes::from(key_bytes))
                 }
                 _ => {
-                    return Err(PasswordProtectedKeyEnvelopeError::ParsingError(
+                    return Err(PasswordProtectedKeyEnvelopeError::Parsing(
                         "Unknown or unsupported content format".to_string(),
                     ));
                 }
             },
         )
-        .map_err(|_| {
-            PasswordProtectedKeyEnvelopeError::ParsingError("Failed to decode key".to_string())
-        })
+        .map_err(|_| PasswordProtectedKeyEnvelopeError::Parsing("Failed to decode key".to_string()))
     }
 
     /// Re-seals the key with new KDF parameters (updated settings, salt), and a new password
@@ -267,13 +262,13 @@ impl<Ids: KeyIds> FromStr for PasswordProtectedKeyEnvelope<Ids> {
     type Err = PasswordProtectedKeyEnvelopeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let data = STANDARD.decode(s).map_err(|_| {
-            PasswordProtectedKeyEnvelopeError::ParsingError(
+        let data = B64::try_from(s).map_err(|_| {
+            PasswordProtectedKeyEnvelopeError::Parsing(
                 "Invalid PasswordProtectedKeyEnvelope Base64 encoding".to_string(),
             )
         })?;
-        Self::try_from(&data).map_err(|_| {
-            PasswordProtectedKeyEnvelopeError::ParsingError(
+        Self::try_from(&data.into_bytes()).map_err(|_| {
+            PasswordProtectedKeyEnvelopeError::Parsing(
                 "Failed to parse PasswordProtectedKeyEnvelope".to_string(),
             )
         })
@@ -283,7 +278,7 @@ impl<Ids: KeyIds> FromStr for PasswordProtectedKeyEnvelope<Ids> {
 impl<Ids: KeyIds> From<PasswordProtectedKeyEnvelope<Ids>> for String {
     fn from(val: PasswordProtectedKeyEnvelope<Ids>) -> Self {
         let serialized: Vec<u8> = (&val).into();
-        STANDARD.encode(serialized)
+        B64::from(serialized).to_string()
     }
 }
 
@@ -302,7 +297,7 @@ impl<Ids: KeyIds> Serialize for PasswordProtectedKeyEnvelope<Ids> {
         S: serde::Serializer,
     {
         let serialized: Vec<u8> = self.into();
-        serializer.serialize_str(&STANDARD.encode(serialized))
+        serializer.serialize_str(&B64::from(serialized).to_string())
     }
 }
 
@@ -373,7 +368,7 @@ impl TryInto<Params> for &Argon2RawSettings {
             self.parallelism,
             Some(ENVELOPE_ARGON2_OUTPUT_KEY_SIZE),
         )
-        .map_err(|_| PasswordProtectedKeyEnvelopeError::KdfError)
+        .map_err(|_| PasswordProtectedKeyEnvelopeError::Kdf)
     }
 }
 
@@ -388,9 +383,7 @@ impl TryInto<Argon2RawSettings> for &Header {
             salt: extract_bytes(self, ARGON2_SALT, "salt")?
                 .try_into()
                 .map_err(|_| {
-                    PasswordProtectedKeyEnvelopeError::ParsingError(
-                        "Invalid Argon2 salt".to_string(),
-                    )
+                    PasswordProtectedKeyEnvelopeError::Parsing("Invalid Argon2 salt".to_string())
                 })?,
         })
     }
@@ -415,7 +408,7 @@ fn derive_key(
         argon2_settings.try_into()?,
     )
     .hash_password_into(password.as_bytes(), &argon2_settings.salt, &mut hash)
-    .map_err(|_| PasswordProtectedKeyEnvelopeError::KdfError)?;
+    .map_err(|_| PasswordProtectedKeyEnvelopeError::Kdf)?;
 
     Ok(hash)
 }
@@ -428,29 +421,29 @@ pub enum PasswordProtectedKeyEnvelopeError {
     WrongPassword,
     /// The envelope could not be parsed correctly, or the KDF parameters are invalid
     #[error("Parsing error {0}")]
-    ParsingError(String),
+    Parsing(String),
     /// The KDF failed to derive a key, possibly due to invalid parameters or memory allocation
     /// issues
     #[error("Kdf error")]
-    KdfError,
+    Kdf,
     /// There is no key for the provided key id in the key store
     #[error("Key missing error")]
-    KeyMissingError,
+    KeyMissing,
     /// The key store could not be written to, for example due to being read-only
     #[error("Could not write to key store")]
-    KeyStoreError,
+    KeyStore,
 }
 
 impl From<CoseExtractError> for PasswordProtectedKeyEnvelopeError {
     fn from(err: CoseExtractError) -> Self {
         let CoseExtractError::MissingValue(label) = err;
-        PasswordProtectedKeyEnvelopeError::ParsingError(format!("Missing value for {}", label))
+        PasswordProtectedKeyEnvelopeError::Parsing(format!("Missing value for {}", label))
     }
 }
 
 impl From<TryFromIntError> for PasswordProtectedKeyEnvelopeError {
     fn from(err: TryFromIntError) -> Self {
-        PasswordProtectedKeyEnvelopeError::ParsingError(format!("Invalid integer: {}", err))
+        PasswordProtectedKeyEnvelopeError::Parsing(format!("Invalid integer: {}", err))
     }
 }
 
@@ -458,8 +451,8 @@ impl From<TryFromIntError> for PasswordProtectedKeyEnvelopeError {
 mod tests {
     use super::*;
     use crate::{
-        traits::tests::{TestIds, TestSymmKey},
         KeyStore,
+        traits::tests::{TestIds, TestSymmKey},
     };
 
     const TEST_UNSEALED_COSEKEY_ENCODED: &[u8] = &[

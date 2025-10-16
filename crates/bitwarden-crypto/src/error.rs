@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+use bitwarden_encoding::NotB64EncodedError;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 use uuid::Uuid;
@@ -38,19 +39,19 @@ pub enum CryptoError {
     EncString(#[from] EncStringParseError),
 
     #[error("Rsa error, {0}")]
-    RsaError(#[from] RsaError),
+    Rsa(#[from] RsaError),
 
     #[error("Fingerprint error, {0}")]
-    FingerprintError(#[from] FingerprintError),
+    Fingerprint(#[from] FingerprintError),
 
     #[error("Argon2 error, {0}")]
-    ArgonError(#[from] argon2::Error),
+    Argon(#[from] argon2::Error),
 
     #[error("Number is zero")]
     ZeroNumber,
 
     #[error("Unsupported operation, {0}")]
-    OperationNotSupported(UnsupportedOperation),
+    OperationNotSupported(UnsupportedOperationError),
 
     #[error("Key algorithm does not match encrypted data type")]
     WrongKeyType,
@@ -65,14 +66,14 @@ pub enum CryptoError {
     InvalidPadding,
 
     #[error("Signature error, {0}")]
-    SignatureError(#[from] SignatureError),
+    Signature(#[from] SignatureError),
 
     #[error("Encoding error, {0}")]
-    EncodingError(#[from] EncodingError),
+    Encoding(#[from] EncodingError),
 }
 
 #[derive(Debug, Error)]
-pub enum UnsupportedOperation {
+pub enum UnsupportedOperationError {
     #[error("Encryption is not implemented for key")]
     EncryptionNotImplementedForKey,
 }
@@ -86,7 +87,7 @@ pub enum EncStringParseError {
     #[error("Invalid asymmetric type, got type {enc_type} with {parts} parts")]
     InvalidTypeAsymm { enc_type: String, parts: usize },
     #[error("Error decoding base64: {0}")]
-    InvalidBase64(#[from] base64::DecodeError),
+    InvalidBase64(#[from] NotB64EncodedError),
     #[error("Invalid length: expected {expected}, got {got}")]
     InvalidLength { expected: usize, got: usize },
     #[error("Invalid encoding {0}")]

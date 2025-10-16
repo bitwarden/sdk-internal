@@ -1,9 +1,11 @@
 use bitwarden_api_api::models::CollectionDetailsResponseModel;
 use bitwarden_core::{
+    OrganizationId,
     key_management::{KeyIds, SymmetricKeyId},
     require,
 };
 use bitwarden_crypto::{CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext};
+use bitwarden_uuid::uuid_newtype;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use uuid::Uuid;
@@ -12,14 +14,16 @@ use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 use crate::{error::CollectionsParseError, tree::TreeItem};
 
+uuid_newtype!(pub CollectionId);
+
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Collection {
-    pub id: Option<Uuid>,
-    pub organization_id: Uuid,
+    pub id: Option<CollectionId>,
+    pub organization_id: OrganizationId,
     pub name: EncString,
     pub external_id: Option<String>,
     pub hide_passwords: bool,
@@ -35,8 +39,8 @@ pub struct Collection {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CollectionView {
-    pub id: Option<Uuid>,
-    pub organization_id: Uuid,
+    pub id: Option<CollectionId>,
+    pub organization_id: OrganizationId,
     pub name: String,
     pub external_id: Option<String>,
     pub hide_passwords: bool,
@@ -94,8 +98,8 @@ impl TryFrom<CollectionDetailsResponseModel> for Collection {
 
     fn try_from(collection: CollectionDetailsResponseModel) -> Result<Self, Self::Error> {
         Ok(Collection {
-            id: collection.id,
-            organization_id: require!(collection.organization_id),
+            id: collection.id.map(CollectionId::new),
+            organization_id: OrganizationId::new(require!(collection.organization_id)),
             name: require!(collection.name).parse()?,
             external_id: collection.external_id,
             hide_passwords: collection.hide_passwords.unwrap_or(false),
@@ -117,7 +121,7 @@ impl IdentifyKey<SymmetricKeyId> for Collection {
 #[allow(missing_docs)]
 impl TreeItem for CollectionView {
     fn id(&self) -> Uuid {
-        self.id.unwrap_or_default()
+        self.id.map(|id| id.0).unwrap_or_default()
     }
 
     fn short_name(&self) -> &str {
@@ -149,7 +153,6 @@ impl From<bitwarden_api_api::models::CollectionType> for CollectionType {
 mod tests {
     use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
     use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricCryptoKey};
-    use uuid::Uuid;
 
     use super::*;
 
@@ -160,7 +163,7 @@ mod tests {
     fn create_test_key_store() -> KeyStore<KeyIds> {
         let store = KeyStore::<KeyIds>::default();
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let org_id = Uuid::parse_str(ORGANIZATION_ID).unwrap();
+        let org_id = ORGANIZATION_ID.parse().unwrap();
 
         #[allow(deprecated)]
         store
@@ -175,13 +178,13 @@ mod tests {
     fn test_decrypt_with_name_only() {
         let store = create_test_key_store();
         let mut ctx = store.context();
-        let org_id = Uuid::parse_str(ORGANIZATION_ID).unwrap();
+        let org_id = ORGANIZATION_ID.parse().unwrap();
         let key = SymmetricKeyId::Organization(org_id);
 
         let collection_name: &str = "Collection Name";
 
         let collection = Collection {
-            id: Some(Uuid::parse_str(COLLECTION_ID).unwrap()),
+            id: Some(COLLECTION_ID.parse().unwrap()),
             organization_id: org_id,
             name: collection_name.encrypt(&mut ctx, key).unwrap(),
             external_id: Some("external-id".to_string()),
@@ -201,14 +204,14 @@ mod tests {
     fn test_decrypt_with_default_user_collection_email() {
         let store = create_test_key_store();
         let mut ctx = store.context();
-        let org_id = Uuid::parse_str(ORGANIZATION_ID).unwrap();
+        let org_id = ORGANIZATION_ID.parse().unwrap();
         let key = SymmetricKeyId::Organization(org_id);
 
         let collection_name: &str = "Collection Name";
         let default_user_collection_email = String::from("test-user@bitwarden.com");
 
         let collection = Collection {
-            id: Some(Uuid::parse_str(COLLECTION_ID).unwrap()),
+            id: Some(COLLECTION_ID.parse().unwrap()),
             organization_id: org_id,
             name: collection_name.encrypt(&mut ctx, key).unwrap(),
             external_id: None,
@@ -229,10 +232,10 @@ mod tests {
     fn test_decrypt_all_fields_preserved() {
         let store = create_test_key_store();
         let mut ctx = store.context();
-        let org_id = Uuid::parse_str(ORGANIZATION_ID).unwrap();
+        let org_id = ORGANIZATION_ID.parse().unwrap();
         let key = SymmetricKeyId::Organization(org_id);
 
-        let collection_id = Some(Uuid::parse_str(COLLECTION_ID).unwrap());
+        let collection_id = Some(COLLECTION_ID.parse().unwrap());
         let external_id = Some("external-test-id".to_string());
         let collection_name: &str = "Collection Name";
         let collection_type = CollectionType::SharedCollection;

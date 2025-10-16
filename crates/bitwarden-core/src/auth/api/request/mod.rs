@@ -19,25 +19,23 @@ mod auth_request_token_request;
 pub(crate) use auth_request_token_request::*;
 
 use crate::{
+    ApiError,
     auth::{
-        api::response::{parse_identity_response, IdentityTokenResponse},
+        api::response::{IdentityTokenResponse, parse_identity_response},
         login::LoginError,
     },
     client::ApiConfigurations,
-    ApiError,
 };
 
 pub(crate) async fn send_identity_connect_request(
     configurations: &ApiConfigurations,
     body: impl serde::Serialize,
 ) -> Result<IdentityTokenResponse, LoginError> {
-    let mut request = configurations
-        .identity
+    let config = &configurations.identity_config;
+
+    let mut request = config
         .client
-        .post(format!(
-            "{}/connect/token",
-            &configurations.identity.base_path
-        ))
+        .post(format!("{}/connect/token", &config.base_path))
         .header(
             reqwest::header::CONTENT_TYPE,
             "application/x-www-form-urlencoded; charset=utf-8",
@@ -45,7 +43,7 @@ pub(crate) async fn send_identity_connect_request(
         .header(reqwest::header::ACCEPT, "application/json")
         .header("Device-Type", configurations.device_type as usize);
 
-    if let Some(ref user_agent) = configurations.identity.user_agent {
+    if let Some(ref user_agent) = config.user_agent {
         request = request.header(reqwest::header::USER_AGENT, user_agent.clone());
     }
 

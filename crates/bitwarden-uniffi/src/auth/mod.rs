@@ -1,10 +1,11 @@
 use bitwarden_core::auth::{
-    password::MasterPasswordPolicyOptions, AuthRequestResponse, KeyConnectorResponse,
-    RegisterKeyResponse, RegisterTdeKeyResponse,
+    AuthRequestResponse, KeyConnectorResponse, RegisterKeyResponse, RegisterTdeKeyResponse,
+    password::MasterPasswordPolicyOptions,
 };
 use bitwarden_crypto::{EncString, HashPurpose, Kdf, TrustDeviceResponse, UnsignedSharedKey};
+use bitwarden_encoding::B64;
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 
 #[derive(uniffi::Object)]
 pub struct AuthClient(pub(crate) bitwarden_core::Client);
@@ -40,13 +41,12 @@ impl AuthClient {
         password: String,
         kdf_params: Kdf,
         purpose: HashPurpose,
-    ) -> Result<String> {
+    ) -> Result<B64> {
         Ok(self
             .0
             .kdf()
             .hash_password(email, password, kdf_params, purpose)
-            .await
-            .map_err(Error::Crypto)?)
+            .await?)
     }
 
     /// Generate keys needed for registration process
@@ -56,34 +56,25 @@ impl AuthClient {
         password: String,
         kdf: Kdf,
     ) -> Result<RegisterKeyResponse> {
-        Ok(self
-            .0
-            .auth()
-            .make_register_keys(email, password, kdf)
-            .map_err(Error::Crypto)?)
+        Ok(self.0.auth().make_register_keys(email, password, kdf)?)
     }
 
     /// Generate keys needed for TDE process
     pub fn make_register_tde_keys(
         &self,
         email: String,
-        org_public_key: String,
+        org_public_key: B64,
         remember_device: bool,
     ) -> Result<RegisterTdeKeyResponse> {
         Ok(self
             .0
             .auth()
-            .make_register_tde_keys(email, org_public_key, remember_device)
-            .map_err(Error::EncryptionSettings)?)
+            .make_register_tde_keys(email, org_public_key, remember_device)?)
     }
 
     /// Generate keys needed to onboard a new user without master key to key connector
     pub fn make_key_connector_keys(&self) -> Result<KeyConnectorResponse> {
-        Ok(self
-            .0
-            .auth()
-            .make_key_connector_keys()
-            .map_err(Error::Crypto)?)
+        Ok(self.0.auth().make_key_connector_keys()?)
     }
 
     /// Validate the user password
@@ -91,12 +82,8 @@ impl AuthClient {
     /// To retrieve the user's password hash, use [`AuthClient::hash_password`] with
     /// `HashPurpose::LocalAuthentication` during login and persist it. If the login method has no
     /// password, use the email OTP.
-    pub fn validate_password(&self, password: String, password_hash: String) -> Result<bool> {
-        Ok(self
-            .0
-            .auth()
-            .validate_password(password, password_hash)
-            .map_err(Error::AuthValidate)?)
+    pub fn validate_password(&self, password: String, password_hash: B64) -> Result<bool> {
+        Ok(self.0.auth().validate_password(password, password_hash)?)
     }
 
     /// Validate the user password without knowing the password hash
@@ -109,12 +96,11 @@ impl AuthClient {
         &self,
         password: String,
         encrypted_user_key: String,
-    ) -> Result<String> {
+    ) -> Result<B64> {
         Ok(self
             .0
             .auth()
-            .validate_password_user_key(password, encrypted_user_key)
-            .map_err(Error::AuthValidate)?)
+            .validate_password_user_key(password, encrypted_user_key)?)
     }
 
     /// Validate the user PIN
@@ -125,33 +111,21 @@ impl AuthClient {
     /// This works by comparing the decrypted user key with the current user key, so the client must
     /// be unlocked.
     pub fn validate_pin(&self, pin: String, pin_protected_user_key: EncString) -> Result<bool> {
-        Ok(self
-            .0
-            .auth()
-            .validate_pin(pin, pin_protected_user_key)
-            .map_err(Error::AuthValidate)?)
+        Ok(self.0.auth().validate_pin(pin, pin_protected_user_key)?)
     }
 
     /// Initialize a new auth request
     pub fn new_auth_request(&self, email: String) -> Result<AuthRequestResponse> {
-        Ok(self
-            .0
-            .auth()
-            .new_auth_request(&email)
-            .map_err(Error::Crypto)?)
+        Ok(self.0.auth().new_auth_request(&email)?)
     }
 
     /// Approve an auth request
-    pub fn approve_auth_request(&self, public_key: String) -> Result<UnsignedSharedKey> {
-        Ok(self
-            .0
-            .auth()
-            .approve_auth_request(public_key)
-            .map_err(Error::ApproveAuthRequest)?)
+    pub fn approve_auth_request(&self, public_key: B64) -> Result<UnsignedSharedKey> {
+        Ok(self.0.auth().approve_auth_request(public_key)?)
     }
 
     /// Trust the current device
     pub fn trust_device(&self) -> Result<TrustDeviceResponse> {
-        Ok(self.0.auth().trust_device().map_err(Error::TrustDevice)?)
+        Ok(self.0.auth().trust_device()?)
     }
 }

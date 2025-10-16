@@ -8,11 +8,11 @@ use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
-    derive_shareable_key, error::UnsupportedOperation, signing, store::backend::StoreBackend,
     AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CryptoError, EncString, KeyId,
     KeyIds, PublicKeyEncryptionAlgorithm, Result, RotatedUserKeys, Signature, SignatureAlgorithm,
     SignedObject, SignedPublicKey, SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey,
-    UnsignedSharedKey,
+    UnsignedSharedKey, derive_shareable_key, error::UnsupportedOperationError, signing,
+    store::backend::StoreBackend,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -236,7 +236,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 )
             }
             _ => Err(CryptoError::OperationNotSupported(
-                UnsupportedOperation::EncryptionNotImplementedForKey,
+                UnsupportedOperationError::EncryptionNotImplementedForKey,
             )),
         }
     }
@@ -503,7 +503,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         let key = self.get_symmetric_key(key)?;
         match key {
             SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
-                UnsupportedOperation::EncryptionNotImplementedForKey,
+                UnsupportedOperationError::EncryptionNotImplementedForKey,
             )),
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {
@@ -557,15 +557,15 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        store::{
-            tests::{Data, DataView},
-            KeyStore,
-        },
-        traits::tests::{TestAsymmKey, TestIds, TestSigningKey, TestSymmKey},
         AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CompositeEncryptable, CoseKeyBytes,
         CoseSerializable, CryptoError, Decryptable, KeyDecryptable, Pkcs8PrivateKeyBytes,
         PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SigningKey, SigningNamespace,
         SymmetricCryptoKey,
+        store::{
+            KeyStore,
+            tests::{Data, DataView},
+        },
+        traits::tests::{TestAsymmKey, TestIds, TestSigningKey, TestSymmKey},
     };
 
     #[test]

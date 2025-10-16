@@ -12,8 +12,7 @@ pub mod client;
 mod error;
 pub mod key_management;
 pub use error::{
-    ApiError, MissingFieldError, MissingPrivateKeyError, NotAuthenticatedError, VaultLockedError,
-    WrongPasswordError,
+    ApiError, MissingFieldError, MissingPrivateKeyError, NotAuthenticatedError, WrongPasswordError,
 };
 #[cfg(feature = "internal")]
 pub mod mobile;
@@ -21,7 +20,6 @@ pub mod mobile;
 pub mod platform;
 #[cfg(feature = "secrets")]
 pub mod secrets_manager;
-mod util;
 
 pub use bitwarden_crypto::ZeroizingAllocator;
 pub use client::{Client, ClientSettings, DeviceType};

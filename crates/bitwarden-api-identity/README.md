@@ -11,7 +11,9 @@ client.
 
 - API version: v1
 - Package version: 1.0.0
-- Generator version: 7.13.0
+- Server Git commit:
+  [`fedc6b865b359aa68598df68b928a4c06246cfc0`](https://github.com/bitwarden/server/commit/fedc6b865b359aa68598df68b928a4c06246cfc0)
+- Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
 ## Installation
@@ -25,23 +27,22 @@ bitwarden-api-identity = { path = "./bitwarden-api-identity" }
 
 ## Documentation for API Endpoints
 
-All URIs are relative to _http://localhost_
+All URIs are relative to *https://identity.bitwarden.com*
 
-| Class         | Method                                                                                                                         | HTTP request                                           | Description |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | ----------- |
-| _AccountsApi_ | [**accounts_prelogin_post**](docs/AccountsApi.md#accounts_prelogin_post)                                                       | **POST** /accounts/prelogin                            |
-| _AccountsApi_ | [**accounts_register_finish_post**](docs/AccountsApi.md#accounts_register_finish_post)                                         | **POST** /accounts/register/finish                     |
-| _AccountsApi_ | [**accounts_register_send_verification_email_post**](docs/AccountsApi.md#accounts_register_send_verification_email_post)       | **POST** /accounts/register/send-verification-email    |
-| _AccountsApi_ | [**accounts_register_verification_email_clicked_post**](docs/AccountsApi.md#accounts_register_verification_email_clicked_post) | **POST** /accounts/register/verification-email-clicked |
-| _AccountsApi_ | [**accounts_trial_send_verification_email_post**](docs/AccountsApi.md#accounts_trial_send_verification_email_post)             | **POST** /accounts/trial/send-verification-email       |
-| _AccountsApi_ | [**accounts_webauthn_assertion_options_get**](docs/AccountsApi.md#accounts_webauthn_assertion_options_get)                     | **GET** /accounts/webauthn/assertion-options           |
-| _InfoApi_     | [**alive_get**](docs/InfoApi.md#alive_get)                                                                                     | **GET** /alive                                         |
-| _InfoApi_     | [**now_get**](docs/InfoApi.md#now_get)                                                                                         | **GET** /now                                           |
-| _InfoApi_     | [**version_get**](docs/InfoApi.md#version_get)                                                                                 | **GET** /version                                       |
-| _SsoApi_      | [**sso_external_callback_get**](docs/SsoApi.md#sso_external_callback_get)                                                      | **GET** /sso/ExternalCallback                          |
-| _SsoApi_      | [**sso_external_challenge_get**](docs/SsoApi.md#sso_external_challenge_get)                                                    | **GET** /sso/ExternalChallenge                         |
-| _SsoApi_      | [**sso_login_get**](docs/SsoApi.md#sso_login_get)                                                                              | **GET** /sso/Login                                     |
-| _SsoApi_      | [**sso_pre_validate_get**](docs/SsoApi.md#sso_pre_validate_get)                                                                | **GET** /sso/PreValidate                               |
+| Class         | Method                                                                                                                          | HTTP request                                           | Description |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ----------- |
+| _AccountsApi_ | [**get_web_authn_login_assertion_options**](docs/AccountsApi.md#accounts_get_web_authn_login_assertion_options)                 | **GET** /accounts/webauthn/assertion-options           |
+| _AccountsApi_ | [**post_prelogin**](docs/AccountsApi.md#accounts_post_prelogin)                                                                 | **POST** /accounts/prelogin                            |
+| _AccountsApi_ | [**post_register_finish**](docs/AccountsApi.md#accounts_post_register_finish)                                                   | **POST** /accounts/register/finish                     |
+| _AccountsApi_ | [**post_register_send_verification_email**](docs/AccountsApi.md#accounts_post_register_send_verification_email)                 | **POST** /accounts/register/send-verification-email    |
+| _AccountsApi_ | [**post_register_verification_email_clicked**](docs/AccountsApi.md#accounts_post_register_verification_email_clicked)           | **POST** /accounts/register/verification-email-clicked |
+| _AccountsApi_ | [**post_trial_initiation_send_verification_email**](docs/AccountsApi.md#accounts_post_trial_initiation_send_verification_email) | **POST** /accounts/trial/send-verification-email       |
+| _InfoApi_     | [**get_alive**](docs/InfoApi.md#info_get_alive)                                                                                 | **GET** /alive                                         |
+| _InfoApi_     | [**get_version**](docs/InfoApi.md#info_get_version)                                                                             | **GET** /version                                       |
+| _SsoApi_      | [**external_callback**](docs/SsoApi.md#sso_external_callback)                                                                   | **GET** /sso/ExternalCallback                          |
+| _SsoApi_      | [**external_challenge**](docs/SsoApi.md#sso_external_challenge)                                                                 | **GET** /sso/ExternalChallenge                         |
+| _SsoApi_      | [**login**](docs/SsoApi.md#sso_login)                                                                                           | **GET** /sso/Login                                     |
+| _SsoApi_      | [**pre_validate**](docs/SsoApi.md#sso_pre_validate)                                                                             | **GET** /sso/PreValidate                               |
 
 ## Documentation For Models
 
