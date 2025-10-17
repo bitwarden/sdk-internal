@@ -174,29 +174,6 @@ impl CiphersClient {
         let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
         Ok(decrypted_key)
     }
-
-    #[allow(missing_docs)]
-    fn extract_cipher_types(&self, mut cipher: Cipher) -> Cipher {
-        let Ok(mut data) = serde_json::to_value(&cipher.data) else {
-            // If we can't deserialize the data, then we'll return the cipher as-is.
-            // Should maybe return a result instead?
-            return cipher;
-        };
-        let _version = data.get("version").and_then(|v| v.as_u64()).unwrap_or(1);
-        if let Some(data) = data.as_object_mut() {
-            data.insert("version".to_string(), _version.into());
-        }
-
-        match cipher.r#type {
-            crate::CipherType::Login => cipher.login = serde_json::from_value(data).ok(),
-            crate::CipherType::SecureNote => cipher.secure_note = serde_json::from_value(data).ok(),
-            crate::CipherType::Card => cipher.card = serde_json::from_value(data).ok(),
-            crate::CipherType::Identity => cipher.identity = serde_json::from_value(data).ok(),
-            crate::CipherType::SshKey => cipher.ssh_key = serde_json::from_value(data).ok(),
-        }
-
-        cipher
-    }
 }
 
 #[cfg(test)]
@@ -245,6 +222,7 @@ mod tests {
             deleted_date: None,
             revision_date: "2024-05-31T11:20:58.4566667Z".parse().unwrap(),
             archived_date: None,
+            data: None,
         }
     }
 

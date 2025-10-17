@@ -31,7 +31,7 @@ pub enum VaultParseError {
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
-    MissingFieldError(#[from] bitwarden_core::MissingFieldError),
+    MissingField(#[from] bitwarden_core::MissingFieldError),
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
 }
@@ -39,8 +39,8 @@ pub enum VaultParseError {
 impl From<VaultParseError> for CipherError {
     fn from(e: VaultParseError) -> Self {
         match e {
-            VaultParseError::Crypto(e) => Self::CryptoError(e),
-            VaultParseError::MissingFieldError(e) => Self::MissingFieldError(e),
+            VaultParseError::Crypto(e) => Self::Crypto(e),
+            VaultParseError::MissingField(e) => Self::MissingField(e),
             VaultParseError::Chrono(e) => Self::Chrono(e),
             VaultParseError::SerdeJson(e) => Self::SerdeJson(e),
         }

@@ -110,10 +110,10 @@ pub struct EncryptionContext {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Cipher {
-    pub id: Option<Uuid>,
-    pub organization_id: Option<Uuid>,
-    pub folder_id: Option<Uuid>,
-    pub collection_ids: Vec<Uuid>,
+    pub id: Option<CipherId>,
+    pub organization_id: Option<OrganizationId>,
+    pub folder_id: Option<FolderId>,
+    pub collection_ids: Vec<CollectionId>,
     /// More recent ciphers uses individual encryption keys to encrypt the other fields of the
     /// Cipher.
     pub key: Option<EncString>,
@@ -144,6 +144,7 @@ pub struct Cipher {
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
     pub archived_date: Option<DateTime<Utc>>,
+    pub data: Option<String>,
 }
 
 bitwarden_state::register_repository_item!(Cipher, "Cipher");
@@ -344,6 +345,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
             revision_date: cipher_view.revision_date,
             permissions: cipher_view.permissions,
             archived_date: cipher_view.archived_date,
+            data: None, // TODO: Do we need to repopulate this on this on the cipher?
         })
     }
 }
@@ -455,13 +457,12 @@ impl Cipher {
     /// This replaces the values provided by the API in the `login`, `secure_note`, `card`,
     /// `identity`, and `ssh_key` fields, relying instead on client-side parsing of the
     /// `data` field.
+    #[allow(unused)]
     pub(crate) fn populate_cipher_types(&mut self) -> Result<(), VaultParseError> {
         let data = self
             .data
             .as_ref()
-            .ok_or(VaultParseError::MissingFieldError(MissingFieldError(
-                "data",
-            )))?;
+            .ok_or(VaultParseError::MissingField(MissingFieldError("data")))?;
 
         match &self.r#type {
             crate::CipherType::Login => self.login = serde_json::from_str(data)?,
@@ -794,6 +795,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
             revision_date: require!(cipher.revision_date).parse()?,
             key: EncString::try_from_optional(cipher.key)?,
             archived_date: cipher.archived_date.map(|d| d.parse()).transpose()?,
+            data: cipher.data,
         })
     }
 }
@@ -940,6 +942,7 @@ mod tests {
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             archived_date: None,
+            data: None,
         };
 
         let view: CipherListView = key_store.decrypt(&cipher).unwrap();
@@ -1407,6 +1410,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
             data: Some(format!(
                 r#"{{"version": 2, "username": "{}", "password": "{}", "organizationUseTotp": true, "favorite": false, "deletedDate": null}}"#,
                 TEST_ENC_STRING_1, TEST_ENC_STRING_2
@@ -1452,6 +1456,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
             data: Some(r#"{"type": 0, "organizationUseTotp": false, "favorite": false, "deletedDate": null}"#.to_string()),
         };
 
@@ -1491,6 +1496,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
             data: Some(format!(
                 r#"{{"cardholderName": "{}", "number": "{}", "expMonth": "{}", "expYear": "{}", "code": "{}", "brand": "{}", "organizationUseTotp": true, "favorite": false, "deletedDate": null}}"#,
                 TEST_ENC_STRING_1,
@@ -1554,6 +1560,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
             data: Some(format!(
                 r#"{{"firstName": "{}", "lastName": "{}", "email": "{}", "phone": "{}", "company": "{}", "address1": "{}", "city": "{}", "state": "{}", "postalCode": "{}", "country": "{}", "organizationUseTotp": false, "favorite": true, "deletedDate": null}}"#,
                 TEST_ENC_STRING_1,
@@ -1646,6 +1653,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
             data: Some(format!(
                 r#"{{"privateKey": "{}", "publicKey": "{}", "fingerprint": "{}", "organizationUseTotp": true, "favorite": false, "deletedDate": null}}"#,
                 TEST_ENC_STRING_1, TEST_ENC_STRING_2, TEST_ENC_STRING_3
@@ -1692,15 +1700,14 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
             data: None,
         };
 
         let result = cipher.populate_cipher_types();
         assert!(matches!(
             result,
-            Err(VaultParseError::MissingFieldError(MissingFieldError(
-                "data"
-            )))
+            Err(VaultParseError::MissingField(MissingFieldError("data")))
         ));
     }
 
@@ -1733,6 +1740,7 @@ mod tests {
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
             data: Some("invalid json".to_string()),
         };
 
