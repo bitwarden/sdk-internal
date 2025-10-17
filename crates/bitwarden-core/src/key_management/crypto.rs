@@ -724,8 +724,6 @@ pub(crate) fn make_v2_keys_for_v1_user(
     let key_store = client.internal.get_key_store();
     let mut ctx = key_store.context();
 
-    let temporary_user_key_id = SymmetricKeyId::Local("temporary_user_key");
-    let temporary_signing_key_id = SigningKeyId::Local("temporary_signing_key");
     // Re-use existing private key
     let private_key_id = AsymmetricKeyId::UserPrivateKey;
 
@@ -751,13 +749,10 @@ pub(crate) fn make_v2_keys_for_v1_user(
 
     // New user key
     let user_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
-    #[allow(deprecated)]
-    ctx.set_symmetric_key(temporary_user_key_id, user_key.clone())?;
 
     // New signing key
     let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
-    #[allow(deprecated)]
-    ctx.set_signing_key(temporary_signing_key_id, signing_key.clone())?;
+    let temporary_signing_key_id = ctx.add_local_signing_key(signing_key.clone())?;
 
     // Sign existing public key
     let signed_public_key = ctx.make_signed_public_key(private_key_id, temporary_signing_key_id)?;

@@ -139,15 +139,12 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
     /// context.
     pub fn unseal(
         &self,
-        target_keyslot: Ids::Symmetric,
         password: &str,
         ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<Ids::Symmetric, PasswordProtectedKeyEnvelopeError> {
         let key = self.unseal_ref(password)?;
-        #[allow(deprecated)]
-        ctx.set_symmetric_key(target_keyslot, key)
-            .map_err(|_| PasswordProtectedKeyEnvelopeError::KeyStore)?;
-        Ok(target_keyslot)
+        ctx.add_local_symmetric_key(key)
+            .map_err(|_| PasswordProtectedKeyEnvelopeError::KeyStore)
     }
 
     fn unseal_ref(
@@ -501,12 +498,12 @@ mod tests {
         let envelope =
             PasswordProtectedKeyEnvelope::try_from(&TESTVECTOR_COSEKEY_ENVELOPE.to_vec())
                 .expect("Key envelope should be valid");
-        envelope
-            .unseal(TestSymmKey::A(0), TESTVECTOR_PASSWORD, &mut ctx)
+        let key = envelope
+            .unseal(TESTVECTOR_PASSWORD, &mut ctx)
             .expect("Unsealing should succeed");
         #[allow(deprecated)]
         let unsealed_key = ctx
-            .dangerous_get_symmetric_key(TestSymmKey::A(0))
+            .dangerous_get_symmetric_key(key)
             .expect("Key should exist in the key store");
         assert_eq!(
             unsealed_key.to_encoded().to_vec(),
@@ -521,12 +518,12 @@ mod tests {
         let envelope =
             PasswordProtectedKeyEnvelope::try_from(&TESTVECTOR_LEGACYKEY_ENVELOPE.to_vec())
                 .expect("Key envelope should be valid");
-        envelope
-            .unseal(TestSymmKey::A(0), TESTVECTOR_PASSWORD, &mut ctx)
+        let key = envelope
+            .unseal(TESTVECTOR_PASSWORD, &mut ctx)
             .expect("Unsealing should succeed");
         #[allow(deprecated)]
         let unsealed_key = ctx
-            .dangerous_get_symmetric_key(TestSymmKey::A(0))
+            .dangerous_get_symmetric_key(key)
             .expect("Key should exist in the key store");
         assert_eq!(
             unsealed_key.to_encoded().to_vec(),
@@ -549,14 +546,12 @@ mod tests {
         // Unseal the key from the envelope
         let deserialized: PasswordProtectedKeyEnvelope<TestIds> =
             PasswordProtectedKeyEnvelope::try_from(&serialized).unwrap();
-        deserialized
-            .unseal(TestSymmKey::A(1), password, &mut ctx)
-            .unwrap();
+        let key = deserialized.unseal(password, &mut ctx).unwrap();
 
         // Verify that the unsealed key matches the original key
         #[allow(deprecated)]
         let unsealed_key = ctx
-            .dangerous_get_symmetric_key(TestSymmKey::A(1))
+            .dangerous_get_symmetric_key(key)
             .expect("Key should exist in the key store");
 
         #[allow(deprecated)]
@@ -571,7 +566,7 @@ mod tests {
     fn test_make_envelope_legacy_key() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
-        let test_key = ctx.generate_symmetric_key(TestSymmKey::A(0)).unwrap();
+        let test_key = ctx.generate_symmetric_key().unwrap();
 
         let password = "test_password";
 
@@ -582,14 +577,12 @@ mod tests {
         // Unseal the key from the envelope
         let deserialized: PasswordProtectedKeyEnvelope<TestIds> =
             PasswordProtectedKeyEnvelope::try_from(&serialized).unwrap();
-        deserialized
-            .unseal(TestSymmKey::A(1), password, &mut ctx)
-            .unwrap();
+        let key = deserialized.unseal(password, &mut ctx).unwrap();
 
         // Verify that the unsealed key matches the original key
         #[allow(deprecated)]
         let unsealed_key = ctx
-            .dangerous_get_symmetric_key(TestSymmKey::A(1))
+            .dangerous_get_symmetric_key(key)
             .expect("Key should exist in the key store");
 
         #[allow(deprecated)]
@@ -638,7 +631,7 @@ mod tests {
         let deserialized: PasswordProtectedKeyEnvelope<TestIds> =
             PasswordProtectedKeyEnvelope::try_from(&(&envelope).into()).unwrap();
         assert!(matches!(
-            deserialized.unseal(TestSymmKey::A(1), wrong_password, &mut ctx),
+            deserialized.unseal(wrong_password, &mut ctx),
             Err(PasswordProtectedKeyEnvelopeError::WrongPassword)
         ));
     }
