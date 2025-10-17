@@ -1,12 +1,24 @@
 use bitwarden_core::Client;
 use bitwarden_vault::{CipherListView, SyncRequest, VaultClientExt};
+use clap::ValueEnum;
 use color_eyre::eyre::{Result, bail};
 
 use crate::render::CommandOutput;
 
+#[derive(Debug, Clone, Copy, ValueEnum)]
+#[value(rename_all = "kebab-case")]
+pub enum ObjectType {
+    Items,
+    Folders,
+    Collections,
+    Organizations,
+    OrgCollections,
+    OrgMembers,
+}
+
 #[derive(Debug)]
 pub struct ListOptions {
-    pub object: String,
+    pub object: ObjectType,
     pub search: Option<String>,
     pub folderid: Option<String>,
     pub collectionid: Option<String>,
@@ -15,29 +27,22 @@ pub struct ListOptions {
 }
 
 pub async fn list(client: &Client, options: ListOptions) -> Result<CommandOutput> {
-    match options.object.as_str() {
-        "items" => list_items(client, options).await,
-        "folders" => {
+    match options.object {
+        ObjectType::Items => list_items(client, options).await,
+        ObjectType::Folders => {
             bail!("Listing folders is not yet implemented")
         }
-        "collections" => {
+        ObjectType::Collections => {
             bail!("Listing collections is not yet implemented")
         }
-        "organizations" => {
+        ObjectType::Organizations => {
             bail!("Listing organizations is not yet implemented")
         }
-        "org-collections" => {
+        ObjectType::OrgCollections => {
             bail!("Listing org-collections is not yet implemented")
         }
-        "org-members" => {
+        ObjectType::OrgMembers => {
             bail!("Listing org-members is not yet implemented")
-        }
-        _ => {
-            bail!(
-                "Invalid object type '{}'. Valid objects are: items, folders, collections, \
-                 organizations, org-collections, org-members",
-                options.object
-            )
         }
     }
 }

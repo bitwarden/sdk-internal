@@ -147,7 +147,7 @@ Notes:
     #[command(long_about = "List an array of objects from the vault.")]
     List {
         /// Object type to list (items, folders, collections, etc.)
-        object: String,
+        object: crate::vault::ObjectType,
 
         #[arg(long, help = "Perform a search on the listed objects")]
         search: Option<String>,

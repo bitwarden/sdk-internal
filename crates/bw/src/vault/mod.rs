@@ -3,7 +3,7 @@ use clap::Subcommand;
 use crate::render::{CommandOutput, CommandResult};
 
 pub mod list;
-pub use list::{ListOptions, list};
+pub use list::{ListOptions, ObjectType, list};
 
 #[derive(Subcommand, Clone)]
 pub enum ItemCommands {
