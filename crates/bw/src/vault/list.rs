@@ -99,10 +99,46 @@ async fn list_items(client: &Client, options: ListOptions) -> Result<CommandOutp
             }
         }
 
-        // Search filter (case-insensitive search in name)
+        // Search filter (case-insensitive search in id, name, subtitle, and uris)
         if let Some(ref search_term) = options.search {
             let search_lower = search_term.to_lowercase();
-            if !item.name.to_lowercase().contains(&search_lower) {
+
+            // Check if search term matches ID (first 8 characters when search term >= 8 chars)
+            let id_matches = if search_lower.len() >= 8 {
+                item.id
+                    .as_ref()
+                    .map(|id| id.to_string().to_lowercase().starts_with(&search_lower))
+                    .unwrap_or(false)
+            } else {
+                false
+            };
+
+            // Check if search term matches name
+            let name_matches = item.name.to_lowercase().contains(&search_lower);
+
+            // Check if search term matches subtitle
+            let subtitle_matches = item.subtitle.to_lowercase().contains(&search_lower);
+
+            // Check if search term matches any URIs (for login items)
+            let uri_matches = if let bitwarden_vault::CipherListViewType::Login(ref login) = item.r#type {
+                login
+                    .uris
+                    .as_ref()
+                    .map(|uris| {
+                        uris.iter().any(|uri| {
+                            uri.uri
+                                .as_ref()
+                                .map(|u| u.to_lowercase().contains(&search_lower))
+                                .unwrap_or(false)
+                        })
+                    })
+                    .unwrap_or(false)
+            } else {
+                false
+            };
+
+            // Item matches if any of the fields match
+            if !(id_matches || name_matches || subtitle_matches || uri_matches) {
                 return false;
             }
         }
