@@ -163,6 +163,9 @@ Notes:
 
         #[arg(long, help = "Filter items that are deleted and in the trash")]
         trash: bool,
+
+        #[arg(long, help = "Filter items that are archived")]
+        archived: bool,
     },
     #[command(long_about = "Get an object from the vault.")]
     Get,
@@ -174,6 +177,8 @@ Notes:
     Delete,
     #[command(long_about = "Restores an object from the trash.")]
     Restore,
+    #[command(long_about = "Archive an object from the vault.")]
+    Archive,
     #[command(long_about = "Move an item to an organization.")]
     Move,
 

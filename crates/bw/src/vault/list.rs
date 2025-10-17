@@ -24,6 +24,7 @@ pub struct ListOptions {
     pub collectionid: Option<String>,
     pub organizationid: Option<String>,
     pub trash: bool,
+    pub archived: bool,
 }
 
 pub async fn list(client: &Client, options: ListOptions) -> Result<CommandOutput> {

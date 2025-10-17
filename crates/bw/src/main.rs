@@ -110,6 +110,7 @@ async fn process_commands(command: Commands, session: Option<String>) -> Command
             collectionid,
             organizationid,
             trash,
+            archived,
         } => {
             vault::list(
                 &client.0,
@@ -120,6 +121,7 @@ async fn process_commands(command: Commands, session: Option<String>) -> Command
                     collectionid,
                     organizationid,
                     trash,
+                    archived,
                 },
             )
             .await
@@ -129,6 +131,7 @@ async fn process_commands(command: Commands, session: Option<String>) -> Command
         Commands::Edit => todo!(),
         Commands::Delete => todo!(),
         Commands::Restore => todo!(),
+        Commands::Archive => todo!(),
         Commands::Move => todo!(),
 
         // Admin console commands
