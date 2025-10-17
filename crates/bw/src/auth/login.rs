@@ -1,4 +1,4 @@
-use bitwarden_cli::{text_or_env_prompt, text_prompt_when_none};
+use bitwarden_cli::{resolve_user_input_value, text_prompt_when_none};
 use bitwarden_core::{
     Client,
     auth::login::{
@@ -94,8 +94,8 @@ pub(crate) async fn login_api_key(
     client_id: Option<String>,
     client_secret: Option<String>,
 ) -> Result<String> {
-    let client_id = text_or_env_prompt("Client ID", client_id, &["BW_CLIENTID", "BW_CLIENT_ID"])?;
-    let client_secret = text_or_env_prompt(
+    let client_id = resolve_user_input_value("Client ID", client_id, &["BW_CLIENTID", "BW_CLIENT_ID"])?;
+    let client_secret = resolve_user_input_value(
         "Client Secret",
         client_secret,
         &["BW_CLIENTSECRET", "BW_CLIENT_SECRET"],

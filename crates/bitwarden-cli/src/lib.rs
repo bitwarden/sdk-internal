@@ -19,7 +19,7 @@ pub fn text_prompt_when_none(prompt: &str, val: Option<String>) -> InquireResult
 /// Try to get a value from CLI arg, then from environment variables, then prompt
 ///
 /// Checks multiple environment variable names in order (e.g., BW_CLIENTID, BW_CLIENT_ID)
-pub fn text_or_env_prompt(
+pub fn resolve_user_input_value(
     prompt: &str,
     cli_val: Option<String>,
     env_var_names: &[&str],
