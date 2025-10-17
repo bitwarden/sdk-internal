@@ -821,12 +821,6 @@ impl From<bitwarden_api_api::models::CipherRepromptType> for CipherRepromptType 
     }
 }
 
-// impl From<&Cipher> for Option<Login> {
-//     fn from(value: &Cipher) -> Self {
-
-//     }
-// }
-
 #[cfg(test)]
 mod tests {
 
@@ -838,6 +832,15 @@ mod tests {
 
     use super::*;
     use crate::{Fido2Credential, login::Fido2CredentialListView};
+
+    // Test constants for encrypted strings
+    const TEST_ENC_STRING_1: &str = "2.xzDCDWqRBpHm42EilUvyVw==|nIrWV3l/EeTbWTnAznrK0Q==|sUj8ol2OTgvvTvD86a9i9XUP58hmtCEBqhck7xT5YNk=";
+    const TEST_ENC_STRING_2: &str = "2.M7ZJ7EuFDXCq66gDTIyRIg==|B1V+jroo6+m/dpHx6g8DxA==|PIXPBCwyJ1ady36a7jbcLg346pm/7N/06W4UZxc1TUo=";
+    const TEST_ENC_STRING_3: &str = "2.d3rzo0P8rxV9Hs1m1BmAjw==|JOwna6i0zs+K7ZghwrZRuw==|SJqKreLag1ID+g6H1OdmQr0T5zTrVWKzD6hGy3fDqB0=";
+    const TEST_ENC_STRING_4: &str = "2.EBNGgnaMHeO/kYnI3A0jiA==|9YXlrgABP71ebZ5umurCJQ==|GDk5jxiqTYaU7e2AStCFGX+a1kgCIk8j0NEli7Jn0L4=";
+    const TEST_ENC_STRING_5: &str = "2.hqdioUAc81FsKQmO1XuLQg==|oDRdsJrQjoFu9NrFVy8tcJBAFKBx95gHaXZnWdXbKpsxWnOr2sKipIG43pKKUFuq|3gKZMiboceIB5SLVOULKg2iuyu6xzos22dfJbvx0EHk=";
+    const TEST_CIPHER_NAME: &str = "2.d3rzo0P8rxV9Hs1m1BmAjw==|JOwna6i0zs+K7ZghwrZRuw==|SJqKreLag1ID+g6H1OdmQr0T5zTrVWKzD6hGy3fDqB0=";
+    const TEST_UUID: &str = "fd411a1a-fec8-4070-985d-0e6560860e69";
 
     fn generate_cipher() -> CipherView {
         let test_id = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
@@ -1371,15 +1374,6 @@ mod tests {
         let decrypted_key_value = cipher_view.decrypt_fido2_private_key(&mut ctx).unwrap();
         assert_eq!(decrypted_key_value, "123");
     }
-
-    // Test constants for encrypted strings
-    const TEST_ENC_STRING_1: &str = "2.xzDCDWqRBpHm42EilUvyVw==|nIrWV3l/EeTbWTnAznrK0Q==|sUj8ol2OTgvvTvD86a9i9XUP58hmtCEBqhck7xT5YNk=";
-    const TEST_ENC_STRING_2: &str = "2.M7ZJ7EuFDXCq66gDTIyRIg==|B1V+jroo6+m/dpHx6g8DxA==|PIXPBCwyJ1ady36a7jbcLg346pm/7N/06W4UZxc1TUo=";
-    const TEST_ENC_STRING_3: &str = "2.d3rzo0P8rxV9Hs1m1BmAjw==|JOwna6i0zs+K7ZghwrZRuw==|SJqKreLag1ID+g6H1OdmQr0T5zTrVWKzD6hGy3fDqB0=";
-    const TEST_ENC_STRING_4: &str = "2.EBNGgnaMHeO/kYnI3A0jiA==|9YXlrgABP71ebZ5umurCJQ==|GDk5jxiqTYaU7e2AStCFGX+a1kgCIk8j0NEli7Jn0L4=";
-    const TEST_ENC_STRING_5: &str = "2.hqdioUAc81FsKQmO1XuLQg==|oDRdsJrQjoFu9NrFVy8tcJBAFKBx95gHaXZnWdXbKpsxWnOr2sKipIG43pKKUFuq|3gKZMiboceIB5SLVOULKg2iuyu6xzos22dfJbvx0EHk=";
-    const TEST_CIPHER_NAME: &str = "2.d3rzo0P8rxV9Hs1m1BmAjw==|JOwna6i0zs+K7ZghwrZRuw==|SJqKreLag1ID+g6H1OdmQr0T5zTrVWKzD6hGy3fDqB0=";
-    const TEST_UUID: &str = "fd411a1a-fec8-4070-985d-0e6560860e69";
 
     #[test]
     fn test_populate_cipher_types_login_with_valid_data() {
