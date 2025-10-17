@@ -94,7 +94,8 @@ pub(crate) async fn login_api_key(
     client_id: Option<String>,
     client_secret: Option<String>,
 ) -> Result<String> {
-    let client_id = resolve_user_input_value("Client ID", client_id, &["BW_CLIENTID", "BW_CLIENT_ID"])?;
+    let client_id =
+        resolve_user_input_value("Client ID", client_id, &["BW_CLIENTID", "BW_CLIENT_ID"])?;
     let client_secret = resolve_user_input_value(
         "Client Secret",
         client_secret,
