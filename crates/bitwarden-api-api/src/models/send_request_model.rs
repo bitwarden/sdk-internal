@@ -14,31 +14,71 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SendRequestModel {
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "type",
+        alias = "R#type",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub r#type: Option<models::SendType>,
-    #[serde(rename = "fileLength", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "fileLength",
+        alias = "FileLength",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub file_length: Option<i64>,
-    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub name: Option<String>,
-    #[serde(rename = "notes", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "notes",
+        alias = "Notes",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub notes: Option<String>,
-    #[serde(rename = "key")]
+    #[serde(rename = "key", alias = "Key")]
     pub key: String,
-    #[serde(rename = "maxAccessCount", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "maxAccessCount",
+        alias = "MaxAccessCount",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub max_access_count: Option<i32>,
-    #[serde(rename = "expirationDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "expirationDate",
+        alias = "ExpirationDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub expiration_date: Option<String>,
-    #[serde(rename = "deletionDate")]
+    #[serde(rename = "deletionDate", alias = "DeletionDate")]
     pub deletion_date: String,
-    #[serde(rename = "file", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "file",
+        alias = "File",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub file: Option<Box<models::SendFileModel>>,
-    #[serde(rename = "text", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "text",
+        alias = "Text",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub text: Option<Box<models::SendTextModel>>,
-    #[serde(rename = "password", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "password",
+        alias = "Password",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub password: Option<String>,
-    #[serde(rename = "disabled")]
+    #[serde(rename = "disabled", alias = "Disabled")]
     pub disabled: bool,
-    #[serde(rename = "hideEmail", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "hideEmail",
+        alias = "HideEmail",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub hide_email: Option<bool>,
 }
 

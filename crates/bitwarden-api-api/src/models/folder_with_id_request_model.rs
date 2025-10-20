@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FolderWithIdRequestModel {
-    #[serde(rename = "name")]
+    #[serde(rename = "name", alias = "Name")]
     pub name: String,
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
 }
 

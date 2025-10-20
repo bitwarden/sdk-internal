@@ -14,11 +14,23 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BillingPaymentResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "balance", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "balance",
+        alias = "Balance",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub balance: Option<f64>,
-    #[serde(rename = "paymentSource", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "paymentSource",
+        alias = "PaymentSource",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub payment_source: Option<Box<models::BillingSource>>,
 }
 

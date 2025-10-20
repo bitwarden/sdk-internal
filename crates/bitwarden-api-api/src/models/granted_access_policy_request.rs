@@ -14,11 +14,11 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GrantedAccessPolicyRequest {
-    #[serde(rename = "grantedId")]
+    #[serde(rename = "grantedId", alias = "GrantedId")]
     pub granted_id: uuid::Uuid,
-    #[serde(rename = "read")]
+    #[serde(rename = "read", alias = "Read")]
     pub read: bool,
-    #[serde(rename = "write")]
+    #[serde(rename = "write", alias = "Write")]
     pub write: bool,
 }
 

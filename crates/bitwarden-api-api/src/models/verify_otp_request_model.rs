@@ -14,7 +14,7 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct VerifyOtpRequestModel {
-    #[serde(rename = "otp")]
+    #[serde(rename = "otp", alias = "Otp")]
     pub otp: String,
 }
 

@@ -14,12 +14,13 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PremiumCloudHostedSubscriptionRequest {
-    #[serde(rename = "tokenizedPaymentMethod")]
+    #[serde(rename = "tokenizedPaymentMethod", alias = "TokenizedPaymentMethod")]
     pub tokenized_payment_method: Box<models::MinimalTokenizedPaymentMethodRequest>,
-    #[serde(rename = "billingAddress")]
+    #[serde(rename = "billingAddress", alias = "BillingAddress")]
     pub billing_address: Box<models::MinimalBillingAddressRequest>,
     #[serde(
         rename = "additionalStorageGb",
+        alias = "AdditionalStorageGb",
         skip_serializing_if = "Option::is_none"
     )]
     pub additional_storage_gb: Option<i32>,

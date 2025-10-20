@@ -14,23 +14,59 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SyncResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "profile", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "profile",
+        alias = "Profile",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub profile: Option<Box<models::ProfileResponseModel>>,
-    #[serde(rename = "folders", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "folders",
+        alias = "Folders",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub folders: Option<Vec<models::FolderResponseModel>>,
-    #[serde(rename = "collections", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "collections",
+        alias = "Collections",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub collections: Option<Vec<models::CollectionDetailsResponseModel>>,
-    #[serde(rename = "ciphers", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "ciphers",
+        alias = "Ciphers",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub ciphers: Option<Vec<models::CipherDetailsResponseModel>>,
-    #[serde(rename = "domains", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "domains",
+        alias = "Domains",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub domains: Option<Box<models::DomainsResponseModel>>,
-    #[serde(rename = "policies", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "policies",
+        alias = "Policies",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub policies: Option<Vec<models::PolicyResponseModel>>,
-    #[serde(rename = "sends", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "sends",
+        alias = "Sends",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub sends: Option<Vec<models::SendResponseModel>>,
-    #[serde(rename = "userDecryption", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "userDecryption",
+        alias = "UserDecryption",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub user_decryption: Option<Box<models::UserDecryptionResponseModel>>,
 }
 

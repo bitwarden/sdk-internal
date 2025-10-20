@@ -14,11 +14,15 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationSsoRequestModel {
-    #[serde(rename = "enabled")]
+    #[serde(rename = "enabled", alias = "Enabled")]
     pub enabled: bool,
-    #[serde(rename = "identifier", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "identifier",
+        alias = "Identifier",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub identifier: Option<String>,
-    #[serde(rename = "data")]
+    #[serde(rename = "data", alias = "Data")]
     pub data: Box<models::SsoConfigurationDataRequest>,
 }
 

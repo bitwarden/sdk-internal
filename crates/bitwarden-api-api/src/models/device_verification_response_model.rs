@@ -14,15 +14,21 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DeviceVerificationResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
     #[serde(
         rename = "isDeviceVerificationSectionEnabled",
+        alias = "IsDeviceVerificationSectionEnabled",
         skip_serializing_if = "Option::is_none"
     )]
     pub is_device_verification_section_enabled: Option<bool>,
     #[serde(
         rename = "unknownDeviceVerificationEnabled",
+        alias = "UnknownDeviceVerificationEnabled",
         skip_serializing_if = "Option::is_none"
     )]
     pub unknown_device_verification_enabled: Option<bool>,

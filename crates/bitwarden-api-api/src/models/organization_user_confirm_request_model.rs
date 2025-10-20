@@ -14,10 +14,11 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationUserConfirmRequestModel {
-    #[serde(rename = "key")]
+    #[serde(rename = "key", alias = "Key")]
     pub key: String,
     #[serde(
         rename = "defaultUserCollectionName",
+        alias = "DefaultUserCollectionName",
         skip_serializing_if = "Option::is_none"
     )]
     pub default_user_collection_name: Option<String>,

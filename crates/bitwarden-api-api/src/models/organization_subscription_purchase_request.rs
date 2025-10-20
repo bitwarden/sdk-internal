@@ -14,13 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationSubscriptionPurchaseRequest {
-    #[serde(rename = "tier")]
+    #[serde(rename = "tier", alias = "Tier")]
     pub tier: models::ProductTierType,
-    #[serde(rename = "cadence")]
+    #[serde(rename = "cadence", alias = "Cadence")]
     pub cadence: models::PlanCadenceType,
-    #[serde(rename = "passwordManager")]
+    #[serde(rename = "passwordManager", alias = "PasswordManager")]
     pub password_manager: Box<models::PasswordManagerPurchaseSelections>,
-    #[serde(rename = "secretsManager", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "secretsManager",
+        alias = "SecretsManager",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub secrets_manager: Option<Box<models::SecretsManagerPurchaseSelections>>,
 }
 

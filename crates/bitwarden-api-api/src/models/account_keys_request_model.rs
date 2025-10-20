@@ -14,9 +14,12 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccountKeysRequestModel {
-    #[serde(rename = "userKeyEncryptedAccountPrivateKey")]
+    #[serde(
+        rename = "userKeyEncryptedAccountPrivateKey",
+        alias = "UserKeyEncryptedAccountPrivateKey"
+    )]
     pub user_key_encrypted_account_private_key: Option<String>,
-    #[serde(rename = "accountPublicKey")]
+    #[serde(rename = "accountPublicKey", alias = "AccountPublicKey")]
     pub account_public_key: Option<String>,
 }
 

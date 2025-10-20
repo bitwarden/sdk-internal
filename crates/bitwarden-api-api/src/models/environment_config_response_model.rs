@@ -14,17 +14,33 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EnvironmentConfigResponseModel {
-    #[serde(rename = "cloudRegion", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "cloudRegion",
+        alias = "CloudRegion",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub cloud_region: Option<String>,
-    #[serde(rename = "vault", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "vault",
+        alias = "Vault",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub vault: Option<String>,
-    #[serde(rename = "api", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "api", alias = "Api", skip_serializing_if = "Option::is_none")]
     pub api: Option<String>,
-    #[serde(rename = "identity", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "identity",
+        alias = "Identity",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub identity: Option<String>,
-    #[serde(rename = "notifications", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "notifications",
+        alias = "Notifications",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub notifications: Option<String>,
-    #[serde(rename = "sso", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "sso", alias = "Sso", skip_serializing_if = "Option::is_none")]
     pub sso: Option<String>,
 }
 

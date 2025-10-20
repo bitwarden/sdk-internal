@@ -14,21 +14,53 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MasterPasswordPolicyResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "minComplexity", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "minComplexity",
+        alias = "MinComplexity",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub min_complexity: Option<i32>,
-    #[serde(rename = "minLength", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "minLength",
+        alias = "MinLength",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub min_length: Option<i32>,
-    #[serde(rename = "requireLower", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "requireLower",
+        alias = "RequireLower",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub require_lower: Option<bool>,
-    #[serde(rename = "requireUpper", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "requireUpper",
+        alias = "RequireUpper",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub require_upper: Option<bool>,
-    #[serde(rename = "requireNumbers", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "requireNumbers",
+        alias = "RequireNumbers",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub require_numbers: Option<bool>,
-    #[serde(rename = "requireSpecial", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "requireSpecial",
+        alias = "RequireSpecial",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub require_special: Option<bool>,
-    #[serde(rename = "enforceOnLogin", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "enforceOnLogin",
+        alias = "EnforceOnLogin",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub enforce_on_login: Option<bool>,
 }
 

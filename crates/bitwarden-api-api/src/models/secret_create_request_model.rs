@@ -14,16 +14,21 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SecretCreateRequestModel {
-    #[serde(rename = "key")]
+    #[serde(rename = "key", alias = "Key")]
     pub key: String,
-    #[serde(rename = "value")]
+    #[serde(rename = "value", alias = "Value")]
     pub value: String,
-    #[serde(rename = "note")]
+    #[serde(rename = "note", alias = "Note")]
     pub note: String,
-    #[serde(rename = "projectIds", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "projectIds",
+        alias = "ProjectIds",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub project_ids: Option<Vec<uuid::Uuid>>,
     #[serde(
         rename = "accessPoliciesRequests",
+        alias = "AccessPoliciesRequests",
         skip_serializing_if = "Option::is_none"
     )]
     pub access_policies_requests: Option<Box<models::SecretAccessPoliciesRequestsModel>>,

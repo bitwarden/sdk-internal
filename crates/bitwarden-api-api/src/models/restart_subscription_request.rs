@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RestartSubscriptionRequest {
-    #[serde(rename = "paymentMethod")]
+    #[serde(rename = "paymentMethod", alias = "PaymentMethod")]
     pub payment_method: Box<models::MinimalTokenizedPaymentMethodRequest>,
-    #[serde(rename = "billingAddress")]
+    #[serde(rename = "billingAddress", alias = "BillingAddress")]
     pub billing_address: Box<models::CheckoutBillingAddressRequest>,
 }
 

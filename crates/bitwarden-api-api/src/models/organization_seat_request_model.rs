@@ -14,7 +14,7 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationSeatRequestModel {
-    #[serde(rename = "seatAdjustment")]
+    #[serde(rename = "seatAdjustment", alias = "SeatAdjustment")]
     pub seat_adjustment: i32,
 }
 

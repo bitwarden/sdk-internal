@@ -14,23 +14,55 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EmergencyAccessGranteeDetailsResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    #[serde(rename = "status", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "status",
+        alias = "Status",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub status: Option<models::EmergencyAccessStatusType>,
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "type",
+        alias = "R#type",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub r#type: Option<models::EmergencyAccessType>,
-    #[serde(rename = "waitTimeDays", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "waitTimeDays",
+        alias = "WaitTimeDays",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub wait_time_days: Option<i32>,
-    #[serde(rename = "granteeId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "granteeId",
+        alias = "GranteeId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub grantee_id: Option<uuid::Uuid>,
-    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub name: Option<String>,
-    #[serde(rename = "email", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "email",
+        alias = "Email",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub email: Option<String>,
-    #[serde(rename = "avatarColor", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "avatarColor",
+        alias = "AvatarColor",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub avatar_color: Option<String>,
 }
 

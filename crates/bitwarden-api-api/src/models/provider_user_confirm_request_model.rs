@@ -14,7 +14,7 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProviderUserConfirmRequestModel {
-    #[serde(rename = "key")]
+    #[serde(rename = "key", alias = "Key")]
     pub key: String,
 }
 

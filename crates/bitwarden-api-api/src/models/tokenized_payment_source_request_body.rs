@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TokenizedPaymentSourceRequestBody {
-    #[serde(rename = "type")]
+    #[serde(rename = "type", alias = "R#type")]
     pub r#type: models::PaymentMethodType,
-    #[serde(rename = "token")]
+    #[serde(rename = "token", alias = "Token")]
     pub token: String,
 }
 

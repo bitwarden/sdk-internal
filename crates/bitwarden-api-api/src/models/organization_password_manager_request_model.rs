@@ -14,13 +14,29 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationPasswordManagerRequestModel {
-    #[serde(rename = "plan", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "plan",
+        alias = "Plan",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub plan: Option<models::PlanType>,
-    #[serde(rename = "sponsoredPlan", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "sponsoredPlan",
+        alias = "SponsoredPlan",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub sponsored_plan: Option<models::PlanSponsorshipType>,
-    #[serde(rename = "seats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "seats",
+        alias = "Seats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub seats: Option<i32>,
-    #[serde(rename = "additionalStorage", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "additionalStorage",
+        alias = "AdditionalStorage",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub additional_storage: Option<i32>,
 }
 

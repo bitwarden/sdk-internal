@@ -16,23 +16,45 @@ use crate::models;
 pub struct OrganizationSponsorshipRequestModel {
     #[serde(
         rename = "sponsoringOrganizationUserId",
+        alias = "SponsoringOrganizationUserId",
         skip_serializing_if = "Option::is_none"
     )]
     pub sponsoring_organization_user_id: Option<uuid::Uuid>,
-    #[serde(rename = "friendlyName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "friendlyName",
+        alias = "FriendlyName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub friendly_name: Option<String>,
-    #[serde(rename = "offeredToEmail", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "offeredToEmail",
+        alias = "OfferedToEmail",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub offered_to_email: Option<String>,
     #[serde(
         rename = "planSponsorshipType",
+        alias = "PlanSponsorshipType",
         skip_serializing_if = "Option::is_none"
     )]
     pub plan_sponsorship_type: Option<models::PlanSponsorshipType>,
-    #[serde(rename = "lastSyncDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "lastSyncDate",
+        alias = "LastSyncDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub last_sync_date: Option<String>,
-    #[serde(rename = "validUntil", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "validUntil",
+        alias = "ValidUntil",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub valid_until: Option<String>,
-    #[serde(rename = "toDelete", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "toDelete",
+        alias = "ToDelete",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub to_delete: Option<bool>,
 }
 

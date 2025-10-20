@@ -14,11 +14,23 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TwoFactorProviderResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "enabled", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "enabled",
+        alias = "Enabled",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub enabled: Option<bool>,
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "type",
+        alias = "R#type",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub r#type: Option<models::TwoFactorProviderType>,
 }
 

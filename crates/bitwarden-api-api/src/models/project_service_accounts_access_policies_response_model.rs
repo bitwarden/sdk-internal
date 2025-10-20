@@ -14,10 +14,15 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProjectServiceAccountsAccessPoliciesResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
     #[serde(
         rename = "serviceAccountAccessPolicies",
+        alias = "ServiceAccountAccessPolicies",
         skip_serializing_if = "Option::is_none"
     )]
     pub service_account_access_policies:

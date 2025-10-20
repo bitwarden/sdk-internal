@@ -14,11 +14,20 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SecretAccessPoliciesRequestsModel {
-    #[serde(rename = "userAccessPolicyRequests")]
+    #[serde(
+        rename = "userAccessPolicyRequests",
+        alias = "UserAccessPolicyRequests"
+    )]
     pub user_access_policy_requests: Option<Vec<models::AccessPolicyRequest>>,
-    #[serde(rename = "groupAccessPolicyRequests")]
+    #[serde(
+        rename = "groupAccessPolicyRequests",
+        alias = "GroupAccessPolicyRequests"
+    )]
     pub group_access_policy_requests: Option<Vec<models::AccessPolicyRequest>>,
-    #[serde(rename = "serviceAccountAccessPolicyRequests")]
+    #[serde(
+        rename = "serviceAccountAccessPolicyRequests",
+        alias = "ServiceAccountAccessPolicyRequests"
+    )]
     pub service_account_access_policy_requests: Option<Vec<models::AccessPolicyRequest>>,
 }
 

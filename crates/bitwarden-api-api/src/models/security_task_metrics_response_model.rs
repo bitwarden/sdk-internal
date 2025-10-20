@@ -15,10 +15,18 @@ use crate::models;
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SecurityTaskMetricsResponseModel {
     /// Number of tasks that have been completed in the organization.
-    #[serde(rename = "completedTasks", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "completedTasks",
+        alias = "CompletedTasks",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub completed_tasks: Option<i32>,
     /// Total number of tasks in the organization, regardless of their status.
-    #[serde(rename = "totalTasks", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "totalTasks",
+        alias = "TotalTasks",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub total_tasks: Option<i32>,
 }
 

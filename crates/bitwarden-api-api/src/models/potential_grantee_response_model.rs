@@ -14,19 +14,43 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PotentialGranteeResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub name: Option<String>,
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "type",
+        alias = "R#type",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub r#type: Option<String>,
-    #[serde(rename = "email", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "email",
+        alias = "Email",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub email: Option<String>,
-    #[serde(rename = "currentUserInGroup", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "currentUserInGroup",
+        alias = "CurrentUserInGroup",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub current_user_in_group: Option<bool>,
-    #[serde(rename = "currentUser", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "currentUser",
+        alias = "CurrentUser",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub current_user: Option<bool>,
 }
 

@@ -14,9 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PasswordManagerUpdateSelections {
-    #[serde(rename = "seats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "seats",
+        alias = "Seats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub seats: Option<i32>,
-    #[serde(rename = "additionalStorage", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "additionalStorage",
+        alias = "AdditionalStorage",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub additional_storage: Option<i32>,
 }
 

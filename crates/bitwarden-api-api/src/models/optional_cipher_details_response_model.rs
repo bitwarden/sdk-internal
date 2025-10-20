@@ -14,11 +14,23 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OptionalCipherDetailsResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "unavailable", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "unavailable",
+        alias = "Unavailable",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub unavailable: Option<bool>,
-    #[serde(rename = "cipher", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "cipher",
+        alias = "Cipher",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub cipher: Option<Box<models::CipherDetailsResponseModel>>,
 }
 

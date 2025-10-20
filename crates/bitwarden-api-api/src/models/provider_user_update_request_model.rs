@@ -14,7 +14,7 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProviderUserUpdateRequestModel {
-    #[serde(rename = "type")]
+    #[serde(rename = "type", alias = "R#type")]
     pub r#type: models::ProviderUserType,
 }
 

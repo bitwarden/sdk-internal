@@ -14,13 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationUserAcceptInitRequestModel {
-    #[serde(rename = "token")]
+    #[serde(rename = "token", alias = "Token")]
     pub token: String,
-    #[serde(rename = "key")]
+    #[serde(rename = "key", alias = "Key")]
     pub key: String,
-    #[serde(rename = "keys")]
+    #[serde(rename = "keys", alias = "Keys")]
     pub keys: Box<models::OrganizationKeysRequestModel>,
-    #[serde(rename = "collectionName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "collectionName",
+        alias = "CollectionName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub collection_name: Option<String>,
 }
 

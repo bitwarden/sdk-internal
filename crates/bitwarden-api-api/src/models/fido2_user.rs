@@ -16,12 +16,20 @@ use crate::models;
 #[serde_as]
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Fido2User {
-    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub name: Option<String>,
     #[serde_as(as = "Option<serde_with::base64::Base64>")]
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<Vec<u8>>,
-    #[serde(rename = "displayName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "displayName",
+        alias = "DisplayName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub display_name: Option<String>,
 }
 

@@ -14,7 +14,7 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProviderUserBulkConfirmRequestModel {
-    #[serde(rename = "keys")]
+    #[serde(rename = "keys", alias = "Keys")]
     pub keys: Vec<models::ProviderUserBulkConfirmRequestModelEntry>,
 }
 

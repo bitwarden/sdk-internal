@@ -14,9 +14,13 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PubKeyCredParam {
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "type",
+        alias = "R#type",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub r#type: Option<models::PublicKeyCredentialType>,
-    #[serde(rename = "alg", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "alg", alias = "Alg", skip_serializing_if = "Option::is_none")]
     pub alg: Option<models::Algorithm>,
 }
 

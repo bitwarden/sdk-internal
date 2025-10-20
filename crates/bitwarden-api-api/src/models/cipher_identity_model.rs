@@ -14,41 +14,109 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CipherIdentityModel {
-    #[serde(rename = "title", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "title",
+        alias = "Title",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub title: Option<String>,
-    #[serde(rename = "firstName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "firstName",
+        alias = "FirstName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub first_name: Option<String>,
-    #[serde(rename = "middleName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "middleName",
+        alias = "MiddleName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub middle_name: Option<String>,
-    #[serde(rename = "lastName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "lastName",
+        alias = "LastName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub last_name: Option<String>,
-    #[serde(rename = "address1", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "address1",
+        alias = "Address1",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub address1: Option<String>,
-    #[serde(rename = "address2", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "address2",
+        alias = "Address2",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub address2: Option<String>,
-    #[serde(rename = "address3", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "address3",
+        alias = "Address3",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub address3: Option<String>,
-    #[serde(rename = "city", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "city",
+        alias = "City",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub city: Option<String>,
-    #[serde(rename = "state", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "state",
+        alias = "State",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub state: Option<String>,
-    #[serde(rename = "postalCode", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "postalCode",
+        alias = "PostalCode",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub postal_code: Option<String>,
-    #[serde(rename = "country", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "country",
+        alias = "Country",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub country: Option<String>,
-    #[serde(rename = "company", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "company",
+        alias = "Company",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub company: Option<String>,
-    #[serde(rename = "email", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "email",
+        alias = "Email",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub email: Option<String>,
-    #[serde(rename = "phone", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "phone",
+        alias = "Phone",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub phone: Option<String>,
-    #[serde(rename = "ssn", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "ssn", alias = "Ssn", skip_serializing_if = "Option::is_none")]
     pub ssn: Option<String>,
-    #[serde(rename = "username", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "username",
+        alias = "Username",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub username: Option<String>,
-    #[serde(rename = "passportNumber", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "passportNumber",
+        alias = "PassportNumber",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub passport_number: Option<String>,
-    #[serde(rename = "licenseNumber", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "licenseNumber",
+        alias = "LicenseNumber",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub license_number: Option<String>,
 }
 

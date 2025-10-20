@@ -14,13 +14,21 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProviderUserPublicKeyResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    #[serde(rename = "userId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "userId",
+        alias = "UserId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub user_id: Option<uuid::Uuid>,
-    #[serde(rename = "key", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
 }
 

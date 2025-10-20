@@ -14,11 +14,11 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EmergencyAccessInviteRequestModel {
-    #[serde(rename = "email")]
+    #[serde(rename = "email", alias = "Email")]
     pub email: String,
-    #[serde(rename = "type")]
+    #[serde(rename = "type", alias = "R#type")]
     pub r#type: models::EmergencyAccessType,
-    #[serde(rename = "waitTimeDays")]
+    #[serde(rename = "waitTimeDays", alias = "WaitTimeDays")]
     pub wait_time_days: i32,
 }
 

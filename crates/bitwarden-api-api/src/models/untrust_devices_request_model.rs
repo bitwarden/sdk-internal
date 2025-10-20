@@ -14,7 +14,7 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UntrustDevicesRequestModel {
-    #[serde(rename = "devices")]
+    #[serde(rename = "devices", alias = "Devices")]
     pub devices: Vec<uuid::Uuid>,
 }
 

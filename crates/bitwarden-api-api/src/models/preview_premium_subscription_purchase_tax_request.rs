@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PreviewPremiumSubscriptionPurchaseTaxRequest {
-    #[serde(rename = "additionalStorage")]
+    #[serde(rename = "additionalStorage", alias = "AdditionalStorage")]
     pub additional_storage: i32,
-    #[serde(rename = "billingAddress")]
+    #[serde(rename = "billingAddress", alias = "BillingAddress")]
     pub billing_address: Box<models::MinimalBillingAddressRequest>,
 }
 

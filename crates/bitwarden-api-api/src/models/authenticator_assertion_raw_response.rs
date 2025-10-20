@@ -17,16 +17,32 @@ use crate::models;
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AuthenticatorAssertionRawResponse {
     #[serde_as(as = "Option<serde_with::base64::Base64>")]
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<Vec<u8>>,
     #[serde_as(as = "Option<serde_with::base64::Base64>")]
-    #[serde(rename = "rawId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "rawId",
+        alias = "RawId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub raw_id: Option<Vec<u8>>,
-    #[serde(rename = "response", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "response",
+        alias = "Response",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub response: Option<Box<models::AssertionResponse>>,
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "type",
+        alias = "R#type",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub r#type: Option<models::PublicKeyCredentialType>,
-    #[serde(rename = "extensions", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "extensions",
+        alias = "Extensions",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub extensions: Option<Box<models::AuthenticationExtensionsClientOutputs>>,
 }
 

@@ -14,9 +14,13 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CipherAttachmentModel {
-    #[serde(rename = "fileName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "fileName",
+        alias = "FileName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub file_name: Option<String>,
-    #[serde(rename = "key", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
 }
 

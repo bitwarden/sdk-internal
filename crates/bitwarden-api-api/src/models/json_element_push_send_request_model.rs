@@ -14,21 +14,45 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct JsonElementPushSendRequestModel {
-    #[serde(rename = "userId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "userId",
+        alias = "UserId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub user_id: Option<uuid::Uuid>,
-    #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationId",
+        alias = "OrganizationId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_id: Option<uuid::Uuid>,
-    #[serde(rename = "deviceId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "deviceId",
+        alias = "DeviceId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub device_id: Option<uuid::Uuid>,
-    #[serde(rename = "identifier", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "identifier",
+        alias = "Identifier",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub identifier: Option<String>,
-    #[serde(rename = "type")]
+    #[serde(rename = "type", alias = "R#type")]
     pub r#type: models::PushType,
-    #[serde(rename = "payload")]
+    #[serde(rename = "payload", alias = "Payload")]
     pub payload: Option<serde_json::Value>,
-    #[serde(rename = "clientType", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "clientType",
+        alias = "ClientType",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub client_type: Option<models::ClientType>,
-    #[serde(rename = "installationId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "installationId",
+        alias = "InstallationId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub installation_id: Option<uuid::Uuid>,
 }
 

@@ -14,7 +14,7 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct StorageRequestModel {
-    #[serde(rename = "storageGbAdjustment")]
+    #[serde(rename = "storageGbAdjustment", alias = "StorageGbAdjustment")]
     pub storage_gb_adjustment: i32,
 }
 

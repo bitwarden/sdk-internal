@@ -14,11 +14,23 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ApiKeyResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "apiKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "apiKey",
+        alias = "ApiKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub api_key: Option<String>,
-    #[serde(rename = "revisionDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "revisionDate",
+        alias = "RevisionDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub revision_date: Option<String>,
 }
 

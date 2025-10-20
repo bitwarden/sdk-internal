@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PreviewIndividualInvoiceRequestBody {
-    #[serde(rename = "passwordManager")]
+    #[serde(rename = "passwordManager", alias = "PasswordManager")]
     pub password_manager: Box<models::IndividualPasswordManagerRequestModel>,
-    #[serde(rename = "taxInformation")]
+    #[serde(rename = "taxInformation", alias = "TaxInformation")]
     pub tax_information: Box<models::TaxInformationRequestModel>,
 }
 

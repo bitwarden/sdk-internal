@@ -14,54 +14,83 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RegisterFinishRequestModel {
-    #[serde(rename = "email")]
+    #[serde(rename = "email", alias = "Email")]
     pub email: Option<String>,
     #[serde(
         rename = "emailVerificationToken",
+        alias = "EmailVerificationToken",
         skip_serializing_if = "Option::is_none"
     )]
     pub email_verification_token: Option<String>,
-    #[serde(rename = "masterPasswordHash")]
+    #[serde(rename = "masterPasswordHash", alias = "MasterPasswordHash")]
     pub master_password_hash: Option<String>,
-    #[serde(rename = "masterPasswordHint", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "masterPasswordHint",
+        alias = "MasterPasswordHint",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub master_password_hint: Option<String>,
-    #[serde(rename = "userSymmetricKey")]
+    #[serde(rename = "userSymmetricKey", alias = "UserSymmetricKey")]
     pub user_symmetric_key: Option<String>,
-    #[serde(rename = "userAsymmetricKeys")]
+    #[serde(rename = "userAsymmetricKeys", alias = "UserAsymmetricKeys")]
     pub user_asymmetric_keys: Box<models::KeysRequestModel>,
-    #[serde(rename = "kdf")]
+    #[serde(rename = "kdf", alias = "Kdf")]
     pub kdf: models::KdfType,
-    #[serde(rename = "kdfIterations")]
+    #[serde(rename = "kdfIterations", alias = "KdfIterations")]
     pub kdf_iterations: i32,
-    #[serde(rename = "kdfMemory", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "kdfMemory",
+        alias = "KdfMemory",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub kdf_memory: Option<i32>,
-    #[serde(rename = "kdfParallelism", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "kdfParallelism",
+        alias = "KdfParallelism",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub kdf_parallelism: Option<i32>,
-    #[serde(rename = "organizationUserId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationUserId",
+        alias = "OrganizationUserId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_user_id: Option<uuid::Uuid>,
-    #[serde(rename = "orgInviteToken", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "orgInviteToken",
+        alias = "OrgInviteToken",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub org_invite_token: Option<String>,
     #[serde(
         rename = "orgSponsoredFreeFamilyPlanToken",
+        alias = "OrgSponsoredFreeFamilyPlanToken",
         skip_serializing_if = "Option::is_none"
     )]
     pub org_sponsored_free_family_plan_token: Option<String>,
     #[serde(
         rename = "acceptEmergencyAccessInviteToken",
+        alias = "AcceptEmergencyAccessInviteToken",
         skip_serializing_if = "Option::is_none"
     )]
     pub accept_emergency_access_invite_token: Option<String>,
     #[serde(
         rename = "acceptEmergencyAccessId",
+        alias = "AcceptEmergencyAccessId",
         skip_serializing_if = "Option::is_none"
     )]
     pub accept_emergency_access_id: Option<uuid::Uuid>,
     #[serde(
         rename = "providerInviteToken",
+        alias = "ProviderInviteToken",
         skip_serializing_if = "Option::is_none"
     )]
     pub provider_invite_token: Option<String>,
-    #[serde(rename = "providerUserId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "providerUserId",
+        alias = "ProviderUserId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub provider_user_id: Option<uuid::Uuid>,
 }
 

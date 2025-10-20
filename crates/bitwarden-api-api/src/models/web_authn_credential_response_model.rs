@@ -14,17 +14,37 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WebAuthnCredentialResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
-    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub name: Option<String>,
-    #[serde(rename = "prfStatus", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "prfStatus",
+        alias = "PrfStatus",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub prf_status: Option<models::WebAuthnPrfStatus>,
-    #[serde(rename = "encryptedUserKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "encryptedUserKey",
+        alias = "EncryptedUserKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub encrypted_user_key: Option<String>,
-    #[serde(rename = "encryptedPublicKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "encryptedPublicKey",
+        alias = "EncryptedPublicKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub encrypted_public_key: Option<String>,
 }
 

@@ -14,9 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SendTextModel {
-    #[serde(rename = "text", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "text",
+        alias = "Text",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub text: Option<String>,
-    #[serde(rename = "hidden", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "hidden",
+        alias = "Hidden",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub hidden: Option<bool>,
 }
 

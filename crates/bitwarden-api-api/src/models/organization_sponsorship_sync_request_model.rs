@@ -14,14 +14,23 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationSponsorshipSyncRequestModel {
-    #[serde(rename = "billingSyncKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "billingSyncKey",
+        alias = "BillingSyncKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub billing_sync_key: Option<String>,
     #[serde(
         rename = "sponsoringOrganizationCloudId",
+        alias = "SponsoringOrganizationCloudId",
         skip_serializing_if = "Option::is_none"
     )]
     pub sponsoring_organization_cloud_id: Option<uuid::Uuid>,
-    #[serde(rename = "sponsorshipsBatch", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "sponsorshipsBatch",
+        alias = "SponsorshipsBatch",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub sponsorships_batch: Option<Vec<models::OrganizationSponsorshipRequestModel>>,
 }
 

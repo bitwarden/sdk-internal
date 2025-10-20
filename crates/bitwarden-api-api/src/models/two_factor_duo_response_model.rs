@@ -14,15 +14,35 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TwoFactorDuoResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "enabled", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "enabled",
+        alias = "Enabled",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub enabled: Option<bool>,
-    #[serde(rename = "host", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "host",
+        alias = "Host",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub host: Option<String>,
-    #[serde(rename = "clientSecret", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "clientSecret",
+        alias = "ClientSecret",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub client_secret: Option<String>,
-    #[serde(rename = "clientId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "clientId",
+        alias = "ClientId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub client_id: Option<String>,
 }
 

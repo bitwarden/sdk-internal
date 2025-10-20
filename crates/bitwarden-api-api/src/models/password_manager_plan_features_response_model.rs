@@ -14,75 +14,125 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PasswordManagerPlanFeaturesResponseModel {
-    #[serde(rename = "stripePlanId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "stripePlanId",
+        alias = "StripePlanId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub stripe_plan_id: Option<String>,
-    #[serde(rename = "stripeSeatPlanId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "stripeSeatPlanId",
+        alias = "StripeSeatPlanId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub stripe_seat_plan_id: Option<String>,
     #[serde(
         rename = "stripeProviderPortalSeatPlanId",
+        alias = "StripeProviderPortalSeatPlanId",
         skip_serializing_if = "Option::is_none"
     )]
     pub stripe_provider_portal_seat_plan_id: Option<String>,
-    #[serde(rename = "basePrice", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "basePrice",
+        alias = "BasePrice",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub base_price: Option<f64>,
-    #[serde(rename = "seatPrice", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "seatPrice",
+        alias = "SeatPrice",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub seat_price: Option<f64>,
     #[serde(
         rename = "providerPortalSeatPrice",
+        alias = "ProviderPortalSeatPrice",
         skip_serializing_if = "Option::is_none"
     )]
     pub provider_portal_seat_price: Option<f64>,
-    #[serde(rename = "allowSeatAutoscale", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "allowSeatAutoscale",
+        alias = "AllowSeatAutoscale",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub allow_seat_autoscale: Option<bool>,
     #[serde(
         rename = "hasAdditionalSeatsOption",
+        alias = "HasAdditionalSeatsOption",
         skip_serializing_if = "Option::is_none"
     )]
     pub has_additional_seats_option: Option<bool>,
-    #[serde(rename = "maxAdditionalSeats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "maxAdditionalSeats",
+        alias = "MaxAdditionalSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub max_additional_seats: Option<i32>,
-    #[serde(rename = "baseSeats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "baseSeats",
+        alias = "BaseSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub base_seats: Option<i32>,
     #[serde(
         rename = "hasPremiumAccessOption",
+        alias = "HasPremiumAccessOption",
         skip_serializing_if = "Option::is_none"
     )]
     pub has_premium_access_option: Option<bool>,
     #[serde(
         rename = "stripePremiumAccessPlanId",
+        alias = "StripePremiumAccessPlanId",
         skip_serializing_if = "Option::is_none"
     )]
     pub stripe_premium_access_plan_id: Option<String>,
     #[serde(
         rename = "premiumAccessOptionPrice",
+        alias = "PremiumAccessOptionPrice",
         skip_serializing_if = "Option::is_none"
     )]
     pub premium_access_option_price: Option<f64>,
-    #[serde(rename = "maxSeats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "maxSeats",
+        alias = "MaxSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub max_seats: Option<i32>,
-    #[serde(rename = "baseStorageGb", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "baseStorageGb",
+        alias = "BaseStorageGb",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub base_storage_gb: Option<i32>,
     #[serde(
         rename = "hasAdditionalStorageOption",
+        alias = "HasAdditionalStorageOption",
         skip_serializing_if = "Option::is_none"
     )]
     pub has_additional_storage_option: Option<bool>,
     #[serde(
         rename = "additionalStoragePricePerGb",
+        alias = "AdditionalStoragePricePerGb",
         skip_serializing_if = "Option::is_none"
     )]
     pub additional_storage_price_per_gb: Option<f64>,
     #[serde(
         rename = "stripeStoragePlanId",
+        alias = "StripeStoragePlanId",
         skip_serializing_if = "Option::is_none"
     )]
     pub stripe_storage_plan_id: Option<String>,
     #[serde(
         rename = "maxAdditionalStorage",
+        alias = "MaxAdditionalStorage",
         skip_serializing_if = "Option::is_none"
     )]
     pub max_additional_storage: Option<i32>,
-    #[serde(rename = "maxCollections", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "maxCollections",
+        alias = "MaxCollections",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub max_collections: Option<i32>,
 }
 

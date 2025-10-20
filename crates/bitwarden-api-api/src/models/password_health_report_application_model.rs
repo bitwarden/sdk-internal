@@ -14,9 +14,13 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PasswordHealthReportApplicationModel {
-    #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationId",
+        alias = "OrganizationId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_id: Option<uuid::Uuid>,
-    #[serde(rename = "url", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "url", alias = "Url", skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
 }
 

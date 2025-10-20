@@ -14,14 +14,30 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CipherBulkUpdateCollectionsRequestModel {
-    #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationId",
+        alias = "OrganizationId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_id: Option<uuid::Uuid>,
-    #[serde(rename = "cipherIds", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "cipherIds",
+        alias = "CipherIds",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub cipher_ids: Option<Vec<uuid::Uuid>>,
-    #[serde(rename = "collectionIds", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "collectionIds",
+        alias = "CollectionIds",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub collection_ids: Option<Vec<uuid::Uuid>>,
     /// If true, the collections will be removed from the ciphers. Otherwise, they will be added.
-    #[serde(rename = "removeCollections", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "removeCollections",
+        alias = "RemoveCollections",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub remove_collections: Option<bool>,
 }
 

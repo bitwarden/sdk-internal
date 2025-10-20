@@ -14,9 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CipherPermissionsResponseModel {
-    #[serde(rename = "delete", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "delete",
+        alias = "Delete",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub delete: Option<bool>,
-    #[serde(rename = "restore", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "restore",
+        alias = "Restore",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub restore: Option<bool>,
 }
 

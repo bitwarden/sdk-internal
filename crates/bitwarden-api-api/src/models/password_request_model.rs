@@ -14,26 +14,47 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PasswordRequestModel {
-    #[serde(rename = "masterPasswordHash", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "masterPasswordHash",
+        alias = "MasterPasswordHash",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub master_password_hash: Option<String>,
-    #[serde(rename = "otp", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "otp", alias = "Otp", skip_serializing_if = "Option::is_none")]
     pub otp: Option<String>,
     #[serde(
         rename = "authRequestAccessCode",
+        alias = "AuthRequestAccessCode",
         skip_serializing_if = "Option::is_none"
     )]
     pub auth_request_access_code: Option<String>,
-    #[serde(rename = "secret", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "secret",
+        alias = "Secret",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub secret: Option<String>,
-    #[serde(rename = "newMasterPasswordHash")]
+    #[serde(rename = "newMasterPasswordHash", alias = "NewMasterPasswordHash")]
     pub new_master_password_hash: String,
-    #[serde(rename = "masterPasswordHint", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "masterPasswordHint",
+        alias = "MasterPasswordHint",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub master_password_hint: Option<String>,
-    #[serde(rename = "key")]
+    #[serde(rename = "key", alias = "Key")]
     pub key: String,
-    #[serde(rename = "authenticationData", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "authenticationData",
+        alias = "AuthenticationData",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub authentication_data: Option<Box<models::MasterPasswordAuthenticationDataRequestModel>>,
-    #[serde(rename = "unlockData", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "unlockData",
+        alias = "UnlockData",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub unlock_data: Option<Box<models::MasterPasswordUnlockDataRequestModel>>,
 }
 

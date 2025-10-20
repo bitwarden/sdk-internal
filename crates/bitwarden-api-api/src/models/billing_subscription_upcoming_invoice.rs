@@ -14,9 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BillingSubscriptionUpcomingInvoice {
-    #[serde(rename = "amount", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "amount",
+        alias = "Amount",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub amount: Option<f64>,
-    #[serde(rename = "date", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "date",
+        alias = "Date",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub date: Option<String>,
 }
 

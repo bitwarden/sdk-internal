@@ -14,7 +14,7 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PreviewOrganizationSubscriptionUpdateTaxRequest {
-    #[serde(rename = "update")]
+    #[serde(rename = "update", alias = "Update")]
     pub update: Box<models::OrganizationSubscriptionUpdateRequest>,
 }
 

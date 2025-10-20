@@ -14,23 +14,45 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BillingSubscriptionItem {
-    #[serde(rename = "productId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "productId",
+        alias = "ProductId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub product_id: Option<String>,
-    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub name: Option<String>,
-    #[serde(rename = "amount", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "amount",
+        alias = "Amount",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub amount: Option<f64>,
-    #[serde(rename = "quantity", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "quantity",
+        alias = "Quantity",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub quantity: Option<i32>,
-    #[serde(rename = "interval", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "interval",
+        alias = "Interval",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub interval: Option<String>,
     #[serde(
         rename = "sponsoredSubscriptionItem",
+        alias = "SponsoredSubscriptionItem",
         skip_serializing_if = "Option::is_none"
     )]
     pub sponsored_subscription_item: Option<bool>,
     #[serde(
         rename = "addonSubscriptionItem",
+        alias = "AddonSubscriptionItem",
         skip_serializing_if = "Option::is_none"
     )]
     pub addon_subscription_item: Option<bool>,

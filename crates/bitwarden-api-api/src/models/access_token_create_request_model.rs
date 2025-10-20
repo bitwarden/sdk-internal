@@ -14,13 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccessTokenCreateRequestModel {
-    #[serde(rename = "name")]
+    #[serde(rename = "name", alias = "Name")]
     pub name: String,
-    #[serde(rename = "encryptedPayload")]
+    #[serde(rename = "encryptedPayload", alias = "EncryptedPayload")]
     pub encrypted_payload: String,
-    #[serde(rename = "key")]
+    #[serde(rename = "key", alias = "Key")]
     pub key: String,
-    #[serde(rename = "expireAt", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "expireAt",
+        alias = "ExpireAt",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub expire_at: Option<String>,
 }
 

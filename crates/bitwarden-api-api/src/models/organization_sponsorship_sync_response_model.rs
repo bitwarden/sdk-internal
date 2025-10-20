@@ -14,7 +14,11 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationSponsorshipSyncResponseModel {
-    #[serde(rename = "sponsorshipsBatch", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "sponsorshipsBatch",
+        alias = "SponsorshipsBatch",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub sponsorships_batch: Option<Vec<models::OrganizationSponsorshipResponseModel>>,
 }
 

@@ -14,17 +14,37 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProviderUserResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    #[serde(rename = "userId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "userId",
+        alias = "UserId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub user_id: Option<uuid::Uuid>,
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "type",
+        alias = "R#type",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub r#type: Option<models::ProviderUserType>,
-    #[serde(rename = "status", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "status",
+        alias = "Status",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub status: Option<models::ProviderUserStatusType>,
-    #[serde(rename = "permissions", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "permissions",
+        alias = "Permissions",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub permissions: Option<Box<models::Permissions>>,
 }
 

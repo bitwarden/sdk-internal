@@ -14,7 +14,11 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BulkCreateSecurityTasksRequestModel {
-    #[serde(rename = "tasks", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "tasks",
+        alias = "Tasks",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub tasks: Option<Vec<models::SecurityTaskCreateRequest>>,
 }
 

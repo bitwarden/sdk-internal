@@ -14,28 +14,57 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UpdateTwoFactorYubicoOtpRequestModel {
-    #[serde(rename = "masterPasswordHash", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "masterPasswordHash",
+        alias = "MasterPasswordHash",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub master_password_hash: Option<String>,
-    #[serde(rename = "otp", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "otp", alias = "Otp", skip_serializing_if = "Option::is_none")]
     pub otp: Option<String>,
     #[serde(
         rename = "authRequestAccessCode",
+        alias = "AuthRequestAccessCode",
         skip_serializing_if = "Option::is_none"
     )]
     pub auth_request_access_code: Option<String>,
-    #[serde(rename = "secret", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "secret",
+        alias = "Secret",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub secret: Option<String>,
-    #[serde(rename = "key1", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "key1",
+        alias = "Key1",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub key1: Option<String>,
-    #[serde(rename = "key2", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "key2",
+        alias = "Key2",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub key2: Option<String>,
-    #[serde(rename = "key3", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "key3",
+        alias = "Key3",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub key3: Option<String>,
-    #[serde(rename = "key4", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "key4",
+        alias = "Key4",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub key4: Option<String>,
-    #[serde(rename = "key5", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "key5",
+        alias = "Key5",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub key5: Option<String>,
-    #[serde(rename = "nfc")]
+    #[serde(rename = "nfc", alias = "Nfc")]
     pub nfc: bool,
 }
 

@@ -14,36 +14,89 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MemberAccessDetailReportResponseModel {
-    #[serde(rename = "userGuid", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "userGuid",
+        alias = "UserGuid",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub user_guid: Option<uuid::Uuid>,
-    #[serde(rename = "userName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "userName",
+        alias = "UserName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub user_name: Option<String>,
-    #[serde(rename = "email", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "email",
+        alias = "Email",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub email: Option<String>,
-    #[serde(rename = "twoFactorEnabled", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "twoFactorEnabled",
+        alias = "TwoFactorEnabled",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub two_factor_enabled: Option<bool>,
     #[serde(
         rename = "accountRecoveryEnabled",
+        alias = "AccountRecoveryEnabled",
         skip_serializing_if = "Option::is_none"
     )]
     pub account_recovery_enabled: Option<bool>,
-    #[serde(rename = "usesKeyConnector", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "usesKeyConnector",
+        alias = "UsesKeyConnector",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub uses_key_connector: Option<bool>,
-    #[serde(rename = "collectionId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "collectionId",
+        alias = "CollectionId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub collection_id: Option<uuid::Uuid>,
-    #[serde(rename = "groupId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "groupId",
+        alias = "GroupId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub group_id: Option<uuid::Uuid>,
-    #[serde(rename = "groupName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "groupName",
+        alias = "GroupName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub group_name: Option<String>,
-    #[serde(rename = "collectionName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "collectionName",
+        alias = "CollectionName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub collection_name: Option<String>,
-    #[serde(rename = "readOnly", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "readOnly",
+        alias = "ReadOnly",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub read_only: Option<bool>,
-    #[serde(rename = "hidePasswords", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "hidePasswords",
+        alias = "HidePasswords",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub hide_passwords: Option<bool>,
-    #[serde(rename = "manage", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "manage",
+        alias = "Manage",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub manage: Option<bool>,
-    #[serde(rename = "cipherIds", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "cipherIds",
+        alias = "CipherIds",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub cipher_ids: Option<Vec<uuid::Uuid>>,
 }
 

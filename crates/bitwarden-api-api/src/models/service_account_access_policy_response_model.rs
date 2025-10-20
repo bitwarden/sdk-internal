@@ -14,15 +14,35 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ServiceAccountAccessPolicyResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "read", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "read",
+        alias = "Read",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub read: Option<bool>,
-    #[serde(rename = "write", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "write",
+        alias = "Write",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub write: Option<bool>,
-    #[serde(rename = "serviceAccountId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "serviceAccountId",
+        alias = "ServiceAccountId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub service_account_id: Option<uuid::Uuid>,
-    #[serde(rename = "serviceAccountName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "serviceAccountName",
+        alias = "ServiceAccountName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub service_account_name: Option<String>,
 }
 

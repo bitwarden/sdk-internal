@@ -14,9 +14,12 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProviderOrganizationCreateRequestModel {
-    #[serde(rename = "clientOwnerEmail")]
+    #[serde(rename = "clientOwnerEmail", alias = "ClientOwnerEmail")]
     pub client_owner_email: String,
-    #[serde(rename = "organizationCreateRequest")]
+    #[serde(
+        rename = "organizationCreateRequest",
+        alias = "OrganizationCreateRequest"
+    )]
     pub organization_create_request: Box<models::OrganizationCreateRequestModel>,
 }
 

@@ -14,13 +14,25 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SendFileUploadDataResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "url", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "url", alias = "Url", skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
-    #[serde(rename = "fileUploadType", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "fileUploadType",
+        alias = "FileUploadType",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub file_upload_type: Option<models::FileUploadType>,
-    #[serde(rename = "sendResponse", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "sendResponse",
+        alias = "SendResponse",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub send_response: Option<Box<models::SendResponseModel>>,
 }
 

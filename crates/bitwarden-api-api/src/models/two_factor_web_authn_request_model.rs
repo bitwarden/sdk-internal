@@ -14,22 +14,35 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TwoFactorWebAuthnRequestModel {
-    #[serde(rename = "masterPasswordHash", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "masterPasswordHash",
+        alias = "MasterPasswordHash",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub master_password_hash: Option<String>,
-    #[serde(rename = "otp", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "otp", alias = "Otp", skip_serializing_if = "Option::is_none")]
     pub otp: Option<String>,
     #[serde(
         rename = "authRequestAccessCode",
+        alias = "AuthRequestAccessCode",
         skip_serializing_if = "Option::is_none"
     )]
     pub auth_request_access_code: Option<String>,
-    #[serde(rename = "secret", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "secret",
+        alias = "Secret",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub secret: Option<String>,
-    #[serde(rename = "id")]
+    #[serde(rename = "id", alias = "Id")]
     pub id: i32,
-    #[serde(rename = "deviceResponse")]
+    #[serde(rename = "deviceResponse", alias = "DeviceResponse")]
     pub device_response: Box<models::AuthenticatorAttestationRawResponse>,
-    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub name: Option<String>,
 }
 

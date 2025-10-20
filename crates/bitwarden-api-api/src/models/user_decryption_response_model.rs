@@ -16,6 +16,7 @@ use crate::models;
 pub struct UserDecryptionResponseModel {
     #[serde(
         rename = "masterPasswordUnlock",
+        alias = "MasterPasswordUnlock",
         skip_serializing_if = "Option::is_none"
     )]
     pub master_password_unlock: Option<Box<models::MasterPasswordUnlockResponseModel>>,

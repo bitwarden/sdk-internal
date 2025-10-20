@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct VerifyEmailRequestModel {
-    #[serde(rename = "userId")]
+    #[serde(rename = "userId", alias = "UserId")]
     pub user_id: String,
-    #[serde(rename = "token")]
+    #[serde(rename = "token", alias = "Token")]
     pub token: String,
 }
 

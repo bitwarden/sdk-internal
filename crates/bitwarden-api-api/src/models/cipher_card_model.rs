@@ -14,17 +14,41 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CipherCardModel {
-    #[serde(rename = "cardholderName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "cardholderName",
+        alias = "CardholderName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub cardholder_name: Option<String>,
-    #[serde(rename = "brand", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "brand",
+        alias = "Brand",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub brand: Option<String>,
-    #[serde(rename = "number", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "number",
+        alias = "Number",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub number: Option<String>,
-    #[serde(rename = "expMonth", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "expMonth",
+        alias = "ExpMonth",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub exp_month: Option<String>,
-    #[serde(rename = "expYear", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "expYear",
+        alias = "ExpYear",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub exp_year: Option<String>,
-    #[serde(rename = "code", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "code",
+        alias = "Code",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub code: Option<String>,
 }
 

@@ -14,7 +14,10 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DeviceVerificationRequestModel {
-    #[serde(rename = "unknownDeviceVerificationEnabled")]
+    #[serde(
+        rename = "unknownDeviceVerificationEnabled",
+        alias = "UnknownDeviceVerificationEnabled"
+    )]
     pub unknown_device_verification_enabled: bool,
 }
 

@@ -14,11 +14,23 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GroupResponseModelListResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "data", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "data",
+        alias = "Data",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub data: Option<Vec<models::GroupResponseModel>>,
-    #[serde(rename = "continuationToken", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "continuationToken",
+        alias = "ContinuationToken",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub continuation_token: Option<String>,
 }
 

@@ -14,10 +14,15 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DropPasswordHealthReportApplicationRequest {
-    #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationId",
+        alias = "OrganizationId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_id: Option<uuid::Uuid>,
     #[serde(
         rename = "passwordHealthReportApplicationIds",
+        alias = "PasswordHealthReportApplicationIds",
         skip_serializing_if = "Option::is_none"
     )]
     pub password_health_report_application_ids: Option<Vec<uuid::Uuid>>,

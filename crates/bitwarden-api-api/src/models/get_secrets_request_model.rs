@@ -14,7 +14,7 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GetSecretsRequestModel {
-    #[serde(rename = "ids")]
+    #[serde(rename = "ids", alias = "Ids")]
     pub ids: Vec<uuid::Uuid>,
 }
 

@@ -14,9 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationUserResetPasswordEnrollmentRequestModel {
-    #[serde(rename = "resetPasswordKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "resetPasswordKey",
+        alias = "ResetPasswordKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub reset_password_key: Option<String>,
-    #[serde(rename = "masterPasswordHash", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "masterPasswordHash",
+        alias = "MasterPasswordHash",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub master_password_hash: Option<String>,
 }
 

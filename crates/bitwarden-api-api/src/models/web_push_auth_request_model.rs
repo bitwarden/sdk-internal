@@ -14,11 +14,11 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WebPushAuthRequestModel {
-    #[serde(rename = "endpoint")]
+    #[serde(rename = "endpoint", alias = "Endpoint")]
     pub endpoint: String,
-    #[serde(rename = "p256dh")]
+    #[serde(rename = "p256dh", alias = "P256dh")]
     pub p256dh: String,
-    #[serde(rename = "auth")]
+    #[serde(rename = "auth", alias = "Auth")]
     pub auth: String,
 }
 

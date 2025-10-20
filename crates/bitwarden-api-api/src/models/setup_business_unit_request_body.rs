@@ -14,13 +14,13 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SetupBusinessUnitRequestBody {
-    #[serde(rename = "userId")]
+    #[serde(rename = "userId", alias = "UserId")]
     pub user_id: uuid::Uuid,
-    #[serde(rename = "token")]
+    #[serde(rename = "token", alias = "Token")]
     pub token: String,
-    #[serde(rename = "providerKey")]
+    #[serde(rename = "providerKey", alias = "ProviderKey")]
     pub provider_key: String,
-    #[serde(rename = "organizationKey")]
+    #[serde(rename = "organizationKey", alias = "OrganizationKey")]
     pub organization_key: String,
 }
 

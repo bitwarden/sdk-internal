@@ -14,12 +14,21 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ImportCiphersRequestModel {
-    #[serde(rename = "folders", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "folders",
+        alias = "Folders",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub folders: Option<Vec<models::FolderWithIdRequestModel>>,
-    #[serde(rename = "ciphers", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "ciphers",
+        alias = "Ciphers",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub ciphers: Option<Vec<models::CipherRequestModel>>,
     #[serde(
         rename = "folderRelationships",
+        alias = "FolderRelationships",
         skip_serializing_if = "Option::is_none"
     )]
     pub folder_relationships: Option<Vec<models::Int32Int32KeyValuePair>>,
