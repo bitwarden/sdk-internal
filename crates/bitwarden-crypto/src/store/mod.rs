@@ -96,7 +96,7 @@ pub struct KeyStore<Ids: KeyIds> {
     // We use an Arc<> to make it easier to pass this store around, as we can
     // clone it instead of passing references
     inner: Arc<RwLock<KeyStoreInner<Ids>>>,
-    security_state_version: Arc<RwLock<u32>>,
+    security_state_version: Arc<RwLock<u64>>,
 }
 
 /// [KeyStore] contains sensitive data, provide a dummy [Debug] implementation.
@@ -137,7 +137,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     }
 
     /// Sets the security state version for this store.
-    pub fn set_security_state_version(&self, version: u32) {
+    pub fn set_security_state_version(&self, version: u64) {
         let mut ver = self
             .security_state_version
             .write()
