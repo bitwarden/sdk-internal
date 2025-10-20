@@ -22,11 +22,17 @@ pub use crypto_client::CryptoClient;
 #[cfg(feature = "internal")]
 mod master_password;
 #[cfg(feature = "internal")]
+pub use master_password::MasterPasswordError;
+#[cfg(feature = "internal")]
+pub(crate) use master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData};
+#[cfg(feature = "internal")]
 mod security_state;
+#[cfg(feature = "internal")]
+pub use security_state::{SecurityState, SignedSecurityState};
 #[cfg(feature = "internal")]
 mod user_decryption;
 #[cfg(feature = "internal")]
-pub use security_state::{SecurityState, SignedSecurityState};
+pub use user_decryption::UserDecryptionData;
 
 use crate::OrganizationId;
 
