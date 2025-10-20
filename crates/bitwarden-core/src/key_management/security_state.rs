@@ -33,6 +33,7 @@ use crate::UserId;
 
 /// Icon URI hashes are enforced starting with this security state version.
 pub const MINIMUM_ENFORCE_ICON_URI_HASH_VERSION: u64 = 2;
+/// Cipher keys are part of the upgrade to v2 encryption. This version enforces their presence.
 pub const MINIMUM_ENFORCE_CIPHER_KEY_ENCRYPTION_VERSION: u64 = 2;
 
 #[cfg(feature = "wasm")]
