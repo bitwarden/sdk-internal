@@ -33,7 +33,8 @@ pub(crate) use non_generic_wrappers::*;
 mod security_state;
 #[cfg(feature = "internal")]
 pub use security_state::{
-    MINIMUM_ENFORCE_ICON_URI_HASH_VERSION, SecurityState, SignedSecurityState,
+    MINIMUM_ENFORCE_CIPHER_KEY_ENCRYPTION_VERSION, MINIMUM_ENFORCE_ICON_URI_HASH_VERSION,
+    SecurityState, SignedSecurityState,
 };
 #[cfg(feature = "internal")]
 mod user_decryption;
