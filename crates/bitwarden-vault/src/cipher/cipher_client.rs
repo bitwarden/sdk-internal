@@ -1,4 +1,7 @@
-use bitwarden_core::{Client, OrganizationId, key_management::SymmetricKeyId};
+use bitwarden_core::{
+    Client, OrganizationId,
+    key_management::{MINIMUM_ENFORCE_CIPHER_KEY_ENCRYPTION_VERSION, SymmetricKeyId},
+};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, SymmetricCryptoKey};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
@@ -31,11 +34,13 @@ impl CiphersClient {
         // TODO: Once this flag is removed, the key generation logic should
         // be moved directly into the KeyEncryptable implementation
         if cipher_view.key.is_none()
-            && self
+            && (self
                 .client
                 .internal
                 .get_flags()
                 .enable_cipher_key_encryption
+                || self.client.internal.get_security_version()
+                    >= MINIMUM_ENFORCE_CIPHER_KEY_ENCRYPTION_VERSION)
         {
             let key = cipher_view.key_identifier();
             cipher_view.generate_cipher_key(&mut key_store.context(), key)?;
@@ -80,11 +85,13 @@ impl CiphersClient {
         ctx.set_symmetric_key(NEW_KEY_ID, new_key)?;
 
         if cipher_view.key.is_none()
-            && self
+            && (self
                 .client
                 .internal
                 .get_flags()
                 .enable_cipher_key_encryption
+                || self.client.internal.get_security_version()
+                    >= MINIMUM_ENFORCE_CIPHER_KEY_ENCRYPTION_VERSION)
         {
             cipher_view.generate_cipher_key(&mut ctx, NEW_KEY_ID)?;
         } else {

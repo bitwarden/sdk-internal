@@ -33,6 +33,7 @@ use crate::UserId;
 
 /// Icon URI hashes are enforced starting with this security state version.
 pub const MINIMUM_ENFORCE_ICON_URI_HASH_VERSION: u64 = 2;
+pub const MINIMUM_ENFORCE_CIPHER_KEY_ENCRYPTION_VERSION: u64 = 2;
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
