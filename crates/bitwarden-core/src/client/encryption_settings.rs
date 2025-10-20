@@ -171,6 +171,7 @@ impl EncryptionSettings {
             .verify_and_unwrap(&signing_key.to_verifying_key())
             .map_err(|_| EncryptionSettingsError::InvalidSecurityState)?;
         *sdk_security_state.write().expect("RwLock not poisoned") = Some(security_state);
+        store.set_security_state_version(2);
 
         #[allow(deprecated)]
         {
