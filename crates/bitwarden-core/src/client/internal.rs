@@ -29,8 +29,7 @@ use crate::{
     },
     error::NotAuthenticatedError,
     key_management::{
-        MasterPasswordUnlockData, PasswordProtectedKeyEnvelope, SecurityState, SignedSecurityState,
-        crypto::InitUserCryptoRequest,
+        MasterPasswordUnlockData, SecurityState, SignedSecurityState, crypto::InitUserCryptoRequest,
     },
 };
 
