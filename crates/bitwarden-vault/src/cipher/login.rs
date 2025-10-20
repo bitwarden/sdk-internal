@@ -71,7 +71,7 @@ impl LoginUriView {
         use sha2::Digest;
         let uri_hash = sha2::Sha256::new().chain_update(uri.as_bytes()).finalize();
 
-        uri_hash.as_slice().ct_eq(&cs.as_bytes()).into()
+        uri_hash.as_slice().ct_eq(cs.as_bytes()).into()
     }
 
     pub(crate) fn generate_checksum(&mut self) {

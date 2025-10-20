@@ -182,11 +182,10 @@ impl<Ids: KeyIds> KeyStore<Ids> {
             local_symmetric_keys: create_store(),
             local_asymmetric_keys: create_store(),
             local_signing_keys: create_store(),
-            security_state_version: self
+            security_state_version: *self
                 .security_state_version
                 .read()
-                .expect("RwLock is poisoned")
-                .clone(),
+                .expect("RwLock is poisoned"),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -217,11 +216,10 @@ impl<Ids: KeyIds> KeyStore<Ids> {
             local_symmetric_keys: create_store(),
             local_asymmetric_keys: create_store(),
             local_signing_keys: create_store(),
-            security_state_version: self
+            security_state_version: *self
                 .security_state_version
                 .read()
-                .expect("RwLock is poisoned")
-                .clone(),
+                .expect("RwLock is poisoned"),
             _phantom: std::marker::PhantomData,
         }
     }
