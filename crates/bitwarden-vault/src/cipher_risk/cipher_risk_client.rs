@@ -1,14 +1,24 @@
 use std::sync::Arc;
 
 use bitwarden_core::Client;
+use bitwarden_error::bitwarden_error;
 use futures::{StreamExt, stream};
+use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use super::cipher_risk::{
+use super::types::{
     CipherLoginDetails, CipherRisk, CipherRiskOptions, ExposedPasswordResult, PasswordReuseMap,
 };
-use crate::CipherRiskError;
+
+/// Error type for cipher risk evaluation operations
+#[allow(missing_docs)]
+#[bitwarden_error(flat)]
+#[derive(Debug, Error)]
+pub enum CipherRiskError {
+    #[error(transparent)]
+    Reqwest(#[from] reqwest::Error),
+}
 
 /// Default base URL for the Have I Been Pwned (HIBP) Pwned Passwords API.
 const HIBP_DEFAULT_BASE_URL: &str = "https://api.pwnedpasswords.com";

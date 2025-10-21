@@ -7,6 +7,8 @@ mod uniffi_support;
 
 mod cipher;
 pub use cipher::*;
+mod cipher_risk;
+pub use cipher_risk::*;
 mod folder;
 pub use folder::*;
 mod password_history;
@@ -20,7 +22,7 @@ pub use totp::{
     Totp, TotpAlgorithm, TotpError, TotpResponse, generate_totp, generate_totp_cipher_view,
 };
 mod error;
-pub use error::{CipherRiskError, DecryptError, EncryptError, VaultParseError};
+pub use error::{DecryptError, EncryptError, VaultParseError};
 mod vault_client;
 pub use vault_client::{VaultClient, VaultClientExt};
 
