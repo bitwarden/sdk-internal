@@ -3,12 +3,12 @@ use bitwarden_core::Client;
 use wasm_bindgen::prelude::*;
 
 use crate::send_access::{
+    SendAccessTokenError, SendAccessTokenRequest, SendAccessTokenResponse,
     access_token_response::UnexpectedIdentityError,
     api::{
         SendAccessTokenApiErrorResponse, SendAccessTokenApiSuccessResponse,
         SendAccessTokenRequestPayload,
     },
-    SendAccessTokenError, SendAccessTokenRequest, SendAccessTokenResponse,
 };
 
 /// The `SendAccessClient` is used to interact with the Bitwarden API to get send access tokens.
@@ -100,22 +100,22 @@ mod tests {
     use bitwarden_core::{Client as CoreClient, ClientSettings, DeviceType};
     use bitwarden_test::start_api_mock;
     use wiremock::{
-        matchers::{self, body_string_contains},
         Mock, MockServer, ResponseTemplate,
+        matchers::{self, body_string_contains},
     };
 
     use crate::{
+        AuthClientExt,
         api::enums::{GrantType, Scope},
         send_access::{
+            SendAccessClient, SendAccessCredentials, SendAccessTokenError, SendAccessTokenRequest,
+            SendAccessTokenResponse, SendEmailCredentials, SendEmailOtpCredentials,
+            SendPasswordCredentials, UnexpectedIdentityError,
             api::{
                 SendAccessTokenApiErrorResponse, SendAccessTokenInvalidGrantError,
                 SendAccessTokenInvalidRequestError,
             },
-            SendAccessClient, SendAccessCredentials, SendAccessTokenError, SendAccessTokenRequest,
-            SendAccessTokenResponse, SendEmailCredentials, SendEmailOtpCredentials,
-            SendPasswordCredentials, UnexpectedIdentityError,
         },
-        AuthClientExt,
     };
 
     fn make_send_client(mock_server: &MockServer) -> SendAccessClient {
@@ -124,6 +124,7 @@ mod tests {
             api_url: format!("http://{}/api", mock_server.address()),
             user_agent: "Bitwarden Rust-SDK [TEST]".into(),
             device_type: DeviceType::SDK,
+            bitwarden_client_version: None,
         };
         let core_client = CoreClient::new(Some(settings));
         core_client.auth_new().send_access()

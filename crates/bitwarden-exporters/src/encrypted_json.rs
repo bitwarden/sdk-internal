@@ -1,12 +1,12 @@
-use bitwarden_crypto::{generate_random_bytes, Kdf, KeyEncryptable, PinKey};
+use bitwarden_crypto::{Kdf, KeyEncryptable, PinKey, generate_random_bytes};
 use bitwarden_encoding::B64;
 use serde::Serialize;
 use thiserror::Error;
 use uuid::Uuid;
 
 use crate::{
-    json::{self, export_json},
     Cipher, Folder,
+    json::{self, export_json},
 };
 
 #[derive(Error, Debug)]

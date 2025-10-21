@@ -112,6 +112,12 @@ pub enum EventType {
     Project_Created = 2201,
     Project_Edited = 2202,
     Project_Deleted = 2203,
+    ServiceAccount_UserAdded = 2300,
+    ServiceAccount_UserRemoved = 2301,
+    ServiceAccount_GroupAdded = 2302,
+    ServiceAccount_GroupRemoved = 2303,
+    ServiceAccount_Created = 2304,
+    ServiceAccount_Deleted = 2305,
 }
 
 impl std::fmt::Display for EventType {
@@ -211,6 +217,12 @@ impl std::fmt::Display for EventType {
             Self::Project_Created => "2201",
             Self::Project_Edited => "2202",
             Self::Project_Deleted => "2203",
+            Self::ServiceAccount_UserAdded => "2300",
+            Self::ServiceAccount_UserRemoved => "2301",
+            Self::ServiceAccount_GroupAdded => "2302",
+            Self::ServiceAccount_GroupRemoved => "2303",
+            Self::ServiceAccount_Created => "2304",
+            Self::ServiceAccount_Deleted => "2305",
         })
     }
 }

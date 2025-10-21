@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-use reqwest::{header::CONTENT_TYPE, StatusCode};
+use reqwest::{StatusCode, header::CONTENT_TYPE};
 use serde_json::json;
 
 use crate::username::UsernameError;
 
-pub async fn generate(
+pub(crate) async fn generate(
     http: &reqwest::Client,
     api_token: String,
     website: Option<String>,
@@ -13,7 +13,7 @@ pub async fn generate(
     generate_with_api_url(http, api_token, website, "https://api.fastmail.com".into()).await
 }
 
-pub async fn generate_with_api_url(
+async fn generate_with_api_url(
     http: &reqwest::Client,
     api_token: String,
     website: Option<String>,
@@ -129,7 +129,7 @@ mod tests {
     use crate::username::UsernameError;
     #[tokio::test]
     async fn test_mock_server() {
-        use wiremock::{matchers, Mock, ResponseTemplate};
+        use wiremock::{Mock, ResponseTemplate, matchers};
 
         let server = wiremock::MockServer::start().await;
 

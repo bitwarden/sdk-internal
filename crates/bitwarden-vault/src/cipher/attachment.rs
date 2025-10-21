@@ -1,3 +1,4 @@
+use bitwarden_api_api::models::CipherAttachmentModel;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
@@ -25,6 +26,15 @@ pub struct Attachment {
     pub key: Option<EncString>,
 }
 
+impl From<Attachment> for CipherAttachmentModel {
+    fn from(attachment: Attachment) -> Self {
+        Self {
+            file_name: attachment.file_name.map(|f| f.to_string()),
+            key: attachment.key.map(|k| k.to_string()),
+        }
+    }
+}
+
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -49,6 +59,34 @@ pub struct AttachmentView {
     /// Do not rely on this field for long-term use.
     #[cfg(feature = "wasm")]
     pub decrypted_key: Option<String>,
+}
+
+impl AttachmentView {
+    pub(crate) fn reencrypt_key(
+        &mut self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        old_key: SymmetricKeyId,
+        new_key: SymmetricKeyId,
+    ) -> Result<(), CryptoError> {
+        if let Some(attachment_key) = &mut self.key {
+            let tmp_attachment_key_id = SymmetricKeyId::Local("attachment_key");
+            ctx.unwrap_symmetric_key(old_key, tmp_attachment_key_id, attachment_key)?;
+            *attachment_key = ctx.wrap_symmetric_key(new_key, tmp_attachment_key_id)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn reencrypt_keys(
+        attachment_views: &mut Vec<AttachmentView>,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        old_key: SymmetricKeyId,
+        new_key: SymmetricKeyId,
+    ) -> Result<(), CryptoError> {
+        for attachment in attachment_views {
+            attachment.reencrypt_key(ctx, old_key, new_key)?;
+        }
+        Ok(())
+    }
 }
 
 #[allow(missing_docs)]
@@ -225,8 +263,8 @@ mod tests {
     use bitwarden_encoding::B64;
 
     use crate::{
-        cipher::cipher::{CipherRepromptType, CipherType},
         AttachmentFile, AttachmentFileView, AttachmentView, Cipher,
+        cipher::cipher::{CipherRepromptType, CipherType},
     };
 
     #[test]

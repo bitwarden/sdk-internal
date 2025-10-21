@@ -1,9 +1,9 @@
-use coset::{iana, CoseKey};
+use coset::{CoseKey, iana};
 use p256::{
-    pkcs8::{DecodePrivateKey, EncodePrivateKey},
     SecretKey,
+    pkcs8::{DecodePrivateKey, EncodePrivateKey},
 };
-use passkey::authenticator::{private_key_from_cose_key, CoseKeyPair};
+use passkey::authenticator::{CoseKeyPair, private_key_from_cose_key};
 use thiserror::Error;
 
 #[derive(Debug, Error)]

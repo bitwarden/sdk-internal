@@ -1,8 +1,11 @@
-use reqwest::{header::CONTENT_TYPE, StatusCode};
+use reqwest::{StatusCode, header::CONTENT_TYPE};
 
 use crate::username::UsernameError;
 
-pub async fn generate(http: &reqwest::Client, token: String) -> Result<String, UsernameError> {
+pub(crate) async fn generate(
+    http: &reqwest::Client,
+    token: String,
+) -> Result<String, UsernameError> {
     generate_with_api_url(http, token, "https://quack.duckduckgo.com".into()).await
 }
 
@@ -41,7 +44,7 @@ mod tests {
     use crate::username::UsernameError;
     #[tokio::test]
     async fn test_mock_server() {
-        use wiremock::{matchers, Mock, ResponseTemplate};
+        use wiremock::{Mock, ResponseTemplate, matchers};
 
         let server = wiremock::MockServer::start().await;
 

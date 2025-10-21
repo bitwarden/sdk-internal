@@ -17,7 +17,7 @@ use tsify::Tsify;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::cipher::CipherKind;
-use crate::{cipher::cipher::CopyableCipherFields, Cipher, VaultParseError};
+use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
 
 #[allow(missing_docs)]
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
@@ -311,6 +311,31 @@ pub struct LoginView {
 
     // TODO: Remove this once the SDK supports state
     pub fido2_credentials: Option<Vec<Fido2Credential>>,
+}
+
+impl LoginView {
+    /// Generate checksums for all URIs in the login view
+    pub fn generate_checksums(&mut self) {
+        if let Some(uris) = &mut self.uris {
+            for uri in uris {
+                uri.generate_checksum();
+            }
+        }
+    }
+
+    /// Re-encrypts the fido2 credentials with a new key, replacing the old encrypted values.
+    pub fn reencrypt_fido2_credentials(
+        &mut self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        old_key: SymmetricKeyId,
+        new_key: SymmetricKeyId,
+    ) -> Result<(), CryptoError> {
+        if let Some(creds) = &mut self.fido2_credentials {
+            let decrypted_creds: Vec<Fido2CredentialFullView> = creds.decrypt(ctx, old_key)?;
+            *creds = decrypted_creds.encrypt_composite(ctx, new_key)?;
+        }
+        Ok(())
+    }
 }
 
 #[allow(missing_docs)]
@@ -656,8 +681,8 @@ impl CipherKind for Login {
 #[cfg(test)]
 mod tests {
     use crate::{
-        cipher::cipher::{CipherKind, CopyableCipherFields},
         Login,
+        cipher::cipher::{CipherKind, CopyableCipherFields},
     };
 
     #[test]

@@ -19,12 +19,12 @@ mod auth_request_token_request;
 pub(crate) use auth_request_token_request::*;
 
 use crate::{
+    ApiError,
     auth::{
-        api::response::{parse_identity_response, IdentityTokenResponse},
+        api::response::{IdentityTokenResponse, parse_identity_response},
         login::LoginError,
     },
     client::ApiConfigurations,
-    ApiError,
 };
 
 pub(crate) async fn send_identity_connect_request(

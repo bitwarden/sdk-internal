@@ -17,15 +17,12 @@ mod domain;
 pub use domain::GlobalDomains;
 mod totp;
 pub use totp::{
-    generate_totp, generate_totp_cipher_view, Totp, TotpAlgorithm, TotpError, TotpResponse,
+    Totp, TotpAlgorithm, TotpError, TotpResponse, generate_totp, generate_totp_cipher_view,
 };
 mod error;
 pub use error::{DecryptError, EncryptError, VaultParseError};
 mod vault_client;
 pub use vault_client::{VaultClient, VaultClientExt};
-
-mod sync;
-pub use sync::{SyncRequest, SyncResponse};
 
 #[allow(missing_docs)]
 pub mod collection_client;

@@ -8,7 +8,7 @@ use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
 use thiserror::Error;
 
-use crate::{error::Result, wordlist::EFF_LONG_WORD_LIST, CryptoError, SpkiPublicKeyBytes};
+use crate::{CryptoError, SpkiPublicKeyBytes, error::Result, wordlist::EFF_LONG_WORD_LIST};
 
 /// Computes a fingerprint of the given `fingerprint_material` using the given `public_key`.
 ///

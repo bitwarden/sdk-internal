@@ -1,11 +1,11 @@
 use reqwest::{
-    header::{self},
     StatusCode,
+    header::{self},
 };
 
 use crate::username::UsernameError;
 
-pub async fn generate(
+pub(crate) async fn generate(
     http: &reqwest::Client,
     api_token: String,
     website: Option<String>,
@@ -64,7 +64,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_success() {
-        use wiremock::{matchers, Mock, ResponseTemplate};
+        use wiremock::{Mock, ResponseTemplate, matchers};
 
         let server = wiremock::MockServer::start().await;
 
@@ -101,7 +101,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_without_website() {
-        use wiremock::{matchers, Mock, ResponseTemplate};
+        use wiremock::{Mock, ResponseTemplate, matchers};
 
         let server = wiremock::MockServer::start().await;
 
@@ -137,7 +137,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_mock_invalid_token() {
-        use wiremock::{matchers, Mock, ResponseTemplate};
+        use wiremock::{Mock, ResponseTemplate, matchers};
 
         let server = wiremock::MockServer::start().await;
 

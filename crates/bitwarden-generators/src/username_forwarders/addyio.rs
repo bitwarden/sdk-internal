@@ -1,8 +1,8 @@
-use reqwest::{header::CONTENT_TYPE, StatusCode};
+use reqwest::{StatusCode, header::CONTENT_TYPE};
 
 use crate::username::UsernameError;
 
-pub async fn generate(
+pub(crate) async fn generate(
     http: &reqwest::Client,
     api_token: String,
     domain: String,
@@ -56,7 +56,7 @@ mod tests {
     use crate::username::UsernameError;
     #[tokio::test]
     async fn test_mock_server() {
-        use wiremock::{matchers, Mock, ResponseTemplate};
+        use wiremock::{Mock, ResponseTemplate, matchers};
 
         let server = wiremock::MockServer::start().await;
 

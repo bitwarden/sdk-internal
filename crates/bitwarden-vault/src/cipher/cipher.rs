@@ -7,8 +7,9 @@ use bitwarden_api_api::{
 };
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
+    MissingFieldError, OrganizationId, UserId,
     key_management::{KeyIds, SymmetricKeyId},
-    require, MissingFieldError, OrganizationId, UserId,
+    require,
 };
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
@@ -36,8 +37,8 @@ use super::{
     secure_note, ssh_key,
 };
 use crate::{
-    password_history, EncryptError, Fido2CredentialFullView, Fido2CredentialView, FolderId, Login,
-    LoginView, VaultParseError,
+    AttachmentView, EncryptError, Fido2CredentialFullView, Fido2CredentialView, FolderId, Login,
+    LoginView, VaultParseError, password_history,
 };
 
 uuid_newtype!(pub CipherId);
@@ -54,9 +55,9 @@ pub enum CipherError {
     Encrypt(#[from] EncryptError),
     #[error(transparent)]
     VaultParse(#[from] VaultParseError),
-    // #[error(transparent)]
-    // Api
-    #[error("This cipher contains attachments without keys. Those attachments will need to be reuploaded to complete the operation")]
+    #[error(
+        "This cipher contains attachments without keys. Those attachments will need to be reuploaded to complete the operation"
+    )]
     AttachmentsWithoutKeys,
     #[error("This cipher cannot be moved to the specified organization")]
     OrganizationAlreadySet,
@@ -95,22 +96,14 @@ pub enum CipherType {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
+#[derive(Clone, Copy, Default, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum CipherRepromptType {
+    #[default]
     None = 0,
     Password = 1,
-}
-
-impl From<CipherRepromptType> for bitwarden_api_api::models::CipherRepromptType {
-    fn from(t: CipherRepromptType) -> Self {
-        match t {
-            CipherRepromptType::None => bitwarden_api_api::models::CipherRepromptType::None,
-            CipherRepromptType::Password => bitwarden_api_api::models::CipherRepromptType::Password,
-        }
-    }
 }
 
 #[allow(missing_docs)]
@@ -639,10 +632,8 @@ impl CipherView {
 
     #[allow(missing_docs)]
     pub fn generate_checksums(&mut self) {
-        if let Some(uris) = self.login.as_mut().and_then(|l| l.uris.as_mut()) {
-            for uri in uris {
-                uri.generate_checksum();
-            }
+        if let Some(l) = self.login.as_mut() {
+            l.generate_checksums();
         }
     }
 
@@ -660,13 +651,7 @@ impl CipherView {
         new_key: SymmetricKeyId,
     ) -> Result<(), CryptoError> {
         if let Some(attachments) = &mut self.attachments {
-            for attachment in attachments {
-                if let Some(attachment_key) = &mut attachment.key {
-                    let tmp_attachment_key_id = SymmetricKeyId::Local("attachment_key");
-                    ctx.unwrap_symmetric_key(old_key, tmp_attachment_key_id, attachment_key)?;
-                    *attachment_key = ctx.wrap_symmetric_key(new_key, tmp_attachment_key_id)?;
-                }
-            }
+            AttachmentView::reencrypt_keys(attachments, ctx, old_key, new_key)?;
         }
         Ok(())
     }
@@ -695,11 +680,7 @@ impl CipherView {
         new_key: SymmetricKeyId,
     ) -> Result<(), CryptoError> {
         if let Some(login) = self.login.as_mut() {
-            if let Some(fido2_credentials) = &mut login.fido2_credentials {
-                let dec_fido2_credentials: Vec<Fido2CredentialFullView> =
-                    fido2_credentials.decrypt(ctx, old_key)?;
-                *fido2_credentials = dec_fido2_credentials.encrypt_composite(ctx, new_key)?;
-            }
+            login.reencrypt_fido2_credentials(ctx, old_key, new_key)?;
         }
         Ok(())
     }
@@ -993,6 +974,15 @@ impl From<CipherType> for bitwarden_api_api::models::CipherType {
     }
 }
 
+impl From<CipherRepromptType> for bitwarden_api_api::models::CipherRepromptType {
+    fn from(t: CipherRepromptType) -> Self {
+        match t {
+            CipherRepromptType::None => bitwarden_api_api::models::CipherRepromptType::None,
+            CipherRepromptType::Password => bitwarden_api_api::models::CipherRepromptType::Password,
+        }
+    }
+}
+
 impl TryFrom<CipherResponseModel> for Cipher {
     type Error = VaultParseError;
 
@@ -1009,17 +999,15 @@ impl TryFrom<CipherResponseModel> for Cipher {
             identity: cipher.identity.map(|i| (*i).try_into()).transpose()?,
             card: cipher.card.map(|c| (*c).try_into()).transpose()?,
             secure_note: cipher.secure_note.map(|s| (*s).try_into()).transpose()?,
-            // TODO: add ssh_key
-            ssh_key: None,
+            ssh_key: cipher.ssh_key.map(|s| (*s).try_into()).transpose()?,
             favorite: cipher.favorite.unwrap_or(false),
             reprompt: cipher
                 .reprompt
                 .map(|r| r.into())
                 .unwrap_or(CipherRepromptType::None),
-            organization_use_totp: cipher.organization_use_totp.unwrap_or(true),
-            edit: cipher.edit.unwrap_or(true),
-            // TODO: add permissions
-            permissions: None,
+            organization_use_totp: cipher.organization_use_totp.unwrap_or(false),
+            edit: cipher.edit.unwrap_or(false),
+            permissions: cipher.permissions.map(|p| (*p).try_into()).transpose()?,
             view_password: cipher.view_password.unwrap_or(true),
             local_data: None, // Not sent from server
             attachments: cipher
@@ -1053,7 +1041,7 @@ mod tests {
     use bitwarden_crypto::SymmetricCryptoKey;
 
     use super::*;
-    use crate::{login::Fido2CredentialListView, Fido2Credential};
+    use crate::{Fido2Credential, login::Fido2CredentialListView};
 
     fn generate_cipher() -> CipherView {
         let test_id = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
@@ -1310,9 +1298,10 @@ mod tests {
 
         // Check that the cipher key can be unwrapped with the new key
         assert!(cipher.key.is_some());
-        assert!(ctx
-            .unwrap_symmetric_key(new_key_id, new_key_id, &cipher.key.unwrap())
-            .is_ok());
+        assert!(
+            ctx.unwrap_symmetric_key(new_key_id, new_key_id, &cipher.key.unwrap())
+                .is_ok()
+        );
     }
 
     #[test]
@@ -1396,9 +1385,11 @@ mod tests {
         cipher.attachments = Some(vec![attachment]);
 
         // Neither cipher nor attachment have keys, so the cipher can't be moved
-        assert!(cipher
-            .move_to_organization(&mut key_store.context(), org)
-            .is_err());
+        assert!(
+            cipher
+                .move_to_organization(&mut key_store.context(), org)
+                .is_err()
+        );
     }
 
     #[test]

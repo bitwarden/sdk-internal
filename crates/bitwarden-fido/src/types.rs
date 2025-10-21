@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::{
-    get_enum_from_string_name, string_to_guid_bytes, InvalidGuidError, SelectedCredential,
-    UnknownEnumError, Verification,
+    InvalidGuidError, SelectedCredential, UnknownEnumError, Verification,
+    get_enum_from_string_name, string_to_guid_bytes,
 };
 
 #[allow(missing_docs)]
@@ -53,9 +53,7 @@ impl NoneWhitespace for Option<String> {
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum Fido2CredentialAutofillViewError {
-    #[error(
-        "Autofill credentials can only be created from existing ciphers that have a cipher id"
-    )]
+    #[error("Autofill credentials can only be created from existing ciphers that have a cipher id")]
     MissingCipherId,
 
     #[error(transparent)]

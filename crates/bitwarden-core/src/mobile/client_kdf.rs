@@ -1,7 +1,7 @@
 use bitwarden_crypto::{CryptoError, HashPurpose, Kdf};
 use bitwarden_encoding::B64;
 
-use crate::{mobile::kdf::hash_password, Client};
+use crate::{Client, mobile::kdf::hash_password};
 
 /// A client for the KDF operations.
 pub struct KdfClient {

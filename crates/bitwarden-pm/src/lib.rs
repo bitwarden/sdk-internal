@@ -1,5 +1,8 @@
 #![doc = include_str!("../README.md")]
 
+#[cfg(feature = "bitwarden-license")]
+mod commercial;
+
 use std::sync::Arc;
 
 use bitwarden_auth::AuthClientExt as _;
@@ -21,6 +24,10 @@ pub mod clients {
     pub use bitwarden_send::SendClient;
     pub use bitwarden_vault::VaultClient;
 }
+#[cfg(feature = "bitwarden-license")]
+pub use commercial::CommercialPasswordManagerClient;
+
+pub mod migrations;
 
 /// The main entry point for the Bitwarden Password Manager SDK
 pub struct PasswordManagerClient(pub bitwarden_core::Client);
@@ -41,9 +48,20 @@ impl PasswordManagerClient {
         ))
     }
 
+    /// Platform operations
+    pub fn platform(&self) -> bitwarden_core::platform::PlatformClient {
+        self.0.platform()
+    }
+
     /// Auth operations
     pub fn auth(&self) -> bitwarden_auth::AuthClient {
         self.0.auth_new()
+    }
+
+    /// Bitwarden licensed operations
+    #[cfg(feature = "bitwarden-license")]
+    pub fn commercial(&self) -> CommercialPasswordManagerClient {
+        CommercialPasswordManagerClient::new(self.0.clone())
     }
 
     /// Crypto operations

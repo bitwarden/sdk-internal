@@ -5,8 +5,7 @@ pub(crate) mod card;
 pub(crate) mod cipher;
 pub(crate) mod cipher_client;
 pub(crate) mod cipher_permissions;
-// pub(crate) mod create;
-// pub(crate) mod edit;
+pub(crate) mod cipher_view_type;
 pub(crate) mod field;
 // pub(crate) mod get_list;
 pub(crate) mod identity;
@@ -26,6 +25,7 @@ pub use cipher::{
     CipherType, CipherView, DecryptCipherListResult, EncryptionContext,
 };
 pub use cipher_client::CiphersClient;
+pub use cipher_view_type::CipherViewType;
 pub use field::{FieldType, FieldView};
 pub use identity::IdentityView;
 pub use login::{

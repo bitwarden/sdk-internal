@@ -24,10 +24,10 @@ pub struct ProviderSetupRequestModel {
     pub token: String,
     #[serde(rename = "key")]
     pub key: String,
-    #[serde(rename = "taxInfo")]
-    pub tax_info: Box<models::ExpandedTaxInfoUpdateRequestModel>,
-    #[serde(rename = "paymentSource", skip_serializing_if = "Option::is_none")]
-    pub payment_source: Option<Box<models::TokenizedPaymentSourceRequestBody>>,
+    #[serde(rename = "paymentMethod")]
+    pub payment_method: Box<models::MinimalTokenizedPaymentMethodRequest>,
+    #[serde(rename = "billingAddress")]
+    pub billing_address: Box<models::BillingAddressRequest>,
 }
 
 impl ProviderSetupRequestModel {
@@ -36,7 +36,8 @@ impl ProviderSetupRequestModel {
         billing_email: String,
         token: String,
         key: String,
-        tax_info: models::ExpandedTaxInfoUpdateRequestModel,
+        payment_method: models::MinimalTokenizedPaymentMethodRequest,
+        billing_address: models::BillingAddressRequest,
     ) -> ProviderSetupRequestModel {
         ProviderSetupRequestModel {
             name,
@@ -44,8 +45,8 @@ impl ProviderSetupRequestModel {
             billing_email,
             token,
             key,
-            tax_info: Box::new(tax_info),
-            payment_source: None,
+            payment_method: Box::new(payment_method),
+            billing_address: Box::new(billing_address),
         }
     }
 }
