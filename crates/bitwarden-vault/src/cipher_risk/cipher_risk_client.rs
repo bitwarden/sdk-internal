@@ -11,7 +11,8 @@ use super::{
     hibp::{self, HIBP_DEFAULT_BASE_URL},
     password_strength,
     types::{
-        CipherLoginDetails, CipherRisk, CipherRiskOptions, ExposedPasswordResult, PasswordReuseMap,
+        CipherLoginDetails, CipherRiskOptions, CipherRiskResult, ExposedPasswordResult,
+        PasswordReuseMap,
     },
 };
 
@@ -56,10 +57,10 @@ impl CipherRiskClient {
         password_map: Option<Arc<PasswordReuseMap>>,
         check_exposed: bool,
         base_url: String,
-    ) -> CipherRisk {
+    ) -> CipherRiskResult {
         if details.password.is_empty() {
             // Skip empty passwords, return default risk values
-            return CipherRisk {
+            return CipherRiskResult {
                 id: details.id,
                 password_strength: 0,
                 exposed_result: ExposedPasswordResult::NotChecked,
@@ -67,8 +68,10 @@ impl CipherRiskClient {
             };
         }
 
-        let password_strength =
-            password_strength::calculate_password_strength(&details.password, details.username.as_deref());
+        let password_strength = password_strength::calculate_password_strength(
+            &details.password,
+            details.username.as_deref(),
+        );
 
         // Check exposure via HIBP API if enabled
         // Capture errors per-cipher instead of propagating them
@@ -86,7 +89,7 @@ impl CipherRiskClient {
             .as_ref()
             .and_then(|m| m.map.get(&details.password).copied());
 
-        CipherRisk {
+        CipherRiskResult {
             id: details.id,
             password_strength,
             exposed_result,
@@ -120,7 +123,7 @@ impl CipherRiskClient {
         &self,
         login_details: Vec<CipherLoginDetails>,
         options: CipherRiskOptions,
-    ) -> Result<Vec<CipherRisk>, CipherRiskError> {
+    ) -> Result<Vec<CipherRiskResult>, CipherRiskError> {
         // Wrap password_map in Arc to avoid cloning the HashMap for each future
         let password_map = options.password_map.map(Arc::new);
         let base_url = options
@@ -141,14 +144,13 @@ impl CipherRiskClient {
         // Process up to MAX_CONCURRENT_REQUESTS futures concurrently
         // Individual HIBP errors are captured per-cipher, so we use collect() instead of
         // try_collect()
-        let results: Vec<CipherRisk> = stream::iter(futures)
+        let results: Vec<CipherRiskResult> = stream::iter(futures)
             .buffer_unordered(MAX_CONCURRENT_REQUESTS)
             .collect()
             .await;
 
         Ok(results)
     }
-
 }
 
 #[cfg(test)]

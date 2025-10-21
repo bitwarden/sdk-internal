@@ -81,7 +81,7 @@ pub struct CipherRiskOptions {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct CipherRisk {
+pub struct CipherRiskResult {
     /// Cipher ID matching the input CipherLoginDetails.
     pub id: CipherId,
     /// Password strength score from 0 (weakest) to 4 (strongest).
@@ -98,7 +98,7 @@ pub struct CipherRisk {
 }
 
 #[cfg(feature = "wasm")]
-impl wasm_bindgen::__rt::VectorIntoJsValue for CipherRisk {
+impl wasm_bindgen::__rt::VectorIntoJsValue for CipherRiskResult {
     fn vector_into_jsvalue(
         vector: wasm_bindgen::__rt::std::boxed::Box<[Self]>,
     ) -> wasm_bindgen::JsValue {
