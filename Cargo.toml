@@ -19,16 +19,12 @@ keywords = ["bitwarden"]
 
 # Define dependencies that are expected to be consistent across all crates
 [workspace.dependencies]
-
-# External crates that are expected to maintain a consistent version across all crates
-async-trait = ">=0.1.80, <0.2"
 bitwarden = { path = "crates/bitwarden", version = "=1.0.0" }
 bitwarden-api-api = { path = "crates/bitwarden-api-api", version = "=1.0.0" }
 bitwarden-api-identity = { path = "crates/bitwarden-api-identity", version = "=1.0.0" }
 bitwarden-auth = { path = "crates/bitwarden-auth", version = "=1.0.0" }
 bitwarden-cli = { path = "crates/bitwarden-cli", version = "=1.0.0" }
 bitwarden-collections = { path = "crates/bitwarden-collections", version = "=1.0.0" }
-bitwarden-commercial-vault = { path = "bitwarden_license/bitwarden-commercial-vault", version = "=1.0.0" }
 bitwarden-core = { path = "crates/bitwarden-core", version = "=1.0.0" }
 bitwarden-crypto = { path = "crates/bitwarden-crypto", version = "=1.0.0" }
 bitwarden-encoding = { path = "crates/bitwarden-encoding", version = "=1.0.0" }
@@ -43,12 +39,16 @@ bitwarden-send = { path = "crates/bitwarden-send", version = "=1.0.0" }
 bitwarden-sm = { path = "bitwarden_license/bitwarden-sm", version = "=1.0.0" }
 bitwarden-ssh = { path = "crates/bitwarden-ssh", version = "=1.0.0" }
 bitwarden-state = { path = "crates/bitwarden-state", version = "=1.0.0" }
+bitwarden-state-migrations = { path = "crates/bitwarden-state-migrations", version = "=1.0.0" }
 bitwarden-test = { path = "crates/bitwarden-test", version = "=1.0.0" }
 bitwarden-threading = { path = "crates/bitwarden-threading", version = "=1.0.0" }
 bitwarden-uniffi-error = { path = "crates/bitwarden-uniffi-error", version = "=1.0.0" }
 bitwarden-uuid = { path = "crates/bitwarden-uuid", version = "=1.0.0" }
 bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=1.0.0" }
 bitwarden-vault = { path = "crates/bitwarden-vault", version = "=1.0.0" }
+
+# External crates that are expected to maintain a consistent version across all crates
+async-trait = ">=0.1.80, <0.2"
 chrono = { version = ">=0.4.26, <0.5", features = [
     "clock",
     "serde",
@@ -67,11 +67,11 @@ reqwest = { version = ">=0.12.5, <0.13", features = [
 ], default-features = false }
 schemars = { version = ">=1.0.0, <2.0", features = ["uuid1", "chrono04"] }
 serde = { version = ">=1.0, <2.0", features = ["derive"] }
-serde-wasm-bindgen = ">=0.6.0, <0.7"
 serde_bytes = { version = ">=0.11.17, <0.12.0" }
 serde_json = ">=1.0.96, <2.0"
 serde_qs = ">=0.12.0, <0.16"
 serde_repr = ">=0.1.12, <0.2"
+serde-wasm-bindgen = ">=0.6.0, <0.7"
 syn = ">=2.0.87, <3"
 thiserror = ">=1.0.40, <3"
 tokio = { version = "1.36.0", features = ["macros"] }
@@ -85,6 +85,19 @@ wasm-bindgen = { version = ">=0.2.91, <0.3", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4.41"
 wasm-bindgen-test = "0.3.45"
 wiremock = ">=0.6.0, <0.7"
+
+# There is an incompatibility when using pkcs5 and chacha20 on wasm builds. This can be removed once a new
+# rustcrypto-formats crate version is released since the fix has been upstreamed.
+# https://github.com/RustCrypto/formats/pull/1625
+[patch.crates-io]
+pkcs5 = { git = "https://github.com/bitwarden/rustcrypto-formats.git", rev = "2b27c63034217dd126bbf5ed874da51b84f8c705" }
+
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+uniffi_core = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+uniffi_macros = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+uniffi_internal_macros = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+uniffi_bindgen = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+uniffi_build = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
 
 [workspace.lints.clippy]
 unused_async = "deny"
@@ -100,29 +113,16 @@ unexpected_cfgs = { level = "warn", check-cfg = [
 [workspace.metadata.dylint]
 libraries = [{ path = "support/lints" }]
 
-# There is an incompatibility when using pkcs5 and chacha20 on wasm builds. This can be removed once a new
-# rustcrypto-formats crate version is released since the fix has been upstreamed.
-# https://github.com/RustCrypto/formats/pull/1625
-[patch.crates-io]
-pkcs5 = { git = "https://github.com/bitwarden/rustcrypto-formats.git", rev = "2b27c63034217dd126bbf5ed874da51b84f8c705" }
-
-uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-uniffi_core = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-uniffi_macros = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-uniffi_internal_macros = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-uniffi_bindgen = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-uniffi_build = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-
-# Turn on a small amount of optimisation in development mode. This might interfere when trying to use a debugger
-# if the compiler decides to optimize some code away, if that's the case, it can be set to 0 or commented out
-[profile.dev]
-opt-level = 1
-
 # Compile all dependencies with some optimizations when building this crate on debug
 # This slows down clean builds by about 50%, but the resulting binaries can be orders of magnitude faster
 # As clean builds won't occur very often, this won't slow down the development process
 [profile.dev.package."*"]
 opt-level = 2
+
+# Turn on a small amount of optimisation in development mode. This might interfere when trying to use a debugger
+# if the compiler decides to optimize some code away, if that's the case, it can be set to 0 or commented out
+[profile.dev]
+opt-level = 1
 
 # Turn on LTO on release mode
 [profile.release]
