@@ -26,7 +26,7 @@ pub enum ExposedPasswordResult {
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CipherLoginDetails {
     /// Cipher ID to identify which cipher in results.
-    pub id: Option<CipherId>,
+    pub id: CipherId,
     /// The decrypted password to evaluate.
     pub password: String,
     /// Username or email (login ciphers only have one field).
@@ -83,7 +83,7 @@ pub struct CipherRiskOptions {
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CipherRisk {
     /// Cipher ID matching the input CipherLoginDetails.
-    pub id: Option<CipherId>,
+    pub id: CipherId,
     /// Password strength score from 0 (weakest) to 4 (strongest).
     /// Calculated using zxcvbn with cipher-specific context.
     pub password_strength: u8,

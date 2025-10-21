@@ -274,17 +274,17 @@ mod tests {
 
         let login_details = vec![
             CipherLoginDetails {
-                id: None,
+                id: Default::default(),
                 password: "password123".to_string(),
                 username: Some("user1".to_string()),
             },
             CipherLoginDetails {
-                id: None,
+                id: Default::default(),
                 password: "password123".to_string(),
                 username: Some("user2".to_string()),
             },
             CipherLoginDetails {
-                id: None,
+                id: Default::default(),
                 password: "unique_password".to_string(),
                 username: Some("user3".to_string()),
             },
@@ -319,12 +319,12 @@ mod tests {
 
         let login_details = vec![
             CipherLoginDetails {
-                id: None,
+                id: Default::default(),
                 password: "".to_string(),
                 username: Some("user1".to_string()),
             },
             CipherLoginDetails {
-                id: None,
+                id: Default::default(),
                 password: "valid_password".to_string(),
                 username: Some("user2".to_string()),
             },
@@ -444,7 +444,7 @@ mod tests {
         let risk_client = CipherRiskClient { client };
 
         let login_details = vec![CipherLoginDetails {
-            id: None,
+            id: Default::default(),
             password: "".to_string(),
             username: Some("user1".to_string()),
         }];
@@ -488,7 +488,7 @@ mod tests {
         let risk_client = CipherRiskClient { client };
 
         let login_details = vec![CipherLoginDetails {
-            id: None,
+            id: Default::default(),
             password: "password123".to_string(),
             username: Some("user1".to_string()),
         }];
@@ -556,12 +556,12 @@ mod tests {
 
         let login_details = vec![
             CipherLoginDetails {
-                id: None,
+                id: Default::default(),
                 password: "password1".to_string(),
                 username: Some("user1".to_string()),
             },
             CipherLoginDetails {
-                id: None,
+                id: Default::default(),
                 password: "password2".to_string(),
                 username: Some("user2".to_string()),
             },
@@ -619,12 +619,12 @@ mod tests {
 
         let login_details = vec![
             CipherLoginDetails {
-                id: None,
+                id: Default::default(),
                 password: "weak".to_string(),
                 username: Some("user1".to_string()),
             },
             CipherLoginDetails {
-                id: None,
+                id: Default::default(),
                 password: "xK9#mP$2qL@7vN&4wR".to_string(),
                 username: Some("user2".to_string()),
             },
@@ -712,7 +712,7 @@ mod tests {
         // This forces 5 separate API calls
         let login_details: Vec<CipherLoginDetails> = (0..5)
             .map(|i| CipherLoginDetails {
-                id: None,
+                id: Default::default(),
                 password: format!("password{}", i),
                 username: Some(format!("user{}", i)),
             })
