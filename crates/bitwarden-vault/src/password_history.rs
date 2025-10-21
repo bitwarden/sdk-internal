@@ -27,8 +27,8 @@ pub struct PasswordHistory {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct PasswordHistoryView {
-    password: String,
-    last_used_date: DateTime<Utc>,
+    pub password: String,
+    pub last_used_date: DateTime<Utc>,
 }
 
 impl IdentifyKey<SymmetricKeyId> for PasswordHistory {
@@ -76,5 +76,30 @@ impl TryFrom<CipherPasswordHistoryModel> for PasswordHistory {
             password: model.password.parse()?,
             last_used_date: model.last_used_date.parse()?,
         })
+    }
+}
+
+impl From<PasswordHistory> for CipherPasswordHistoryModel {
+    fn from(history: PasswordHistory) -> Self {
+        Self {
+            password: history.password.to_string(),
+            last_used_date: history.last_used_date.to_rfc3339(),
+        }
+    }
+}
+
+impl PasswordHistoryView {
+    pub(crate) fn new_password(old_password: &str) -> Self {
+        Self {
+            password: old_password.to_string(),
+            last_used_date: Utc::now(),
+        }
+    }
+
+    pub(crate) fn new_field(field_name: &str, old_value: &str) -> Self {
+        Self {
+            password: format!("{field_name}: {old_value}"),
+            last_used_date: Utc::now(),
+        }
     }
 }

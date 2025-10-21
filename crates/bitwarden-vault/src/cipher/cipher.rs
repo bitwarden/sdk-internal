@@ -1,4 +1,4 @@
-use bitwarden_api_api::models::CipherDetailsResponseModel;
+use bitwarden_api_api::models::{CipherDetailsResponseModel, CipherResponseModel};
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     MissingFieldError, OrganizationId, UserId,
@@ -30,8 +30,8 @@ use super::{
     secure_note, ssh_key,
 };
 use crate::{
-    EncryptError, Fido2CredentialFullView, Fido2CredentialView, FolderId, Login, LoginView,
-    VaultParseError, password_history,
+    AttachmentView, EncryptError, Fido2CredentialFullView, Fido2CredentialView, FolderId, Login,
+    LoginView, VaultParseError, password_history,
 };
 
 uuid_newtype!(pub CipherId);
@@ -79,11 +79,12 @@ pub enum CipherType {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
+#[derive(Clone, Copy, Default, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum CipherRepromptType {
+    #[default]
     None = 0,
     Password = 1,
 }
@@ -472,10 +473,8 @@ impl CipherView {
 
     #[allow(missing_docs)]
     pub fn generate_checksums(&mut self) {
-        if let Some(uris) = self.login.as_mut().and_then(|l| l.uris.as_mut()) {
-            for uri in uris {
-                uri.generate_checksum();
-            }
+        if let Some(l) = self.login.as_mut() {
+            l.generate_checksums();
         }
     }
 
@@ -506,13 +505,7 @@ impl CipherView {
         new_key: SymmetricKeyId,
     ) -> Result<(), CryptoError> {
         if let Some(attachments) = &mut self.attachments {
-            for attachment in attachments {
-                if let Some(attachment_key) = &mut attachment.key {
-                    let tmp_attachment_key_id = SymmetricKeyId::Local("attachment_key");
-                    ctx.unwrap_symmetric_key(old_key, tmp_attachment_key_id, attachment_key)?;
-                    *attachment_key = ctx.wrap_symmetric_key(new_key, tmp_attachment_key_id)?;
-                }
-            }
+            AttachmentView::reencrypt_keys(attachments, ctx, old_key, new_key)?;
         }
         Ok(())
     }
@@ -541,11 +534,7 @@ impl CipherView {
         new_key: SymmetricKeyId,
     ) -> Result<(), CryptoError> {
         if let Some(login) = self.login.as_mut() {
-            if let Some(fido2_credentials) = &mut login.fido2_credentials {
-                let dec_fido2_credentials: Vec<Fido2CredentialFullView> =
-                    fido2_credentials.decrypt(ctx, old_key)?;
-                *fido2_credentials = dec_fido2_credentials.encrypt_composite(ctx, new_key)?;
-            }
+            login.reencrypt_fido2_credentials(ctx, old_key, new_key)?;
         }
         Ok(())
     }
@@ -708,6 +697,15 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
     }
 }
 
+#[cfg(feature = "wasm")]
+impl wasm_bindgen::__rt::VectorIntoJsValue for CipherView {
+    fn vector_into_jsvalue(
+        vector: wasm_bindgen::__rt::std::boxed::Box<[Self]>,
+    ) -> wasm_bindgen::JsValue {
+        wasm_bindgen::__rt::js_value_vector_into_jsvalue(vector)
+    }
+}
+
 impl IdentifyKey<SymmetricKeyId> for Cipher {
     fn key_identifier(&self) -> SymmetricKeyId {
         match self.organization_id {
@@ -806,6 +804,75 @@ impl From<bitwarden_api_api::models::CipherRepromptType> for CipherRepromptType 
             bitwarden_api_api::models::CipherRepromptType::None => CipherRepromptType::None,
             bitwarden_api_api::models::CipherRepromptType::Password => CipherRepromptType::Password,
         }
+    }
+}
+
+impl From<CipherType> for bitwarden_api_api::models::CipherType {
+    fn from(t: CipherType) -> Self {
+        match t {
+            CipherType::Login => bitwarden_api_api::models::CipherType::Login,
+            CipherType::SecureNote => bitwarden_api_api::models::CipherType::SecureNote,
+            CipherType::Card => bitwarden_api_api::models::CipherType::Card,
+            CipherType::Identity => bitwarden_api_api::models::CipherType::Identity,
+            CipherType::SshKey => bitwarden_api_api::models::CipherType::SSHKey,
+        }
+    }
+}
+
+impl From<CipherRepromptType> for bitwarden_api_api::models::CipherRepromptType {
+    fn from(t: CipherRepromptType) -> Self {
+        match t {
+            CipherRepromptType::None => bitwarden_api_api::models::CipherRepromptType::None,
+            CipherRepromptType::Password => bitwarden_api_api::models::CipherRepromptType::Password,
+        }
+    }
+}
+
+impl TryFrom<CipherResponseModel> for Cipher {
+    type Error = VaultParseError;
+
+    fn try_from(cipher: CipherResponseModel) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: cipher.id.map(CipherId::new),
+            organization_id: cipher.organization_id.map(OrganizationId::new),
+            folder_id: cipher.folder_id.map(FolderId::new),
+            collection_ids: vec![], // CipherResponseModel doesn't include collection_ids
+            name: require!(cipher.name).parse()?,
+            notes: EncString::try_from_optional(cipher.notes)?,
+            r#type: require!(cipher.r#type).into(),
+            login: cipher.login.map(|l| (*l).try_into()).transpose()?,
+            identity: cipher.identity.map(|i| (*i).try_into()).transpose()?,
+            card: cipher.card.map(|c| (*c).try_into()).transpose()?,
+            secure_note: cipher.secure_note.map(|s| (*s).try_into()).transpose()?,
+            ssh_key: cipher.ssh_key.map(|s| (*s).try_into()).transpose()?,
+            favorite: cipher.favorite.unwrap_or(false),
+            reprompt: cipher
+                .reprompt
+                .map(|r| r.into())
+                .unwrap_or(CipherRepromptType::None),
+            organization_use_totp: cipher.organization_use_totp.unwrap_or(false),
+            edit: cipher.edit.unwrap_or(false),
+            permissions: cipher.permissions.map(|p| (*p).try_into()).transpose()?,
+            view_password: cipher.view_password.unwrap_or(true),
+            local_data: None, // Not sent from server
+            attachments: cipher
+                .attachments
+                .map(|a| a.into_iter().map(|a| a.try_into()).collect())
+                .transpose()?,
+            fields: cipher
+                .fields
+                .map(|f| f.into_iter().map(|f| f.try_into()).collect())
+                .transpose()?,
+            password_history: cipher
+                .password_history
+                .map(|p| p.into_iter().map(|p| p.try_into()).collect())
+                .transpose()?,
+            creation_date: require!(cipher.creation_date).parse()?,
+            deleted_date: cipher.deleted_date.map(|d| d.parse()).transpose()?,
+            revision_date: require!(cipher.revision_date).parse()?,
+            key: EncString::try_from_optional(cipher.key)?,
+            archived_date: cipher.archived_date.map(|d| d.parse()).transpose()?,
+        })
     }
 }
 
