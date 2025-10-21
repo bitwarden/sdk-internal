@@ -71,10 +71,8 @@ mod tests {
     #[test]
     fn test_calculate_password_strength_penalizes_username() {
         // Password containing username should be weaker
-        let strength_with_username =
-            calculate_password_strength("johndoe123!", Some("johndoe"));
-        let strength_without_username =
-            calculate_password_strength("johndoe123!", None);
+        let strength_with_username = calculate_password_strength("johndoe123!", Some("johndoe"));
+        let strength_without_username = calculate_password_strength("johndoe123!", None);
 
         assert!(
             strength_with_username <= strength_without_username,

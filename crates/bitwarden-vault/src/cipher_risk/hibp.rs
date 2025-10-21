@@ -160,12 +160,8 @@ mod tests {
             .mount(&server)
             .await;
 
-        let result = check_password_exposed(
-            &reqwest::Client::new(),
-            "password",
-            &server.uri(),
-        )
-        .await;
+        let result =
+            check_password_exposed(&reqwest::Client::new(), "password", &server.uri()).await;
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), CipherRiskError::Reqwest(_)));

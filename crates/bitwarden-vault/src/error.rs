@@ -31,4 +31,3 @@ pub enum VaultParseError {
     #[error(transparent)]
     MissingField(#[from] bitwarden_core::MissingFieldError),
 }
-
