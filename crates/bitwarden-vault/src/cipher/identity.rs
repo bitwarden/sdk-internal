@@ -147,6 +147,31 @@ impl TryFrom<CipherIdentityModel> for Identity {
     }
 }
 
+impl From<Identity> for bitwarden_api_api::models::CipherIdentityModel {
+    fn from(identity: Identity) -> Self {
+        Self {
+            title: identity.title.map(|t| t.to_string()),
+            first_name: identity.first_name.map(|n| n.to_string()),
+            middle_name: identity.middle_name.map(|n| n.to_string()),
+            last_name: identity.last_name.map(|n| n.to_string()),
+            address1: identity.address1.map(|a| a.to_string()),
+            address2: identity.address2.map(|a| a.to_string()),
+            address3: identity.address3.map(|a| a.to_string()),
+            city: identity.city.map(|c| c.to_string()),
+            state: identity.state.map(|s| s.to_string()),
+            postal_code: identity.postal_code.map(|p| p.to_string()),
+            country: identity.country.map(|c| c.to_string()),
+            company: identity.company.map(|c| c.to_string()),
+            email: identity.email.map(|e| e.to_string()),
+            phone: identity.phone.map(|p| p.to_string()),
+            ssn: identity.ssn.map(|s| s.to_string()),
+            username: identity.username.map(|u| u.to_string()),
+            passport_number: identity.passport_number.map(|p| p.to_string()),
+            license_number: identity.license_number.map(|l| l.to_string()),
+        }
+    }
+}
+
 impl CipherKind for Identity {
     fn decrypt_subtitle(
         &self,
