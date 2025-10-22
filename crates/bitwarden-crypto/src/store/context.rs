@@ -12,7 +12,7 @@ use crate::{
     AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CoseEncrypt0Bytes, CryptoError,
     EncString, KeyId, KeyIds, LocalId, PublicKeyEncryptionAlgorithm, Result, RotatedUserKeys,
     Signature, SignatureAlgorithm, SignedObject, SignedPublicKey, SignedPublicKeyMessage,
-    SigningKey, SymmetricCryptoKey, UnsignedSharedKey, derive_shareable_key,
+    SigningKey, SymmetricCryptoKey, UnsignedSharedKey, derive_shareable_key, ensure,
     error::UnsupportedOperationError, signing, store::backend::StoreBackend,
 };
 

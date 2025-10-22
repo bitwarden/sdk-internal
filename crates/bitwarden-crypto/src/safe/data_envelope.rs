@@ -10,7 +10,7 @@ use thiserror::Error;
 use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
-    CONTENT_TYPE_PADDED_CBOR, CoseEncrypt0Bytes, CryptoError, EncodingError, KeyIds,
+    CONTENT_TYPE_PADDED_CBOR, CoseEncrypt0Bytes, CryptoError, EncString, EncodingError, KeyIds,
     SerializedMessage, SymmetricCryptoKey, XChaCha20Poly1305Key,
     cose::{DATA_ENVELOPE_NAMESPACE, XCHACHA20_POLY1305},
     ensure_equal, ensure_matches,
@@ -71,16 +71,37 @@ impl DataEnvelope {
     /// context.
     pub fn seal<Ids: KeyIds, T>(
         data: T,
-        cek_keyslot: Ids::Symmetric,
         ctx: &mut crate::store::KeyStoreContext<Ids>,
-    ) -> Result<Self, DataEnvelopeError>
+    ) -> Result<(Self, Ids::Symmetric), DataEnvelopeError>
     where
         T: Serialize + SealableVersionedData,
     {
         let (envelope, cek) = Self::seal_ref(&data, &T::NAMESPACE)?;
-        ctx.set_symmetric_key_internal(cek_keyslot, SymmetricCryptoKey::XChaCha20Poly1305Key(cek))
+        let cek_id = ctx
+            .generate_symmetric_key()
             .map_err(|_| DataEnvelopeError::KeyStoreError)?;
-        Ok(envelope)
+        ctx.set_symmetric_key_internal(cek_id, SymmetricCryptoKey::XChaCha20Poly1305Key(cek))
+            .map_err(|_| DataEnvelopeError::KeyStoreError)?;
+        Ok((envelope, cek_id))
+    }
+
+    /// Seals a struct into an encrypted blob. The content encryption key is wrapped with the provided
+    /// wrapping key
+    pub fn seal_with_wrapping_key<Ids: KeyIds, T>(
+        data: T,
+        wrapping_key: &Ids::Symmetric,
+        ctx: &mut crate::store::KeyStoreContext<Ids>,
+    ) -> Result<(Self, EncString), DataEnvelopeError>
+    where
+        T: Serialize + SealableVersionedData,
+    {
+        let (envelope, cek) = Self::seal(data, ctx)?;
+
+        let wrapped_cek = ctx
+            .wrap_symmetric_key(*wrapping_key, cek)
+            .map_err(|_| DataEnvelopeError::EncryptionError)?;
+
+        Ok((envelope, wrapped_cek))
     }
 
     /// Seals a struct into an encrypted blob, and returns the encrypted blob and the
@@ -143,7 +164,6 @@ impl DataEnvelope {
     /// context.
     pub fn unseal<Ids: KeyIds, T>(
         &self,
-        namespace: &DataEnvelopeNamespace,
         cek_keyslot: Ids::Symmetric,
         ctx: &mut crate::store::KeyStoreContext<Ids>,
     ) -> Result<T, DataEnvelopeError>
@@ -155,9 +175,25 @@ impl DataEnvelope {
             .map_err(|_| DataEnvelopeError::KeyStoreError)?;
 
         match cek {
-            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => self.unseal_ref(namespace, key),
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => self.unseal_ref(&T::NAMESPACE, key),
             _ => Err(DataEnvelopeError::UnsupportedContentFormat),
         }
+    }
+
+    // Unseals the data from the encrypted blob and wrapped content-encryption-key.
+    pub fn unseal_with_wrapping_key<Ids: KeyIds, T>(
+        &self,
+        wrapping_key: &Ids::Symmetric,
+        wrapped_cek: &EncString,
+        ctx: &mut crate::store::KeyStoreContext<Ids>,
+    ) -> Result<T, DataEnvelopeError>
+    where
+        T: DeserializeOwned + SealableVersionedData,
+    {
+        let cek = ctx
+            .unwrap_symmetric_key(*wrapping_key, wrapped_cek)
+            .map_err(|_| DataEnvelopeError::DecryptionError)?;
+        self.unseal(cek, ctx)
     }
 
     /// Unseals the data from the encrypted blob using the provided content-encryption-key.
@@ -582,25 +618,10 @@ mod tests {
         let mut ctx = key_store.context_mut();
 
         // Seal with keystore using ExampleNamespace
-        let envelope =
-            DataEnvelope::seal(data, crate::traits::tests::TestSymmKey::A(0), &mut ctx).unwrap();
-
-        // Try to unseal with wrong namespace - should fail
-        let result: Result<TestData, DataEnvelopeError> = envelope.unseal(
-            &DataEnvelopeNamespace::ExampleNamespace2,
-            crate::traits::tests::TestSymmKey::A(0),
-            &mut ctx,
-        );
-        assert!(matches!(result, Err(DataEnvelopeError::InvalidNamespace)));
+        let (envelope, cek_id) = DataEnvelope::seal(data, &mut ctx).unwrap();
 
         // Unseal with correct namespace - should succeed
-        let unsealed_data: TestData = envelope
-            .unseal(
-                &DataEnvelopeNamespace::ExampleNamespace,
-                crate::traits::tests::TestSymmKey::A(0),
-                &mut ctx,
-            )
-            .unwrap();
+        let unsealed_data: TestData = envelope.unseal(cek_id, &mut ctx).unwrap();
         let TestData::TestDataV1(unsealed_data) = unsealed_data;
         assert_eq!(unsealed_data.field, 789);
     }
