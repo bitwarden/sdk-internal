@@ -85,8 +85,8 @@ impl DataEnvelope {
         Ok((envelope, cek_id))
     }
 
-    /// Seals a struct into an encrypted blob. The content encryption key is wrapped with the provided
-    /// wrapping key
+    /// Seals a struct into an encrypted blob. The content encryption key is wrapped with the
+    /// provided wrapping key
     pub fn seal_with_wrapping_key<Ids: KeyIds, T>(
         data: T,
         wrapping_key: &Ids::Symmetric,
@@ -180,7 +180,7 @@ impl DataEnvelope {
         }
     }
 
-    // Unseals the data from the encrypted blob and wrapped content-encryption-key.
+    /// Unseals the data from the encrypted blob and wrapped content-encryption-key.
     pub fn unseal_with_wrapping_key<Ids: KeyIds, T>(
         &self,
         wrapping_key: &Ids::Symmetric,
