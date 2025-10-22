@@ -580,21 +580,19 @@ mod tests {
         let key_store = crate::store::KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        // Seal with keystore using ExampleNamespace
-        let envelope =
-            DataEnvelope::seal(data, crate::traits::tests::TestSymmKey::A(0), &mut ctx).unwrap();
+        // Seal with keystore using ExampleNamespace2
+        let (envelope, cek) =
+            DataEnvelope::seal_ref(&data, &DataEnvelopeNamespace::ExampleNamespace2).unwrap();
+        ctx.set_symmetric_key_internal(
+            crate::traits::tests::TestSymmKey::A(0),
+            SymmetricCryptoKey::XChaCha20Poly1305Key(cek),
+        )
+        .unwrap();
 
         // Try to unseal with wrong namespace - should fail
         let result: Result<TestData, DataEnvelopeError> =
             envelope.unseal(crate::traits::tests::TestSymmKey::A(0), &mut ctx);
         assert!(matches!(result, Err(DataEnvelopeError::InvalidNamespace)));
-
-        // Unseal with correct namespace - should succeed
-        let unsealed_data: TestData = envelope
-            .unseal(crate::traits::tests::TestSymmKey::A(0), &mut ctx)
-            .unwrap();
-        let TestData::TestDataV1(unsealed_data) = unsealed_data;
-        assert_eq!(unsealed_data.field, 789);
     }
 
     #[test]
