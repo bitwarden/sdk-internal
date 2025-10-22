@@ -135,10 +135,10 @@ impl PureCrypto {
         let mut context = tmp_store.context();
         let wrapping_key =
             SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(wrapping_key))?;
-        let wrapping_key = context.add_local_symmetric_key(wrapping_key)?;
+        let wrapping_key = context.add_local_symmetric_key(wrapping_key);
         let key_to_be_wrapped =
             SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(key_to_be_wrapped))?;
-        let key_to_wrap = context.add_local_symmetric_key(key_to_be_wrapped)?;
+        let key_to_wrap = context.add_local_symmetric_key(key_to_be_wrapped);
         // Note: The order of arguments is different here, and should probably be refactored
         Ok(context
             .wrap_symmetric_key(wrapping_key, key_to_wrap)?
@@ -155,7 +155,7 @@ impl PureCrypto {
         let mut context = tmp_store.context();
         let wrapping_key =
             SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(wrapping_key))?;
-        let wrapping_key = context.add_local_symmetric_key(wrapping_key)?;
+        let wrapping_key = context.add_local_symmetric_key(wrapping_key);
         // Note: The order of arguments is different here, and should probably be refactored
         let unwrapped = context
             .unwrap_symmetric_key(wrapping_key, &EncString::from_str(wrapped_key.as_str())?)?;
@@ -177,7 +177,7 @@ impl PureCrypto {
         let mut context = tmp_store.context();
         let wrapping_key = context.add_local_symmetric_key(SymmetricCryptoKey::try_from(
             &BitwardenLegacyKeyBytes::from(wrapping_key),
-        )?)?;
+        )?);
         Ok(SpkiPublicKeyBytes::from(encapsulation_key)
             .encrypt(&mut context, wrapping_key)?
             .to_string())
@@ -193,7 +193,7 @@ impl PureCrypto {
         let mut context = tmp_store.context();
         let wrapping_key = context.add_local_symmetric_key(SymmetricCryptoKey::try_from(
             &BitwardenLegacyKeyBytes::from(wrapping_key),
-        )?)?;
+        )?);
         EncString::from_str(wrapped_key.as_str())?.decrypt(&mut context, wrapping_key)
     }
 
@@ -207,7 +207,7 @@ impl PureCrypto {
         let mut context = tmp_store.context();
         let wrapping_key = context.add_local_symmetric_key(SymmetricCryptoKey::try_from(
             &BitwardenLegacyKeyBytes::from(wrapping_key),
-        )?)?;
+        )?);
         Ok(Pkcs8PrivateKeyBytes::from(decapsulation_key)
             .encrypt(&mut context, wrapping_key)?
             .to_string())
@@ -223,7 +223,7 @@ impl PureCrypto {
         let mut context = tmp_store.context();
         let wrapping_key = context.add_local_symmetric_key(SymmetricCryptoKey::try_from(
             &BitwardenLegacyKeyBytes::from(wrapping_key),
-        )?)?;
+        )?);
         EncString::from_str(wrapped_key.as_str())?.decrypt(&mut context, wrapping_key)
     }
 

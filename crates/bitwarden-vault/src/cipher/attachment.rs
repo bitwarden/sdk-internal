@@ -69,8 +69,7 @@ impl AttachmentView {
         new_key: SymmetricKeyId,
     ) -> Result<(), CryptoError> {
         if let Some(attachment_key) = &mut self.key {
-            let tmp_attachment_key_id = SymmetricKeyId::Local("attachment_key");
-            ctx.unwrap_symmetric_key(old_key, tmp_attachment_key_id, attachment_key)?;
+            let tmp_attachment_key_id = ctx.unwrap_symmetric_key(old_key, attachment_key)?;
             *attachment_key = ctx.wrap_symmetric_key(new_key, tmp_attachment_key_id)?;
         }
         Ok(())
@@ -142,7 +141,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult>
 
         // Because this is a new attachment, we have to generate a key for it, encrypt the contents
         // with it, and then encrypt the key with the cipher key
-        let attachment_key = ctx.generate_symmetric_key()?;
+        let attachment_key = ctx.generate_symmetric_key();
         let encrypted_contents =
             OctetStreamBytes::from(self.contents).encrypt(ctx, attachment_key)?;
         attachment.key = Some(ctx.wrap_symmetric_key(ciphers_key, attachment_key)?);

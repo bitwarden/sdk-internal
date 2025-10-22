@@ -143,8 +143,7 @@ impl<Ids: KeyIds> PasswordProtectedKeyEnvelope<Ids> {
         ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<Ids::Symmetric, PasswordProtectedKeyEnvelopeError> {
         let key = self.unseal_ref(password)?;
-        ctx.add_local_symmetric_key(key)
-            .map_err(|_| PasswordProtectedKeyEnvelopeError::KeyStore)
+        Ok(ctx.add_local_symmetric_key(key))
     }
 
     fn unseal_ref(
@@ -566,7 +565,7 @@ mod tests {
     fn test_make_envelope_legacy_key() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
-        let test_key = ctx.generate_symmetric_key().unwrap();
+        let test_key = ctx.generate_symmetric_key();
 
         let password = "test_password";
 

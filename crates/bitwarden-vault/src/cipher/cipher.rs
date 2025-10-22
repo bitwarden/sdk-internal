@@ -459,7 +459,7 @@ impl CipherView {
     ) -> Result<(), CryptoError> {
         let old_ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
-        let new_key = ctx.generate_symmetric_key()?;
+        let new_key = ctx.generate_symmetric_key();
 
         self.reencrypt_attachment_keys(ctx, old_ciphers_key, new_key)?;
         self.reencrypt_fido2_credentials(ctx, old_ciphers_key, new_key)?;
@@ -1059,7 +1059,7 @@ mod tests {
         let mut original_cipher = generate_cipher();
         {
             let mut ctx = key_store.context();
-            let cipher_key = ctx.generate_symmetric_key().unwrap();
+            let cipher_key = ctx.generate_symmetric_key();
 
             original_cipher.key = Some(
                 ctx.wrap_symmetric_key(SymmetricKeyId::User, cipher_key)
@@ -1114,7 +1114,7 @@ mod tests {
             .unwrap();
 
         // Re-encrypt the cipher key with a new wrapping key
-        let new_key_id = ctx.add_local_symmetric_key(new_key).unwrap();
+        let new_key_id = ctx.add_local_symmetric_key(new_key);
 
         cipher.reencrypt_cipher_keys(&mut ctx, new_key_id).unwrap();
 
@@ -1134,7 +1134,7 @@ mod tests {
         let mut cipher = generate_cipher();
 
         // The cipher does not have a key, so re-encryption should not add one
-        let new_cipher_key = ctx.generate_symmetric_key().unwrap();
+        let new_cipher_key = ctx.generate_symmetric_key();
         cipher
             .reencrypt_cipher_keys(&mut ctx, new_cipher_key)
             .unwrap();
@@ -1226,7 +1226,7 @@ mod tests {
         // Attachment has a key that is encrypted with the user key, as the cipher has no key itself
         let (attachment_key_enc, attachment_key_val) = {
             let mut ctx = key_store.context();
-            let attachment_key = ctx.generate_symmetric_key().unwrap();
+            let attachment_key = ctx.generate_symmetric_key();
             let attachment_key_enc = ctx
                 .wrap_symmetric_key(SymmetricKeyId::User, attachment_key)
                 .unwrap();
@@ -1296,13 +1296,13 @@ mod tests {
 
         let mut ctx = key_store.context();
 
-        let cipher_key = ctx.generate_symmetric_key().unwrap();
+        let cipher_key = ctx.generate_symmetric_key();
         let cipher_key_enc = ctx
             .wrap_symmetric_key(SymmetricKeyId::User, cipher_key)
             .unwrap();
 
         // Attachment has a key that is encrypted with the cipher key
-        let attachment_key = ctx.generate_symmetric_key().unwrap();
+        let attachment_key = ctx.generate_symmetric_key();
         let attachment_key_enc = ctx.wrap_symmetric_key(cipher_key, attachment_key).unwrap();
 
         let mut cipher = generate_cipher();

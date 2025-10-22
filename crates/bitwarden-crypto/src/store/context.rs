@@ -307,7 +307,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Generate a new random symmetric key and store it in the context
-    pub fn generate_symmetric_key(&mut self) -> Result<Ids::Symmetric> {
+    pub fn generate_symmetric_key(&mut self) -> Ids::Symmetric {
         self.add_local_symmetric_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key())
     }
 
@@ -437,10 +437,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Add a new symmetric key to the local context, returning a new unique identifier for it.
-    pub fn add_local_symmetric_key(&mut self, key: SymmetricCryptoKey) -> Result<Ids::Symmetric> {
+    pub fn add_local_symmetric_key(&mut self, key: SymmetricCryptoKey) -> Ids::Symmetric {
         let key_id = Ids::Symmetric::new_local(LocalId::new());
         self.local_symmetric_keys.upsert(key_id, key);
-        Ok(key_id)
+        key_id
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]

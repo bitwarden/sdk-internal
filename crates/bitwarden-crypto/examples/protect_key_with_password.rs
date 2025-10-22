@@ -20,9 +20,7 @@ fn main() {
 
     // Alice has a vault protected with a symmetric key. She wants the symmetric key protected with
     // a PIN.
-    let vault_key = ctx
-        .generate_symmetric_key()
-        .expect("Generating vault key should work");
+    let vault_key = ctx.generate_symmetric_key();
 
     // Seal the key with the PIN
     // The KDF settings are chosen for you, and do not need to be separately tracked or synced
@@ -54,9 +52,7 @@ fn main() {
     disk.save("vault_key_envelope", (&envelope).into());
 
     // Alice wants to change the protected key. This requires creating a new envelope
-    let vault_key = ctx
-        .generate_symmetric_key()
-        .expect("Generating vault key should work");
+    let vault_key = ctx.generate_symmetric_key();
     let envelope =
         PasswordProtectedKeyEnvelope::seal(vault_key, "0000", &ctx).expect("Sealing should work");
     disk.save("vault_key_envelope", (&envelope).into());
