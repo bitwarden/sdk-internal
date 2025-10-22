@@ -2,7 +2,10 @@ use reqwest::{StatusCode, header::CONTENT_TYPE};
 
 use crate::username::UsernameError;
 
-pub async fn generate(http: &reqwest::Client, token: String) -> Result<String, UsernameError> {
+pub(crate) async fn generate(
+    http: &reqwest::Client,
+    token: String,
+) -> Result<String, UsernameError> {
     generate_with_api_url(http, token, "https://quack.duckduckgo.com".into()).await
 }
 

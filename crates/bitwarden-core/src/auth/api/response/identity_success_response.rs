@@ -38,7 +38,7 @@ pub(crate) struct IdentityTokenSuccessResponse {
     key_connector_url: Option<String>,
 
     #[serde(rename = "userDecryptionOptions", alias = "UserDecryptionOptions")]
-    user_decryption_options: Option<UserDecryptionOptionsResponseModel>,
+    pub(crate) user_decryption_options: Option<UserDecryptionOptionsResponseModel>,
 
     /// Stores unknown api response fields
     extra: Option<HashMap<String, Value>>,

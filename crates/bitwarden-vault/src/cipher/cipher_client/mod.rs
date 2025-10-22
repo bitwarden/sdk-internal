@@ -1,7 +1,10 @@
-use bitwarden_core::{Client, OrganizationId};
+use std::sync::Arc;
+
+use bitwarden_core::{Client, OrganizationId, key_management::SymmetricKeyId};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, SymmetricCryptoKey};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
+use bitwarden_state::repository::{Repository, RepositoryError};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -10,6 +13,10 @@ use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
     Fido2CredentialFullView, cipher::cipher::DecryptCipherListResult,
 };
+
+mod create;
+mod edit;
+mod get;
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -171,6 +178,16 @@ impl CiphersClient {
         let key_store = self.client.internal.get_key_store();
         let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
         Ok(decrypted_key)
+    }
+}
+
+impl CiphersClient {
+    fn get_repository(&self) -> Result<Arc<dyn Repository<Cipher>>, RepositoryError> {
+        Ok(self
+            .client
+            .platform()
+            .state()
+            .get_client_managed::<Cipher>()?)
     }
 }
 
