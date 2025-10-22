@@ -884,6 +884,7 @@ impl TryFrom<CipherResponseModel> for Cipher {
             revision_date: require!(cipher.revision_date).parse()?,
             key: EncString::try_from_optional(cipher.key)?,
             archived_date: cipher.archived_date.map(|d| d.parse()).transpose()?,
+            data: cipher.data,
         })
     }
 }
