@@ -6,17 +6,16 @@ use bitwarden_core::{
         TwoFactorRequest,
     },
 };
-use bitwarden_vault::{SyncRequest, VaultClientExt};
 use color_eyre::eyre::{Result, bail};
 use inquire::{Password, Text};
 use log::{debug, error, info};
+
+use crate::vault::{SyncRequest, sync};
 
 pub(crate) async fn login_password(client: Client, email: Option<String>) -> Result<()> {
     let email = text_prompt_when_none("Email", email)?;
 
     let password = Password::new("Password").without_confirmation().prompt()?;
-
-    let kdf = client.auth().prelogin(email.clone()).await?;
 
     let result = client
         .auth()
@@ -24,7 +23,6 @@ pub(crate) async fn login_password(client: Client, email: Option<String>) -> Res
             email: email.clone(),
             password: password.clone(),
             two_factor: None,
-            kdf: kdf.clone(),
         })
         .await?;
 
@@ -69,7 +67,6 @@ pub(crate) async fn login_password(client: Client, email: Option<String>) -> Res
                 email,
                 password,
                 two_factor,
-                kdf,
             })
             .await?;
 
@@ -78,12 +75,13 @@ pub(crate) async fn login_password(client: Client, email: Option<String>) -> Res
         debug!("{result:?}");
     }
 
-    let res = client
-        .vault()
-        .sync(&SyncRequest {
+    let res = sync(
+        &client,
+        &SyncRequest {
             exclude_subdomains: Some(true),
-        })
-        .await?;
+        },
+    )
+    .await?;
     info!("{res:#?}");
 
     Ok(())

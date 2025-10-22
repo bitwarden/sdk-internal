@@ -5,7 +5,7 @@ use reqwest::{
 
 use crate::username::UsernameError;
 
-pub async fn generate(
+pub(crate) async fn generate(
     http: &reqwest::Client,
     api_token: String,
     website: Option<String>,
