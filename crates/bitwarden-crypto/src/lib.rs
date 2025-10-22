@@ -44,7 +44,7 @@ pub use signing::*;
 mod traits;
 mod xchacha20;
 pub use traits::{
-    CompositeEncryptable, Decryptable, IdentifyKey, KeyId, KeyIds, PrimitiveEncryptable,
+    CompositeEncryptable, Decryptable, IdentifyKey, KeyId, KeyIds, LocalId, PrimitiveEncryptable,
 };
 pub use zeroizing_alloc::ZeroAlloc as ZeroizingAllocator;
 

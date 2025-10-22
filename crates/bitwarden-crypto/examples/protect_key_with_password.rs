@@ -21,7 +21,7 @@ fn main() {
     // Alice has a vault protected with a symmetric key. She wants the symmetric key protected with
     // a PIN.
     let vault_key = ctx
-        .generate_symmetric_key(ExampleSymmetricKey::VaultKey)
+        .generate_symmetric_key()
         .expect("Generating vault key should work");
 
     // Seal the key with the PIN
@@ -43,7 +43,7 @@ fn main() {
         )
         .expect("Deserializing envelope should work");
     deserialized
-        .unseal(ExampleSymmetricKey::VaultKey, pin, &mut ctx)
+        .unseal(pin, &mut ctx)
         .expect("Unsealing should work");
 
     // Alice wants to change her password; also her KDF settings are below the minimums.
@@ -54,15 +54,16 @@ fn main() {
     disk.save("vault_key_envelope", (&envelope).into());
 
     // Alice wants to change the protected key. This requires creating a new envelope
-    ctx.generate_symmetric_key(ExampleSymmetricKey::VaultKey)
+    let vault_key = ctx
+        .generate_symmetric_key()
         .expect("Generating vault key should work");
-    let envelope = PasswordProtectedKeyEnvelope::seal(ExampleSymmetricKey::VaultKey, "0000", &ctx)
-        .expect("Sealing should work");
+    let envelope =
+        PasswordProtectedKeyEnvelope::seal(vault_key, "0000", &ctx).expect("Sealing should work");
     disk.save("vault_key_envelope", (&envelope).into());
 
     // Alice tries the password but it is wrong
     assert!(matches!(
-        envelope.unseal(ExampleSymmetricKey::VaultKey, "9999", &mut ctx),
+        envelope.unseal("9999", &mut ctx),
         Err(PasswordProtectedKeyEnvelopeError::WrongPassword)
     ));
 }
@@ -91,17 +92,21 @@ key_ids! {
     #[symmetric]
     pub enum ExampleSymmetricKey {
         #[local]
-        VaultKey
+        VaultKey(LocalId)
     }
 
     #[asymmetric]
     pub enum ExampleAsymmetricKey {
         Key(u8),
+        #[local]
+        Local(LocalId)
     }
 
     #[signing]
     pub enum ExampleSigningKey {
         Key(u8),
+        #[local]
+        Local(LocalId)
     }
 
    pub ExampleIds => ExampleSymmetricKey, ExampleAsymmetricKey, ExampleSigningKey;

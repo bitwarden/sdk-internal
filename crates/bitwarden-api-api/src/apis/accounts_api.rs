@@ -107,7 +107,7 @@ pub trait AccountsApi: Send + Sync {
     /// POST /accounts/kdf
     async fn post_kdf<'a>(
         &self,
-        kdf_request_model: Option<models::KdfRequestModel>,
+        password_request_model: Option<models::PasswordRequestModel>,
     ) -> Result<(), Error<PostKdfError>>;
 
     /// POST /accounts/keys
@@ -1023,7 +1023,7 @@ impl AccountsApi for AccountsApiClient {
 
     async fn post_kdf<'a>(
         &self,
-        kdf_request_model: Option<models::KdfRequestModel>,
+        password_request_model: Option<models::PasswordRequestModel>,
     ) -> Result<(), Error<PostKdfError>> {
         let local_var_configuration = &self.configuration;
 
@@ -1040,7 +1040,7 @@ impl AccountsApi for AccountsApiClient {
         if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
             local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
         };
-        local_var_req_builder = local_var_req_builder.json(&kdf_request_model);
+        local_var_req_builder = local_var_req_builder.json(&password_request_model);
 
         let local_var_req = local_var_req_builder.build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
