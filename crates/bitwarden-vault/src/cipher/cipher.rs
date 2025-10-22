@@ -458,7 +458,7 @@ impl Cipher {
     /// This replaces the values provided by the API in the `login`, `secure_note`, `card`,
     /// `identity`, and `ssh_key` fields, relying instead on client-side parsing of the
     /// `data` field.
-    #[allow(unused)]
+    #[allow(unused)] // Will be used by future changes to support cipher versioning.
     pub(crate) fn populate_cipher_types(&mut self) -> Result<(), VaultParseError> {
         let data = self
             .data
