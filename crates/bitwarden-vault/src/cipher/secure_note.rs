@@ -44,7 +44,6 @@ impl<'de> Deserialize<'de> for SecureNoteType {
             Ok(0) => Ok(SecureNoteType::Generic),
             Ok(_) => {
                 // Any unknown type (like type 1) defaults to Generic
-                // This allows the SDK to handle future secure note types gracefully
                 Ok(SecureNoteType::Generic)
             }
             Err(_) => Ok(SecureNoteType::Generic),
