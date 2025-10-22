@@ -143,7 +143,6 @@ impl DataEnvelope {
     /// context.
     pub fn unseal<Ids: KeyIds, T>(
         &self,
-        namespace: &DataEnvelopeNamespace,
         cek_keyslot: Ids::Symmetric,
         ctx: &mut crate::store::KeyStoreContext<Ids>,
     ) -> Result<T, DataEnvelopeError>
@@ -155,7 +154,7 @@ impl DataEnvelope {
             .map_err(|_| DataEnvelopeError::KeyStoreError)?;
 
         match cek {
-            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => self.unseal_ref(namespace, key),
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => self.unseal_ref(&T::NAMESPACE, key),
             _ => Err(DataEnvelopeError::UnsupportedContentFormat),
         }
     }
@@ -586,20 +585,13 @@ mod tests {
             DataEnvelope::seal(data, crate::traits::tests::TestSymmKey::A(0), &mut ctx).unwrap();
 
         // Try to unseal with wrong namespace - should fail
-        let result: Result<TestData, DataEnvelopeError> = envelope.unseal(
-            &DataEnvelopeNamespace::ExampleNamespace2,
-            crate::traits::tests::TestSymmKey::A(0),
-            &mut ctx,
-        );
+        let result: Result<TestData, DataEnvelopeError> =
+            envelope.unseal(crate::traits::tests::TestSymmKey::A(0), &mut ctx);
         assert!(matches!(result, Err(DataEnvelopeError::InvalidNamespace)));
 
         // Unseal with correct namespace - should succeed
         let unsealed_data: TestData = envelope
-            .unseal(
-                &DataEnvelopeNamespace::ExampleNamespace,
-                crate::traits::tests::TestSymmKey::A(0),
-                &mut ctx,
-            )
+            .unseal(crate::traits::tests::TestSymmKey::A(0), &mut ctx)
             .unwrap();
         let TestData::TestDataV1(unsealed_data) = unsealed_data;
         assert_eq!(unsealed_data.field, 789);

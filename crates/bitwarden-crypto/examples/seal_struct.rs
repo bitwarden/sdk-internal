@@ -64,11 +64,7 @@ fn main() {
 
     // Unseal the item again, using the content-encryption-key stored in the context.
     let my_item: MyItem = sealed_item
-        .unseal(
-            &DataEnvelopeNamespace::VaultItem,
-            ExampleSymmetricKey::ItemKey,
-            &mut ctx,
-        )
+        .unseal(ExampleSymmetricKey::ItemKey, &mut ctx)
         .expect("Unsealing should work");
     assert!(matches!(my_item, MyItem::MyItemV1(item) if item.a == 42 && item.b == "Hello, World!"));
 }
