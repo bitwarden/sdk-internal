@@ -84,9 +84,7 @@ impl CipherCreateRequestInternal {
     ) -> Result<(), CryptoError> {
         let old_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
-        const NEW_KEY_ID: SymmetricKeyId = SymmetricKeyId::Local("new_cipher_key");
-
-        let new_key = ctx.generate_symmetric_key(NEW_KEY_ID)?;
+        let new_key = ctx.generate_symmetric_key();
         self.create_request
             .r#type
             .as_login_view_mut()
