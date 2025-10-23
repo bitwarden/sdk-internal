@@ -51,8 +51,7 @@ fn main() {
     .into();
 
     // Seal the item into an encrypted blob, and store the content-encryption-key in the context.
-    let sealed_item = DataEnvelope::seal(my_item, ExampleSymmetricKey::ItemKey, &mut ctx)
-        .expect("Sealing should work");
+    let (sealed_item, cek) = DataEnvelope::seal(my_item, &mut ctx).expect("Sealing should work");
 
     // Store the sealed item on disk
     disk.save("sealed_item", (&sealed_item).into());
