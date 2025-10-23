@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use bitwarden_core::{Client, OrganizationId, key_management::SymmetricKeyId};
+use bitwarden_core::{Client, OrganizationId};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, SymmetricCryptoKey};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
@@ -83,9 +83,7 @@ impl CiphersClient {
         let mut ctx = key_store.context();
 
         // Set the new key in the key store context
-        const NEW_KEY_ID: SymmetricKeyId = SymmetricKeyId::Local("new_cipher_key");
-        #[allow(deprecated)]
-        ctx.set_symmetric_key(NEW_KEY_ID, new_key)?;
+        let new_key_id = ctx.add_local_symmetric_key(new_key);
 
         if cipher_view.key.is_none()
             && self
@@ -94,12 +92,12 @@ impl CiphersClient {
                 .get_flags()
                 .enable_cipher_key_encryption
         {
-            cipher_view.generate_cipher_key(&mut ctx, NEW_KEY_ID)?;
+            cipher_view.generate_cipher_key(&mut ctx, new_key_id)?;
         } else {
-            cipher_view.reencrypt_cipher_keys(&mut ctx, NEW_KEY_ID)?;
+            cipher_view.reencrypt_cipher_keys(&mut ctx, new_key_id)?;
         }
 
-        let cipher = cipher_view.encrypt_composite(&mut ctx, NEW_KEY_ID)?;
+        let cipher = cipher_view.encrypt_composite(&mut ctx, new_key_id)?;
 
         Ok(EncryptionContext {
             cipher,
