@@ -130,6 +130,28 @@ impl From<bitwarden_api_api::models::FieldType> for FieldType {
     }
 }
 
+impl From<Field> for bitwarden_api_api::models::CipherFieldModel {
+    fn from(field: Field) -> Self {
+        Self {
+            name: field.name.map(|n| n.to_string()),
+            value: field.value.map(|v| v.to_string()),
+            r#type: Some(field.r#type.into()),
+            linked_id: field.linked_id.map(|id| u32::from(id) as i32),
+        }
+    }
+}
+
+impl From<FieldType> for bitwarden_api_api::models::FieldType {
+    fn from(field_type: FieldType) -> Self {
+        match field_type {
+            FieldType::Text => bitwarden_api_api::models::FieldType::Text,
+            FieldType::Hidden => bitwarden_api_api::models::FieldType::Hidden,
+            FieldType::Boolean => bitwarden_api_api::models::FieldType::Boolean,
+            FieldType::Linked => bitwarden_api_api::models::FieldType::Linked,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

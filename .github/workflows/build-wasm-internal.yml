@@ -23,11 +23,11 @@ jobs:
     strategy:
       matrix:
         license_type:
-          - artifact_name: "wasm-internal"
+          - artifact_name: "sdk-internal"
             build_flags: ""
             npm_folder: "npm"
             readable: "open source license"
-          - artifact_name: "commercial-wasm-internal"
+          - artifact_name: "commercial-sdk-internal"
             build_flags: "-b"
             npm_folder: "bitwarden_license/npm"
             readable: "commercial license"
@@ -78,7 +78,7 @@ jobs:
         working-directory: crates/bitwarden-wasm-internal/${{ matrix.license_type.npm_folder }}
 
       - name: Install rust
-        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # stable
+        uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # stable
         with:
           toolchain: "${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}"
           targets: wasm32-unknown-unknown
@@ -128,7 +128,7 @@ jobs:
         uses: bitwarden/gh-actions/azure-logout@main
 
       - name: Trigger WASM publish
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           github-token: ${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
           script: |

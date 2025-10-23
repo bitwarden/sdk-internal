@@ -17,25 +17,25 @@ use crate::models;
 #[derive(
     Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
 )]
-pub enum ProductType {
-    PasswordManager = 0,
-    SecretsManager = 1,
+pub enum PlanCadenceType {
+    Annually = 0,
+    Monthly = 1,
 }
 
-impl std::fmt::Display for ProductType {
+impl std::fmt::Display for PlanCadenceType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
             match self {
-                Self::PasswordManager => "0",
-                Self::SecretsManager => "1",
+                Self::Annually => "0",
+                Self::Monthly => "1",
             }
         )
     }
 }
-impl Default for ProductType {
-    fn default() -> ProductType {
-        Self::PasswordManager
+impl Default for PlanCadenceType {
+    fn default() -> PlanCadenceType {
+        Self::Annually
     }
 }

@@ -22,6 +22,8 @@ pub struct OrganizationIntegrationResponseModel {
     pub r#type: Option<models::IntegrationType>,
     #[serde(rename = "configuration", skip_serializing_if = "Option::is_none")]
     pub configuration: Option<String>,
+    #[serde(rename = "status", skip_serializing_if = "Option::is_none")]
+    pub status: Option<models::OrganizationIntegrationStatus>,
 }
 
 impl OrganizationIntegrationResponseModel {
@@ -31,6 +33,7 @@ impl OrganizationIntegrationResponseModel {
             id: None,
             r#type: None,
             configuration: None,
+            status: None,
         }
     }
 }

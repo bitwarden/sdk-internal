@@ -15,8 +15,12 @@
 
 # Team-owned crates
 crates/bitwarden-auth/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
-crates/bitwarden-crypto/** @bitwarden/team-key-management-dev @bitwarden/team-platform-dev @bitwarden/dept-architecture 
+crates/bitwarden-crypto/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
 crates/bitwarden-vault/** @bitwarden/team-vault-dev @bitwarden/team-sdk-sme
+
+# KM Co-owned files
+crates/bitwarden-core/src/key_management/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
+crates/bitwarden-wasm-internal/src/pure_crypto.rs @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
 
 # BW CLI
 crates/bw/src/admin_console/** @bitwarden/team-platform-dev

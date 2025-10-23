@@ -93,6 +93,16 @@ pub trait EventsApi: Send + Sync {
         continuation_token: Option<&'a str>,
     ) -> Result<models::EventResponseModelListResponseModel, Error<GetSecretsError>>;
 
+    /// GET /organization/{orgId}/service-account/{id}/events
+    async fn get_service_accounts<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
+        start: Option<String>,
+        end: Option<String>,
+        continuation_token: Option<&'a str>,
+    ) -> Result<models::EventResponseModelListResponseModel, Error<GetServiceAccountsError>>;
+
     /// GET /events
     async fn get_user<'a>(
         &self,
@@ -662,6 +672,85 @@ impl EventsApi for EventsApiClient {
         }
     }
 
+    async fn get_service_accounts<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
+        start: Option<String>,
+        end: Option<String>,
+        continuation_token: Option<&'a str>,
+    ) -> Result<models::EventResponseModelListResponseModel, Error<GetServiceAccountsError>> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organization/{orgId}/service-account/{id}/events",
+            local_var_configuration.base_path,
+            orgId = org_id,
+            id = id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+        if let Some(ref param_value) = start {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("start", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = end {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("end", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = continuation_token {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("continuationToken", &param_value.to_string())]);
+        }
+        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+            local_var_req_builder = local_var_req_builder
+                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+        }
+        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+        };
+
+        let local_var_req = local_var_req_builder.build()?;
+        let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::EventResponseModelListResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::EventResponseModelListResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<GetServiceAccountsError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
+    }
+
     async fn get_user<'a>(
         &self,
         start: Option<String>,
@@ -775,6 +864,12 @@ pub enum GetProviderUserError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum GetSecretsError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`EventsApi::get_service_accounts`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetServiceAccountsError {
     UnknownValue(serde_json::Value),
 }
 /// struct for typed errors of method [`EventsApi::get_user`]

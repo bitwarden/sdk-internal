@@ -77,4 +77,8 @@ pub enum LoginError {
 
     #[error("Failed to authenticate")]
     AuthenticationFailed,
+
+    #[cfg(feature = "internal")]
+    #[error(transparent)]
+    MasterPassword(#[from] crate::key_management::MasterPasswordError),
 }

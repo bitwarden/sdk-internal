@@ -32,15 +32,6 @@ pub(super) fn make_register_tde_keys(
         None
     };
 
-    client
-        .internal
-        .set_login_method(crate::client::LoginMethod::User(
-            crate::client::UserLoginMethod::Username {
-                client_id: "".to_owned(),
-                email,
-                kdf: Kdf::default(),
-            },
-        ));
     client.internal.initialize_user_crypto_decrypted_key(
         user_key.0,
         UserKeyState {
@@ -51,6 +42,16 @@ pub(super) fn make_register_tde_keys(
             security_state: None,
         },
     )?;
+
+    client
+        .internal
+        .set_login_method(crate::client::LoginMethod::User(
+            crate::client::UserLoginMethod::Username {
+                client_id: "".to_owned(),
+                email,
+                kdf: Kdf::default(),
+            },
+        ));
 
     Ok(RegisterTdeKeyResponse {
         private_key: key_pair.private,
