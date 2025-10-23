@@ -11,6 +11,10 @@ on:
         description: "Update Android Repo - Opens a PR updating the SDK in bitwarden/android"
         type: boolean
         default: false
+      test-android-repo:
+        description: "Test Android Repo Apps - Runs the SDK Test workflow in bitwarden/android"
+        type: boolean
+        default: false
 
 defaults:
   run:
@@ -135,10 +139,10 @@ jobs:
   update:
     name: Trigger SDK update in Android repo
     runs-on: ubuntu-24.04
-    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || inputs.update-android-repo
     needs: combine
     permissions:
       id-token: write
+      pull-requests: write
 
     steps:
       - name: Log in to Azure
@@ -168,7 +172,8 @@ jobs:
           repositories: android
           permission-actions: write
 
-      - name: Call SDLC SDK Update workflow in Android repo
+      - name: Trigger SDK Update in Android repo
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.update-android-repo
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           _SDK_PACKAGE: ${{ needs.combine.outputs.sdk-package-id }}
@@ -176,3 +181,68 @@ jobs:
         run: |
           echo "🚀 Triggering sdlc-sdk-update.yml workflow in bitwarden/android repo..."
           gh workflow run sdlc-sdk-update.yml --repo bitwarden/android --ref main -f run-mode=Update -f sdk-package=$_SDK_PACKAGE -f sdk-version=$_SDK_VERSION
+
+      - name: Trigger SDK Test in Android repo and wait for completion
+        id: test-android
+        if: github.event_name == 'pull_request' || inputs.test-android-repo
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          _SDK_PACKAGE: ${{ needs.combine.outputs.sdk-package-id }}
+          _SDK_VERSION: ${{ needs.combine.outputs.sdk-version }}
+          _MAX_RUN_LIST_RETRIES: 5
+        run: |
+          echo "🚀 Triggering sdlc-sdk-update.yml workflow in bitwarden/android repo..."
+          json_params='{"run-mode": "Test", "sdk-package": "'"$_SDK_PACKAGE"'", "sdk-version": "'"$_SDK_VERSION"'", "pr-id": "'"$_PR_NUMBER"'"}'
+          echo $json_params | gh workflow run sdlc-sdk-update.yml --repo bitwarden/android --json
+
+          echo "🔍 Looking for workflow run with displayTitle containing 'Test' and '$_SDK_VERSION'..."
+          JQ_FILTER='.[] | select(.status != "completed" and (.displayTitle | contains("Test")) and (.displayTitle | contains("'"$_SDK_VERSION"'"))) | .databaseId'
+
+          RETRY_COUNT=0
+          WORKFLOW_RUN_ID=""
+          while
+            sleep 5
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "🔄 Attempt $RETRY_COUNT of $_MAX_RUN_LIST_RETRIES to find workflow run..."
+            WORKFLOW_RUN_ID=$(gh run list --repo bitwarden/android --workflow=sdlc-sdk-update.yml --limit=10 --json databaseId,status,displayTitle --jq "$JQ_FILTER" | head -1)
+            [ -z "$WORKFLOW_RUN_ID" ] && [ $RETRY_COUNT -lt $_MAX_RUN_LIST_RETRIES ]
+          do true; done
+
+          if [ -z "$WORKFLOW_RUN_ID" ]; then
+            echo "::error::No workflow found after $_MAX_RUN_LIST_RETRIES attempts."
+            exit 1
+          fi
+
+          echo "🔍 Workflow run ID: $WORKFLOW_RUN_ID"
+
+          WORKFLOW_URL="https://github.com/bitwarden/android/actions/runs/$WORKFLOW_RUN_ID"
+          echo "## 🔗 Android SDK Test Run: [$WORKFLOW_RUN_ID]($WORKFLOW_URL)" >> $GITHUB_STEP_SUMMARY
+
+          ERROR_CODE=0
+          if ! gh run watch $WORKFLOW_RUN_ID --repo bitwarden/android --compact --exit-status --interval 30; then
+            echo "❌ Android SDK Test failed."
+            echo "❌ **Status:** Failed - [View Details]($WORKFLOW_URL)" >> $GITHUB_STEP_SUMMARY
+            LABEL_ACTION="--add-label"
+            ERROR_CODE=1
+          else
+            echo "✅ Android SDK Test passed."
+            echo "✅ **Status:** Passed - [View Details]($WORKFLOW_URL)" >> $GITHUB_STEP_SUMMARY
+            LABEL_ACTION="--remove-label"
+          fi
+
+          echo "label-action=$LABEL_ACTION" >> $GITHUB_OUTPUT
+          echo "error-code=$ERROR_CODE" >> $GITHUB_OUTPUT
+
+      - name: Label PR and exit
+        if: github.event_name == 'pull_request' || inputs.test-android-repo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          _LABEL_ACTION: ${{ steps.test-android.outputs.label-action }}
+          _ERROR_CODE: ${{ steps.test-android.outputs.error-code }}
+          _PR_NUMBER: ${{ github.event.pull_request.number }}
+          _BREAKING_CHANGE_LABEL: "breaking-change-android"
+        run: |
+          if [ -n "$_PR_NUMBER" ]; then
+            gh pr edit --repo bitwarden/sdk-internal $_PR_NUMBER $_LABEL_ACTION $_BREAKING_CHANGE_LABEL
+          fi
+          exit $_ERROR_CODE
