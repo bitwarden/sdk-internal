@@ -1,7 +1,10 @@
-use bitwarden_core::{Client, OrganizationId, key_management::SymmetricKeyId};
+use std::sync::Arc;
+
+use bitwarden_core::{Client, OrganizationId};
 use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, SymmetricCryptoKey};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
+use bitwarden_state::repository::{Repository, RepositoryError};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -10,6 +13,10 @@ use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
     Fido2CredentialFullView, cipher::cipher::DecryptCipherListResult,
 };
+
+mod create;
+mod edit;
+mod get;
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -75,9 +82,7 @@ impl CiphersClient {
         let mut ctx = key_store.context();
 
         // Set the new key in the key store context
-        const NEW_KEY_ID: SymmetricKeyId = SymmetricKeyId::Local("new_cipher_key");
-        #[allow(deprecated)]
-        ctx.set_symmetric_key(NEW_KEY_ID, new_key)?;
+        let new_key_id = ctx.add_local_symmetric_key(new_key);
 
         if cipher_view.key.is_none()
             && self
@@ -86,12 +91,12 @@ impl CiphersClient {
                 .get_flags()
                 .enable_cipher_key_encryption
         {
-            cipher_view.generate_cipher_key(&mut ctx, NEW_KEY_ID)?;
+            cipher_view.generate_cipher_key(&mut ctx, new_key_id)?;
         } else {
-            cipher_view.reencrypt_cipher_keys(&mut ctx, NEW_KEY_ID)?;
+            cipher_view.reencrypt_cipher_keys(&mut ctx, new_key_id)?;
         }
 
-        let cipher = cipher_view.encrypt_composite(&mut ctx, NEW_KEY_ID)?;
+        let cipher = cipher_view.encrypt_composite(&mut ctx, new_key_id)?;
 
         Ok(EncryptionContext {
             cipher,
@@ -173,6 +178,16 @@ impl CiphersClient {
         let key_store = self.client.internal.get_key_store();
         let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
         Ok(decrypted_key)
+    }
+}
+
+impl CiphersClient {
+    fn get_repository(&self) -> Result<Arc<dyn Repository<Cipher>>, RepositoryError> {
+        Ok(self
+            .client
+            .platform()
+            .state()
+            .get_client_managed::<Cipher>()?)
     }
 }
 
