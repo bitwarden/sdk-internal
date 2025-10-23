@@ -231,15 +231,12 @@ impl CiphersClient {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
-    use bitwarden_api_api::models::CipherResponseModel;
-    use bitwarden_core::{Client, client::test_accounts::test_bitwarden_com_account};
-    use bitwarden_test::{MemoryRepository, start_api_mock};
-    use wiremock::{
-        Mock, ResponseTemplate,
-        matchers::{method, path, path_regex},
+    use bitwarden_api_api::{
+        apis::ApiClient,
+        models::{CipherMiniResponseModelListResponseModel, CipherResponseModel},
     };
+    use bitwarden_core::{Client, client::test_accounts::test_bitwarden_com_account};
+    use bitwarden_test::MemoryRepository;
 
     use super::*;
     use crate::{CipherRepromptType, CipherType, LoginView, VaultClientExt};
@@ -417,8 +414,9 @@ mod tests {
     }
 
     fn create_encryption_context() -> EncryptionContext {
-        use crate::cipher::Login;
         use bitwarden_core::UserId;
+
+        use crate::cipher::Login;
 
         // Create a minimal encrypted cipher for testing the API logic
         let cipher = Cipher {
@@ -468,48 +466,44 @@ mod tests {
         }
     }
 
-    fn mock_cipher_response() -> CipherResponseModel {
-        serde_json::from_value(serde_json::json!({
-                "id": TEST_CIPHER_ID,
-                "organizationId": TEST_ORG_ID,
-                "type": 1,
-                "name": "2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=",
-                "notes": "2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=",
-                "login": {
-                    "username": "2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=",
-                    "password": "2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI="
-                },
-                "reprompt": 0,
-                "revisionDate": "2024-01-30T17:55:36.150Z",
-                "creationDate": "2024-01-30T17:55:36.150Z",
-                "edit": true,
-                "viewPassword": true,
-                "organizationUseTotp": true,
-                "favorite": false,
-                "collectionIds": [TEST_COLLECTION_ID_1]
-            }))
-            .unwrap()
-    }
-
     #[tokio::test]
     async fn test_share_cipher_api_success() {
-        let cipher_response = mock_cipher_response();
-        let mock = Mock::given(method("PUT"))
-            .and(path_regex(r"/ciphers/.*/share"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(&cipher_response))
-            .expect(1);
+        let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
+        let org_id: OrganizationId = TEST_ORG_ID.parse().unwrap();
+        let collection_id: CollectionId = TEST_COLLECTION_ID_1.parse().unwrap();
 
-        let (server, config) = start_api_mock(vec![mock]).await;
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api.expect_put_share().returning(move |_id, _body| {
+                Ok(CipherResponseModel {
+                    object: Some("cipher".to_string()),
+                    id: Some(cipher_id.into()),
+                    organization_id: Some(org_id.into()),
+                    r#type: Some(bitwarden_api_api::models::CipherType::Login),
+                    name: Some("2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".to_string()),
+                    notes: Some("2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".to_string()),
+                    login: Some(Box::new(bitwarden_api_api::models::CipherLoginModel {
+                        username: Some("2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".to_string()),
+                        password: Some("2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".to_string()),
+                        ..Default::default()
+                    })),
+                    reprompt: Some(bitwarden_api_api::models::CipherRepromptType::None),
+                    revision_date: Some("2024-01-30T17:55:36.150Z".to_string()),
+                    creation_date: Some("2024-01-30T17:55:36.150Z".to_string()),
+                    edit: Some(true),
+                    view_password: Some(true),
+                    organization_use_totp: Some(true),
+                    favorite: Some(false),
+                    ..Default::default()
+                })
+            });
+        });
+
         let repository = MemoryRepository::<Cipher>::default();
-
         let encryption_context = create_encryption_context();
-        let collection_ids: Vec<CollectionId> = vec![TEST_COLLECTION_ID_1.parse().unwrap()];
-
-        let api_client =
-            bitwarden_api_api::apis::ciphers_api::CiphersApiClient::new(Arc::new(config));
+        let collection_ids: Vec<CollectionId> = vec![collection_id];
 
         let result = share_cipher_api(
-            &api_client,
+            api_client.ciphers_api(),
             &repository,
             encryption_context,
             collection_ids.clone(),
@@ -523,7 +517,7 @@ mod tests {
         let stored_cipher = repository
             .get(TEST_CIPHER_ID.to_string())
             .await
-            .expect("Cipher should be stored")
+            .unwrap()
             .expect("Cipher should be stored");
 
         assert_eq!(stored_cipher.id, shared_cipher.id);
@@ -535,60 +529,57 @@ mod tests {
             Some(TEST_ORG_ID.to_string())
         );
         assert_eq!(stored_cipher.collection_ids, collection_ids);
-
-        drop(server);
     }
 
     #[tokio::test]
     async fn test_share_cipher_api_handles_404() {
-        let mock = Mock::given(method("PUT"))
-            .and(path_regex(r"/ciphers/.*/share"))
-            .respond_with(ResponseTemplate::new(404));
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.ciphers_api.expect_put_share().returning(|_id, _body| {
+                Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
+                    "Not found",
+                )))
+            });
+        });
 
-        let (server, config) = start_api_mock(vec![mock]).await;
         let repository = MemoryRepository::<Cipher>::default();
-
         let encryption_context = create_encryption_context();
         let collection_ids: Vec<CollectionId> = vec![TEST_COLLECTION_ID_1.parse().unwrap()];
 
-        let api_client =
-            bitwarden_api_api::apis::ciphers_api::CiphersApiClient::new(Arc::new(config));
-
-        let result =
-            share_cipher_api(&api_client, &repository, encryption_context, collection_ids).await;
+        let result = share_cipher_api(
+            api_client.ciphers_api(),
+            &repository,
+            encryption_context,
+            collection_ids,
+        )
+        .await;
 
         assert!(result.is_err());
-        drop(server);
     }
 
     #[tokio::test]
     async fn test_share_ciphers_bulk_api_success() {
-        let cipher_mini_1 = serde_json::json!({
-            "id": TEST_CIPHER_ID,
-            "organizationId": TEST_ORG_ID,
-            "type": 1,
-            "name": "2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=",
-            "notes": "2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=",
-            "login": {
-                "username": "2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=",
-                "password": "2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI="
-            },
-            "reprompt": 0,
-            "revisionDate": "2024-01-30T17:55:36.150Z",
-            "creationDate": "2024-01-30T17:55:36.150Z"
+        let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
+        let org_id: OrganizationId = TEST_ORG_ID.parse().unwrap();
+
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api.expect_put_share_many().returning(move |_body| {
+                Ok(CipherMiniResponseModelListResponseModel {
+                    object: Some("list".to_string()),
+                    data: Some(vec![bitwarden_api_api::models::CipherMiniResponseModel {
+                        object: Some("cipherMini".to_string()),
+                        id: Some(cipher_id.into()),
+                        organization_id: Some(org_id.into()),
+                        r#type: Some(bitwarden_api_api::models::CipherType::Login),
+                        name: Some("2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".to_string()),
+                        revision_date: Some("2024-01-30T17:55:36.150Z".to_string()),
+                        creation_date: Some("2024-01-30T17:55:36.150Z".to_string()),
+                        ..Default::default()
+                    }]),
+                    continuation_token: None,
+                })
+            });
         });
 
-        let response_json = serde_json::json!({
-            "data": [cipher_mini_1],
-            "continuationToken": null,
-            "object": "list"
-        });
-
-        let mock = Mock::given(method("PUT"))
-            .and(path("/ciphers/share"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(&response_json));
-
-        let (server, config) = start_api_mock(vec![mock]).await;
         let repository = MemoryRepository::<Cipher>::default();
 
         // Pre-populate repository with original cipher data that will be used for missing fields
@@ -641,11 +632,8 @@ mod tests {
             TEST_COLLECTION_ID_2.parse().unwrap(),
         ];
 
-        let api_client =
-            bitwarden_api_api::apis::ciphers_api::CiphersApiClient::new(Arc::new(config));
-
         let result = share_ciphers_bulk_api(
-            &api_client,
+            api_client.ciphers_api(),
             &repository,
             vec![encryption_context],
             collection_ids.clone(),
@@ -675,27 +663,24 @@ mod tests {
 
         assert_eq!(stored_cipher.id, shared_cipher.id);
         assert_eq!(stored_cipher.favorite, true); // Should preserve from original
-
-        drop(server);
     }
 
     #[tokio::test]
     async fn test_share_ciphers_bulk_api_handles_error() {
-        let mock = Mock::given(method("PUT"))
-            .and(path("/ciphers/share"))
-            .respond_with(ResponseTemplate::new(500));
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.ciphers_api.expect_put_share_many().returning(|_body| {
+                Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
+                    "Server error",
+                )))
+            });
+        });
 
-        let (server, config) = start_api_mock(vec![mock]).await;
         let repository = MemoryRepository::<Cipher>::default();
-
         let encryption_context = create_encryption_context();
         let collection_ids: Vec<CollectionId> = vec![TEST_COLLECTION_ID_1.parse().unwrap()];
 
-        let api_client =
-            bitwarden_api_api::apis::ciphers_api::CiphersApiClient::new(Arc::new(config));
-
         let result = share_ciphers_bulk_api(
-            &api_client,
+            api_client.ciphers_api(),
             &repository,
             vec![encryption_context],
             collection_ids,
@@ -703,6 +688,5 @@ mod tests {
         .await;
 
         assert!(result.is_err());
-        drop(server);
     }
 }
