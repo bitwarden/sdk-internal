@@ -92,7 +92,7 @@ key_ids! {
     #[symmetric]
     pub enum ExampleSymmetricKey {
         #[local]
-        ItemKey
+        ItemKey(LocalId)
     }
 
     #[asymmetric]
