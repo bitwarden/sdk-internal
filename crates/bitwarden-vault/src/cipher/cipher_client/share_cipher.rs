@@ -1,15 +1,154 @@
-use bitwarden_api_api::models::{
-    CipherBulkShareRequestModel, CipherMiniResponseModel, CipherShareRequestModel,
+use bitwarden_api_api::{
+    apis::ciphers_api::CiphersApi,
+    models::{CipherBulkShareRequestModel, CipherShareRequestModel},
 };
 use bitwarden_collections::collection::CollectionId;
-use bitwarden_core::{require, MissingFieldError, OrganizationId};
+use bitwarden_core::{MissingFieldError, OrganizationId, require};
 use bitwarden_crypto::EncString;
+use bitwarden_state::repository::Repository;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
-    Cipher, CipherError, CipherId, CipherRepromptType, CipherView, CiphersClient, VaultParseError,
+    Cipher, CipherError, CipherId, CipherRepromptType, CipherView, CiphersClient,
+    EncryptionContext, VaultParseError,
 };
+
+/// Standalone function that shares a cipher to an organization via API call.
+/// This function is extracted to allow for easier testing with mocked dependencies.
+async fn share_cipher_api(
+    api_client: &dyn CiphersApi,
+    repository: &dyn Repository<Cipher>,
+    encrypted_cipher: EncryptionContext,
+    collection_ids: Vec<CollectionId>,
+) -> Result<Cipher, CipherError> {
+    let cipher_id: uuid::Uuid = require!(encrypted_cipher.cipher.id).into();
+
+    let req = CipherShareRequestModel::new(
+        collection_ids
+            .iter()
+            .map(<CollectionId as ToString>::to_string)
+            .collect(),
+        encrypted_cipher.into(),
+    );
+
+    let response = api_client.put_share(cipher_id, Some(req)).await?;
+
+    let mut new_cipher: Cipher = response.try_into()?;
+    new_cipher.collection_ids = collection_ids;
+
+    repository
+        .set(cipher_id.to_string(), new_cipher.clone())
+        .await?;
+
+    Ok(new_cipher)
+}
+
+/// Standalone function that shares multiple ciphers to an organization via API call.
+/// This function is extracted to allow for easier testing with mocked dependencies.
+async fn share_ciphers_bulk_api(
+    api_client: &dyn CiphersApi,
+    repository: &dyn Repository<Cipher>,
+    encrypted_ciphers: Vec<EncryptionContext>,
+    collection_ids: Vec<CollectionId>,
+) -> Result<Vec<Cipher>, CipherError> {
+    let request = CipherBulkShareRequestModel::new(
+        collection_ids
+            .iter()
+            .map(<CollectionId as ToString>::to_string)
+            .collect(),
+        encrypted_ciphers
+            .into_iter()
+            .map(|ec| ec.try_into())
+            .collect::<Result<Vec<_>, _>>()?,
+    );
+
+    let response = api_client.put_share_many(Some(request)).await?;
+
+    let cipher_minis = response.data.unwrap_or_default();
+    let mut results = Vec::new();
+
+    for cipher_mini in cipher_minis {
+        // The server does not return the full Cipher object, so we pull the details from the
+        // current local version to fill in those missing values.
+        let orig_cipher = repository
+            .get(cipher_mini.id.ok_or(MissingFieldError("id"))?.to_string())
+            .await?;
+
+        let cipher: Cipher = Cipher {
+            id: cipher_mini.id.map(CipherId::new),
+            organization_id: cipher_mini.organization_id.map(OrganizationId::new),
+            key: EncString::try_from_optional(cipher_mini.key)?,
+            name: require!(EncString::try_from_optional(cipher_mini.name)?),
+            notes: EncString::try_from_optional(cipher_mini.notes)?,
+            r#type: require!(cipher_mini.r#type).into(),
+            login: cipher_mini.login.map(|l| (*l).try_into()).transpose()?,
+            identity: cipher_mini.identity.map(|i| (*i).try_into()).transpose()?,
+            card: cipher_mini.card.map(|c| (*c).try_into()).transpose()?,
+            secure_note: cipher_mini
+                .secure_note
+                .map(|s| (*s).try_into())
+                .transpose()?,
+            ssh_key: cipher_mini.ssh_key.map(|s| (*s).try_into()).transpose()?,
+            reprompt: cipher_mini
+                .reprompt
+                .map(|r| r.into())
+                .unwrap_or(CipherRepromptType::None),
+            organization_use_totp: cipher_mini.organization_use_totp.unwrap_or(true),
+            attachments: cipher_mini
+                .attachments
+                .map(|a| a.into_iter().map(|a| a.try_into()).collect())
+                .transpose()?,
+            fields: cipher_mini
+                .fields
+                .map(|f| f.into_iter().map(|f| f.try_into()).collect())
+                .transpose()?,
+            password_history: cipher_mini
+                .password_history
+                .map(|p| p.into_iter().map(|p| p.try_into()).collect())
+                .transpose()?,
+            creation_date: require!(cipher_mini.creation_date)
+                .parse()
+                .map_err(Into::<VaultParseError>::into)?,
+            deleted_date: cipher_mini
+                .deleted_date
+                .map(|d| d.parse())
+                .transpose()
+                .map_err(Into::<VaultParseError>::into)?,
+            revision_date: require!(cipher_mini.revision_date)
+                .parse()
+                .map_err(Into::<VaultParseError>::into)?,
+            archived_date: cipher_mini
+                .archived_date
+                .map(|d| d.parse())
+                .transpose()
+                .map_err(Into::<VaultParseError>::into)?,
+            edit: orig_cipher.as_ref().map(|c| c.edit).unwrap_or_default(),
+            favorite: orig_cipher.as_ref().map(|c| c.favorite).unwrap_or_default(),
+            folder_id: orig_cipher
+                .as_ref()
+                .map(|c| c.folder_id)
+                .unwrap_or_default(),
+            permissions: orig_cipher
+                .as_ref()
+                .map(|c| c.permissions)
+                .unwrap_or_default(),
+            view_password: orig_cipher
+                .as_ref()
+                .map(|c| c.view_password)
+                .unwrap_or_default(),
+            local_data: orig_cipher.map(|c| c.local_data).unwrap_or_default(),
+            collection_ids: collection_ids.clone(),
+        };
+
+        repository
+            .set(require!(cipher.id).to_string(), cipher.clone())
+            .await?;
+        results.push(cipher)
+    }
+
+    Ok(results)
+}
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
@@ -40,16 +179,7 @@ impl CiphersClient {
         cipher_view =
             self.move_to_collections(cipher_view, organization_id, collection_ids.clone())?;
 
-        let cipher_id = require!(cipher_view.id).into();
         let encrypted_cipher = self.encrypt(cipher_view)?;
-
-        let req = CipherShareRequestModel::new(
-            collection_ids
-                .iter()
-                .map(<CollectionId as ToString>::to_string)
-                .collect(),
-            encrypted_cipher.into(),
-        );
 
         let api_client = &self
             .client
@@ -58,18 +188,13 @@ impl CiphersClient {
             .await
             .api_client;
 
-        let response = api_client
-            .ciphers_api()
-            .put_share(cipher_id, Some(req))
-            .await?;
-
-        let new_cipher: Cipher = response.try_into()?;
-
-        self.get_repository()?
-            .set(cipher_id.to_string(), new_cipher.clone())
-            .await?;
-
-        Ok(new_cipher)
+        share_cipher_api(
+            api_client.ciphers_api(),
+            &*self.get_repository()?,
+            encrypted_cipher,
+            collection_ids,
+        )
+        .await
     }
 
     #[allow(missing_docs)]
@@ -87,16 +212,6 @@ impl CiphersClient {
             .map(|cv| self.encrypt(cv))
             .collect::<Result<Vec<_>, _>>()?;
 
-        let request = CipherBulkShareRequestModel::new(
-            collection_ids
-                .iter()
-                .map(<CollectionId as ToString>::to_string)
-                .collect(),
-            encrypted_ciphers
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<_, _>>()?,
-        );
         let api_client = &self
             .client
             .internal
@@ -104,110 +219,27 @@ impl CiphersClient {
             .await
             .api_client;
 
-        let response = api_client
-            .ciphers_api()
-            .put_share_many(Some(request))
-            .await?;
-        let results = self
-            .update_repository_from_bulk_share_response(
-                response.data.unwrap_or_default(),
-                collection_ids,
-            )
-            .await?;
-        Ok(results)
-    }
-
-    async fn update_repository_from_bulk_share_response(
-        &self,
-        ciphers: Vec<CipherMiniResponseModel>,
-        collection_ids: Vec<CollectionId>,
-    ) -> Result<Vec<Cipher>, CipherError> {
-        let repo = self.get_repository()?;
-        let mut results = Vec::new();
-        for cipher_mini in ciphers {
-            // The server does not return the full Cipher object, so we pull the details from the
-            // current local version to fill in those missing values.
-            let orig_cipher = repo
-                .get(cipher_mini.id.ok_or(MissingFieldError("id"))?.to_string())
-                .await?;
-
-            let cipher: Cipher = Cipher {
-                id: cipher_mini.id.map(CipherId::new),
-                organization_id: cipher_mini.organization_id.map(OrganizationId::new),
-                key: EncString::try_from_optional(cipher_mini.key)?,
-                name: require!(EncString::try_from_optional(cipher_mini.name)?),
-                notes: EncString::try_from_optional(cipher_mini.notes)?,
-                r#type: require!(cipher_mini.r#type).into(),
-                login: cipher_mini.login.map(|l| (*l).try_into()).transpose()?,
-                identity: cipher_mini.identity.map(|i| (*i).try_into()).transpose()?,
-                card: cipher_mini.card.map(|c| (*c).try_into()).transpose()?,
-                secure_note: cipher_mini
-                    .secure_note
-                    .map(|s| (*s).try_into())
-                    .transpose()?,
-                ssh_key: cipher_mini.ssh_key.map(|s| (*s).try_into()).transpose()?,
-                reprompt: cipher_mini
-                    .reprompt
-                    .map(|r| r.into())
-                    .unwrap_or(CipherRepromptType::None),
-                organization_use_totp: cipher_mini.organization_use_totp.unwrap_or(true),
-                attachments: cipher_mini
-                    .attachments
-                    .map(|a| a.into_iter().map(|a| a.try_into()).collect())
-                    .transpose()?,
-                fields: cipher_mini
-                    .fields
-                    .map(|f| f.into_iter().map(|f| f.try_into()).collect())
-                    .transpose()?,
-                password_history: cipher_mini
-                    .password_history
-                    .map(|p| p.into_iter().map(|p| p.try_into()).collect())
-                    .transpose()?,
-                creation_date: require!(cipher_mini.creation_date)
-                    .parse()
-                    .map_err(Into::<VaultParseError>::into)?,
-                deleted_date: cipher_mini
-                    .deleted_date
-                    .map(|d| d.parse())
-                    .transpose()
-                    .map_err(Into::<VaultParseError>::into)?,
-                revision_date: require!(cipher_mini.revision_date)
-                    .parse()
-                    .map_err(Into::<VaultParseError>::into)?,
-                archived_date: cipher_mini
-                    .archived_date
-                    .map(|d| d.parse())
-                    .transpose()
-                    .map_err(Into::<VaultParseError>::into)?,
-                edit: orig_cipher.as_ref().map(|c| c.edit).unwrap_or_default(),
-                favorite: orig_cipher.as_ref().map(|c| c.favorite).unwrap_or_default(),
-                folder_id: orig_cipher
-                    .as_ref()
-                    .map(|c| c.folder_id)
-                    .unwrap_or_default(),
-                permissions: orig_cipher
-                    .as_ref()
-                    .map(|c| c.permissions)
-                    .unwrap_or_default(),
-                view_password: orig_cipher
-                    .as_ref()
-                    .map(|c| c.view_password)
-                    .unwrap_or_default(),
-                local_data: orig_cipher.map(|c| c.local_data).unwrap_or_default(),
-                collection_ids: collection_ids.clone(), /* Should we have confirmation from the
-                                                         * server that these were set?? */
-            };
-            repo.set(require!(cipher.id).to_string(), cipher.clone())
-                .await?;
-            results.push(cipher)
-        }
-        Ok(results)
+        share_ciphers_bulk_api(
+            api_client.ciphers_api(),
+            &*self.get_repository()?,
+            encrypted_ciphers,
+            collection_ids,
+        )
+        .await
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::{client::test_accounts::test_bitwarden_com_account, Client};
+    use std::sync::Arc;
+
+    use bitwarden_api_api::models::CipherResponseModel;
+    use bitwarden_core::{Client, client::test_accounts::test_bitwarden_com_account};
+    use bitwarden_test::{MemoryRepository, start_api_mock};
+    use wiremock::{
+        Mock, ResponseTemplate,
+        matchers::{method, path, path_regex},
+    };
 
     use super::*;
     use crate::{CipherRepromptType, CipherType, LoginView, VaultClientExt};
@@ -289,7 +321,8 @@ mod tests {
         let organization_id: OrganizationId = TEST_ORG_ID.parse().unwrap();
         let collection_ids: Vec<CollectionId> = vec![TEST_COLLECTION_ID_1.parse().unwrap()];
 
-        let result = cipher_client.move_to_collections(cipher_view, organization_id, collection_ids);
+        let result =
+            cipher_client.move_to_collections(cipher_view, organization_id, collection_ids);
 
         assert!(result.is_err());
         assert!(matches!(
@@ -369,7 +402,11 @@ mod tests {
 
         // Should fail because one cipher already has an organization
         let result = cipher_client
-            .share_ciphers_bulk(vec![cipher_view_1, cipher_view_2], organization_id, collection_ids)
+            .share_ciphers_bulk(
+                vec![cipher_view_1, cipher_view_2],
+                organization_id,
+                collection_ids,
+            )
             .await;
 
         assert!(result.is_err());
@@ -379,10 +416,293 @@ mod tests {
         ));
     }
 
-    // Note: Full integration tests with API mocking for share_cipher and share_ciphers_bulk
-    // would require the ability to inject a mocked ApiClient into the Client structure.
-    // The current architecture retrieves the API client internally via
-    // self.client.internal.get_api_client(), making it difficult to mock without
-    // significant refactoring. These operations are tested end-to-end in integration tests
-    // that run against actual API servers.
+    fn create_encryption_context() -> EncryptionContext {
+        use crate::cipher::Login;
+        use bitwarden_core::UserId;
+
+        // Create a minimal encrypted cipher for testing the API logic
+        let cipher = Cipher {
+                r#type: CipherType::Login,
+                login: Some(Login {
+                    username: Some("2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".parse().unwrap()),
+                    password: Some("2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".parse().unwrap()),
+                    password_revision_date: None,
+                    uris: None,
+                    totp: None,
+                    autofill_on_page_load: None,
+                    fido2_credentials: None,
+                }),
+                id: Some(TEST_CIPHER_ID.parse().unwrap()),
+                organization_id: Some(TEST_ORG_ID.parse().unwrap()),
+                folder_id: None,
+                collection_ids: vec![TEST_COLLECTION_ID_1.parse().unwrap()],
+                key: None,
+                name: "2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".parse().unwrap(),
+                notes: Some("2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".parse().unwrap()),
+                identity: None,
+                card: None,
+                secure_note: None,
+                ssh_key: None,
+                favorite: false,
+                reprompt: CipherRepromptType::None,
+                organization_use_totp: true,
+                edit: true,
+                permissions: None,
+                view_password: true,
+                local_data: None,
+                attachments: None,
+                fields: None,
+                password_history: None,
+                creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+                deleted_date: None,
+                revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+                archived_date: None,
+            };
+
+        // Use a test user ID from the test accounts
+        let user_id: UserId = "00000000-0000-0000-0000-000000000000".parse().unwrap();
+
+        EncryptionContext {
+            cipher,
+            encrypted_for: user_id,
+        }
+    }
+
+    fn mock_cipher_response() -> CipherResponseModel {
+        serde_json::from_value(serde_json::json!({
+                "id": TEST_CIPHER_ID,
+                "organizationId": TEST_ORG_ID,
+                "type": 1,
+                "name": "2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=",
+                "notes": "2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=",
+                "login": {
+                    "username": "2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=",
+                    "password": "2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI="
+                },
+                "reprompt": 0,
+                "revisionDate": "2024-01-30T17:55:36.150Z",
+                "creationDate": "2024-01-30T17:55:36.150Z",
+                "edit": true,
+                "viewPassword": true,
+                "organizationUseTotp": true,
+                "favorite": false,
+                "collectionIds": [TEST_COLLECTION_ID_1]
+            }))
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_share_cipher_api_success() {
+        let cipher_response = mock_cipher_response();
+        let mock = Mock::given(method("PUT"))
+            .and(path_regex(r"/ciphers/.*/share"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&cipher_response))
+            .expect(1);
+
+        let (server, config) = start_api_mock(vec![mock]).await;
+        let repository = MemoryRepository::<Cipher>::default();
+
+        let encryption_context = create_encryption_context();
+        let collection_ids: Vec<CollectionId> = vec![TEST_COLLECTION_ID_1.parse().unwrap()];
+
+        let api_client =
+            bitwarden_api_api::apis::ciphers_api::CiphersApiClient::new(Arc::new(config));
+
+        let result = share_cipher_api(
+            &api_client,
+            &repository,
+            encryption_context,
+            collection_ids.clone(),
+        )
+        .await;
+
+        assert!(result.is_ok());
+        let shared_cipher = result.unwrap();
+
+        // Verify the cipher was stored in repository
+        let stored_cipher = repository
+            .get(TEST_CIPHER_ID.to_string())
+            .await
+            .expect("Cipher should be stored")
+            .expect("Cipher should be stored");
+
+        assert_eq!(stored_cipher.id, shared_cipher.id);
+        assert_eq!(
+            stored_cipher
+                .organization_id
+                .as_ref()
+                .map(ToString::to_string),
+            Some(TEST_ORG_ID.to_string())
+        );
+        assert_eq!(stored_cipher.collection_ids, collection_ids);
+
+        drop(server);
+    }
+
+    #[tokio::test]
+    async fn test_share_cipher_api_handles_404() {
+        let mock = Mock::given(method("PUT"))
+            .and(path_regex(r"/ciphers/.*/share"))
+            .respond_with(ResponseTemplate::new(404));
+
+        let (server, config) = start_api_mock(vec![mock]).await;
+        let repository = MemoryRepository::<Cipher>::default();
+
+        let encryption_context = create_encryption_context();
+        let collection_ids: Vec<CollectionId> = vec![TEST_COLLECTION_ID_1.parse().unwrap()];
+
+        let api_client =
+            bitwarden_api_api::apis::ciphers_api::CiphersApiClient::new(Arc::new(config));
+
+        let result =
+            share_cipher_api(&api_client, &repository, encryption_context, collection_ids).await;
+
+        assert!(result.is_err());
+        drop(server);
+    }
+
+    #[tokio::test]
+    async fn test_share_ciphers_bulk_api_success() {
+        let cipher_mini_1 = serde_json::json!({
+            "id": TEST_CIPHER_ID,
+            "organizationId": TEST_ORG_ID,
+            "type": 1,
+            "name": "2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=",
+            "notes": "2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=",
+            "login": {
+                "username": "2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=",
+                "password": "2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI="
+            },
+            "reprompt": 0,
+            "revisionDate": "2024-01-30T17:55:36.150Z",
+            "creationDate": "2024-01-30T17:55:36.150Z"
+        });
+
+        let response_json = serde_json::json!({
+            "data": [cipher_mini_1],
+            "continuationToken": null,
+            "object": "list"
+        });
+
+        let mock = Mock::given(method("PUT"))
+            .and(path("/ciphers/share"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&response_json));
+
+        let (server, config) = start_api_mock(vec![mock]).await;
+        let repository = MemoryRepository::<Cipher>::default();
+
+        // Pre-populate repository with original cipher data that will be used for missing fields
+        let original_cipher = Cipher {
+                r#type: CipherType::Login,
+                login: Some(crate::cipher::Login {
+                    username: Some("2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".parse().unwrap()),
+                    password: Some("2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".parse().unwrap()),
+                    password_revision_date: None,
+                    uris: None,
+                    totp: None,
+                    autofill_on_page_load: None,
+                    fido2_credentials: None,
+                }),
+                id: Some(TEST_CIPHER_ID.parse().unwrap()),
+                organization_id: None,
+                folder_id: None,
+                collection_ids: vec![],
+                key: None,
+                name: "2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".parse().unwrap(),
+                notes: Some("2.EI9Km5BfrIqBa1W+WCccfA==|laWxNnx+9H3MZww4zm7cBSLisjpi81zreaQntRhegVI=|x42+qKFf5ga6DIL0OW5pxCdLrC/gm8CXJvf3UASGteI=".parse().unwrap()),
+                identity: None,
+                card: None,
+                secure_note: None,
+                ssh_key: None,
+                favorite: true,
+                reprompt: CipherRepromptType::None,
+                organization_use_totp: true,
+                edit: true,
+                permissions: None,
+                view_password: true,
+                local_data: None,
+                attachments: None,
+                fields: None,
+                password_history: None,
+                creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+                deleted_date: None,
+                revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+                archived_date: None,
+            };
+
+        repository
+            .set(TEST_CIPHER_ID.to_string(), original_cipher)
+            .await
+            .unwrap();
+
+        let encryption_context = create_encryption_context();
+        let collection_ids: Vec<CollectionId> = vec![
+            TEST_COLLECTION_ID_1.parse().unwrap(),
+            TEST_COLLECTION_ID_2.parse().unwrap(),
+        ];
+
+        let api_client =
+            bitwarden_api_api::apis::ciphers_api::CiphersApiClient::new(Arc::new(config));
+
+        let result = share_ciphers_bulk_api(
+            &api_client,
+            &repository,
+            vec![encryption_context],
+            collection_ids.clone(),
+        )
+        .await;
+
+        assert!(result.is_ok());
+        let shared_ciphers = result.unwrap();
+        assert_eq!(shared_ciphers.len(), 1);
+
+        let shared_cipher = &shared_ciphers[0];
+        assert_eq!(
+            shared_cipher
+                .organization_id
+                .as_ref()
+                .map(ToString::to_string),
+            Some(TEST_ORG_ID.to_string())
+        );
+        assert_eq!(shared_cipher.collection_ids, collection_ids);
+
+        // Verify the cipher was updated in repository
+        let stored_cipher = repository
+            .get(TEST_CIPHER_ID.to_string())
+            .await
+            .unwrap()
+            .expect("Cipher should be stored");
+
+        assert_eq!(stored_cipher.id, shared_cipher.id);
+        assert_eq!(stored_cipher.favorite, true); // Should preserve from original
+
+        drop(server);
+    }
+
+    #[tokio::test]
+    async fn test_share_ciphers_bulk_api_handles_error() {
+        let mock = Mock::given(method("PUT"))
+            .and(path("/ciphers/share"))
+            .respond_with(ResponseTemplate::new(500));
+
+        let (server, config) = start_api_mock(vec![mock]).await;
+        let repository = MemoryRepository::<Cipher>::default();
+
+        let encryption_context = create_encryption_context();
+        let collection_ids: Vec<CollectionId> = vec![TEST_COLLECTION_ID_1.parse().unwrap()];
+
+        let api_client =
+            bitwarden_api_api::apis::ciphers_api::CiphersApiClient::new(Arc::new(config));
+
+        let result = share_ciphers_bulk_api(
+            &api_client,
+            &repository,
+            vec![encryption_context],
+            collection_ids,
+        )
+        .await;
+
+        assert!(result.is_err());
+        drop(server);
+    }
 }
