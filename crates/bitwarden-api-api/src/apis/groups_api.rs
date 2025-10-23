@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait GroupsApi: Send + Sync {
     /// DELETE /organizations/{orgId}/groups
     async fn bulk_delete<'a>(
@@ -105,7 +106,8 @@ impl GroupsApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl GroupsApi for GroupsApiClient {
     async fn bulk_delete<'a>(
         &self,

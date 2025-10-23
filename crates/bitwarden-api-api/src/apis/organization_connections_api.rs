@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait OrganizationConnectionsApi: Send + Sync {
     /// GET /organizations/connections/enabled
     async fn connections_enabled(&self) -> Result<bool, Error<ConnectionsEnabledError>>;
@@ -65,7 +66,8 @@ impl OrganizationConnectionsApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl OrganizationConnectionsApi for OrganizationConnectionsApiClient {
     async fn connections_enabled(&self) -> Result<bool, Error<ConnectionsEnabledError>> {
         let local_var_configuration = &self.configuration;

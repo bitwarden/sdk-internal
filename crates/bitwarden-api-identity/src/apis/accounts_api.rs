@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait AccountsApi: Send + Sync {
     /// GET /accounts/webauthn/assertion-options
     async fn get_web_authn_login_assertion_options(
@@ -80,7 +81,8 @@ impl AccountsApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl AccountsApi for AccountsApiClient {
     async fn get_web_authn_login_assertion_options(
         &self,

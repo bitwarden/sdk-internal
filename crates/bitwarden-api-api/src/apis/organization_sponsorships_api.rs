@@ -23,7 +23,8 @@ use crate::{
 };
 
 #[cfg_attr(feature = "mockall", automock)]
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait OrganizationSponsorshipsApi: Send + Sync {
     /// DELETE /organization/sponsorship/{sponsoringOrgId}/{sponsoredFriendlyName}/revoke
     async fn admin_initiated_revoke_sponsorship<'a>(
@@ -109,7 +110,8 @@ impl OrganizationSponsorshipsApiClient {
     }
 }
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
     async fn admin_initiated_revoke_sponsorship<'a>(
         &self,

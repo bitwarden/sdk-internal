@@ -15,7 +15,8 @@ use crate::apis::ContentType;
 {{#mockall}}
 #[cfg_attr(feature = "mockall", automock)]
 {{/mockall}}
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait {{{classname}}}: Send + Sync {
 {{#operations}}
 {{#operation}}
@@ -118,7 +119,8 @@ pub struct {{{vendorExtensions.x-action-name}}}Params {
 {{/operation}}
 {{/operations}}
 
-#[async_trait(?Send)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl {{classname}} for {{classname}}Client {
     {{#operations}}
     {{#operation}}
