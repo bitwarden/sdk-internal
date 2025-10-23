@@ -77,9 +77,7 @@ impl DataEnvelope {
         T: Serialize + SealableVersionedData,
     {
         let (envelope, cek) = Self::seal_ref(&data, &T::NAMESPACE)?;
-        let cek_id = ctx
-            .generate_symmetric_key()
-            .map_err(|_| DataEnvelopeError::KeyStoreError)?;
+        let cek_id = ctx.generate_symmetric_key();
         ctx.set_symmetric_key_internal(cek_id, SymmetricCryptoKey::XChaCha20Poly1305Key(cek))
             .map_err(|_| DataEnvelopeError::KeyStoreError)?;
         Ok((envelope, cek_id))
