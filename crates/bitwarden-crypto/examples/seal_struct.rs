@@ -63,7 +63,7 @@ fn main() {
 
     // Unseal the item again, using the content-encryption-key stored in the context.
     let my_item: MyItem = sealed_item
-        .unseal(ExampleSymmetricKey::ItemKey, &mut ctx)
+        .unseal(cek, &mut ctx)
         .expect("Unsealing should work");
     assert!(matches!(my_item, MyItem::MyItemV1(item) if item.a == 42 && item.b == "Hello, World!"));
 }
@@ -98,11 +98,15 @@ key_ids! {
     #[asymmetric]
     pub enum ExampleAsymmetricKey {
         Key(u8),
+        #[local]
+        Local(LocalId),
     }
 
     #[signing]
     pub enum ExampleSigningKey {
         Key(u8),
+        #[local]
+        Local(LocalId),
     }
     pub ExampleIds => ExampleSymmetricKey, ExampleAsymmetricKey, ExampleSigningKey;
 }
