@@ -14,38 +14,77 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Permissions {
-    #[serde(rename = "accessEventLogs", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "accessEventLogs",
+        alias = "AccessEventLogs",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub access_event_logs: Option<bool>,
-    #[serde(rename = "accessImportExport", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "accessImportExport",
+        alias = "AccessImportExport",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub access_import_export: Option<bool>,
-    #[serde(rename = "accessReports", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "accessReports",
+        alias = "AccessReports",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub access_reports: Option<bool>,
     #[serde(
         rename = "createNewCollections",
+        alias = "CreateNewCollections",
         skip_serializing_if = "Option::is_none"
     )]
     pub create_new_collections: Option<bool>,
-    #[serde(rename = "editAnyCollection", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "editAnyCollection",
+        alias = "EditAnyCollection",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub edit_any_collection: Option<bool>,
     #[serde(
         rename = "deleteAnyCollection",
+        alias = "DeleteAnyCollection",
         skip_serializing_if = "Option::is_none"
     )]
     pub delete_any_collection: Option<bool>,
-    #[serde(rename = "manageGroups", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "manageGroups",
+        alias = "ManageGroups",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub manage_groups: Option<bool>,
-    #[serde(rename = "managePolicies", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "managePolicies",
+        alias = "ManagePolicies",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub manage_policies: Option<bool>,
-    #[serde(rename = "manageSso", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "manageSso",
+        alias = "ManageSso",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub manage_sso: Option<bool>,
-    #[serde(rename = "manageUsers", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "manageUsers",
+        alias = "ManageUsers",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub manage_users: Option<bool>,
     #[serde(
         rename = "manageResetPassword",
+        alias = "ManageResetPassword",
         skip_serializing_if = "Option::is_none"
     )]
     pub manage_reset_password: Option<bool>,
-    #[serde(rename = "manageScim", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "manageScim",
+        alias = "ManageScim",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub manage_scim: Option<bool>,
 }
 

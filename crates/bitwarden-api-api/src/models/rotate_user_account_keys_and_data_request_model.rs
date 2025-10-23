@@ -14,13 +14,16 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RotateUserAccountKeysAndDataRequestModel {
-    #[serde(rename = "oldMasterKeyAuthenticationHash")]
+    #[serde(
+        rename = "oldMasterKeyAuthenticationHash",
+        alias = "OldMasterKeyAuthenticationHash"
+    )]
     pub old_master_key_authentication_hash: Option<String>,
-    #[serde(rename = "accountUnlockData")]
+    #[serde(rename = "accountUnlockData", alias = "AccountUnlockData")]
     pub account_unlock_data: Box<models::UnlockDataRequestModel>,
-    #[serde(rename = "accountKeys")]
+    #[serde(rename = "accountKeys", alias = "AccountKeys")]
     pub account_keys: Box<models::AccountKeysRequestModel>,
-    #[serde(rename = "accountData")]
+    #[serde(rename = "accountData", alias = "AccountData")]
     pub account_data: Box<models::AccountDataRequestModel>,
 }
 

@@ -14,13 +14,29 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UpdateCollectionRequestModel {
-    #[serde(rename = "externalId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "externalId",
+        alias = "ExternalId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub external_id: Option<String>,
-    #[serde(rename = "groups", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "groups",
+        alias = "Groups",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub groups: Option<Vec<models::SelectionReadOnlyRequestModel>>,
-    #[serde(rename = "users", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "users",
+        alias = "Users",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub users: Option<Vec<models::SelectionReadOnlyRequestModel>>,
-    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub name: Option<String>,
 }
 

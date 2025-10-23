@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MinimalTokenizedPaymentMethodRequest {
-    #[serde(rename = "type")]
+    #[serde(rename = "type", alias = "R#type")]
     pub r#type: String,
-    #[serde(rename = "token")]
+    #[serde(rename = "token", alias = "Token")]
     pub token: String,
 }
 

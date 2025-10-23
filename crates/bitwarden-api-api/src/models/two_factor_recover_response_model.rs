@@ -14,9 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TwoFactorRecoverResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "code", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "code",
+        alias = "Code",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub code: Option<String>,
 }
 

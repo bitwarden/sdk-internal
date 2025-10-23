@@ -14,21 +14,53 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BillingTransaction {
-    #[serde(rename = "createdDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "createdDate",
+        alias = "CreatedDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub created_date: Option<String>,
-    #[serde(rename = "amount", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "amount",
+        alias = "Amount",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub amount: Option<f64>,
-    #[serde(rename = "refunded", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "refunded",
+        alias = "Refunded",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub refunded: Option<bool>,
-    #[serde(rename = "partiallyRefunded", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "partiallyRefunded",
+        alias = "PartiallyRefunded",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub partially_refunded: Option<bool>,
-    #[serde(rename = "refundedAmount", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "refundedAmount",
+        alias = "RefundedAmount",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub refunded_amount: Option<f64>,
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "type",
+        alias = "R#type",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub r#type: Option<models::TransactionType>,
-    #[serde(rename = "paymentMethodType", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "paymentMethodType",
+        alias = "PaymentMethodType",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub payment_method_type: Option<models::PaymentMethodType>,
-    #[serde(rename = "details", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "details",
+        alias = "Details",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub details: Option<String>,
 }
 

@@ -14,11 +14,19 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BulkDeleteResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    #[serde(rename = "error", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "error",
+        alias = "Error",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub error: Option<String>,
 }
 

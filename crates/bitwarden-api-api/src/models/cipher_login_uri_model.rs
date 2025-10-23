@@ -14,11 +14,19 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CipherLoginUriModel {
-    #[serde(rename = "uri", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "uri", alias = "Uri", skip_serializing_if = "Option::is_none")]
     pub uri: Option<String>,
-    #[serde(rename = "uriChecksum", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "uriChecksum",
+        alias = "UriChecksum",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub uri_checksum: Option<String>,
-    #[serde(rename = "match", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "match",
+        alias = "R#match",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub r#match: Option<models::UriMatchType>,
 }
 

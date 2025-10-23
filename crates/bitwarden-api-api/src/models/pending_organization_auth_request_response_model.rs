@@ -14,30 +14,67 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PendingOrganizationAuthRequestResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    #[serde(rename = "userId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "userId",
+        alias = "UserId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub user_id: Option<uuid::Uuid>,
-    #[serde(rename = "organizationUserId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationUserId",
+        alias = "OrganizationUserId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_user_id: Option<uuid::Uuid>,
-    #[serde(rename = "email", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "email",
+        alias = "Email",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub email: Option<String>,
-    #[serde(rename = "publicKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "publicKey",
+        alias = "PublicKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub public_key: Option<String>,
     #[serde(
         rename = "requestDeviceIdentifier",
+        alias = "RequestDeviceIdentifier",
         skip_serializing_if = "Option::is_none"
     )]
     pub request_device_identifier: Option<String>,
-    #[serde(rename = "requestDeviceType", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "requestDeviceType",
+        alias = "RequestDeviceType",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub request_device_type: Option<String>,
-    #[serde(rename = "requestIpAddress", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "requestIpAddress",
+        alias = "RequestIpAddress",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub request_ip_address: Option<String>,
-    #[serde(rename = "requestCountryName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "requestCountryName",
+        alias = "RequestCountryName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub request_country_name: Option<String>,
-    #[serde(rename = "creationDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "creationDate",
+        alias = "CreationDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub creation_date: Option<String>,
 }
 

@@ -14,7 +14,7 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PasswordHintRequestModel {
-    #[serde(rename = "email")]
+    #[serde(rename = "email", alias = "Email")]
     pub email: String,
 }
 

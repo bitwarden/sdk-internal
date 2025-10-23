@@ -14,11 +14,19 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GroupRequestModel {
-    #[serde(rename = "name")]
+    #[serde(rename = "name", alias = "Name")]
     pub name: String,
-    #[serde(rename = "collections", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "collections",
+        alias = "Collections",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub collections: Option<Vec<models::SelectionReadOnlyRequestModel>>,
-    #[serde(rename = "users", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "users",
+        alias = "Users",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub users: Option<Vec<uuid::Uuid>>,
 }
 

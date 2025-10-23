@@ -14,9 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SubscriptionCancellationRequestModel {
-    #[serde(rename = "reason", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "reason",
+        alias = "Reason",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub reason: Option<String>,
-    #[serde(rename = "feedback", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "feedback",
+        alias = "Feedback",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub feedback: Option<String>,
 }
 

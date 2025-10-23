@@ -14,11 +14,15 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PasswordManagerPurchaseSelections {
-    #[serde(rename = "seats")]
+    #[serde(rename = "seats", alias = "Seats")]
     pub seats: i32,
-    #[serde(rename = "additionalStorage")]
+    #[serde(rename = "additionalStorage", alias = "AdditionalStorage")]
     pub additional_storage: i32,
-    #[serde(rename = "sponsored", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "sponsored",
+        alias = "Sponsored",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub sponsored: Option<bool>,
 }
 

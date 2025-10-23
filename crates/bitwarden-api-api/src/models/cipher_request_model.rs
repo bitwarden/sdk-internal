@@ -15,51 +15,124 @@ use crate::models;
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CipherRequestModel {
     /// The Id of the user that encrypted the cipher. It should always represent a UserId.
-    #[serde(rename = "encryptedFor", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "encryptedFor",
+        alias = "EncryptedFor",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub encrypted_for: Option<uuid::Uuid>,
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "type",
+        alias = "R#type",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub r#type: Option<models::CipherType>,
-    #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationId",
+        alias = "OrganizationId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_id: Option<String>,
-    #[serde(rename = "folderId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "folderId",
+        alias = "FolderId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub folder_id: Option<String>,
-    #[serde(rename = "favorite", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "favorite",
+        alias = "Favorite",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub favorite: Option<bool>,
-    #[serde(rename = "reprompt", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "reprompt",
+        alias = "Reprompt",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub reprompt: Option<models::CipherRepromptType>,
-    #[serde(rename = "key", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
-    #[serde(rename = "name")]
+    #[serde(rename = "name", alias = "Name")]
     pub name: String,
-    #[serde(rename = "notes", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "notes",
+        alias = "Notes",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub notes: Option<String>,
-    #[serde(rename = "fields", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "fields",
+        alias = "Fields",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub fields: Option<Vec<models::CipherFieldModel>>,
-    #[serde(rename = "passwordHistory", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "passwordHistory",
+        alias = "PasswordHistory",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub password_history: Option<Vec<models::CipherPasswordHistoryModel>>,
-    #[serde(rename = "attachments", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "attachments",
+        alias = "Attachments",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub attachments: Option<std::collections::HashMap<String, String>>,
-    #[serde(rename = "attachments2", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "attachments2",
+        alias = "Attachments2",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub attachments2: Option<std::collections::HashMap<String, models::CipherAttachmentModel>>,
-    #[serde(rename = "login", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "login",
+        alias = "Login",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub login: Option<Box<models::CipherLoginModel>>,
-    #[serde(rename = "card", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "card",
+        alias = "Card",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub card: Option<Box<models::CipherCardModel>>,
-    #[serde(rename = "identity", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "identity",
+        alias = "Identity",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub identity: Option<Box<models::CipherIdentityModel>>,
-    #[serde(rename = "secureNote", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "secureNote",
+        alias = "SecureNote",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub secure_note: Option<Box<models::CipherSecureNoteModel>>,
-    #[serde(rename = "sshKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "sshKey",
+        alias = "SshKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub ssh_key: Option<Box<models::CipherSshKeyModel>>,
     /// JSON string containing cipher-specific data
-    #[serde(rename = "data", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "data",
+        alias = "Data",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub data: Option<String>,
     #[serde(
         rename = "lastKnownRevisionDate",
+        alias = "LastKnownRevisionDate",
         skip_serializing_if = "Option::is_none"
     )]
     pub last_known_revision_date: Option<String>,
-    #[serde(rename = "archivedDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "archivedDate",
+        alias = "ArchivedDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub archived_date: Option<String>,
 }
 

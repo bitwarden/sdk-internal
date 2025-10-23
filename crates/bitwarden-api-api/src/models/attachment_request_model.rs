@@ -14,13 +14,25 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AttachmentRequestModel {
-    #[serde(rename = "key", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
-    #[serde(rename = "fileName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "fileName",
+        alias = "FileName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub file_name: Option<String>,
-    #[serde(rename = "fileSize", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "fileSize",
+        alias = "FileSize",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub file_size: Option<i64>,
-    #[serde(rename = "adminRequest", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "adminRequest",
+        alias = "AdminRequest",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub admin_request: Option<bool>,
 }
 

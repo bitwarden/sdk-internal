@@ -14,11 +14,11 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccountDataRequestModel {
-    #[serde(rename = "ciphers")]
+    #[serde(rename = "ciphers", alias = "Ciphers")]
     pub ciphers: Option<Vec<models::CipherWithIdRequestModel>>,
-    #[serde(rename = "folders")]
+    #[serde(rename = "folders", alias = "Folders")]
     pub folders: Option<Vec<models::FolderWithIdRequestModel>>,
-    #[serde(rename = "sends")]
+    #[serde(rename = "sends", alias = "Sends")]
     pub sends: Option<Vec<models::SendWithIdRequestModel>>,
 }
 

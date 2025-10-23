@@ -14,19 +14,27 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CreateClientOrganizationRequestBody {
-    #[serde(rename = "name")]
+    #[serde(rename = "name", alias = "Name")]
     pub name: String,
-    #[serde(rename = "ownerEmail")]
+    #[serde(rename = "ownerEmail", alias = "OwnerEmail")]
     pub owner_email: String,
-    #[serde(rename = "planType", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "planType",
+        alias = "PlanType",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub plan_type: Option<models::PlanType>,
-    #[serde(rename = "seats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "seats",
+        alias = "Seats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub seats: Option<i32>,
-    #[serde(rename = "key")]
+    #[serde(rename = "key", alias = "Key")]
     pub key: String,
-    #[serde(rename = "keyPair")]
+    #[serde(rename = "keyPair", alias = "KeyPair")]
     pub key_pair: Box<models::KeyPairRequestBody>,
-    #[serde(rename = "collectionName")]
+    #[serde(rename = "collectionName", alias = "CollectionName")]
     pub collection_name: String,
 }
 

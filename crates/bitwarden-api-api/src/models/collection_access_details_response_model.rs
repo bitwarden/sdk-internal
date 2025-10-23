@@ -14,37 +14,86 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CollectionAccessDetailsResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationId",
+        alias = "OrganizationId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_id: Option<uuid::Uuid>,
-    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub name: Option<String>,
-    #[serde(rename = "externalId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "externalId",
+        alias = "ExternalId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub external_id: Option<String>,
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "type",
+        alias = "R#type",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub r#type: Option<models::CollectionType>,
     #[serde(
         rename = "defaultUserCollectionEmail",
+        alias = "DefaultUserCollectionEmail",
         skip_serializing_if = "Option::is_none"
     )]
     pub default_user_collection_email: Option<String>,
-    #[serde(rename = "groups", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "groups",
+        alias = "Groups",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub groups: Option<Vec<models::SelectionReadOnlyResponseModel>>,
-    #[serde(rename = "users", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "users",
+        alias = "Users",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub users: Option<Vec<models::SelectionReadOnlyResponseModel>>,
     /// True if the acting user is explicitly assigned to the collection
-    #[serde(rename = "assigned", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "assigned",
+        alias = "Assigned",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub assigned: Option<bool>,
-    #[serde(rename = "readOnly", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "readOnly",
+        alias = "ReadOnly",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub read_only: Option<bool>,
-    #[serde(rename = "hidePasswords", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "hidePasswords",
+        alias = "HidePasswords",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub hide_passwords: Option<bool>,
-    #[serde(rename = "manage", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "manage",
+        alias = "Manage",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub manage: Option<bool>,
-    #[serde(rename = "unmanaged", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "unmanaged",
+        alias = "Unmanaged",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub unmanaged: Option<bool>,
 }
 

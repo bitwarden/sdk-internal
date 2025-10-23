@@ -14,9 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationIntegrationRequestModel {
-    #[serde(rename = "configuration", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "configuration",
+        alias = "Configuration",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub configuration: Option<String>,
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "type",
+        alias = "R#type",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub r#type: Option<models::IntegrationType>,
 }
 

@@ -14,13 +14,25 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SelectionReadOnlyRequestModel {
-    #[serde(rename = "id")]
+    #[serde(rename = "id", alias = "Id")]
     pub id: uuid::Uuid,
-    #[serde(rename = "readOnly", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "readOnly",
+        alias = "ReadOnly",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub read_only: Option<bool>,
-    #[serde(rename = "hidePasswords", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "hidePasswords",
+        alias = "HidePasswords",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub hide_passwords: Option<bool>,
-    #[serde(rename = "manage", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "manage",
+        alias = "Manage",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub manage: Option<bool>,
 }
 

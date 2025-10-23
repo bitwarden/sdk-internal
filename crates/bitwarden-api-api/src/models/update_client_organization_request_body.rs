@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UpdateClientOrganizationRequestBody {
-    #[serde(rename = "assignedSeats")]
+    #[serde(rename = "assignedSeats", alias = "AssignedSeats")]
     pub assigned_seats: i32,
-    #[serde(rename = "name")]
+    #[serde(rename = "name", alias = "Name")]
     pub name: String,
 }
 

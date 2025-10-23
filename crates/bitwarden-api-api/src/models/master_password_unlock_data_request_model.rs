@@ -14,11 +14,11 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MasterPasswordUnlockDataRequestModel {
-    #[serde(rename = "kdf")]
+    #[serde(rename = "kdf", alias = "Kdf")]
     pub kdf: Box<models::KdfRequestModel>,
-    #[serde(rename = "masterKeyWrappedUserKey")]
+    #[serde(rename = "masterKeyWrappedUserKey", alias = "MasterKeyWrappedUserKey")]
     pub master_key_wrapped_user_key: Option<String>,
-    #[serde(rename = "salt")]
+    #[serde(rename = "salt", alias = "Salt")]
     pub salt: Option<String>,
 }
 

@@ -14,20 +14,41 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SsoUrls {
-    #[serde(rename = "callbackPath", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "callbackPath",
+        alias = "CallbackPath",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub callback_path: Option<String>,
     #[serde(
         rename = "signedOutCallbackPath",
+        alias = "SignedOutCallbackPath",
         skip_serializing_if = "Option::is_none"
     )]
     pub signed_out_callback_path: Option<String>,
-    #[serde(rename = "spEntityId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "spEntityId",
+        alias = "SpEntityId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub sp_entity_id: Option<String>,
-    #[serde(rename = "spEntityIdStatic", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "spEntityIdStatic",
+        alias = "SpEntityIdStatic",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub sp_entity_id_static: Option<String>,
-    #[serde(rename = "spMetadataUrl", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "spMetadataUrl",
+        alias = "SpMetadataUrl",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub sp_metadata_url: Option<String>,
-    #[serde(rename = "spAcsUrl", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "spAcsUrl",
+        alias = "SpAcsUrl",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub sp_acs_url: Option<String>,
 }
 

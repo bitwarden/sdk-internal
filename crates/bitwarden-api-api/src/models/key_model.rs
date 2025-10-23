@@ -14,11 +14,19 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct KeyModel {
-    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub name: Option<String>,
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<i32>,
-    #[serde(rename = "migrated", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "migrated",
+        alias = "Migrated",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub migrated: Option<bool>,
 }
 

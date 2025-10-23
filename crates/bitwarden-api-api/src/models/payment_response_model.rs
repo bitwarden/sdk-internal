@@ -14,16 +14,29 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PaymentResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "userProfile", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "userProfile",
+        alias = "UserProfile",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub user_profile: Option<Box<models::ProfileResponseModel>>,
     #[serde(
         rename = "paymentIntentClientSecret",
+        alias = "PaymentIntentClientSecret",
         skip_serializing_if = "Option::is_none"
     )]
     pub payment_intent_client_secret: Option<String>,
-    #[serde(rename = "success", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "success",
+        alias = "Success",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub success: Option<bool>,
 }
 

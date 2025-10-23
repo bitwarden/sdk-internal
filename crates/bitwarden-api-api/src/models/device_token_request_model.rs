@@ -14,7 +14,11 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DeviceTokenRequestModel {
-    #[serde(rename = "pushToken", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "pushToken",
+        alias = "PushToken",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub push_token: Option<String>,
 }
 

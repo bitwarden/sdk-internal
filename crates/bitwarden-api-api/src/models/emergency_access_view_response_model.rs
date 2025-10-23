@@ -14,11 +14,23 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EmergencyAccessViewResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "keyEncrypted", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "keyEncrypted",
+        alias = "KeyEncrypted",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub key_encrypted: Option<String>,
-    #[serde(rename = "ciphers", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "ciphers",
+        alias = "Ciphers",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub ciphers: Option<Vec<models::CipherResponseModel>>,
 }
 

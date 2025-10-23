@@ -14,21 +14,45 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SecretsWithProjectsInnerSecret {
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationId",
+        alias = "OrganizationId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_id: Option<uuid::Uuid>,
-    #[serde(rename = "key", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
-    #[serde(rename = "creationDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "creationDate",
+        alias = "CreationDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub creation_date: Option<String>,
-    #[serde(rename = "revisionDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "revisionDate",
+        alias = "RevisionDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub revision_date: Option<String>,
-    #[serde(rename = "projects", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "projects",
+        alias = "Projects",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub projects: Option<Vec<models::SecretWithProjectsInnerProject>>,
-    #[serde(rename = "read", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "read",
+        alias = "Read",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub read: Option<bool>,
-    #[serde(rename = "write", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "write",
+        alias = "Write",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub write: Option<bool>,
 }
 

@@ -14,9 +14,13 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Int32Int32KeyValuePair {
-    #[serde(rename = "key", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<i32>,
-    #[serde(rename = "value", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "value",
+        alias = "Value",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub value: Option<i32>,
 }
 

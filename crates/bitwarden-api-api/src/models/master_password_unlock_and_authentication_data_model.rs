@@ -14,21 +14,39 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MasterPasswordUnlockAndAuthenticationDataModel {
-    #[serde(rename = "kdfType")]
+    #[serde(rename = "kdfType", alias = "KdfType")]
     pub kdf_type: models::KdfType,
-    #[serde(rename = "kdfIterations")]
+    #[serde(rename = "kdfIterations", alias = "KdfIterations")]
     pub kdf_iterations: i32,
-    #[serde(rename = "kdfMemory", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "kdfMemory",
+        alias = "KdfMemory",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub kdf_memory: Option<i32>,
-    #[serde(rename = "kdfParallelism", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "kdfParallelism",
+        alias = "KdfParallelism",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub kdf_parallelism: Option<i32>,
-    #[serde(rename = "email")]
+    #[serde(rename = "email", alias = "Email")]
     pub email: Option<String>,
-    #[serde(rename = "masterKeyAuthenticationHash")]
+    #[serde(
+        rename = "masterKeyAuthenticationHash",
+        alias = "MasterKeyAuthenticationHash"
+    )]
     pub master_key_authentication_hash: Option<String>,
-    #[serde(rename = "masterKeyEncryptedUserKey")]
+    #[serde(
+        rename = "masterKeyEncryptedUserKey",
+        alias = "MasterKeyEncryptedUserKey"
+    )]
     pub master_key_encrypted_user_key: Option<String>,
-    #[serde(rename = "masterPasswordHint", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "masterPasswordHint",
+        alias = "MasterPasswordHint",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub master_password_hint: Option<String>,
 }
 

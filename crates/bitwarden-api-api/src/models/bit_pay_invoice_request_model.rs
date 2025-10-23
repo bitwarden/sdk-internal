@@ -14,21 +14,49 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BitPayInvoiceRequestModel {
-    #[serde(rename = "userId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "userId",
+        alias = "UserId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub user_id: Option<uuid::Uuid>,
-    #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationId",
+        alias = "OrganizationId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_id: Option<uuid::Uuid>,
-    #[serde(rename = "providerId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "providerId",
+        alias = "ProviderId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub provider_id: Option<uuid::Uuid>,
-    #[serde(rename = "credit", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "credit",
+        alias = "Credit",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub credit: Option<bool>,
-    #[serde(rename = "amount")]
+    #[serde(rename = "amount", alias = "Amount")]
     pub amount: f64,
-    #[serde(rename = "returnUrl", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "returnUrl",
+        alias = "ReturnUrl",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub return_url: Option<String>,
-    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub name: Option<String>,
-    #[serde(rename = "email", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "email",
+        alias = "Email",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub email: Option<String>,
 }
 

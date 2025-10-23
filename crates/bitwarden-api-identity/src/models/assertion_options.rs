@@ -16,22 +16,54 @@ use crate::models;
 #[serde_as]
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AssertionOptions {
-    #[serde(rename = "status", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "status",
+        alias = "Status",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub status: Option<String>,
-    #[serde(rename = "errorMessage", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "errorMessage",
+        alias = "ErrorMessage",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub error_message: Option<String>,
     #[serde_as(as = "Option<serde_with::base64::Base64>")]
-    #[serde(rename = "challenge", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "challenge",
+        alias = "Challenge",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub challenge: Option<Vec<u8>>,
-    #[serde(rename = "timeout", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "timeout",
+        alias = "Timeout",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub timeout: Option<i32>,
-    #[serde(rename = "rpId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "rpId",
+        alias = "RpId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub rp_id: Option<String>,
-    #[serde(rename = "allowCredentials", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "allowCredentials",
+        alias = "AllowCredentials",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub allow_credentials: Option<Vec<models::PublicKeyCredentialDescriptor>>,
-    #[serde(rename = "userVerification", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "userVerification",
+        alias = "UserVerification",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub user_verification: Option<models::UserVerificationRequirement>,
-    #[serde(rename = "extensions", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "extensions",
+        alias = "Extensions",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub extensions: Option<Box<models::AuthenticationExtensionsClientInputs>>,
 }
 

@@ -14,34 +14,83 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BillingSubscription {
-    #[serde(rename = "trialStartDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "trialStartDate",
+        alias = "TrialStartDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub trial_start_date: Option<String>,
-    #[serde(rename = "trialEndDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "trialEndDate",
+        alias = "TrialEndDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub trial_end_date: Option<String>,
-    #[serde(rename = "periodStartDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "periodStartDate",
+        alias = "PeriodStartDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub period_start_date: Option<String>,
-    #[serde(rename = "periodEndDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "periodEndDate",
+        alias = "PeriodEndDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub period_end_date: Option<String>,
-    #[serde(rename = "cancelledDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "cancelledDate",
+        alias = "CancelledDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub cancelled_date: Option<String>,
-    #[serde(rename = "cancelAtEndDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "cancelAtEndDate",
+        alias = "CancelAtEndDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub cancel_at_end_date: Option<bool>,
-    #[serde(rename = "status", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "status",
+        alias = "Status",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub status: Option<String>,
-    #[serde(rename = "cancelled", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "cancelled",
+        alias = "Cancelled",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub cancelled: Option<bool>,
-    #[serde(rename = "items", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "items",
+        alias = "Items",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub items: Option<Vec<models::BillingSubscriptionItem>>,
-    #[serde(rename = "collectionMethod", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "collectionMethod",
+        alias = "CollectionMethod",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub collection_method: Option<String>,
-    #[serde(rename = "suspensionDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "suspensionDate",
+        alias = "SuspensionDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub suspension_date: Option<String>,
     #[serde(
         rename = "unpaidPeriodEndDate",
+        alias = "UnpaidPeriodEndDate",
         skip_serializing_if = "Option::is_none"
     )]
     pub unpaid_period_end_date: Option<String>,
-    #[serde(rename = "gracePeriod", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "gracePeriod",
+        alias = "GracePeriod",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub grace_period: Option<i32>,
 }
 

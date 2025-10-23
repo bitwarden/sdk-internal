@@ -14,13 +14,29 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BillingSource {
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "type",
+        alias = "R#type",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub r#type: Option<models::PaymentMethodType>,
-    #[serde(rename = "cardBrand", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "cardBrand",
+        alias = "CardBrand",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub card_brand: Option<String>,
-    #[serde(rename = "description", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "description",
+        alias = "Description",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub description: Option<String>,
-    #[serde(rename = "needsVerification", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "needsVerification",
+        alias = "NeedsVerification",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub needs_verification: Option<bool>,
 }
 

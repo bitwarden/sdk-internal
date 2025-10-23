@@ -14,9 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PushSettings {
-    #[serde(rename = "pushTechnology", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "pushTechnology",
+        alias = "PushTechnology",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub push_technology: Option<models::PushTechnologyType>,
-    #[serde(rename = "vapidPublicKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "vapidPublicKey",
+        alias = "VapidPublicKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub vapid_public_key: Option<String>,
 }
 

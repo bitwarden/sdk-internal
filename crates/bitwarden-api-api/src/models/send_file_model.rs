@@ -14,13 +14,25 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SendFileModel {
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
-    #[serde(rename = "fileName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "fileName",
+        alias = "FileName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub file_name: Option<String>,
-    #[serde(rename = "size", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "size",
+        alias = "Size",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub size: Option<i64>,
-    #[serde(rename = "sizeName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "sizeName",
+        alias = "SizeName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub size_name: Option<String>,
 }
 

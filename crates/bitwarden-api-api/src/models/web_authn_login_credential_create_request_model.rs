@@ -14,20 +14,29 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WebAuthnLoginCredentialCreateRequestModel {
-    #[serde(rename = "deviceResponse")]
+    #[serde(rename = "deviceResponse", alias = "DeviceResponse")]
     pub device_response: Box<models::AuthenticatorAttestationRawResponse>,
-    #[serde(rename = "name")]
+    #[serde(rename = "name", alias = "Name")]
     pub name: String,
-    #[serde(rename = "token")]
+    #[serde(rename = "token", alias = "Token")]
     pub token: String,
-    #[serde(rename = "supportsPrf")]
+    #[serde(rename = "supportsPrf", alias = "SupportsPrf")]
     pub supports_prf: bool,
-    #[serde(rename = "encryptedUserKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "encryptedUserKey",
+        alias = "EncryptedUserKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub encrypted_user_key: Option<String>,
-    #[serde(rename = "encryptedPublicKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "encryptedPublicKey",
+        alias = "EncryptedPublicKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub encrypted_public_key: Option<String>,
     #[serde(
         rename = "encryptedPrivateKey",
+        alias = "EncryptedPrivateKey",
         skip_serializing_if = "Option::is_none"
     )]
     pub encrypted_private_key: Option<String>,

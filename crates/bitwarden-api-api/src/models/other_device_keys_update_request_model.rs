@@ -14,11 +14,11 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OtherDeviceKeysUpdateRequestModel {
-    #[serde(rename = "encryptedPublicKey")]
+    #[serde(rename = "encryptedPublicKey", alias = "EncryptedPublicKey")]
     pub encrypted_public_key: String,
-    #[serde(rename = "encryptedUserKey")]
+    #[serde(rename = "encryptedUserKey", alias = "EncryptedUserKey")]
     pub encrypted_user_key: String,
-    #[serde(rename = "deviceId")]
+    #[serde(rename = "deviceId", alias = "DeviceId")]
     pub device_id: uuid::Uuid,
 }
 

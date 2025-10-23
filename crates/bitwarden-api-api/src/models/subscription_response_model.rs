@@ -14,21 +14,53 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SubscriptionResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "storageName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "storageName",
+        alias = "StorageName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub storage_name: Option<String>,
-    #[serde(rename = "storageGb", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "storageGb",
+        alias = "StorageGb",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub storage_gb: Option<f64>,
-    #[serde(rename = "maxStorageGb", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "maxStorageGb",
+        alias = "MaxStorageGb",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub max_storage_gb: Option<i32>,
-    #[serde(rename = "upcomingInvoice", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "upcomingInvoice",
+        alias = "UpcomingInvoice",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub upcoming_invoice: Option<Box<models::BillingSubscriptionUpcomingInvoice>>,
-    #[serde(rename = "subscription", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "subscription",
+        alias = "Subscription",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub subscription: Option<Box<models::BillingSubscription>>,
-    #[serde(rename = "license", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "license",
+        alias = "License",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub license: Option<Box<models::UserLicense>>,
-    #[serde(rename = "expiration", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "expiration",
+        alias = "Expiration",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub expiration: Option<String>,
 }
 

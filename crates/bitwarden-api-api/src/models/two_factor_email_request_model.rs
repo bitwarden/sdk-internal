@@ -14,23 +14,37 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TwoFactorEmailRequestModel {
-    #[serde(rename = "masterPasswordHash", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "masterPasswordHash",
+        alias = "MasterPasswordHash",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub master_password_hash: Option<String>,
-    #[serde(rename = "otp", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "otp", alias = "Otp", skip_serializing_if = "Option::is_none")]
     pub otp: Option<String>,
     #[serde(
         rename = "authRequestAccessCode",
+        alias = "AuthRequestAccessCode",
         skip_serializing_if = "Option::is_none"
     )]
     pub auth_request_access_code: Option<String>,
-    #[serde(rename = "secret", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "secret",
+        alias = "Secret",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub secret: Option<String>,
-    #[serde(rename = "email")]
+    #[serde(rename = "email", alias = "Email")]
     pub email: String,
-    #[serde(rename = "authRequestId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "authRequestId",
+        alias = "AuthRequestId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub auth_request_id: Option<String>,
     #[serde(
         rename = "ssoEmail2FaSessionToken",
+        alias = "SsoEmail2FaSessionToken",
         skip_serializing_if = "Option::is_none"
     )]
     pub sso_email2_fa_session_token: Option<String>,

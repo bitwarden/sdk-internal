@@ -14,12 +14,21 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DomainsResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "equivalentDomains", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "equivalentDomains",
+        alias = "EquivalentDomains",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub equivalent_domains: Option<Vec<Vec<String>>>,
     #[serde(
         rename = "globalEquivalentDomains",
+        alias = "GlobalEquivalentDomains",
         skip_serializing_if = "Option::is_none"
     )]
     pub global_equivalent_domains: Option<Vec<models::GlobalDomains>>,

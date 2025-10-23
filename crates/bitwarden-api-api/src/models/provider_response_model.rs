@@ -14,29 +14,73 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProviderResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub name: Option<String>,
-    #[serde(rename = "businessName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "businessName",
+        alias = "BusinessName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub business_name: Option<String>,
-    #[serde(rename = "businessAddress1", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "businessAddress1",
+        alias = "BusinessAddress1",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub business_address1: Option<String>,
-    #[serde(rename = "businessAddress2", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "businessAddress2",
+        alias = "BusinessAddress2",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub business_address2: Option<String>,
-    #[serde(rename = "businessAddress3", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "businessAddress3",
+        alias = "BusinessAddress3",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub business_address3: Option<String>,
-    #[serde(rename = "businessCountry", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "businessCountry",
+        alias = "BusinessCountry",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub business_country: Option<String>,
-    #[serde(rename = "businessTaxNumber", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "businessTaxNumber",
+        alias = "BusinessTaxNumber",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub business_tax_number: Option<String>,
-    #[serde(rename = "billingEmail", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "billingEmail",
+        alias = "BillingEmail",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub billing_email: Option<String>,
-    #[serde(rename = "creationDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "creationDate",
+        alias = "CreationDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub creation_date: Option<String>,
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "type",
+        alias = "R#type",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub r#type: Option<models::ProviderType>,
 }
 
