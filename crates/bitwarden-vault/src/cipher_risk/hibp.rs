@@ -10,7 +10,7 @@ pub(super) const HIBP_DEFAULT_BASE_URL: &str = "https://api.pwnedpasswords.com";
 /// Hash password with SHA-1 and split into prefix/suffix for k-anonymity.
 ///
 /// Returns a tuple of (prefix: first 5 chars, suffix: remaining chars).
-pub(super) fn hash_password_for_hibp(password: &str) -> (String, String) {
+fn hash_password_for_hibp(password: &str) -> (String, String) {
     use sha1::{Digest, Sha1};
 
     let hash = Sha1::digest(password.as_bytes());
@@ -24,7 +24,7 @@ pub(super) fn hash_password_for_hibp(password: &str) -> (String, String) {
 /// Response format: "SUFFIX:COUNT\r\n..." (e.g.,
 /// "0018A45C4D1DEF81644B54AB7F969B88D65:3\r\n...").
 /// Returns the number of times the password appears in breaches (0 if not found).
-pub(super) fn parse_hibp_response(response: &str, target_suffix: &str) -> u32 {
+fn parse_hibp_response(response: &str, target_suffix: &str) -> u32 {
     response
         .lines()
         .filter_map(|l| l.split_once(':'))

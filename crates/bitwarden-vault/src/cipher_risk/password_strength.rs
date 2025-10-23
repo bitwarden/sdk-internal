@@ -26,7 +26,7 @@ pub(super) fn calculate_password_strength(password: &str, username: Option<&str>
 /// - For emails: extracts and tokenizes the local part (before @)
 /// - For usernames: tokenizes the entire string
 /// - Splits on non-alphanumeric characters and converts to lowercase
-pub(super) fn extract_user_inputs(username: &str) -> Vec<String> {
+fn extract_user_inputs(username: &str) -> Vec<String> {
     username
         // Check if it's email-like (contains @)
         .split_once('@')
