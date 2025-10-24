@@ -2,10 +2,11 @@ use std::fmt::Debug;
 
 use bitwarden_encoding::NotB64EncodedError;
 use bitwarden_error::bitwarden_error;
+use coset::iana::KeyOperation;
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::fingerprint::FingerprintError;
+use crate::{fingerprint::FingerprintError, safe::DataEnvelopeError};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -29,6 +30,8 @@ pub enum CryptoError {
     MissingField(&'static str),
     #[error("Missing Key for Id: {0}")]
     MissingKeyId(String),
+    #[error("Key operation not supported by key: {0:?}")]
+    KeyOperationNotSupported(KeyOperation),
     #[error("Crypto store is read-only")]
     ReadOnlyKeyStore,
 
@@ -67,6 +70,9 @@ pub enum CryptoError {
 
     #[error("Signature error, {0}")]
     Signature(#[from] SignatureError),
+
+    #[error("DataEnvelope error, {0}")]
+    DataEnvelopeError(#[from] DataEnvelopeError),
 
     #[error("Encoding error, {0}")]
     Encoding(#[from] EncodingError),
