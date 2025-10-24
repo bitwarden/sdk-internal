@@ -16,7 +16,7 @@ use crate::{
 
 /// Standalone function that shares a cipher to an organization via API call.
 /// This function is extracted to allow for easier testing with mocked dependencies.
-async fn share_cipher_api(
+async fn share_cipher(
     api_client: &dyn CiphersApi,
     repository: &dyn Repository<Cipher>,
     encrypted_cipher: EncryptionContext,
@@ -46,7 +46,7 @@ async fn share_cipher_api(
 
 /// Standalone function that shares multiple ciphers to an organization via API call.
 /// This function is extracted to allow for easier testing with mocked dependencies.
-async fn share_ciphers_bulk_api(
+async fn share_ciphers_bulk(
     api_client: &dyn CiphersApi,
     repository: &dyn Repository<Cipher>,
     encrypted_ciphers: Vec<EncryptionContext>,
@@ -168,7 +168,7 @@ impl CiphersClient {
         Ok(cipher_view)
     }
 
-    /// Moves a cipher into an organization and collections.
+    /// Moves a cipher into an organization, adds it to collections, and calls the share_cipher API.
     pub async fn share_cipher(
         &self,
         mut cipher_view: CipherView,
@@ -188,7 +188,7 @@ impl CiphersClient {
             .await
             .api_client;
 
-        share_cipher_api(
+        share_cipher(
             api_client.ciphers_api(),
             &*self.get_repository()?,
             encrypted_cipher,
@@ -197,7 +197,8 @@ impl CiphersClient {
         .await
     }
 
-    #[allow(missing_docs)]
+    /// Moves a group of ciphers into an organization, adds them to collections, and calls the
+    /// share_ciphers API.
     pub async fn share_ciphers_bulk(
         &self,
         cipher_views: Vec<CipherView>,
@@ -219,7 +220,7 @@ impl CiphersClient {
             .await
             .api_client;
 
-        share_ciphers_bulk_api(
+        share_ciphers_bulk(
             api_client.ciphers_api(),
             &*self.get_repository()?,
             encrypted_ciphers,
@@ -242,7 +243,6 @@ mod tests {
     use crate::{CipherRepromptType, CipherType, LoginView, VaultClientExt};
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
-    // Use the actual organization ID from test_bitwarden_com_account
     const TEST_ORG_ID: &str = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8";
     const TEST_COLLECTION_ID_1: &str = "c1111111-1111-1111-1111-111111111111";
     const TEST_COLLECTION_ID_2: &str = "c2222222-2222-2222-2222-222222222222";
@@ -502,7 +502,7 @@ mod tests {
         let encryption_context = create_encryption_context();
         let collection_ids: Vec<CollectionId> = vec![collection_id];
 
-        let result = share_cipher_api(
+        let result = share_cipher(
             api_client.ciphers_api(),
             &repository,
             encryption_context,
@@ -545,7 +545,7 @@ mod tests {
         let encryption_context = create_encryption_context();
         let collection_ids: Vec<CollectionId> = vec![TEST_COLLECTION_ID_1.parse().unwrap()];
 
-        let result = share_cipher_api(
+        let result = share_cipher(
             api_client.ciphers_api(),
             &repository,
             encryption_context,
@@ -632,7 +632,7 @@ mod tests {
             TEST_COLLECTION_ID_2.parse().unwrap(),
         ];
 
-        let result = share_ciphers_bulk_api(
+        let result = share_ciphers_bulk(
             api_client.ciphers_api(),
             &repository,
             vec![encryption_context],
@@ -679,7 +679,7 @@ mod tests {
         let encryption_context = create_encryption_context();
         let collection_ids: Vec<CollectionId> = vec![TEST_COLLECTION_ID_1.parse().unwrap()];
 
-        let result = share_ciphers_bulk_api(
+        let result = share_ciphers_bulk(
             api_client.ciphers_api(),
             &repository,
             vec![encryption_context],
