@@ -24,7 +24,7 @@ bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-vault = { workspace = true }
 chrono = { workspace = true }
-coset = ">=0.3.7, <0.4"
+coset = ">=0.3.7, <0.5"
 itertools = ">=0.13.0, <0.15"
 log = { workspace = true }
 p256 = ">=0.13.2, <0.14"
