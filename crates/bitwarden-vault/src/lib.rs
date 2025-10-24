@@ -7,6 +7,8 @@ mod uniffi_support;
 
 mod cipher;
 pub use cipher::*;
+mod cipher_risk;
+pub use cipher_risk::*;
 mod folder;
 pub use folder::*;
 mod password_history;
