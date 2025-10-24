@@ -180,7 +180,9 @@ impl CiphersClient {
         let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
         Ok(decrypted_key)
     }
+}
 
+impl CiphersClient {
     fn get_repository(&self) -> Result<Arc<dyn Repository<Cipher>>, RepositoryError> {
         Ok(self
             .client
