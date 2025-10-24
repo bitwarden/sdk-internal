@@ -1,3 +1,5 @@
+#[cfg(feature = "wasm")]
+use bitwarden_crypto::safe::PasswordProtectedKeyEnvelope;
 use bitwarden_crypto::{CryptoError, Decryptable, Kdf};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
@@ -10,8 +12,6 @@ use super::crypto::{
     MakeKeyPairResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
     derive_key_connector, make_key_pair, verify_asymmetric_keys,
 };
-#[cfg(any(feature = "wasm", test))]
-use crate::key_management::PasswordProtectedKeyEnvelope;
 #[cfg(feature = "internal")]
 use crate::key_management::{
     SymmetricKeyId,
