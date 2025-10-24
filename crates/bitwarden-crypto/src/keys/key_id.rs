@@ -9,7 +9,7 @@ pub(crate) const KEY_ID_SIZE: usize = 16;
 /// A key id is a unique identifier for a single key. There is a 1:1 mapping between key ID and key
 /// bytes, so something like a user key rotation is replacing the key with ID A with a new key with
 /// ID B.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub(crate) struct KeyId(Uuid);
 
 /// Fixed length identifiers for keys.
