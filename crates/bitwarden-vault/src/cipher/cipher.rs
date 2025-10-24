@@ -50,6 +50,10 @@ pub enum CipherError {
         "This cipher contains attachments without keys. Those attachments will need to be reuploaded to complete the operation"
     )]
     AttachmentsWithoutKeys,
+    #[error(transparent)]
+    Chrono(#[from] chrono::ParseError),
+    #[error(transparent)]
+    SerdeJson(#[from] serde_json::Error),
 }
 
 /// Helper trait for operations on cipher types.
@@ -111,7 +115,6 @@ pub struct Cipher {
     pub organization_id: Option<OrganizationId>,
     pub folder_id: Option<FolderId>,
     pub collection_ids: Vec<CollectionId>,
-
     /// More recent ciphers uses individual encryption keys to encrypt the other fields of the
     /// Cipher.
     pub key: Option<EncString>,
@@ -142,6 +145,7 @@ pub struct Cipher {
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
     pub archived_date: Option<DateTime<Utc>>,
+    pub data: Option<String>,
 }
 
 bitwarden_state::register_repository_item!(Cipher, "Cipher");
@@ -342,6 +346,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
             revision_date: cipher_view.revision_date,
             permissions: cipher_view.permissions,
             archived_date: cipher_view.archived_date,
+            data: None, // TODO: Do we need to repopulate this on this on the cipher?
         })
     }
 }
@@ -448,8 +453,27 @@ impl Cipher {
             .map(|kind| kind.get_copyable_fields(Some(self)))
             .unwrap_or_default()
     }
-}
 
+    /// This replaces the values provided by the API in the `login`, `secure_note`, `card`,
+    /// `identity`, and `ssh_key` fields, relying instead on client-side parsing of the
+    /// `data` field.
+    #[allow(unused)] // Will be used by future changes to support cipher versioning.
+    pub(crate) fn populate_cipher_types(&mut self) -> Result<(), VaultParseError> {
+        let data = self
+            .data
+            .as_ref()
+            .ok_or(VaultParseError::MissingField(MissingFieldError("data")))?;
+
+        match &self.r#type {
+            crate::CipherType::Login => self.login = serde_json::from_str(data)?,
+            crate::CipherType::SecureNote => self.secure_note = serde_json::from_str(data)?,
+            crate::CipherType::Card => self.card = serde_json::from_str(data)?,
+            crate::CipherType::Identity => self.identity = serde_json::from_str(data)?,
+            crate::CipherType::SshKey => self.ssh_key = serde_json::from_str(data)?,
+        }
+        Ok(())
+    }
+}
 impl CipherView {
     #[allow(missing_docs)]
     pub fn generate_cipher_key(
@@ -766,6 +790,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
             revision_date: require!(cipher.revision_date).parse()?,
             key: EncString::try_from_optional(cipher.key)?,
             archived_date: cipher.archived_date.map(|d| d.parse()).transpose()?,
+            data: cipher.data,
         })
     }
 }
@@ -856,6 +881,7 @@ impl TryFrom<CipherResponseModel> for Cipher {
             revision_date: require!(cipher.revision_date).parse()?,
             key: EncString::try_from_optional(cipher.key)?,
             archived_date: cipher.archived_date.map(|d| d.parse()).transpose()?,
+            data: cipher.data,
         })
     }
 }
@@ -871,6 +897,15 @@ mod tests {
 
     use super::*;
     use crate::{Fido2Credential, login::Fido2CredentialListView};
+
+    // Test constants for encrypted strings
+    const TEST_ENC_STRING_1: &str = "2.xzDCDWqRBpHm42EilUvyVw==|nIrWV3l/EeTbWTnAznrK0Q==|sUj8ol2OTgvvTvD86a9i9XUP58hmtCEBqhck7xT5YNk=";
+    const TEST_ENC_STRING_2: &str = "2.M7ZJ7EuFDXCq66gDTIyRIg==|B1V+jroo6+m/dpHx6g8DxA==|PIXPBCwyJ1ady36a7jbcLg346pm/7N/06W4UZxc1TUo=";
+    const TEST_ENC_STRING_3: &str = "2.d3rzo0P8rxV9Hs1m1BmAjw==|JOwna6i0zs+K7ZghwrZRuw==|SJqKreLag1ID+g6H1OdmQr0T5zTrVWKzD6hGy3fDqB0=";
+    const TEST_ENC_STRING_4: &str = "2.EBNGgnaMHeO/kYnI3A0jiA==|9YXlrgABP71ebZ5umurCJQ==|GDk5jxiqTYaU7e2AStCFGX+a1kgCIk8j0NEli7Jn0L4=";
+    const TEST_ENC_STRING_5: &str = "2.hqdioUAc81FsKQmO1XuLQg==|oDRdsJrQjoFu9NrFVy8tcJBAFKBx95gHaXZnWdXbKpsxWnOr2sKipIG43pKKUFuq|3gKZMiboceIB5SLVOULKg2iuyu6xzos22dfJbvx0EHk=";
+    const TEST_CIPHER_NAME: &str = "2.d3rzo0P8rxV9Hs1m1BmAjw==|JOwna6i0zs+K7ZghwrZRuw==|SJqKreLag1ID+g6H1OdmQr0T5zTrVWKzD6hGy3fDqB0=";
+    const TEST_UUID: &str = "fd411a1a-fec8-4070-985d-0e6560860e69";
 
     fn generate_cipher() -> CipherView {
         let test_id = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
@@ -942,7 +977,7 @@ mod tests {
             folder_id: None,
             collection_ids: vec![],
             key: None,
-            name: "2.d3rzo0P8rxV9Hs1m1BmAjw==|JOwna6i0zs+K7ZghwrZRuw==|SJqKreLag1ID+g6H1OdmQr0T5zTrVWKzD6hGy3fDqB0=".parse().unwrap(),
+            name: TEST_CIPHER_NAME.parse().unwrap(),
             notes: None,
             r#type: CipherType::Login,
             login: Some(Login {
@@ -975,6 +1010,7 @@ mod tests {
             deleted_date: None,
             revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
             archived_date: None,
+            data: None,
         };
 
         let view: CipherListView = key_store.decrypt(&cipher).unwrap();
@@ -1382,5 +1418,373 @@ mod tests {
 
         let decrypted_key_value = cipher_view.decrypt_fido2_private_key(&mut ctx).unwrap();
         assert_eq!(decrypted_key_value, "123");
+    }
+
+    #[test]
+    fn test_populate_cipher_types_login_with_valid_data() {
+        let mut cipher = Cipher {
+            id: Some(TEST_UUID.parse().unwrap()),
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            key: None,
+            name: TEST_CIPHER_NAME.parse().unwrap(),
+            notes: None,
+            r#type: CipherType::Login,
+            login: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: false,
+            edit: true,
+            view_password: true,
+            permissions: None,
+            local_data: None,
+            attachments: None,
+            fields: None,
+            password_history: None,
+            creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
+            data: Some(format!(
+                r#"{{"version": 2, "username": "{}", "password": "{}", "organizationUseTotp": true, "favorite": false, "deletedDate": null}}"#,
+                TEST_ENC_STRING_1, TEST_ENC_STRING_2
+            )),
+        };
+
+        cipher
+            .populate_cipher_types()
+            .expect("populate_cipher_types failed");
+
+        assert!(cipher.login.is_some());
+        let login = cipher.login.unwrap();
+        assert_eq!(login.username.unwrap().to_string(), TEST_ENC_STRING_1);
+        assert_eq!(login.password.unwrap().to_string(), TEST_ENC_STRING_2);
+    }
+
+    #[test]
+    fn test_populate_cipher_types_secure_note() {
+        let mut cipher = Cipher {
+            id: Some(TEST_UUID.parse().unwrap()),
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            key: None,
+            name: TEST_CIPHER_NAME.parse().unwrap(),
+            notes: None,
+            r#type: CipherType::SecureNote,
+            login: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: false,
+            edit: true,
+            view_password: true,
+            permissions: None,
+            local_data: None,
+            attachments: None,
+            fields: None,
+            password_history: None,
+            creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
+            data: Some(r#"{"type": 0, "organizationUseTotp": false, "favorite": false, "deletedDate": null}"#.to_string()),
+        };
+
+        cipher
+            .populate_cipher_types()
+            .expect("populate_cipher_types failed");
+
+        assert!(cipher.secure_note.is_some());
+    }
+
+    #[test]
+    fn test_populate_cipher_types_card() {
+        let mut cipher = Cipher {
+            id: Some(TEST_UUID.parse().unwrap()),
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            key: None,
+            name: TEST_CIPHER_NAME.parse().unwrap(),
+            notes: None,
+            r#type: CipherType::Card,
+            login: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: false,
+            edit: true,
+            view_password: true,
+            permissions: None,
+            local_data: None,
+            attachments: None,
+            fields: None,
+            password_history: None,
+            creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
+            data: Some(format!(
+                r#"{{"cardholderName": "{}", "number": "{}", "expMonth": "{}", "expYear": "{}", "code": "{}", "brand": "{}", "organizationUseTotp": true, "favorite": false, "deletedDate": null}}"#,
+                TEST_ENC_STRING_1,
+                TEST_ENC_STRING_2,
+                TEST_ENC_STRING_3,
+                TEST_ENC_STRING_4,
+                TEST_ENC_STRING_5,
+                TEST_ENC_STRING_1
+            )),
+        };
+
+        cipher
+            .populate_cipher_types()
+            .expect("populate_cipher_types failed");
+
+        assert!(cipher.card.is_some());
+        let card = cipher.card.unwrap();
+        assert_eq!(
+            card.cardholder_name.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_1
+        );
+        assert_eq!(card.number.as_ref().unwrap().to_string(), TEST_ENC_STRING_2);
+        assert_eq!(
+            card.exp_month.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_3
+        );
+        assert_eq!(
+            card.exp_year.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_4
+        );
+        assert_eq!(card.code.as_ref().unwrap().to_string(), TEST_ENC_STRING_5);
+        assert_eq!(card.brand.as_ref().unwrap().to_string(), TEST_ENC_STRING_1);
+    }
+
+    #[test]
+    fn test_populate_cipher_types_identity() {
+        let mut cipher = Cipher {
+            id: Some(TEST_UUID.parse().unwrap()),
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            key: None,
+            name: TEST_CIPHER_NAME.parse().unwrap(),
+            notes: None,
+            r#type: CipherType::Identity,
+            login: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: false,
+            edit: true,
+            view_password: true,
+            permissions: None,
+            local_data: None,
+            attachments: None,
+            fields: None,
+            password_history: None,
+            creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
+            data: Some(format!(
+                r#"{{"firstName": "{}", "lastName": "{}", "email": "{}", "phone": "{}", "company": "{}", "address1": "{}", "city": "{}", "state": "{}", "postalCode": "{}", "country": "{}", "organizationUseTotp": false, "favorite": true, "deletedDate": null}}"#,
+                TEST_ENC_STRING_1,
+                TEST_ENC_STRING_2,
+                TEST_ENC_STRING_3,
+                TEST_ENC_STRING_4,
+                TEST_ENC_STRING_5,
+                TEST_ENC_STRING_1,
+                TEST_ENC_STRING_2,
+                TEST_ENC_STRING_3,
+                TEST_ENC_STRING_4,
+                TEST_ENC_STRING_5
+            )),
+        };
+
+        cipher
+            .populate_cipher_types()
+            .expect("populate_cipher_types failed");
+
+        assert!(cipher.identity.is_some());
+        let identity = cipher.identity.unwrap();
+        assert_eq!(
+            identity.first_name.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_1
+        );
+        assert_eq!(
+            identity.last_name.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_2
+        );
+        assert_eq!(
+            identity.email.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_3
+        );
+        assert_eq!(
+            identity.phone.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_4
+        );
+        assert_eq!(
+            identity.company.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_5
+        );
+        assert_eq!(
+            identity.address1.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_1
+        );
+        assert_eq!(
+            identity.city.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_2
+        );
+        assert_eq!(
+            identity.state.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_3
+        );
+        assert_eq!(
+            identity.postal_code.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_4
+        );
+        assert_eq!(
+            identity.country.as_ref().unwrap().to_string(),
+            TEST_ENC_STRING_5
+        );
+    }
+
+    #[test]
+    fn test_populate_cipher_types_ssh_key() {
+        let mut cipher = Cipher {
+            id: Some(TEST_UUID.parse().unwrap()),
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            key: None,
+            name: TEST_CIPHER_NAME.parse().unwrap(),
+            notes: None,
+            r#type: CipherType::SshKey,
+            login: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: false,
+            edit: true,
+            view_password: true,
+            permissions: None,
+            local_data: None,
+            attachments: None,
+            fields: None,
+            password_history: None,
+            creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
+            data: Some(format!(
+                r#"{{"privateKey": "{}", "publicKey": "{}", "fingerprint": "{}", "organizationUseTotp": true, "favorite": false, "deletedDate": null}}"#,
+                TEST_ENC_STRING_1, TEST_ENC_STRING_2, TEST_ENC_STRING_3
+            )),
+        };
+
+        cipher
+            .populate_cipher_types()
+            .expect("populate_cipher_types failed");
+
+        assert!(cipher.ssh_key.is_some());
+        let ssh_key = cipher.ssh_key.unwrap();
+        assert_eq!(ssh_key.private_key.to_string(), TEST_ENC_STRING_1);
+        assert_eq!(ssh_key.public_key.to_string(), TEST_ENC_STRING_2);
+        assert_eq!(ssh_key.fingerprint.to_string(), TEST_ENC_STRING_3);
+    }
+
+    #[test]
+    fn test_populate_cipher_types_with_null_data() {
+        let mut cipher = Cipher {
+            id: Some(TEST_UUID.parse().unwrap()),
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            key: None,
+            name: TEST_CIPHER_NAME.parse().unwrap(),
+            notes: None,
+            r#type: CipherType::Login,
+            login: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: false,
+            edit: true,
+            view_password: true,
+            permissions: None,
+            local_data: None,
+            attachments: None,
+            fields: None,
+            password_history: None,
+            creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
+            data: None,
+        };
+
+        let result = cipher.populate_cipher_types();
+        assert!(matches!(
+            result,
+            Err(VaultParseError::MissingField(MissingFieldError("data")))
+        ));
+    }
+
+    #[test]
+    fn test_populate_cipher_types_with_invalid_json() {
+        let mut cipher = Cipher {
+            id: Some(TEST_UUID.parse().unwrap()),
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            key: None,
+            name: TEST_CIPHER_NAME.parse().unwrap(),
+            notes: None,
+            r#type: CipherType::Login,
+            login: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: false,
+            edit: true,
+            view_password: true,
+            permissions: None,
+            local_data: None,
+            attachments: None,
+            fields: None,
+            password_history: None,
+            creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
+            data: Some("invalid json".to_string()),
+        };
+
+        let result = cipher.populate_cipher_types();
+
+        assert!(matches!(result, Err(VaultParseError::SerdeJson(_))));
     }
 }

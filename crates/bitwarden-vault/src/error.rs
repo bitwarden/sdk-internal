@@ -1,6 +1,8 @@
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
+use crate::CipherError;
+
 /// Generic error type for vault encryption errors.
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -30,4 +32,17 @@ pub enum VaultParseError {
     Crypto(#[from] bitwarden_crypto::CryptoError),
     #[error(transparent)]
     MissingField(#[from] bitwarden_core::MissingFieldError),
+    #[error(transparent)]
+    SerdeJson(#[from] serde_json::Error),
+}
+
+impl From<VaultParseError> for CipherError {
+    fn from(e: VaultParseError) -> Self {
+        match e {
+            VaultParseError::Crypto(e) => Self::Crypto(e),
+            VaultParseError::MissingField(e) => Self::MissingField(e),
+            VaultParseError::Chrono(e) => Self::Chrono(e),
+            VaultParseError::SerdeJson(e) => Self::SerdeJson(e),
+        }
+    }
 }
