@@ -1,0 +1,6816 @@
+[
+  {
+    "crate_name": "bitwarden_collections",
+    "namespace": "bitwarden_collections",
+    "functions": [],
+    "objects": [],
+    "records": [
+      {
+        "name": "Collection",
+        "fields": [
+          {
+            "name": "default_user_collection_email",
+            "type": "Option<String>"
+          },
+          {
+            "name": "external_id",
+            "type": "Option<String>"
+          },
+          {
+            "name": "hide_passwords",
+            "type": "bool"
+          },
+          {
+            "name": "id",
+            "type": "Option<custom bitwarden_collections::CollectionId(custom bitwarden_core::Uuid(String))>"
+          },
+          {
+            "name": "manage",
+            "type": "bool"
+          },
+          {
+            "name": "name",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "organization_id",
+            "type": "custom bitwarden_core::OrganizationId(custom bitwarden_core::Uuid(String))"
+          },
+          {
+            "name": "read_only",
+            "type": "bool"
+          },
+          {
+            "name": "type",
+            "type": "enum bitwarden_collections::CollectionType"
+          }
+        ]
+      },
+      {
+        "name": "CollectionView",
+        "fields": [
+          {
+            "name": "external_id",
+            "type": "Option<String>"
+          },
+          {
+            "name": "hide_passwords",
+            "type": "bool"
+          },
+          {
+            "name": "id",
+            "type": "Option<custom bitwarden_collections::CollectionId(custom bitwarden_core::Uuid(String))>"
+          },
+          {
+            "name": "manage",
+            "type": "bool"
+          },
+          {
+            "name": "name",
+            "type": "String"
+          },
+          {
+            "name": "organization_id",
+            "type": "custom bitwarden_core::OrganizationId(custom bitwarden_core::Uuid(String))"
+          },
+          {
+            "name": "read_only",
+            "type": "bool"
+          },
+          {
+            "name": "type",
+            "type": "enum bitwarden_collections::CollectionType"
+          }
+        ]
+      }
+    ],
+    "enums": [
+      {
+        "name": "CollectionDecryptError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Crypto",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "CollectionType",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "DefaultUserCollection",
+            "fields": []
+          },
+          {
+            "name": "SharedCollection",
+            "fields": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "crate_name": "bitwarden_core",
+    "namespace": "bitwarden_core",
+    "functions": [],
+    "objects": [
+      {
+        "name": "ClientManagedTokens",
+        "trait_interface": true,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "get_access_token",
+            "is_async": true,
+            "args": [],
+            "return_type": "Option<String>",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_core_fn_method_clientmanagedtokens_get_access_token"
+          }
+        ]
+      }
+    ],
+    "records": [
+      {
+        "name": "AuthRequestResponse",
+        "fields": [
+          {
+            "name": "access_code",
+            "type": "String"
+          },
+          {
+            "name": "fingerprint",
+            "type": "String"
+          },
+          {
+            "name": "private_key",
+            "type": "custom bitwarden_encoding::B64(String)"
+          },
+          {
+            "name": "public_key",
+            "type": "custom bitwarden_encoding::B64(String)"
+          }
+        ]
+      },
+      {
+        "name": "ClientSettings",
+        "fields": [
+          {
+            "name": "api_url",
+            "type": "String"
+          },
+          {
+            "name": "device_type",
+            "type": "enum bitwarden_core::DeviceType"
+          },
+          {
+            "name": "identity_url",
+            "type": "String"
+          },
+          {
+            "name": "user_agent",
+            "type": "String"
+          }
+        ]
+      },
+      {
+        "name": "DeriveKeyConnectorRequest",
+        "fields": [
+          {
+            "name": "email",
+            "type": "String"
+          },
+          {
+            "name": "kdf",
+            "type": "enum bitwarden_crypto::Kdf"
+          },
+          {
+            "name": "password",
+            "type": "String"
+          },
+          {
+            "name": "user_key_encrypted",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          }
+        ]
+      },
+      {
+        "name": "DerivePinKeyResponse",
+        "fields": [
+          {
+            "name": "encrypted_pin",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "pin_protected_user_key",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          }
+        ]
+      },
+      {
+        "name": "EnrollPinResponse",
+        "fields": [
+          {
+            "name": "pin_protected_user_key_envelope",
+            "type": "custom bitwarden_core::PasswordProtectedKeyEnvelope(String)"
+          },
+          {
+            "name": "user_key_encrypted_pin",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          }
+        ]
+      },
+      {
+        "name": "FingerprintRequest",
+        "fields": [
+          {
+            "name": "fingerprint_material",
+            "type": "String"
+          },
+          {
+            "name": "public_key",
+            "type": "custom bitwarden_encoding::B64(String)"
+          }
+        ]
+      },
+      {
+        "name": "InitOrgCryptoRequest",
+        "fields": [
+          {
+            "name": "organization_keys",
+            "type": "Map<custom bitwarden_core::OrganizationId(custom bitwarden_core::Uuid(String)), custom bitwarden_crypto::UnsignedSharedKey(String)>"
+          }
+        ]
+      },
+      {
+        "name": "InitUserCryptoRequest",
+        "fields": [
+          {
+            "name": "email",
+            "type": "String"
+          },
+          {
+            "name": "kdf_params",
+            "type": "enum bitwarden_crypto::Kdf"
+          },
+          {
+            "name": "method",
+            "type": "enum bitwarden_core::InitUserCryptoMethod"
+          },
+          {
+            "name": "private_key",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "security_state",
+            "type": "Option<custom bitwarden_core::SignedSecurityState(String)>"
+          },
+          {
+            "name": "signing_key",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "user_id",
+            "type": "Option<custom bitwarden_core::UserId(custom bitwarden_core::Uuid(String))>"
+          }
+        ]
+      },
+      {
+        "name": "KeyConnectorResponse",
+        "fields": [
+          {
+            "name": "encrypted_user_key",
+            "type": "String"
+          },
+          {
+            "name": "keys",
+            "type": "record bitwarden_crypto::RsaKeyPair"
+          },
+          {
+            "name": "master_key",
+            "type": "custom bitwarden_encoding::B64(String)"
+          }
+        ]
+      },
+      {
+        "name": "MakeKeyPairResponse",
+        "fields": [
+          {
+            "name": "user_key_encrypted_private_key",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "user_public_key",
+            "type": "custom bitwarden_encoding::B64(String)"
+          }
+        ]
+      },
+      {
+        "name": "MasterPasswordAuthenticationData",
+        "fields": [
+          {
+            "name": "kdf",
+            "type": "enum bitwarden_crypto::Kdf"
+          },
+          {
+            "name": "master_password_authentication_hash",
+            "type": "custom bitwarden_encoding::B64(String)"
+          },
+          {
+            "name": "salt",
+            "type": "String"
+          }
+        ]
+      },
+      {
+        "name": "MasterPasswordPolicyOptions",
+        "fields": [
+          {
+            "name": "enforce_on_login",
+            "type": "bool"
+          },
+          {
+            "name": "min_complexity",
+            "type": "u8"
+          },
+          {
+            "name": "min_length",
+            "type": "u8"
+          },
+          {
+            "name": "require_lower",
+            "type": "bool"
+          },
+          {
+            "name": "require_numbers",
+            "type": "bool"
+          },
+          {
+            "name": "require_special",
+            "type": "bool"
+          },
+          {
+            "name": "require_upper",
+            "type": "bool"
+          }
+        ]
+      },
+      {
+        "name": "MasterPasswordUnlockData",
+        "fields": [
+          {
+            "name": "kdf",
+            "type": "enum bitwarden_crypto::Kdf"
+          },
+          {
+            "name": "master_key_wrapped_user_key",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "salt",
+            "type": "String"
+          }
+        ]
+      },
+      {
+        "name": "RegisterKeyResponse",
+        "fields": [
+          {
+            "name": "encrypted_user_key",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "keys",
+            "type": "record bitwarden_crypto::RsaKeyPair"
+          },
+          {
+            "name": "master_password_hash",
+            "type": "custom bitwarden_encoding::B64(String)"
+          }
+        ]
+      },
+      {
+        "name": "RegisterTdeKeyResponse",
+        "fields": [
+          {
+            "name": "admin_reset",
+            "type": "custom bitwarden_crypto::UnsignedSharedKey(String)"
+          },
+          {
+            "name": "device_key",
+            "type": "Option<record bitwarden_crypto::TrustDeviceResponse>"
+          },
+          {
+            "name": "private_key",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "public_key",
+            "type": "custom bitwarden_encoding::B64(String)"
+          }
+        ]
+      },
+      {
+        "name": "UniffiConverterDummyRecord",
+        "fields": [
+          {
+            "name": "date",
+            "type": "custom bitwarden_core::DateTime(SystemTime)"
+          },
+          {
+            "name": "uuid",
+            "type": "custom bitwarden_core::Uuid(String)"
+          }
+        ]
+      },
+      {
+        "name": "UpdateKdfResponse",
+        "fields": [
+          {
+            "name": "master_password_authentication_data",
+            "type": "record bitwarden_core::MasterPasswordAuthenticationData"
+          },
+          {
+            "name": "master_password_unlock_data",
+            "type": "record bitwarden_core::MasterPasswordUnlockData"
+          },
+          {
+            "name": "old_master_password_authentication_data",
+            "type": "record bitwarden_core::MasterPasswordAuthenticationData"
+          }
+        ]
+      },
+      {
+        "name": "UpdatePasswordResponse",
+        "fields": [
+          {
+            "name": "new_key",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "password_hash",
+            "type": "custom bitwarden_encoding::B64(String)"
+          }
+        ]
+      },
+      {
+        "name": "UserCryptoV2KeysResponse",
+        "fields": [
+          {
+            "name": "private_key",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "public_key",
+            "type": "custom bitwarden_encoding::B64(String)"
+          },
+          {
+            "name": "security_state",
+            "type": "custom bitwarden_core::SignedSecurityState(String)"
+          },
+          {
+            "name": "security_version",
+            "type": "u64"
+          },
+          {
+            "name": "signed_public_key",
+            "type": "custom bitwarden_crypto::SignedPublicKey(String)"
+          },
+          {
+            "name": "signing_key",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "user_key",
+            "type": "custom bitwarden_encoding::B64(String)"
+          },
+          {
+            "name": "verifying_key",
+            "type": "custom bitwarden_encoding::B64(String)"
+          }
+        ]
+      },
+      {
+        "name": "VerifyAsymmetricKeysRequest",
+        "fields": [
+          {
+            "name": "user_key",
+            "type": "custom bitwarden_encoding::B64(String)"
+          },
+          {
+            "name": "user_key_encrypted_private_key",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "user_public_key",
+            "type": "custom bitwarden_encoding::B64(String)"
+          }
+        ]
+      },
+      {
+        "name": "VerifyAsymmetricKeysResponse",
+        "fields": [
+          {
+            "name": "private_key_decryptable",
+            "type": "bool"
+          },
+          {
+            "name": "valid_private_key",
+            "type": "bool"
+          }
+        ]
+      }
+    ],
+    "enums": [
+      {
+        "name": "ApiError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Io",
+            "fields": []
+          },
+          {
+            "name": "Reqwest",
+            "fields": []
+          },
+          {
+            "name": "ResponseContent",
+            "fields": []
+          },
+          {
+            "name": "Serde",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "ApproveAuthRequestError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Crypto",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "AuthRequestMethod",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "MasterKey",
+            "fields": [
+              {
+                "name": "auth_request_key",
+                "type": "custom bitwarden_crypto::EncString(String)"
+              },
+              {
+                "name": "protected_master_key",
+                "type": "custom bitwarden_crypto::UnsignedSharedKey(String)"
+              }
+            ]
+          },
+          {
+            "name": "UserKey",
+            "fields": [
+              {
+                "name": "protected_user_key",
+                "type": "custom bitwarden_crypto::UnsignedSharedKey(String)"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "AuthValidateError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Crypto",
+            "fields": []
+          },
+          {
+            "name": "NotAuthenticated",
+            "fields": []
+          },
+          {
+            "name": "WrongPassword",
+            "fields": []
+          },
+          {
+            "name": "WrongUserKey",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "CryptoClientError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Crypto",
+            "fields": []
+          },
+          {
+            "name": "InvalidKdfSettings",
+            "fields": []
+          },
+          {
+            "name": "NotAuthenticated",
+            "fields": []
+          },
+          {
+            "name": "PasswordProtectedKeyEnvelope",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "DeriveKeyConnectorError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Crypto",
+            "fields": []
+          },
+          {
+            "name": "WrongPassword",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "DeviceType",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "Android",
+            "fields": []
+          },
+          {
+            "name": "AndroidAmazon",
+            "fields": []
+          },
+          {
+            "name": "ChromeBrowser",
+            "fields": []
+          },
+          {
+            "name": "ChromeExtension",
+            "fields": []
+          },
+          {
+            "name": "EdgeBrowser",
+            "fields": []
+          },
+          {
+            "name": "EdgeExtension",
+            "fields": []
+          },
+          {
+            "name": "FirefoxBrowser",
+            "fields": []
+          },
+          {
+            "name": "FirefoxExtension",
+            "fields": []
+          },
+          {
+            "name": "IEBrowser",
+            "fields": []
+          },
+          {
+            "name": "LinuxCLI",
+            "fields": []
+          },
+          {
+            "name": "LinuxDesktop",
+            "fields": []
+          },
+          {
+            "name": "MacOsCLI",
+            "fields": []
+          },
+          {
+            "name": "MacOsDesktop",
+            "fields": []
+          },
+          {
+            "name": "OperaBrowser",
+            "fields": []
+          },
+          {
+            "name": "OperaExtension",
+            "fields": []
+          },
+          {
+            "name": "SDK",
+            "fields": []
+          },
+          {
+            "name": "SafariBrowser",
+            "fields": []
+          },
+          {
+            "name": "SafariExtension",
+            "fields": []
+          },
+          {
+            "name": "Server",
+            "fields": []
+          },
+          {
+            "name": "UWP",
+            "fields": []
+          },
+          {
+            "name": "UnknownBrowser",
+            "fields": []
+          },
+          {
+            "name": "VivaldiBrowser",
+            "fields": []
+          },
+          {
+            "name": "VivaldiExtension",
+            "fields": []
+          },
+          {
+            "name": "WindowsCLI",
+            "fields": []
+          },
+          {
+            "name": "WindowsDesktop",
+            "fields": []
+          },
+          {
+            "name": "iOS",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "EncryptionSettingsError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Crypto",
+            "fields": []
+          },
+          {
+            "name": "InvalidPrivateKey",
+            "fields": []
+          },
+          {
+            "name": "InvalidSecurityState",
+            "fields": []
+          },
+          {
+            "name": "InvalidSigningKey",
+            "fields": []
+          },
+          {
+            "name": "MissingPrivateKey",
+            "fields": []
+          },
+          {
+            "name": "UserIdAlreadySet",
+            "fields": []
+          },
+          {
+            "name": "WrongPin",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "EnrollAdminPasswordResetError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Crypto",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "FingerprintError",
+        "shape": "error(rich)",
+        "variants": [
+          {
+            "name": "Crypto",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_crypto::CryptoError"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "InitUserCryptoMethod",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "AuthRequest",
+            "fields": [
+              {
+                "name": "method",
+                "type": "enum bitwarden_core::AuthRequestMethod"
+              },
+              {
+                "name": "request_private_key",
+                "type": "custom bitwarden_encoding::B64(String)"
+              }
+            ]
+          },
+          {
+            "name": "DecryptedKey",
+            "fields": [
+              {
+                "name": "decrypted_user_key",
+                "type": "String"
+              }
+            ]
+          },
+          {
+            "name": "DeviceKey",
+            "fields": [
+              {
+                "name": "device_key",
+                "type": "String"
+              },
+              {
+                "name": "device_protected_user_key",
+                "type": "custom bitwarden_crypto::UnsignedSharedKey(String)"
+              },
+              {
+                "name": "protected_device_private_key",
+                "type": "custom bitwarden_crypto::EncString(String)"
+              }
+            ]
+          },
+          {
+            "name": "KeyConnector",
+            "fields": [
+              {
+                "name": "master_key",
+                "type": "custom bitwarden_encoding::B64(String)"
+              },
+              {
+                "name": "user_key",
+                "type": "custom bitwarden_crypto::EncString(String)"
+              }
+            ]
+          },
+          {
+            "name": "Password",
+            "fields": [
+              {
+                "name": "password",
+                "type": "String"
+              },
+              {
+                "name": "user_key",
+                "type": "custom bitwarden_crypto::EncString(String)"
+              }
+            ]
+          },
+          {
+            "name": "Pin",
+            "fields": [
+              {
+                "name": "pin",
+                "type": "String"
+              },
+              {
+                "name": "pin_protected_user_key",
+                "type": "custom bitwarden_crypto::EncString(String)"
+              }
+            ]
+          },
+          {
+            "name": "PinEnvelope",
+            "fields": [
+              {
+                "name": "pin",
+                "type": "String"
+              },
+              {
+                "name": "pin_protected_user_key_envelope",
+                "type": "custom bitwarden_core::PasswordProtectedKeyEnvelope(String)"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "MasterPasswordError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Crypto",
+            "fields": []
+          },
+          {
+            "name": "EncryptionKeyMalformed",
+            "fields": []
+          },
+          {
+            "name": "InvalidKdfConfiguration",
+            "fields": []
+          },
+          {
+            "name": "KdfMalformed",
+            "fields": []
+          },
+          {
+            "name": "MissingField",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "StatefulCryptoError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Crypto",
+            "fields": []
+          },
+          {
+            "name": "MissingSecurityState",
+            "fields": []
+          },
+          {
+            "name": "WrongAccountCryptoVersion",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "TrustDeviceError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Crypto",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "UserFingerprintError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Crypto",
+            "fields": []
+          },
+          {
+            "name": "MissingPrivateKey",
+            "fields": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "crate_name": "bitwarden_crypto",
+    "namespace": "bitwarden_crypto",
+    "functions": [],
+    "objects": [],
+    "records": [
+      {
+        "name": "RsaKeyPair",
+        "fields": [
+          {
+            "name": "private",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "public",
+            "type": "custom bitwarden_encoding::B64(String)"
+          }
+        ]
+      },
+      {
+        "name": "TrustDeviceResponse",
+        "fields": [
+          {
+            "name": "device_key",
+            "type": "custom bitwarden_encoding::B64(String)"
+          },
+          {
+            "name": "protected_device_private_key",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "protected_device_public_key",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "protected_user_key",
+            "type": "custom bitwarden_crypto::UnsignedSharedKey(String)"
+          }
+        ]
+      }
+    ],
+    "enums": [
+      {
+        "name": "CryptoError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Argon",
+            "fields": []
+          },
+          {
+            "name": "EncString",
+            "fields": []
+          },
+          {
+            "name": "Encoding",
+            "fields": []
+          },
+          {
+            "name": "Fingerprint",
+            "fields": []
+          },
+          {
+            "name": "InsufficientKdfParameters",
+            "fields": []
+          },
+          {
+            "name": "InvalidKey",
+            "fields": []
+          },
+          {
+            "name": "InvalidKeyLen",
+            "fields": []
+          },
+          {
+            "name": "InvalidMac",
+            "fields": []
+          },
+          {
+            "name": "InvalidNonceLength",
+            "fields": []
+          },
+          {
+            "name": "InvalidPadding",
+            "fields": []
+          },
+          {
+            "name": "InvalidUtf8String",
+            "fields": []
+          },
+          {
+            "name": "KeyDecrypt",
+            "fields": []
+          },
+          {
+            "name": "MacNotProvided",
+            "fields": []
+          },
+          {
+            "name": "MissingField",
+            "fields": []
+          },
+          {
+            "name": "MissingKey",
+            "fields": []
+          },
+          {
+            "name": "MissingKeyId",
+            "fields": []
+          },
+          {
+            "name": "OperationNotSupported",
+            "fields": []
+          },
+          {
+            "name": "ReadOnlyKeyStore",
+            "fields": []
+          },
+          {
+            "name": "Rsa",
+            "fields": []
+          },
+          {
+            "name": "Signature",
+            "fields": []
+          },
+          {
+            "name": "WrongCoseKeyId",
+            "fields": []
+          },
+          {
+            "name": "WrongKeyType",
+            "fields": []
+          },
+          {
+            "name": "ZeroNumber",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "HashPurpose",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "LocalAuthorization",
+            "fields": []
+          },
+          {
+            "name": "ServerAuthorization",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "Kdf",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "Argon2id",
+            "fields": [
+              {
+                "name": "iterations",
+                "type": "custom bitwarden_crypto::NonZeroU32(u32)"
+              },
+              {
+                "name": "memory",
+                "type": "custom bitwarden_crypto::NonZeroU32(u32)"
+              },
+              {
+                "name": "parallelism",
+                "type": "custom bitwarden_crypto::NonZeroU32(u32)"
+              }
+            ]
+          },
+          {
+            "name": "PBKDF2",
+            "fields": [
+              {
+                "name": "iterations",
+                "type": "custom bitwarden_crypto::NonZeroU32(u32)"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "SignatureAlgorithm",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "Ed25519",
+            "fields": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "crate_name": "bitwarden_encoding",
+    "namespace": "bitwarden_encoding",
+    "functions": [],
+    "objects": [],
+    "records": [],
+    "enums": []
+  },
+  {
+    "crate_name": "bitwarden_exporters",
+    "namespace": "bitwarden_exporters",
+    "functions": [],
+    "objects": [],
+    "records": [
+      {
+        "name": "Account",
+        "fields": [
+          {
+            "name": "email",
+            "type": "String"
+          },
+          {
+            "name": "id",
+            "type": "custom bitwarden_core::Uuid(String)"
+          },
+          {
+            "name": "name",
+            "type": "Option<String>"
+          }
+        ]
+      }
+    ],
+    "enums": [
+      {
+        "name": "ExportError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "BitwardenCrypto",
+            "fields": []
+          },
+          {
+            "name": "Cipher",
+            "fields": []
+          },
+          {
+            "name": "Csv",
+            "fields": []
+          },
+          {
+            "name": "Cxf",
+            "fields": []
+          },
+          {
+            "name": "EncryptedJson",
+            "fields": []
+          },
+          {
+            "name": "Json",
+            "fields": []
+          },
+          {
+            "name": "MissingField",
+            "fields": []
+          },
+          {
+            "name": "NotAuthenticated",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "ExportFormat",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "Csv",
+            "fields": []
+          },
+          {
+            "name": "EncryptedJson",
+            "fields": [
+              {
+                "name": "password",
+                "type": "String"
+              }
+            ]
+          },
+          {
+            "name": "Json",
+            "fields": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "crate_name": "bitwarden_fido",
+    "namespace": "bitwarden_fido",
+    "functions": [],
+    "objects": [],
+    "records": [
+      {
+        "name": "AuthenticatorAssertionResponse",
+        "fields": [
+          {
+            "name": "authenticator_data",
+            "type": "Bytes"
+          },
+          {
+            "name": "client_data_json",
+            "type": "Bytes"
+          },
+          {
+            "name": "signature",
+            "type": "Bytes"
+          },
+          {
+            "name": "user_handle",
+            "type": "Bytes"
+          }
+        ]
+      },
+      {
+        "name": "AuthenticatorAttestationResponse",
+        "fields": [
+          {
+            "name": "attestation_object",
+            "type": "Bytes"
+          },
+          {
+            "name": "authenticator_data",
+            "type": "Bytes"
+          },
+          {
+            "name": "client_data_json",
+            "type": "Bytes"
+          },
+          {
+            "name": "public_key",
+            "type": "Option<Bytes>"
+          },
+          {
+            "name": "public_key_algorithm",
+            "type": "i64"
+          },
+          {
+            "name": "transports",
+            "type": "Option<Vec<String>>"
+          }
+        ]
+      },
+      {
+        "name": "CheckUserOptions",
+        "fields": [
+          {
+            "name": "require_presence",
+            "type": "bool"
+          },
+          {
+            "name": "require_verification",
+            "type": "enum bitwarden_fido::Verification"
+          }
+        ]
+      },
+      {
+        "name": "ClientExtensionResults",
+        "fields": [
+          {
+            "name": "cred_props",
+            "type": "Option<record bitwarden_fido::CredPropsResult>"
+          }
+        ]
+      },
+      {
+        "name": "CredPropsResult",
+        "fields": [
+          {
+            "name": "authenticator_display_name",
+            "type": "Option<String>"
+          },
+          {
+            "name": "rk",
+            "type": "Option<bool>"
+          }
+        ]
+      },
+      {
+        "name": "Fido2CredentialAutofillView",
+        "fields": [
+          {
+            "name": "cipher_id",
+            "type": "custom bitwarden_core::Uuid(String)"
+          },
+          {
+            "name": "credential_id",
+            "type": "Bytes"
+          },
+          {
+            "name": "has_counter",
+            "type": "bool"
+          },
+          {
+            "name": "rp_id",
+            "type": "String"
+          },
+          {
+            "name": "user_handle",
+            "type": "Bytes"
+          },
+          {
+            "name": "user_name_for_ui",
+            "type": "Option<String>"
+          }
+        ]
+      },
+      {
+        "name": "GetAssertionRequest",
+        "fields": [
+          {
+            "name": "allow_list",
+            "type": "Option<Vec<record bitwarden_fido::PublicKeyCredentialDescriptor>>"
+          },
+          {
+            "name": "client_data_hash",
+            "type": "Bytes"
+          },
+          {
+            "name": "extensions",
+            "type": "Option<String>"
+          },
+          {
+            "name": "options",
+            "type": "record bitwarden_fido::Options"
+          },
+          {
+            "name": "rp_id",
+            "type": "String"
+          }
+        ]
+      },
+      {
+        "name": "GetAssertionResult",
+        "fields": [
+          {
+            "name": "authenticator_data",
+            "type": "Bytes"
+          },
+          {
+            "name": "credential_id",
+            "type": "Bytes"
+          },
+          {
+            "name": "selected_credential",
+            "type": "record bitwarden_fido::SelectedCredential"
+          },
+          {
+            "name": "signature",
+            "type": "Bytes"
+          },
+          {
+            "name": "user_handle",
+            "type": "Bytes"
+          }
+        ]
+      },
+      {
+        "name": "MakeCredentialRequest",
+        "fields": [
+          {
+            "name": "client_data_hash",
+            "type": "Bytes"
+          },
+          {
+            "name": "exclude_list",
+            "type": "Option<Vec<record bitwarden_fido::PublicKeyCredentialDescriptor>>"
+          },
+          {
+            "name": "extensions",
+            "type": "Option<String>"
+          },
+          {
+            "name": "options",
+            "type": "record bitwarden_fido::Options"
+          },
+          {
+            "name": "pub_key_cred_params",
+            "type": "Vec<record bitwarden_fido::PublicKeyCredentialParameters>"
+          },
+          {
+            "name": "rp",
+            "type": "record bitwarden_fido::PublicKeyCredentialRpEntity"
+          },
+          {
+            "name": "user",
+            "type": "record bitwarden_fido::PublicKeyCredentialUserEntity"
+          }
+        ]
+      },
+      {
+        "name": "MakeCredentialResult",
+        "fields": [
+          {
+            "name": "attestation_object",
+            "type": "Bytes"
+          },
+          {
+            "name": "authenticator_data",
+            "type": "Bytes"
+          },
+          {
+            "name": "credential_id",
+            "type": "Bytes"
+          }
+        ]
+      },
+      {
+        "name": "Options",
+        "fields": [
+          {
+            "name": "rk",
+            "type": "bool"
+          },
+          {
+            "name": "uv",
+            "type": "enum bitwarden_fido::UV"
+          }
+        ]
+      },
+      {
+        "name": "PublicKeyCredentialAuthenticatorAssertionResponse",
+        "fields": [
+          {
+            "name": "authenticator_attachment",
+            "type": "Option<String>"
+          },
+          {
+            "name": "client_extension_results",
+            "type": "record bitwarden_fido::ClientExtensionResults"
+          },
+          {
+            "name": "id",
+            "type": "String"
+          },
+          {
+            "name": "raw_id",
+            "type": "Bytes"
+          },
+          {
+            "name": "response",
+            "type": "record bitwarden_fido::AuthenticatorAssertionResponse"
+          },
+          {
+            "name": "selected_credential",
+            "type": "record bitwarden_fido::SelectedCredential"
+          },
+          {
+            "name": "ty",
+            "type": "String"
+          }
+        ]
+      },
+      {
+        "name": "PublicKeyCredentialAuthenticatorAttestationResponse",
+        "fields": [
+          {
+            "name": "authenticator_attachment",
+            "type": "Option<String>"
+          },
+          {
+            "name": "client_extension_results",
+            "type": "record bitwarden_fido::ClientExtensionResults"
+          },
+          {
+            "name": "id",
+            "type": "String"
+          },
+          {
+            "name": "raw_id",
+            "type": "Bytes"
+          },
+          {
+            "name": "response",
+            "type": "record bitwarden_fido::AuthenticatorAttestationResponse"
+          },
+          {
+            "name": "selected_credential",
+            "type": "record bitwarden_fido::SelectedCredential"
+          },
+          {
+            "name": "ty",
+            "type": "String"
+          }
+        ]
+      },
+      {
+        "name": "PublicKeyCredentialDescriptor",
+        "fields": [
+          {
+            "name": "id",
+            "type": "Bytes"
+          },
+          {
+            "name": "transports",
+            "type": "Option<Vec<String>>"
+          },
+          {
+            "name": "ty",
+            "type": "String"
+          }
+        ]
+      },
+      {
+        "name": "PublicKeyCredentialParameters",
+        "fields": [
+          {
+            "name": "alg",
+            "type": "i64"
+          },
+          {
+            "name": "ty",
+            "type": "String"
+          }
+        ]
+      },
+      {
+        "name": "PublicKeyCredentialRpEntity",
+        "fields": [
+          {
+            "name": "id",
+            "type": "String"
+          },
+          {
+            "name": "name",
+            "type": "Option<String>"
+          }
+        ]
+      },
+      {
+        "name": "PublicKeyCredentialUserEntity",
+        "fields": [
+          {
+            "name": "display_name",
+            "type": "String"
+          },
+          {
+            "name": "id",
+            "type": "Bytes"
+          },
+          {
+            "name": "name",
+            "type": "String"
+          }
+        ]
+      },
+      {
+        "name": "SelectedCredential",
+        "fields": [
+          {
+            "name": "cipher",
+            "type": "record bitwarden_vault::CipherView"
+          },
+          {
+            "name": "credential",
+            "type": "record bitwarden_vault::Fido2CredentialView"
+          }
+        ]
+      },
+      {
+        "name": "UnverifiedAssetLink",
+        "fields": [
+          {
+            "name": "asset_link_url",
+            "type": "Option<String>"
+          },
+          {
+            "name": "host",
+            "type": "String"
+          },
+          {
+            "name": "package_name",
+            "type": "String"
+          },
+          {
+            "name": "sha256_cert_fingerprint",
+            "type": "String"
+          }
+        ]
+      }
+    ],
+    "enums": [
+      {
+        "name": "ClientData",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "DefaultWithCustomHash",
+            "fields": [
+              {
+                "name": "hash",
+                "type": "Bytes"
+              }
+            ]
+          },
+          {
+            "name": "DefaultWithExtraData",
+            "fields": [
+              {
+                "name": "android_package_name",
+                "type": "String"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "CredentialsForAutofillError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Cipher",
+            "fields": []
+          },
+          {
+            "name": "Fido2Callback",
+            "fields": []
+          },
+          {
+            "name": "FromCipherView",
+            "fields": []
+          },
+          {
+            "name": "InvalidGuid",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "DecryptFido2AutofillCredentialsError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Fido2CredentialAutofillView",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "Fido2ClientError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "GetSelectedCredential",
+            "fields": []
+          },
+          {
+            "name": "InvalidOrigin",
+            "fields": []
+          },
+          {
+            "name": "Serde",
+            "fields": []
+          },
+          {
+            "name": "Webauthn",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "GetAssertionError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "GetSelectedCredential",
+            "fields": []
+          },
+          {
+            "name": "InvalidGuid",
+            "fields": []
+          },
+          {
+            "name": "MissingUser",
+            "fields": []
+          },
+          {
+            "name": "Other",
+            "fields": []
+          },
+          {
+            "name": "Serde",
+            "fields": []
+          },
+          {
+            "name": "UnknownEnum",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "MakeCredentialError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "MissingAttestedCredentialData",
+            "fields": []
+          },
+          {
+            "name": "Other",
+            "fields": []
+          },
+          {
+            "name": "PublicKeyCredentialParameters",
+            "fields": []
+          },
+          {
+            "name": "Serde",
+            "fields": []
+          },
+          {
+            "name": "UnknownEnum",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "Origin",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "Android",
+            "fields": [
+              {
+                "name": "",
+                "type": "record bitwarden_fido::UnverifiedAssetLink"
+              }
+            ]
+          },
+          {
+            "name": "Web",
+            "fields": [
+              {
+                "name": "",
+                "type": "String"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "SilentlyDiscoverCredentialsError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Cipher",
+            "fields": []
+          },
+          {
+            "name": "Fido2Callback",
+            "fields": []
+          },
+          {
+            "name": "FromCipherView",
+            "fields": []
+          },
+          {
+            "name": "InvalidGuid",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "UV",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "Discouraged",
+            "fields": []
+          },
+          {
+            "name": "Preferred",
+            "fields": []
+          },
+          {
+            "name": "Required",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "Verification",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "Discouraged",
+            "fields": []
+          },
+          {
+            "name": "Preferred",
+            "fields": []
+          },
+          {
+            "name": "Required",
+            "fields": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "crate_name": "bitwarden_generators",
+    "namespace": "bitwarden_generators",
+    "functions": [],
+    "objects": [],
+    "records": [
+      {
+        "name": "PassphraseGeneratorRequest",
+        "fields": [
+          {
+            "name": "capitalize",
+            "type": "bool"
+          },
+          {
+            "name": "include_number",
+            "type": "bool"
+          },
+          {
+            "name": "num_words",
+            "type": "u8"
+          },
+          {
+            "name": "word_separator",
+            "type": "String"
+          }
+        ]
+      },
+      {
+        "name": "PasswordGeneratorRequest",
+        "fields": [
+          {
+            "name": "avoid_ambiguous",
+            "type": "bool"
+          },
+          {
+            "name": "length",
+            "type": "u8"
+          },
+          {
+            "name": "lowercase",
+            "type": "bool"
+          },
+          {
+            "name": "min_lowercase",
+            "type": "Option<u8>"
+          },
+          {
+            "name": "min_number",
+            "type": "Option<u8>"
+          },
+          {
+            "name": "min_special",
+            "type": "Option<u8>"
+          },
+          {
+            "name": "min_uppercase",
+            "type": "Option<u8>"
+          },
+          {
+            "name": "numbers",
+            "type": "bool"
+          },
+          {
+            "name": "special",
+            "type": "bool"
+          },
+          {
+            "name": "uppercase",
+            "type": "bool"
+          }
+        ]
+      }
+    ],
+    "enums": [
+      {
+        "name": "AppendType",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "Random",
+            "fields": []
+          },
+          {
+            "name": "WebsiteName",
+            "fields": [
+              {
+                "name": "website",
+                "type": "String"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "ForwarderServiceType",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "AddyIo",
+            "fields": [
+              {
+                "name": "api_token",
+                "type": "String"
+              },
+              {
+                "name": "base_url",
+                "type": "String"
+              },
+              {
+                "name": "domain",
+                "type": "String"
+              }
+            ]
+          },
+          {
+            "name": "DuckDuckGo",
+            "fields": [
+              {
+                "name": "token",
+                "type": "String"
+              }
+            ]
+          },
+          {
+            "name": "Fastmail",
+            "fields": [
+              {
+                "name": "api_token",
+                "type": "String"
+              }
+            ]
+          },
+          {
+            "name": "Firefox",
+            "fields": [
+              {
+                "name": "api_token",
+                "type": "String"
+              }
+            ]
+          },
+          {
+            "name": "ForwardEmail",
+            "fields": [
+              {
+                "name": "api_token",
+                "type": "String"
+              },
+              {
+                "name": "domain",
+                "type": "String"
+              }
+            ]
+          },
+          {
+            "name": "SimpleLogin",
+            "fields": [
+              {
+                "name": "api_key",
+                "type": "String"
+              },
+              {
+                "name": "base_url",
+                "type": "String"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "PassphraseError",
+        "shape": "error(rich)",
+        "variants": [
+          {
+            "name": "InvalidNumWords",
+            "fields": [
+              {
+                "name": "maximum",
+                "type": "u8"
+              },
+              {
+                "name": "minimum",
+                "type": "u8"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "PasswordError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "InvalidLength",
+            "fields": []
+          },
+          {
+            "name": "NoCharacterSetEnabled",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "UsernameError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "InvalidApiKey",
+            "fields": []
+          },
+          {
+            "name": "Reqwest",
+            "fields": []
+          },
+          {
+            "name": "ResponseContent",
+            "fields": []
+          },
+          {
+            "name": "Unknown",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "UsernameGeneratorRequest",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "Catchall",
+            "fields": [
+              {
+                "name": "domain",
+                "type": "String"
+              },
+              {
+                "name": "type",
+                "type": "enum bitwarden_generators::AppendType"
+              }
+            ]
+          },
+          {
+            "name": "Forwarded",
+            "fields": [
+              {
+                "name": "service",
+                "type": "enum bitwarden_generators::ForwarderServiceType"
+              },
+              {
+                "name": "website",
+                "type": "Option<String>"
+              }
+            ]
+          },
+          {
+            "name": "Subaddress",
+            "fields": [
+              {
+                "name": "email",
+                "type": "String"
+              },
+              {
+                "name": "type",
+                "type": "enum bitwarden_generators::AppendType"
+              }
+            ]
+          },
+          {
+            "name": "Word",
+            "fields": [
+              {
+                "name": "capitalize",
+                "type": "bool"
+              },
+              {
+                "name": "include_number",
+                "type": "bool"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "crate_name": "bitwarden_pm",
+    "namespace": "bitwarden_pm",
+    "functions": [],
+    "objects": [],
+    "records": [],
+    "enums": []
+  },
+  {
+    "crate_name": "bitwarden_send",
+    "namespace": "bitwarden_send",
+    "functions": [],
+    "objects": [],
+    "records": [
+      {
+        "name": "Send",
+        "fields": [
+          {
+            "name": "access_count",
+            "type": "u32"
+          },
+          {
+            "name": "access_id",
+            "type": "Option<String>"
+          },
+          {
+            "name": "deletion_date",
+            "type": "custom bitwarden_core::DateTime(SystemTime)"
+          },
+          {
+            "name": "disabled",
+            "type": "bool"
+          },
+          {
+            "name": "expiration_date",
+            "type": "Option<custom bitwarden_core::DateTime(SystemTime)>"
+          },
+          {
+            "name": "file",
+            "type": "Option<record bitwarden_send::SendFile>"
+          },
+          {
+            "name": "hide_email",
+            "type": "bool"
+          },
+          {
+            "name": "id",
+            "type": "Option<custom bitwarden_core::Uuid(String)>"
+          },
+          {
+            "name": "key",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "max_access_count",
+            "type": "Option<u32>"
+          },
+          {
+            "name": "name",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "notes",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "password",
+            "type": "Option<String>"
+          },
+          {
+            "name": "revision_date",
+            "type": "custom bitwarden_core::DateTime(SystemTime)"
+          },
+          {
+            "name": "text",
+            "type": "Option<record bitwarden_send::SendText>"
+          },
+          {
+            "name": "type",
+            "type": "enum bitwarden_send::SendType"
+          }
+        ]
+      },
+      {
+        "name": "SendFile",
+        "fields": [
+          {
+            "name": "file_name",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "id",
+            "type": "Option<String>"
+          },
+          {
+            "name": "size",
+            "type": "Option<String>"
+          },
+          {
+            "name": "size_name",
+            "type": "Option<String>"
+          }
+        ]
+      },
+      {
+        "name": "SendFileView",
+        "fields": [
+          {
+            "name": "file_name",
+            "type": "String"
+          },
+          {
+            "name": "id",
+            "type": "Option<String>"
+          },
+          {
+            "name": "size",
+            "type": "Option<String>"
+          },
+          {
+            "name": "size_name",
+            "type": "Option<String>"
+          }
+        ]
+      },
+      {
+        "name": "SendListView",
+        "fields": [
+          {
+            "name": "access_id",
+            "type": "Option<String>"
+          },
+          {
+            "name": "deletion_date",
+            "type": "custom bitwarden_core::DateTime(SystemTime)"
+          },
+          {
+            "name": "disabled",
+            "type": "bool"
+          },
+          {
+            "name": "expiration_date",
+            "type": "Option<custom bitwarden_core::DateTime(SystemTime)>"
+          },
+          {
+            "name": "id",
+            "type": "Option<custom bitwarden_core::Uuid(String)>"
+          },
+          {
+            "name": "name",
+            "type": "String"
+          },
+          {
+            "name": "revision_date",
+            "type": "custom bitwarden_core::DateTime(SystemTime)"
+          },
+          {
+            "name": "type",
+            "type": "enum bitwarden_send::SendType"
+          }
+        ]
+      },
+      {
+        "name": "SendText",
+        "fields": [
+          {
+            "name": "hidden",
+            "type": "bool"
+          },
+          {
+            "name": "text",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          }
+        ]
+      },
+      {
+        "name": "SendTextView",
+        "fields": [
+          {
+            "name": "hidden",
+            "type": "bool"
+          },
+          {
+            "name": "text",
+            "type": "Option<String>"
+          }
+        ]
+      },
+      {
+        "name": "SendView",
+        "fields": [
+          {
+            "name": "access_count",
+            "type": "u32"
+          },
+          {
+            "name": "access_id",
+            "type": "Option<String>"
+          },
+          {
+            "name": "deletion_date",
+            "type": "custom bitwarden_core::DateTime(SystemTime)"
+          },
+          {
+            "name": "disabled",
+            "type": "bool"
+          },
+          {
+            "name": "expiration_date",
+            "type": "Option<custom bitwarden_core::DateTime(SystemTime)>"
+          },
+          {
+            "name": "file",
+            "type": "Option<record bitwarden_send::SendFileView>"
+          },
+          {
+            "name": "has_password",
+            "type": "bool"
+          },
+          {
+            "name": "hide_email",
+            "type": "bool"
+          },
+          {
+            "name": "id",
+            "type": "Option<custom bitwarden_core::Uuid(String)>"
+          },
+          {
+            "name": "key",
+            "type": "Option<String>"
+          },
+          {
+            "name": "max_access_count",
+            "type": "Option<u32>"
+          },
+          {
+            "name": "name",
+            "type": "String"
+          },
+          {
+            "name": "new_password",
+            "type": "Option<String>"
+          },
+          {
+            "name": "notes",
+            "type": "Option<String>"
+          },
+          {
+            "name": "revision_date",
+            "type": "custom bitwarden_core::DateTime(SystemTime)"
+          },
+          {
+            "name": "text",
+            "type": "Option<record bitwarden_send::SendTextView>"
+          },
+          {
+            "name": "type",
+            "type": "enum bitwarden_send::SendType"
+          }
+        ]
+      }
+    ],
+    "enums": [
+      {
+        "name": "SendDecryptError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Crypto",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "SendDecryptFileError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Decrypt",
+            "fields": []
+          },
+          {
+            "name": "Io",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "SendEncryptError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Crypto",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "SendEncryptFileError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Encrypt",
+            "fields": []
+          },
+          {
+            "name": "Io",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "SendType",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "File",
+            "fields": []
+          },
+          {
+            "name": "Text",
+            "fields": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "crate_name": "bitwarden_ssh",
+    "namespace": "bitwarden_ssh",
+    "functions": [],
+    "objects": [],
+    "records": [],
+    "enums": [
+      {
+        "name": "KeyAlgorithm",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "Ed25519",
+            "fields": []
+          },
+          {
+            "name": "Rsa3072",
+            "fields": []
+          },
+          {
+            "name": "Rsa4096",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "KeyGenerationError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "KeyConversion",
+            "fields": []
+          },
+          {
+            "name": "KeyGeneration",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "SshKeyExportError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "KeyConversion",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "SshKeyImportError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Parsing",
+            "fields": []
+          },
+          {
+            "name": "PasswordRequired",
+            "fields": []
+          },
+          {
+            "name": "UnsupportedKeyType",
+            "fields": []
+          },
+          {
+            "name": "WrongPassword",
+            "fields": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "crate_name": "bitwarden_state",
+    "namespace": "bitwarden_state",
+    "functions": [],
+    "objects": [],
+    "records": [],
+    "enums": [
+      {
+        "name": "DatabaseError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Internal",
+            "fields": []
+          },
+          {
+            "name": "JS",
+            "fields": []
+          },
+          {
+            "name": "Serialization",
+            "fields": []
+          },
+          {
+            "name": "ThreadBoundRunner",
+            "fields": []
+          },
+          {
+            "name": "UnsupportedConfiguration",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "StateRegistryError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Database",
+            "fields": []
+          },
+          {
+            "name": "DatabaseAlreadyInitialized",
+            "fields": []
+          },
+          {
+            "name": "DatabaseNotInitialized",
+            "fields": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "crate_name": "bitwarden_uniffi",
+    "namespace": "bitwarden_uniffi",
+    "functions": [],
+    "objects": [
+      {
+        "name": "AttachmentsClient",
+        "trait_interface": false,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "decrypt_buffer",
+            "is_async": false,
+            "args": [
+              {
+                "name": "cipher",
+                "type": "record bitwarden_vault::Cipher",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "attachment",
+                "type": "record bitwarden_vault::AttachmentView",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "buffer",
+                "type": "Bytes",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "Bytes",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_attachmentsclient_decrypt_buffer"
+          },
+          {
+            "name": "decrypt_file",
+            "is_async": false,
+            "args": [
+              {
+                "name": "cipher",
+                "type": "record bitwarden_vault::Cipher",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "attachment",
+                "type": "record bitwarden_vault::AttachmentView",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "encrypted_file_path",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "decrypted_file_path",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": null,
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_attachmentsclient_decrypt_file"
+          },
+          {
+            "name": "encrypt_buffer",
+            "is_async": false,
+            "args": [
+              {
+                "name": "cipher",
+                "type": "record bitwarden_vault::Cipher",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "attachment",
+                "type": "record bitwarden_vault::AttachmentView",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "buffer",
+                "type": "Bytes",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_vault::AttachmentEncryptResult",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_attachmentsclient_encrypt_buffer"
+          },
+          {
+            "name": "encrypt_file",
+            "is_async": false,
+            "args": [
+              {
+                "name": "cipher",
+                "type": "record bitwarden_vault::Cipher",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "attachment",
+                "type": "record bitwarden_vault::AttachmentView",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "decrypted_file_path",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "encrypted_file_path",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_vault::Attachment",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_attachmentsclient_encrypt_file"
+          }
+        ]
+      },
+      {
+        "name": "AuthClient",
+        "trait_interface": false,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "approve_auth_request",
+            "is_async": false,
+            "args": [
+              {
+                "name": "public_key",
+                "type": "custom bitwarden_encoding::B64(String)",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "custom bitwarden_crypto::UnsignedSharedKey(String)",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_authclient_approve_auth_request"
+          },
+          {
+            "name": "hash_password",
+            "is_async": true,
+            "args": [
+              {
+                "name": "email",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "password",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "kdf_params",
+                "type": "enum bitwarden_crypto::Kdf",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "purpose",
+                "type": "enum bitwarden_crypto::HashPurpose",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "custom bitwarden_encoding::B64(String)",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_authclient_hash_password"
+          },
+          {
+            "name": "make_key_connector_keys",
+            "is_async": false,
+            "args": [],
+            "return_type": "record bitwarden_core::KeyConnectorResponse",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_authclient_make_key_connector_keys"
+          },
+          {
+            "name": "make_register_keys",
+            "is_async": false,
+            "args": [
+              {
+                "name": "email",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "password",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "kdf",
+                "type": "enum bitwarden_crypto::Kdf",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_core::RegisterKeyResponse",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_authclient_make_register_keys"
+          },
+          {
+            "name": "make_register_tde_keys",
+            "is_async": false,
+            "args": [
+              {
+                "name": "email",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "org_public_key",
+                "type": "custom bitwarden_encoding::B64(String)",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "remember_device",
+                "type": "bool",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_core::RegisterTdeKeyResponse",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_authclient_make_register_tde_keys"
+          },
+          {
+            "name": "new_auth_request",
+            "is_async": false,
+            "args": [
+              {
+                "name": "email",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_core::AuthRequestResponse",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_authclient_new_auth_request"
+          },
+          {
+            "name": "password_strength",
+            "is_async": false,
+            "args": [
+              {
+                "name": "password",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "email",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "additional_inputs",
+                "type": "Vec<String>",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "u8",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_authclient_password_strength"
+          },
+          {
+            "name": "satisfies_policy",
+            "is_async": false,
+            "args": [
+              {
+                "name": "password",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "strength",
+                "type": "u8",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "policy",
+                "type": "record bitwarden_core::MasterPasswordPolicyOptions",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "bool",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_authclient_satisfies_policy"
+          },
+          {
+            "name": "trust_device",
+            "is_async": false,
+            "args": [],
+            "return_type": "record bitwarden_crypto::TrustDeviceResponse",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_authclient_trust_device"
+          },
+          {
+            "name": "validate_password",
+            "is_async": false,
+            "args": [
+              {
+                "name": "password",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "password_hash",
+                "type": "custom bitwarden_encoding::B64(String)",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "bool",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_authclient_validate_password"
+          },
+          {
+            "name": "validate_password_user_key",
+            "is_async": false,
+            "args": [
+              {
+                "name": "password",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "encrypted_user_key",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "custom bitwarden_encoding::B64(String)",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_authclient_validate_password_user_key"
+          },
+          {
+            "name": "validate_pin",
+            "is_async": false,
+            "args": [
+              {
+                "name": "pin",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "pin_protected_user_key",
+                "type": "custom bitwarden_crypto::EncString(String)",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "bool",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_authclient_validate_pin"
+          }
+        ]
+      },
+      {
+        "name": "CipherRepository",
+        "trait_interface": true,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "get",
+            "is_async": true,
+            "args": [
+              {
+                "name": "id",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "Option<record bitwarden_vault::Cipher>",
+            "throws": "enum bitwarden_uniffi::RepositoryError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_cipherrepository_get"
+          },
+          {
+            "name": "has",
+            "is_async": true,
+            "args": [
+              {
+                "name": "id",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "bool",
+            "throws": "enum bitwarden_uniffi::RepositoryError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_cipherrepository_has"
+          },
+          {
+            "name": "list",
+            "is_async": true,
+            "args": [],
+            "return_type": "Vec<record bitwarden_vault::Cipher>",
+            "throws": "enum bitwarden_uniffi::RepositoryError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_cipherrepository_list"
+          },
+          {
+            "name": "remove",
+            "is_async": true,
+            "args": [
+              {
+                "name": "id",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": null,
+            "throws": "enum bitwarden_uniffi::RepositoryError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_cipherrepository_remove"
+          },
+          {
+            "name": "set",
+            "is_async": true,
+            "args": [
+              {
+                "name": "id",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "value",
+                "type": "record bitwarden_vault::Cipher",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": null,
+            "throws": "enum bitwarden_uniffi::RepositoryError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_cipherrepository_set"
+          }
+        ]
+      },
+      {
+        "name": "CiphersClient",
+        "trait_interface": false,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "decrypt",
+            "is_async": false,
+            "args": [
+              {
+                "name": "cipher",
+                "type": "record bitwarden_vault::Cipher",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_vault::CipherView",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_ciphersclient_decrypt"
+          },
+          {
+            "name": "decrypt_fido2_credentials",
+            "is_async": false,
+            "args": [
+              {
+                "name": "cipher_view",
+                "type": "record bitwarden_vault::CipherView",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "Vec<record bitwarden_vault::Fido2CredentialView>",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_ciphersclient_decrypt_fido2_credentials"
+          },
+          {
+            "name": "decrypt_list",
+            "is_async": false,
+            "args": [
+              {
+                "name": "ciphers",
+                "type": "Vec<record bitwarden_vault::Cipher>",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "Vec<record bitwarden_vault::CipherListView>",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_ciphersclient_decrypt_list"
+          },
+          {
+            "name": "decrypt_list_with_failures",
+            "is_async": false,
+            "args": [
+              {
+                "name": "ciphers",
+                "type": "Vec<record bitwarden_vault::Cipher>",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_vault::DecryptCipherListResult",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_ciphersclient_decrypt_list_with_failures"
+          },
+          {
+            "name": "encrypt",
+            "is_async": false,
+            "args": [
+              {
+                "name": "cipher_view",
+                "type": "record bitwarden_vault::CipherView",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_vault::EncryptionContext",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_ciphersclient_encrypt"
+          },
+          {
+            "name": "move_to_organization",
+            "is_async": false,
+            "args": [
+              {
+                "name": "cipher",
+                "type": "record bitwarden_vault::CipherView",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "organization_id",
+                "type": "custom bitwarden_core::OrganizationId(custom bitwarden_core::Uuid(String))",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_vault::CipherView",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_ciphersclient_move_to_organization"
+          }
+        ]
+      },
+      {
+        "name": "Client",
+        "trait_interface": false,
+        "constructors": [
+          {
+            "name": "new",
+            "is_async": false,
+            "args": [
+              {
+                "name": "token_provider",
+                "type": "callback_trait bitwarden_core::ClientManagedTokens",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "settings",
+                "type": "Option<record bitwarden_core::ClientSettings>",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": null,
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_constructor_client_new"
+          }
+        ],
+        "methods": [
+          {
+            "name": "auth",
+            "is_async": false,
+            "args": [],
+            "return_type": "object bitwarden_uniffi::AuthClient",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_client_auth"
+          },
+          {
+            "name": "crypto",
+            "is_async": false,
+            "args": [],
+            "return_type": "object bitwarden_uniffi::CryptoClient",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_client_crypto"
+          },
+          {
+            "name": "echo",
+            "is_async": false,
+            "args": [
+              {
+                "name": "msg",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "String",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_client_echo"
+          },
+          {
+            "name": "exporters",
+            "is_async": false,
+            "args": [],
+            "return_type": "object bitwarden_uniffi::ExporterClient",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_client_exporters"
+          },
+          {
+            "name": "generators",
+            "is_async": false,
+            "args": [],
+            "return_type": "object bitwarden_uniffi::GeneratorClients",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_client_generators"
+          },
+          {
+            "name": "http_get",
+            "is_async": true,
+            "args": [
+              {
+                "name": "url",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "String",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_client_http_get"
+          },
+          {
+            "name": "platform",
+            "is_async": false,
+            "args": [],
+            "return_type": "object bitwarden_uniffi::PlatformClient",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_client_platform"
+          },
+          {
+            "name": "sends",
+            "is_async": false,
+            "args": [],
+            "return_type": "object bitwarden_uniffi::SendClient",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_client_sends"
+          },
+          {
+            "name": "ssh",
+            "is_async": false,
+            "args": [],
+            "return_type": "object bitwarden_uniffi::SshClient",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_client_ssh"
+          },
+          {
+            "name": "vault",
+            "is_async": false,
+            "args": [],
+            "return_type": "object bitwarden_uniffi::VaultClient",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_client_vault"
+          }
+        ]
+      },
+      {
+        "name": "ClientFido2",
+        "trait_interface": false,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "authenticator",
+            "is_async": false,
+            "args": [
+              {
+                "name": "user_interface",
+                "type": "callback_trait bitwarden_uniffi::Fido2UserInterface",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "credential_store",
+                "type": "callback_trait bitwarden_uniffi::Fido2CredentialStore",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "object bitwarden_uniffi::ClientFido2Authenticator",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_clientfido2_authenticator"
+          },
+          {
+            "name": "client",
+            "is_async": false,
+            "args": [
+              {
+                "name": "user_interface",
+                "type": "callback_trait bitwarden_uniffi::Fido2UserInterface",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "credential_store",
+                "type": "callback_trait bitwarden_uniffi::Fido2CredentialStore",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "object bitwarden_uniffi::ClientFido2Client",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_clientfido2_client"
+          },
+          {
+            "name": "decrypt_fido2_autofill_credentials",
+            "is_async": false,
+            "args": [
+              {
+                "name": "cipher_view",
+                "type": "record bitwarden_vault::CipherView",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "Vec<record bitwarden_fido::Fido2CredentialAutofillView>",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_clientfido2_decrypt_fido2_autofill_credentials"
+          }
+        ]
+      },
+      {
+        "name": "ClientFido2Authenticator",
+        "trait_interface": false,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "credentials_for_autofill",
+            "is_async": true,
+            "args": [],
+            "return_type": "Vec<record bitwarden_fido::Fido2CredentialAutofillView>",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_clientfido2authenticator_credentials_for_autofill"
+          },
+          {
+            "name": "get_assertion",
+            "is_async": true,
+            "args": [
+              {
+                "name": "request",
+                "type": "record bitwarden_fido::GetAssertionRequest",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_fido::GetAssertionResult",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_clientfido2authenticator_get_assertion"
+          },
+          {
+            "name": "make_credential",
+            "is_async": true,
+            "args": [
+              {
+                "name": "request",
+                "type": "record bitwarden_fido::MakeCredentialRequest",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_fido::MakeCredentialResult",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_clientfido2authenticator_make_credential"
+          },
+          {
+            "name": "silently_discover_credentials",
+            "is_async": true,
+            "args": [
+              {
+                "name": "rp_id",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "Vec<record bitwarden_fido::Fido2CredentialAutofillView>",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_clientfido2authenticator_silently_discover_credentials"
+          }
+        ]
+      },
+      {
+        "name": "ClientFido2Client",
+        "trait_interface": false,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "authenticate",
+            "is_async": true,
+            "args": [
+              {
+                "name": "origin",
+                "type": "enum bitwarden_fido::Origin",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "request",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "client_data",
+                "type": "enum bitwarden_fido::ClientData",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_fido::PublicKeyCredentialAuthenticatorAssertionResponse",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_clientfido2client_authenticate"
+          },
+          {
+            "name": "register",
+            "is_async": true,
+            "args": [
+              {
+                "name": "origin",
+                "type": "enum bitwarden_fido::Origin",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "request",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "client_data",
+                "type": "enum bitwarden_fido::ClientData",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_fido::PublicKeyCredentialAuthenticatorAttestationResponse",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_clientfido2client_register"
+          }
+        ]
+      },
+      {
+        "name": "CollectionViewNodeItem",
+        "trait_interface": false,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "get_ancestors",
+            "is_async": false,
+            "args": [],
+            "return_type": "record bitwarden_vault::AncestorMap",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_collectionviewnodeitem_get_ancestors"
+          },
+          {
+            "name": "get_children",
+            "is_async": false,
+            "args": [],
+            "return_type": "Vec<record bitwarden_collections::CollectionView>",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_collectionviewnodeitem_get_children"
+          },
+          {
+            "name": "get_item",
+            "is_async": false,
+            "args": [],
+            "return_type": "record bitwarden_collections::CollectionView",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_collectionviewnodeitem_get_item"
+          },
+          {
+            "name": "get_parent",
+            "is_async": false,
+            "args": [],
+            "return_type": "Option<record bitwarden_collections::CollectionView>",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_collectionviewnodeitem_get_parent"
+          }
+        ]
+      },
+      {
+        "name": "CollectionViewTree",
+        "trait_interface": false,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "get_flat_items",
+            "is_async": false,
+            "args": [],
+            "return_type": "Vec<object bitwarden_uniffi::CollectionViewNodeItem>",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_collectionviewtree_get_flat_items"
+          },
+          {
+            "name": "get_item_for_view",
+            "is_async": false,
+            "args": [
+              {
+                "name": "collection_view",
+                "type": "record bitwarden_collections::CollectionView",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "Option<object bitwarden_uniffi::CollectionViewNodeItem>",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_collectionviewtree_get_item_for_view"
+          },
+          {
+            "name": "get_root_items",
+            "is_async": false,
+            "args": [],
+            "return_type": "Vec<object bitwarden_uniffi::CollectionViewNodeItem>",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_collectionviewtree_get_root_items"
+          }
+        ]
+      },
+      {
+        "name": "CollectionsClient",
+        "trait_interface": false,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "decrypt",
+            "is_async": false,
+            "args": [
+              {
+                "name": "collection",
+                "type": "record bitwarden_collections::Collection",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_collections::CollectionView",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_collectionsclient_decrypt"
+          },
+          {
+            "name": "decrypt_list",
+            "is_async": false,
+            "args": [
+              {
+                "name": "collections",
+                "type": "Vec<record bitwarden_collections::Collection>",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "Vec<record bitwarden_collections::CollectionView>",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_collectionsclient_decrypt_list"
+          },
+          {
+            "name": "get_collection_tree",
+            "is_async": false,
+            "args": [
+              {
+                "name": "collections",
+                "type": "Vec<record bitwarden_collections::CollectionView>",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "object bitwarden_uniffi::CollectionViewTree",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_collectionsclient_get_collection_tree"
+          }
+        ]
+      },
+      {
+        "name": "CryptoClient",
+        "trait_interface": false,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "derive_key_connector",
+            "is_async": false,
+            "args": [
+              {
+                "name": "request",
+                "type": "record bitwarden_core::DeriveKeyConnectorRequest",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "custom bitwarden_encoding::B64(String)",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_cryptoclient_derive_key_connector"
+          },
+          {
+            "name": "derive_pin_key",
+            "is_async": false,
+            "args": [
+              {
+                "name": "pin",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_core::DerivePinKeyResponse",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_cryptoclient_derive_pin_key"
+          },
+          {
+            "name": "derive_pin_user_key",
+            "is_async": false,
+            "args": [
+              {
+                "name": "encrypted_pin",
+                "type": "custom bitwarden_crypto::EncString(String)",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "custom bitwarden_crypto::EncString(String)",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_cryptoclient_derive_pin_user_key"
+          },
+          {
+            "name": "enroll_admin_password_reset",
+            "is_async": false,
+            "args": [
+              {
+                "name": "public_key",
+                "type": "custom bitwarden_encoding::B64(String)",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "custom bitwarden_crypto::UnsignedSharedKey(String)",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_cryptoclient_enroll_admin_password_reset"
+          },
+          {
+            "name": "enroll_pin",
+            "is_async": false,
+            "args": [
+              {
+                "name": "pin",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_core::EnrollPinResponse",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_cryptoclient_enroll_pin"
+          },
+          {
+            "name": "enroll_pin_with_encrypted_pin",
+            "is_async": false,
+            "args": [
+              {
+                "name": "encrypted_pin",
+                "type": "custom bitwarden_crypto::EncString(String)",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_core::EnrollPinResponse",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_cryptoclient_enroll_pin_with_encrypted_pin"
+          },
+          {
+            "name": "get_user_encryption_key",
+            "is_async": true,
+            "args": [],
+            "return_type": "custom bitwarden_encoding::B64(String)",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_cryptoclient_get_user_encryption_key"
+          },
+          {
+            "name": "initialize_org_crypto",
+            "is_async": true,
+            "args": [
+              {
+                "name": "req",
+                "type": "record bitwarden_core::InitOrgCryptoRequest",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": null,
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_cryptoclient_initialize_org_crypto"
+          },
+          {
+            "name": "initialize_user_crypto",
+            "is_async": true,
+            "args": [
+              {
+                "name": "req",
+                "type": "record bitwarden_core::InitUserCryptoRequest",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": null,
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_cryptoclient_initialize_user_crypto"
+          },
+          {
+            "name": "make_update_kdf",
+            "is_async": false,
+            "args": [
+              {
+                "name": "password",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "kdf",
+                "type": "enum bitwarden_crypto::Kdf",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_core::UpdateKdfResponse",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_cryptoclient_make_update_kdf"
+          },
+          {
+            "name": "make_update_password",
+            "is_async": false,
+            "args": [
+              {
+                "name": "new_password",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_core::UpdatePasswordResponse",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_cryptoclient_make_update_password"
+          },
+          {
+            "name": "update_password",
+            "is_async": false,
+            "args": [
+              {
+                "name": "new_password",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_core::UpdatePasswordResponse",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_cryptoclient_update_password"
+          }
+        ]
+      },
+      {
+        "name": "ExporterClient",
+        "trait_interface": false,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "export_cxf",
+            "is_async": false,
+            "args": [
+              {
+                "name": "account",
+                "type": "record bitwarden_exporters::Account",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "ciphers",
+                "type": "Vec<record bitwarden_vault::Cipher>",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "String",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_exporterclient_export_cxf"
+          },
+          {
+            "name": "export_organization_vault",
+            "is_async": false,
+            "args": [
+              {
+                "name": "collections",
+                "type": "Vec<record bitwarden_collections::Collection>",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "ciphers",
+                "type": "Vec<record bitwarden_vault::Cipher>",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "format",
+                "type": "enum bitwarden_exporters::ExportFormat",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "String",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_exporterclient_export_organization_vault"
+          },
+          {
+            "name": "export_vault",
+            "is_async": false,
+            "args": [
+              {
+                "name": "folders",
+                "type": "Vec<record bitwarden_vault::Folder>",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "ciphers",
+                "type": "Vec<record bitwarden_vault::Cipher>",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "format",
+                "type": "enum bitwarden_exporters::ExportFormat",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "String",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_exporterclient_export_vault"
+          },
+          {
+            "name": "import_cxf",
+            "is_async": false,
+            "args": [
+              {
+                "name": "payload",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "Vec<record bitwarden_vault::Cipher>",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_exporterclient_import_cxf"
+          }
+        ]
+      },
+      {
+        "name": "Fido2CredentialStore",
+        "trait_interface": true,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "all_credentials",
+            "is_async": true,
+            "args": [],
+            "return_type": "Vec<record bitwarden_vault::CipherListView>",
+            "throws": "enum bitwarden_uniffi::Fido2CallbackError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_fido2credentialstore_all_credentials"
+          },
+          {
+            "name": "find_credentials",
+            "is_async": true,
+            "args": [
+              {
+                "name": "ids",
+                "type": "Option<Vec<Bytes>>",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "rip_id",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "Vec<record bitwarden_vault::CipherView>",
+            "throws": "enum bitwarden_uniffi::Fido2CallbackError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_fido2credentialstore_find_credentials"
+          },
+          {
+            "name": "save_credential",
+            "is_async": true,
+            "args": [
+              {
+                "name": "cred",
+                "type": "record bitwarden_vault::EncryptionContext",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": null,
+            "throws": "enum bitwarden_uniffi::Fido2CallbackError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_fido2credentialstore_save_credential"
+          }
+        ]
+      },
+      {
+        "name": "Fido2UserInterface",
+        "trait_interface": true,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "check_user",
+            "is_async": true,
+            "args": [
+              {
+                "name": "options",
+                "type": "record bitwarden_fido::CheckUserOptions",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "hint",
+                "type": "enum bitwarden_uniffi::UIHint",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_uniffi::CheckUserResult",
+            "throws": "enum bitwarden_uniffi::Fido2CallbackError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_fido2userinterface_check_user"
+          },
+          {
+            "name": "check_user_and_pick_credential_for_creation",
+            "is_async": true,
+            "args": [
+              {
+                "name": "options",
+                "type": "record bitwarden_fido::CheckUserOptions",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "new_credential",
+                "type": "record bitwarden_vault::Fido2CredentialNewView",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_uniffi::CheckUserAndPickCredentialForCreationResult",
+            "throws": "enum bitwarden_uniffi::Fido2CallbackError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_fido2userinterface_check_user_and_pick_credential_for_creation"
+          },
+          {
+            "name": "is_verification_enabled",
+            "is_async": true,
+            "args": [],
+            "return_type": "bool",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_fido2userinterface_is_verification_enabled"
+          },
+          {
+            "name": "pick_credential_for_authentication",
+            "is_async": true,
+            "args": [
+              {
+                "name": "available_credentials",
+                "type": "Vec<record bitwarden_vault::CipherView>",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_uniffi::CipherViewWrapper",
+            "throws": "enum bitwarden_uniffi::Fido2CallbackError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_fido2userinterface_pick_credential_for_authentication"
+          }
+        ]
+      },
+      {
+        "name": "FolderRepository",
+        "trait_interface": true,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "get",
+            "is_async": true,
+            "args": [
+              {
+                "name": "id",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "Option<record bitwarden_vault::Folder>",
+            "throws": "enum bitwarden_uniffi::RepositoryError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_folderrepository_get"
+          },
+          {
+            "name": "has",
+            "is_async": true,
+            "args": [
+              {
+                "name": "id",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "bool",
+            "throws": "enum bitwarden_uniffi::RepositoryError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_folderrepository_has"
+          },
+          {
+            "name": "list",
+            "is_async": true,
+            "args": [],
+            "return_type": "Vec<record bitwarden_vault::Folder>",
+            "throws": "enum bitwarden_uniffi::RepositoryError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_folderrepository_list"
+          },
+          {
+            "name": "remove",
+            "is_async": true,
+            "args": [
+              {
+                "name": "id",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": null,
+            "throws": "enum bitwarden_uniffi::RepositoryError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_folderrepository_remove"
+          },
+          {
+            "name": "set",
+            "is_async": true,
+            "args": [
+              {
+                "name": "id",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "value",
+                "type": "record bitwarden_vault::Folder",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": null,
+            "throws": "enum bitwarden_uniffi::RepositoryError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_folderrepository_set"
+          }
+        ]
+      },
+      {
+        "name": "FoldersClient",
+        "trait_interface": false,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "decrypt",
+            "is_async": false,
+            "args": [
+              {
+                "name": "folder",
+                "type": "record bitwarden_vault::Folder",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_vault::FolderView",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_foldersclient_decrypt"
+          },
+          {
+            "name": "decrypt_list",
+            "is_async": false,
+            "args": [
+              {
+                "name": "folders",
+                "type": "Vec<record bitwarden_vault::Folder>",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "Vec<record bitwarden_vault::FolderView>",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_foldersclient_decrypt_list"
+          },
+          {
+            "name": "encrypt",
+            "is_async": false,
+            "args": [
+              {
+                "name": "folder",
+                "type": "record bitwarden_vault::FolderView",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_vault::Folder",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_foldersclient_encrypt"
+          }
+        ]
+      },
+      {
+        "name": "GeneratorClients",
+        "trait_interface": false,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "passphrase",
+            "is_async": false,
+            "args": [
+              {
+                "name": "settings",
+                "type": "record bitwarden_generators::PassphraseGeneratorRequest",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "String",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_generatorclients_passphrase"
+          },
+          {
+            "name": "password",
+            "is_async": false,
+            "args": [
+              {
+                "name": "settings",
+                "type": "record bitwarden_generators::PasswordGeneratorRequest",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "String",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_generatorclients_password"
+          },
+          {
+            "name": "username",
+            "is_async": true,
+            "args": [
+              {
+                "name": "settings",
+                "type": "enum bitwarden_generators::UsernameGeneratorRequest",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "String",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_generatorclients_username"
+          }
+        ]
+      },
+      {
+        "name": "PasswordHistoryClient",
+        "trait_interface": false,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "decrypt_list",
+            "is_async": false,
+            "args": [
+              {
+                "name": "list",
+                "type": "Vec<record bitwarden_vault::PasswordHistory>",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "Vec<record bitwarden_vault::PasswordHistoryView>",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_passwordhistoryclient_decrypt_list"
+          },
+          {
+            "name": "encrypt",
+            "is_async": false,
+            "args": [
+              {
+                "name": "password_history",
+                "type": "record bitwarden_vault::PasswordHistoryView",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_vault::PasswordHistory",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_passwordhistoryclient_encrypt"
+          }
+        ]
+      },
+      {
+        "name": "PlatformClient",
+        "trait_interface": false,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "fido2",
+            "is_async": false,
+            "args": [],
+            "return_type": "object bitwarden_uniffi::ClientFido2",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_platformclient_fido2"
+          },
+          {
+            "name": "fingerprint",
+            "is_async": false,
+            "args": [
+              {
+                "name": "req",
+                "type": "record bitwarden_core::FingerprintRequest",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "String",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_platformclient_fingerprint"
+          },
+          {
+            "name": "load_flags",
+            "is_async": false,
+            "args": [
+              {
+                "name": "flags",
+                "type": "Map<String, bool>",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": null,
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_platformclient_load_flags"
+          },
+          {
+            "name": "state",
+            "is_async": false,
+            "args": [],
+            "return_type": "object bitwarden_uniffi::StateClient",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_platformclient_state"
+          },
+          {
+            "name": "user_fingerprint",
+            "is_async": false,
+            "args": [
+              {
+                "name": "fingerprint_material",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "String",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_platformclient_user_fingerprint"
+          }
+        ]
+      },
+      {
+        "name": "SendClient",
+        "trait_interface": false,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "decrypt",
+            "is_async": false,
+            "args": [
+              {
+                "name": "send",
+                "type": "record bitwarden_send::Send",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_send::SendView",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_sendclient_decrypt"
+          },
+          {
+            "name": "decrypt_buffer",
+            "is_async": false,
+            "args": [
+              {
+                "name": "send",
+                "type": "record bitwarden_send::Send",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "buffer",
+                "type": "Bytes",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "Bytes",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_sendclient_decrypt_buffer"
+          },
+          {
+            "name": "decrypt_file",
+            "is_async": false,
+            "args": [
+              {
+                "name": "send",
+                "type": "record bitwarden_send::Send",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "encrypted_file_path",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "decrypted_file_path",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": null,
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_sendclient_decrypt_file"
+          },
+          {
+            "name": "decrypt_list",
+            "is_async": false,
+            "args": [
+              {
+                "name": "sends",
+                "type": "Vec<record bitwarden_send::Send>",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "Vec<record bitwarden_send::SendListView>",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_sendclient_decrypt_list"
+          },
+          {
+            "name": "encrypt",
+            "is_async": false,
+            "args": [
+              {
+                "name": "send",
+                "type": "record bitwarden_send::SendView",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_send::Send",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_sendclient_encrypt"
+          },
+          {
+            "name": "encrypt_buffer",
+            "is_async": false,
+            "args": [
+              {
+                "name": "send",
+                "type": "record bitwarden_send::Send",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "buffer",
+                "type": "Bytes",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "Bytes",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_sendclient_encrypt_buffer"
+          },
+          {
+            "name": "encrypt_file",
+            "is_async": false,
+            "args": [
+              {
+                "name": "send",
+                "type": "record bitwarden_send::Send",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "decrypted_file_path",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "encrypted_file_path",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": null,
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_sendclient_encrypt_file"
+          }
+        ]
+      },
+      {
+        "name": "SshClient",
+        "trait_interface": false,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "generate_ssh_key",
+            "is_async": false,
+            "args": [
+              {
+                "name": "key_algorithm",
+                "type": "enum bitwarden_ssh::KeyAlgorithm",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_vault::SshKeyView",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_sshclient_generate_ssh_key"
+          },
+          {
+            "name": "import_ssh_key",
+            "is_async": false,
+            "args": [
+              {
+                "name": "imported_key",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "password",
+                "type": "Option<String>",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_vault::SshKeyView",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_sshclient_import_ssh_key"
+          }
+        ]
+      },
+      {
+        "name": "StateClient",
+        "trait_interface": false,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "initialize_state",
+            "is_async": true,
+            "args": [
+              {
+                "name": "configuration",
+                "type": "record bitwarden_uniffi::SqliteConfiguration",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": null,
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_stateclient_initialize_state"
+          },
+          {
+            "name": "register_cipher_repository",
+            "is_async": false,
+            "args": [
+              {
+                "name": "repository",
+                "type": "callback_trait bitwarden_uniffi::CipherRepository",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": null,
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_stateclient_register_cipher_repository"
+          },
+          {
+            "name": "register_client_managed_repositories",
+            "is_async": false,
+            "args": [
+              {
+                "name": "repositories",
+                "type": "record bitwarden_uniffi::Repositories",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": null,
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_stateclient_register_client_managed_repositories"
+          }
+        ]
+      },
+      {
+        "name": "VaultClient",
+        "trait_interface": false,
+        "constructors": [],
+        "methods": [
+          {
+            "name": "attachments",
+            "is_async": false,
+            "args": [],
+            "return_type": "object bitwarden_uniffi::AttachmentsClient",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_vaultclient_attachments"
+          },
+          {
+            "name": "ciphers",
+            "is_async": false,
+            "args": [],
+            "return_type": "object bitwarden_uniffi::CiphersClient",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_vaultclient_ciphers"
+          },
+          {
+            "name": "collections",
+            "is_async": false,
+            "args": [],
+            "return_type": "object bitwarden_uniffi::CollectionsClient",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_vaultclient_collections"
+          },
+          {
+            "name": "folders",
+            "is_async": false,
+            "args": [],
+            "return_type": "object bitwarden_uniffi::FoldersClient",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_vaultclient_folders"
+          },
+          {
+            "name": "generate_totp",
+            "is_async": false,
+            "args": [
+              {
+                "name": "key",
+                "type": "String",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "time",
+                "type": "Option<custom bitwarden_core::DateTime(SystemTime)>",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_vault::TotpResponse",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_vaultclient_generate_totp"
+          },
+          {
+            "name": "generate_totp_cipher_view",
+            "is_async": false,
+            "args": [
+              {
+                "name": "view",
+                "type": "record bitwarden_vault::CipherListView",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              },
+              {
+                "name": "time",
+                "type": "Option<custom bitwarden_core::DateTime(SystemTime)>",
+                "by_ref": false,
+                "optional": false,
+                "default": null
+              }
+            ],
+            "return_type": "record bitwarden_vault::TotpResponse",
+            "throws": "enum bitwarden_uniffi::BitwardenError",
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_vaultclient_generate_totp_cipher_view"
+          },
+          {
+            "name": "password_history",
+            "is_async": false,
+            "args": [],
+            "return_type": "object bitwarden_uniffi::PasswordHistoryClient",
+            "throws": null,
+            "ffi_symbol": "uniffi_bitwarden_uniffi_fn_method_vaultclient_password_history"
+          }
+        ]
+      }
+    ],
+    "records": [
+      {
+        "name": "CheckUserAndPickCredentialForCreationResult",
+        "fields": [
+          {
+            "name": "check_user_result",
+            "type": "record bitwarden_uniffi::CheckUserResult"
+          },
+          {
+            "name": "cipher",
+            "type": "record bitwarden_uniffi::CipherViewWrapper"
+          }
+        ]
+      },
+      {
+        "name": "CheckUserResult",
+        "fields": [
+          {
+            "name": "user_present",
+            "type": "bool"
+          },
+          {
+            "name": "user_verified",
+            "type": "bool"
+          }
+        ]
+      },
+      {
+        "name": "CipherViewWrapper",
+        "fields": [
+          {
+            "name": "cipher",
+            "type": "record bitwarden_vault::CipherView"
+          }
+        ]
+      },
+      {
+        "name": "Repositories",
+        "fields": [
+          {
+            "name": "cipher",
+            "type": "Option<callback_trait bitwarden_uniffi::CipherRepository>"
+          },
+          {
+            "name": "folder",
+            "type": "Option<callback_trait bitwarden_uniffi::FolderRepository>"
+          }
+        ]
+      },
+      {
+        "name": "SqliteConfiguration",
+        "fields": [
+          {
+            "name": "db_name",
+            "type": "String"
+          },
+          {
+            "name": "folder_path",
+            "type": "String"
+          }
+        ]
+      }
+    ],
+    "enums": [
+      {
+        "name": "BitwardenError",
+        "shape": "error(rich)",
+        "variants": [
+          {
+            "name": "Api",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_core::ApiError"
+              }
+            ]
+          },
+          {
+            "name": "ApproveAuthRequest",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_core::ApproveAuthRequestError"
+              }
+            ]
+          },
+          {
+            "name": "AuthValidate",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_core::AuthValidateError"
+              }
+            ]
+          },
+          {
+            "name": "Cipher",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_vault::CipherError"
+              }
+            ]
+          },
+          {
+            "name": "Conversion",
+            "fields": [
+              {
+                "name": "",
+                "type": "String"
+              }
+            ]
+          },
+          {
+            "name": "CredentialsForAutofill",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_fido::CredentialsForAutofillError"
+              }
+            ]
+          },
+          {
+            "name": "Crypto",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_crypto::CryptoError"
+              }
+            ]
+          },
+          {
+            "name": "Decrypt",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_vault::DecryptError"
+              }
+            ]
+          },
+          {
+            "name": "DecryptFido2AutofillCredentials",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_fido::DecryptFido2AutofillCredentialsError"
+              }
+            ]
+          },
+          {
+            "name": "DecryptFile",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_vault::DecryptFileError"
+              }
+            ]
+          },
+          {
+            "name": "DeriveKeyConnector",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_core::DeriveKeyConnectorError"
+              }
+            ]
+          },
+          {
+            "name": "Encrypt",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_vault::EncryptError"
+              }
+            ]
+          },
+          {
+            "name": "EncryptFile",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_vault::EncryptFileError"
+              }
+            ]
+          },
+          {
+            "name": "EncryptionSettings",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_core::EncryptionSettingsError"
+              }
+            ]
+          },
+          {
+            "name": "EnrollAdminPasswordReset",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_core::EnrollAdminPasswordResetError"
+              }
+            ]
+          },
+          {
+            "name": "Export",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_exporters::ExportError"
+              }
+            ]
+          },
+          {
+            "name": "Fido2Client",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_fido::Fido2ClientError"
+              }
+            ]
+          },
+          {
+            "name": "Fingerprint",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_core::FingerprintError"
+              }
+            ]
+          },
+          {
+            "name": "GetAssertion",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_fido::GetAssertionError"
+              }
+            ]
+          },
+          {
+            "name": "MakeCredential",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_fido::MakeCredentialError"
+              }
+            ]
+          },
+          {
+            "name": "MobileCrypto",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_core::CryptoClientError"
+              }
+            ]
+          },
+          {
+            "name": "Passphrase",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_generators::PassphraseError"
+              }
+            ]
+          },
+          {
+            "name": "Password",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_generators::PasswordError"
+              }
+            ]
+          },
+          {
+            "name": "SendDecrypt",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_send::SendDecryptError"
+              }
+            ]
+          },
+          {
+            "name": "SendDecryptFile",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_send::SendDecryptFileError"
+              }
+            ]
+          },
+          {
+            "name": "SendEncrypt",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_send::SendEncryptError"
+              }
+            ]
+          },
+          {
+            "name": "SendEncryptFile",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_send::SendEncryptFileError"
+              }
+            ]
+          },
+          {
+            "name": "SilentlyDiscoverCredentials",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_fido::SilentlyDiscoverCredentialsError"
+              }
+            ]
+          },
+          {
+            "name": "SshGeneration",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_ssh::KeyGenerationError"
+              }
+            ]
+          },
+          {
+            "name": "SshImport",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_ssh::SshKeyImportError"
+              }
+            ]
+          },
+          {
+            "name": "StateRegistry",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_state::StateRegistryError"
+              }
+            ]
+          },
+          {
+            "name": "Totp",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_vault::TotpError"
+              }
+            ]
+          },
+          {
+            "name": "TrustDevice",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_core::TrustDeviceError"
+              }
+            ]
+          },
+          {
+            "name": "UserFingerprint",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_core::UserFingerprintError"
+              }
+            ]
+          },
+          {
+            "name": "Username",
+            "fields": [
+              {
+                "name": "",
+                "type": "enum bitwarden_generators::UsernameError"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Fido2CallbackError",
+        "shape": "error(rich)",
+        "variants": [
+          {
+            "name": "OperationCancelled",
+            "fields": []
+          },
+          {
+            "name": "Unknown",
+            "fields": [
+              {
+                "name": "reason",
+                "type": "String"
+              }
+            ]
+          },
+          {
+            "name": "UserInterfaceRequired",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "RepositoryError",
+        "shape": "error(rich)",
+        "variants": [
+          {
+            "name": "Internal",
+            "fields": [
+              {
+                "name": "",
+                "type": "String"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "UIHint",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "InformExcludedCredentialFound",
+            "fields": [
+              {
+                "name": "",
+                "type": "record bitwarden_vault::CipherView"
+              }
+            ]
+          },
+          {
+            "name": "InformNoCredentialsFound",
+            "fields": []
+          },
+          {
+            "name": "RequestExistingCredential",
+            "fields": [
+              {
+                "name": "",
+                "type": "record bitwarden_vault::CipherView"
+              }
+            ]
+          },
+          {
+            "name": "RequestNewCredential",
+            "fields": [
+              {
+                "name": "",
+                "type": "record bitwarden_fido::PublicKeyCredentialUserEntity"
+              },
+              {
+                "name": "",
+                "type": "record bitwarden_fido::PublicKeyCredentialRpEntity"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "crate_name": "bitwarden_vault",
+    "namespace": "bitwarden_vault",
+    "functions": [],
+    "objects": [],
+    "records": [
+      {
+        "name": "AncestorMap",
+        "fields": [
+          {
+            "name": "ancestors",
+            "type": "Map<custom bitwarden_collections::CollectionId(custom bitwarden_core::Uuid(String)), String>"
+          }
+        ]
+      },
+      {
+        "name": "Attachment",
+        "fields": [
+          {
+            "name": "file_name",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "id",
+            "type": "Option<String>"
+          },
+          {
+            "name": "key",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "size",
+            "type": "Option<String>"
+          },
+          {
+            "name": "size_name",
+            "type": "Option<String>"
+          },
+          {
+            "name": "url",
+            "type": "Option<String>"
+          }
+        ]
+      },
+      {
+        "name": "AttachmentEncryptResult",
+        "fields": [
+          {
+            "name": "attachment",
+            "type": "record bitwarden_vault::Attachment"
+          },
+          {
+            "name": "contents",
+            "type": "Bytes"
+          }
+        ]
+      },
+      {
+        "name": "AttachmentView",
+        "fields": [
+          {
+            "name": "file_name",
+            "type": "Option<String>"
+          },
+          {
+            "name": "id",
+            "type": "Option<String>"
+          },
+          {
+            "name": "key",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "size",
+            "type": "Option<String>"
+          },
+          {
+            "name": "size_name",
+            "type": "Option<String>"
+          },
+          {
+            "name": "url",
+            "type": "Option<String>"
+          }
+        ]
+      },
+      {
+        "name": "Card",
+        "fields": [
+          {
+            "name": "brand",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "cardholder_name",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "code",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "exp_month",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "exp_year",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "number",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          }
+        ]
+      },
+      {
+        "name": "CardListView",
+        "fields": [
+          {
+            "name": "brand",
+            "type": "Option<String>"
+          }
+        ]
+      },
+      {
+        "name": "CardView",
+        "fields": [
+          {
+            "name": "brand",
+            "type": "Option<String>"
+          },
+          {
+            "name": "cardholder_name",
+            "type": "Option<String>"
+          },
+          {
+            "name": "code",
+            "type": "Option<String>"
+          },
+          {
+            "name": "exp_month",
+            "type": "Option<String>"
+          },
+          {
+            "name": "exp_year",
+            "type": "Option<String>"
+          },
+          {
+            "name": "number",
+            "type": "Option<String>"
+          }
+        ]
+      },
+      {
+        "name": "Cipher",
+        "fields": [
+          {
+            "name": "archived_date",
+            "type": "Option<custom bitwarden_core::DateTime(SystemTime)>"
+          },
+          {
+            "name": "attachments",
+            "type": "Option<Vec<record bitwarden_vault::Attachment>>"
+          },
+          {
+            "name": "card",
+            "type": "Option<record bitwarden_vault::Card>"
+          },
+          {
+            "name": "collection_ids",
+            "type": "Vec<custom bitwarden_collections::CollectionId(custom bitwarden_core::Uuid(String))>"
+          },
+          {
+            "name": "creation_date",
+            "type": "custom bitwarden_core::DateTime(SystemTime)"
+          },
+          {
+            "name": "deleted_date",
+            "type": "Option<custom bitwarden_core::DateTime(SystemTime)>"
+          },
+          {
+            "name": "edit",
+            "type": "bool"
+          },
+          {
+            "name": "favorite",
+            "type": "bool"
+          },
+          {
+            "name": "fields",
+            "type": "Option<Vec<record bitwarden_vault::Field>>"
+          },
+          {
+            "name": "folder_id",
+            "type": "Option<custom bitwarden_vault::FolderId(custom bitwarden_core::Uuid(String))>"
+          },
+          {
+            "name": "id",
+            "type": "Option<custom bitwarden_vault::CipherId(custom bitwarden_core::Uuid(String))>"
+          },
+          {
+            "name": "identity",
+            "type": "Option<record bitwarden_vault::Identity>"
+          },
+          {
+            "name": "key",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "local_data",
+            "type": "Option<record bitwarden_vault::LocalData>"
+          },
+          {
+            "name": "login",
+            "type": "Option<record bitwarden_vault::Login>"
+          },
+          {
+            "name": "name",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "notes",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "organization_id",
+            "type": "Option<custom bitwarden_core::OrganizationId(custom bitwarden_core::Uuid(String))>"
+          },
+          {
+            "name": "organization_use_totp",
+            "type": "bool"
+          },
+          {
+            "name": "password_history",
+            "type": "Option<Vec<record bitwarden_vault::PasswordHistory>>"
+          },
+          {
+            "name": "permissions",
+            "type": "Option<record bitwarden_vault::CipherPermissions>"
+          },
+          {
+            "name": "reprompt",
+            "type": "enum bitwarden_vault::CipherRepromptType"
+          },
+          {
+            "name": "revision_date",
+            "type": "custom bitwarden_core::DateTime(SystemTime)"
+          },
+          {
+            "name": "secure_note",
+            "type": "Option<record bitwarden_vault::SecureNote>"
+          },
+          {
+            "name": "ssh_key",
+            "type": "Option<record bitwarden_vault::SshKey>"
+          },
+          {
+            "name": "type",
+            "type": "enum bitwarden_vault::CipherType"
+          },
+          {
+            "name": "view_password",
+            "type": "bool"
+          }
+        ]
+      },
+      {
+        "name": "CipherListView",
+        "fields": [
+          {
+            "name": "archived_date",
+            "type": "Option<custom bitwarden_core::DateTime(SystemTime)>"
+          },
+          {
+            "name": "attachments",
+            "type": "u32"
+          },
+          {
+            "name": "collection_ids",
+            "type": "Vec<custom bitwarden_collections::CollectionId(custom bitwarden_core::Uuid(String))>"
+          },
+          {
+            "name": "copyable_fields",
+            "type": "Vec<enum bitwarden_vault::CopyableCipherFields>"
+          },
+          {
+            "name": "creation_date",
+            "type": "custom bitwarden_core::DateTime(SystemTime)"
+          },
+          {
+            "name": "deleted_date",
+            "type": "Option<custom bitwarden_core::DateTime(SystemTime)>"
+          },
+          {
+            "name": "edit",
+            "type": "bool"
+          },
+          {
+            "name": "favorite",
+            "type": "bool"
+          },
+          {
+            "name": "folder_id",
+            "type": "Option<custom bitwarden_vault::FolderId(custom bitwarden_core::Uuid(String))>"
+          },
+          {
+            "name": "has_old_attachments",
+            "type": "bool"
+          },
+          {
+            "name": "id",
+            "type": "Option<custom bitwarden_vault::CipherId(custom bitwarden_core::Uuid(String))>"
+          },
+          {
+            "name": "key",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "local_data",
+            "type": "Option<record bitwarden_vault::LocalDataView>"
+          },
+          {
+            "name": "name",
+            "type": "String"
+          },
+          {
+            "name": "organization_id",
+            "type": "Option<custom bitwarden_core::OrganizationId(custom bitwarden_core::Uuid(String))>"
+          },
+          {
+            "name": "organization_use_totp",
+            "type": "bool"
+          },
+          {
+            "name": "permissions",
+            "type": "Option<record bitwarden_vault::CipherPermissions>"
+          },
+          {
+            "name": "reprompt",
+            "type": "enum bitwarden_vault::CipherRepromptType"
+          },
+          {
+            "name": "revision_date",
+            "type": "custom bitwarden_core::DateTime(SystemTime)"
+          },
+          {
+            "name": "subtitle",
+            "type": "String"
+          },
+          {
+            "name": "type",
+            "type": "enum bitwarden_vault::CipherListViewType"
+          },
+          {
+            "name": "view_password",
+            "type": "bool"
+          }
+        ]
+      },
+      {
+        "name": "CipherPermissions",
+        "fields": [
+          {
+            "name": "delete",
+            "type": "bool"
+          },
+          {
+            "name": "restore",
+            "type": "bool"
+          }
+        ]
+      },
+      {
+        "name": "CipherView",
+        "fields": [
+          {
+            "name": "archived_date",
+            "type": "Option<custom bitwarden_core::DateTime(SystemTime)>"
+          },
+          {
+            "name": "attachments",
+            "type": "Option<Vec<record bitwarden_vault::AttachmentView>>"
+          },
+          {
+            "name": "card",
+            "type": "Option<record bitwarden_vault::CardView>"
+          },
+          {
+            "name": "collection_ids",
+            "type": "Vec<custom bitwarden_collections::CollectionId(custom bitwarden_core::Uuid(String))>"
+          },
+          {
+            "name": "creation_date",
+            "type": "custom bitwarden_core::DateTime(SystemTime)"
+          },
+          {
+            "name": "deleted_date",
+            "type": "Option<custom bitwarden_core::DateTime(SystemTime)>"
+          },
+          {
+            "name": "edit",
+            "type": "bool"
+          },
+          {
+            "name": "favorite",
+            "type": "bool"
+          },
+          {
+            "name": "fields",
+            "type": "Option<Vec<record bitwarden_vault::FieldView>>"
+          },
+          {
+            "name": "folder_id",
+            "type": "Option<custom bitwarden_vault::FolderId(custom bitwarden_core::Uuid(String))>"
+          },
+          {
+            "name": "id",
+            "type": "Option<custom bitwarden_vault::CipherId(custom bitwarden_core::Uuid(String))>"
+          },
+          {
+            "name": "identity",
+            "type": "Option<record bitwarden_vault::IdentityView>"
+          },
+          {
+            "name": "key",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "local_data",
+            "type": "Option<record bitwarden_vault::LocalDataView>"
+          },
+          {
+            "name": "login",
+            "type": "Option<record bitwarden_vault::LoginView>"
+          },
+          {
+            "name": "name",
+            "type": "String"
+          },
+          {
+            "name": "notes",
+            "type": "Option<String>"
+          },
+          {
+            "name": "organization_id",
+            "type": "Option<custom bitwarden_core::OrganizationId(custom bitwarden_core::Uuid(String))>"
+          },
+          {
+            "name": "organization_use_totp",
+            "type": "bool"
+          },
+          {
+            "name": "password_history",
+            "type": "Option<Vec<record bitwarden_vault::PasswordHistoryView>>"
+          },
+          {
+            "name": "permissions",
+            "type": "Option<record bitwarden_vault::CipherPermissions>"
+          },
+          {
+            "name": "reprompt",
+            "type": "enum bitwarden_vault::CipherRepromptType"
+          },
+          {
+            "name": "revision_date",
+            "type": "custom bitwarden_core::DateTime(SystemTime)"
+          },
+          {
+            "name": "secure_note",
+            "type": "Option<record bitwarden_vault::SecureNoteView>"
+          },
+          {
+            "name": "ssh_key",
+            "type": "Option<record bitwarden_vault::SshKeyView>"
+          },
+          {
+            "name": "type",
+            "type": "enum bitwarden_vault::CipherType"
+          },
+          {
+            "name": "view_password",
+            "type": "bool"
+          }
+        ]
+      },
+      {
+        "name": "DecryptCipherListResult",
+        "fields": [
+          {
+            "name": "failures",
+            "type": "Vec<record bitwarden_vault::Cipher>"
+          },
+          {
+            "name": "successes",
+            "type": "Vec<record bitwarden_vault::CipherListView>"
+          }
+        ]
+      },
+      {
+        "name": "EncryptionContext",
+        "fields": [
+          {
+            "name": "cipher",
+            "type": "record bitwarden_vault::Cipher"
+          },
+          {
+            "name": "encrypted_for",
+            "type": "custom bitwarden_core::UserId(custom bitwarden_core::Uuid(String))"
+          }
+        ]
+      },
+      {
+        "name": "Fido2Credential",
+        "fields": [
+          {
+            "name": "counter",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "creation_date",
+            "type": "custom bitwarden_core::DateTime(SystemTime)"
+          },
+          {
+            "name": "credential_id",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "discoverable",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "key_algorithm",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "key_curve",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "key_type",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "key_value",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "rp_id",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "rp_name",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "user_display_name",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "user_handle",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "user_name",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          }
+        ]
+      },
+      {
+        "name": "Fido2CredentialListView",
+        "fields": [
+          {
+            "name": "counter",
+            "type": "String"
+          },
+          {
+            "name": "credential_id",
+            "type": "String"
+          },
+          {
+            "name": "rp_id",
+            "type": "String"
+          },
+          {
+            "name": "user_display_name",
+            "type": "Option<String>"
+          },
+          {
+            "name": "user_handle",
+            "type": "Option<String>"
+          },
+          {
+            "name": "user_name",
+            "type": "Option<String>"
+          }
+        ]
+      },
+      {
+        "name": "Fido2CredentialNewView",
+        "fields": [
+          {
+            "name": "counter",
+            "type": "String"
+          },
+          {
+            "name": "creation_date",
+            "type": "custom bitwarden_core::DateTime(SystemTime)"
+          },
+          {
+            "name": "credential_id",
+            "type": "String"
+          },
+          {
+            "name": "key_algorithm",
+            "type": "String"
+          },
+          {
+            "name": "key_curve",
+            "type": "String"
+          },
+          {
+            "name": "key_type",
+            "type": "String"
+          },
+          {
+            "name": "rp_id",
+            "type": "String"
+          },
+          {
+            "name": "rp_name",
+            "type": "Option<String>"
+          },
+          {
+            "name": "user_display_name",
+            "type": "Option<String>"
+          },
+          {
+            "name": "user_handle",
+            "type": "Option<String>"
+          },
+          {
+            "name": "user_name",
+            "type": "Option<String>"
+          }
+        ]
+      },
+      {
+        "name": "Fido2CredentialView",
+        "fields": [
+          {
+            "name": "counter",
+            "type": "String"
+          },
+          {
+            "name": "creation_date",
+            "type": "custom bitwarden_core::DateTime(SystemTime)"
+          },
+          {
+            "name": "credential_id",
+            "type": "String"
+          },
+          {
+            "name": "discoverable",
+            "type": "String"
+          },
+          {
+            "name": "key_algorithm",
+            "type": "String"
+          },
+          {
+            "name": "key_curve",
+            "type": "String"
+          },
+          {
+            "name": "key_type",
+            "type": "String"
+          },
+          {
+            "name": "key_value",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "rp_id",
+            "type": "String"
+          },
+          {
+            "name": "rp_name",
+            "type": "Option<String>"
+          },
+          {
+            "name": "user_display_name",
+            "type": "Option<String>"
+          },
+          {
+            "name": "user_handle",
+            "type": "Option<String>"
+          },
+          {
+            "name": "user_name",
+            "type": "Option<String>"
+          }
+        ]
+      },
+      {
+        "name": "Field",
+        "fields": [
+          {
+            "name": "linked_id",
+            "type": "Option<custom bitwarden_vault::LinkedIdType(u32)>"
+          },
+          {
+            "name": "name",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "type",
+            "type": "enum bitwarden_vault::FieldType"
+          },
+          {
+            "name": "value",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          }
+        ]
+      },
+      {
+        "name": "FieldView",
+        "fields": [
+          {
+            "name": "linked_id",
+            "type": "Option<custom bitwarden_vault::LinkedIdType(u32)>"
+          },
+          {
+            "name": "name",
+            "type": "Option<String>"
+          },
+          {
+            "name": "type",
+            "type": "enum bitwarden_vault::FieldType"
+          },
+          {
+            "name": "value",
+            "type": "Option<String>"
+          }
+        ]
+      },
+      {
+        "name": "Folder",
+        "fields": [
+          {
+            "name": "id",
+            "type": "Option<custom bitwarden_vault::FolderId(custom bitwarden_core::Uuid(String))>"
+          },
+          {
+            "name": "name",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "revision_date",
+            "type": "custom bitwarden_core::DateTime(SystemTime)"
+          }
+        ]
+      },
+      {
+        "name": "FolderAddEditRequest",
+        "fields": [
+          {
+            "name": "name",
+            "type": "String"
+          }
+        ]
+      },
+      {
+        "name": "FolderView",
+        "fields": [
+          {
+            "name": "id",
+            "type": "Option<custom bitwarden_vault::FolderId(custom bitwarden_core::Uuid(String))>"
+          },
+          {
+            "name": "name",
+            "type": "String"
+          },
+          {
+            "name": "revision_date",
+            "type": "custom bitwarden_core::DateTime(SystemTime)"
+          }
+        ]
+      },
+      {
+        "name": "Identity",
+        "fields": [
+          {
+            "name": "address1",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "address2",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "address3",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "city",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "company",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "country",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "email",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "first_name",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "last_name",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "license_number",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "middle_name",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "passport_number",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "phone",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "postal_code",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "ssn",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "state",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "title",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "username",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          }
+        ]
+      },
+      {
+        "name": "IdentityView",
+        "fields": [
+          {
+            "name": "address1",
+            "type": "Option<String>"
+          },
+          {
+            "name": "address2",
+            "type": "Option<String>"
+          },
+          {
+            "name": "address3",
+            "type": "Option<String>"
+          },
+          {
+            "name": "city",
+            "type": "Option<String>"
+          },
+          {
+            "name": "company",
+            "type": "Option<String>"
+          },
+          {
+            "name": "country",
+            "type": "Option<String>"
+          },
+          {
+            "name": "email",
+            "type": "Option<String>"
+          },
+          {
+            "name": "first_name",
+            "type": "Option<String>"
+          },
+          {
+            "name": "last_name",
+            "type": "Option<String>"
+          },
+          {
+            "name": "license_number",
+            "type": "Option<String>"
+          },
+          {
+            "name": "middle_name",
+            "type": "Option<String>"
+          },
+          {
+            "name": "passport_number",
+            "type": "Option<String>"
+          },
+          {
+            "name": "phone",
+            "type": "Option<String>"
+          },
+          {
+            "name": "postal_code",
+            "type": "Option<String>"
+          },
+          {
+            "name": "ssn",
+            "type": "Option<String>"
+          },
+          {
+            "name": "state",
+            "type": "Option<String>"
+          },
+          {
+            "name": "title",
+            "type": "Option<String>"
+          },
+          {
+            "name": "username",
+            "type": "Option<String>"
+          }
+        ]
+      },
+      {
+        "name": "LocalData",
+        "fields": [
+          {
+            "name": "last_launched",
+            "type": "Option<custom bitwarden_core::DateTime(SystemTime)>"
+          },
+          {
+            "name": "last_used_date",
+            "type": "Option<custom bitwarden_core::DateTime(SystemTime)>"
+          }
+        ]
+      },
+      {
+        "name": "LocalDataView",
+        "fields": [
+          {
+            "name": "last_launched",
+            "type": "Option<custom bitwarden_core::DateTime(SystemTime)>"
+          },
+          {
+            "name": "last_used_date",
+            "type": "Option<custom bitwarden_core::DateTime(SystemTime)>"
+          }
+        ]
+      },
+      {
+        "name": "Login",
+        "fields": [
+          {
+            "name": "autofill_on_page_load",
+            "type": "Option<bool>"
+          },
+          {
+            "name": "fido2_credentials",
+            "type": "Option<Vec<record bitwarden_vault::Fido2Credential>>"
+          },
+          {
+            "name": "password",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "password_revision_date",
+            "type": "Option<custom bitwarden_core::DateTime(SystemTime)>"
+          },
+          {
+            "name": "totp",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "uris",
+            "type": "Option<Vec<record bitwarden_vault::LoginUri>>"
+          },
+          {
+            "name": "username",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          }
+        ]
+      },
+      {
+        "name": "LoginListView",
+        "fields": [
+          {
+            "name": "fido2_credentials",
+            "type": "Option<Vec<record bitwarden_vault::Fido2CredentialListView>>"
+          },
+          {
+            "name": "has_fido2",
+            "type": "bool"
+          },
+          {
+            "name": "totp",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "uris",
+            "type": "Option<Vec<record bitwarden_vault::LoginUriView>>"
+          },
+          {
+            "name": "username",
+            "type": "Option<String>"
+          }
+        ]
+      },
+      {
+        "name": "LoginUri",
+        "fields": [
+          {
+            "name": "match",
+            "type": "Option<enum bitwarden_vault::UriMatchType>"
+          },
+          {
+            "name": "uri",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          },
+          {
+            "name": "uri_checksum",
+            "type": "Option<custom bitwarden_crypto::EncString(String)>"
+          }
+        ]
+      },
+      {
+        "name": "LoginUriView",
+        "fields": [
+          {
+            "name": "match",
+            "type": "Option<enum bitwarden_vault::UriMatchType>"
+          },
+          {
+            "name": "uri",
+            "type": "Option<String>"
+          },
+          {
+            "name": "uri_checksum",
+            "type": "Option<String>"
+          }
+        ]
+      },
+      {
+        "name": "LoginView",
+        "fields": [
+          {
+            "name": "autofill_on_page_load",
+            "type": "Option<bool>"
+          },
+          {
+            "name": "fido2_credentials",
+            "type": "Option<Vec<record bitwarden_vault::Fido2Credential>>"
+          },
+          {
+            "name": "password",
+            "type": "Option<String>"
+          },
+          {
+            "name": "password_revision_date",
+            "type": "Option<custom bitwarden_core::DateTime(SystemTime)>"
+          },
+          {
+            "name": "totp",
+            "type": "Option<String>"
+          },
+          {
+            "name": "uris",
+            "type": "Option<Vec<record bitwarden_vault::LoginUriView>>"
+          },
+          {
+            "name": "username",
+            "type": "Option<String>"
+          }
+        ]
+      },
+      {
+        "name": "PasswordHistory",
+        "fields": [
+          {
+            "name": "last_used_date",
+            "type": "custom bitwarden_core::DateTime(SystemTime)"
+          },
+          {
+            "name": "password",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          }
+        ]
+      },
+      {
+        "name": "PasswordHistoryView",
+        "fields": [
+          {
+            "name": "last_used_date",
+            "type": "custom bitwarden_core::DateTime(SystemTime)"
+          },
+          {
+            "name": "password",
+            "type": "String"
+          }
+        ]
+      },
+      {
+        "name": "SecureNote",
+        "fields": [
+          {
+            "name": "type",
+            "type": "enum bitwarden_vault::SecureNoteType"
+          }
+        ]
+      },
+      {
+        "name": "SecureNoteView",
+        "fields": [
+          {
+            "name": "type",
+            "type": "enum bitwarden_vault::SecureNoteType"
+          }
+        ]
+      },
+      {
+        "name": "SshKey",
+        "fields": [
+          {
+            "name": "fingerprint",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "private_key",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          },
+          {
+            "name": "public_key",
+            "type": "custom bitwarden_crypto::EncString(String)"
+          }
+        ]
+      },
+      {
+        "name": "SshKeyView",
+        "fields": [
+          {
+            "name": "fingerprint",
+            "type": "String"
+          },
+          {
+            "name": "private_key",
+            "type": "String"
+          },
+          {
+            "name": "public_key",
+            "type": "String"
+          }
+        ]
+      },
+      {
+        "name": "TotpResponse",
+        "fields": [
+          {
+            "name": "code",
+            "type": "String"
+          },
+          {
+            "name": "period",
+            "type": "u32"
+          }
+        ]
+      }
+    ],
+    "enums": [
+      {
+        "name": "CipherError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "AttachmentsWithoutKeys",
+            "fields": []
+          },
+          {
+            "name": "Crypto",
+            "fields": []
+          },
+          {
+            "name": "Encrypt",
+            "fields": []
+          },
+          {
+            "name": "MissingField",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "CipherListViewType",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "Card",
+            "fields": [
+              {
+                "name": "",
+                "type": "record bitwarden_vault::CardListView"
+              }
+            ]
+          },
+          {
+            "name": "Identity",
+            "fields": []
+          },
+          {
+            "name": "Login",
+            "fields": [
+              {
+                "name": "",
+                "type": "record bitwarden_vault::LoginListView"
+              }
+            ]
+          },
+          {
+            "name": "SecureNote",
+            "fields": []
+          },
+          {
+            "name": "SshKey",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "CipherRepromptType",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "None",
+            "fields": []
+          },
+          {
+            "name": "Password",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "CipherType",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "Card",
+            "fields": []
+          },
+          {
+            "name": "Identity",
+            "fields": []
+          },
+          {
+            "name": "Login",
+            "fields": []
+          },
+          {
+            "name": "SecureNote",
+            "fields": []
+          },
+          {
+            "name": "SshKey",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "CopyableCipherFields",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "CardNumber",
+            "fields": []
+          },
+          {
+            "name": "CardSecurityCode",
+            "fields": []
+          },
+          {
+            "name": "IdentityAddress",
+            "fields": []
+          },
+          {
+            "name": "IdentityEmail",
+            "fields": []
+          },
+          {
+            "name": "IdentityPhone",
+            "fields": []
+          },
+          {
+            "name": "IdentityUsername",
+            "fields": []
+          },
+          {
+            "name": "LoginPassword",
+            "fields": []
+          },
+          {
+            "name": "LoginTotp",
+            "fields": []
+          },
+          {
+            "name": "LoginUsername",
+            "fields": []
+          },
+          {
+            "name": "SecureNotes",
+            "fields": []
+          },
+          {
+            "name": "SshKey",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "CreateFolderError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Api",
+            "fields": []
+          },
+          {
+            "name": "Crypto",
+            "fields": []
+          },
+          {
+            "name": "MissingField",
+            "fields": []
+          },
+          {
+            "name": "Repository",
+            "fields": []
+          },
+          {
+            "name": "VaultParse",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "DecryptError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Crypto",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "DecryptFileError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Decrypt",
+            "fields": []
+          },
+          {
+            "name": "Io",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "EditFolderError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Api",
+            "fields": []
+          },
+          {
+            "name": "Crypto",
+            "fields": []
+          },
+          {
+            "name": "ItemNotFound",
+            "fields": []
+          },
+          {
+            "name": "MissingField",
+            "fields": []
+          },
+          {
+            "name": "Repository",
+            "fields": []
+          },
+          {
+            "name": "Uuid",
+            "fields": []
+          },
+          {
+            "name": "VaultParse",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "EncryptError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Crypto",
+            "fields": []
+          },
+          {
+            "name": "MissingUserId",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "EncryptFileError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Encrypt",
+            "fields": []
+          },
+          {
+            "name": "Io",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "FieldType",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "Boolean",
+            "fields": []
+          },
+          {
+            "name": "Hidden",
+            "fields": []
+          },
+          {
+            "name": "Linked",
+            "fields": []
+          },
+          {
+            "name": "Text",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "GetFolderError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Crypto",
+            "fields": []
+          },
+          {
+            "name": "ItemNotFound",
+            "fields": []
+          },
+          {
+            "name": "Repository",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "SecureNoteType",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "Generic",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "TotpError",
+        "shape": "error(flat)",
+        "variants": [
+          {
+            "name": "Crypto",
+            "fields": []
+          },
+          {
+            "name": "InvalidOtpauth",
+            "fields": []
+          },
+          {
+            "name": "MissingSecret",
+            "fields": []
+          }
+        ]
+      },
+      {
+        "name": "UriMatchType",
+        "shape": "enum",
+        "variants": [
+          {
+            "name": "Domain",
+            "fields": []
+          },
+          {
+            "name": "Exact",
+            "fields": []
+          },
+          {
+            "name": "Host",
+            "fields": []
+          },
+          {
+            "name": "Never",
+            "fields": []
+          },
+          {
+            "name": "RegularExpression",
+            "fields": []
+          },
+          {
+            "name": "StartsWith",
+            "fields": []
+          }
+        ]
+      }
+    ]
+  }
+]
