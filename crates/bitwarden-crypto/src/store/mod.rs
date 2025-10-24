@@ -100,6 +100,7 @@ pub struct KeyStore<Ids: KeyIds> {
     // We use an Arc<> to make it easier to pass this store around, as we can
     // clone it instead of passing references
     inner: Arc<RwLock<KeyStoreInner<Ids>>>,
+    security_state_version: Arc<RwLock<u64>>,
 }
 
 /// [KeyStore] contains sensitive data, provide a dummy [Debug] implementation.
@@ -124,6 +125,7 @@ impl<Ids: KeyIds> Default for KeyStore<Ids> {
                 asymmetric_keys: create_store(),
                 signing_keys: create_store(),
             })),
+            security_state_version: Arc::new(RwLock::new(1)),
         }
     }
 }
@@ -136,6 +138,15 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         keys.symmetric_keys.clear();
         keys.asymmetric_keys.clear();
         keys.signing_keys.clear();
+    }
+
+    /// Sets the security state version for this store.
+    pub fn set_security_state_version(&self, version: u64) {
+        let mut ver = self
+            .security_state_version
+            .write()
+            .expect("RwLock is poisoned");
+        *ver = version;
     }
 
     /// Initiate an encryption/decryption context. This context will have read only access to the
@@ -175,6 +186,10 @@ impl<Ids: KeyIds> KeyStore<Ids> {
             local_symmetric_keys: create_store(),
             local_asymmetric_keys: create_store(),
             local_signing_keys: create_store(),
+            security_state_version: *self
+                .security_state_version
+                .read()
+                .expect("RwLock is poisoned"),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -205,6 +220,10 @@ impl<Ids: KeyIds> KeyStore<Ids> {
             local_symmetric_keys: create_store(),
             local_asymmetric_keys: create_store(),
             local_signing_keys: create_store(),
+            security_state_version: *self
+                .security_state_version
+                .read()
+                .expect("RwLock is poisoned"),
             _phantom: std::marker::PhantomData,
         }
     }
