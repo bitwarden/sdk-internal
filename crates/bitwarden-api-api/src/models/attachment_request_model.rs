@@ -34,6 +34,13 @@ pub struct AttachmentRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub admin_request: Option<bool>,
+    /// The last known revision date of the Cipher that this attachment belongs to.
+    #[serde(
+        rename = "lastKnownRevisionDate",
+        alias = "LastKnownRevisionDate",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub last_known_revision_date: Option<String>,
 }
 
 impl AttachmentRequestModel {
@@ -43,6 +50,7 @@ impl AttachmentRequestModel {
             file_name: None,
             file_size: None,
             admin_request: None,
+            last_known_revision_date: None,
         }
     }
 }

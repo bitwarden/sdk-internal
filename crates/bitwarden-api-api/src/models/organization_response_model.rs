@@ -280,6 +280,12 @@ pub struct OrganizationResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub use_admin_sponsored_families: Option<bool>,
+    #[serde(
+        rename = "useAutomaticUserConfirmation",
+        alias = "UseAutomaticUserConfirmation",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_automatic_user_confirmation: Option<bool>,
 }
 
 impl OrganizationResponseModel {
@@ -330,6 +336,7 @@ impl OrganizationResponseModel {
             use_risk_insights: None,
             use_organization_domains: None,
             use_admin_sponsored_families: None,
+            use_automatic_user_confirmation: None,
         }
     }
 }

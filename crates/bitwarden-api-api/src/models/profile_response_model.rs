@@ -73,6 +73,12 @@ pub struct ProfileResponseModel {
     )]
     pub private_key: Option<String>,
     #[serde(
+        rename = "accountKeys",
+        alias = "AccountKeys",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub account_keys: Option<Box<models::PrivateKeysResponseModel>>,
+    #[serde(
         rename = "securityStamp",
         alias = "SecurityStamp",
         skip_serializing_if = "Option::is_none"
@@ -142,6 +148,7 @@ impl ProfileResponseModel {
             two_factor_enabled: None,
             key: None,
             private_key: None,
+            account_keys: None,
             security_stamp: None,
             force_password_reset: None,
             uses_key_connector: None,

@@ -358,6 +358,12 @@ pub struct ProfileProviderOrganizationResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub sso_member_decryption_type: Option<models::MemberDecryptionType>,
+    #[serde(
+        rename = "useAutomaticUserConfirmation",
+        alias = "UseAutomaticUserConfirmation",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_automatic_user_confirmation: Option<bool>,
 }
 
 impl ProfileProviderOrganizationResponseModel {
@@ -421,6 +427,7 @@ impl ProfileProviderOrganizationResponseModel {
             is_admin_initiated: None,
             sso_enabled: None,
             sso_member_decryption_type: None,
+            use_automatic_user_confirmation: None,
         }
     }
 }

@@ -12,7 +12,7 @@ client.
 - API version: latest
 - Package version: 1.0.0
 - Server Git commit:
-  [`39f38f50317844fb2aab79adc8f6a2583217a40a`](https://github.com/bitwarden/server/commit/39f38f50317844fb2aab79adc8f6a2583217a40a)
+  [`bd52cf56e7e0761da9f61738f2cda062213feb9c`](https://github.com/bitwarden/server/commit/bd52cf56e7e0761da9f61738f2cda062213feb9c)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -360,6 +360,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _PhishingDomainsApi_                      | [**get_checksum**](docs/PhishingDomainsApi.md#phishing_domains_get_checksum)                                                                                     | **GET** /phishing-domains/checksum                                                                       |
 | _PhishingDomainsApi_                      | [**get_phishing_domains**](docs/PhishingDomainsApi.md#phishing_domains_get_phishing_domains)                                                                     | **GET** /phishing-domains                                                                                |
 | _PlansApi_                                | [**get**](docs/PlansApi.md#plans_get)                                                                                                                            | **GET** /plans                                                                                           |
+| _PlansApi_                                | [**get_premium_plan**](docs/PlansApi.md#plans_get_premium_plan)                                                                                                  | **GET** /plans/premium                                                                                   |
 | _PoliciesApi_                             | [**get**](docs/PoliciesApi.md#policies_get)                                                                                                                      | **GET** /organizations/{orgId}/policies/{type}                                                           |
 | _PoliciesApi_                             | [**get_all**](docs/PoliciesApi.md#policies_get_all)                                                                                                              | **GET** /organizations/{orgId}/policies                                                                  |
 | _PoliciesApi_                             | [**get_by_token**](docs/PoliciesApi.md#policies_get_by_token)                                                                                                    | **GET** /organizations/{orgId}/policies/token                                                            |
@@ -505,7 +506,8 @@ All URIs are relative to *https://api.bitwarden.com*
 | _TwoFactorApi_                            | [**put_yubi_key**](docs/TwoFactorApi.md#two_factor_put_yubi_key)                                                                                                 | **PUT** /two-factor/yubikey                                                                              |
 | _TwoFactorApi_                            | [**send_email**](docs/TwoFactorApi.md#two_factor_send_email)                                                                                                     | **POST** /two-factor/send-email                                                                          | This endpoint is only used to set-up email two factor authentication.                                                                                                                                                                                                   |
 | _TwoFactorApi_                            | [**send_email_login**](docs/TwoFactorApi.md#two_factor_send_email_login)                                                                                         | **POST** /two-factor/send-email-login                                                                    |
-| _UsersApi_                                | [**get**](docs/UsersApi.md#users_get)                                                                                                                            | **GET** /users/{id}/public-key                                                                           |
+| _UsersApi_                                | [**get_account_keys**](docs/UsersApi.md#users_get_account_keys)                                                                                                  | **GET** /users/{id}/keys                                                                                 |
+| _UsersApi_                                | [**get_public_key**](docs/UsersApi.md#users_get_public_key)                                                                                                      | **GET** /users/{id}/public-key                                                                           |
 | _WebAuthnApi_                             | [**assertion_options**](docs/WebAuthnApi.md#web_authn_assertion_options)                                                                                         | **POST** /webauthn/assertion-options                                                                     |
 | _WebAuthnApi_                             | [**attestation_options**](docs/WebAuthnApi.md#web_authn_attestation_options)                                                                                     | **POST** /webauthn/attestation-options                                                                   |
 | _WebAuthnApi_                             | [**delete**](docs/WebAuthnApi.md#web_authn_delete)                                                                                                               | **POST** /webauthn/{id}/delete                                                                           |
@@ -700,6 +702,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [MemberDecryptionType](docs/MemberDecryptionType.md)
 - [MinimalBillingAddressRequest](docs/MinimalBillingAddressRequest.md)
 - [MinimalTokenizedPaymentMethodRequest](docs/MinimalTokenizedPaymentMethodRequest.md)
+- [NonTokenizedPaymentMethodRequest](docs/NonTokenizedPaymentMethodRequest.md)
 - [NotificationResponseModel](docs/NotificationResponseModel.md)
 - [NotificationResponseModelListResponseModel](docs/NotificationResponseModelListResponseModel.md)
 - [OpenIdConnectRedirectBehavior](docs/OpenIdConnectRedirectBehavior.md)
@@ -815,6 +818,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [PreviewOrganizationSubscriptionUpdateTaxRequest](docs/PreviewOrganizationSubscriptionUpdateTaxRequest.md)
 - [PreviewPremiumSubscriptionPurchaseTaxRequest](docs/PreviewPremiumSubscriptionPurchaseTaxRequest.md)
 - [Priority](docs/Priority.md)
+- [PrivateKeysResponseModel](docs/PrivateKeysResponseModel.md)
 - [ProductTierType](docs/ProductTierType.md)
 - [ProfileOrganizationResponseModel](docs/ProfileOrganizationResponseModel.md)
 - [ProfileOrganizationResponseModelListResponseModel](docs/ProfileOrganizationResponseModelListResponseModel.md)
@@ -861,6 +865,9 @@ All URIs are relative to *https://api.bitwarden.com*
 - [PublicKeyCredentialDescriptor](docs/PublicKeyCredentialDescriptor.md)
 - [PublicKeyCredentialRpEntity](docs/PublicKeyCredentialRpEntity.md)
 - [PublicKeyCredentialType](docs/PublicKeyCredentialType.md)
+- [PublicKeyEncryptionKeyPairRequestModel](docs/PublicKeyEncryptionKeyPairRequestModel.md)
+- [PublicKeyEncryptionKeyPairResponseModel](docs/PublicKeyEncryptionKeyPairResponseModel.md)
+- [PublicKeysResponseModel](docs/PublicKeysResponseModel.md)
 - [PushDeviceRequestModel](docs/PushDeviceRequestModel.md)
 - [PushRegistrationRequestModel](docs/PushRegistrationRequestModel.md)
 - [PushSettings](docs/PushSettings.md)
@@ -895,6 +902,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [SecretsSyncResponseModel](docs/SecretsSyncResponseModel.md)
 - [SecretsWithProjectsInnerSecret](docs/SecretsWithProjectsInnerSecret.md)
 - [SecureNoteType](docs/SecureNoteType.md)
+- [SecurityStateModel](docs/SecurityStateModel.md)
 - [SecurityTaskCreateRequest](docs/SecurityTaskCreateRequest.md)
 - [SecurityTaskMetricsResponseModel](docs/SecurityTaskMetricsResponseModel.md)
 - [SecurityTaskStatus](docs/SecurityTaskStatus.md)
@@ -929,6 +937,8 @@ All URIs are relative to *https://api.bitwarden.com*
 - [SetPasswordRequestModel](docs/SetPasswordRequestModel.md)
 - [SetVerifyDevicesRequestModel](docs/SetVerifyDevicesRequestModel.md)
 - [SetupBusinessUnitRequestBody](docs/SetupBusinessUnitRequestBody.md)
+- [SignatureKeyPairRequestModel](docs/SignatureKeyPairRequestModel.md)
+- [SignatureKeyPairResponseModel](docs/SignatureKeyPairResponseModel.md)
 - [SmExportResponseModel](docs/SmExportResponseModel.md)
 - [SmImportRequestModel](docs/SmImportRequestModel.md)
 - [SsoConfigurationData](docs/SsoConfigurationData.md)

@@ -14,8 +14,18 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PremiumCloudHostedSubscriptionRequest {
-    #[serde(rename = "tokenizedPaymentMethod", alias = "TokenizedPaymentMethod")]
-    pub tokenized_payment_method: Box<models::MinimalTokenizedPaymentMethodRequest>,
+    #[serde(
+        rename = "tokenizedPaymentMethod",
+        alias = "TokenizedPaymentMethod",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub tokenized_payment_method: Option<Box<models::MinimalTokenizedPaymentMethodRequest>>,
+    #[serde(
+        rename = "nonTokenizedPaymentMethod",
+        alias = "NonTokenizedPaymentMethod",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub non_tokenized_payment_method: Option<Box<models::NonTokenizedPaymentMethodRequest>>,
     #[serde(rename = "billingAddress", alias = "BillingAddress")]
     pub billing_address: Box<models::MinimalBillingAddressRequest>,
     #[serde(
@@ -28,11 +38,11 @@ pub struct PremiumCloudHostedSubscriptionRequest {
 
 impl PremiumCloudHostedSubscriptionRequest {
     pub fn new(
-        tokenized_payment_method: models::MinimalTokenizedPaymentMethodRequest,
         billing_address: models::MinimalBillingAddressRequest,
     ) -> PremiumCloudHostedSubscriptionRequest {
         PremiumCloudHostedSubscriptionRequest {
-            tokenized_payment_method: Box::new(tokenized_payment_method),
+            tokenized_payment_method: None,
+            non_tokenized_payment_method: None,
             billing_address: Box::new(billing_address),
             additional_storage_gb: None,
         }
