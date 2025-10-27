@@ -4,7 +4,10 @@ use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{CryptoError, EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey};
+use bitwarden_crypto::{
+    CryptoError, EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey,
+    safe::PasswordProtectedKeyEnvelope,
+};
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;
@@ -26,8 +29,7 @@ use crate::{
     },
     error::NotAuthenticatedError,
     key_management::{
-        MasterPasswordUnlockData, PasswordProtectedKeyEnvelope, SecurityState, SignedSecurityState,
-        crypto::InitUserCryptoRequest,
+        MasterPasswordUnlockData, SecurityState, SignedSecurityState, crypto::InitUserCryptoRequest,
     },
 };
 
