@@ -14,6 +14,9 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
+[lib]
+proc-macro = true
+
 [features]
 wasm = []
 
@@ -23,12 +26,6 @@ proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { workspace = true }
 
-[lints]
-workspace = true
-
-[lib]
-proc-macro = true
-
 [dev-dependencies]
 bitwarden-error = { workspace = true, features = ["wasm"] }
 js-sys.workspace = true
@@ -36,3 +33,6 @@ serde.workspace = true
 thiserror.workspace = true
 tsify.workspace = true
 wasm-bindgen.workspace = true
+
+[lints]
+workspace = true
