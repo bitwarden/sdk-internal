@@ -48,4 +48,4 @@ xcodebuild -create-xcframework \
   -output ./BitwardenFFI.xcframework
 
 # Cleanup temporary files
-rm -rf tmp
+# rm -rf tmp
