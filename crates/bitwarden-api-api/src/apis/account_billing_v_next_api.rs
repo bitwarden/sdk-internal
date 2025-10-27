@@ -46,6 +46,9 @@ pub trait AccountBillingVNextApi: Send + Sync {
         key: Option<&'a str>,
         public_key: Option<&'a str>,
         private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
         premium: Option<bool>,
         premium_expiration_date: Option<String>,
         renewal_reminder_date: Option<String>,
@@ -95,6 +98,9 @@ pub trait AccountBillingVNextApi: Send + Sync {
         key: Option<&'a str>,
         public_key: Option<&'a str>,
         private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
         premium: Option<bool>,
         premium_expiration_date: Option<String>,
         renewal_reminder_date: Option<String>,
@@ -146,6 +152,9 @@ pub trait AccountBillingVNextApi: Send + Sync {
         key: Option<&'a str>,
         public_key: Option<&'a str>,
         private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
         premium: Option<bool>,
         premium_expiration_date: Option<String>,
         renewal_reminder_date: Option<String>,
@@ -194,6 +203,9 @@ pub trait AccountBillingVNextApi: Send + Sync {
         key: Option<&'a str>,
         public_key: Option<&'a str>,
         private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
         premium: Option<bool>,
         premium_expiration_date: Option<String>,
         renewal_reminder_date: Option<String>,
@@ -242,6 +254,9 @@ pub trait AccountBillingVNextApi: Send + Sync {
         key: Option<&'a str>,
         public_key: Option<&'a str>,
         private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
         premium: Option<bool>,
         premium_expiration_date: Option<String>,
         renewal_reminder_date: Option<String>,
@@ -304,6 +319,9 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         key: Option<&'a str>,
         public_key: Option<&'a str>,
         private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
         premium: Option<bool>,
         premium_expiration_date: Option<String>,
         renewal_reminder_date: Option<String>,
@@ -401,6 +419,18 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         if let Some(ref param_value) = private_key {
             local_var_req_builder =
                 local_var_req_builder.query(&[("privateKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = signed_public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("signedPublicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_version {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityVersion", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_state {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityState", &param_value.to_string())]);
         }
         if let Some(ref param_value) = premium {
             local_var_req_builder =
@@ -555,6 +585,9 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         key: Option<&'a str>,
         public_key: Option<&'a str>,
         private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
         premium: Option<bool>,
         premium_expiration_date: Option<String>,
         renewal_reminder_date: Option<String>,
@@ -654,6 +687,18 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         if let Some(ref param_value) = private_key {
             local_var_req_builder =
                 local_var_req_builder.query(&[("privateKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = signed_public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("signedPublicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_version {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityVersion", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_state {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityState", &param_value.to_string())]);
         }
         if let Some(ref param_value) = premium {
             local_var_req_builder =
@@ -809,6 +854,9 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         key: Option<&'a str>,
         public_key: Option<&'a str>,
         private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
         premium: Option<bool>,
         premium_expiration_date: Option<String>,
         renewal_reminder_date: Option<String>,
@@ -905,6 +953,18 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         if let Some(ref param_value) = private_key {
             local_var_req_builder =
                 local_var_req_builder.query(&[("privateKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = signed_public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("signedPublicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_version {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityVersion", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_state {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityState", &param_value.to_string())]);
         }
         if let Some(ref param_value) = premium {
             local_var_req_builder =
@@ -1058,6 +1118,9 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         key: Option<&'a str>,
         public_key: Option<&'a str>,
         private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
         premium: Option<bool>,
         premium_expiration_date: Option<String>,
         renewal_reminder_date: Option<String>,
@@ -1154,6 +1217,18 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         if let Some(ref param_value) = private_key {
             local_var_req_builder =
                 local_var_req_builder.query(&[("privateKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = signed_public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("signedPublicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_version {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityVersion", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_state {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityState", &param_value.to_string())]);
         }
         if let Some(ref param_value) = premium {
             local_var_req_builder =
@@ -1307,6 +1382,9 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         key: Option<&'a str>,
         public_key: Option<&'a str>,
         private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
         premium: Option<bool>,
         premium_expiration_date: Option<String>,
         renewal_reminder_date: Option<String>,
@@ -1404,6 +1482,18 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         if let Some(ref param_value) = private_key {
             local_var_req_builder =
                 local_var_req_builder.query(&[("privateKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = signed_public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("signedPublicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_version {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityVersion", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_state {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityState", &param_value.to_string())]);
         }
         if let Some(ref param_value) = premium {
             local_var_req_builder =

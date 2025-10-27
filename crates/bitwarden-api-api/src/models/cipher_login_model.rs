@@ -14,24 +14,49 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CipherLoginModel {
-    #[serde(rename = "uri", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "uri", alias = "Uri", skip_serializing_if = "Option::is_none")]
     pub uri: Option<String>,
-    #[serde(rename = "uris", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "uris",
+        alias = "Uris",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub uris: Option<Vec<models::CipherLoginUriModel>>,
-    #[serde(rename = "username", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "username",
+        alias = "Username",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub username: Option<String>,
-    #[serde(rename = "password", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "password",
+        alias = "Password",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub password: Option<String>,
     #[serde(
         rename = "passwordRevisionDate",
+        alias = "PasswordRevisionDate",
         skip_serializing_if = "Option::is_none"
     )]
     pub password_revision_date: Option<String>,
-    #[serde(rename = "totp", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "totp",
+        alias = "Totp",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub totp: Option<String>,
-    #[serde(rename = "autofillOnPageLoad", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "autofillOnPageLoad",
+        alias = "AutofillOnPageLoad",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub autofill_on_page_load: Option<bool>,
-    #[serde(rename = "fido2Credentials", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "fido2Credentials",
+        alias = "Fido2Credentials",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub fido2_credentials: Option<Vec<models::CipherFido2CredentialModel>>,
 }
 

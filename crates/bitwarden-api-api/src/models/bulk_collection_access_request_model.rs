@@ -14,11 +14,23 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BulkCollectionAccessRequestModel {
-    #[serde(rename = "collectionIds", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "collectionIds",
+        alias = "CollectionIds",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub collection_ids: Option<Vec<uuid::Uuid>>,
-    #[serde(rename = "groups", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "groups",
+        alias = "Groups",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub groups: Option<Vec<models::SelectionReadOnlyRequestModel>>,
-    #[serde(rename = "users", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "users",
+        alias = "Users",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub users: Option<Vec<models::SelectionReadOnlyRequestModel>>,
 }
 

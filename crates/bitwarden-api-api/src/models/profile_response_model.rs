@@ -14,49 +14,121 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProfileResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub name: Option<String>,
-    #[serde(rename = "email", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "email",
+        alias = "Email",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub email: Option<String>,
-    #[serde(rename = "emailVerified", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "emailVerified",
+        alias = "EmailVerified",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub email_verified: Option<bool>,
-    #[serde(rename = "premium", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "premium",
+        alias = "Premium",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub premium: Option<bool>,
     #[serde(
         rename = "premiumFromOrganization",
+        alias = "PremiumFromOrganization",
         skip_serializing_if = "Option::is_none"
     )]
     pub premium_from_organization: Option<bool>,
-    #[serde(rename = "culture", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "culture",
+        alias = "Culture",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub culture: Option<String>,
-    #[serde(rename = "twoFactorEnabled", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "twoFactorEnabled",
+        alias = "TwoFactorEnabled",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub two_factor_enabled: Option<bool>,
-    #[serde(rename = "key", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
-    #[serde(rename = "privateKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "privateKey",
+        alias = "PrivateKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub private_key: Option<String>,
-    #[serde(rename = "securityStamp", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "accountKeys",
+        alias = "AccountKeys",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub account_keys: Option<Box<models::PrivateKeysResponseModel>>,
+    #[serde(
+        rename = "securityStamp",
+        alias = "SecurityStamp",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub security_stamp: Option<String>,
-    #[serde(rename = "forcePasswordReset", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "forcePasswordReset",
+        alias = "ForcePasswordReset",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub force_password_reset: Option<bool>,
-    #[serde(rename = "usesKeyConnector", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "usesKeyConnector",
+        alias = "UsesKeyConnector",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub uses_key_connector: Option<bool>,
-    #[serde(rename = "avatarColor", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "avatarColor",
+        alias = "AvatarColor",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub avatar_color: Option<String>,
-    #[serde(rename = "creationDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "creationDate",
+        alias = "CreationDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub creation_date: Option<String>,
-    #[serde(rename = "verifyDevices", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "verifyDevices",
+        alias = "VerifyDevices",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub verify_devices: Option<bool>,
-    #[serde(rename = "organizations", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizations",
+        alias = "Organizations",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organizations: Option<Vec<models::ProfileOrganizationResponseModel>>,
-    #[serde(rename = "providers", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "providers",
+        alias = "Providers",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub providers: Option<Vec<models::ProfileProviderResponseModel>>,
     #[serde(
         rename = "providerOrganizations",
+        alias = "ProviderOrganizations",
         skip_serializing_if = "Option::is_none"
     )]
     pub provider_organizations: Option<Vec<models::ProfileProviderOrganizationResponseModel>>,
@@ -76,6 +148,7 @@ impl ProfileResponseModel {
             two_factor_enabled: None,
             key: None,
             private_key: None,
+            account_keys: None,
             security_stamp: None,
             force_password_reset: None,
             uses_key_connector: None,

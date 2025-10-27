@@ -14,13 +14,21 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PreviewOrganizationInvoiceRequestBody {
-    #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationId",
+        alias = "OrganizationId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_id: Option<uuid::Uuid>,
-    #[serde(rename = "passwordManager")]
+    #[serde(rename = "passwordManager", alias = "PasswordManager")]
     pub password_manager: Box<models::OrganizationPasswordManagerRequestModel>,
-    #[serde(rename = "secretsManager", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "secretsManager",
+        alias = "SecretsManager",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub secrets_manager: Option<Box<models::SecretsManagerRequestModel>>,
-    #[serde(rename = "taxInformation")]
+    #[serde(rename = "taxInformation", alias = "TaxInformation")]
     pub tax_information: Box<models::TaxInformationRequestModel>,
 }
 

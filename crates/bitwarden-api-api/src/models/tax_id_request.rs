@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TaxIdRequest {
-    #[serde(rename = "code")]
+    #[serde(rename = "code", alias = "Code")]
     pub code: String,
-    #[serde(rename = "value")]
+    #[serde(rename = "value", alias = "Value")]
     pub value: String,
 }
 

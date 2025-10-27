@@ -14,9 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UpdateProfileRequestModel {
-    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub name: Option<String>,
-    #[serde(rename = "masterPasswordHint", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "masterPasswordHint",
+        alias = "MasterPasswordHint",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub master_password_hint: Option<String>,
 }
 

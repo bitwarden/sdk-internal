@@ -14,7 +14,11 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SendAccessRequestModel {
-    #[serde(rename = "password", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "password",
+        alias = "Password",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub password: Option<String>,
 }
 

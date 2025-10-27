@@ -14,11 +14,23 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationKeysResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "publicKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "publicKey",
+        alias = "PublicKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub public_key: Option<String>,
-    #[serde(rename = "privateKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "privateKey",
+        alias = "PrivateKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub private_key: Option<String>,
 }
 

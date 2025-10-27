@@ -14,13 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AuthRequestUpdateRequestModel {
-    #[serde(rename = "key", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
-    #[serde(rename = "masterPasswordHash", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "masterPasswordHash",
+        alias = "MasterPasswordHash",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub master_password_hash: Option<String>,
-    #[serde(rename = "deviceIdentifier")]
+    #[serde(rename = "deviceIdentifier", alias = "DeviceIdentifier")]
     pub device_identifier: String,
-    #[serde(rename = "requestApproved")]
+    #[serde(rename = "requestApproved", alias = "RequestApproved")]
     pub request_approved: bool,
 }
 

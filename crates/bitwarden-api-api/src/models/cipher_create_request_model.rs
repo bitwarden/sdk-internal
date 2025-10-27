@@ -14,9 +14,13 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CipherCreateRequestModel {
-    #[serde(rename = "collectionIds", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "collectionIds",
+        alias = "CollectionIds",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub collection_ids: Option<Vec<uuid::Uuid>>,
-    #[serde(rename = "cipher")]
+    #[serde(rename = "cipher", alias = "Cipher")]
     pub cipher: Box<models::CipherRequestModel>,
 }
 

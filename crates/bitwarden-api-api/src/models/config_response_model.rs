@@ -14,21 +14,53 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ConfigResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "version", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "version",
+        alias = "Version",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub version: Option<String>,
-    #[serde(rename = "gitHash", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "gitHash",
+        alias = "GitHash",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub git_hash: Option<String>,
-    #[serde(rename = "server", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "server",
+        alias = "Server",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub server: Option<Box<models::ServerConfigResponseModel>>,
-    #[serde(rename = "environment", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "environment",
+        alias = "Environment",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub environment: Option<Box<models::EnvironmentConfigResponseModel>>,
-    #[serde(rename = "featureStates", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "featureStates",
+        alias = "FeatureStates",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub feature_states: Option<std::collections::HashMap<String, serde_json::Value>>,
-    #[serde(rename = "push", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "push",
+        alias = "Push",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub push: Option<Box<models::PushSettings>>,
-    #[serde(rename = "settings", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "settings",
+        alias = "Settings",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub settings: Option<Box<models::ServerSettingsResponseModel>>,
 }
 

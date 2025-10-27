@@ -14,23 +14,51 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BaseSecretResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationId",
+        alias = "OrganizationId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_id: Option<uuid::Uuid>,
-    #[serde(rename = "key", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
-    #[serde(rename = "value", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "value",
+        alias = "Value",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub value: Option<String>,
-    #[serde(rename = "note", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "note",
+        alias = "Note",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub note: Option<String>,
-    #[serde(rename = "creationDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "creationDate",
+        alias = "CreationDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub creation_date: Option<String>,
-    #[serde(rename = "revisionDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "revisionDate",
+        alias = "RevisionDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub revision_date: Option<String>,
-    #[serde(rename = "projects", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "projects",
+        alias = "Projects",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub projects: Option<Vec<models::SecretResponseInnerProject>>,
 }
 

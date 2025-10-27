@@ -89,6 +89,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
     ) -> Result<(), Error<AddCreditViaBitPayError>>;
 
@@ -155,6 +156,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
     ) -> Result<(), Error<GetBillingAddressError>>;
 
     /// GET /organizations/{organizationId}/billing/vnext/credit
@@ -220,6 +222,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
     ) -> Result<(), Error<GetCreditError>>;
 
     /// GET /organizations/{organizationId}/billing/vnext/metadata
@@ -285,6 +288,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
     ) -> Result<(), Error<GetMetadataError>>;
 
     /// GET /organizations/{organizationId}/billing/vnext/payment-method
@@ -350,6 +354,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
     ) -> Result<(), Error<GetPaymentMethodError>>;
 
     /// GET /organizations/{organizationId}/billing/vnext/warnings
@@ -415,6 +420,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
     ) -> Result<(), Error<GetWarningsError>>;
 
     /// POST /organizations/{organizationId}/billing/vnext/subscription/restart
@@ -480,6 +486,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
         restart_subscription_request: Option<models::RestartSubscriptionRequest>,
     ) -> Result<(), Error<RestartSubscriptionError>>;
 
@@ -546,6 +553,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
         billing_address_request: Option<models::BillingAddressRequest>,
     ) -> Result<(), Error<UpdateBillingAddressError>>;
 
@@ -612,6 +620,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
     ) -> Result<(), Error<UpdatePaymentMethodError>>;
 }
@@ -691,6 +700,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
     ) -> Result<(), Error<AddCreditViaBitPayError>> {
         let local_var_configuration = &self.configuration;
@@ -943,6 +953,10 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("syncSeats", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_automatic_user_confirmation {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
+        }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
@@ -1034,6 +1048,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
     ) -> Result<(), Error<GetBillingAddressError>> {
         let local_var_configuration = &self.configuration;
 
@@ -1285,6 +1300,10 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("syncSeats", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_automatic_user_confirmation {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
+        }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
@@ -1375,6 +1394,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
     ) -> Result<(), Error<GetCreditError>> {
         let local_var_configuration = &self.configuration;
 
@@ -1626,6 +1646,10 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("syncSeats", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_automatic_user_confirmation {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
+        }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
@@ -1716,6 +1740,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
     ) -> Result<(), Error<GetMetadataError>> {
         let local_var_configuration = &self.configuration;
 
@@ -1967,6 +1992,10 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("syncSeats", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_automatic_user_confirmation {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
+        }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
@@ -2057,6 +2086,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
     ) -> Result<(), Error<GetPaymentMethodError>> {
         let local_var_configuration = &self.configuration;
 
@@ -2308,6 +2338,10 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("syncSeats", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_automatic_user_confirmation {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
+        }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
@@ -2398,6 +2432,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
     ) -> Result<(), Error<GetWarningsError>> {
         let local_var_configuration = &self.configuration;
 
@@ -2649,6 +2684,10 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("syncSeats", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_automatic_user_confirmation {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
+        }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
@@ -2739,6 +2778,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
         restart_subscription_request: Option<models::RestartSubscriptionRequest>,
     ) -> Result<(), Error<RestartSubscriptionError>> {
         let local_var_configuration = &self.configuration;
@@ -2991,6 +3031,10 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("syncSeats", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_automatic_user_confirmation {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
+        }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
@@ -3082,6 +3126,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
         billing_address_request: Option<models::BillingAddressRequest>,
     ) -> Result<(), Error<UpdateBillingAddressError>> {
         let local_var_configuration = &self.configuration;
@@ -3334,6 +3379,10 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("syncSeats", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_automatic_user_confirmation {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
+        }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
@@ -3425,6 +3474,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
     ) -> Result<(), Error<UpdatePaymentMethodError>> {
         let local_var_configuration = &self.configuration;
@@ -3676,6 +3726,10 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         if let Some(ref param_value) = sync_seats {
             local_var_req_builder =
                 local_var_req_builder.query(&[("syncSeats", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_automatic_user_confirmation {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
         }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder

@@ -14,18 +14,31 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationUserUpdateRequestModel {
-    #[serde(rename = "type")]
+    #[serde(rename = "type", alias = "R#type")]
     pub r#type: models::OrganizationUserType,
     #[serde(
         rename = "accessSecretsManager",
+        alias = "AccessSecretsManager",
         skip_serializing_if = "Option::is_none"
     )]
     pub access_secrets_manager: Option<bool>,
-    #[serde(rename = "permissions", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "permissions",
+        alias = "Permissions",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub permissions: Option<Box<models::Permissions>>,
-    #[serde(rename = "collections", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "collections",
+        alias = "Collections",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub collections: Option<Vec<models::SelectionReadOnlyRequestModel>>,
-    #[serde(rename = "groups", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "groups",
+        alias = "Groups",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub groups: Option<Vec<uuid::Uuid>>,
 }
 

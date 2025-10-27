@@ -14,113 +14,277 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationLicense {
-    #[serde(rename = "licenseKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "licenseKey",
+        alias = "LicenseKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub license_key: Option<String>,
-    #[serde(rename = "installationId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "installationId",
+        alias = "InstallationId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub installation_id: Option<uuid::Uuid>,
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub name: Option<String>,
-    #[serde(rename = "billingEmail", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "billingEmail",
+        alias = "BillingEmail",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub billing_email: Option<String>,
-    #[serde(rename = "businessName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "businessName",
+        alias = "BusinessName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub business_name: Option<String>,
-    #[serde(rename = "enabled", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "enabled",
+        alias = "Enabled",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub enabled: Option<bool>,
-    #[serde(rename = "plan", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "plan",
+        alias = "Plan",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub plan: Option<String>,
-    #[serde(rename = "planType", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "planType",
+        alias = "PlanType",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub plan_type: Option<models::PlanType>,
-    #[serde(rename = "seats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "seats",
+        alias = "Seats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub seats: Option<i32>,
-    #[serde(rename = "maxCollections", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "maxCollections",
+        alias = "MaxCollections",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub max_collections: Option<i32>,
-    #[serde(rename = "usePolicies", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "usePolicies",
+        alias = "UsePolicies",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub use_policies: Option<bool>,
-    #[serde(rename = "useSso", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "useSso",
+        alias = "UseSso",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub use_sso: Option<bool>,
-    #[serde(rename = "useKeyConnector", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "useKeyConnector",
+        alias = "UseKeyConnector",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub use_key_connector: Option<bool>,
-    #[serde(rename = "useScim", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "useScim",
+        alias = "UseScim",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub use_scim: Option<bool>,
-    #[serde(rename = "useGroups", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "useGroups",
+        alias = "UseGroups",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub use_groups: Option<bool>,
-    #[serde(rename = "useEvents", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "useEvents",
+        alias = "UseEvents",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub use_events: Option<bool>,
-    #[serde(rename = "useDirectory", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "useDirectory",
+        alias = "UseDirectory",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub use_directory: Option<bool>,
-    #[serde(rename = "useTotp", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "useTotp",
+        alias = "UseTotp",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub use_totp: Option<bool>,
-    #[serde(rename = "use2fa", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "use2fa",
+        alias = "Use2fa",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub use2fa: Option<bool>,
-    #[serde(rename = "useApi", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "useApi",
+        alias = "UseApi",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub use_api: Option<bool>,
-    #[serde(rename = "useResetPassword", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "useResetPassword",
+        alias = "UseResetPassword",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub use_reset_password: Option<bool>,
-    #[serde(rename = "maxStorageGb", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "maxStorageGb",
+        alias = "MaxStorageGb",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub max_storage_gb: Option<i32>,
-    #[serde(rename = "selfHost", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "selfHost",
+        alias = "SelfHost",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub self_host: Option<bool>,
-    #[serde(rename = "usersGetPremium", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "usersGetPremium",
+        alias = "UsersGetPremium",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub users_get_premium: Option<bool>,
     #[serde(
         rename = "useCustomPermissions",
+        alias = "UseCustomPermissions",
         skip_serializing_if = "Option::is_none"
     )]
     pub use_custom_permissions: Option<bool>,
-    #[serde(rename = "version", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "version",
+        alias = "Version",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub version: Option<i32>,
-    #[serde(rename = "issued", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "issued",
+        alias = "Issued",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub issued: Option<String>,
-    #[serde(rename = "refresh", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "refresh",
+        alias = "Refresh",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub refresh: Option<String>,
-    #[serde(rename = "expires", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "expires",
+        alias = "Expires",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub expires: Option<String>,
     #[serde(
         rename = "expirationWithoutGracePeriod",
+        alias = "ExpirationWithoutGracePeriod",
         skip_serializing_if = "Option::is_none"
     )]
     pub expiration_without_grace_period: Option<String>,
-    #[serde(rename = "usePasswordManager", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "usePasswordManager",
+        alias = "UsePasswordManager",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub use_password_manager: Option<bool>,
-    #[serde(rename = "useSecretsManager", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "useSecretsManager",
+        alias = "UseSecretsManager",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub use_secrets_manager: Option<bool>,
-    #[serde(rename = "smSeats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "smSeats",
+        alias = "SmSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub sm_seats: Option<i32>,
-    #[serde(rename = "smServiceAccounts", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "smServiceAccounts",
+        alias = "SmServiceAccounts",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub sm_service_accounts: Option<i32>,
-    #[serde(rename = "useRiskInsights", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "useRiskInsights",
+        alias = "UseRiskInsights",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub use_risk_insights: Option<bool>,
     #[serde(
         rename = "limitCollectionCreationDeletion",
+        alias = "LimitCollectionCreationDeletion",
         skip_serializing_if = "Option::is_none"
     )]
     pub limit_collection_creation_deletion: Option<bool>,
     #[serde(
         rename = "allowAdminAccessToAllCollectionItems",
+        alias = "AllowAdminAccessToAllCollectionItems",
         skip_serializing_if = "Option::is_none"
     )]
     pub allow_admin_access_to_all_collection_items: Option<bool>,
-    #[serde(rename = "trial", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "trial",
+        alias = "Trial",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub trial: Option<bool>,
-    #[serde(rename = "licenseType", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "licenseType",
+        alias = "LicenseType",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub license_type: Option<models::LicenseType>,
     #[serde(
         rename = "useOrganizationDomains",
+        alias = "UseOrganizationDomains",
         skip_serializing_if = "Option::is_none"
     )]
     pub use_organization_domains: Option<bool>,
     #[serde(
         rename = "useAdminSponsoredFamilies",
+        alias = "UseAdminSponsoredFamilies",
         skip_serializing_if = "Option::is_none"
     )]
     pub use_admin_sponsored_families: Option<bool>,
-    #[serde(rename = "hash", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "useAutomaticUserConfirmation",
+        alias = "UseAutomaticUserConfirmation",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_automatic_user_confirmation: Option<bool>,
+    #[serde(
+        rename = "hash",
+        alias = "Hash",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub hash: Option<String>,
-    #[serde(rename = "signature", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "signature",
+        alias = "Signature",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub signature: Option<String>,
-    #[serde(rename = "token", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "token",
+        alias = "Token",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub token: Option<String>,
 }
 
@@ -169,6 +333,7 @@ impl OrganizationLicense {
             license_type: None,
             use_organization_domains: None,
             use_admin_sponsored_families: None,
+            use_automatic_user_confirmation: None,
             hash: None,
             signature: None,
             token: None,

@@ -14,11 +14,23 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TwoFactorWebAuthnResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "enabled", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "enabled",
+        alias = "Enabled",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub enabled: Option<bool>,
-    #[serde(rename = "keys", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "keys",
+        alias = "Keys",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub keys: Option<Vec<models::KeyModel>>,
 }
 

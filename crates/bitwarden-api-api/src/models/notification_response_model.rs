@@ -14,23 +14,55 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct NotificationResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    #[serde(rename = "priority", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "priority",
+        alias = "Priority",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub priority: Option<models::Priority>,
-    #[serde(rename = "title", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "title",
+        alias = "Title",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub title: Option<String>,
-    #[serde(rename = "body", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "body",
+        alias = "Body",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub body: Option<String>,
-    #[serde(rename = "date", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "date",
+        alias = "Date",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub date: Option<String>,
-    #[serde(rename = "taskId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "taskId",
+        alias = "TaskId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub task_id: Option<uuid::Uuid>,
-    #[serde(rename = "readDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "readDate",
+        alias = "ReadDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub read_date: Option<String>,
-    #[serde(rename = "deletedDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "deletedDate",
+        alias = "DeletedDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub deleted_date: Option<String>,
 }
 

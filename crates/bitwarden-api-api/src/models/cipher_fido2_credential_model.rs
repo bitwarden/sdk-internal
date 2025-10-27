@@ -14,31 +14,79 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CipherFido2CredentialModel {
-    #[serde(rename = "credentialId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "credentialId",
+        alias = "CredentialId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub credential_id: Option<String>,
-    #[serde(rename = "keyType", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "keyType",
+        alias = "KeyType",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub key_type: Option<String>,
-    #[serde(rename = "keyAlgorithm", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "keyAlgorithm",
+        alias = "KeyAlgorithm",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub key_algorithm: Option<String>,
-    #[serde(rename = "keyCurve", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "keyCurve",
+        alias = "KeyCurve",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub key_curve: Option<String>,
-    #[serde(rename = "keyValue", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "keyValue",
+        alias = "KeyValue",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub key_value: Option<String>,
-    #[serde(rename = "rpId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "rpId",
+        alias = "RpId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub rp_id: Option<String>,
-    #[serde(rename = "rpName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "rpName",
+        alias = "RpName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub rp_name: Option<String>,
-    #[serde(rename = "userHandle", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "userHandle",
+        alias = "UserHandle",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub user_handle: Option<String>,
-    #[serde(rename = "userName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "userName",
+        alias = "UserName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub user_name: Option<String>,
-    #[serde(rename = "userDisplayName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "userDisplayName",
+        alias = "UserDisplayName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub user_display_name: Option<String>,
-    #[serde(rename = "counter", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "counter",
+        alias = "Counter",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub counter: Option<String>,
-    #[serde(rename = "discoverable", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "discoverable",
+        alias = "Discoverable",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub discoverable: Option<String>,
-    #[serde(rename = "creationDate")]
+    #[serde(rename = "creationDate", alias = "CreationDate")]
     pub creation_date: String,
 }
 

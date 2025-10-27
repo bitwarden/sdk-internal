@@ -16,6 +16,7 @@ use crate::models;
 pub struct ServerSettingsResponseModel {
     #[serde(
         rename = "disableUserRegistration",
+        alias = "DisableUserRegistration",
         skip_serializing_if = "Option::is_none"
     )]
     pub disable_user_registration: Option<bool>,

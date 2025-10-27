@@ -14,11 +14,15 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProviderUpdateRequestModel {
-    #[serde(rename = "name")]
+    #[serde(rename = "name", alias = "Name")]
     pub name: String,
-    #[serde(rename = "businessName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "businessName",
+        alias = "BusinessName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub business_name: Option<String>,
-    #[serde(rename = "billingEmail")]
+    #[serde(rename = "billingEmail", alias = "BillingEmail")]
     pub billing_email: String,
 }
 

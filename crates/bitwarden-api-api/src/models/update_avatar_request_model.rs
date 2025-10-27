@@ -14,7 +14,11 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UpdateAvatarRequestModel {
-    #[serde(rename = "avatarColor", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "avatarColor",
+        alias = "AvatarColor",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub avatar_color: Option<String>,
 }
 

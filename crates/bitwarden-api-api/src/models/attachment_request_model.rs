@@ -14,14 +14,33 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AttachmentRequestModel {
-    #[serde(rename = "key", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
-    #[serde(rename = "fileName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "fileName",
+        alias = "FileName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub file_name: Option<String>,
-    #[serde(rename = "fileSize", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "fileSize",
+        alias = "FileSize",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub file_size: Option<i64>,
-    #[serde(rename = "adminRequest", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "adminRequest",
+        alias = "AdminRequest",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub admin_request: Option<bool>,
+    /// The last known revision date of the Cipher that this attachment belongs to.
+    #[serde(
+        rename = "lastKnownRevisionDate",
+        alias = "LastKnownRevisionDate",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub last_known_revision_date: Option<String>,
 }
 
 impl AttachmentRequestModel {
@@ -31,6 +50,7 @@ impl AttachmentRequestModel {
             file_name: None,
             file_size: None,
             admin_request: None,
+            last_known_revision_date: None,
         }
     }
 }

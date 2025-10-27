@@ -14,9 +14,12 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SecretsManagerSubscribeRequestModel {
-    #[serde(rename = "additionalSmSeats")]
+    #[serde(rename = "additionalSmSeats", alias = "AdditionalSmSeats")]
     pub additional_sm_seats: i32,
-    #[serde(rename = "additionalServiceAccounts")]
+    #[serde(
+        rename = "additionalServiceAccounts",
+        alias = "AdditionalServiceAccounts"
+    )]
     pub additional_service_accounts: i32,
 }
 

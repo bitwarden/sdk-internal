@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DeviceKeysUpdateRequestModel {
-    #[serde(rename = "encryptedPublicKey")]
+    #[serde(rename = "encryptedPublicKey", alias = "EncryptedPublicKey")]
     pub encrypted_public_key: String,
-    #[serde(rename = "encryptedUserKey")]
+    #[serde(rename = "encryptedUserKey", alias = "EncryptedUserKey")]
     pub encrypted_user_key: String,
 }
 

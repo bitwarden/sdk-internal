@@ -14,9 +14,13 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AdminAuthRequestUpdateRequestModel {
-    #[serde(rename = "encryptedUserKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "encryptedUserKey",
+        alias = "EncryptedUserKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub encrypted_user_key: Option<String>,
-    #[serde(rename = "requestApproved")]
+    #[serde(rename = "requestApproved", alias = "RequestApproved")]
     pub request_approved: bool,
 }
 

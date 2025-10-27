@@ -14,17 +14,23 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SecretsManagerSubscriptionUpdateRequestModel {
-    #[serde(rename = "seatAdjustment")]
+    #[serde(rename = "seatAdjustment", alias = "SeatAdjustment")]
     pub seat_adjustment: i32,
-    #[serde(rename = "maxAutoscaleSeats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "maxAutoscaleSeats",
+        alias = "MaxAutoscaleSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub max_autoscale_seats: Option<i32>,
     #[serde(
         rename = "serviceAccountAdjustment",
+        alias = "ServiceAccountAdjustment",
         skip_serializing_if = "Option::is_none"
     )]
     pub service_account_adjustment: Option<i32>,
     #[serde(
         rename = "maxAutoscaleServiceAccounts",
+        alias = "MaxAutoscaleServiceAccounts",
         skip_serializing_if = "Option::is_none"
     )]
     pub max_autoscale_service_accounts: Option<i32>,

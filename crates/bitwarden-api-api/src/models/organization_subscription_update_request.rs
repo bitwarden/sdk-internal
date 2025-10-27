@@ -14,9 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationSubscriptionUpdateRequest {
-    #[serde(rename = "passwordManager", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "passwordManager",
+        alias = "PasswordManager",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub password_manager: Option<Box<models::PasswordManagerUpdateSelections>>,
-    #[serde(rename = "secretsManager", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "secretsManager",
+        alias = "SecretsManager",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub secrets_manager: Option<Box<models::SecretsManagerUpdateSelections>>,
 }
 

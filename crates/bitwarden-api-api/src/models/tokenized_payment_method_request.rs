@@ -14,11 +14,15 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TokenizedPaymentMethodRequest {
-    #[serde(rename = "type")]
+    #[serde(rename = "type", alias = "R#type")]
     pub r#type: String,
-    #[serde(rename = "token")]
+    #[serde(rename = "token", alias = "Token")]
     pub token: String,
-    #[serde(rename = "billingAddress", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "billingAddress",
+        alias = "BillingAddress",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub billing_address: Option<Box<models::MinimalBillingAddressRequest>>,
 }
 

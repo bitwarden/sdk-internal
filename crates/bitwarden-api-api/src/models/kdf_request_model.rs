@@ -14,13 +14,21 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct KdfRequestModel {
-    #[serde(rename = "kdfType")]
+    #[serde(rename = "kdfType", alias = "KdfType")]
     pub kdf_type: models::KdfType,
-    #[serde(rename = "iterations")]
+    #[serde(rename = "iterations", alias = "Iterations")]
     pub iterations: i32,
-    #[serde(rename = "memory", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "memory",
+        alias = "Memory",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub memory: Option<i32>,
-    #[serde(rename = "parallelism", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "parallelism",
+        alias = "Parallelism",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub parallelism: Option<i32>,
 }
 

@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CipherBulkShareRequestModel {
-    #[serde(rename = "collectionIds")]
+    #[serde(rename = "collectionIds", alias = "CollectionIds")]
     pub collection_ids: Vec<String>,
-    #[serde(rename = "ciphers")]
+    #[serde(rename = "ciphers", alias = "Ciphers")]
     pub ciphers: Vec<models::CipherWithIdRequestModel>,
 }
 

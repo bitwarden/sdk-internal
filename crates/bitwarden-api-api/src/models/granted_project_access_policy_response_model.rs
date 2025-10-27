@@ -14,15 +14,35 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GrantedProjectAccessPolicyResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "read", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "read",
+        alias = "Read",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub read: Option<bool>,
-    #[serde(rename = "write", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "write",
+        alias = "Write",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub write: Option<bool>,
-    #[serde(rename = "grantedProjectId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "grantedProjectId",
+        alias = "GrantedProjectId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub granted_project_id: Option<uuid::Uuid>,
-    #[serde(rename = "grantedProjectName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "grantedProjectName",
+        alias = "GrantedProjectName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub granted_project_name: Option<String>,
 }
 

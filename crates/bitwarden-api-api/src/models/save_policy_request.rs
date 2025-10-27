@@ -14,9 +14,13 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SavePolicyRequest {
-    #[serde(rename = "policy")]
+    #[serde(rename = "policy", alias = "Policy")]
     pub policy: Box<models::PolicyRequestModel>,
-    #[serde(rename = "metadata", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "metadata",
+        alias = "Metadata",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub metadata: Option<std::collections::HashMap<String, serde_json::Value>>,
 }
 

@@ -17,16 +17,32 @@ use crate::models;
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AssertionResponse {
     #[serde_as(as = "Option<serde_with::base64::Base64>")]
-    #[serde(rename = "authenticatorData", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "authenticatorData",
+        alias = "AuthenticatorData",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub authenticator_data: Option<Vec<u8>>,
     #[serde_as(as = "Option<serde_with::base64::Base64>")]
-    #[serde(rename = "signature", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "signature",
+        alias = "Signature",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub signature: Option<Vec<u8>>,
     #[serde_as(as = "Option<serde_with::base64::Base64>")]
-    #[serde(rename = "clientDataJSON", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "clientDataJSON",
+        alias = "ClientDataJson",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub client_data_json: Option<Vec<u8>>,
     #[serde_as(as = "Option<serde_with::base64::Base64>")]
-    #[serde(rename = "userHandle", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "userHandle",
+        alias = "UserHandle",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub user_handle: Option<Vec<u8>>,
 }
 

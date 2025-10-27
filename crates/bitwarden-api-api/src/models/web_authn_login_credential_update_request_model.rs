@@ -14,15 +14,15 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WebAuthnLoginCredentialUpdateRequestModel {
-    #[serde(rename = "deviceResponse")]
+    #[serde(rename = "deviceResponse", alias = "DeviceResponse")]
     pub device_response: Box<models::AuthenticatorAssertionRawResponse>,
-    #[serde(rename = "token")]
+    #[serde(rename = "token", alias = "Token")]
     pub token: String,
-    #[serde(rename = "encryptedUserKey")]
+    #[serde(rename = "encryptedUserKey", alias = "EncryptedUserKey")]
     pub encrypted_user_key: String,
-    #[serde(rename = "encryptedPublicKey")]
+    #[serde(rename = "encryptedPublicKey", alias = "EncryptedPublicKey")]
     pub encrypted_public_key: String,
-    #[serde(rename = "encryptedPrivateKey")]
+    #[serde(rename = "encryptedPrivateKey", alias = "EncryptedPrivateKey")]
     pub encrypted_private_key: String,
 }
 

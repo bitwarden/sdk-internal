@@ -14,21 +14,45 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TaxInformationRequestBody {
-    #[serde(rename = "country")]
+    #[serde(rename = "country", alias = "Country")]
     pub country: String,
-    #[serde(rename = "postalCode")]
+    #[serde(rename = "postalCode", alias = "PostalCode")]
     pub postal_code: String,
-    #[serde(rename = "taxId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "taxId",
+        alias = "TaxId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub tax_id: Option<String>,
-    #[serde(rename = "taxIdType", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "taxIdType",
+        alias = "TaxIdType",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub tax_id_type: Option<String>,
-    #[serde(rename = "line1", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "line1",
+        alias = "Line1",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub line1: Option<String>,
-    #[serde(rename = "line2", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "line2",
+        alias = "Line2",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub line2: Option<String>,
-    #[serde(rename = "city", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "city",
+        alias = "City",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub city: Option<String>,
-    #[serde(rename = "state", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "state",
+        alias = "State",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub state: Option<String>,
 }
 

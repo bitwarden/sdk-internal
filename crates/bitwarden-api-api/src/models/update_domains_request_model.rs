@@ -14,10 +14,15 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UpdateDomainsRequestModel {
-    #[serde(rename = "equivalentDomains", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "equivalentDomains",
+        alias = "EquivalentDomains",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub equivalent_domains: Option<Vec<Vec<String>>>,
     #[serde(
         rename = "excludedGlobalEquivalentDomains",
+        alias = "ExcludedGlobalEquivalentDomains",
         skip_serializing_if = "Option::is_none"
     )]
     pub excluded_global_equivalent_domains: Option<Vec<models::GlobalEquivalentDomainsType>>,

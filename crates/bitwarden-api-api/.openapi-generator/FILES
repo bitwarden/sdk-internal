@@ -255,6 +255,7 @@ src/models/member_decryption_type.rs
 src/models/minimal_billing_address_request.rs
 src/models/minimal_tokenized_payment_method_request.rs
 src/models/mod.rs
+src/models/non_tokenized_payment_method_request.rs
 src/models/notification_response_model.rs
 src/models/notification_response_model_list_response_model.rs
 src/models/open_id_connect_redirect_behavior.rs
@@ -370,6 +371,7 @@ src/models/preview_organization_subscription_purchase_tax_request.rs
 src/models/preview_organization_subscription_update_tax_request.rs
 src/models/preview_premium_subscription_purchase_tax_request.rs
 src/models/priority.rs
+src/models/private_keys_response_model.rs
 src/models/product_tier_type.rs
 src/models/profile_organization_response_model.rs
 src/models/profile_organization_response_model_list_response_model.rs
@@ -416,6 +418,9 @@ src/models/pub_key_cred_param.rs
 src/models/public_key_credential_descriptor.rs
 src/models/public_key_credential_rp_entity.rs
 src/models/public_key_credential_type.rs
+src/models/public_key_encryption_key_pair_request_model.rs
+src/models/public_key_encryption_key_pair_response_model.rs
+src/models/public_keys_response_model.rs
 src/models/push_device_request_model.rs
 src/models/push_registration_request_model.rs
 src/models/push_settings.rs
@@ -450,6 +455,7 @@ src/models/secrets_manager_update_selections.rs
 src/models/secrets_sync_response_model.rs
 src/models/secrets_with_projects_inner_secret.rs
 src/models/secure_note_type.rs
+src/models/security_state_model.rs
 src/models/security_task_create_request.rs
 src/models/security_task_metrics_response_model.rs
 src/models/security_task_status.rs
@@ -484,6 +490,8 @@ src/models/set_key_connector_key_request_model.rs
 src/models/set_password_request_model.rs
 src/models/set_verify_devices_request_model.rs
 src/models/setup_business_unit_request_body.rs
+src/models/signature_key_pair_request_model.rs
+src/models/signature_key_pair_response_model.rs
 src/models/sm_export_response_model.rs
 src/models/sm_import_request_model.rs
 src/models/sso_configuration_data.rs

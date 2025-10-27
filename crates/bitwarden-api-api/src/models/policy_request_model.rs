@@ -14,11 +14,15 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PolicyRequestModel {
-    #[serde(rename = "type")]
+    #[serde(rename = "type", alias = "R#type")]
     pub r#type: models::PolicyType,
-    #[serde(rename = "enabled")]
+    #[serde(rename = "enabled", alias = "Enabled")]
     pub enabled: bool,
-    #[serde(rename = "data", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "data",
+        alias = "Data",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub data: Option<std::collections::HashMap<String, serde_json::Value>>,
 }
 

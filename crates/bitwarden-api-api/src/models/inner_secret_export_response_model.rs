@@ -14,15 +14,27 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InnerSecretExportResponseModel {
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    #[serde(rename = "key", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
-    #[serde(rename = "value", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "value",
+        alias = "Value",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub value: Option<String>,
-    #[serde(rename = "note", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "note",
+        alias = "Note",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub note: Option<String>,
-    #[serde(rename = "projectIds", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "projectIds",
+        alias = "ProjectIds",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub project_ids: Option<Vec<uuid::Uuid>>,
 }
 

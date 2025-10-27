@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct KeyPairRequestBody {
-    #[serde(rename = "publicKey")]
+    #[serde(rename = "publicKey", alias = "PublicKey")]
     pub public_key: String,
-    #[serde(rename = "encryptedPrivateKey")]
+    #[serde(rename = "encryptedPrivateKey", alias = "EncryptedPrivateKey")]
     pub encrypted_private_key: String,
 }
 
