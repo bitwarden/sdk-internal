@@ -22,8 +22,8 @@ pub fn import_key(
         .map_err(|_| SshKeyImportError::Parsing)?;
 
     match label {
-        pkcs8::PrivateKeyInfo::PEM_LABEL => import_pkcs8_key(encoded_key, None),
-        pkcs8::EncryptedPrivateKeyInfo::PEM_LABEL => import_pkcs8_key(
+        pkcs8::PrivateKeyInfo::<(), (), ()>::PEM_LABEL => import_pkcs8_key(encoded_key, None),
+        pkcs8::EncryptedPrivateKeyInfo::<()>::PEM_LABEL => import_pkcs8_key(
             encoded_key,
             Some(password.ok_or(SshKeyImportError::PasswordRequired)?),
         ),
@@ -60,8 +60,7 @@ pub fn import_pkcs8_der_key(encoded_key: &[u8]) -> Result<SshKeyView, SshKeyImpo
 
     let private_key = match private_key_info.algorithm.oid {
         ed25519::pkcs8::ALGORITHM_OID => {
-            let private_key: ed25519::KeypairBytes = private_key_info
-                .try_into()
+            let private_key: ed25519::KeypairBytes = private_key_info.try_into()
                 .map_err(|_| SshKeyImportError::Parsing)?;
 
             ssh_key::private::PrivateKey::from(Ed25519Keypair::from(&private_key.secret_key.into()))
@@ -199,26 +198,16 @@ mod tests {
         assert_eq!(result.unwrap_err(), SshKeyImportError::UnsupportedKeyType);
     }
 
-    // Putty-exported keys should be supported, but are not due to a parser incompatibility.
-    // Should this test start failing, please change it to expect a correct key, and
-    // make sure the documentation support for putty-exported keys this is updated.
-    // https://bitwarden.atlassian.net/browse/PM-14989
     #[test]
     fn import_key_ed25519_putty() {
         let private_key = include_str!("../resources/import/ed25519_putty_openssh_unencrypted");
-        let result = import_key(private_key.to_string(), Some("".to_string()));
-        assert_eq!(result.unwrap_err(), SshKeyImportError::Parsing);
+        import_key(private_key.to_string(), Some("".to_string())).unwrap();
     }
 
-    // Putty-exported keys should be supported, but are not due to a parser incompatibility.
-    // Should this test start failing, please change it to expect a correct key, and
-    // make sure the documentation support for putty-exported keys this is updated.
-    // https://bitwarden.atlassian.net/browse/PM-14989
     #[test]
     fn import_key_rsa_openssh_putty() {
         let private_key = include_str!("../resources/import/rsa_putty_openssh_unencrypted");
-        let result = import_key(private_key.to_string(), Some("".to_string()));
-        assert_eq!(result.unwrap_err(), SshKeyImportError::Parsing);
+        import_key(private_key.to_string(), Some("".to_string())).unwrap();
     }
 
     #[test]
@@ -227,4 +216,12 @@ mod tests {
         let result = import_key(private_key.to_string(), Some("".to_string()));
         assert_eq!(result.unwrap_err(), SshKeyImportError::UnsupportedKeyType);
     }
+
+    #[test]
+    fn import_broken_ed25519_key() {
+        // https://github.com/bitwarden/clients/issues/17028#issuecomment-3455975763
+        let private_key = include_str!("../resources/import/ed25519_regression_17028");
+        import_key(private_key.to_string(), None).unwrap();
+    }
+
 }

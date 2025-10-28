@@ -1,6 +1,7 @@
 use bitwarden_vault::SshKeyView;
+use rand::CryptoRng;
 use serde::{Deserialize, Serialize};
-use ssh_key::{Algorithm, rand_core::CryptoRngCore};
+use ssh_key::{Algorithm};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
@@ -26,13 +27,13 @@ pub enum KeyAlgorithm {
 pub fn generate_sshkey(
     key_algorithm: KeyAlgorithm,
 ) -> Result<SshKeyView, error::KeyGenerationError> {
-    let rng = rand::thread_rng();
+    let rng = rand::rng();
     generate_sshkey_internal(key_algorithm, rng)
 }
 
 fn generate_sshkey_internal(
     key_algorithm: KeyAlgorithm,
-    mut rng: impl CryptoRngCore,
+    mut rng: impl CryptoRng,
 ) -> Result<SshKeyView, error::KeyGenerationError> {
     let private_key = match key_algorithm {
         KeyAlgorithm::Ed25519 => ssh_key::PrivateKey::random(&mut rng, Algorithm::Ed25519)
@@ -45,7 +46,7 @@ fn generate_sshkey_internal(
 }
 
 fn create_rsa_key(
-    mut rng: impl CryptoRngCore,
+    mut rng: impl CryptoRng,
     bits: usize,
 ) -> Result<ssh_key::PrivateKey, error::KeyGenerationError> {
     let rsa_keypair = ssh_key::private::RsaKeypair::random(&mut rng, bits)
