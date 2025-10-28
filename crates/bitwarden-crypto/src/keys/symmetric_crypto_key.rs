@@ -72,8 +72,9 @@ pub struct XChaCha20Poly1305Key {
     pub(crate) key_id: [u8; KEY_ID_SIZE],
     pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
     /// Controls which key operations are allowed with this key. Note: Only checking decrypt is
-    /// implemented right now. Further, disabling decrypt will also disable unwrap. The only
-    /// use-case so far is `DataEnvelope`.
+    /// implemented right now, and implementing is tracked here https://bitwarden.atlassian.net/browse/PM-27513.
+    /// Further, disabling decrypt will also disable unwrap. The only use-case so far is
+    /// `DataEnvelope`.
     #[zeroize(skip)]
     pub(crate) supported_operations: Vec<KeyOperation>,
 }
