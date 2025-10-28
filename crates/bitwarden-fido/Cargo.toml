@@ -29,7 +29,7 @@ itertools = ">=0.13.0, <0.15"
 log = { workspace = true }
 p256 = ">=0.13.2, <0.14"
 passkey = { git = "https://github.com/bitwarden/passkey-rs", rev = "3b764633ebc6576c07bdd12ee14d8e5c87b494ed" }
-passkey-client = { git = "https://github.com/bitwarden/passkey-rs", rev = "3b764633ebc6576c07bdd12ee14d8e5c87b494ed", features = [
+passkey-client = { git = "https://github.com/bitwarden/passkey-rs", rev = "331804e80a2613a61b0e13cd5e6aebbb70266566", features = [
     "android-asset-validation",
 ] }
 reqwest = { workspace = true }
