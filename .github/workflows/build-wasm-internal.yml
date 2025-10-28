@@ -138,3 +138,313 @@ jobs:
               workflow_id: 'publish-wasm-internal.yml',
               ref: 'main',
             })
+  trigger-breaking-change-check:
+    name: Trigger client breaking change checks
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    needs: build
+    defaults:
+      run:
+        shell: bash
+        working-directory: .
+    permissions:
+      contents: read
+      actions: write
+      pull-requests: write
+      id-token: write
+    strategy:
+      matrix:
+        client:
+          - repo: "bitwarden/clients"
+            event_type: "sdk-breaking-change-check"
+            label: "typescript"
+            workflow: "sdk-breaking-change-check.yml"
+    env:
+      CLIENT_REPO: ${{ matrix.client.repo }}
+      EVENT_TYPE: ${{ matrix.client.event_type }}
+      CLIENT_LABEL: ${{ matrix.client.label }}
+      WORKFLOW_NAME: ${{ matrix.client.workflow }}
+      MAX_RETRIES: 3
+      
+    steps:
+      - name: Download SDK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: sdk-internal
+          path: ./sdk-artifacts
+          
+      - name: Prepare dispatch payload
+        id: payload
+        run: |
+          PR_HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          SHORT_SHA="${PR_HEAD_SHA:0:7}"
+          SDK_VERSION="${{ github.event.pull_request.head.ref }} ($SHORT_SHA)"
+          
+          # Create payload JSON (compact format to avoid GitHub Actions output parsing issues)
+          PAYLOAD=$(jq -n \
+            --arg pr_number "${{ github.event.number }}" \
+            --arg sdk_version "$SDK_VERSION" \
+            --arg source_repo "${{ github.repository }}" \
+            --arg workflow_context "$WORKFLOW_NAME" \
+            --arg client_label "$CLIENT_LABEL" \
+            --arg pr_head_sha "${{ github.event.pull_request.head.sha }}" \
+            --arg pr_base_ref "${{ github.event.pull_request.base.ref }}" \
+            --arg comment_id "${{ steps.consolidated-comment.outputs.comment_id }}" \
+            --arg run_id "${{ github.run_id }}" \
+            --arg artifact_name "sdk-internal" \
+            '{
+              pr_number: $pr_number,
+              sdk_version: $sdk_version,
+              source_repo: $source_repo,
+              workflow_context: $workflow_context,
+              client_label: $client_label,
+              pr_head_sha: $pr_head_sha,
+              pr_base_ref: $pr_base_ref,
+              comment_id: $comment_id,
+              artifacts_info: {
+                run_id: $run_id,
+                artifact_name: $artifact_name
+              }
+            }')
+          
+          # Use GitHub Actions multiline output format for JSON
+          echo "payload<<EOF" >> $GITHUB_OUTPUT
+          echo "$PAYLOAD" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo "sdk_version=$SDK_VERSION" >> $GITHUB_OUTPUT
+          
+      - name: Log in to Azure
+        uses: bitwarden/gh-actions/azure-login@main
+        with:
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
+      - name: Retrieve GitHub PAT secrets
+        id: retrieve-secret-pat
+        uses: bitwarden/gh-actions/get-keyvault-secrets@main
+        with:
+          keyvault: "bitwarden-ci"
+          secrets: "github-pat-bitwarden-devops-bot-repo-scope"
+      - name: Create or update consolidated status comment
+        id: consolidated-comment
+        env:
+          GH_TOKEN: ${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
+        run: |
+          echo "💬 Creating/updating consolidated breaking change status comment..."
+          
+          COMMENT_HEADER="<!-- SDK-BREAKING-CHANGE-CHECK -->"
+          SDK_VERSION="${{ steps.payload.outputs.sdk_version }}"
+          TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          
+          # Expected clients list - expand when adding mobile
+          EXPECTED_CLIENTS=("typescript")
+          
+          # Build status table
+          STATUS_TABLE="| Client | Status | Details |
+          |--------|---------|---------|"
+          
+          for CLIENT in "${EXPECTED_CLIENTS[@]}"; do
+            STATUS_TABLE+="
+            |$CLIENT|⏳ Pending|Type checking in progress...|"
+          done
+          
+          CONSOLIDATED_COMMENT=$(cat << EOF
+          $COMMENT_HEADER
+          ## 🔍 SDK Breaking Change Detection Status
+          
+          **SDK Version:** \`$SDK_VERSION\`  
+          **Triggered:** $TIMESTAMP  
+          **Progress:** Dispatching client workflows...
+          
+          $STATUS_TABLE
+          
+          ---
+          *This status updates automatically as client workflows complete. [View SDK workflow](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})*
+          EOF
+          )
+          
+          # Check for existing consolidated comment
+          EXISTING_COMMENT=$(gh api repos/${{ github.repository }}/issues/${{ github.event.number }}/comments | \
+            jq -r --arg header "$COMMENT_HEADER" '.[] | select(.body | contains($header)) | .id' | head -1)
+
+          
+          if [ -n "$EXISTING_COMMENT" ]; then
+            echo "Updating existing consolidated comment ID: $EXISTING_COMMENT"
+            gh api --method PATCH repos/${{ github.repository }}/issues/comments/$EXISTING_COMMENT \
+              --field body="$CONSOLIDATED_COMMENT"
+            echo "comment_id=$EXISTING_COMMENT" >> $GITHUB_OUTPUT
+          else
+            echo "Creating new consolidated comment"
+            COMMENT_ID=$(gh api --method POST repos/${{ github.repository }}/issues/${{ github.event.number }}/comments \
+              --field body="$CONSOLIDATED_COMMENT" --jq '.id')
+            echo "comment_id=$COMMENT_ID" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "✅ Consolidated comment created/updated"
+      - name: Trigger client repository dispatch
+        run: |
+          echo "🚀 Triggering $WORKFLOW_NAME in $CLIENT_REPO..."
+          
+          RETRY_COUNT=0
+          DISPATCH_SUCCESS=false
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "🔄 Attempt $RETRY_COUNT of $MAX_RETRIES for $CLIENT_REPO..."
+            
+            if GH_TOKEN="${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}" gh api repos/$CLIENT_REPO/dispatches \
+                --method POST \
+                --field event_type="$EVENT_TYPE" \
+                --raw-field client_payload='${{ steps.payload.outputs.payload }}'; then
+              
+              echo "✅ Successfully triggered $CLIENT_REPO ($CLIENT_LABEL)"
+              echo "📋 Results will be posted to PR #${{ github.event.number }} when ready"
+              echo "✅ **$CLIENT_REPO**: $WORKFLOW_NAME triggered - [Monitor Progress](https://github.com/$CLIENT_REPO/actions)" >> $GITHUB_STEP_SUMMARY
+              DISPATCH_SUCCESS=true
+              break
+            else
+              echo "⚠️ $CLIENT_REPO dispatch attempt $RETRY_COUNT failed"
+              [ $RETRY_COUNT -lt $MAX_RETRIES ] && sleep 5
+            fi
+          done
+          
+          if [ "$DISPATCH_SUCCESS" = "false" ]; then
+            echo "::error::Failed to trigger $CLIENT_REPO after $MAX_RETRIES attempts"
+            echo "::warning::$CLIENT_LABEL breaking change detection will be skipped"
+            echo "❌ **$CLIENT_REPO**: Failed to trigger - [Manual Check Required](https://github.com/$CLIENT_REPO)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+      - name: Wait for client workflow completion  
+        timeout-minutes: 12
+        env:
+          GH_TOKEN: ${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
+        run: |
+          echo "⏳ Waiting for all client type checking workflows to complete..."
+          
+          WAIT_START_TIME=$(date +%s)
+          MAX_WAIT_SECONDS=600  # 10 minutes max wait
+          POLL_INTERVAL=30      # Check every 30 seconds
+          
+          # Expected clients list - expand when adding mobile
+          EXPECTED_CLIENTS=("typescript")
+          COMPLETED_CLIENTS=()
+          
+          while true; do
+            CURRENT_TIME=$(date +%s)
+            ELAPSED=$((CURRENT_TIME - WAIT_START_TIME))
+            
+            # Check timeout
+            if [ $ELAPSED -gt $MAX_WAIT_SECONDS ]; then
+              echo "⏰ Timeout reached after ${ELAPSED}s - proceeding with available results"
+              echo "::warning::Some client workflows may still be running"
+              break
+            fi
+            
+            echo "🔍 Polling for completion markers (${ELAPSED}s elapsed)..."
+            
+            # Check for completion markers in PR comments
+            COMMENTS=$(gh api repos/${{ github.repository }}/issues/${{ github.event.number }}/comments \
+              --jq '.[] | select(.body | contains("<!-- SDK-BREAKING-CHANGE-COMPLETION:")) | .body')
+            
+            # Reset completed clients for this check
+            COMPLETED_CLIENTS=()
+            
+            # Check each expected client
+            for CLIENT in "${EXPECTED_CLIENTS[@]}"; do
+              if echo "$COMMENTS" | grep -q "<!-- SDK-BREAKING-CHANGE-COMPLETION:$CLIENT -->"; then
+                COMPLETED_CLIENTS+=("$CLIENT")
+                echo "✅ $CLIENT workflow completed"
+              else
+                echo "⏳ $CLIENT workflow still running..."
+              fi
+            done
+            
+            # Check if all clients completed
+            if [ ${#COMPLETED_CLIENTS[@]} -eq ${#EXPECTED_CLIENTS[@]} ]; then
+              echo "🎉 All client workflows completed!"
+              break
+            fi
+            
+            # Wait before next poll
+            echo "⏸️ Waiting ${POLL_INTERVAL}s before next check..."
+            sleep $POLL_INTERVAL
+          done
+          
+          # Summary
+          echo ""
+          echo "=== Final Status ==="
+          echo "Completed clients: ${COMPLETED_CLIENTS[*]}"
+          echo "Total wait time: ${ELAPSED}s"
+          
+          if [ ${#COMPLETED_CLIENTS[@]} -eq ${#EXPECTED_CLIENTS[@]} ]; then
+            echo "✅ All expected client workflows completed successfully"
+            echo "status=complete" >> $GITHUB_OUTPUT
+          else
+            MISSING_CLIENTS=()
+            for CLIENT in "${EXPECTED_CLIENTS[@]}"; do
+              if [[ ! " ${COMPLETED_CLIENTS[*]} " =~ " ${CLIENT} " ]]; then
+                MISSING_CLIENTS+=("$CLIENT")
+              fi
+            done
+            echo "⚠️ Some workflows incomplete: ${MISSING_CLIENTS[*]}"
+            echo "status=partial" >> $GITHUB_OUTPUT
+          fi
+          
+          # Update GitHub step summary
+          echo "⏱️ **Synchronization Complete**: Waited ${ELAPSED}s for client workflows" >> $GITHUB_STEP_SUMMARY
+          echo "📊 **Completed**: ${#COMPLETED_CLIENTS[@]}/${#EXPECTED_CLIENTS[@]} clients" >> $GITHUB_STEP_SUMMARY
+      - name: Report final workflow status
+        env:
+          GH_TOKEN: ${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
+        run: |
+          echo "📊 Final SDK workflow status summary"
+          
+          # Analyze all PR comments for breaking change results
+          COMMENTS=$(gh api repos/${{ github.repository }}/issues/${{ github.event.number }}/comments \
+            --jq '.[] | select(.body | contains("SDK-BREAKING-CHANGE-CHECK")) | .body')
+          
+          BREAKING_DETECTED=false
+          CLIENT_RESULTS=()
+          
+          for CLIENT in typescript; do  # Expand when adding mobile
+            if echo "$COMMENTS" | grep -q "❌ TypeScript Breaking Changes Detected" && [[ "$CLIENT" == "typescript" ]]; then
+              BREAKING_DETECTED=true
+              CLIENT_RESULTS+=("❌ $CLIENT: Breaking changes detected")
+            elif echo "$COMMENTS" | grep -q "✅ TypeScript Compatibility Check Passed" && [[ "$CLIENT" == "typescript" ]]; then
+              CLIENT_RESULTS+=("✅ $CLIENT: No breaking changes")
+            else
+              CLIENT_RESULTS+=("⚠️ $CLIENT: Status unclear or incomplete")
+            fi
+          done
+          
+          echo ""
+          echo "=== Breaking Change Detection Results ==="
+          for RESULT in "${CLIENT_RESULTS[@]}"; do
+            echo "$RESULT"
+          done
+          
+          # Set overall status
+          if [ "$BREAKING_DETECTED" = "true" ]; then
+            echo ""
+            echo "🚨 BREAKING CHANGES DETECTED - Review PR comments for details"
+            echo "⚠️ This is non-blocking - PR can still be merged if changes are intentional"
+            echo "status=breaking-changes" >> $GITHUB_OUTPUT
+          else
+            echo ""
+            echo "✅ No breaking changes detected across all clients"  
+            echo "status=clean" >> $GITHUB_OUTPUT
+          fi
+          
+          # Add results to job summary
+          echo "## 🔍 Breaking Change Detection Results" >> $GITHUB_STEP_SUMMARY
+          for RESULT in "${CLIENT_RESULTS[@]}"; do
+            echo "- $RESULT" >> $GITHUB_STEP_SUMMARY
+          done
+          
+          if [ "$BREAKING_DETECTED" = "true" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **Breaking changes detected** - See PR comments for migration guidance" >> $GITHUB_STEP_SUMMARY
+          fi
+      - name: Log out from Azure
+        uses: bitwarden/gh-actions/azure-logout@main
