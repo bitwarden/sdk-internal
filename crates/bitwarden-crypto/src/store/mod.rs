@@ -96,7 +96,6 @@ pub struct KeyStore<Ids: KeyIds> {
     // We use an Arc<> to make it easier to pass this store around, as we can
     // clone it instead of passing references
     inner: Arc<RwLock<KeyStoreInner<Ids>>>,
-    security_state_version: Arc<RwLock<u64>>,
 }
 
 /// [KeyStore] contains sensitive data, provide a dummy [Debug] implementation.
@@ -110,6 +109,7 @@ struct KeyStoreInner<Ids: KeyIds> {
     symmetric_keys: Box<dyn StoreBackend<Ids::Symmetric>>,
     asymmetric_keys: Box<dyn StoreBackend<Ids::Asymmetric>>,
     signing_keys: Box<dyn StoreBackend<Ids::Signing>>,
+    security_state_version: u64,
 }
 
 /// Create a new key store with the best available implementation for the current platform.
@@ -120,8 +120,8 @@ impl<Ids: KeyIds> Default for KeyStore<Ids> {
                 symmetric_keys: create_store(),
                 asymmetric_keys: create_store(),
                 signing_keys: create_store(),
+                security_state_version: 1,
             })),
-            security_state_version: Arc::new(RwLock::new(1)),
         }
     }
 }
@@ -138,11 +138,8 @@ impl<Ids: KeyIds> KeyStore<Ids> {
 
     /// Sets the security state version for this store.
     pub fn set_security_state_version(&self, version: u64) {
-        let mut ver = self
-            .security_state_version
-            .write()
-            .expect("RwLock is poisoned");
-        *ver = version;
+        let mut data = self.inner.write().expect("RwLock is poisoned");
+        data.security_state_version = version;
     }
 
     /// Initiate an encryption/decryption context. This context will have read only access to the
@@ -177,15 +174,13 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     ///     - [KeyStoreContext::encapsulate_key_unsigned]
     ///     - [KeyStoreContext::derive_shareable_key]
     pub fn context(&'_ self) -> KeyStoreContext<'_, Ids> {
+        let data = self.inner.read().expect("RwLock is poisoned");
         KeyStoreContext {
             global_keys: GlobalKeys::ReadOnly(self.inner.read().expect("RwLock is poisoned")),
             local_symmetric_keys: create_store(),
             local_asymmetric_keys: create_store(),
             local_signing_keys: create_store(),
-            security_state_version: *self
-                .security_state_version
-                .read()
-                .expect("RwLock is poisoned"),
+            security_state_version: data.security_state_version,
             _phantom: std::marker::PhantomData,
         }
     }
@@ -211,15 +206,14 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     /// you're not holding references to the context across await points, as that would cause the
     /// future to also not be [Send].
     pub fn context_mut(&'_ self) -> KeyStoreContext<'_, Ids> {
+        let inner = self.inner.write().expect("RwLock is poisoned");
+        let security_state_version = inner.security_state_version;
         KeyStoreContext {
-            global_keys: GlobalKeys::ReadWrite(self.inner.write().expect("RwLock is poisoned")),
+            global_keys: GlobalKeys::ReadWrite(inner),
             local_symmetric_keys: create_store(),
             local_asymmetric_keys: create_store(),
             local_signing_keys: create_store(),
-            security_state_version: *self
-                .security_state_version
-                .read()
-                .expect("RwLock is poisoned"),
+            security_state_version,
             _phantom: std::marker::PhantomData,
         }
     }
