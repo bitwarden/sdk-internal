@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use bitwarden_encoding::{B64, FromStrVisitor};
+use bitwarden_encoding::{B64, FromStrVisitor, NotB64EncodedError};
 use ciborium::value::Integer;
 #[allow(unused_imports)]
 use coset::{CborSerializable, ProtectedHeader, RegisteredLabel, iana::CoapContentFormat};
@@ -54,16 +54,9 @@ pub trait SealableData: Serialize + DeserializeOwned {}
 /// The content-encryption-key cannot be re-used for encrypting other data.
 ///
 /// Note: This is explicitly meant for structured data, not large binary blobs (files).
+#[derive(Clone)]
 pub struct DataEnvelope {
     envelope_data: CoseEncrypt0Bytes,
-}
-
-impl Clone for DataEnvelope {
-    fn clone(&self) -> Self {
-        DataEnvelope {
-            envelope_data: self.envelope_data.clone(),
-        }
-    }
 }
 
 impl DataEnvelope {
@@ -308,12 +301,10 @@ impl std::fmt::Debug for DataEnvelope {
 }
 
 impl FromStr for DataEnvelope {
-    type Err = DataEnvelopeError;
+    type Err = NotB64EncodedError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let data = B64::try_from(s).map_err(|_| {
-            DataEnvelopeError::ParsingError("Invalid DataEnvelope Base64 encoding".to_string())
-        })?;
+        let data = B64::try_from(s)?;
         Ok(Self::from(data.into_bytes()))
     }
 }
