@@ -295,7 +295,7 @@ impl KeyEncryptableWithContentType<SymmetricCryptoKey, EncString> for &[u8] {
             SymmetricCryptoKey::XChaCha20Poly1305Key(inner_key) => {
                 ensure!(
                     inner_key
-                        .key_operations
+                        .supported_operations
                         .contains(&KeyOperation::Encrypt) =>
                     CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt)
                 );
@@ -381,7 +381,7 @@ mod tests {
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
             key_id,
             enc_key: Box::pin(enc_key.into()),
-            key_operations: vec![
+            supported_operations: vec![
                 coset::iana::KeyOperation::Decrypt,
                 coset::iana::KeyOperation::Encrypt,
                 coset::iana::KeyOperation::WrapKey,
@@ -426,7 +426,7 @@ mod tests {
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
             key_id,
             enc_key: Box::pin(enc_key.into()),
-            key_operations: vec![
+            supported_operations: vec![
                 coset::iana::KeyOperation::Decrypt,
                 coset::iana::KeyOperation::Encrypt,
                 coset::iana::KeyOperation::WrapKey,
@@ -458,7 +458,7 @@ mod tests {
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
             key_id,
             enc_key: Box::pin(enc_key.into()),
-            key_operations: vec![
+            supported_operations: vec![
                 coset::iana::KeyOperation::Decrypt,
                 coset::iana::KeyOperation::Encrypt,
                 coset::iana::KeyOperation::WrapKey,
@@ -595,7 +595,7 @@ mod tests {
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
             key_id,
             enc_key: Box::pin(enc_key.into()),
-            key_operations: vec![KeyOperation::Decrypt],
+            supported_operations: vec![KeyOperation::Decrypt],
         });
 
         let plaintext = "should fail";

@@ -543,7 +543,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {
                 ensure!(
-                    key.key_operations.contains(&KeyOperation::Encrypt) => CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt)
+                    key.supported_operations.contains(&KeyOperation::Encrypt) => CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt)
                 );
                 EncString::encrypt_xchacha20_poly1305(data, key, content_format)
             }
@@ -872,7 +872,7 @@ mod tests {
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
             key_id: [0u8; 16],
             enc_key: Box::pin([0u8; 32].into()),
-            key_operations: vec![KeyOperation::Decrypt],
+            supported_operations: vec![KeyOperation::Decrypt],
         });
         ctx.set_symmetric_key(key_id, key).unwrap();
         let data = DataView("should fail".to_string(), key_id);

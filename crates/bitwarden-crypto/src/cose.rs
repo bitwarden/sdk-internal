@@ -182,7 +182,7 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
                     XChaCha20Poly1305Key {
                         enc_key,
                         key_id,
-                        key_operations: key_opts,
+                        supported_operations: key_opts,
                     },
                 ))
             }
@@ -394,7 +394,7 @@ mod test {
         let key = XChaCha20Poly1305Key {
             key_id: KEY_ID,
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
-            key_operations: vec![
+            supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
                 KeyOperation::WrapKey,
@@ -415,7 +415,7 @@ mod test {
         let key = XChaCha20Poly1305Key {
             key_id: [1; 16], // Different key ID
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
-            key_operations: vec![
+            supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
                 KeyOperation::WrapKey,
@@ -445,7 +445,7 @@ mod test {
         let key = XChaCha20Poly1305Key {
             key_id: KEY_ID,
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
-            key_operations: vec![
+            supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
                 KeyOperation::WrapKey,

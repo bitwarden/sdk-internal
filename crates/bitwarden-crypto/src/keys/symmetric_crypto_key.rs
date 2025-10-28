@@ -75,7 +75,7 @@ pub struct XChaCha20Poly1305Key {
     /// implemented right now. Further, disabling decrypt will also disable unwrap. The only
     /// use-case so far is `DataEnvelope`.
     #[zeroize(skip)]
-    pub(crate) key_operations: Vec<KeyOperation>,
+    pub(crate) supported_operations: Vec<KeyOperation>,
 }
 
 impl XChaCha20Poly1305Key {
@@ -90,7 +90,7 @@ impl XChaCha20Poly1305Key {
         Self {
             enc_key,
             key_id,
-            key_operations: vec![
+            supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
                 KeyOperation::WrapKey,
@@ -100,7 +100,7 @@ impl XChaCha20Poly1305Key {
     }
 
     pub(crate) fn disable_key_operation(&mut self, op: KeyOperation) -> &mut Self {
-        self.key_operations.retain(|k| *k != op);
+        self.supported_operations.retain(|k| *k != op);
         self
     }
 }
@@ -166,7 +166,7 @@ impl SymmetricCryptoKey {
         Self::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
             enc_key,
             key_id: KeyId::make().into(),
-            key_operations: vec![
+            supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
                 KeyOperation::WrapKey,
@@ -238,7 +238,7 @@ impl SymmetricCryptoKey {
             Self::XChaCha20Poly1305Key(key) => {
                 let builder = coset::CoseKeyBuilder::new_symmetric_key(key.enc_key.to_vec());
                 let mut cose_key = builder.key_id(key.key_id.to_vec());
-                for op in &key.key_operations {
+                for op in &key.supported_operations {
                     cose_key = cose_key.add_key_op(*op);
                 }
                 let mut cose_key = cose_key.build();
@@ -595,7 +595,7 @@ mod tests {
         let key2 = SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
             enc_key: Box::pin(GenericArray::<u8, U32>::default()),
             key_id: [0; 16],
-            key_operations: vec![
+            supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
                 KeyOperation::WrapKey,
@@ -663,7 +663,7 @@ mod tests {
                 vec![1u8; 32].as_slice(),
             )),
             key_id: [0; 16],
-            key_operations: vec![
+            supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
                 KeyOperation::WrapKey,
@@ -675,7 +675,7 @@ mod tests {
                 vec![1u8; 32].as_slice(),
             )),
             key_id: [0; 16],
-            key_operations: vec![
+            supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
                 KeyOperation::WrapKey,
@@ -687,7 +687,7 @@ mod tests {
                 vec![2u8; 32].as_slice(),
             )),
             key_id: [1; 16],
-            key_operations: vec![
+            supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
                 KeyOperation::WrapKey,
@@ -703,7 +703,7 @@ mod tests {
         let key1 = XChaCha20Poly1305Key {
             enc_key: Box::pin(GenericArray::<u8, U32>::default()),
             key_id: [0; 16],
-            key_operations: vec![
+            supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
                 KeyOperation::WrapKey,
@@ -713,7 +713,7 @@ mod tests {
         let key2 = XChaCha20Poly1305Key {
             enc_key: Box::pin(GenericArray::<u8, U32>::default()),
             key_id: [1; 16],
-            key_operations: vec![
+            supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
                 KeyOperation::WrapKey,
