@@ -202,7 +202,8 @@ mod tests {
     #[test]
     fn import_key_ed25519_putty() {
         let private_key = include_str!("../resources/import/ed25519_putty_openssh_unencrypted");
-        let public_key = include_str!("../resources/import/ed25519_putty_openssh_unencrypted.pub").trim();
+        let public_key =
+            include_str!("../resources/import/ed25519_putty_openssh_unencrypted.pub").trim();
         let result = import_key(private_key.to_string(), Some("".to_string())).unwrap();
         assert_eq!(result.public_key, public_key);
     }
@@ -210,7 +211,8 @@ mod tests {
     #[test]
     fn import_key_rsa_openssh_putty() {
         let private_key = include_str!("../resources/import/rsa_putty_openssh_unencrypted");
-        let public_key = include_str!("../resources/import/rsa_putty_openssh_unencrypted.pub").trim();
+        let public_key =
+            include_str!("../resources/import/rsa_putty_openssh_unencrypted.pub").trim();
         let result = import_key(private_key.to_string(), Some("".to_string())).unwrap();
         assert_eq!(result.public_key, public_key);
     }
