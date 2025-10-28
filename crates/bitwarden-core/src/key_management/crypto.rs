@@ -10,7 +10,8 @@ use bitwarden_crypto::{
     AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
     KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, SignatureAlgorithm,
     SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey,
-    UserKey, dangerous_get_v2_rotated_account_keys, safe::PasswordProtectedKeyEnvelopeError,
+    UserKey, dangerous_get_v2_rotated_account_keys,
+    safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError},
 };
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
@@ -26,7 +27,6 @@ use crate::{
     key_management::{
         AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
         master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData},
-        non_generic_wrappers::PasswordProtectedKeyEnvelope,
     },
 };
 
@@ -429,12 +429,7 @@ pub(super) fn enroll_pin(
     let key_store = client.internal.get_key_store();
     let mut ctx = key_store.context_mut();
 
-    let key_envelope =
-        PasswordProtectedKeyEnvelope(bitwarden_crypto::safe::PasswordProtectedKeyEnvelope::seal(
-            SymmetricKeyId::User,
-            &pin,
-            &ctx,
-        )?);
+    let key_envelope = PasswordProtectedKeyEnvelope::seal(SymmetricKeyId::User, &pin, &ctx)?;
     let encrypted_pin = pin.encrypt(&mut ctx, SymmetricKeyId::User)?;
     Ok(EnrollPinResponse {
         pin_protected_user_key_envelope: key_envelope,
@@ -724,8 +719,6 @@ pub(crate) fn make_v2_keys_for_v1_user(
     let key_store = client.internal.get_key_store();
     let mut ctx = key_store.context();
 
-    let temporary_user_key_id = SymmetricKeyId::Local("temporary_user_key");
-    let temporary_signing_key_id = SigningKeyId::Local("temporary_signing_key");
     // Re-use existing private key
     let private_key_id = AsymmetricKeyId::UserPrivateKey;
 
@@ -751,13 +744,10 @@ pub(crate) fn make_v2_keys_for_v1_user(
 
     // New user key
     let user_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
-    #[allow(deprecated)]
-    ctx.set_symmetric_key(temporary_user_key_id, user_key.clone())?;
 
     // New signing key
     let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
-    #[allow(deprecated)]
-    ctx.set_signing_key(temporary_signing_key_id, signing_key.clone())?;
+    let temporary_signing_key_id = ctx.add_local_signing_key(signing_key.clone())?;
 
     // Sign existing public key
     let signed_public_key = ctx.make_signed_public_key(private_key_id, temporary_signing_key_id)?;

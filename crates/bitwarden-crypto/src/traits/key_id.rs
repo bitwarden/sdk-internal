@@ -24,6 +24,9 @@ pub trait KeyId:
     /// Returns whether the key is local to the current context or shared globally by the
     /// key store. See [crate::store::KeyStoreContext] for more information.
     fn is_local(&self) -> bool;
+
+    /// Creates a new unique local key identifier.
+    fn new_local(id: LocalId) -> Self;
 }
 
 /// Represents a set of all the key identifiers that need to be defined to use a key store.
@@ -37,6 +40,17 @@ pub trait KeyIds {
     type Signing: KeyId<KeyValue = SigningKey>;
 }
 
+/// An opaque identifier for a local key. Currently only contains a unique ID, but it can be
+/// extended to contain scope information to allow cleanup on scope exit.
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct LocalId(pub(crate) uuid::Uuid);
+
+impl LocalId {
+    pub(crate) fn new() -> Self {
+        LocalId(uuid::Uuid::new_v4())
+    }
+}
+
 /// Just a small derive_like macro that can be used to generate the key identifier enums.
 /// Example usage:
 /// ```rust
@@ -47,17 +61,21 @@ pub trait KeyIds {
 ///         User,
 ///         Org(uuid::Uuid),
 ///         #[local]
-///         Local(&'static str),
+///         Local(LocalId),
 ///     }
 ///
 ///     #[asymmetric]
 ///     pub enum AsymmKeyId {
 ///         PrivateKey,
+///         #[local]
+///         Local(LocalId),
 ///     }
 ///
 ///     #[signing]
 ///     pub enum SigningKeyId {
 ///        SigningKey,
+///        #[local]
+///        Local(LocalId),
 ///     }
 ///
 ///     pub Ids => SymmKeyId, AsymmKeyId, SigningKeyId;
@@ -76,6 +94,9 @@ macro_rules! key_ids {
     )+
     $ids_vis:vis $ids_name:ident => $symm_name:ident, $asymm_name:ident, $signing_name:ident;
     ) => {
+
+        use $crate::LocalId;
+
         $(
             #[derive(std::fmt::Debug, Clone, Copy, std::hash::Hash, Eq, PartialEq, Ord, PartialOrd)]
             #[allow(missing_docs)]
@@ -92,6 +113,12 @@ macro_rules! key_ids {
                         key_ids!(@variant_match $variant $( ( $inner ) )?) =>
                             key_ids!(@variant_value $( $variant_tag )? ),
                     )* }
+                }
+
+                fn new_local(id: LocalId) -> Self {
+                    $(
+                        { key_ids!(@new_local $variant  id $( $variant_tag )? ) }
+                    )*
                 }
             }
         )+
@@ -114,27 +141,33 @@ macro_rules! key_ids {
 
     ( @variant_value local ) => { true };
     ( @variant_value ) => { false };
+
+    ( @new_local $variant:ident $id:ident local  ) => { Self::$variant($id) };
+    ( @new_local $variant:ident $id:ident ) => {{}};
 }
 
 #[cfg(test)]
 pub(crate) mod tests {
+
     use crate::{
-        KeyId,
+        KeyId, LocalId,
         traits::tests::{TestAsymmKey, TestSigningKey, TestSymmKey},
     };
 
     #[test]
     fn test_local() {
+        let local = LocalId::new();
+
         assert!(!TestSymmKey::A(0).is_local());
         assert!(!TestSymmKey::B((4, 10)).is_local());
-        assert!(TestSymmKey::C(8).is_local());
+        assert!(TestSymmKey::C(local).is_local());
 
         assert!(!TestAsymmKey::A(0).is_local());
         assert!(!TestAsymmKey::B.is_local());
-        assert!(TestAsymmKey::C("test").is_local());
+        assert!(TestAsymmKey::C(local).is_local());
 
         assert!(!TestSigningKey::A(0).is_local());
         assert!(!TestSigningKey::B.is_local());
-        assert!(TestSigningKey::C("test").is_local());
+        assert!(TestSigningKey::C(local).is_local());
     }
 }

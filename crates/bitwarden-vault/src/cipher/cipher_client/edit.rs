@@ -111,8 +111,7 @@ impl CipherEditRequest {
     ) -> Result<(), CryptoError> {
         let old_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
-        const NEW_KEY_ID: SymmetricKeyId = SymmetricKeyId::Local("new_cipher_key");
-        let new_key = ctx.generate_symmetric_key(NEW_KEY_ID)?;
+        let new_key = ctx.generate_symmetric_key();
 
         // Re-encrypt the internal fields with the new key
         self.r#type
