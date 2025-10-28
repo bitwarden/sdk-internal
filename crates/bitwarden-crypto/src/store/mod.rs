@@ -179,12 +179,13 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     ///     - [KeyStoreContext::derive_shareable_key]
     pub fn context(&'_ self) -> KeyStoreContext<'_, Ids> {
         let data = self.inner.read().expect("RwLock is poisoned");
+        let security_state_version = data.security_state_version;
         KeyStoreContext {
-            global_keys: GlobalKeys::ReadOnly(self.inner.read().expect("RwLock is poisoned")),
+            global_keys: GlobalKeys::ReadOnly(data),
             local_symmetric_keys: create_store(),
             local_asymmetric_keys: create_store(),
             local_signing_keys: create_store(),
-            security_state_version: data.security_state_version,
+            security_state_version,
             _phantom: std::marker::PhantomData,
         }
     }
