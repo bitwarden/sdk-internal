@@ -60,7 +60,8 @@ pub fn import_pkcs8_der_key(encoded_key: &[u8]) -> Result<SshKeyView, SshKeyImpo
 
     let private_key = match private_key_info.algorithm.oid {
         ed25519::pkcs8::ALGORITHM_OID => {
-            let private_key: ed25519::KeypairBytes = private_key_info.try_into()
+            let private_key: ed25519::KeypairBytes = private_key_info
+                .try_into()
                 .map_err(|_| SshKeyImportError::Parsing)?;
 
             ssh_key::private::PrivateKey::from(Ed25519Keypair::from(&private_key.secret_key.into()))
@@ -223,5 +224,4 @@ mod tests {
         let private_key = include_str!("../resources/import/ed25519_regression_17028");
         import_key(private_key.to_string(), None).unwrap();
     }
-
 }
