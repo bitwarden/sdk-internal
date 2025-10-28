@@ -1,4 +1,4 @@
-use crate::{CryptoError, safe::DataEnvelopeError};
+use crate::safe::DataEnvelopeError;
 
 /// Data envelopes are domain-separated within bitwarden, to prevent cross protocol attacks.
 ///
@@ -26,7 +26,7 @@ impl DataEnvelopeNamespace {
 }
 
 impl TryFrom<i64> for DataEnvelopeNamespace {
-    type Error = CryptoError;
+    type Error = DataEnvelopeError;
 
     fn try_from(value: i64) -> Result<Self, Self::Error> {
         match value {
@@ -35,17 +35,17 @@ impl TryFrom<i64> for DataEnvelopeNamespace {
             -1 => Ok(DataEnvelopeNamespace::ExampleNamespace),
             #[cfg(test)]
             -2 => Ok(DataEnvelopeNamespace::ExampleNamespace2),
-            _ => Err(DataEnvelopeError::InvalidNamespace.into()),
+            _ => Err(DataEnvelopeError::InvalidNamespace),
         }
     }
 }
 
 impl TryFrom<i128> for DataEnvelopeNamespace {
-    type Error = CryptoError;
+    type Error = DataEnvelopeError;
 
     fn try_from(value: i128) -> Result<Self, Self::Error> {
         let Ok(value) = i64::try_from(value) else {
-            return Err(DataEnvelopeError::InvalidNamespace.into());
+            return Err(DataEnvelopeError::InvalidNamespace);
         };
         Self::try_from(value)
     }

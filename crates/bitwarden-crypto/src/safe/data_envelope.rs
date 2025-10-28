@@ -223,7 +223,7 @@ impl DataEnvelope {
                 crate::xchacha20::decrypt_xchacha20_poly1305(
                     nonce
                         .try_into()
-                        .map_err(|_| DataEnvelopeError::DecryptionError)?,
+                        .map_err(|_| CryptoError::InvalidNonceLength)?,
                     &(*cek.enc_key).into(),
                     data,
                     aad,
