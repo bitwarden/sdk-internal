@@ -8,7 +8,7 @@ use crate::safe::DataEnvelopeError;
 /// correctly.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DataEnvelopeNamespace {
-    /// The namespace for vault items
+    /// The namespace for vault items ("ciphers")
     VaultItem = 1,
     /// This namespace is only used in tests
     #[cfg(test)]
