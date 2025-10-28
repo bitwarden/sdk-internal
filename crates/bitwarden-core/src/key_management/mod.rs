@@ -26,10 +26,6 @@ pub use master_password::MasterPasswordError;
 #[cfg(feature = "internal")]
 pub(crate) use master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData};
 #[cfg(feature = "internal")]
-mod non_generic_wrappers;
-#[cfg(feature = "internal")]
-pub(crate) use non_generic_wrappers::*;
-#[cfg(feature = "internal")]
 mod security_state;
 #[cfg(feature = "internal")]
 pub use security_state::{SecurityState, SignedSecurityState};
@@ -47,21 +43,21 @@ key_ids! {
         User,
         Organization(OrganizationId),
         #[local]
-        Local(&'static str),
+        Local(LocalId),
     }
 
     #[asymmetric]
     pub enum AsymmetricKeyId {
         UserPrivateKey,
         #[local]
-        Local(&'static str),
+        Local(LocalId),
     }
 
     #[signing]
     pub enum SigningKeyId {
         UserSigningKey,
         #[local]
-        Local(&'static str),
+        Local(LocalId),
     }
 
     pub KeyIds => SymmetricKeyId, AsymmetricKeyId, SigningKeyId;

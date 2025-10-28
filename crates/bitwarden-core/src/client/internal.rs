@@ -4,7 +4,10 @@ use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{CryptoError, EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey};
+use bitwarden_crypto::{
+    CryptoError, EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey,
+    safe::PasswordProtectedKeyEnvelope,
+};
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;
@@ -26,8 +29,7 @@ use crate::{
     },
     error::NotAuthenticatedError,
     key_management::{
-        MasterPasswordUnlockData, PasswordProtectedKeyEnvelope, SecurityState, SignedSecurityState,
-        crypto::InitUserCryptoRequest,
+        MasterPasswordUnlockData, SecurityState, SignedSecurityState, crypto::InitUserCryptoRequest,
     },
 };
 
@@ -358,10 +360,9 @@ impl InternalClient {
         let decrypted_user_key = {
             // Note: This block ensures ctx is dropped. Otherwise it would cause a deadlock when
             // initializing the user crypto
-            use crate::key_management::SymmetricKeyId;
             let ctx = &mut self.key_store.context_mut();
             let decrypted_user_key_id = pin_protected_user_key_envelope
-                .unseal(SymmetricKeyId::Local("tmp_unlock_pin"), &pin, ctx)
+                .unseal(&pin, ctx)
                 .map_err(|_| EncryptionSettingsError::WrongPin)?;
 
             // Allowing deprecated here, until a refactor to pass the Local key ids to
