@@ -11,6 +11,8 @@ use color_eyre::eyre::{Result, bail};
 use inquire::{Password, Text};
 use log::{debug, error, info};
 
+use crate::auth::tmp_session::export_session;
+
 pub(crate) async fn login_password(client: Client, email: Option<String>) -> Result<()> {
     let email = text_prompt_when_none("Email", email)?;
 
@@ -134,7 +136,7 @@ pub(crate) async fn login_api_key(
     info!("Synced {} ciphers", sync_result.ciphers.len());
 
     // Export the full session (user key + tokens)
-    let session = client.internal.export_session()?;
+    let session = export_session(&client).await?;
 
     Ok(session)
 }

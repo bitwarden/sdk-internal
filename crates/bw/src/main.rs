@@ -7,7 +7,7 @@ use clap_complete::Shell;
 use color_eyre::eyre::Result;
 use env_logger::Target;
 
-use crate::{command::*, render::CommandResult};
+use crate::{auth::import_session, command::*, render::CommandResult};
 
 mod admin_console;
 mod auth;
@@ -53,11 +53,9 @@ async fn process_commands(command: Commands, session: Option<String>) -> Command
     let client = bitwarden_pm::PasswordManagerClient::new(None);
 
     // If a session was provided, import it to restore the client state
-    if let Some(ref session_str) = session {
-        client
-            .0
-            .internal
-            .import_session(session_str)
+    if let Some(s) = session {
+        import_session(&client.0, &s)
+            .await
             .map_err(|e| color_eyre::eyre::eyre!("Failed to import session: {}", e))?;
     }
 

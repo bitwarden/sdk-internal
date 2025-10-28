@@ -20,7 +20,9 @@ bat = { version = "0.25.0", features = [
     "regex-fancy",
 ], default-features = false }
 bitwarden-cli = { workspace = true }
-bitwarden-core = { workspace = true }
+bitwarden-core = { workspace = true, features = ["cli"] }
+bitwarden-crypto = { workspace = true }
+bitwarden-encoding = { workspace = true }
 bitwarden-generators = { workspace = true }
 bitwarden-pm = { workspace = true }
 bitwarden-vault = { workspace = true }

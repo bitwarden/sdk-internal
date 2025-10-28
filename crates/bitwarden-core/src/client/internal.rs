@@ -208,6 +208,26 @@ impl InternalClient {
         self.set_api_tokens_internal(token);
     }
 
+    /// Temporary interface for CLI to set tokens.
+    #[cfg(feature = "cli")]
+    pub fn cli_set_tokens(&self, token: String, refresh_token: Option<String>, expires_in: u64) {
+        self.set_tokens(token, refresh_token, expires_in);
+    }
+
+    /// Temporary interface for CLI to get tokens.
+    #[cfg(feature = "cli")]
+    pub fn cli_get_tokens(&self) -> (Option<String>, Option<String>, Option<i64>) {
+        let tokens = self.tokens.read().expect("RwLock is not poisoned");
+        match &*tokens {
+            Tokens::SdkManaged(tokens) => (
+                tokens.access_token.clone(),
+                tokens.refresh_token.clone(),
+                tokens.expires_on,
+            ),
+            Tokens::ClientManaged(_client_managed_tokens) => (None, None, None),
+        }
+    }
+
     /// Sets api tokens for only internal API clients, use `set_tokens` for SdkManagedTokens.
     pub(crate) fn set_api_tokens_internal(&self, token: String) {
         self.__api_configurations
@@ -283,122 +303,6 @@ impl InternalClient {
     #[allow(missing_docs)]
     pub fn get_user_id(&self) -> Option<UserId> {
         self.user_id.get().copied()
-    }
-
-    /// Export a full session containing all data needed to restore the client state
-    /// This includes the user key, tokens, and encrypted private/signing keys
-    #[cfg(feature = "internal")]
-    pub fn export_session(&self) -> Result<String, CryptoError> {
-        use bitwarden_encoding::B64;
-        use serde::{Deserialize, Serialize};
-
-        use crate::key_management::{AsymmetricKeyId, SymmetricKeyId};
-
-        #[derive(Serialize, Deserialize)]
-        struct SessionData {
-            user_key: String,
-            private_key: Option<String>,
-            access_token: Option<String>,
-            refresh_token: Option<String>,
-            expires_on: Option<i64>,
-        }
-
-        // Get the user encryption key and private key
-        #[allow(deprecated)]
-        let (user_key, private_key) = {
-            let ctx = self.key_store.context();
-            let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
-            let private_key = if ctx.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey) {
-                let key = ctx.dangerous_get_asymmetric_key(AsymmetricKeyId::UserPrivateKey)?;
-                Some(B64::from(key.to_der()?.as_ref()).to_string())
-            } else {
-                None
-            };
-            (user_key.to_base64().to_string(), private_key)
-        };
-
-        // Get the tokens
-        let tokens = self.tokens.read().expect("RwLock is not poisoned");
-        let (access_token, refresh_token, expires_on) = match &*tokens {
-            Tokens::SdkManaged(sdk_tokens) => (
-                sdk_tokens.access_token.clone(),
-                sdk_tokens.refresh_token.clone(),
-                sdk_tokens.expires_on,
-            ),
-            Tokens::ClientManaged(_) => (None, None, None),
-        };
-
-        let session_data = SessionData {
-            user_key,
-            private_key,
-            access_token,
-            refresh_token,
-            expires_on,
-        };
-
-        // Serialize to JSON and then base64 encode
-        let json = serde_json::to_string(&session_data).map_err(|_| CryptoError::InvalidKey)?;
-        let encoded = bitwarden_encoding::B64::from(json.as_bytes());
-
-        Ok(encoded.to_string())
-    }
-
-    /// Import a session and restore the client state
-    /// This includes restoring the user key, private key, and setting tokens
-    #[cfg(feature = "internal")]
-    pub fn import_session(&self, session: &str) -> Result<(), CryptoError> {
-        use bitwarden_crypto::{AsymmetricCryptoKey, Pkcs8PrivateKeyBytes};
-        use bitwarden_encoding::B64;
-        use serde::{Deserialize, Serialize};
-
-        use crate::key_management::{AsymmetricKeyId, SymmetricKeyId};
-
-        #[derive(Serialize, Deserialize)]
-        struct SessionData {
-            user_key: String,
-            private_key: Option<String>,
-            access_token: Option<String>,
-            refresh_token: Option<String>,
-            expires_on: Option<i64>,
-        }
-
-        // Decode from base64 and parse JSON
-        let decoded = B64::try_from(session.to_string()).map_err(|_| CryptoError::InvalidKey)?;
-        let json_str =
-            String::from_utf8(decoded.as_bytes().to_vec()).map_err(|_| CryptoError::InvalidKey)?;
-        let session_data: SessionData =
-            serde_json::from_str(&json_str).map_err(|_| CryptoError::InvalidKey)?;
-
-        // Restore the user key and private key
-        let user_key = SymmetricCryptoKey::try_from(session_data.user_key)?;
-
-        #[allow(deprecated)]
-        {
-            let mut ctx = self.key_store.context_mut();
-            ctx.set_symmetric_key(SymmetricKeyId::User, user_key)?;
-
-            // Restore private key if present
-            if let Some(private_key_b64) = session_data.private_key {
-                let private_key_b64_parsed =
-                    B64::try_from(private_key_b64).map_err(|_| CryptoError::InvalidKey)?;
-                let private_key_der = Pkcs8PrivateKeyBytes::from(private_key_b64_parsed.as_bytes());
-                let private_key = AsymmetricCryptoKey::from_der(&private_key_der)?;
-                ctx.set_asymmetric_key(AsymmetricKeyId::UserPrivateKey, private_key)?;
-            }
-        }
-
-        // Restore the tokens
-        if let Some(access_token) = session_data.access_token {
-            *self.tokens.write().expect("RwLock is not poisoned") =
-                Tokens::SdkManaged(SdkManagedTokens {
-                    access_token: Some(access_token.clone()),
-                    refresh_token: session_data.refresh_token,
-                    expires_on: session_data.expires_on,
-                });
-            self.set_api_tokens_internal(access_token);
-        }
-
-        Ok(())
     }
 
     #[cfg(feature = "internal")]

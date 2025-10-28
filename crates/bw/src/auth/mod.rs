@@ -7,6 +7,9 @@ use inquire::Password;
 
 use crate::render::CommandResult;
 
+mod tmp_session;
+pub(crate) use tmp_session::*;
+
 // TODO(CLI): This is incompatible with the current node CLI
 #[derive(Args, Clone)]
 pub struct LoginArgs {

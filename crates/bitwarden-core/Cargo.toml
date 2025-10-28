@@ -35,6 +35,7 @@ wasm = [
     "dep:wasm-bindgen-futures",
     "dep:tsify"
 ] # WASM support
+cli = [] # Temporary functions for WIP bw CLI
 
 [dependencies]
 async-trait = { workspace = true }
