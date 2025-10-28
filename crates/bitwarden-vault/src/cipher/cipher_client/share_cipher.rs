@@ -662,7 +662,7 @@ mod tests {
             .expect("Cipher should be stored");
 
         assert_eq!(stored_cipher.id, shared_cipher.id);
-        assert_eq!(stored_cipher.favorite, true); // Should preserve from original
+        assert!(stored_cipher.favorite); // Should preserve from original
     }
 
     #[tokio::test]
