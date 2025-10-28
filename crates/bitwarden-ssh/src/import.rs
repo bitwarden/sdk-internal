@@ -202,13 +202,17 @@ mod tests {
     #[test]
     fn import_key_ed25519_putty() {
         let private_key = include_str!("../resources/import/ed25519_putty_openssh_unencrypted");
-        import_key(private_key.to_string(), Some("".to_string())).unwrap();
+        let public_key = include_str!("../resources/import/ed25519_putty_openssh_unencrypted.pub").trim();
+        let result = import_key(private_key.to_string(), Some("".to_string())).unwrap();
+        assert_eq!(result.public_key, public_key);
     }
 
     #[test]
     fn import_key_rsa_openssh_putty() {
         let private_key = include_str!("../resources/import/rsa_putty_openssh_unencrypted");
-        import_key(private_key.to_string(), Some("".to_string())).unwrap();
+        let public_key = include_str!("../resources/import/rsa_putty_openssh_unencrypted.pub").trim();
+        let result = import_key(private_key.to_string(), Some("".to_string())).unwrap();
+        assert_eq!(result.public_key, public_key);
     }
 
     #[test]
@@ -219,9 +223,11 @@ mod tests {
     }
 
     #[test]
-    fn import_broken_ed25519_key() {
+    fn import_ed25519_key_regression_17028() {
         // https://github.com/bitwarden/clients/issues/17028#issuecomment-3455975763
         let private_key = include_str!("../resources/import/ed25519_regression_17028");
-        import_key(private_key.to_string(), None).unwrap();
+        let public_key = include_str!("../resources/import/ed25519_regression_17028.pub").trim();
+        let result = import_key(private_key.to_string(), None).unwrap();
+        assert_eq!(result.public_key, public_key);
     }
 }
