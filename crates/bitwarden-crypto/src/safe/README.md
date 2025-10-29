@@ -26,5 +26,5 @@ Use the data envelope to protect a struct (document) of data. Examples include:
 - protecting a vault report
 
 The serialization of the data and the creation of a content encryption key is handled internally.
-Calling the API with a decrypted struct, the content encryption key and the encrypted data are
+Calling the API with a decrypted struct, the content encryption key ID and the encrypted data are
 returned.
