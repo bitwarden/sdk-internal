@@ -50,7 +50,10 @@ fn main() {
     }
     .into();
 
-    // Seal the item into an encrypted blob, and store the content-encryption-key in the context.
+    // Seals the item into an encrypted blob, and stores the content-encryption-key in the context.
+    // Returned is the sealed item, along with the id of the content-encryption-key used to seal it
+    // on the context. The cek has to be protected separately. Alternatively
+    // `seal_with_wrapping_key` can be used to directly obtain back the wrapped cek.
     let (sealed_item, cek) = DataEnvelope::seal(my_item, &mut ctx).expect("Sealing should work");
 
     // Store the sealed item on disk

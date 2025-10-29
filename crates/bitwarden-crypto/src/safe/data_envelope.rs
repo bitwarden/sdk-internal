@@ -395,8 +395,10 @@ impl FromWasmAbi for DataEnvelope {
     type Abi = <String as FromWasmAbi>::Abi;
 
     unsafe fn from_abi(abi: Self::Abi) -> Self {
+        use wasm_bindgen::UnwrapThrowExt;
+
         let s = unsafe { String::from_abi(abi) };
-        Self::from_str(&s).expect("Invalid DataEnvelope")
+        Self::from_str(&s).unwrap_throw()
     }
 }
 
