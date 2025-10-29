@@ -19,7 +19,7 @@ jobs:
     name: Building @bitwarden/sdk-wasm-internal - ${{matrix.license_type.readable}}
     runs-on: ubuntu-24.04
     permissions:
-      contents: read
+      contents: write
     strategy:
       matrix:
         license_type:
