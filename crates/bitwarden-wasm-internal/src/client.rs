@@ -78,10 +78,7 @@ impl BitwardenClient {
         PlatformClient::new(self.0.0.clone())
     }
 
-    /// Constructs a specific client for generating passwords and passphrases
-    pub fn generator(&self) -> GeneratorClient {
-        self.0.generator()
-    }
+
 
     /// Exporter related operations.
     pub fn exporters(&self) -> ExporterClient {
