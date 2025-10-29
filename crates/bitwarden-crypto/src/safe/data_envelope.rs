@@ -148,7 +148,7 @@ impl DataEnvelope {
             .disable_key_operation(coset::iana::KeyOperation::WrapKey)
             .disable_key_operation(coset::iana::KeyOperation::UnwrapKey);
 
-        Ok((DataEnvelope { envelope_data }, cek.clone()))
+        Ok((DataEnvelope { envelope_data }, cek))
     }
 
     /// Unseals the data from the encrypted blob using a content-encryption-key stored in the
