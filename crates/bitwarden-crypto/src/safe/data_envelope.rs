@@ -32,9 +32,9 @@ pub trait SealableVersionedData: Serialize + DeserializeOwned {
 /// Marker trait for data that can be sealed in a `DataEnvelope`.
 ///
 /// Note: If you implement this trait, you agree to the following:
-/// The struct serialization format is stable. You may not mutate the struct so that old structs
-/// no longer deserialize correctly. A change such as adding an optional field to your struct is
-/// permitted, anything breaking old formats is not.
+/// The struct serialization format is stable. Struct modifications must maintain backward
+/// compatibility with existing serialized data. Changes that break deserialization are considered
+/// breaking changes and require a new version and struct.
 ///
 /// Ideally, when creating a new struct, create a test vector (a sealed DataEnvelope for a test
 /// value), and create a unit test ensuring that it permanently deserializes correctly.
