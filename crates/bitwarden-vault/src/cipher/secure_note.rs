@@ -4,8 +4,8 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{CompositeEncryptable, CryptoError, Decryptable, KeyStoreContext};
-use serde::{Deserialize, Serialize};
-use serde_repr::{Deserialize_repr, Serialize_repr};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_repr::Serialize_repr;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 #[cfg(feature = "wasm")]
@@ -17,7 +17,7 @@ use crate::{
 };
 
 #[allow(missing_docs)]
-#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug)]
+#[derive(Clone, Copy, Serialize_repr, Debug)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -31,6 +31,24 @@ pub enum SecureNoteType {
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SecureNote {
     r#type: SecureNoteType,
+}
+
+/// Use the custom deserializer for SecureNoteType
+/// Older notes may have a Type greater than 0. If so set them to Generic
+impl<'de> Deserialize<'de> for SecureNoteType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        match u8::deserialize(deserializer) {
+            Ok(0) => Ok(SecureNoteType::Generic),
+            Ok(_) => {
+                // Any unknown type (like type 1) defaults to Generic
+                Ok(SecureNoteType::Generic)
+            }
+            Err(_) => Ok(SecureNoteType::Generic),
+        }
+    }
 }
 
 #[allow(missing_docs)]
