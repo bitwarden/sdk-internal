@@ -17,6 +17,7 @@ use crate::{
 mod create;
 mod edit;
 mod get;
+mod share_cipher;
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
