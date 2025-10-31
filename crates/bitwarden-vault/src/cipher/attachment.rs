@@ -288,6 +288,7 @@ mod tests {
             size_name: Some("100 Bytes".into()),
             file_name: Some("Test.txt".into()),
             key: None,
+            #[cfg(feature = "wasm")]
             decrypted_key: None,
         };
 
@@ -347,6 +348,7 @@ mod tests {
             size_name: Some("161 Bytes".into()),
             file_name: Some("Test.txt".into()),
             key: Some("2.r288/AOSPiaLFkW07EBGBw==|SAmnnCbOLFjX5lnURvoualOetQwuyPc54PAmHDTRrhT0gwO9ailna9U09q9bmBfI5XrjNNEsuXssgzNygRkezoVQvZQggZddOwHB6KQW5EQ=|erIMUJp8j+aTcmhdE50zEX+ipv/eR1sZ7EwULJm/6DY=".parse().unwrap()),
+            #[cfg(feature = "wasm")]
             decrypted_key: None,
         };
 
@@ -407,6 +409,7 @@ mod tests {
             size_name: Some("161 Bytes".into()),
             file_name: Some("Test.txt".into()),
             key: None,
+            #[cfg(feature = "wasm")]
             decrypted_key: None,
         };
 
