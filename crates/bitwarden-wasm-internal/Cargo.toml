@@ -38,7 +38,7 @@ log = "0.4.20"
 serde = { workspace = true }
 tsify = { workspace = true }
 # When upgrading wasm-bindgen, make sure to update the version in the workflows!
-wasm-bindgen = { version = "=0.2.100", features = ["serde-serialize"] }
+wasm-bindgen = { version = "=0.2.105", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4.41"
 
 [lints]
