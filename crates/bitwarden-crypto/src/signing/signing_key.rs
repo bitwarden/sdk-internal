@@ -33,6 +33,9 @@ enum RawSigningKey {
     // other transitions are not possible. Further, the seed is used in cose to represent the private key,
     // and cose does not allow storing the expanded signing key.
     MLDsa65(Pin<Box<B32>>),
+    // #[cfg(feature = "post-quantum-crypto")]
+    // Hybrid signature scheme combining ML-DSA-65 and Ed25519 <https://www.ietf.org/archive/id/draft-prabel-jose-pq-composite-sigs-04.html>
+    // MLDsa65Ed25519(Pin<Box<(B32, ed25519_dalek::SigningKey)>>),
 }
 
 /// A signing key is a private key used for signing data. An associated `VerifyingKey` can be

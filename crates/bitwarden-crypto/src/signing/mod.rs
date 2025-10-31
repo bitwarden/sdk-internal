@@ -29,6 +29,8 @@
 
 mod cose;
 use cose::*;
+mod hazmat;
+use hazmat::*;
 mod namespace;
 pub use namespace::SigningNamespace;
 mod signed_object;
