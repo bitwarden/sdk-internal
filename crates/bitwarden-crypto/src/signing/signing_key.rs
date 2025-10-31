@@ -6,6 +6,9 @@ use coset::{
     iana::{Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter},
 };
 use ed25519_dalek::Signer;
+#[cfg(feature = "post-quantum-crypto")]
+use ml_dsa::{B32, KeyGen, MlDsa65};
+use rand_core::RngCore;
 
 use super::{
     SignatureAlgorithm, ed25519_signing_key, key_id,
@@ -24,6 +27,15 @@ use crate::{
 #[derive(Clone)]
 enum RawSigningKey {
     Ed25519(Pin<Box<ed25519_dalek::SigningKey>>),
+    #[cfg(feature = "post-quantum-crypto")]
+    // ML-DSA has two representations of the private key - the seed, and the expanded signing key.
+    // We store the seed here as it is always possible to go from seed to expanded private key + public key.
+    // other transitions are not possible. Further, the seed is used in cose to represent the private key,
+    // and cose does not allow storing the expanded signing key.
+    MLDsa65(Pin<Box<B32>>),
+    // #[cfg(feature = "post-quantum-crypto")]
+    // Hybrid signature scheme combining ML-DSA-65 and Ed25519 <https://www.ietf.org/archive/id/draft-prabel-jose-pq-composite-sigs-04.html>
+    // MLDsa65Ed25519(Pin<Box<(B32, ed25519_dalek::SigningKey)>>),
 }
 
 /// A signing key is a private key used for signing data. An associated `VerifyingKey` can be
@@ -54,12 +66,23 @@ impl SigningKey {
                     &mut rand::rng(),
                 ))),
             },
+            #[cfg(feature = "post-quantum-crypto")]
+            SignatureAlgorithm::MLDsa65 => {
+                let mut seed = [0u8; 32];
+                rand::rng().fill_bytes(&mut seed);
+                SigningKey {
+                    id: KeyId::make(),
+                    inner: RawSigningKey::MLDsa65(Box::pin(ml_dsa::B32::from(seed))),
+                }
+            }
         }
     }
 
     pub(super) fn cose_algorithm(&self) -> Algorithm {
         match &self.inner {
             RawSigningKey::Ed25519(_) => Algorithm::EdDSA,
+            #[cfg(feature = "post-quantum-crypto")]
+            RawSigningKey::MLDsa65(_) => Algorithm::ML_DSA_65,
         }
     }
 
@@ -71,6 +94,13 @@ impl SigningKey {
                 id: self.id.clone(),
                 inner: RawVerifyingKey::Ed25519(key.verifying_key()),
             },
+            #[cfg(feature = "post-quantum-crypto")]
+            RawSigningKey::MLDsa65(seed) => VerifyingKey {
+                id: self.id.clone(),
+                inner: RawVerifyingKey::MlDsa65(
+                    MlDsa65::key_gen_internal(seed).verifying_key().to_owned(),
+                ),
+            },
         }
     }
 
@@ -80,6 +110,17 @@ impl SigningKey {
     pub(super) fn sign_raw(&self, data: &[u8]) -> Vec<u8> {
         match &self.inner {
             RawSigningKey::Ed25519(key) => key.sign(data).to_bytes().to_vec(),
+            #[cfg(feature = "post-quantum-crypto")]
+            RawSigningKey::MLDsa65(seed) => MlDsa65::key_gen_internal(seed)
+                // ctx is empty, the CTX is provided otherwise in the namespace of the signature message, to abstract
+                // away from the specific signature scheme
+                // note: TODO: replace with sind randomized when crates don't collide
+                .signing_key()
+                .sign_deterministic(data, &[])
+                .expect("signing should not fail")
+                .encode()
+                .as_slice()
+                .to_vec(),
         }
     }
 }
@@ -106,6 +147,42 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
                     .to_vec()
                     .expect("Signing key is always serializable")
                     .into()
+            }
+            #[cfg(feature = "post-quantum-crypto")]
+            RawSigningKey::MLDsa65(seed) => {
+                use crate::KEY_ID_SIZE;
+                use coset::{Label, iana::AkpKeyParameter};
+                use std::collections::BTreeSet;
+
+                CoseKey {
+                    kty: RegisteredLabel::Assigned(KeyType::AKP),
+                    key_id: Vec::from(Into::<[u8; KEY_ID_SIZE]>::into(self.id.clone())),
+                    alg: Some(RegisteredLabelWithPrivate::Assigned(Algorithm::ML_DSA_65)),
+                    base_iv: vec![],
+                    key_ops: BTreeSet::from([
+                        RegisteredLabel::Assigned(KeyOperation::Sign),
+                        RegisteredLabel::Assigned(KeyOperation::Verify),
+                    ]),
+                    params: vec![
+                        (
+                            Label::Int(AkpKeyParameter::Priv.to_i64()),
+                            Value::Bytes(seed.as_ref().to_vec()),
+                        ),
+                        (
+                            Label::Int(AkpKeyParameter::Pub.to_i64()),
+                            Value::Bytes(
+                                MlDsa65::key_gen_internal(seed)
+                                    .verifying_key()
+                                    .encode()
+                                    .as_slice()
+                                    .to_vec(),
+                            ),
+                        ),
+                    ],
+                }
+                .to_vec()
+                .expect("encoding should work")
+                .into()
             }
         }
     }
@@ -153,5 +230,20 @@ mod tests {
                 .verify_raw(&signature, "Test message".as_bytes())
                 .is_ok()
         );
+    }
+
+    #[test]
+    fn test_sign_rountrip_mldsa65() {
+        #[cfg(feature = "post-quantum-crypto")]
+        {
+            let signing_key = SigningKey::make(SignatureAlgorithm::MLDsa65);
+            let signature = signing_key.sign_raw("Test message".as_bytes());
+            let verifying_key = signing_key.to_verifying_key();
+            assert!(
+                verifying_key
+                    .verify_raw(&signature, "Test message".as_bytes())
+                    .is_ok()
+            );
+        }
     }
 }

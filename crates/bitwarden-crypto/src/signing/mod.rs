@@ -29,6 +29,8 @@
 
 mod cose;
 use cose::*;
+mod hazmat;
+use hazmat::*;
 mod namespace;
 pub use namespace::SigningNamespace;
 mod signed_object;
@@ -54,6 +56,9 @@ use {tsify::Tsify, wasm_bindgen::prelude::*};
 pub enum SignatureAlgorithm {
     /// Ed25519 is the modern, secure recommended option for digital signatures on eliptic curves.
     Ed25519,
+    /// MlDsa65 is a post-quantum secure signature scheme
+    #[cfg(feature = "post-quantum-crypto")]
+    MLDsa65,
 }
 
 impl SignatureAlgorithm {

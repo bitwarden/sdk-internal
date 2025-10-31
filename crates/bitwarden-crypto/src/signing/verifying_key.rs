@@ -3,11 +3,15 @@
 //! This implements the lowest layer of the signature module, verifying signatures on raw byte
 //! arrays.
 
+use std::pin::Pin;
+
 use ciborium::{Value, value::Integer};
 use coset::{
     CborSerializable, RegisteredLabel, RegisteredLabelWithPrivate,
     iana::{Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter},
 };
+#[cfg(feature = "post-quantum-crypto")]
+use ml_dsa::{MlDsa65, VerifyingKey as _, signature::Verifier};
 
 use super::{SignatureAlgorithm, ed25519_verifying_key, key_id};
 use crate::{
@@ -22,6 +26,8 @@ use crate::{
 /// scheme.
 pub(super) enum RawVerifyingKey {
     Ed25519(ed25519_dalek::VerifyingKey),
+    #[cfg(feature = "post-quantum-crypto")]
+    MlDsa65(ml_dsa::VerifyingKey<MlDsa65>),
 }
 
 /// A verifying key is a public key used for verifying signatures. It can be published to other
@@ -37,6 +43,8 @@ impl VerifyingKey {
     pub fn algorithm(&self) -> SignatureAlgorithm {
         match &self.inner {
             RawVerifyingKey::Ed25519(_) => SignatureAlgorithm::Ed25519,
+            #[cfg(feature = "post-quantum-crypto")]
+            RawVerifyingKey::MlDsa65(_) => SignatureAlgorithm::MLDsa65,
         }
     }
 
@@ -52,6 +60,16 @@ impl VerifyingKey {
                         .map_err(|_| SignatureError::InvalidSignature)?,
                 );
                 key.verify_strict(data, &sig)
+                    .map_err(|_| SignatureError::InvalidSignature.into())
+            }
+            #[cfg(feature = "post-quantum-crypto")]
+            RawVerifyingKey::MlDsa65(key) => {
+                let sig: ml_dsa::Signature<MlDsa65> = ml_dsa::Signature::from(
+                    signature
+                        .try_into()
+                        .map_err(|_| SignatureError::InvalidSignature)?,
+                );
+                key.verify(data, &sig)
                     .map_err(|_| SignatureError::InvalidSignature.into())
             }
         }
@@ -81,6 +99,27 @@ impl CoseSerializable<CoseKeyContentFormat> for VerifyingKey {
                 .to_vec()
                 .expect("Verifying key is always serializable")
                 .into(),
+            #[cfg(feature = "post-quantum-crypto")]
+            RawVerifyingKey::MlDsa65(key) => {
+                use crate::KEY_ID_SIZE;
+                use coset::{Label, iana::AkpKeyParameter};
+                use std::collections::BTreeSet;
+
+                coset::CoseKey {
+                    kty: RegisteredLabel::Assigned(KeyType::AKP),
+                    key_id: Vec::from(Into::<[u8; KEY_ID_SIZE]>::into(self.id.clone())),
+                    alg: Some(RegisteredLabelWithPrivate::Assigned(Algorithm::ML_DSA_65)),
+                    base_iv: vec![],
+                    key_ops: BTreeSet::from([RegisteredLabel::Assigned(KeyOperation::Verify)]),
+                    params: vec![(
+                        Label::Int(AkpKeyParameter::Pub.to_i64()),
+                        Value::Bytes(key.encode().as_slice().to_vec()),
+                    )],
+                }
+                .to_vec()
+                .expect("Verifying key is always serializable")
+                .into()
+            }
         }
     }
 
