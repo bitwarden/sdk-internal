@@ -237,6 +237,7 @@ mod tests {
             deleted_date: None,
             revision_date: "2024-05-31T11:20:58.4566667Z".parse().unwrap(),
             archived_date: None,
+            data: None,
         }
     }
 
@@ -341,6 +342,7 @@ mod tests {
                 deleted_date: None,
                 revision_date: "2024-05-31T09:35:55.12Z".parse().unwrap(),
                 archived_date: None,
+                data: None,
             }])
 
             .unwrap();
