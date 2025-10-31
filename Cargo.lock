@@ -922,6 +922,7 @@ dependencies = [
  "bitwarden-uuid",
  "chrono",
  "data-encoding",
+ "futures",
  "hmac",
  "percent-encoding",
  "reqwest",
@@ -938,6 +939,7 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wiremock",
+ "zxcvbn",
 ]
 
 [[package]]
