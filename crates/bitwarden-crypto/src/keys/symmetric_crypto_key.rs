@@ -82,7 +82,7 @@ pub struct XChaCha20Poly1305Key {
 impl XChaCha20Poly1305Key {
     /// Creates a new XChaCha20Poly1305Key with a securely sampled cryptographic key and key id.
     pub fn make() -> Self {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
         rng.fill(enc_key.as_mut_slice());
         let mut key_id = [0u8; KEY_ID_SIZE];

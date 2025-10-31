@@ -942,7 +942,6 @@ dependencies = [
  "chrono",
  "data-encoding",
  "futures",
- "hmac",
  "hmac 0.12.1",
  "percent-encoding",
  "reqwest",
