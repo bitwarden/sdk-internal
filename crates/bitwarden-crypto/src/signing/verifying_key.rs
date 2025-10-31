@@ -3,11 +3,14 @@
 //! This implements the lowest layer of the signature module, verifying signatures on raw byte
 //! arrays.
 
+use std::pin::Pin;
+
 use ciborium::{Value, value::Integer};
 use coset::{
     CborSerializable, RegisteredLabel, RegisteredLabelWithPrivate,
     iana::{Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter},
 };
+use ml_dsa::{MlDsa65, VerifyingKey as _, signature::Verifier};
 
 use super::{SignatureAlgorithm, ed25519_verifying_key, key_id};
 use crate::{
@@ -22,6 +25,7 @@ use crate::{
 /// scheme.
 pub(super) enum RawVerifyingKey {
     Ed25519(ed25519_dalek::VerifyingKey),
+    MlDsa65(ml_dsa::VerifyingKey<MlDsa65>),
 }
 
 /// A verifying key is a public key used for verifying signatures. It can be published to other
@@ -37,6 +41,7 @@ impl VerifyingKey {
     pub fn algorithm(&self) -> SignatureAlgorithm {
         match &self.inner {
             RawVerifyingKey::Ed25519(_) => SignatureAlgorithm::Ed25519,
+            RawVerifyingKey::MlDsa65(_) => SignatureAlgorithm::MLDsa65,
         }
     }
 
@@ -52,6 +57,15 @@ impl VerifyingKey {
                         .map_err(|_| SignatureError::InvalidSignature)?,
                 );
                 key.verify_strict(data, &sig)
+                    .map_err(|_| SignatureError::InvalidSignature.into())
+            }
+            RawVerifyingKey::MlDsa65(key) => {
+                let sig: ml_dsa::Signature<MlDsa65> = ml_dsa::Signature::from(
+                    signature
+                        .try_into()
+                        .map_err(|_| SignatureError::InvalidSignature)?,
+                );
+                key.verify(data, &sig)
                     .map_err(|_| SignatureError::InvalidSignature.into())
             }
         }
@@ -77,6 +91,13 @@ impl CoseSerializable<CoseKeyContentFormat> for VerifyingKey {
                     Value::Bytes(key.to_bytes().to_vec()),
                 )
                 .add_key_op(KeyOperation::Verify)
+                .build()
+                .to_vec()
+                .expect("Verifying key is always serializable")
+                .into(),
+            RawVerifyingKey::MlDsa65(key) => coset::CoseKeyBuilder::new_okp_key()
+                .key_id((&self.id).into())
+                .algorithm(Algorithm::ES256)
                 .build()
                 .to_vec()
                 .expect("Verifying key is always serializable")

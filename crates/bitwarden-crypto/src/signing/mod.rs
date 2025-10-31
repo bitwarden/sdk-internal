@@ -54,6 +54,8 @@ use {tsify::Tsify, wasm_bindgen::prelude::*};
 pub enum SignatureAlgorithm {
     /// Ed25519 is the modern, secure recommended option for digital signatures on eliptic curves.
     Ed25519,
+    /// MlDsa65 is a post-quantum secure signature scheme
+    MLDsa65,
 }
 
 impl SignatureAlgorithm {

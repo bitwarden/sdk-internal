@@ -573,13 +573,14 @@ dependencies = [
  "cbc",
  "chacha20poly1305",
  "ciborium",
- "coset",
+ "coset 0.4.0",
  "criterion",
  "digest 0.11.0-rc.3",
  "ed25519-dalek 3.0.0-pre.1",
  "generic-array",
  "hkdf",
  "hmac 0.13.0-rc.2",
+ "ml-dsa",
  "num-bigint",
  "num-traits",
  "pbkdf2 0.13.0-rc.1",
@@ -688,7 +689,7 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-vault",
  "chrono",
- "coset",
+ "coset 0.3.8",
  "itertools 0.14.0",
  "log",
  "p256",
@@ -1008,7 +1009,7 @@ version = "0.11.0-rc.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e9ef36a6fcdb072aa548f3da057640ec10859eb4e91ddf526ee648d50c76a949"
 dependencies = [
- "hybrid-array",
+ "hybrid-array 0.4.5",
 ]
 
 [[package]]
@@ -1477,6 +1478,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "coset"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2aeb90e56027edc2a7d7f71cbc500e742e2520bede7a3f8a3bfb1dac7aed623e"
+dependencies = [
+ "ciborium",
+ "ciborium-io",
+]
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1667,7 +1678,7 @@ version = "0.2.0-rc.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a8235645834fbc6832939736ce2f2d08192652269e11010a6240f61b908a1c6"
 dependencies = [
- "hybrid-array",
+ "hybrid-array 0.4.5",
  "rand_core 0.9.3",
 ]
 
@@ -2639,6 +2650,15 @@ checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
 name = "hybrid-array"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "891d15931895091dea5c47afa5b3c9a01ba634b311919fd4d41388fa0e3d76af"
+dependencies = [
+ "typenum",
+]
+
+[[package]]
+name = "hybrid-array"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f471e0a81b2f90ffc0cb2f951ae04da57de8baa46fa99112b062a5173a5088d0"
@@ -2912,7 +2932,7 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7357b6e7aa75618c7864ebd0634b115a7218b0615f4cb1df33ac3eca23943d4"
 dependencies = [
- "hybrid-array",
+ "hybrid-array 0.4.5",
 ]
 
 [[package]]
@@ -3072,6 +3092,15 @@ checksum = "1cfaf33c695fc6e08064efbc1f72ec937429614f25eef83af942d0e227c3a28f"
 dependencies = [
  "once_cell",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "keccak"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ecc2af9a1119c51f12a14607e783cb977bde58bc069ff0c3da1095e635d70654"
+dependencies = [
+ "cpufeatures",
 ]
 
 [[package]]
@@ -3243,6 +3272,21 @@ dependencies = [
  "log",
  "wasi 0.11.1+wasi-snapshot-preview1",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "ml-dsa"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac4a46643af2001eafebcc37031fc459eb72d45057aac5d7a15b00046a2ad6db"
+dependencies = [
+ "const-oid 0.9.6",
+ "hybrid-array 0.3.1",
+ "num-traits",
+ "pkcs8 0.10.2",
+ "rand_core 0.6.4",
+ "sha3",
+ "signature 2.2.0",
 ]
 
 [[package]]
@@ -3480,7 +3524,7 @@ version = "0.2.0"
 source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633ebc6576c07bdd12ee14d8e5c87b494ed"
 dependencies = [
  "async-trait",
- "coset",
+ "coset 0.3.8",
  "log",
  "p256",
  "passkey-types",
@@ -3493,7 +3537,7 @@ version = "0.2.0"
 source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633ebc6576c07bdd12ee14d8e5c87b494ed"
 dependencies = [
  "ciborium",
- "coset",
+ "coset 0.3.8",
  "idna 0.5.0",
  "nom",
  "passkey-authenticator",
@@ -3516,7 +3560,7 @@ source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd1
 dependencies = [
  "bitflags 2.9.1",
  "ciborium",
- "coset",
+ "coset 0.3.8",
  "data-encoding",
  "getrandom 0.2.16",
  "indexmap 2.9.0",
@@ -4700,6 +4744,16 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest 0.11.0-rc.3",
+]
+
+[[package]]
+name = "sha3"
+version = "0.10.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75872d278a8f37ef87fa0ddbda7802605cb18344497949862c0d4dcb291eba60"
+dependencies = [
+ "digest 0.10.7",
+ "keccak",
 ]
 
 [[package]]

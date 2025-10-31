@@ -1,0 +1,1780 @@
+bitwarden-api-api v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-api-api)
+├── async-trait v0.1.88 (proc-macro)
+│   ├── proc-macro2 v1.0.95
+│   │   └── unicode-ident v1.0.18
+│   ├── quote v1.0.40
+│   │   └── proc-macro2 v1.0.95 (*)
+│   └── syn v2.0.104
+│       ├── proc-macro2 v1.0.95 (*)
+│       ├── quote v1.0.40 (*)
+│       └── unicode-ident v1.0.18
+├── mockall v0.13.1
+│   ├── cfg-if v1.0.1
+│   ├── downcast v0.11.0
+│   ├── fragile v2.0.1
+│   ├── mockall_derive v0.13.1 (proc-macro)
+│   │   ├── cfg-if v1.0.1
+│   │   ├── proc-macro2 v1.0.95 (*)
+│   │   ├── quote v1.0.40 (*)
+│   │   └── syn v2.0.104 (*)
+│   ├── predicates v3.1.3
+│   │   ├── anstyle v1.0.11
+│   │   └── predicates-core v1.0.9
+│   └── predicates-tree v1.0.12
+│       ├── predicates-core v1.0.9
+│       └── termtree v0.5.1
+├── reqwest v0.12.20
+│   ├── base64 v0.22.1
+│   ├── bytes v1.10.1
+│   ├── futures-core v0.3.31
+│   ├── futures-util v0.3.31
+│   │   ├── futures-channel v0.3.31
+│   │   │   ├── futures-core v0.3.31
+│   │   │   └── futures-sink v0.3.31
+│   │   ├── futures-core v0.3.31
+│   │   ├── futures-io v0.3.31
+│   │   ├── futures-macro v0.3.31 (proc-macro)
+│   │   │   ├── proc-macro2 v1.0.95 (*)
+│   │   │   ├── quote v1.0.40 (*)
+│   │   │   └── syn v2.0.104 (*)
+│   │   ├── futures-sink v0.3.31
+│   │   ├── futures-task v0.3.31
+│   │   ├── memchr v2.7.5
+│   │   ├── pin-project-lite v0.2.16
+│   │   ├── pin-utils v0.1.0
+│   │   └── slab v0.4.10
+│   ├── h2 v0.4.10
+│   │   ├── atomic-waker v1.1.2
+│   │   ├── bytes v1.10.1
+│   │   ├── fnv v1.0.7
+│   │   ├── futures-core v0.3.31
+│   │   ├── futures-sink v0.3.31
+│   │   ├── http v1.3.1
+│   │   │   ├── bytes v1.10.1
+│   │   │   ├── fnv v1.0.7
+│   │   │   └── itoa v1.0.15
+│   │   ├── indexmap v2.9.0
+│   │   │   ├── equivalent v1.0.2
+│   │   │   ├── hashbrown v0.15.4
+│   │   │   │   └── foldhash v0.1.5
+│   │   │   └── serde v1.0.219
+│   │   │       └── serde_derive v1.0.219 (proc-macro)
+│   │   │           ├── proc-macro2 v1.0.95 (*)
+│   │   │           ├── quote v1.0.40 (*)
+│   │   │           └── syn v2.0.104 (*)
+│   │   ├── slab v0.4.10
+│   │   ├── tokio v1.47.1
+│   │   │   ├── bytes v1.10.1
+│   │   │   ├── libc v0.2.174
+│   │   │   ├── mio v1.0.4
+│   │   │   │   ├── libc v0.2.174
+│   │   │   │   └── log v0.4.27
+│   │   │   ├── pin-project-lite v0.2.16
+│   │   │   ├── socket2 v0.6.0
+│   │   │   │   └── libc v0.2.174
+│   │   │   └── tokio-macros v2.5.0 (proc-macro)
+│   │   │       ├── proc-macro2 v1.0.95 (*)
+│   │   │       ├── quote v1.0.40 (*)
+│   │   │       └── syn v2.0.104 (*)
+│   │   ├── tokio-util v0.7.15
+│   │   │   ├── bytes v1.10.1
+│   │   │   ├── futures-core v0.3.31
+│   │   │   ├── futures-sink v0.3.31
+│   │   │   ├── pin-project-lite v0.2.16
+│   │   │   └── tokio v1.47.1 (*)
+│   │   └── tracing v0.1.41
+│   │       ├── pin-project-lite v0.2.16
+│   │       └── tracing-core v0.1.34
+│   │           └── once_cell v1.21.3
+│   ├── http v1.3.1 (*)
+│   ├── http-body v1.0.1
+│   │   ├── bytes v1.10.1
+│   │   └── http v1.3.1 (*)
+│   ├── http-body-util v0.1.3
+│   │   ├── bytes v1.10.1
+│   │   ├── futures-core v0.3.31
+│   │   ├── http v1.3.1 (*)
+│   │   ├── http-body v1.0.1 (*)
+│   │   └── pin-project-lite v0.2.16
+│   ├── hyper v1.6.0
+│   │   ├── bytes v1.10.1
+│   │   ├── futures-channel v0.3.31 (*)
+│   │   ├── futures-util v0.3.31 (*)
+│   │   ├── h2 v0.4.10 (*)
+│   │   ├── http v1.3.1 (*)
+│   │   ├── http-body v1.0.1 (*)
+│   │   ├── httparse v1.10.1
+│   │   ├── httpdate v1.0.3
+│   │   ├── itoa v1.0.15
+│   │   ├── pin-project-lite v0.2.16
+│   │   ├── smallvec v1.15.1
+│   │   ├── tokio v1.47.1 (*)
+│   │   └── want v0.3.1
+│   │       └── try-lock v0.2.5
+│   ├── hyper-rustls v0.27.7
+│   │   ├── http v1.3.1 (*)
+│   │   ├── hyper v1.6.0 (*)
+│   │   ├── hyper-util v0.1.14
+│   │   │   ├── base64 v0.22.1
+│   │   │   ├── bytes v1.10.1
+│   │   │   ├── futures-channel v0.3.31 (*)
+│   │   │   ├── futures-core v0.3.31
+│   │   │   ├── futures-util v0.3.31 (*)
+│   │   │   ├── http v1.3.1 (*)
+│   │   │   ├── http-body v1.0.1 (*)
+│   │   │   ├── hyper v1.6.0 (*)
+│   │   │   ├── ipnet v2.11.0
+│   │   │   ├── libc v0.2.174
+│   │   │   ├── percent-encoding v2.3.1
+│   │   │   ├── pin-project-lite v0.2.16
+│   │   │   ├── socket2 v0.5.10
+│   │   │   │   └── libc v0.2.174
+│   │   │   ├── tokio v1.47.1 (*)
+│   │   │   ├── tower-service v0.3.3
+│   │   │   └── tracing v0.1.41 (*)
+│   │   ├── rustls v0.23.28
+│   │   │   ├── once_cell v1.21.3
+│   │   │   ├── ring v0.17.14
+│   │   │   │   ├── cfg-if v1.0.1
+│   │   │   │   ├── getrandom v0.2.16
+│   │   │   │   │   ├── cfg-if v1.0.1
+│   │   │   │   │   └── libc v0.2.174
+│   │   │   │   ├── libc v0.2.174
+│   │   │   │   └── untrusted v0.9.0
+│   │   │   │   [build-dependencies]
+│   │   │   │   └── cc v1.2.27
+│   │   │   │       └── shlex v1.3.0
+│   │   │   ├── rustls-pki-types v1.12.0
+│   │   │   │   └── zeroize v1.8.1
+│   │   │   │       ├── serde v1.0.219 (*)
+│   │   │   │       └── zeroize_derive v1.4.2 (proc-macro)
+│   │   │   │           ├── proc-macro2 v1.0.95 (*)
+│   │   │   │           ├── quote v1.0.40 (*)
+│   │   │   │           └── syn v2.0.104 (*)
+│   │   │   ├── rustls-webpki v0.103.3
+│   │   │   │   ├── ring v0.17.14 (*)
+│   │   │   │   ├── rustls-pki-types v1.12.0 (*)
+│   │   │   │   └── untrusted v0.9.0
+│   │   │   ├── subtle v2.6.1
+│   │   │   └── zeroize v1.8.1 (*)
+│   │   ├── rustls-pki-types v1.12.0 (*)
+│   │   ├── tokio v1.47.1 (*)
+│   │   ├── tokio-rustls v0.26.2
+│   │   │   ├── rustls v0.23.28 (*)
+│   │   │   └── tokio v1.47.1 (*)
+│   │   └── tower-service v0.3.3
+│   ├── hyper-util v0.1.14 (*)
+│   ├── log v0.4.27
+│   ├── mime_guess v2.0.5
+│   │   ├── mime v0.3.17
+│   │   └── unicase v2.8.1
+│   │   [build-dependencies]
+│   │   └── unicase v2.8.1
+│   ├── percent-encoding v2.3.1
+│   ├── pin-project-lite v0.2.16
+│   ├── rustls v0.23.28 (*)
+│   ├── rustls-pki-types v1.12.0 (*)
+│   ├── serde v1.0.219 (*)
+│   ├── serde_json v1.0.140
+│   │   ├── indexmap v2.9.0 (*)
+│   │   ├── itoa v1.0.15
+│   │   ├── memchr v2.7.5
+│   │   ├── ryu v1.0.20
+│   │   └── serde v1.0.219 (*)
+│   ├── serde_urlencoded v0.7.1
+│   │   ├── form_urlencoded v1.2.1
+│   │   │   └── percent-encoding v2.3.1
+│   │   ├── itoa v1.0.15
+│   │   ├── ryu v1.0.20
+│   │   └── serde v1.0.219 (*)
+│   ├── sync_wrapper v1.0.2
+│   │   └── futures-core v0.3.31
+│   ├── tokio v1.47.1 (*)
+│   ├── tokio-rustls v0.26.2 (*)
+│   ├── tower v0.5.2
+│   │   ├── futures-core v0.3.31
+│   │   ├── futures-util v0.3.31 (*)
+│   │   ├── pin-project-lite v0.2.16
+│   │   ├── sync_wrapper v1.0.2 (*)
+│   │   ├── tokio v1.47.1 (*)
+│   │   ├── tower-layer v0.3.3
+│   │   └── tower-service v0.3.3
+│   ├── tower-http v0.6.6
+│   │   ├── bitflags v2.9.1
+│   │   ├── bytes v1.10.1
+│   │   ├── futures-util v0.3.31 (*)
+│   │   ├── http v1.3.1 (*)
+│   │   ├── http-body v1.0.1 (*)
+│   │   ├── iri-string v0.7.8
+│   │   ├── pin-project-lite v0.2.16
+│   │   ├── tower v0.5.2 (*)
+│   │   ├── tower-layer v0.3.3
+│   │   └── tower-service v0.3.3
+│   ├── tower-service v0.3.3
+│   └── url v2.5.4
+│       ├── form_urlencoded v1.2.1 (*)
+│       ├── idna v1.0.3
+│       │   ├── idna_adapter v1.2.1
+│       │   │   ├── icu_normalizer v2.0.0
+│       │   │   │   ├── displaydoc v0.2.5 (proc-macro)
+│       │   │   │   │   ├── proc-macro2 v1.0.95 (*)
+│       │   │   │   │   ├── quote v1.0.40 (*)
+│       │   │   │   │   └── syn v2.0.104 (*)
+│       │   │   │   ├── icu_collections v2.0.0
+│       │   │   │   │   ├── displaydoc v0.2.5 (proc-macro) (*)
+│       │   │   │   │   ├── potential_utf v0.1.2
+│       │   │   │   │   │   └── zerovec v0.11.2
+│       │   │   │   │   │       ├── yoke v0.8.0
+│       │   │   │   │   │       │   ├── stable_deref_trait v1.2.0
+│       │   │   │   │   │       │   ├── yoke-derive v0.8.0 (proc-macro)
+│       │   │   │   │   │       │   │   ├── proc-macro2 v1.0.95 (*)
+│       │   │   │   │   │       │   │   ├── quote v1.0.40 (*)
+│       │   │   │   │   │       │   │   ├── syn v2.0.104 (*)
+│       │   │   │   │   │       │   │   └── synstructure v0.13.2
+│       │   │   │   │   │       │   │       ├── proc-macro2 v1.0.95 (*)
+│       │   │   │   │   │       │   │       ├── quote v1.0.40 (*)
+│       │   │   │   │   │       │   │       └── syn v2.0.104 (*)
+│       │   │   │   │   │       │   └── zerofrom v0.1.6
+│       │   │   │   │   │       │       └── zerofrom-derive v0.1.6 (proc-macro)
+│       │   │   │   │   │       │           ├── proc-macro2 v1.0.95 (*)
+│       │   │   │   │   │       │           ├── quote v1.0.40 (*)
+│       │   │   │   │   │       │           ├── syn v2.0.104 (*)
+│       │   │   │   │   │       │           └── synstructure v0.13.2 (*)
+│       │   │   │   │   │       ├── zerofrom v0.1.6 (*)
+│       │   │   │   │   │       └── zerovec-derive v0.11.1 (proc-macro)
+│       │   │   │   │   │           ├── proc-macro2 v1.0.95 (*)
+│       │   │   │   │   │           ├── quote v1.0.40 (*)
+│       │   │   │   │   │           └── syn v2.0.104 (*)
+│       │   │   │   │   ├── yoke v0.8.0 (*)
+│       │   │   │   │   ├── zerofrom v0.1.6 (*)
+│       │   │   │   │   └── zerovec v0.11.2 (*)
+│       │   │   │   ├── icu_normalizer_data v2.0.0
+│       │   │   │   ├── icu_provider v2.0.0
+│       │   │   │   │   ├── displaydoc v0.2.5 (proc-macro) (*)
+│       │   │   │   │   ├── icu_locale_core v2.0.0
+│       │   │   │   │   │   ├── displaydoc v0.2.5 (proc-macro) (*)
+│       │   │   │   │   │   ├── litemap v0.8.0
+│       │   │   │   │   │   ├── tinystr v0.8.1
+│       │   │   │   │   │   │   ├── displaydoc v0.2.5 (proc-macro) (*)
+│       │   │   │   │   │   │   └── zerovec v0.11.2 (*)
+│       │   │   │   │   │   ├── writeable v0.6.1
+│       │   │   │   │   │   └── zerovec v0.11.2 (*)
+│       │   │   │   │   ├── stable_deref_trait v1.2.0
+│       │   │   │   │   ├── tinystr v0.8.1 (*)
+│       │   │   │   │   ├── writeable v0.6.1
+│       │   │   │   │   ├── yoke v0.8.0 (*)
+│       │   │   │   │   ├── zerofrom v0.1.6 (*)
+│       │   │   │   │   ├── zerotrie v0.2.2
+│       │   │   │   │   │   ├── displaydoc v0.2.5 (proc-macro) (*)
+│       │   │   │   │   │   ├── yoke v0.8.0 (*)
+│       │   │   │   │   │   └── zerofrom v0.1.6 (*)
+│       │   │   │   │   └── zerovec v0.11.2 (*)
+│       │   │   │   ├── smallvec v1.15.1
+│       │   │   │   └── zerovec v0.11.2 (*)
+│       │   │   └── icu_properties v2.0.1
+│       │   │       ├── displaydoc v0.2.5 (proc-macro) (*)
+│       │   │       ├── icu_collections v2.0.0 (*)
+│       │   │       ├── icu_locale_core v2.0.0 (*)
+│       │   │       ├── icu_properties_data v2.0.1
+│       │   │       ├── icu_provider v2.0.0 (*)
+│       │   │       ├── potential_utf v0.1.2 (*)
+│       │   │       ├── zerotrie v0.2.2 (*)
+│       │   │       └── zerovec v0.11.2 (*)
+│       │   ├── smallvec v1.15.1
+│       │   └── utf8_iter v1.0.4
+│       └── percent-encoding v2.3.1
+├── serde v1.0.219 (*)
+├── serde_json v1.0.140 (*)
+├── serde_repr v0.1.20 (proc-macro)
+│   ├── proc-macro2 v1.0.95 (*)
+│   ├── quote v1.0.40 (*)
+│   └── syn v2.0.104 (*)
+├── serde_with v3.13.0
+│   ├── base64 v0.22.1
+│   ├── serde v1.0.219 (*)
+│   ├── serde_derive v1.0.219 (proc-macro) (*)
+│   └── serde_with_macros v3.13.0 (proc-macro)
+│       ├── darling v0.20.11
+│       │   ├── darling_core v0.20.11
+│       │   │   ├── fnv v1.0.7
+│       │   │   ├── ident_case v1.0.1
+│       │   │   ├── proc-macro2 v1.0.95 (*)
+│       │   │   ├── quote v1.0.40 (*)
+│       │   │   ├── strsim v0.11.1
+│       │   │   └── syn v2.0.104 (*)
+│       │   └── darling_macro v0.20.11 (proc-macro)
+│       │       ├── darling_core v0.20.11 (*)
+│       │       ├── quote v1.0.40 (*)
+│       │       └── syn v2.0.104 (*)
+│       ├── proc-macro2 v1.0.95 (*)
+│       ├── quote v1.0.40 (*)
+│       └── syn v2.0.104 (*)
+├── url v2.5.4 (*)
+└── uuid v1.17.0
+    ├── getrandom v0.3.3
+    │   ├── cfg-if v1.0.1
+    │   └── libc v0.2.174
+    └── serde v1.0.219 (*)
+
+bitwarden-api-identity v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-api-identity)
+├── async-trait v0.1.88 (proc-macro) (*)
+├── reqwest v0.12.20 (*)
+├── serde v1.0.219 (*)
+├── serde_json v1.0.140 (*)
+├── serde_repr v0.1.20 (proc-macro) (*)
+├── serde_with v3.13.0 (*)
+├── url v2.5.4 (*)
+└── uuid v1.17.0 (*)
+
+bitwarden-auth v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-auth)
+├── bitwarden-core v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-core)
+│   ├── async-trait v0.1.88 (proc-macro) (*)
+│   ├── bitwarden-api-api v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-api-api) (*)
+│   ├── bitwarden-api-identity v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-api-identity) (*)
+│   ├── bitwarden-crypto v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-crypto)
+│   │   ├── aes v0.8.4
+│   │   │   ├── cfg-if v1.0.1
+│   │   │   ├── cipher v0.4.4
+│   │   │   │   ├── crypto-common v0.1.6
+│   │   │   │   │   ├── generic-array v0.14.7
+│   │   │   │   │   │   ├── typenum v1.18.0
+│   │   │   │   │   │   └── zeroize v1.8.1 (*)
+│   │   │   │   │   │   [build-dependencies]
+│   │   │   │   │   │   └── version_check v0.9.5
+│   │   │   │   │   └── typenum v1.18.0
+│   │   │   │   ├── inout v0.1.4
+│   │   │   │   │   ├── block-padding v0.3.3
+│   │   │   │   │   │   └── generic-array v0.14.7 (*)
+│   │   │   │   │   └── generic-array v0.14.7 (*)
+│   │   │   │   └── zeroize v1.8.1 (*)
+│   │   │   ├── cpufeatures v0.2.17
+│   │   │   │   └── libc v0.2.174
+│   │   │   └── zeroize v1.8.1 (*)
+│   │   ├── argon2 v0.5.3
+│   │   │   ├── base64ct v1.7.3
+│   │   │   ├── blake2 v0.10.6
+│   │   │   │   └── digest v0.10.7
+│   │   │   │       ├── block-buffer v0.10.4
+│   │   │   │       │   └── generic-array v0.14.7 (*)
+│   │   │   │       ├── const-oid v0.9.6
+│   │   │   │       ├── crypto-common v0.1.6 (*)
+│   │   │   │       └── subtle v2.6.1
+│   │   │   ├── password-hash v0.5.0
+│   │   │   │   ├── base64ct v1.7.3
+│   │   │   │   ├── rand_core v0.6.4
+│   │   │   │   │   └── getrandom v0.2.16 (*)
+│   │   │   │   └── subtle v2.6.1
+│   │   │   └── zeroize v1.8.1 (*)
+│   │   ├── bitwarden-encoding v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-encoding)
+│   │   │   ├── bitwarden-uniffi-error v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-uniffi-error)
+│   │   │   │   └── anyhow v1.0.98
+│   │   │   ├── data-encoding v2.9.0
+│   │   │   ├── data-encoding-macro v0.1.18
+│   │   │   │   ├── data-encoding v2.9.0
+│   │   │   │   └── data-encoding-macro-internal v0.1.16 (proc-macro)
+│   │   │   │       ├── data-encoding v2.9.0
+│   │   │   │       └── syn v2.0.104 (*)
+│   │   │   ├── serde v1.0.219 (*)
+│   │   │   ├── thiserror v2.0.12
+│   │   │   │   └── thiserror-impl v2.0.12 (proc-macro)
+│   │   │   │       ├── proc-macro2 v1.0.95 (*)
+│   │   │   │       ├── quote v1.0.40 (*)
+│   │   │   │       └── syn v2.0.104 (*)
+│   │   │   ├── tsify v0.5.5
+│   │   │   │   ├── serde v1.0.219 (*)
+│   │   │   │   ├── serde-wasm-bindgen v0.6.5
+│   │   │   │   │   ├── js-sys v0.3.77
+│   │   │   │   │   │   ├── once_cell v1.21.3
+│   │   │   │   │   │   └── wasm-bindgen v0.2.100
+│   │   │   │   │   │       ├── cfg-if v1.0.1
+│   │   │   │   │   │       ├── once_cell v1.21.3
+│   │   │   │   │   │       ├── rustversion v1.0.21 (proc-macro)
+│   │   │   │   │   │       ├── serde v1.0.219 (*)
+│   │   │   │   │   │       ├── serde_json v1.0.140 (*)
+│   │   │   │   │   │       └── wasm-bindgen-macro v0.2.100 (proc-macro)
+│   │   │   │   │   │           ├── quote v1.0.40 (*)
+│   │   │   │   │   │           └── wasm-bindgen-macro-support v0.2.100
+│   │   │   │   │   │               ├── proc-macro2 v1.0.95 (*)
+│   │   │   │   │   │               ├── quote v1.0.40 (*)
+│   │   │   │   │   │               ├── syn v2.0.104 (*)
+│   │   │   │   │   │               ├── wasm-bindgen-backend v0.2.100
+│   │   │   │   │   │               │   ├── bumpalo v3.18.1
+│   │   │   │   │   │               │   ├── log v0.4.27
+│   │   │   │   │   │               │   ├── proc-macro2 v1.0.95 (*)
+│   │   │   │   │   │               │   ├── quote v1.0.40 (*)
+│   │   │   │   │   │               │   ├── syn v2.0.104 (*)
+│   │   │   │   │   │               │   └── wasm-bindgen-shared v0.2.100
+│   │   │   │   │   │               │       └── unicode-ident v1.0.18
+│   │   │   │   │   │               └── wasm-bindgen-shared v0.2.100 (*)
+│   │   │   │   │   ├── serde v1.0.219 (*)
+│   │   │   │   │   └── wasm-bindgen v0.2.100 (*)
+│   │   │   │   ├── tsify-macros v0.5.5 (proc-macro)
+│   │   │   │   │   ├── proc-macro2 v1.0.95 (*)
+│   │   │   │   │   ├── quote v1.0.40 (*)
+│   │   │   │   │   ├── serde_derive_internals v0.29.1
+│   │   │   │   │   │   ├── proc-macro2 v1.0.95 (*)
+│   │   │   │   │   │   ├── quote v1.0.40 (*)
+│   │   │   │   │   │   └── syn v2.0.104 (*)
+│   │   │   │   │   └── syn v2.0.104 (*)
+│   │   │   │   └── wasm-bindgen v0.2.100 (*)
+│   │   │   ├── uniffi v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7)
+│   │   │   │   ├── anyhow v1.0.98
+│   │   │   │   ├── camino v1.1.10
+│   │   │   │   │   └── serde v1.0.219 (*)
+│   │   │   │   ├── cargo_metadata v0.19.2
+│   │   │   │   │   ├── camino v1.1.10 (*)
+│   │   │   │   │   ├── cargo-platform v0.1.9
+│   │   │   │   │   │   └── serde v1.0.219 (*)
+│   │   │   │   │   ├── semver v1.0.26
+│   │   │   │   │   │   └── serde v1.0.219 (*)
+│   │   │   │   │   ├── serde v1.0.219 (*)
+│   │   │   │   │   ├── serde_json v1.0.140 (*)
+│   │   │   │   │   └── thiserror v2.0.12 (*)
+│   │   │   │   ├── clap v4.5.40
+│   │   │   │   │   ├── clap_builder v4.5.40
+│   │   │   │   │   │   ├── anstream v0.6.19
+│   │   │   │   │   │   │   ├── anstyle v1.0.11
+│   │   │   │   │   │   │   ├── anstyle-parse v0.2.7
+│   │   │   │   │   │   │   │   └── utf8parse v0.2.2
+│   │   │   │   │   │   │   ├── anstyle-query v1.1.3
+│   │   │   │   │   │   │   ├── colorchoice v1.0.4
+│   │   │   │   │   │   │   ├── is_terminal_polyfill v1.70.1
+│   │   │   │   │   │   │   └── utf8parse v0.2.2
+│   │   │   │   │   │   ├── anstyle v1.0.11
+│   │   │   │   │   │   ├── clap_lex v0.7.5
+│   │   │   │   │   │   └── strsim v0.11.1
+│   │   │   │   │   └── clap_derive v4.5.40 (proc-macro)
+│   │   │   │   │       ├── heck v0.5.0
+│   │   │   │   │       ├── proc-macro2 v1.0.95 (*)
+│   │   │   │   │       ├── quote v1.0.40 (*)
+│   │   │   │   │       └── syn v2.0.104 (*)
+│   │   │   │   ├── uniffi_bindgen v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7)
+│   │   │   │   │   ├── anyhow v1.0.98
+│   │   │   │   │   ├── askama v0.13.1
+│   │   │   │   │   │   ├── askama_derive v0.13.1 (proc-macro)
+│   │   │   │   │   │   │   ├── askama_parser v0.13.0
+│   │   │   │   │   │   │   │   ├── memchr v2.7.5
+│   │   │   │   │   │   │   │   ├── serde v1.0.219
+│   │   │   │   │   │   │   │   │   └── serde_derive v1.0.219 (proc-macro) (*)
+│   │   │   │   │   │   │   │   ├── serde_derive v1.0.219 (proc-macro) (*)
+│   │   │   │   │   │   │   │   └── winnow v0.7.11
+│   │   │   │   │   │   │   ├── basic-toml v0.1.10
+│   │   │   │   │   │   │   │   └── serde v1.0.219 (*)
+│   │   │   │   │   │   │   ├── memchr v2.7.5
+│   │   │   │   │   │   │   ├── proc-macro2 v1.0.95 (*)
+│   │   │   │   │   │   │   ├── quote v1.0.40 (*)
+│   │   │   │   │   │   │   ├── rustc-hash v2.1.1
+│   │   │   │   │   │   │   ├── serde v1.0.219 (*)
+│   │   │   │   │   │   │   ├── serde_derive v1.0.219 (proc-macro) (*)
+│   │   │   │   │   │   │   └── syn v2.0.104 (*)
+│   │   │   │   │   │   └── itoa v1.0.15
+│   │   │   │   │   ├── camino v1.1.10 (*)
+│   │   │   │   │   ├── cargo_metadata v0.19.2 (*)
+│   │   │   │   │   ├── fs-err v2.11.0
+│   │   │   │   │   │   [build-dependencies]
+│   │   │   │   │   │   └── autocfg v1.5.0
+│   │   │   │   │   ├── glob v0.3.2
+│   │   │   │   │   ├── goblin v0.8.2
+│   │   │   │   │   │   ├── log v0.4.27
+│   │   │   │   │   │   ├── plain v0.2.3
+│   │   │   │   │   │   └── scroll v0.12.0
+│   │   │   │   │   │       └── scroll_derive v0.12.1 (proc-macro)
+│   │   │   │   │   │           ├── proc-macro2 v1.0.95 (*)
+│   │   │   │   │   │           ├── quote v1.0.40 (*)
+│   │   │   │   │   │           └── syn v2.0.104 (*)
+│   │   │   │   │   ├── heck v0.5.0
+│   │   │   │   │   ├── indexmap v2.9.0 (*)
+│   │   │   │   │   ├── once_cell v1.21.3
+│   │   │   │   │   ├── serde v1.0.219 (*)
+│   │   │   │   │   ├── tempfile v3.21.0
+│   │   │   │   │   │   ├── fastrand v2.3.0
+│   │   │   │   │   │   ├── getrandom v0.3.3 (*)
+│   │   │   │   │   │   ├── once_cell v1.21.3
+│   │   │   │   │   │   └── rustix v1.0.8
+│   │   │   │   │   │       ├── bitflags v2.9.1
+│   │   │   │   │   │       ├── errno v0.3.13
+│   │   │   │   │   │       │   └── libc v0.2.174
+│   │   │   │   │   │       └── libc v0.2.174
+│   │   │   │   │   ├── textwrap v0.16.2
+│   │   │   │   │   │   └── smawk v0.3.2
+│   │   │   │   │   ├── toml v0.8.23
+│   │   │   │   │   │   ├── serde v1.0.219 (*)
+│   │   │   │   │   │   ├── serde_spanned v0.6.9
+│   │   │   │   │   │   │   └── serde v1.0.219 (*)
+│   │   │   │   │   │   ├── toml_datetime v0.6.11
+│   │   │   │   │   │   │   └── serde v1.0.219 (*)
+│   │   │   │   │   │   └── toml_edit v0.22.27
+│   │   │   │   │   │       ├── indexmap v2.9.0 (*)
+│   │   │   │   │   │       ├── serde v1.0.219 (*)
+│   │   │   │   │   │       ├── serde_spanned v0.6.9 (*)
+│   │   │   │   │   │       ├── toml_datetime v0.6.11 (*)
+│   │   │   │   │   │       ├── toml_write v0.1.2
+│   │   │   │   │   │       └── winnow v0.7.11
+│   │   │   │   │   ├── uniffi_internal_macros v0.29.4 (proc-macro) (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7)
+│   │   │   │   │   │   ├── anyhow v1.0.98
+│   │   │   │   │   │   ├── indexmap v2.9.0 (*)
+│   │   │   │   │   │   ├── proc-macro2 v1.0.95 (*)
+│   │   │   │   │   │   ├── quote v1.0.40 (*)
+│   │   │   │   │   │   └── syn v2.0.104 (*)
+│   │   │   │   │   ├── uniffi_meta v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7)
+│   │   │   │   │   │   ├── anyhow v1.0.98
+│   │   │   │   │   │   ├── siphasher v0.3.11
+│   │   │   │   │   │   ├── uniffi_internal_macros v0.29.4 (proc-macro) (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+│   │   │   │   │   │   └── uniffi_pipeline v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7)
+│   │   │   │   │   │       ├── anyhow v1.0.98
+│   │   │   │   │   │       ├── heck v0.5.0
+│   │   │   │   │   │       ├── indexmap v2.9.0 (*)
+│   │   │   │   │   │       ├── tempfile v3.21.0 (*)
+│   │   │   │   │   │       └── uniffi_internal_macros v0.29.4 (proc-macro) (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+│   │   │   │   │   ├── uniffi_pipeline v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+│   │   │   │   │   └── uniffi_udl v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7)
+│   │   │   │   │       ├── anyhow v1.0.98
+│   │   │   │   │       ├── textwrap v0.16.2 (*)
+│   │   │   │   │       ├── uniffi_meta v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+│   │   │   │   │       └── weedle2 v5.0.0 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7)
+│   │   │   │   │           └── nom v7.1.3
+│   │   │   │   │               ├── memchr v2.7.5
+│   │   │   │   │               └── minimal-lexical v0.2.1
+│   │   │   │   ├── uniffi_core v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7)
+│   │   │   │   │   ├── anyhow v1.0.98
+│   │   │   │   │   ├── async-compat v0.2.4
+│   │   │   │   │   │   ├── futures-core v0.3.31
+│   │   │   │   │   │   ├── futures-io v0.3.31
+│   │   │   │   │   │   ├── once_cell v1.21.3
+│   │   │   │   │   │   ├── pin-project-lite v0.2.16
+│   │   │   │   │   │   └── tokio v1.47.1 (*)
+│   │   │   │   │   ├── bytes v1.10.1
+│   │   │   │   │   ├── once_cell v1.21.3
+│   │   │   │   │   └── static_assertions v1.1.0
+│   │   │   │   ├── uniffi_macros v0.29.4 (proc-macro) (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7)
+│   │   │   │   │   ├── camino v1.1.10 (*)
+│   │   │   │   │   ├── fs-err v2.11.0 (*)
+│   │   │   │   │   ├── once_cell v1.21.3
+│   │   │   │   │   ├── proc-macro2 v1.0.95 (*)
+│   │   │   │   │   ├── quote v1.0.40 (*)
+│   │   │   │   │   ├── serde v1.0.219 (*)
+│   │   │   │   │   ├── syn v2.0.104 (*)
+│   │   │   │   │   ├── toml v0.8.23
+│   │   │   │   │   │   ├── indexmap v2.9.0 (*)
+│   │   │   │   │   │   ├── serde v1.0.219 (*)
+│   │   │   │   │   │   ├── serde_spanned v0.6.9 (*)
+│   │   │   │   │   │   ├── toml_datetime v0.6.11 (*)
+│   │   │   │   │   │   └── toml_edit v0.22.27 (*)
+│   │   │   │   │   └── uniffi_meta v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+│   │   │   │   └── uniffi_pipeline v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+│   │   │   └── wasm-bindgen v0.2.100 (*)
+│   │   │   [dev-dependencies]
+│   │   │   ├── serde-wasm-bindgen v0.6.5 (*)
+│   │   │   ├── serde_json v1.0.140 (*)
+│   │   │   └── wasm-bindgen-test v0.3.50
+│   │   │       ├── js-sys v0.3.77 (*)
+│   │   │       ├── wasm-bindgen v0.2.100 (*)
+│   │   │       ├── wasm-bindgen-futures v0.4.50
+│   │   │       │   ├── cfg-if v1.0.1
+│   │   │       │   ├── js-sys v0.3.77 (*)
+│   │   │       │   ├── once_cell v1.21.3
+│   │   │       │   └── wasm-bindgen v0.2.100 (*)
+│   │   │       └── wasm-bindgen-test-macro v0.3.50 (proc-macro)
+│   │   │           ├── proc-macro2 v1.0.95 (*)
+│   │   │           ├── quote v1.0.40 (*)
+│   │   │           └── syn v2.0.104 (*)
+│   │   ├── bitwarden-error v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-error)
+│   │   │   ├── bitwarden-error-macro v1.0.0 (proc-macro) (/Users/quexten/projects/sdk-internal/crates/bitwarden-error-macro)
+│   │   │   │   ├── darling v0.20.11 (*)
+│   │   │   │   ├── proc-macro2 v1.0.95 (*)
+│   │   │   │   ├── quote v1.0.40 (*)
+│   │   │   │   └── syn v2.0.104 (*)
+│   │   │   │   [dev-dependencies]
+│   │   │   │   ├── bitwarden-error v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-error) (*)
+│   │   │   │   ├── js-sys v0.3.77 (*)
+│   │   │   │   ├── serde v1.0.219 (*)
+│   │   │   │   ├── thiserror v2.0.12 (*)
+│   │   │   │   ├── tsify v0.5.5 (*)
+│   │   │   │   └── wasm-bindgen v0.2.100 (*)
+│   │   │   ├── js-sys v0.3.77 (*)
+│   │   │   ├── tsify v0.5.5 (*)
+│   │   │   └── wasm-bindgen v0.2.100 (*)
+│   │   │   [dev-dependencies]
+│   │   │   ├── serde v1.0.219 (*)
+│   │   │   ├── trybuild v1.0.105
+│   │   │   │   ├── glob v0.3.2
+│   │   │   │   ├── serde v1.0.219 (*)
+│   │   │   │   ├── serde_derive v1.0.219 (proc-macro) (*)
+│   │   │   │   ├── serde_json v1.0.140 (*)
+│   │   │   │   ├── target-triple v0.1.4
+│   │   │   │   ├── termcolor v1.4.1
+│   │   │   │   └── toml v0.8.23 (*)
+│   │   │   └── wasm-bindgen-test v0.3.50 (*)
+│   │   ├── bitwarden-uniffi-error v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-uniffi-error) (*)
+│   │   ├── cbc v0.1.2
+│   │   │   └── cipher v0.4.4 (*)
+│   │   ├── chacha20poly1305 v0.11.0-rc.1
+│   │   │   ├── aead v0.6.0-rc.2
+│   │   │   │   ├── crypto-common v0.2.0-rc.4
+│   │   │   │   │   ├── hybrid-array v0.4.5
+│   │   │   │   │   │   └── typenum v1.18.0
+│   │   │   │   │   └── rand_core v0.9.3
+│   │   │   │   │       └── getrandom v0.3.3 (*)
+│   │   │   │   └── inout v0.2.1
+│   │   │   │       └── hybrid-array v0.4.5 (*)
+│   │   │   ├── chacha20 v0.10.0-rc.2
+│   │   │   │   ├── cfg-if v1.0.1
+│   │   │   │   └── cipher v0.5.0-rc.1
+│   │   │   │       ├── block-buffer v0.11.0-rc.5
+│   │   │   │       │   └── hybrid-array v0.4.5 (*)
+│   │   │   │       ├── crypto-common v0.2.0-rc.4 (*)
+│   │   │   │       └── inout v0.2.1 (*)
+│   │   │   ├── cipher v0.5.0-rc.1 (*)
+│   │   │   └── poly1305 v0.9.0-rc.2
+│   │   │       └── universal-hash v0.6.0-rc.2
+│   │   │           ├── crypto-common v0.2.0-rc.4 (*)
+│   │   │           └── subtle v2.6.1
+│   │   ├── ciborium v0.2.2
+│   │   │   ├── ciborium-io v0.2.2
+│   │   │   ├── ciborium-ll v0.2.2
+│   │   │   │   ├── ciborium-io v0.2.2
+│   │   │   │   └── half v2.6.0
+│   │   │   │       └── cfg-if v1.0.1
+│   │   │   └── serde v1.0.219 (*)
+│   │   ├── coset v0.4.0
+│   │   │   ├── ciborium v0.2.2 (*)
+│   │   │   └── ciborium-io v0.2.2
+│   │   ├── digest v0.11.0-rc.3
+│   │   │   ├── block-buffer v0.11.0-rc.5 (*)
+│   │   │   ├── const-oid v0.10.1
+│   │   │   ├── crypto-common v0.2.0-rc.4 (*)
+│   │   │   └── subtle v2.6.1
+│   │   ├── ed25519-dalek v3.0.0-pre.1
+│   │   │   ├── curve25519-dalek v5.0.0-pre.1
+│   │   │   │   ├── cfg-if v1.0.1
+│   │   │   │   ├── digest v0.11.0-rc.3 (*)
+│   │   │   │   ├── subtle v2.6.1
+│   │   │   │   └── zeroize v1.8.1 (*)
+│   │   │   │   [build-dependencies]
+│   │   │   │   └── rustc_version v0.4.1
+│   │   │   │       └── semver v1.0.26 (*)
+│   │   │   ├── ed25519 v3.0.0-rc.1
+│   │   │   │   └── signature v3.0.0-rc.4
+│   │   │   │       ├── digest v0.11.0-rc.3 (*)
+│   │   │   │       └── rand_core v0.9.3 (*)
+│   │   │   ├── rand_core v0.9.3 (*)
+│   │   │   ├── sha2 v0.11.0-rc.2
+│   │   │   │   ├── cfg-if v1.0.1
+│   │   │   │   ├── cpufeatures v0.2.17 (*)
+│   │   │   │   └── digest v0.11.0-rc.3 (*)
+│   │   │   ├── subtle v2.6.1
+│   │   │   └── zeroize v1.8.1 (*)
+│   │   ├── generic-array v0.14.7 (*)
+│   │   ├── hkdf v0.13.0-rc.2
+│   │   │   └── hmac v0.13.0-rc.2
+│   │   │       └── digest v0.11.0-rc.3 (*)
+│   │   ├── hmac v0.13.0-rc.2 (*)
+│   │   ├── ml-dsa v0.0.4
+│   │   │   ├── const-oid v0.9.6
+│   │   │   ├── hybrid-array v0.3.1
+│   │   │   │   └── typenum v1.18.0
+│   │   │   ├── num-traits v0.2.19
+│   │   │   │   └── libm v0.2.15
+│   │   │   │   [build-dependencies]
+│   │   │   │   └── autocfg v1.5.0
+│   │   │   ├── pkcs8 v0.10.2
+│   │   │   │   ├── der v0.7.10
+│   │   │   │   │   ├── const-oid v0.9.6
+│   │   │   │   │   ├── pem-rfc7468 v0.7.0
+│   │   │   │   │   │   └── base64ct v1.7.3
+│   │   │   │   │   └── zeroize v1.8.1 (*)
+│   │   │   │   ├── pkcs5 v0.7.1 (https://github.com/bitwarden/rustcrypto-formats.git?rev=2b27c63034217dd126bbf5ed874da51b84f8c705#2b27c630)
+│   │   │   │   │   ├── aes v0.8.4 (*)
+│   │   │   │   │   ├── cbc v0.1.2 (*)
+│   │   │   │   │   ├── der v0.7.10 (*)
+│   │   │   │   │   ├── pbkdf2 v0.12.2
+│   │   │   │   │   │   ├── digest v0.10.7 (*)
+│   │   │   │   │   │   └── hmac v0.12.1
+│   │   │   │   │   │       └── digest v0.10.7 (*)
+│   │   │   │   │   ├── scrypt v0.11.0
+│   │   │   │   │   │   ├── pbkdf2 v0.12.2 (*)
+│   │   │   │   │   │   ├── salsa20 v0.10.2
+│   │   │   │   │   │   │   └── cipher v0.4.4 (*)
+│   │   │   │   │   │   └── sha2 v0.10.9
+│   │   │   │   │   │       ├── cfg-if v1.0.1
+│   │   │   │   │   │       ├── cpufeatures v0.2.17 (*)
+│   │   │   │   │   │       └── digest v0.10.7 (*)
+│   │   │   │   │   ├── sha2 v0.10.9 (*)
+│   │   │   │   │   └── spki v0.7.3
+│   │   │   │   │       └── der v0.7.10 (*)
+│   │   │   │   ├── rand_core v0.6.4 (*)
+│   │   │   │   └── spki v0.7.3 (*)
+│   │   │   ├── rand_core v0.6.4 (*)
+│   │   │   ├── sha3 v0.10.8
+│   │   │   │   ├── digest v0.10.7 (*)
+│   │   │   │   └── keccak v0.1.5
+│   │   │   │       └── cpufeatures v0.2.17 (*)
+│   │   │   └── signature v2.2.0
+│   │   │       ├── digest v0.10.7 (*)
+│   │   │       └── rand_core v0.6.4 (*)
+│   │   ├── num-bigint v0.4.6
+│   │   │   ├── num-integer v0.1.46
+│   │   │   │   └── num-traits v0.2.19 (*)
+│   │   │   └── num-traits v0.2.19 (*)
+│   │   ├── num-traits v0.2.19 (*)
+│   │   ├── pbkdf2 v0.13.0-rc.1
+│   │   │   └── digest v0.11.0-rc.3 (*)
+│   │   ├── rand v0.9.2
+│   │   │   ├── rand_chacha v0.9.0
+│   │   │   │   ├── ppv-lite86 v0.2.21
+│   │   │   │   │   └── zerocopy v0.8.26
+│   │   │   │   └── rand_core v0.9.3 (*)
+│   │   │   └── rand_core v0.9.3 (*)
+│   │   ├── rand_chacha v0.9.0 (*)
+│   │   ├── rand_core v0.9.3 (*)
+│   │   ├── rayon v1.10.0
+│   │   │   ├── either v1.15.0
+│   │   │   └── rayon-core v1.12.1
+│   │   │       ├── crossbeam-deque v0.8.6
+│   │   │       │   ├── crossbeam-epoch v0.9.18
+│   │   │       │   │   └── crossbeam-utils v0.8.21
+│   │   │       │   └── crossbeam-utils v0.8.21
+│   │   │       └── crossbeam-utils v0.8.21
+│   │   ├── rsa v0.10.0-rc.9
+│   │   │   ├── const-oid v0.10.1
+│   │   │   ├── crypto-bigint v0.7.0-rc.9
+│   │   │   │   ├── num-traits v0.2.19 (*)
+│   │   │   │   ├── rand_core v0.9.3 (*)
+│   │   │   │   ├── subtle v2.6.1
+│   │   │   │   └── zeroize v1.8.1 (*)
+│   │   │   ├── crypto-primes v0.7.0-pre.3
+│   │   │   │   ├── crypto-bigint v0.7.0-rc.9 (*)
+│   │   │   │   ├── libm v0.2.15
+│   │   │   │   └── rand_core v0.9.3 (*)
+│   │   │   ├── digest v0.11.0-rc.3 (*)
+│   │   │   ├── pkcs1 v0.8.0-rc.4
+│   │   │   │   ├── der v0.8.0-rc.9
+│   │   │   │   │   ├── const-oid v0.10.1
+│   │   │   │   │   ├── pem-rfc7468 v1.0.0-rc.3
+│   │   │   │   │   │   └── base64ct v1.7.3
+│   │   │   │   │   └── zeroize v1.8.1 (*)
+│   │   │   │   └── spki v0.8.0-rc.4
+│   │   │   │       └── der v0.8.0-rc.9 (*)
+│   │   │   ├── pkcs8 v0.11.0-rc.7
+│   │   │   │   ├── der v0.8.0-rc.9 (*)
+│   │   │   │   └── spki v0.8.0-rc.4 (*)
+│   │   │   ├── rand_core v0.9.3 (*)
+│   │   │   ├── signature v3.0.0-rc.4 (*)
+│   │   │   ├── spki v0.8.0-rc.4 (*)
+│   │   │   ├── subtle v2.6.1
+│   │   │   └── zeroize v1.8.1 (*)
+│   │   ├── schemars v1.0.0
+│   │   │   ├── chrono v0.4.41
+│   │   │   │   ├── iana-time-zone v0.1.63
+│   │   │   │   │   └── core-foundation-sys v0.8.7
+│   │   │   │   ├── num-traits v0.2.19 (*)
+│   │   │   │   └── serde v1.0.219 (*)
+│   │   │   ├── dyn-clone v1.0.19
+│   │   │   ├── ref-cast v1.0.24
+│   │   │   │   └── ref-cast-impl v1.0.24 (proc-macro)
+│   │   │   │       ├── proc-macro2 v1.0.95 (*)
+│   │   │   │       ├── quote v1.0.40 (*)
+│   │   │   │       └── syn v2.0.104 (*)
+│   │   │   ├── schemars_derive v1.0.0 (proc-macro)
+│   │   │   │   ├── proc-macro2 v1.0.95 (*)
+│   │   │   │   ├── quote v1.0.40 (*)
+│   │   │   │   ├── serde_derive_internals v0.29.1 (*)
+│   │   │   │   └── syn v2.0.104 (*)
+│   │   │   ├── serde v1.0.219 (*)
+│   │   │   ├── serde_json v1.0.140 (*)
+│   │   │   └── uuid v1.17.0 (*)
+│   │   ├── serde v1.0.219 (*)
+│   │   ├── serde_bytes v0.11.17
+│   │   │   └── serde v1.0.219 (*)
+│   │   ├── serde_repr v0.1.20 (proc-macro) (*)
+│   │   ├── sha1 v0.11.0-rc.2
+│   │   │   ├── cfg-if v1.0.1
+│   │   │   ├── cpufeatures v0.2.17 (*)
+│   │   │   └── digest v0.11.0-rc.3 (*)
+│   │   ├── sha2 v0.11.0-rc.2 (*)
+│   │   ├── subtle v2.6.1
+│   │   ├── thiserror v2.0.12 (*)
+│   │   ├── tsify v0.5.5 (*)
+│   │   ├── typenum v1.18.0
+│   │   ├── uniffi v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+│   │   ├── uuid v1.17.0 (*)
+│   │   ├── wasm-bindgen v0.2.100 (*)
+│   │   ├── zeroize v1.8.1 (*)
+│   │   └── zeroizing-alloc v0.1.0
+│   │   [dev-dependencies]
+│   │   ├── criterion v0.6.0
+│   │   │   ├── anes v0.1.6
+│   │   │   ├── cast v0.3.0
+│   │   │   ├── ciborium v0.2.2 (*)
+│   │   │   ├── clap v4.5.40 (*)
+│   │   │   ├── criterion-plot v0.5.0
+│   │   │   │   ├── cast v0.3.0
+│   │   │   │   └── itertools v0.10.5
+│   │   │   │       └── either v1.15.0
+│   │   │   ├── itertools v0.13.0
+│   │   │   │   └── either v1.15.0
+│   │   │   ├── num-traits v0.2.19 (*)
+│   │   │   ├── oorandom v11.1.5
+│   │   │   ├── plotters v0.3.7
+│   │   │   │   ├── num-traits v0.2.19 (*)
+│   │   │   │   ├── plotters-backend v0.3.7
+│   │   │   │   └── plotters-svg v0.3.7
+│   │   │   │       └── plotters-backend v0.3.7
+│   │   │   ├── rayon v1.10.0 (*)
+│   │   │   ├── regex v1.11.1
+│   │   │   │   ├── aho-corasick v1.1.3
+│   │   │   │   │   └── memchr v2.7.5
+│   │   │   │   ├── memchr v2.7.5
+│   │   │   │   ├── regex-automata v0.4.9
+│   │   │   │   │   ├── aho-corasick v1.1.3 (*)
+│   │   │   │   │   ├── memchr v2.7.5
+│   │   │   │   │   └── regex-syntax v0.8.5
+│   │   │   │   └── regex-syntax v0.8.5
+│   │   │   ├── serde v1.0.219 (*)
+│   │   │   ├── serde_json v1.0.140 (*)
+│   │   │   ├── tinytemplate v1.2.1
+│   │   │   │   ├── serde v1.0.219 (*)
+│   │   │   │   └── serde_json v1.0.140 (*)
+│   │   │   └── walkdir v2.5.0
+│   │   │       └── same-file v1.0.6
+│   │   ├── rand_chacha v0.3.1
+│   │   │   ├── ppv-lite86 v0.2.21 (*)
+│   │   │   └── rand_core v0.6.4 (*)
+│   │   └── serde_json v1.0.140 (*)
+│   ├── bitwarden-encoding v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-encoding) (*)
+│   ├── bitwarden-error v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-error) (*)
+│   ├── bitwarden-state v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-state)
+│   │   ├── async-trait v0.1.88 (proc-macro) (*)
+│   │   ├── bitwarden-error v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-error) (*)
+│   │   ├── bitwarden-threading v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-threading)
+│   │   │   ├── bitwarden-error v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-error) (*)
+│   │   │   ├── js-sys v0.3.77 (*)
+│   │   │   ├── log v0.4.27
+│   │   │   ├── serde v1.0.219 (*)
+│   │   │   ├── thiserror v2.0.12 (*)
+│   │   │   ├── tokio v1.47.1 (*)
+│   │   │   ├── tokio-util v0.7.15 (*)
+│   │   │   └── wasm-bindgen v0.2.100 (*)
+│   │   │   [dev-dependencies]
+│   │   │   ├── async-trait v0.1.88 (proc-macro) (*)
+│   │   │   ├── console_error_panic_hook v0.1.7
+│   │   │   │   ├── cfg-if v1.0.1
+│   │   │   │   └── wasm-bindgen v0.2.100 (*)
+│   │   │   ├── js-sys v0.3.77 (*)
+│   │   │   ├── tokio-test v0.4.4
+│   │   │   │   ├── async-stream v0.3.6
+│   │   │   │   │   ├── async-stream-impl v0.3.6 (proc-macro)
+│   │   │   │   │   │   ├── proc-macro2 v1.0.95 (*)
+│   │   │   │   │   │   ├── quote v1.0.40 (*)
+│   │   │   │   │   │   └── syn v2.0.104 (*)
+│   │   │   │   │   ├── futures-core v0.3.31
+│   │   │   │   │   └── pin-project-lite v0.2.16
+│   │   │   │   ├── bytes v1.10.1
+│   │   │   │   ├── futures-core v0.3.31
+│   │   │   │   ├── tokio v1.47.1 (*)
+│   │   │   │   └── tokio-stream v0.1.17
+│   │   │   │       ├── futures-core v0.3.31
+│   │   │   │       ├── pin-project-lite v0.2.16
+│   │   │   │       └── tokio v1.47.1 (*)
+│   │   │   ├── tsify v0.5.5 (*)
+│   │   │   ├── wasm-bindgen v0.2.100 (*)
+│   │   │   ├── wasm-bindgen-futures v0.4.50 (*)
+│   │   │   └── wasm-bindgen-test v0.3.50 (*)
+│   │   ├── rusqlite v0.37.0
+│   │   │   ├── bitflags v2.9.1
+│   │   │   ├── fallible-iterator v0.3.0
+│   │   │   ├── fallible-streaming-iterator v0.1.9
+│   │   │   ├── hashlink v0.10.0
+│   │   │   │   └── hashbrown v0.15.4 (*)
+│   │   │   ├── libsqlite3-sys v0.35.0
+│   │   │   │   [build-dependencies]
+│   │   │   │   ├── cc v1.2.27 (*)
+│   │   │   │   ├── pkg-config v0.3.32
+│   │   │   │   └── vcpkg v0.2.15
+│   │   │   └── smallvec v1.15.1
+│   │   ├── serde v1.0.219 (*)
+│   │   ├── serde_json v1.0.140 (*)
+│   │   ├── thiserror v2.0.12 (*)
+│   │   ├── tokio v1.47.1 (*)
+│   │   └── uniffi v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+│   │   [dev-dependencies]
+│   │   └── tokio v1.47.1 (*)
+│   ├── bitwarden-uniffi-error v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-uniffi-error) (*)
+│   ├── bitwarden-uuid v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-uuid)
+│   │   └── bitwarden-uuid-macro v1.0.0 (proc-macro) (/Users/quexten/projects/sdk-internal/crates/bitwarden-uuid-macro)
+│   │       ├── quote v1.0.40 (*)
+│   │       └── syn v2.0.104 (*)
+│   │   [dev-dependencies]
+│   │   ├── serde v1.0.219 (*)
+│   │   ├── serde-wasm-bindgen v0.6.5 (*)
+│   │   ├── serde_json v1.0.140 (*)
+│   │   ├── uuid v1.17.0 (*)
+│   │   └── wasm-bindgen-test v0.3.50 (*)
+│   ├── chrono v0.4.41 (*)
+│   ├── getrandom v0.2.16 (*)
+│   ├── log v0.4.27
+│   ├── rand v0.8.5
+│   │   ├── libc v0.2.174
+│   │   ├── rand_chacha v0.3.1 (*)
+│   │   └── rand_core v0.6.4 (*)
+│   ├── rand_core v0.9.3 (*)
+│   ├── reqwest v0.12.20 (*)
+│   ├── rustls v0.23.28 (*)
+│   ├── rustls-platform-verifier v0.6.0
+│   │   ├── core-foundation v0.10.1
+│   │   │   ├── core-foundation-sys v0.8.7
+│   │   │   └── libc v0.2.174
+│   │   ├── core-foundation-sys v0.8.7
+│   │   ├── log v0.4.27
+│   │   ├── rustls v0.23.28 (*)
+│   │   ├── security-framework v3.2.0
+│   │   │   ├── bitflags v2.9.1
+│   │   │   ├── core-foundation v0.10.1 (*)
+│   │   │   ├── core-foundation-sys v0.8.7
+│   │   │   ├── libc v0.2.174
+│   │   │   └── security-framework-sys v2.14.0
+│   │   │       ├── core-foundation-sys v0.8.7
+│   │   │       └── libc v0.2.174
+│   │   └── security-framework-sys v2.14.0 (*)
+│   ├── schemars v1.0.0 (*)
+│   ├── serde v1.0.219 (*)
+│   ├── serde_bytes v0.11.17 (*)
+│   ├── serde_json v1.0.140 (*)
+│   ├── serde_qs v0.15.0
+│   │   ├── percent-encoding v2.3.1
+│   │   ├── serde v1.0.219 (*)
+│   │   └── thiserror v2.0.12 (*)
+│   ├── serde_repr v0.1.20 (proc-macro) (*)
+│   ├── thiserror v2.0.12 (*)
+│   ├── tsify v0.5.5 (*)
+│   ├── uniffi v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+│   ├── uuid v1.17.0 (*)
+│   ├── wasm-bindgen v0.2.100 (*)
+│   ├── wasm-bindgen-futures v0.4.50 (*)
+│   ├── zeroize v1.8.1 (*)
+│   └── zxcvbn v3.1.0
+│       ├── derive_builder v0.20.2
+│       │   └── derive_builder_macro v0.20.2 (proc-macro)
+│       │       ├── derive_builder_core v0.20.2
+│       │       │   ├── darling v0.20.11 (*)
+│       │       │   ├── proc-macro2 v1.0.95 (*)
+│       │       │   ├── quote v1.0.40 (*)
+│       │       │   └── syn v2.0.104 (*)
+│       │       └── syn v2.0.104 (*)
+│       ├── fancy-regex v0.13.0
+│       │   ├── bit-set v0.5.3
+│       │   │   └── bit-vec v0.6.3
+│       │   ├── regex-automata v0.4.9 (*)
+│       │   └── regex-syntax v0.8.5
+│       ├── itertools v0.13.0 (*)
+│       ├── lazy_static v1.5.0
+│       │   └── spin v0.9.8
+│       ├── regex v1.11.1 (*)
+│       └── time v0.3.41
+│           ├── deranged v0.4.0
+│           │   └── powerfmt v0.2.0
+│           ├── itoa v1.0.15
+│           ├── num-conv v0.1.0
+│           ├── powerfmt v0.2.0
+│           └── time-core v0.1.4
+│   [dev-dependencies]
+│   ├── rand_chacha v0.3.1 (*)
+│   ├── tokio v1.47.1 (*)
+│   └── zeroize v1.8.1 (*)
+├── bitwarden-error v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-error) (*)
+├── chrono v0.4.41 (*)
+├── reqwest v0.12.20 (*)
+├── serde v1.0.219 (*)
+├── thiserror v2.0.12 (*)
+├── tsify v0.5.5 (*)
+├── wasm-bindgen v0.2.100 (*)
+└── wasm-bindgen-futures v0.4.50 (*)
+[dev-dependencies]
+├── bitwarden-test v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-test)
+│   ├── async-trait v0.1.88 (proc-macro) (*)
+│   ├── bitwarden-api-api v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-api-api) (*)
+│   ├── bitwarden-state v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-state) (*)
+│   ├── reqwest v0.12.20 (*)
+│   └── wiremock v0.6.4
+│       ├── assert-json-diff v2.0.2
+│       │   ├── serde v1.0.219 (*)
+│       │   └── serde_json v1.0.140 (*)
+│       ├── async-trait v0.1.88 (proc-macro) (*)
+│       ├── base64 v0.22.1
+│       ├── deadpool v0.10.0
+│       │   ├── async-trait v0.1.88 (proc-macro) (*)
+│       │   ├── deadpool-runtime v0.1.4
+│       │   ├── num_cpus v1.17.0
+│       │   │   └── libc v0.2.174
+│       │   └── tokio v1.47.1 (*)
+│       ├── futures v0.3.31
+│       │   ├── futures-channel v0.3.31 (*)
+│       │   ├── futures-core v0.3.31
+│       │   ├── futures-executor v0.3.31
+│       │   │   ├── futures-core v0.3.31
+│       │   │   ├── futures-task v0.3.31
+│       │   │   └── futures-util v0.3.31 (*)
+│       │   ├── futures-io v0.3.31
+│       │   ├── futures-sink v0.3.31
+│       │   ├── futures-task v0.3.31
+│       │   └── futures-util v0.3.31 (*)
+│       ├── http v1.3.1 (*)
+│       ├── http-body-util v0.1.3 (*)
+│       ├── hyper v1.6.0 (*)
+│       ├── hyper-util v0.1.14 (*)
+│       ├── log v0.4.27
+│       ├── once_cell v1.21.3
+│       ├── regex v1.11.1 (*)
+│       ├── serde v1.0.219 (*)
+│       ├── serde_json v1.0.140 (*)
+│       ├── tokio v1.47.1 (*)
+│       └── url v2.5.4 (*)
+├── serde_json v1.0.140 (*)
+├── tokio v1.47.1 (*)
+└── wiremock v0.6.4 (*)
+
+bitwarden-cli v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-cli)
+├── clap v4.5.40 (*)
+├── color-eyre v0.6.5
+│   ├── backtrace v0.3.75
+│   │   ├── addr2line v0.24.2
+│   │   │   └── gimli v0.31.1
+│   │   ├── cfg-if v1.0.1
+│   │   ├── libc v0.2.174
+│   │   ├── miniz_oxide v0.8.9
+│   │   │   └── adler2 v2.0.1
+│   │   ├── object v0.36.7
+│   │   │   └── memchr v2.7.5
+│   │   └── rustc-demangle v0.1.25
+│   ├── color-spantrace v0.3.0
+│   │   ├── once_cell v1.21.3
+│   │   ├── owo-colors v4.2.1
+│   │   ├── tracing-core v0.1.34 (*)
+│   │   └── tracing-error v0.2.1
+│   │       ├── tracing v0.1.41 (*)
+│   │       └── tracing-subscriber v0.3.19
+│   │           ├── sharded-slab v0.1.7
+│   │           │   └── lazy_static v1.5.0 (*)
+│   │           ├── thread_local v1.1.9
+│   │           │   └── cfg-if v1.0.1
+│   │           └── tracing-core v0.1.34 (*)
+│   ├── eyre v0.6.12
+│   │   ├── indenter v0.3.3
+│   │   └── once_cell v1.21.3
+│   ├── indenter v0.3.3
+│   ├── once_cell v1.21.3
+│   ├── owo-colors v4.2.1
+│   └── tracing-error v0.2.1 (*)
+├── inquire v0.7.5
+│   ├── bitflags v2.9.1
+│   ├── crossterm v0.25.0
+│   │   ├── bitflags v1.3.2
+│   │   ├── libc v0.2.174
+│   │   ├── mio v0.8.11
+│   │   │   ├── libc v0.2.174
+│   │   │   └── log v0.4.27
+│   │   ├── parking_lot v0.12.4
+│   │   │   ├── lock_api v0.4.13
+│   │   │   │   └── scopeguard v1.2.0
+│   │   │   │   [build-dependencies]
+│   │   │   │   └── autocfg v1.5.0
+│   │   │   └── parking_lot_core v0.9.11
+│   │   │       ├── cfg-if v1.0.1
+│   │   │       ├── libc v0.2.174
+│   │   │       └── smallvec v1.15.1
+│   │   ├── signal-hook v0.3.18
+│   │   │   ├── libc v0.2.174
+│   │   │   └── signal-hook-registry v1.4.5
+│   │   │       └── libc v0.2.174
+│   │   └── signal-hook-mio v0.2.4
+│   │       ├── libc v0.2.174
+│   │       ├── mio v0.8.11 (*)
+│   │       ├── mio v1.0.4 (*)
+│   │       └── signal-hook v0.3.18 (*)
+│   ├── dyn-clone v1.0.19
+│   ├── fuzzy-matcher v0.3.7
+│   │   └── thread_local v1.1.9 (*)
+│   ├── fxhash v0.2.1
+│   │   └── byteorder v1.5.0
+│   ├── newline-converter v0.3.0
+│   │   └── unicode-segmentation v1.12.0
+│   ├── once_cell v1.21.3
+│   ├── unicode-segmentation v1.12.0
+│   └── unicode-width v0.1.14
+└── supports-color v3.0.2
+    └── is_ci v1.2.0
+
+bitwarden-collections v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-collections)
+├── bitwarden-api-api v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-api-api) (*)
+├── bitwarden-core v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-core) (*)
+├── bitwarden-crypto v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-crypto) (*)
+├── bitwarden-error v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-error) (*)
+├── bitwarden-uuid v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-uuid) (*)
+├── serde v1.0.219 (*)
+├── serde_repr v0.1.20 (proc-macro) (*)
+├── thiserror v2.0.12 (*)
+├── tsify v0.5.5 (*)
+├── uniffi v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+├── uuid v1.17.0 (*)
+└── wasm-bindgen v0.2.100 (*)
+
+bitwarden-commercial-vault v1.0.0 (/Users/quexten/projects/sdk-internal/bitwarden_license/bitwarden-commercial-vault)
+├── bitwarden-core v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-core) (*)
+├── serde v1.0.219 (*)
+├── serde_json v1.0.140 (*)
+├── serde_repr v0.1.20 (proc-macro) (*)
+├── tsify v0.5.5 (*)
+├── uuid v1.17.0 (*)
+├── wasm-bindgen v0.2.100 (*)
+└── wasm-bindgen-futures v0.4.50 (*)
+
+bitwarden-core v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-core) (*)
+
+bitwarden-crypto v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-crypto) (*)
+
+bitwarden-encoding v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-encoding) (*)
+
+bitwarden-error v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-error) (*)
+
+bitwarden-error-macro v1.0.0 (proc-macro) (/Users/quexten/projects/sdk-internal/crates/bitwarden-error-macro) (*)
+
+bitwarden-exporters v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-exporters)
+├── bitwarden-collections v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-collections) (*)
+├── bitwarden-core v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-core) (*)
+├── bitwarden-crypto v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-crypto) (*)
+├── bitwarden-encoding v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-encoding) (*)
+├── bitwarden-error v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-error) (*)
+├── bitwarden-fido v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-fido)
+│   ├── async-trait v0.1.88 (proc-macro) (*)
+│   ├── bitwarden-core v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-core) (*)
+│   ├── bitwarden-crypto v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-crypto) (*)
+│   ├── bitwarden-encoding v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-encoding) (*)
+│   ├── bitwarden-vault v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-vault)
+│   │   ├── bitwarden-api-api v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-api-api) (*)
+│   │   ├── bitwarden-collections v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-collections) (*)
+│   │   ├── bitwarden-core v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-core) (*)
+│   │   ├── bitwarden-crypto v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-crypto) (*)
+│   │   ├── bitwarden-encoding v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-encoding) (*)
+│   │   ├── bitwarden-error v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-error) (*)
+│   │   ├── bitwarden-state v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-state) (*)
+│   │   ├── bitwarden-uuid v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-uuid) (*)
+│   │   ├── chrono v0.4.41 (*)
+│   │   ├── data-encoding v2.9.0
+│   │   ├── hmac v0.12.1 (*)
+│   │   ├── percent-encoding v2.3.1
+│   │   ├── reqwest v0.12.20 (*)
+│   │   ├── serde v1.0.219 (*)
+│   │   ├── serde_json v1.0.140 (*)
+│   │   ├── serde_repr v0.1.20 (proc-macro) (*)
+│   │   ├── sha1 v0.10.6
+│   │   │   ├── cfg-if v1.0.1
+│   │   │   ├── cpufeatures v0.2.17 (*)
+│   │   │   └── digest v0.10.7 (*)
+│   │   ├── sha2 v0.10.9 (*)
+│   │   ├── thiserror v2.0.12 (*)
+│   │   ├── tsify v0.5.5 (*)
+│   │   ├── uniffi v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+│   │   ├── uuid v1.17.0 (*)
+│   │   ├── wasm-bindgen v0.2.100 (*)
+│   │   └── wasm-bindgen-futures v0.4.50 (*)
+│   │   [dev-dependencies]
+│   │   ├── bitwarden-api-api v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-api-api) (*)
+│   │   ├── bitwarden-test v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-test) (*)
+│   │   ├── tokio v1.47.1 (*)
+│   │   └── wiremock v0.6.4 (*)
+│   ├── chrono v0.4.41 (*)
+│   ├── coset v0.3.8
+│   │   ├── ciborium v0.2.2 (*)
+│   │   └── ciborium-io v0.2.2
+│   ├── itertools v0.14.0
+│   │   └── either v1.15.0
+│   ├── log v0.4.27
+│   ├── p256 v0.13.2
+│   │   ├── ecdsa v0.16.9
+│   │   │   ├── der v0.7.10 (*)
+│   │   │   ├── digest v0.10.7 (*)
+│   │   │   ├── elliptic-curve v0.13.8
+│   │   │   │   ├── base16ct v0.2.0
+│   │   │   │   ├── base64ct v1.7.3
+│   │   │   │   ├── crypto-bigint v0.5.5
+│   │   │   │   │   ├── generic-array v0.14.7 (*)
+│   │   │   │   │   ├── rand_core v0.6.4 (*)
+│   │   │   │   │   ├── subtle v2.6.1
+│   │   │   │   │   └── zeroize v1.8.1 (*)
+│   │   │   │   ├── digest v0.10.7 (*)
+│   │   │   │   ├── ff v0.13.1
+│   │   │   │   │   ├── rand_core v0.6.4 (*)
+│   │   │   │   │   └── subtle v2.6.1
+│   │   │   │   ├── generic-array v0.14.7 (*)
+│   │   │   │   ├── group v0.13.0
+│   │   │   │   │   ├── ff v0.13.1 (*)
+│   │   │   │   │   ├── rand_core v0.6.4 (*)
+│   │   │   │   │   └── subtle v2.6.1
+│   │   │   │   ├── pem-rfc7468 v0.7.0 (*)
+│   │   │   │   ├── pkcs8 v0.10.2 (*)
+│   │   │   │   ├── rand_core v0.6.4 (*)
+│   │   │   │   ├── sec1 v0.7.3
+│   │   │   │   │   ├── base16ct v0.2.0
+│   │   │   │   │   ├── der v0.7.10 (*)
+│   │   │   │   │   ├── generic-array v0.14.7 (*)
+│   │   │   │   │   ├── pkcs8 v0.10.2 (*)
+│   │   │   │   │   ├── serdect v0.2.0
+│   │   │   │   │   │   ├── base16ct v0.2.0
+│   │   │   │   │   │   └── serde v1.0.219 (*)
+│   │   │   │   │   ├── subtle v2.6.1
+│   │   │   │   │   └── zeroize v1.8.1 (*)
+│   │   │   │   ├── serde_json v1.0.140 (*)
+│   │   │   │   ├── serdect v0.2.0 (*)
+│   │   │   │   ├── subtle v2.6.1
+│   │   │   │   └── zeroize v1.8.1 (*)
+│   │   │   ├── rfc6979 v0.4.0
+│   │   │   │   ├── hmac v0.12.1 (*)
+│   │   │   │   └── subtle v2.6.1
+│   │   │   ├── signature v2.2.0 (*)
+│   │   │   └── spki v0.7.3 (*)
+│   │   ├── elliptic-curve v0.13.8 (*)
+│   │   ├── primeorder v0.13.6
+│   │   │   └── elliptic-curve v0.13.8 (*)
+│   │   └── sha2 v0.10.9 (*)
+│   ├── passkey v0.2.0 (https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633)
+│   │   ├── passkey-authenticator v0.2.0 (https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633)
+│   │   │   ├── async-trait v0.1.88 (proc-macro) (*)
+│   │   │   ├── coset v0.3.8 (*)
+│   │   │   ├── log v0.4.27
+│   │   │   ├── p256 v0.13.2 (*)
+│   │   │   ├── passkey-types v0.2.1 (https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633)
+│   │   │   │   ├── bitflags v2.9.1
+│   │   │   │   ├── ciborium v0.2.2 (*)
+│   │   │   │   ├── coset v0.3.8 (*)
+│   │   │   │   ├── data-encoding v2.9.0
+│   │   │   │   ├── indexmap v2.9.0 (*)
+│   │   │   │   ├── rand v0.8.5 (*)
+│   │   │   │   ├── serde v1.0.219 (*)
+│   │   │   │   ├── serde_json v1.0.140 (*)
+│   │   │   │   ├── sha2 v0.10.9 (*)
+│   │   │   │   └── strum v0.25.0
+│   │   │   │       └── strum_macros v0.25.3 (proc-macro)
+│   │   │   │           ├── heck v0.4.1
+│   │   │   │           ├── proc-macro2 v1.0.95 (*)
+│   │   │   │           ├── quote v1.0.40 (*)
+│   │   │   │           ├── rustversion v1.0.21 (proc-macro)
+│   │   │   │           └── syn v2.0.104 (*)
+│   │   │   └── rand v0.8.5 (*)
+│   │   ├── passkey-client v0.2.0 (https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633)
+│   │   │   ├── ciborium v0.2.2 (*)
+│   │   │   ├── coset v0.3.8 (*)
+│   │   │   ├── idna v0.5.0
+│   │   │   │   ├── unicode-bidi v0.3.18
+│   │   │   │   └── unicode-normalization v0.1.24
+│   │   │   │       └── tinyvec v1.9.0
+│   │   │   │           └── tinyvec_macros v0.1.1
+│   │   │   ├── nom v7.1.3 (*)
+│   │   │   ├── passkey-authenticator v0.2.0 (https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633) (*)
+│   │   │   ├── passkey-types v0.2.1 (https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633) (*)
+│   │   │   ├── public-suffix v0.1.1 (https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633)
+│   │   │   ├── serde v1.0.219 (*)
+│   │   │   ├── serde_json v1.0.140 (*)
+│   │   │   └── url v2.5.4 (*)
+│   │   ├── passkey-transports v0.1.0 (https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633)
+│   │   └── passkey-types v0.2.1 (https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633) (*)
+│   ├── passkey-client v0.2.0 (https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633) (*)
+│   ├── reqwest v0.12.20 (*)
+│   ├── serde v1.0.219 (*)
+│   ├── serde_json v1.0.140 (*)
+│   ├── thiserror v2.0.12 (*)
+│   ├── uniffi v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+│   └── uuid v1.17.0 (*)
+├── bitwarden-ssh v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-ssh)
+│   ├── bitwarden-error v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-error) (*)
+│   ├── bitwarden-vault v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-vault) (*)
+│   ├── ed25519 v2.2.3
+│   │   ├── pkcs8 v0.10.2 (*)
+│   │   └── signature v2.2.0 (*)
+│   ├── ed25519-dalek v2.1.1
+│   │   ├── curve25519-dalek v4.1.3
+│   │   │   ├── cfg-if v1.0.1
+│   │   │   ├── digest v0.10.7 (*)
+│   │   │   ├── subtle v2.6.1
+│   │   │   └── zeroize v1.8.1 (*)
+│   │   │   [build-dependencies]
+│   │   │   └── rustc_version v0.4.1 (*)
+│   │   ├── ed25519 v2.2.3 (*)
+│   │   ├── sha2 v0.10.9 (*)
+│   │   ├── subtle v2.6.1
+│   │   └── zeroize v1.8.1 (*)
+│   ├── pem-rfc7468 v0.7.0 (*)
+│   ├── pkcs8 v0.10.2 (*)
+│   ├── rand v0.8.5 (*)
+│   ├── rsa v0.9.8
+│   │   ├── const-oid v0.9.6
+│   │   ├── digest v0.10.7 (*)
+│   │   ├── num-bigint-dig v0.8.4
+│   │   │   ├── byteorder v1.5.0
+│   │   │   ├── lazy_static v1.5.0 (*)
+│   │   │   ├── libm v0.2.15
+│   │   │   ├── num-integer v0.1.46 (*)
+│   │   │   ├── num-iter v0.1.45
+│   │   │   │   ├── num-integer v0.1.46 (*)
+│   │   │   │   └── num-traits v0.2.19 (*)
+│   │   │   │   [build-dependencies]
+│   │   │   │   └── autocfg v1.5.0
+│   │   │   ├── num-traits v0.2.19 (*)
+│   │   │   ├── rand v0.8.5 (*)
+│   │   │   ├── smallvec v1.15.1
+│   │   │   └── zeroize v1.8.1 (*)
+│   │   ├── num-integer v0.1.46 (*)
+│   │   ├── num-traits v0.2.19 (*)
+│   │   ├── pkcs1 v0.7.5
+│   │   │   ├── der v0.7.10 (*)
+│   │   │   ├── pkcs8 v0.10.2 (*)
+│   │   │   └── spki v0.7.3 (*)
+│   │   ├── pkcs8 v0.10.2 (*)
+│   │   ├── rand_core v0.6.4 (*)
+│   │   ├── sha2 v0.10.9 (*)
+│   │   ├── signature v2.2.0 (*)
+│   │   ├── spki v0.7.3 (*)
+│   │   ├── subtle v2.6.1
+│   │   └── zeroize v1.8.1 (*)
+│   ├── serde v1.0.219 (*)
+│   ├── ssh-key v0.6.7
+│   │   ├── bcrypt-pbkdf v0.10.0
+│   │   │   ├── blowfish v0.9.1
+│   │   │   │   ├── byteorder v1.5.0
+│   │   │   │   └── cipher v0.4.4 (*)
+│   │   │   ├── pbkdf2 v0.12.2 (*)
+│   │   │   └── sha2 v0.10.9 (*)
+│   │   ├── ed25519-dalek v2.1.1 (*)
+│   │   ├── num-bigint-dig v0.8.4 (*)
+│   │   ├── rand_core v0.6.4 (*)
+│   │   ├── rsa v0.9.8 (*)
+│   │   ├── sha2 v0.10.9 (*)
+│   │   ├── signature v2.2.0 (*)
+│   │   ├── ssh-cipher v0.2.0
+│   │   │   ├── aes v0.8.4 (*)
+│   │   │   ├── aes-gcm v0.10.3
+│   │   │   │   ├── aead v0.5.2
+│   │   │   │   │   ├── crypto-common v0.1.6 (*)
+│   │   │   │   │   └── generic-array v0.14.7 (*)
+│   │   │   │   ├── aes v0.8.4 (*)
+│   │   │   │   ├── cipher v0.4.4 (*)
+│   │   │   │   ├── ctr v0.9.2
+│   │   │   │   │   └── cipher v0.4.4 (*)
+│   │   │   │   ├── ghash v0.5.1
+│   │   │   │   │   ├── opaque-debug v0.3.1
+│   │   │   │   │   └── polyval v0.6.2
+│   │   │   │   │       ├── cfg-if v1.0.1
+│   │   │   │   │       ├── cpufeatures v0.2.17 (*)
+│   │   │   │   │       ├── opaque-debug v0.3.1
+│   │   │   │   │       └── universal-hash v0.5.1
+│   │   │   │   │           ├── crypto-common v0.1.6 (*)
+│   │   │   │   │           └── subtle v2.6.1
+│   │   │   │   └── subtle v2.6.1
+│   │   │   ├── cbc v0.1.2 (*)
+│   │   │   ├── chacha20 v0.9.1
+│   │   │   │   ├── cfg-if v1.0.1
+│   │   │   │   └── cipher v0.4.4 (*)
+│   │   │   ├── cipher v0.4.4 (*)
+│   │   │   ├── ctr v0.9.2 (*)
+│   │   │   ├── poly1305 v0.8.0
+│   │   │   │   ├── opaque-debug v0.3.1
+│   │   │   │   └── universal-hash v0.5.1 (*)
+│   │   │   ├── ssh-encoding v0.2.0
+│   │   │   │   ├── base64ct v1.7.3
+│   │   │   │   ├── pem-rfc7468 v0.7.0 (*)
+│   │   │   │   └── sha2 v0.10.9 (*)
+│   │   │   └── subtle v2.6.1
+│   │   ├── ssh-encoding v0.2.0 (*)
+│   │   ├── subtle v2.6.1
+│   │   └── zeroize v1.8.1 (*)
+│   ├── thiserror v2.0.12 (*)
+│   ├── tsify v0.5.5 (*)
+│   ├── uniffi v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+│   └── wasm-bindgen v0.2.100 (*)
+│   [dev-dependencies]
+│   └── rand_chacha v0.3.1 (*)
+├── bitwarden-vault v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-vault) (*)
+├── chrono v0.4.41 (*)
+├── credential-exchange-format v0.3.0
+│   ├── chrono v0.4.41 (*)
+│   ├── data-encoding v2.9.0
+│   ├── serde v1.0.219 (*)
+│   └── serde_json v1.0.140 (*)
+├── csv v1.3.1
+│   ├── csv-core v0.1.12
+│   │   └── memchr v2.7.5
+│   ├── itoa v1.0.15
+│   ├── ryu v1.0.20
+│   └── serde v1.0.219 (*)
+├── num-traits v0.2.19 (*)
+├── serde v1.0.219 (*)
+├── serde_json v1.0.140 (*)
+├── thiserror v2.0.12 (*)
+├── tsify v0.5.5 (*)
+├── uniffi v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+├── uuid v1.17.0 (*)
+└── wasm-bindgen v0.2.100 (*)
+
+bitwarden-fido v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-fido) (*)
+
+bitwarden-generators v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-generators)
+├── bitwarden-core v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-core) (*)
+├── bitwarden-crypto v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-crypto) (*)
+├── bitwarden-error v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-error) (*)
+├── rand v0.8.5 (*)
+├── reqwest v0.12.20 (*)
+├── schemars v1.0.0 (*)
+├── serde v1.0.219 (*)
+├── serde_json v1.0.140 (*)
+├── thiserror v2.0.12 (*)
+├── tsify v0.5.5 (*)
+├── uniffi v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+└── wasm-bindgen v0.2.100 (*)
+[dev-dependencies]
+├── rand_chacha v0.3.1 (*)
+├── tokio v1.47.1 (*)
+└── wiremock v0.6.4 (*)
+
+bitwarden-ipc v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-ipc)
+├── async-trait v0.1.88 (proc-macro) (*)
+├── bitwarden-error v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-error) (*)
+├── bitwarden-threading v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-threading) (*)
+├── erased-serde v0.4.6
+│   ├── serde v1.0.219 (*)
+│   └── typeid v1.0.3
+├── js-sys v0.3.77 (*)
+├── log v0.4.27
+├── serde v1.0.219 (*)
+├── serde_json v1.0.140 (*)
+├── thiserror v2.0.12 (*)
+├── tokio v1.47.1 (*)
+├── tsify v0.5.5 (*)
+├── uuid v1.17.0 (*)
+├── wasm-bindgen v0.2.100 (*)
+└── wasm-bindgen-futures v0.4.50 (*)
+
+bitwarden-pm v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-pm)
+├── bitwarden-auth v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-auth) (*)
+├── bitwarden-commercial-vault v1.0.0 (/Users/quexten/projects/sdk-internal/bitwarden_license/bitwarden-commercial-vault) (*)
+├── bitwarden-core v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-core) (*)
+├── bitwarden-exporters v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-exporters) (*)
+├── bitwarden-fido v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-fido) (*)
+├── bitwarden-generators v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-generators) (*)
+├── bitwarden-send v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-send)
+│   ├── bitwarden-api-api v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-api-api) (*)
+│   ├── bitwarden-core v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-core) (*)
+│   ├── bitwarden-crypto v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-crypto) (*)
+│   ├── bitwarden-encoding v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-encoding) (*)
+│   ├── chrono v0.4.41 (*)
+│   ├── serde v1.0.219 (*)
+│   ├── serde_repr v0.1.20 (proc-macro) (*)
+│   ├── thiserror v2.0.12 (*)
+│   ├── uniffi v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+│   ├── uuid v1.17.0 (*)
+│   └── zeroize v1.8.1 (*)
+├── bitwarden-state v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-state) (*)
+├── bitwarden-vault v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-vault) (*)
+├── tsify v0.5.5 (*)
+├── uniffi v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+├── wasm-bindgen v0.2.100 (*)
+└── wasm-bindgen-futures v0.4.50 (*)
+
+bitwarden-send v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-send) (*)
+
+bitwarden-sm v1.0.0 (/Users/quexten/projects/sdk-internal/bitwarden_license/bitwarden-sm)
+├── bitwarden-api-api v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-api-api) (*)
+├── bitwarden-core v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-core) (*)
+├── bitwarden-crypto v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-crypto) (*)
+├── chrono v0.4.41 (*)
+├── log v0.4.27
+├── schemars v1.0.0 (*)
+├── serde v1.0.219 (*)
+├── serde_json v1.0.140 (*)
+├── thiserror v2.0.12 (*)
+├── uuid v1.17.0 (*)
+└── validator v0.20.0
+    ├── idna v1.0.3 (*)
+    ├── once_cell v1.21.3
+    ├── regex v1.11.1 (*)
+    ├── serde v1.0.219 (*)
+    ├── serde_derive v1.0.219 (proc-macro) (*)
+    ├── serde_json v1.0.140 (*)
+    ├── url v2.5.4 (*)
+    └── validator_derive v0.20.0 (proc-macro)
+        ├── darling v0.20.11 (*)
+        ├── once_cell v1.21.3
+        ├── proc-macro-error2 v2.0.1
+        │   ├── proc-macro-error-attr2 v2.0.0 (proc-macro)
+        │   │   ├── proc-macro2 v1.0.95 (*)
+        │   │   └── quote v1.0.40 (*)
+        │   ├── proc-macro2 v1.0.95 (*)
+        │   ├── quote v1.0.40 (*)
+        │   └── syn v2.0.104 (*)
+        ├── proc-macro2 v1.0.95 (*)
+        ├── quote v1.0.40 (*)
+        └── syn v2.0.104 (*)
+[dev-dependencies]
+├── tokio v1.47.1 (*)
+└── wiremock v0.6.4 (*)
+
+bitwarden-ssh v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-ssh) (*)
+
+bitwarden-state v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-state) (*)
+
+bitwarden-test v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-test) (*)
+
+bitwarden-threading v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-threading) (*)
+
+bitwarden-uniffi v0.1.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-uniffi)
+├── async-trait v0.1.88 (proc-macro) (*)
+├── bitwarden-collections v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-collections) (*)
+├── bitwarden-core v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-core) (*)
+├── bitwarden-crypto v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-crypto) (*)
+├── bitwarden-encoding v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-encoding) (*)
+├── bitwarden-exporters v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-exporters) (*)
+├── bitwarden-fido v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-fido) (*)
+├── bitwarden-generators v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-generators) (*)
+├── bitwarden-pm v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-pm) (*)
+├── bitwarden-send v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-send) (*)
+├── bitwarden-ssh v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-ssh) (*)
+├── bitwarden-state v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-state) (*)
+├── bitwarden-uniffi-error v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-uniffi-error) (*)
+├── bitwarden-vault v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-vault) (*)
+├── chrono v0.4.41 (*)
+├── env_logger v0.11.8
+│   ├── anstream v0.6.19 (*)
+│   ├── anstyle v1.0.11
+│   ├── env_filter v0.1.3
+│   │   ├── log v0.4.27
+│   │   └── regex v1.11.1 (*)
+│   ├── jiff v0.2.15
+│   └── log v0.4.27
+├── log v0.4.27
+├── thiserror v2.0.12 (*)
+├── uniffi v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+└── uuid v1.17.0 (*)
+[build-dependencies]
+└── uniffi v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7)
+    ├── anyhow v1.0.98
+    ├── cargo_metadata v0.19.2 (*)
+    ├── uniffi_build v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7)
+    │   ├── anyhow v1.0.98
+    │   ├── camino v1.1.10 (*)
+    │   └── uniffi_bindgen v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7)
+    │       ├── anyhow v1.0.98
+    │       ├── askama v0.13.1 (*)
+    │       ├── camino v1.1.10 (*)
+    │       ├── fs-err v2.11.0 (*)
+    │       ├── glob v0.3.2
+    │       ├── goblin v0.8.2 (*)
+    │       ├── heck v0.5.0
+    │       ├── indexmap v2.9.0 (*)
+    │       ├── once_cell v1.21.3
+    │       ├── serde v1.0.219 (*)
+    │       ├── tempfile v3.21.0 (*)
+    │       ├── textwrap v0.16.2 (*)
+    │       ├── toml v0.8.23 (*)
+    │       ├── uniffi_internal_macros v0.29.4 (proc-macro) (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+    │       ├── uniffi_meta v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+    │       ├── uniffi_pipeline v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+    │       └── uniffi_udl v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+    ├── uniffi_core v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7)
+    │   ├── anyhow v1.0.98
+    │   ├── bytes v1.10.1
+    │   ├── once_cell v1.21.3
+    │   └── static_assertions v1.1.0
+    ├── uniffi_macros v0.29.4 (proc-macro) (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+    └── uniffi_pipeline v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)
+
+bitwarden-uniffi-error v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-uniffi-error) (*)
+
+bitwarden-uuid v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-uuid) (*)
+
+bitwarden-uuid-macro v1.0.0 (proc-macro) (/Users/quexten/projects/sdk-internal/crates/bitwarden-uuid-macro) (*)
+
+bitwarden-vault v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-vault) (*)
+
+bitwarden-wasm-internal v0.1.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-wasm-internal)
+├── async-trait v0.1.88 (proc-macro) (*)
+├── bitwarden-core v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-core) (*)
+├── bitwarden-crypto v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-crypto) (*)
+├── bitwarden-error v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-error) (*)
+├── bitwarden-ipc v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-ipc) (*)
+├── bitwarden-pm v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-pm) (*)
+├── bitwarden-ssh v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-ssh) (*)
+├── bitwarden-state v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-state) (*)
+├── bitwarden-threading v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-threading) (*)
+├── bitwarden-vault v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-vault) (*)
+├── console_error_panic_hook v0.1.7 (*)
+├── console_log v1.0.0
+│   ├── log v0.4.27
+│   ├── wasm-bindgen v0.2.100 (*)
+│   └── web-sys v0.3.77
+│       ├── js-sys v0.3.77 (*)
+│       └── wasm-bindgen v0.2.100 (*)
+├── log v0.4.27
+├── serde v1.0.219 (*)
+├── tsify v0.5.5 (*)
+├── wasm-bindgen v0.2.100 (*)
+└── wasm-bindgen-futures v0.4.50 (*)
+
+bw v0.0.2 (/Users/quexten/projects/sdk-internal/crates/bw)
+├── base64 v0.22.1
+├── bat v0.25.0
+│   ├── ansi_colours v1.2.3
+│   │   └── rgb v0.8.51
+│   │       └── bytemuck v1.23.1
+│   ├── bincode v1.3.3
+│   │   └── serde v1.0.219 (*)
+│   ├── bytesize v1.3.3
+│   ├── clircle v0.6.1
+│   │   └── cfg-if v1.0.1
+│   ├── console v0.15.11
+│   │   ├── libc v0.2.174
+│   │   ├── once_cell v1.21.3
+│   │   └── unicode-width v0.2.1
+│   ├── content_inspector v0.2.4
+│   │   └── memchr v2.7.5
+│   ├── encoding_rs v0.8.35
+│   │   └── cfg-if v1.0.1
+│   ├── flate2 v1.1.2
+│   │   ├── crc32fast v1.4.2
+│   │   │   └── cfg-if v1.0.1
+│   │   └── miniz_oxide v0.8.9 (*)
+│   ├── globset v0.4.16
+│   │   ├── aho-corasick v1.1.3 (*)
+│   │   ├── bstr v1.12.0
+│   │   │   └── memchr v2.7.5
+│   │   ├── log v0.4.27
+│   │   ├── regex-automata v0.4.9 (*)
+│   │   └── regex-syntax v0.8.5
+│   ├── home v0.5.11
+│   ├── nu-ansi-term v0.50.1
+│   ├── once_cell v1.21.3
+│   ├── path_abs v0.5.1
+│   │   └── std_prelude v0.2.12
+│   ├── plist v1.7.4
+│   │   ├── base64 v0.22.1
+│   │   ├── indexmap v2.9.0 (*)
+│   │   ├── quick-xml v0.38.0
+│   │   │   └── memchr v2.7.5
+│   │   ├── serde v1.0.219 (*)
+│   │   └── time v0.3.41 (*)
+│   ├── semver v1.0.26 (*)
+│   ├── serde v1.0.219 (*)
+│   ├── serde_derive v1.0.219 (proc-macro) (*)
+│   ├── serde_yaml v0.9.34+deprecated
+│   │   ├── indexmap v2.9.0 (*)
+│   │   ├── itoa v1.0.15
+│   │   ├── ryu v1.0.20
+│   │   ├── serde v1.0.219 (*)
+│   │   └── unsafe-libyaml v0.2.11
+│   ├── syntect v5.2.0
+│   │   ├── bincode v1.3.3 (*)
+│   │   ├── bitflags v1.3.2
+│   │   ├── fancy-regex v0.11.0
+│   │   │   ├── bit-set v0.5.3 (*)
+│   │   │   └── regex v1.11.1 (*)
+│   │   ├── flate2 v1.1.2 (*)
+│   │   ├── fnv v1.0.7
+│   │   ├── once_cell v1.21.3
+│   │   ├── regex-syntax v0.8.5
+│   │   ├── serde v1.0.219 (*)
+│   │   ├── serde_derive v1.0.219 (proc-macro) (*)
+│   │   ├── serde_json v1.0.140 (*)
+│   │   ├── thiserror v1.0.69
+│   │   │   └── thiserror-impl v1.0.69 (proc-macro)
+│   │   │       ├── proc-macro2 v1.0.95 (*)
+│   │   │       ├── quote v1.0.40 (*)
+│   │   │       └── syn v2.0.104 (*)
+│   │   └── walkdir v2.5.0 (*)
+│   ├── terminal-colorsaurus v0.4.8
+│   │   ├── cfg-if v1.0.1
+│   │   ├── libc v0.2.174
+│   │   ├── memchr v2.7.5
+│   │   ├── mio v1.0.4 (*)
+│   │   ├── terminal-trx v0.2.4
+│   │   │   ├── cfg-if v1.0.1
+│   │   │   └── libc v0.2.174
+│   │   └── xterm-color v1.0.1
+│   ├── thiserror v1.0.69 (*)
+│   └── unicode-width v0.1.14
+│   [build-dependencies]
+│   ├── anyhow v1.0.98
+│   ├── indexmap v2.9.0 (*)
+│   ├── itertools v0.13.0 (*)
+│   ├── once_cell v1.21.3
+│   ├── regex v1.11.1 (*)
+│   ├── serde v1.0.219 (*)
+│   ├── serde_derive v1.0.219 (proc-macro) (*)
+│   ├── serde_with v3.13.0
+│   │   ├── serde v1.0.219 (*)
+│   │   ├── serde_derive v1.0.219 (proc-macro) (*)
+│   │   └── serde_with_macros v3.13.0 (proc-macro) (*)
+│   ├── toml v0.8.23 (*)
+│   └── walkdir v2.5.0 (*)
+├── bitwarden-api-api v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-api-api) (*)
+├── bitwarden-cli v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-cli) (*)
+├── bitwarden-collections v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-collections) (*)
+├── bitwarden-core v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-core) (*)
+├── bitwarden-generators v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-generators) (*)
+├── bitwarden-pm v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-pm) (*)
+├── bitwarden-vault v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-vault) (*)
+├── clap v4.5.40 (*)
+├── clap_complete v4.5.55
+│   └── clap v4.5.40 (*)
+├── color-eyre v0.6.5 (*)
+├── env_logger v0.11.8 (*)
+├── erased-serde v0.4.6 (*)
+├── inquire v0.9.1
+│   ├── bitflags v2.9.1
+│   ├── crossterm v0.29.0
+│   │   ├── bitflags v2.9.1
+│   │   ├── derive_more v2.0.1
+│   │   │   └── derive_more-impl v2.0.1 (proc-macro)
+│   │   │       ├── convert_case v0.7.1
+│   │   │       │   └── unicode-segmentation v1.12.0
+│   │   │       ├── proc-macro2 v1.0.95 (*)
+│   │   │       ├── quote v1.0.40 (*)
+│   │   │       └── syn v2.0.104 (*)
+│   │   ├── document-features v0.2.11 (proc-macro)
+│   │   │   └── litrs v0.4.2
+│   │   ├── mio v1.0.4 (*)
+│   │   ├── parking_lot v0.12.4 (*)
+│   │   ├── rustix v1.0.8 (*)
+│   │   ├── signal-hook v0.3.18 (*)
+│   │   └── signal-hook-mio v0.2.4 (*)
+│   ├── dyn-clone v1.0.19
+│   ├── fuzzy-matcher v0.3.7 (*)
+│   ├── unicode-segmentation v1.12.0
+│   └── unicode-width v0.2.1
+├── log v0.4.27
+├── serde v1.0.219 (*)
+├── serde_json v1.0.140 (*)
+├── serde_yaml v0.9.34+deprecated (*)
+├── thiserror v2.0.12 (*)
+└── tokio v1.47.1 (*)
+[dev-dependencies]
+├── bitwarden-crypto v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-crypto) (*)
+├── bitwarden-test v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-test) (*)
+├── uuid v1.17.0 (*)
+└── wiremock v0.6.4 (*)
+
+memory-testing v0.1.0 (/Users/quexten/projects/sdk-internal/crates/memory-testing)
+├── bitwarden-crypto v1.0.0 (/Users/quexten/projects/sdk-internal/crates/bitwarden-crypto) (*)
+├── comfy-table v7.1.4
+│   ├── crossterm v0.28.1
+│   │   ├── bitflags v2.9.1
+│   │   ├── parking_lot v0.12.4 (*)
+│   │   └── rustix v0.38.44
+│   │       ├── bitflags v2.9.1
+│   │       ├── errno v0.3.13 (*)
+│   │       └── libc v0.2.174
+│   ├── unicode-segmentation v1.12.0
+│   └── unicode-width v0.2.1
+├── hex v0.4.3
+├── serde v1.0.219 (*)
+├── serde_json v1.0.140 (*)
+└── zeroize v1.8.1 (*)
+
+uniffi-bindgen v0.1.0 (/Users/quexten/projects/sdk-internal/crates/uniffi-bindgen)
+└── uniffi v0.29.4 (https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f7) (*)

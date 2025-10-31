@@ -6,6 +6,8 @@ use coset::{
     iana::{Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter},
 };
 use ed25519_dalek::Signer;
+use ml_dsa::{B32, KeyGen, MlDsa65};
+use rand::RngCore;
 
 use super::{
     SignatureAlgorithm, ed25519_signing_key, key_id,
@@ -24,6 +26,7 @@ use crate::{
 #[derive(Clone)]
 enum RawSigningKey {
     Ed25519(Pin<Box<ed25519_dalek::SigningKey>>),
+    MLDsa65(Pin<Box<B32>>),
 }
 
 /// A signing key is a private key used for signing data. An associated `VerifyingKey` can be
@@ -54,12 +57,21 @@ impl SigningKey {
                     &mut rand::rng(),
                 ))),
             },
+            SignatureAlgorithm::MLDsa65 => {
+                let mut seed = [0u8; 32];
+                rand::rng().fill_bytes(&mut seed);
+                SigningKey {
+                    id: KeyId::make(),
+                    inner: RawSigningKey::MLDsa65(Box::pin(ml_dsa::B32::from(seed))),
+                }
+            }
         }
     }
 
     pub(super) fn cose_algorithm(&self) -> Algorithm {
         match &self.inner {
             RawSigningKey::Ed25519(_) => Algorithm::EdDSA,
+            RawSigningKey::MLDsa65(_) => Algorithm::ML_DSA_65,
         }
     }
 
@@ -71,6 +83,12 @@ impl SigningKey {
                 id: self.id.clone(),
                 inner: RawVerifyingKey::Ed25519(key.verifying_key()),
             },
+            RawSigningKey::MLDsa65(seed) => VerifyingKey {
+                id: self.id.clone(),
+                inner: RawVerifyingKey::MlDsa65(
+                    MlDsa65::key_gen_internal(seed).verifying_key().to_owned(),
+                ),
+            },
         }
     }
 
@@ -80,6 +98,16 @@ impl SigningKey {
     pub(super) fn sign_raw(&self, data: &[u8]) -> Vec<u8> {
         match &self.inner {
             RawSigningKey::Ed25519(key) => key.sign(data).to_bytes().to_vec(),
+            RawSigningKey::MLDsa65(seed) => MlDsa65::key_gen_internal(seed)
+                // ctx is empty, the CTX is provided otherwise in the namespace of the signature message, to abstract
+                // away from the specific signature scheme
+                // note: TODO: replace with sind randomized when crates don't collide
+                .signing_key()
+                .sign_deterministic(data, &[])
+                .expect("signing should not fail")
+                .encode()
+                .as_slice()
+                .to_vec(),
         }
     }
 }
@@ -106,6 +134,9 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
                     .to_vec()
                     .expect("Signing key is always serializable")
                     .into()
+            }
+            RawSigningKey::MLDsa65(key) => {
+                todo!()
             }
         }
     }
@@ -146,6 +177,18 @@ mod tests {
     #[test]
     fn test_sign_rountrip() {
         let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
+        let signature = signing_key.sign_raw("Test message".as_bytes());
+        let verifying_key = signing_key.to_verifying_key();
+        assert!(
+            verifying_key
+                .verify_raw(&signature, "Test message".as_bytes())
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn test_sign_rountrip_mldsa65() {
+        let signing_key = SigningKey::make(SignatureAlgorithm::MLDsa65);
         let signature = signing_key.sign_raw("Test message".as_bytes());
         let verifying_key = signing_key.to_verifying_key();
         assert!(
