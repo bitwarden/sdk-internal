@@ -18,7 +18,6 @@ use chacha20poly1305::{
     AeadCore, KeyInit, XChaCha20Poly1305,
     aead::{AeadInOut, array::Array},
 };
-use rand::{CryptoRng, RngCore};
 use typenum::Unsigned;
 
 use crate::CryptoError;
@@ -42,16 +41,6 @@ impl XChaCha20Poly1305Ciphertext {
 }
 
 pub(crate) fn encrypt_xchacha20_poly1305(
-    key: &[u8; KEY_SIZE],
-    plaintext_secret_data: &[u8],
-    associated_data: &[u8],
-) -> XChaCha20Poly1305Ciphertext {
-    let rng = rand::rng();
-    encrypt_xchacha20_poly1305_internal(rng, key, plaintext_secret_data, associated_data)
-}
-
-fn encrypt_xchacha20_poly1305_internal(
-    _rng: impl RngCore + CryptoRng,
     key: &[u8; KEY_SIZE],
     plaintext_secret_data: &[u8],
     associated_data: &[u8],
