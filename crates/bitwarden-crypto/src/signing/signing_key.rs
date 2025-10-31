@@ -8,6 +8,7 @@ use coset::{
 use ed25519_dalek::Signer;
 #[cfg(feature = "post-quantum-crypto")]
 use ml_dsa::{B32, KeyGen, MlDsa65};
+use rand_core::RngCore;
 
 use super::{
     SignatureAlgorithm, ed25519_signing_key, key_id,
@@ -27,6 +28,10 @@ use crate::{
 enum RawSigningKey {
     Ed25519(Pin<Box<ed25519_dalek::SigningKey>>),
     #[cfg(feature = "post-quantum-crypto")]
+    // ML-DSA has two representations of the private key - the seed, and the expanded signing key.
+    // We store the seed here as it is always possible to go from seed to expanded private key + public key.
+    // other transitions are not possible. Further, the seed is used in cose to represent the private key,
+    // and cose does not allow storing the expanded signing key.
     MLDsa65(Pin<Box<B32>>),
 }
 
@@ -141,8 +146,40 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
                     .into()
             }
             #[cfg(feature = "post-quantum-crypto")]
-            RawSigningKey::MLDsa65(_key) => {
-                todo!()
+            RawSigningKey::MLDsa65(seed) => {
+                use crate::KEY_ID_SIZE;
+                use coset::{Label, iana::AkpKeyParameter};
+                use std::collections::BTreeSet;
+
+                CoseKey {
+                    kty: RegisteredLabel::Assigned(KeyType::AKP),
+                    key_id: Vec::from(Into::<[u8; KEY_ID_SIZE]>::into(self.id.clone())),
+                    alg: Some(RegisteredLabelWithPrivate::Assigned(Algorithm::ML_DSA_65)),
+                    base_iv: vec![],
+                    key_ops: BTreeSet::from([
+                        RegisteredLabel::Assigned(KeyOperation::Sign),
+                        RegisteredLabel::Assigned(KeyOperation::Verify),
+                    ]),
+                    params: vec![
+                        (
+                            Label::Int(AkpKeyParameter::Priv.to_i64()),
+                            Value::Bytes(seed.as_ref().to_vec()),
+                        ),
+                        (
+                            Label::Int(AkpKeyParameter::Pub.to_i64()),
+                            Value::Bytes(
+                                MlDsa65::key_gen_internal(seed)
+                                    .verifying_key()
+                                    .encode()
+                                    .as_slice()
+                                    .to_vec(),
+                            ),
+                        ),
+                    ],
+                }
+                .to_vec()
+                .expect("encoding should work")
+                .into()
             }
         }
     }

@@ -101,7 +101,24 @@ impl CoseSerializable<CoseKeyContentFormat> for VerifyingKey {
                 .into(),
             #[cfg(feature = "post-quantum-crypto")]
             RawVerifyingKey::MlDsa65(key) => {
-                todo!()
+                use crate::KEY_ID_SIZE;
+                use coset::{Label, iana::AkpKeyParameter};
+                use std::collections::BTreeSet;
+
+                coset::CoseKey {
+                    kty: RegisteredLabel::Assigned(KeyType::AKP),
+                    key_id: Vec::from(Into::<[u8; KEY_ID_SIZE]>::into(self.id.clone())),
+                    alg: Some(RegisteredLabelWithPrivate::Assigned(Algorithm::ML_DSA_65)),
+                    base_iv: vec![],
+                    key_ops: BTreeSet::from([RegisteredLabel::Assigned(KeyOperation::Verify)]),
+                    params: vec![(
+                        Label::Int(AkpKeyParameter::Pub.to_i64()),
+                        Value::Bytes(key.encode().as_slice().to_vec()),
+                    )],
+                }
+                .to_vec()
+                .expect("Verifying key is always serializable")
+                .into()
             }
         }
     }

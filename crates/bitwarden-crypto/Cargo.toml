@@ -15,7 +15,7 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-default = []
+default = ["post-quantum-crypto"]
 no-memory-hardening = [] # Disable memory hardening features
 post-quantum-crypto = ["dep:ml-dsa"]
 uniffi = [
