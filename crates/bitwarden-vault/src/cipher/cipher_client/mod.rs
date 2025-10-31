@@ -531,6 +531,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "wasm")]
     async fn test_encrypt_cipher_for_rotation() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
