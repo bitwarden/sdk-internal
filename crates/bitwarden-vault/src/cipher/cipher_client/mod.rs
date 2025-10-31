@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use bitwarden_core::{Client, OrganizationId};
-use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, SymmetricCryptoKey};
+use bitwarden_crypto::IdentifyKey;
+#[cfg(feature = "wasm")]
+use bitwarden_crypto::{CompositeEncryptable, SymmetricCryptoKey};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -11,8 +13,10 @@ use wasm_bindgen::prelude::*;
 use super::EncryptionContext;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
-    Fido2CredentialFullView, cipher::cipher::DecryptCipherListResult,
+    cipher::cipher::DecryptCipherListResult,
 };
+#[cfg(feature = "wasm")]
+use crate::Fido2CredentialFullView;
 
 mod create;
 mod edit;
@@ -195,6 +199,7 @@ impl CiphersClient {
 mod tests {
 
     use bitwarden_core::client::test_accounts::test_bitwarden_com_account;
+    #[cfg(feature = "wasm")]
     use bitwarden_crypto::CryptoError;
 
     use super::*;
