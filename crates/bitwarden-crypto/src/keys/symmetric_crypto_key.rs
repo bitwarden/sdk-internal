@@ -122,13 +122,13 @@ impl SymmetricCryptoKey {
 
     /// Generate a new random AES256_CBC_HMAC [SymmetricCryptoKey]
     pub fn make_aes256_cbc_hmac_key() -> Self {
-        let rng = rand::thread_rng();
+        let rng = rand::rng();
         Self::make_aes256_cbc_hmac_key_internal(rng)
     }
 
     /// Generate a new random XChaCha20Poly1305 [SymmetricCryptoKey]
     pub fn make_xchacha20_poly1305_key() -> Self {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
         rng.fill(enc_key.as_mut_slice());
         Self::XChaCha20Poly1305Key(XChaCha20Poly1305Key {

@@ -14,8 +14,10 @@
 //! `https://eprint.iacr.org/2019/016.pdf`
 //! `https://soatok.blog/2024/09/10/invisible-salamanders-are-not-what-you-think/`
 
-use chacha20poly1305::{AeadCore, AeadInPlace, KeyInit, XChaCha20Poly1305};
-use generic_array::GenericArray;
+use chacha20poly1305::{
+    AeadCore, KeyInit, XChaCha20Poly1305,
+    aead::{AeadInOut, array::Array},
+};
 use rand::{CryptoRng, RngCore};
 use typenum::Unsigned;
 
@@ -25,7 +27,7 @@ pub(crate) const NONCE_SIZE: usize = <XChaCha20Poly1305 as AeadCore>::NonceSize:
 pub(crate) const KEY_SIZE: usize = 32;
 
 pub(crate) struct XChaCha20Poly1305Ciphertext {
-    nonce: GenericArray<u8, <XChaCha20Poly1305 as AeadCore>::NonceSize>,
+    nonce: Array<u8, <XChaCha20Poly1305 as AeadCore>::NonceSize>,
     encrypted_bytes: Vec<u8>,
 }
 
@@ -44,20 +46,21 @@ pub(crate) fn encrypt_xchacha20_poly1305(
     plaintext_secret_data: &[u8],
     associated_data: &[u8],
 ) -> XChaCha20Poly1305Ciphertext {
-    let rng = rand::thread_rng();
+    let rng = rand::rng();
     encrypt_xchacha20_poly1305_internal(rng, key, plaintext_secret_data, associated_data)
 }
 
 fn encrypt_xchacha20_poly1305_internal(
-    rng: impl RngCore + CryptoRng,
+    _rng: impl RngCore + CryptoRng,
     key: &[u8; KEY_SIZE],
     plaintext_secret_data: &[u8],
     associated_data: &[u8],
 ) -> XChaCha20Poly1305Ciphertext {
-    let nonce = &XChaCha20Poly1305::generate_nonce(rng);
+    let nonce = &XChaCha20Poly1305::generate_nonce().expect("nonce generation osrng cannot fail");
+
     // This buffer contains the plaintext, that will be encrypted in-place
     let mut buffer = plaintext_secret_data.to_vec();
-    XChaCha20Poly1305::new(GenericArray::from_slice(key))
+    XChaCha20Poly1305::new(&Array::from(*key))
         .encrypt_in_place(nonce, associated_data, &mut buffer)
         .expect("encryption failed");
 
@@ -74,12 +77,8 @@ pub(crate) fn decrypt_xchacha20_poly1305(
     associated_data: &[u8],
 ) -> Result<Vec<u8>, CryptoError> {
     let mut buffer = ciphertext.to_vec();
-    XChaCha20Poly1305::new(GenericArray::from_slice(key))
-        .decrypt_in_place(
-            GenericArray::from_slice(nonce),
-            associated_data,
-            &mut buffer,
-        )
+    XChaCha20Poly1305::new(&Array::from(*key))
+        .decrypt_in_place(&Array::from(*nonce), associated_data, &mut buffer)
         .map_err(|_| CryptoError::KeyDecrypt)?;
     Ok(buffer)
 }

@@ -382,7 +382,7 @@ impl TryInto<Argon2RawSettings> for &Header {
 
 fn make_salt() -> [u8; ENVELOPE_ARGON2_SALT_SIZE] {
     let mut salt = [0u8; ENVELOPE_ARGON2_SALT_SIZE];
-    rand::thread_rng().fill_bytes(&mut salt);
+    rand::rng().fill_bytes(&mut salt);
     salt
 }
 

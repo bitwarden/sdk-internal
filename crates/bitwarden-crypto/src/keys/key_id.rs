@@ -24,7 +24,7 @@ impl KeyId {
         // We do not use the uuid crate's random generation functionality here to make sure the
         // entropy sampling aligns with the rest of this crates usage of CSPRNGs.
         let mut random_seed = [0u8; UUID_SEED_SIZE];
-        rand::thread_rng().fill_bytes(&mut random_seed);
+        rand::rng().fill_bytes(&mut random_seed);
 
         let uuid = uuid::Builder::from_random_bytes(random_seed)
             .with_version(uuid::Version::Random)

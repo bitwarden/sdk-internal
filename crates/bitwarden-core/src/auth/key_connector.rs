@@ -9,10 +9,8 @@ pub struct KeyConnectorResponse {
     pub keys: RsaKeyPair,
 }
 
-pub(super) fn make_key_connector_keys(
-    mut rng: impl rand::RngCore,
-) -> Result<KeyConnectorResponse, CryptoError> {
-    let master_key = MasterKey::generate(&mut rng);
+pub(super) fn make_key_connector_keys() -> Result<KeyConnectorResponse, CryptoError> {
+    let master_key = MasterKey::generate();
     let (user_key, encrypted_user_key) = master_key.make_user_key()?;
     let keys = user_key.make_key_pair()?;
 
@@ -21,24 +19,4 @@ pub(super) fn make_key_connector_keys(
         encrypted_user_key: encrypted_user_key.to_string(),
         keys,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use rand::SeedableRng;
-    use rand_chacha::ChaCha8Rng;
-
-    use super::*;
-
-    #[test]
-    fn test_make_key_connector_keys() {
-        let mut rng = ChaCha8Rng::from_seed([0u8; 32]);
-
-        let result = make_key_connector_keys(&mut rng).unwrap();
-
-        assert_eq!(
-            result.master_key.to_string(),
-            "PgDvL4lfQNZ/W7joHwmloSyEDsPOmn87GBvhiO9xGh4="
-        );
-    }
 }

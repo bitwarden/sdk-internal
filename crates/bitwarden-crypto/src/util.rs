@@ -5,7 +5,7 @@ use generic_array::GenericArray;
 use hmac::digest::OutputSizeUser;
 use rand::{
     Rng,
-    distributions::{Alphanumeric, DistString, Distribution, Standard},
+    distr::{Alphanumeric, Distribution, SampleString, StandardUniform},
 };
 use zeroize::{Zeroize, Zeroizing};
 
@@ -33,10 +33,10 @@ pub(crate) fn hkdf_expand<T: ArrayLength<u8>>(
 /// Generate random bytes that are cryptographically secure
 pub fn generate_random_bytes<T>() -> Zeroizing<T>
 where
-    Standard: Distribution<T>,
+    StandardUniform: Distribution<T>,
     T: Zeroize,
 {
-    Zeroizing::new(rand::thread_rng().r#gen::<T>())
+    Zeroizing::new(rand::rng().random())
 }
 
 /// Generate a random alphanumeric string of a given length
@@ -44,7 +44,7 @@ where
 /// Note: Do not use this generating user facing passwords. Use the `bitwarden-generator` crate for
 /// that.
 pub fn generate_random_alphanumeric(len: usize) -> String {
-    Alphanumeric.sample_string(&mut rand::thread_rng(), len)
+    Alphanumeric.sample_string(&mut rand::rng(), len)
 }
 
 /// Derive pbkdf2 of a given password and salt

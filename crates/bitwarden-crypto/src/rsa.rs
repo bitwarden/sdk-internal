@@ -23,7 +23,7 @@ pub struct RsaKeyPair {
 
 /// Generate a new RSA key pair of 2048 bits
 pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let bits = 2048;
     let priv_key = RsaPrivateKey::new(&mut rng, bits).expect("failed to generate a key");
     let pub_key = RsaPublicKey::from(&priv_key);
@@ -56,7 +56,7 @@ pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
 
 /// Encrypt data using RSA-OAEP-SHA1 with a 2048 bit key
 pub(super) fn encrypt_rsa2048_oaep_sha1(public_key: &RsaPublicKey, data: &[u8]) -> Result<Vec<u8>> {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let padding = Oaep::new::<Sha1>();
     public_key

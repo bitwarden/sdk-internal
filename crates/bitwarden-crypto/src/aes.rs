@@ -7,7 +7,7 @@
 
 use aes::cipher::{BlockDecryptMut, BlockEncryptMut, KeyIvInit, block_padding::Pkcs7};
 use generic_array::GenericArray;
-use hmac::Mac;
+use hmac::{KeyInit, Mac};
 use subtle::ConstantTimeEq;
 use typenum::U32;
 
@@ -66,7 +66,7 @@ pub(crate) fn encrypt_aes256_hmac(
     mac_key: &GenericArray<u8, U32>,
     key: &GenericArray<u8, U32>,
 ) -> Result<([u8; 16], [u8; 32], Vec<u8>)> {
-    let rng = rand::thread_rng();
+    let rng = rand::rng();
     let (iv, data) = encrypt_aes256_internal(rng, data_dec, key);
     let mac = generate_mac(mac_key, &iv, &data)?;
 
