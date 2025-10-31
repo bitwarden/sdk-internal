@@ -11,12 +11,12 @@ use bitwarden_state::repository::{Repository, RepositoryError};
 use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
+#[cfg(feature = "wasm")]
+use crate::Fido2CredentialFullView;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
     cipher::cipher::DecryptCipherListResult,
 };
-#[cfg(feature = "wasm")]
-use crate::Fido2CredentialFullView;
 
 mod create;
 mod edit;
