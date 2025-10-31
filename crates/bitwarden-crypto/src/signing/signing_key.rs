@@ -6,8 +6,8 @@ use coset::{
     iana::{Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter},
 };
 use ed25519_dalek::Signer;
+#[cfg(feature = "post-quantum-crypto")]
 use ml_dsa::{B32, KeyGen, MlDsa65};
-use rand::RngCore;
 
 use super::{
     SignatureAlgorithm, ed25519_signing_key, key_id,
@@ -26,6 +26,7 @@ use crate::{
 #[derive(Clone)]
 enum RawSigningKey {
     Ed25519(Pin<Box<ed25519_dalek::SigningKey>>),
+    #[cfg(feature = "post-quantum-crypto")]
     MLDsa65(Pin<Box<B32>>),
 }
 
@@ -57,6 +58,7 @@ impl SigningKey {
                     &mut rand::rng(),
                 ))),
             },
+            #[cfg(feature = "post-quantum-crypto")]
             SignatureAlgorithm::MLDsa65 => {
                 let mut seed = [0u8; 32];
                 rand::rng().fill_bytes(&mut seed);
@@ -71,6 +73,7 @@ impl SigningKey {
     pub(super) fn cose_algorithm(&self) -> Algorithm {
         match &self.inner {
             RawSigningKey::Ed25519(_) => Algorithm::EdDSA,
+            #[cfg(feature = "post-quantum-crypto")]
             RawSigningKey::MLDsa65(_) => Algorithm::ML_DSA_65,
         }
     }
@@ -83,6 +86,7 @@ impl SigningKey {
                 id: self.id.clone(),
                 inner: RawVerifyingKey::Ed25519(key.verifying_key()),
             },
+            #[cfg(feature = "post-quantum-crypto")]
             RawSigningKey::MLDsa65(seed) => VerifyingKey {
                 id: self.id.clone(),
                 inner: RawVerifyingKey::MlDsa65(
@@ -98,6 +102,7 @@ impl SigningKey {
     pub(super) fn sign_raw(&self, data: &[u8]) -> Vec<u8> {
         match &self.inner {
             RawSigningKey::Ed25519(key) => key.sign(data).to_bytes().to_vec(),
+            #[cfg(feature = "post-quantum-crypto")]
             RawSigningKey::MLDsa65(seed) => MlDsa65::key_gen_internal(seed)
                 // ctx is empty, the CTX is provided otherwise in the namespace of the signature message, to abstract
                 // away from the specific signature scheme
@@ -135,7 +140,8 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
                     .expect("Signing key is always serializable")
                     .into()
             }
-            RawSigningKey::MLDsa65(key) => {
+            #[cfg(feature = "post-quantum-crypto")]
+            RawSigningKey::MLDsa65(_key) => {
                 todo!()
             }
         }
@@ -188,13 +194,16 @@ mod tests {
 
     #[test]
     fn test_sign_rountrip_mldsa65() {
-        let signing_key = SigningKey::make(SignatureAlgorithm::MLDsa65);
-        let signature = signing_key.sign_raw("Test message".as_bytes());
-        let verifying_key = signing_key.to_verifying_key();
-        assert!(
-            verifying_key
-                .verify_raw(&signature, "Test message".as_bytes())
-                .is_ok()
-        );
+        #[cfg(feature = "post-quantum-crypto")]
+        {
+            let signing_key = SigningKey::make(SignatureAlgorithm::MLDsa65);
+            let signature = signing_key.sign_raw("Test message".as_bytes());
+            let verifying_key = signing_key.to_verifying_key();
+            assert!(
+                verifying_key
+                    .verify_raw(&signature, "Test message".as_bytes())
+                    .is_ok()
+            );
+        }
     }
 }

@@ -10,6 +10,7 @@ use coset::{
     CborSerializable, RegisteredLabel, RegisteredLabelWithPrivate,
     iana::{Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter},
 };
+#[cfg(feature = "post-quantum-crypto")]
 use ml_dsa::{MlDsa65, VerifyingKey as _, signature::Verifier};
 
 use super::{SignatureAlgorithm, ed25519_verifying_key, key_id};
@@ -25,6 +26,7 @@ use crate::{
 /// scheme.
 pub(super) enum RawVerifyingKey {
     Ed25519(ed25519_dalek::VerifyingKey),
+    #[cfg(feature = "post-quantum-crypto")]
     MlDsa65(ml_dsa::VerifyingKey<MlDsa65>),
 }
 
@@ -41,6 +43,7 @@ impl VerifyingKey {
     pub fn algorithm(&self) -> SignatureAlgorithm {
         match &self.inner {
             RawVerifyingKey::Ed25519(_) => SignatureAlgorithm::Ed25519,
+            #[cfg(feature = "post-quantum-crypto")]
             RawVerifyingKey::MlDsa65(_) => SignatureAlgorithm::MLDsa65,
         }
     }
@@ -59,6 +62,7 @@ impl VerifyingKey {
                 key.verify_strict(data, &sig)
                     .map_err(|_| SignatureError::InvalidSignature.into())
             }
+            #[cfg(feature = "post-quantum-crypto")]
             RawVerifyingKey::MlDsa65(key) => {
                 let sig: ml_dsa::Signature<MlDsa65> = ml_dsa::Signature::from(
                     signature
@@ -95,13 +99,10 @@ impl CoseSerializable<CoseKeyContentFormat> for VerifyingKey {
                 .to_vec()
                 .expect("Verifying key is always serializable")
                 .into(),
-            RawVerifyingKey::MlDsa65(key) => coset::CoseKeyBuilder::new_okp_key()
-                .key_id((&self.id).into())
-                .algorithm(Algorithm::ES256)
-                .build()
-                .to_vec()
-                .expect("Verifying key is always serializable")
-                .into(),
+            #[cfg(feature = "post-quantum-crypto")]
+            RawVerifyingKey::MlDsa65(key) => {
+                todo!()
+            }
         }
     }
 

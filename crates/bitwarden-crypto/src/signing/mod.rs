@@ -55,6 +55,7 @@ pub enum SignatureAlgorithm {
     /// Ed25519 is the modern, secure recommended option for digital signatures on eliptic curves.
     Ed25519,
     /// MlDsa65 is a post-quantum secure signature scheme
+    #[cfg(feature = "post-quantum-crypto")]
     MLDsa65,
 }
 
