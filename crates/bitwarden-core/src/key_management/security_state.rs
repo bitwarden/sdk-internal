@@ -31,6 +31,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::UserId;
 
+/// Icon URI hashes are enforced starting with this security state version.
+pub const MINIMUM_ENFORCE_ICON_URI_HASH_VERSION: u64 = 2;
+
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"

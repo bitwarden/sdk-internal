@@ -82,6 +82,8 @@ pub struct KeyStoreContext<'a, Ids: KeyIds> {
     pub(super) local_asymmetric_keys: Box<dyn StoreBackend<Ids::Asymmetric>>,
     pub(super) local_signing_keys: Box<dyn StoreBackend<Ids::Signing>>,
 
+    pub(super) security_state_version: u64,
+
     // Make sure the context is !Send & !Sync
     pub(super) _phantom: std::marker::PhantomData<(Cell<()>, RwLockReadGuard<'static, ()>)>,
 }
@@ -120,6 +122,13 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         self.local_symmetric_keys.clear();
         self.local_asymmetric_keys.clear();
         self.local_signing_keys.clear();
+    }
+
+    /// Returns the version of the security state of the key context. This describes the user's
+    /// encryption version and can be used to disable certain old / dangerous format features
+    /// safely.
+    pub fn get_security_state_version(&self) -> u64 {
+        self.security_state_version
     }
 
     /// Remove all symmetric keys from the context for which the predicate returns false
