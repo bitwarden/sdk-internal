@@ -16,7 +16,7 @@ pub enum GetCipherError {
     #[error(transparent)]
     Crypto(#[from] CryptoError),
     #[error(transparent)]
-    RepositoryError(#[from] RepositoryError),
+    Repository(#[from] RepositoryError),
 }
 
 async fn get_cipher(
