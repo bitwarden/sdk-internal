@@ -2,7 +2,7 @@ use std::pin::Pin;
 
 use bitwarden_encoding::B64;
 use generic_array::GenericArray;
-use rand::Rng;
+use rand_core::CryptoRng;
 use typenum::U32;
 use zeroize::Zeroize;
 
@@ -40,10 +40,14 @@ impl MasterKey {
     }
 
     /// Generate a new random master key for KeyConnector.
-    pub fn generate(mut rng: impl rand::RngCore) -> Self {
+    pub fn generate() -> Self {
+        Self::generate_internal(&mut rand::rng())
+    }
+
+    pub(crate) fn generate_internal<R: CryptoRng + ?Sized>(csprng: &mut R) -> Self {
         let mut key = Box::pin(GenericArray::<u8, U32>::default());
 
-        rng.fill(key.as_mut_slice());
+        csprng.fill_bytes(key.as_mut_slice());
         Self::KeyConnectorKey(key)
     }
 
@@ -70,7 +74,7 @@ impl MasterKey {
 
     /// Generate a new random user key and encrypt it with the master key.
     pub fn make_user_key(&self) -> Result<(UserKey, EncString)> {
-        make_user_key(rand::thread_rng(), self)
+        make_user_key(rand::rng(), self)
     }
 
     /// Encrypt the users user key

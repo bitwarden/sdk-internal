@@ -1,7 +1,7 @@
 use std::pin::Pin;
 
 use generic_array::GenericArray;
-use hmac::Mac;
+use hmac::{KeyInit, Mac};
 use typenum::{U32, U64};
 use zeroize::{Zeroize, Zeroizing};
 
@@ -18,13 +18,11 @@ pub fn derive_shareable_key(
     info: Option<&str>,
 ) -> Aes256CbcHmacKey {
     // Because all inputs are fixed size, we can unwrap all errors here without issue
-    let res = Zeroizing::new(
-        PbkdfSha256Hmac::new_from_slice(format!("bitwarden-{name}").as_bytes())
-            .expect("hmac new_from_slice should not fail")
-            .chain_update(secret)
-            .finalize()
-            .into_bytes(),
-    );
+    let res = PbkdfSha256Hmac::new_from_slice(format!("bitwarden-{name}").as_bytes())
+        .expect("hmac new_from_slice should not fail")
+        .chain_update(secret)
+        .finalize()
+        .into_bytes();
 
     let mut key: Pin<Box<GenericArray<u8, U64>>> =
         hkdf_expand(&res, info).expect("Input is a valid size");
