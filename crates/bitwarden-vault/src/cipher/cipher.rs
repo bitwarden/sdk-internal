@@ -1127,6 +1127,7 @@ mod tests {
             size_name: None,
             file_name: Some("Attachment test name".into()),
             key: None,
+            #[cfg(feature = "wasm")]
             decrypted_key: None,
         };
         cipher.attachments = Some(vec![attachment]);
@@ -1239,6 +1240,7 @@ mod tests {
             size_name: None,
             file_name: Some("Attachment test name".into()),
             key: None,
+            #[cfg(feature = "wasm")]
             decrypted_key: None,
         };
         cipher.attachments = Some(vec![attachment]);
@@ -1283,6 +1285,7 @@ mod tests {
             size_name: None,
             file_name: Some("Attachment test name".into()),
             key: Some(attachment_key_enc),
+            #[cfg(feature = "wasm")]
             decrypted_key: None,
         };
         cipher.attachments = Some(vec![attachment]);
@@ -1351,6 +1354,7 @@ mod tests {
             size_name: None,
             file_name: Some("Attachment test name".into()),
             key: Some(attachment_key_enc.clone()),
+            #[cfg(feature = "wasm")]
             decrypted_key: None,
         };
         cipher.attachments = Some(vec![attachment]);
