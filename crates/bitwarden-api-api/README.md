@@ -12,7 +12,7 @@ client.
 - API version: latest
 - Package version: 1.0.0
 - Server Git commit:
-  [`bd52cf56e7e0761da9f61738f2cda062213feb9c`](https://github.com/bitwarden/server/commit/bd52cf56e7e0761da9f61738f2cda062213feb9c)
+  [`e11458196c7f649091f2e6c896a9b9bca9c8e856`](https://github.com/bitwarden/server/commit/e11458196c7f649091f2e6c896a9b9bca9c8e856)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -230,8 +230,6 @@ All URIs are relative to *https://api.bitwarden.com*
 | _InvoicesApi_                             | [**preview_invoice**](docs/InvoicesApi.md#invoices_preview_invoice)                                                                                              | **POST** /invoices/preview-organization                                                                  |
 | _LicensesApi_                             | [**get_user**](docs/LicensesApi.md#licenses_get_user)                                                                                                            | **GET** /licenses/user/{id}                                                                              |
 | _LicensesApi_                             | [**organization_sync**](docs/LicensesApi.md#licenses_organization_sync)                                                                                          | **GET** /licenses/organization/{id}                                                                      | Used by self-hosted installations to get an updated license file                                                                                                                                                                                                        |
-| _MiscApi_                                 | [**post_bit_pay_invoice**](docs/MiscApi.md#misc_post_bit_pay_invoice)                                                                                            | **POST** /bitpay-invoice                                                                                 |
-| _MiscApi_                                 | [**post_setup_payment**](docs/MiscApi.md#misc_post_setup_payment)                                                                                                | **POST** /setup-payment                                                                                  |
 | _NotificationsApi_                        | [**list**](docs/NotificationsApi.md#notifications_list)                                                                                                          | **GET** /notifications                                                                                   |
 | _NotificationsApi_                        | [**mark_as_deleted**](docs/NotificationsApi.md#notifications_mark_as_deleted)                                                                                    | **PATCH** /notifications/{id}/delete                                                                     |
 | _NotificationsApi_                        | [**mark_as_read**](docs/NotificationsApi.md#notifications_mark_as_read)                                                                                          | **PATCH** /notifications/{id}/read                                                                       |
@@ -560,7 +558,6 @@ All URIs are relative to *https://api.bitwarden.com*
 - [BillingSubscriptionUpcomingInvoice](docs/BillingSubscriptionUpcomingInvoice.md)
 - [BillingTransaction](docs/BillingTransaction.md)
 - [BitPayCreditRequest](docs/BitPayCreditRequest.md)
-- [BitPayInvoiceRequestModel](docs/BitPayInvoiceRequestModel.md)
 - [BulkCollectionAccessRequestModel](docs/BulkCollectionAccessRequestModel.md)
 - [BulkCreateSecurityTasksRequestModel](docs/BulkCreateSecurityTasksRequestModel.md)
 - [BulkDeleteResponseModel](docs/BulkDeleteResponseModel.md)
@@ -735,6 +732,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [OrganizationNoPaymentCreateRequest](docs/OrganizationNoPaymentCreateRequest.md)
 - [OrganizationPasswordManagerRequestModel](docs/OrganizationPasswordManagerRequestModel.md)
 - [OrganizationPublicKeyResponseModel](docs/OrganizationPublicKeyResponseModel.md)
+- [OrganizationReportMetricsRequest](docs/OrganizationReportMetricsRequest.md)
 - [OrganizationResponseModel](docs/OrganizationResponseModel.md)
 - [OrganizationSeatRequestModel](docs/OrganizationSeatRequestModel.md)
 - [OrganizationSponsorshipCreateRequestModel](docs/OrganizationSponsorshipCreateRequestModel.md)

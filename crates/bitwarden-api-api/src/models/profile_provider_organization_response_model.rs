@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// ProfileProviderOrganizationResponseModel : Sync data for provider users and their managed
+/// organizations. Note: see Bit.Api.AdminConsole.Models.Response.ProfileOrganizationResponseModel
+/// for organization sync data received by organization members.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProfileProviderOrganizationResponseModel {
     #[serde(
@@ -28,6 +31,24 @@ pub struct ProfileProviderOrganizationResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub name: Option<String>,
+    #[serde(
+        rename = "enabled",
+        alias = "Enabled",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub enabled: Option<bool>,
+    #[serde(
+        rename = "identifier",
+        alias = "Identifier",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub identifier: Option<String>,
+    #[serde(
+        rename = "productTierType",
+        alias = "ProductTierType",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub product_tier_type: Option<models::ProductTierType>,
     #[serde(
         rename = "usePolicies",
         alias = "UsePolicies",
@@ -125,6 +146,30 @@ pub struct ProfileProviderOrganizationResponseModel {
     )]
     pub use_activate_autofill_policy: Option<bool>,
     #[serde(
+        rename = "useRiskInsights",
+        alias = "UseRiskInsights",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_risk_insights: Option<bool>,
+    #[serde(
+        rename = "useOrganizationDomains",
+        alias = "UseOrganizationDomains",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_organization_domains: Option<bool>,
+    #[serde(
+        rename = "useAdminSponsoredFamilies",
+        alias = "UseAdminSponsoredFamilies",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_admin_sponsored_families: Option<bool>,
+    #[serde(
+        rename = "useAutomaticUserConfirmation",
+        alias = "UseAutomaticUserConfirmation",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_automatic_user_confirmation: Option<bool>,
+    #[serde(
         rename = "selfHost",
         alias = "SelfHost",
         skip_serializing_if = "Option::is_none"
@@ -151,23 +196,11 @@ pub struct ProfileProviderOrganizationResponseModel {
     #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
     #[serde(
-        rename = "status",
-        alias = "Status",
+        rename = "hasPublicAndPrivateKeys",
+        alias = "HasPublicAndPrivateKeys",
         skip_serializing_if = "Option::is_none"
     )]
-    pub status: Option<models::OrganizationUserStatusType>,
-    #[serde(
-        rename = "type",
-        alias = "R#type",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub r#type: Option<models::OrganizationUserType>,
-    #[serde(
-        rename = "enabled",
-        alias = "Enabled",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub enabled: Option<bool>,
+    pub has_public_and_private_keys: Option<bool>,
     #[serde(
         rename = "ssoBound",
         alias = "SsoBound",
@@ -175,113 +208,11 @@ pub struct ProfileProviderOrganizationResponseModel {
     )]
     pub sso_bound: Option<bool>,
     #[serde(
-        rename = "identifier",
-        alias = "Identifier",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub identifier: Option<String>,
-    #[serde(
-        rename = "permissions",
-        alias = "Permissions",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub permissions: Option<Box<models::Permissions>>,
-    #[serde(
         rename = "resetPasswordEnrolled",
         alias = "ResetPasswordEnrolled",
         skip_serializing_if = "Option::is_none"
     )]
     pub reset_password_enrolled: Option<bool>,
-    #[serde(
-        rename = "userId",
-        alias = "UserId",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub user_id: Option<uuid::Uuid>,
-    #[serde(
-        rename = "organizationUserId",
-        alias = "OrganizationUserId",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub organization_user_id: Option<uuid::Uuid>,
-    #[serde(
-        rename = "hasPublicAndPrivateKeys",
-        alias = "HasPublicAndPrivateKeys",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub has_public_and_private_keys: Option<bool>,
-    #[serde(
-        rename = "providerId",
-        alias = "ProviderId",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub provider_id: Option<uuid::Uuid>,
-    #[serde(
-        rename = "providerName",
-        alias = "ProviderName",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub provider_name: Option<String>,
-    #[serde(
-        rename = "providerType",
-        alias = "ProviderType",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub provider_type: Option<models::ProviderType>,
-    #[serde(
-        rename = "familySponsorshipFriendlyName",
-        alias = "FamilySponsorshipFriendlyName",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub family_sponsorship_friendly_name: Option<String>,
-    #[serde(
-        rename = "familySponsorshipAvailable",
-        alias = "FamilySponsorshipAvailable",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub family_sponsorship_available: Option<bool>,
-    #[serde(
-        rename = "productTierType",
-        alias = "ProductTierType",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub product_tier_type: Option<models::ProductTierType>,
-    #[serde(
-        rename = "keyConnectorEnabled",
-        alias = "KeyConnectorEnabled",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub key_connector_enabled: Option<bool>,
-    #[serde(
-        rename = "keyConnectorUrl",
-        alias = "KeyConnectorUrl",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub key_connector_url: Option<String>,
-    #[serde(
-        rename = "familySponsorshipLastSyncDate",
-        alias = "FamilySponsorshipLastSyncDate",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub family_sponsorship_last_sync_date: Option<String>,
-    #[serde(
-        rename = "familySponsorshipValidUntil",
-        alias = "FamilySponsorshipValidUntil",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub family_sponsorship_valid_until: Option<String>,
-    #[serde(
-        rename = "familySponsorshipToDelete",
-        alias = "FamilySponsorshipToDelete",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub family_sponsorship_to_delete: Option<bool>,
-    #[serde(
-        rename = "accessSecretsManager",
-        alias = "AccessSecretsManager",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub access_secrets_manager: Option<bool>,
     #[serde(
         rename = "limitCollectionCreation",
         alias = "LimitCollectionCreation",
@@ -306,46 +237,24 @@ pub struct ProfileProviderOrganizationResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub allow_admin_access_to_all_collection_items: Option<bool>,
-    /// Obsolete. See
-    /// Bit.Api.AdminConsole.Models.Response.ProfileOrganizationResponseModel.
-    /// UserIsClaimedByOrganization
     #[serde(
-        rename = "userIsManagedByOrganization",
-        alias = "UserIsManagedByOrganization",
+        rename = "providerId",
+        alias = "ProviderId",
         skip_serializing_if = "Option::is_none"
     )]
-    pub user_is_managed_by_organization: Option<bool>,
-    /// Indicates if the user is claimed by the organization.
+    pub provider_id: Option<uuid::Uuid>,
     #[serde(
-        rename = "userIsClaimedByOrganization",
-        alias = "UserIsClaimedByOrganization",
+        rename = "providerName",
+        alias = "ProviderName",
         skip_serializing_if = "Option::is_none"
     )]
-    pub user_is_claimed_by_organization: Option<bool>,
+    pub provider_name: Option<String>,
     #[serde(
-        rename = "useRiskInsights",
-        alias = "UseRiskInsights",
+        rename = "providerType",
+        alias = "ProviderType",
         skip_serializing_if = "Option::is_none"
     )]
-    pub use_risk_insights: Option<bool>,
-    #[serde(
-        rename = "useOrganizationDomains",
-        alias = "UseOrganizationDomains",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub use_organization_domains: Option<bool>,
-    #[serde(
-        rename = "useAdminSponsoredFamilies",
-        alias = "UseAdminSponsoredFamilies",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub use_admin_sponsored_families: Option<bool>,
-    #[serde(
-        rename = "isAdminInitiated",
-        alias = "IsAdminInitiated",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub is_admin_initiated: Option<bool>,
+    pub provider_type: Option<models::ProviderType>,
     #[serde(
         rename = "ssoEnabled",
         alias = "SsoEnabled",
@@ -353,25 +262,67 @@ pub struct ProfileProviderOrganizationResponseModel {
     )]
     pub sso_enabled: Option<bool>,
     #[serde(
+        rename = "keyConnectorEnabled",
+        alias = "KeyConnectorEnabled",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub key_connector_enabled: Option<bool>,
+    #[serde(
+        rename = "keyConnectorUrl",
+        alias = "KeyConnectorUrl",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub key_connector_url: Option<String>,
+    #[serde(
         rename = "ssoMemberDecryptionType",
         alias = "SsoMemberDecryptionType",
         skip_serializing_if = "Option::is_none"
     )]
     pub sso_member_decryption_type: Option<models::MemberDecryptionType>,
     #[serde(
-        rename = "useAutomaticUserConfirmation",
-        alias = "UseAutomaticUserConfirmation",
+        rename = "accessSecretsManager",
+        alias = "AccessSecretsManager",
         skip_serializing_if = "Option::is_none"
     )]
-    pub use_automatic_user_confirmation: Option<bool>,
+    pub access_secrets_manager: Option<bool>,
+    #[serde(
+        rename = "userId",
+        alias = "UserId",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub user_id: Option<uuid::Uuid>,
+    #[serde(
+        rename = "status",
+        alias = "Status",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub status: Option<models::OrganizationUserStatusType>,
+    #[serde(
+        rename = "type",
+        alias = "R#type",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub r#type: Option<models::OrganizationUserType>,
+    #[serde(
+        rename = "permissions",
+        alias = "Permissions",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub permissions: Option<Box<models::Permissions>>,
 }
 
 impl ProfileProviderOrganizationResponseModel {
+    /// Sync data for provider users and their managed organizations. Note: see
+    /// Bit.Api.AdminConsole.Models.Response.ProfileOrganizationResponseModel for organization sync
+    /// data received by organization members.
     pub fn new() -> ProfileProviderOrganizationResponseModel {
         ProfileProviderOrganizationResponseModel {
             object: None,
             id: None,
             name: None,
+            enabled: None,
+            identifier: None,
+            product_tier_type: None,
             use_policies: None,
             use_sso: None,
             use_key_connector: None,
@@ -388,46 +339,34 @@ impl ProfileProviderOrganizationResponseModel {
             users_get_premium: None,
             use_custom_permissions: None,
             use_activate_autofill_policy: None,
+            use_risk_insights: None,
+            use_organization_domains: None,
+            use_admin_sponsored_families: None,
+            use_automatic_user_confirmation: None,
             self_host: None,
             seats: None,
             max_collections: None,
             max_storage_gb: None,
             key: None,
-            status: None,
-            r#type: None,
-            enabled: None,
-            sso_bound: None,
-            identifier: None,
-            permissions: None,
-            reset_password_enrolled: None,
-            user_id: None,
-            organization_user_id: None,
             has_public_and_private_keys: None,
-            provider_id: None,
-            provider_name: None,
-            provider_type: None,
-            family_sponsorship_friendly_name: None,
-            family_sponsorship_available: None,
-            product_tier_type: None,
-            key_connector_enabled: None,
-            key_connector_url: None,
-            family_sponsorship_last_sync_date: None,
-            family_sponsorship_valid_until: None,
-            family_sponsorship_to_delete: None,
-            access_secrets_manager: None,
+            sso_bound: None,
+            reset_password_enrolled: None,
             limit_collection_creation: None,
             limit_collection_deletion: None,
             limit_item_deletion: None,
             allow_admin_access_to_all_collection_items: None,
-            user_is_managed_by_organization: None,
-            user_is_claimed_by_organization: None,
-            use_risk_insights: None,
-            use_organization_domains: None,
-            use_admin_sponsored_families: None,
-            is_admin_initiated: None,
+            provider_id: None,
+            provider_name: None,
+            provider_type: None,
             sso_enabled: None,
+            key_connector_enabled: None,
+            key_connector_url: None,
             sso_member_decryption_type: None,
-            use_automatic_user_confirmation: None,
+            access_secrets_manager: None,
+            user_id: None,
+            status: None,
+            r#type: None,
+            permissions: None,
         }
     }
 }

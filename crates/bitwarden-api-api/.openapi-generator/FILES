@@ -21,7 +21,6 @@ src/apis/info_api.rs
 src/apis/installations_api.rs
 src/apis/invoices_api.rs
 src/apis/licenses_api.rs
-src/apis/misc_api.rs
 src/apis/mod.rs
 src/apis/notifications_api.rs
 src/apis/organization_auth_requests_api.rs
@@ -112,7 +111,6 @@ src/models/billing_subscription_item.rs
 src/models/billing_subscription_upcoming_invoice.rs
 src/models/billing_transaction.rs
 src/models/bit_pay_credit_request.rs
-src/models/bit_pay_invoice_request_model.rs
 src/models/bulk_collection_access_request_model.rs
 src/models/bulk_create_security_tasks_request_model.rs
 src/models/bulk_delete_response_model.rs
@@ -288,6 +286,7 @@ src/models/organization_license.rs
 src/models/organization_no_payment_create_request.rs
 src/models/organization_password_manager_request_model.rs
 src/models/organization_public_key_response_model.rs
+src/models/organization_report_metrics_request.rs
 src/models/organization_response_model.rs
 src/models/organization_seat_request_model.rs
 src/models/organization_sponsorship_create_request_model.rs

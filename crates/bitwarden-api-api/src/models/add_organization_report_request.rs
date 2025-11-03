@@ -44,6 +44,12 @@ pub struct AddOrganizationReportRequest {
         skip_serializing_if = "Option::is_none"
     )]
     pub application_data: Option<String>,
+    #[serde(
+        rename = "metrics",
+        alias = "Metrics",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub metrics: Option<Box<models::OrganizationReportMetricsRequest>>,
 }
 
 impl AddOrganizationReportRequest {
@@ -54,6 +60,7 @@ impl AddOrganizationReportRequest {
             content_encryption_key: None,
             summary_data: None,
             application_data: None,
+            metrics: None,
         }
     }
 }

@@ -32,6 +32,12 @@ pub struct UpdateOrganizationReportSummaryRequest {
         skip_serializing_if = "Option::is_none"
     )]
     pub summary_data: Option<String>,
+    #[serde(
+        rename = "metrics",
+        alias = "Metrics",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub metrics: Option<Box<models::OrganizationReportMetricsRequest>>,
 }
 
 impl UpdateOrganizationReportSummaryRequest {
@@ -40,6 +46,7 @@ impl UpdateOrganizationReportSummaryRequest {
             organization_id: None,
             report_id: None,
             summary_data: None,
+            metrics: None,
         }
     }
 }
