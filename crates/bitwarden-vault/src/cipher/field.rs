@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bitwarden_api_api::models::CipherFieldModel;
 use bitwarden_core::{
     MissingFieldError,
@@ -16,7 +18,7 @@ use tsify::Tsify;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::linked_id::LinkedIdType;
-use crate::VaultParseError;
+use crate::{PasswordHistoryView, VaultParseError};
 
 /// Represents the type of a [FieldView].
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq, Eq)]
@@ -85,6 +87,44 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Field> for FieldView {
             r#type: self.r#type,
             linked_id: self.linked_id,
         })
+    }
+}
+
+impl FieldView {
+    /// Compares two sets of FieldView and detects changes in hidden fields, for building password
+    /// history.
+    pub(crate) fn detect_hidden_field_changes(
+        fields: &[FieldView],
+        original: &[FieldView],
+    ) -> Vec<PasswordHistoryView> {
+        let current_fields = Self::extract_hidden_fields(fields);
+        let original_fields = Self::extract_hidden_fields(original);
+
+        original_fields
+            .into_iter()
+            .filter_map(|(field_name, original_value)| {
+                let current_value = current_fields.get(&field_name);
+                if current_value != Some(&original_value) {
+                    Some(PasswordHistoryView::new_field(&field_name, &original_value))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    fn extract_hidden_fields(fields: &[FieldView]) -> HashMap<String, String> {
+        fields
+            .iter()
+            .filter_map(|f| match (&f.r#type, &f.name, &f.value) {
+                (FieldType::Hidden, Some(name), Some(value))
+                    if !name.is_empty() && !value.is_empty() =>
+                {
+                    Some((name.clone(), value.clone()))
+                }
+                _ => None,
+            })
+            .collect()
     }
 }
 

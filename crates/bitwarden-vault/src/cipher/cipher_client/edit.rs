@@ -23,7 +23,7 @@ use wasm_bindgen::prelude::*;
 use super::CiphersClient;
 use crate::{
     AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldType,
-    FieldView, FolderId, ItemNotFoundError, PasswordHistoryView, VaultParseError,
+    FieldView, FolderId, ItemNotFoundError, LoginView, PasswordHistoryView, VaultParseError,
     cipher_view_type::CipherViewType,
 };
 
@@ -161,72 +161,22 @@ impl CipherEditRequestInternal {
         &mut self,
         original_cipher: &CipherView,
     ) -> Vec<PasswordHistoryView> {
-        if !matches!(self.edit_request.r#type, CipherViewType::Login(_))
-            || original_cipher.r#type != CipherType::Login
-        {
-            return vec![];
-        }
-
-        let (Some(original_login), Some(current_login)) = (
-            original_cipher.login.as_ref(),
-            self.edit_request.r#type.as_login_view_mut(),
-        ) else {
-            return vec![];
-        };
-
-        let original_password = original_login.password.as_deref().unwrap_or("");
-        let current_password = current_login.password.as_deref().unwrap_or("");
-
-        if original_password.is_empty() {
-            // No original password - set revision date only if adding new password
-            if !current_password.is_empty() {
-                current_login.password_revision_date = Some(Utc::now());
-            }
-            vec![]
-        } else if original_password == current_password {
-            // Password unchanged - preserve original revision date
-            current_login.password_revision_date = original_login.password_revision_date;
-            vec![]
-        } else {
-            // Password changed - update revision date and track change
-            current_login.password_revision_date = Some(Utc::now());
-            vec![PasswordHistoryView::new_password(original_password)]
-        }
+        self.edit_request
+            .r#type
+            .as_login_view_mut()
+            .map_or(vec![], |login| {
+                login.detect_password_change(&original_cipher.login)
+            })
     }
 
     fn detect_hidden_field_changes(
         &self,
         original_cipher: &CipherView,
     ) -> Vec<PasswordHistoryView> {
-        let original_fields =
-            Self::extract_hidden_fields(original_cipher.fields.as_deref().unwrap_or_default());
-        let current_fields = Self::extract_hidden_fields(&self.edit_request.fields);
-
-        original_fields
-            .into_iter()
-            .filter_map(|(field_name, original_value)| {
-                let current_value = current_fields.get(&field_name);
-                if current_value != Some(&original_value) {
-                    Some(PasswordHistoryView::new_field(&field_name, &original_value))
-                } else {
-                    None
-                }
-            })
-            .collect()
-    }
-
-    fn extract_hidden_fields(fields: &[FieldView]) -> HashMap<String, String> {
-        fields
-            .iter()
-            .filter_map(|f| match (&f.r#type, &f.name, &f.value) {
-                (FieldType::Hidden, Some(name), Some(value))
-                    if !name.is_empty() && !value.is_empty() =>
-                {
-                    Some((name.clone(), value.clone()))
-                }
-                _ => None,
-            })
-            .collect()
+        FieldView::detect_hidden_field_changes(
+            self.edit_request.fields.as_slice(),
+            original_cipher.fields.as_deref().unwrap_or(&[]),
+        )
     }
 
     fn generate_checksums(&mut self) {
