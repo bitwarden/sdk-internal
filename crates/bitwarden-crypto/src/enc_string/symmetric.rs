@@ -7,7 +7,7 @@ use serde::Deserialize;
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
     Aes256CbcHmacKey, ContentFormat, CoseEncrypt0Bytes, KeyDecryptable, KeyEncryptable,
-    KeyEncryptableWithContentType, SymmetricCryptoKey, Utf8Bytes, XChaCha20Poly1305Key, ensure,
+    KeyEncryptableWithContentType, SymmetricCryptoKey, Utf8Bytes, XChaCha20Poly1305Key,
     error::{CryptoError, EncStringParseError, Result, UnsupportedOperationError},
 };
 
@@ -293,12 +293,12 @@ impl KeyEncryptableWithContentType<SymmetricCryptoKey, EncString> for &[u8] {
         match key {
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(self, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(inner_key) => {
-                ensure!(
-                    inner_key
-                        .supported_operations
-                        .contains(&KeyOperation::Encrypt) =>
-                    CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt)
-                );
+                if !inner_key
+                    .supported_operations
+                    .contains(&KeyOperation::Encrypt)
+                {
+                    return Err(CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt));
+                }
                 EncString::encrypt_xchacha20_poly1305(self, inner_key, content_format)
             }
             SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
