@@ -22,6 +22,11 @@
       "matchPackageNames": ["/pyo3*/"]
     },
     {
+      "matchManagers": ["cargo"],
+      "groupName": "wasm-bindgen group",
+      "matchPackageNames": ["/wasm-bindgen*/"]
+    },
+    {
       "groupName": "dockerfile minor",
       "matchManagers": ["dockerfile"],
       "matchUpdateTypes": ["minor", "patch"]
