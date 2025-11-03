@@ -13,7 +13,6 @@ use crate::{
     CONTENT_TYPE_PADDED_CBOR, CoseEncrypt0Bytes, CryptoError, EncString, EncodingError, KeyIds,
     SerializedMessage, SymmetricCryptoKey, XChaCha20Poly1305Key,
     cose::{DATA_ENVELOPE_NAMESPACE, XCHACHA20_POLY1305},
-    ensure_equal, ensure_matches,
     safe::DataEnvelopeNamespace,
     utils::pad_bytes,
     xchacha20,
@@ -109,7 +108,10 @@ impl DataEnvelope {
         // Serialize the message
         let serialized_message =
             SerializedMessage::encode(&data).map_err(|_| DataEnvelopeError::EncodingError)?;
-        ensure_equal!(serialized_message.content_type(), coset::iana::CoapContentFormat::Cbor => DataEnvelopeError::UnsupportedContentFormat);
+        if serialized_message.content_type() != coset::iana::CoapContentFormat::Cbor {
+            return Err(DataEnvelopeError::UnsupportedContentFormat);
+        }
+
         let serialized_and_padded_message = pad_cbor(serialized_message.as_bytes())
             .map_err(|_| DataEnvelopeError::EncodingError)?;
 
@@ -204,10 +206,21 @@ impl DataEnvelope {
             content_format(&msg.protected).map_err(|_| DataEnvelopeError::DecodingError)?;
 
         // Validate the message
-        ensure_matches!(msg.protected.header.alg, Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305)) => DataEnvelopeError::DecryptionError);
-        ensure_equal!(msg.protected.header.key_id, cek.key_id => DataEnvelopeError::WrongKey);
-        ensure_equal!(envelope_namespace, *namespace => DataEnvelopeError::InvalidNamespace);
-        ensure_equal!(content_format, CONTENT_TYPE_PADDED_CBOR => DataEnvelopeError::UnsupportedContentFormat);
+        if !matches!(
+            msg.protected.header.alg,
+            Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305)),
+        ) {
+            return Err(DataEnvelopeError::DecryptionError);
+        }
+        if msg.protected.header.key_id != cek.key_id {
+            return Err(DataEnvelopeError::WrongKey);
+        }
+        if envelope_namespace != *namespace {
+            return Err(DataEnvelopeError::InvalidNamespace);
+        }
+        if content_format != CONTENT_TYPE_PADDED_CBOR {
+            return Err(DataEnvelopeError::UnsupportedContentFormat);
+        }
 
         // Decrypt the message
         let decrypted_message = msg
