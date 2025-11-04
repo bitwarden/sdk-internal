@@ -1,13 +1,13 @@
 use std::{borrow::Cow, str::FromStr};
 
 use bitwarden_encoding::{B64, FromStrVisitor};
-use coset::CborSerializable;
+use coset::{CborSerializable, iana::KeyOperation};
 use serde::Deserialize;
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
-    Aes256CbcHmacKey, ContentFormat, KeyDecryptable, KeyEncryptable, KeyEncryptableWithContentType,
-    SymmetricCryptoKey, Utf8Bytes, XChaCha20Poly1305Key,
+    Aes256CbcHmacKey, ContentFormat, CoseEncrypt0Bytes, KeyDecryptable, KeyEncryptable,
+    KeyEncryptableWithContentType, SymmetricCryptoKey, Utf8Bytes, XChaCha20Poly1305Key,
     error::{CryptoError, EncStringParseError, Result, UnsupportedOperationError},
 };
 
@@ -269,7 +269,9 @@ impl EncString {
         content_format: ContentFormat,
     ) -> Result<EncString> {
         let data = crate::cose::encrypt_xchacha20_poly1305(data_dec, key, content_format)?;
-        Ok(EncString::Cose_Encrypt0_B64 { data })
+        Ok(EncString::Cose_Encrypt0_B64 {
+            data: data.to_vec(),
+        })
     }
 
     /// The numerical representation of the encryption type of the [EncString].
@@ -291,6 +293,12 @@ impl KeyEncryptableWithContentType<SymmetricCryptoKey, EncString> for &[u8] {
         match key {
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(self, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(inner_key) => {
+                if !inner_key
+                    .supported_operations
+                    .contains(&KeyOperation::Encrypt)
+                {
+                    return Err(CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt));
+                }
                 EncString::encrypt_xchacha20_poly1305(self, inner_key, content_format)
             }
             SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
@@ -314,8 +322,10 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let (decrypted_message, _) =
-                    crate::cose::decrypt_xchacha20_poly1305(data.as_slice(), key)?;
+                let (decrypted_message, _) = crate::cose::decrypt_xchacha20_poly1305(
+                    &CoseEncrypt0Bytes::from(data.as_slice()),
+                    key,
+                )?;
                 Ok(decrypted_message)
             }
             _ => Err(CryptoError::WrongKeyType),
@@ -356,6 +366,7 @@ impl schemars::JsonSchema for EncString {
 
 #[cfg(test)]
 mod tests {
+    use coset::iana::KeyOperation;
     use schemars::schema_for;
 
     use super::EncString;
@@ -370,6 +381,12 @@ mod tests {
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
             key_id,
             enc_key: Box::pin(enc_key.into()),
+            supported_operations: vec![
+                coset::iana::KeyOperation::Decrypt,
+                coset::iana::KeyOperation::Encrypt,
+                coset::iana::KeyOperation::WrapKey,
+                coset::iana::KeyOperation::UnwrapKey,
+            ],
         });
 
         plaintext.encrypt_with_key(&key).expect("encryption works")
@@ -409,6 +426,12 @@ mod tests {
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
             key_id,
             enc_key: Box::pin(enc_key.into()),
+            supported_operations: vec![
+                coset::iana::KeyOperation::Decrypt,
+                coset::iana::KeyOperation::Encrypt,
+                coset::iana::KeyOperation::WrapKey,
+                coset::iana::KeyOperation::UnwrapKey,
+            ],
         });
 
         let test_string = "encrypted_test_string";
@@ -435,6 +458,12 @@ mod tests {
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
             key_id,
             enc_key: Box::pin(enc_key.into()),
+            supported_operations: vec![
+                coset::iana::KeyOperation::Decrypt,
+                coset::iana::KeyOperation::Encrypt,
+                coset::iana::KeyOperation::WrapKey,
+                coset::iana::KeyOperation::UnwrapKey,
+            ],
         });
 
         let test_string = "";
@@ -556,6 +585,28 @@ mod tests {
 
         let result: Result<String, CryptoError> = enc_string.decrypt_with_key(&key);
         assert!(matches!(result, Err(CryptoError::WrongKeyType)));
+    }
+
+    #[test]
+    fn test_encrypt_fails_when_operation_not_allowed() {
+        // Key with only Decrypt allowed
+        let key_id = [0u8; KEY_ID_SIZE];
+        let enc_key = [0u8; 32];
+        let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
+            key_id,
+            enc_key: Box::pin(enc_key.into()),
+            supported_operations: vec![KeyOperation::Decrypt],
+        });
+
+        let plaintext = "should fail";
+        let result = plaintext.encrypt_with_key(&key);
+        assert!(
+            matches!(
+                result,
+                Err(CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt))
+            ),
+            "Expected encrypt to fail with KeyOperationNotSupported, got: {result:?}"
+        );
     }
 
     #[test]

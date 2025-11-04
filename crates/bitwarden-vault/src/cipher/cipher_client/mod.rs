@@ -199,6 +199,7 @@ impl CiphersClient {
 mod tests {
 
     use bitwarden_core::client::test_accounts::test_bitwarden_com_account;
+    #[cfg(feature = "wasm")]
     use bitwarden_crypto::CryptoError;
 
     use super::*;
@@ -241,6 +242,7 @@ mod tests {
             deleted_date: None,
             revision_date: "2024-05-31T11:20:58.4566667Z".parse().unwrap(),
             archived_date: None,
+            data: None,
         }
     }
 
@@ -345,6 +347,7 @@ mod tests {
                 deleted_date: None,
                 revision_date: "2024-05-31T09:35:55.12Z".parse().unwrap(),
                 archived_date: None,
+                data: None,
             }])
 
             .unwrap();
@@ -535,6 +538,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "wasm")]
     async fn test_encrypt_cipher_for_rotation() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
