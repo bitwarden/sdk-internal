@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use bitwarden_api_api::models::CipherRequestModel;
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
@@ -22,13 +20,10 @@ use wasm_bindgen::prelude::*;
 
 use super::CiphersClient;
 use crate::{
-    AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldType,
-    FieldView, FolderId, ItemNotFoundError, LoginView, PasswordHistoryView, VaultParseError,
-    cipher_view_type::CipherViewType,
+    AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldView,
+    FolderId, ItemNotFoundError, PasswordHistoryView, VaultParseError,
+    cipher_view_type::CipherViewType, password_history::MAX_PASSWORD_HISTORY_ENTRIES,
 };
-
-/// Maximum number of password history entries to retain
-const MAX_PASSWORD_HISTORY_ENTRIES: usize = 5;
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -406,7 +401,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        Cipher, CipherId, CipherRepromptType, CipherType, Login, LoginView, PasswordHistoryView,
+        Cipher, CipherId, CipherRepromptType, CipherType, FieldType, Login, LoginView,
+        PasswordHistoryView,
     };
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";

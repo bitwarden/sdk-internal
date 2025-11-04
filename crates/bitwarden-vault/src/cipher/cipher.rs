@@ -37,8 +37,9 @@ use super::{
     secure_note, ssh_key,
 };
 use crate::{
-    AttachmentView, EncryptError, Fido2CredentialFullView, Fido2CredentialView, FolderId, Login,
-    LoginView, VaultParseError, password_history,
+    AttachmentView, DecryptError, EncryptError, Fido2CredentialFullView, Fido2CredentialView,
+    FieldView, FolderId, Login, LoginView, VaultParseError,
+    password_history::{self, MAX_PASSWORD_HISTORY_ENTRIES},
 };
 
 uuid_newtype!(pub CipherId);
@@ -51,6 +52,8 @@ pub enum CipherError {
     MissingField(#[from] MissingFieldError),
     #[error(transparent)]
     Crypto(#[from] CryptoError),
+    #[error(transparent)]
+    Decrypt(#[from] DecryptError),
     #[error(transparent)]
     Encrypt(#[from] EncryptError),
     #[error(transparent)]
@@ -773,6 +776,27 @@ impl CipherView {
         let fido2_credential = self.get_fido2_credentials(ctx)?;
 
         Ok(fido2_credential[0].key_value.clone())
+    }
+
+    pub(crate) fn update_password_history(&mut self, original_cipher: &CipherView) {
+        let changes = self
+            .login
+            .as_mut()
+            .map_or(vec![], |login| {
+                login.detect_password_change(&original_cipher.login)
+            })
+            .into_iter()
+            .chain(self.fields.as_deref().map_or(vec![], |fields| {
+                FieldView::detect_hidden_field_changes(
+                    fields,
+                    original_cipher.fields.as_deref().unwrap_or(&[]),
+                )
+            }))
+            .rev()
+            .chain(original_cipher.password_history.iter().flatten().cloned())
+            .take(MAX_PASSWORD_HISTORY_ENTRIES)
+            .collect();
+        self.password_history = Some(changes)
     }
 }
 

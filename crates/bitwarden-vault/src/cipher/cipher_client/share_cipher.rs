@@ -174,10 +174,13 @@ impl CiphersClient {
         mut cipher_view: CipherView,
         organization_id: OrganizationId,
         collection_ids: Vec<CollectionId>,
-        _original_cipher: Option<Cipher>,
+        original_cipher: Option<Cipher>,
     ) -> Result<Cipher, CipherError> {
         cipher_view =
             self.move_to_collections(cipher_view, organization_id, collection_ids.clone())?;
+
+        self.update_password_history(&mut cipher_view, original_cipher)
+            .await?;
 
         let encrypted_cipher = self.encrypt(cipher_view)?;
 
@@ -197,6 +200,23 @@ impl CiphersClient {
         .await
     }
 
+    async fn update_password_history(
+        &self,
+        cipher_view: &mut CipherView,
+        mut original_cipher: Option<Cipher>,
+    ) -> Result<(), CipherError> {
+        if let (Some(cipher_id), None) = (cipher_view.id, &original_cipher) {
+            original_cipher = self.get_repository()?.get(cipher_id.to_string()).await?;
+        }
+        if let Some(original_cipher_view) = original_cipher
+            .map(|cipher| self.decrypt(cipher))
+            .transpose()?
+        {
+            cipher_view.update_password_history(&original_cipher_view);
+        }
+        Ok(())
+    }
+
     /// Moves a group of ciphers into an organization, adds them to collections, and calls the
     /// share_ciphers API.
     pub async fn share_ciphers_bulk(
@@ -205,13 +225,12 @@ impl CiphersClient {
         organization_id: OrganizationId,
         collection_ids: Vec<CollectionId>,
     ) -> Result<Vec<Cipher>, CipherError> {
-        let encrypted_ciphers = cipher_views
-            .into_iter()
-            .map(|cv| self.move_to_collections(cv, organization_id, collection_ids.clone()))
-            .collect::<Result<Vec<_>, _>>()?
-            .into_iter()
-            .map(|cv| self.encrypt(cv))
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut encrypted_ciphers: Vec<EncryptionContext> = Vec::new();
+        for mut cv in cipher_views {
+            cv = self.move_to_collections(cv, organization_id, collection_ids.clone())?;
+            self.update_password_history(&mut cv, None).await?;
+            encrypted_ciphers.push(self.encrypt(cv)?);
+        }
 
         let api_client = &self
             .client

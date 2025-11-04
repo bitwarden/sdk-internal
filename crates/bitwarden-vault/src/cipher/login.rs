@@ -342,7 +342,7 @@ impl LoginView {
         &mut self,
         original: &Option<LoginView>,
     ) -> Vec<PasswordHistoryView> {
-        let Some(original_login) = (original) else {
+        let Some(original_login) = original else {
             return vec![];
         };
 
