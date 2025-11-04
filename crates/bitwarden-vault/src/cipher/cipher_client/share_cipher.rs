@@ -152,7 +152,7 @@ async fn share_ciphers_bulk(
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
-    fn move_to_collections(
+    fn update_organization_and_collections(
         &self,
         mut cipher_view: CipherView,
         organization_id: OrganizationId,
@@ -176,8 +176,11 @@ impl CiphersClient {
         collection_ids: Vec<CollectionId>,
         original_cipher: Option<Cipher>,
     ) -> Result<Cipher, CipherError> {
-        cipher_view =
-            self.move_to_collections(cipher_view, organization_id, collection_ids.clone())?;
+        cipher_view = self.update_organization_and_collections(
+            cipher_view,
+            organization_id,
+            collection_ids.clone(),
+        )?;
 
         self.update_password_history(&mut cipher_view, original_cipher)
             .await?;
@@ -227,7 +230,11 @@ impl CiphersClient {
     ) -> Result<Vec<Cipher>, CipherError> {
         let mut encrypted_ciphers: Vec<EncryptionContext> = Vec::new();
         for mut cv in cipher_views {
-            cv = self.move_to_collections(cv, organization_id, collection_ids.clone())?;
+            cv = self.update_organization_and_collections(
+                cv,
+                organization_id,
+                collection_ids.clone(),
+            )?;
             self.update_password_history(&mut cv, None).await?;
             encrypted_ciphers.push(self.encrypt(cv)?);
         }
@@ -259,9 +266,7 @@ mod tests {
     use bitwarden_test::MemoryRepository;
 
     use super::*;
-    use crate::{
-        CipherRepromptType, CipherType, FieldView, LoginView, PasswordHistoryView, VaultClientExt,
-    };
+    use crate::{CipherRepromptType, CipherType, LoginView, VaultClientExt};
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
     const TEST_ORG_ID: &str = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8";
@@ -321,7 +326,11 @@ mod tests {
         ];
 
         let result = cipher_client
-            .move_to_collections(cipher_view, organization_id, collection_ids.clone())
+            .update_organization_and_collections(
+                cipher_view,
+                organization_id,
+                collection_ids.clone(),
+            )
             .unwrap();
 
         assert_eq!(result.organization_id, Some(organization_id));
@@ -339,8 +348,11 @@ mod tests {
         let organization_id: OrganizationId = TEST_ORG_ID.parse().unwrap();
         let collection_ids: Vec<CollectionId> = vec![TEST_COLLECTION_ID_1.parse().unwrap()];
 
-        let result =
-            cipher_client.move_to_collections(cipher_view, organization_id, collection_ids);
+        let result = cipher_client.update_organization_and_collections(
+            cipher_view,
+            organization_id,
+            collection_ids,
+        );
 
         assert!(result.is_err());
         assert!(matches!(
@@ -393,8 +405,11 @@ mod tests {
         let organization_id: OrganizationId = TEST_ORG_ID.parse().unwrap();
         let collection_ids: Vec<CollectionId> = vec![TEST_COLLECTION_ID_1.parse().unwrap()];
 
-        let result =
-            cipher_client.move_to_collections(cipher_view, organization_id, collection_ids);
+        let result = cipher_client.update_organization_and_collections(
+            cipher_view,
+            organization_id,
+            collection_ids,
+        );
 
         // Should fail because attachment is missing a key
         assert!(result.is_err());
