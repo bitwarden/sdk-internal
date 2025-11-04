@@ -12,7 +12,7 @@ use crate::{
     AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CoseEncrypt0Bytes, CryptoError,
     EncString, KeyId, KeyIds, LocalId, PublicKeyEncryptionAlgorithm, Result, RotatedUserKeys,
     Signature, SignatureAlgorithm, SignedObject, SignedPublicKey, SignedPublicKeyMessage,
-    SigningKey, SymmetricCryptoKey, UnsignedSharedKey, derive_shareable_key, ensure,
+    SigningKey, SymmetricCryptoKey, UnsignedSharedKey, derive_shareable_key,
     error::UnsupportedOperationError, signing, store::backend::StoreBackend,
 };
 
@@ -542,9 +542,9 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
             )),
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {
-                ensure!(
-                    key.supported_operations.contains(&KeyOperation::Encrypt) => CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt)
-                );
+                if !key.supported_operations.contains(&KeyOperation::Encrypt) {
+                    return Err(CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt));
+                }
                 EncString::encrypt_xchacha20_poly1305(data, key, content_format)
             }
         }
