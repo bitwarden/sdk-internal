@@ -139,6 +139,7 @@ async fn share_ciphers_bulk(
                 .unwrap_or_default(),
             local_data: orig_cipher.map(|c| c.local_data).unwrap_or_default(),
             collection_ids: collection_ids.clone(),
+            data: None,
         };
 
         repository
@@ -506,6 +507,7 @@ mod tests {
                 deleted_date: None,
                 revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
                 archived_date: None,
+                data: None,
             };
 
         // Use a test user ID from the test accounts
@@ -670,6 +672,7 @@ mod tests {
                 deleted_date: None,
                 revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
                 archived_date: None,
+                data: None,
             };
 
         repository
