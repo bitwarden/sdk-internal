@@ -259,7 +259,9 @@ mod tests {
     use bitwarden_test::MemoryRepository;
 
     use super::*;
-    use crate::{CipherRepromptType, CipherType, LoginView, VaultClientExt};
+    use crate::{
+        CipherRepromptType, CipherType, FieldView, LoginView, PasswordHistoryView, VaultClientExt,
+    };
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
     const TEST_ORG_ID: &str = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8";
@@ -406,12 +408,27 @@ mod tests {
     async fn test_share_ciphers_bulk_multiple_validation() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
+        // Register a repository with the client so get_repository() works
+        let repository = MemoryRepository::<Cipher>::default();
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
+
         let cipher_client = client.vault().ciphers();
 
-        // Create multiple ciphers, one with organization already set
+        // Create multiple ciphers with IDs, one already in org
         let cipher_view_1 = test_cipher_view_without_org();
         let mut cipher_view_2 = test_cipher_view_without_org();
         cipher_view_2.organization_id = Some(TEST_ORG_ID.parse().unwrap());
+
+        // Encrypt and store cipher_view_1 in repository for password history lookup
+        let encrypted_1 = cipher_client.encrypt(cipher_view_1.clone()).unwrap();
+        let repository = cipher_client.get_repository().unwrap();
+        repository
+            .set(TEST_CIPHER_ID.to_string(), encrypted_1.cipher.clone())
+            .await
+            .unwrap();
 
         let organization_id: OrganizationId = TEST_ORG_ID.parse().unwrap();
         let collection_ids: Vec<CollectionId> = vec![TEST_COLLECTION_ID_1.parse().unwrap()];

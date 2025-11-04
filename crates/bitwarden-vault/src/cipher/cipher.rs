@@ -1062,7 +1062,7 @@ mod tests {
     use bitwarden_crypto::SymmetricCryptoKey;
 
     use super::*;
-    use crate::{Fido2Credential, login::Fido2CredentialListView};
+    use crate::{Fido2Credential, PasswordHistoryView, login::Fido2CredentialListView};
 
     fn generate_cipher() -> CipherView {
         let test_id = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
@@ -1574,5 +1574,154 @@ mod tests {
 
         let decrypted_key_value = cipher_view.decrypt_fido2_private_key(&mut ctx).unwrap();
         assert_eq!(decrypted_key_value, "123");
+    }
+
+    #[test]
+    fn test_password_history_on_password_change() {
+        use chrono::Utc;
+
+        let original_cipher = generate_cipher();
+        let mut new_cipher = generate_cipher();
+
+        // Change password
+        if let Some(ref mut login) = new_cipher.login {
+            login.password = Some("new_password123".to_string());
+        }
+
+        let start = Utc::now();
+        new_cipher.update_password_history(&original_cipher);
+        let end = Utc::now();
+
+        assert!(new_cipher.password_history.is_some());
+        let history = new_cipher.password_history.unwrap();
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].password, "test_password");
+        assert!(
+            history[0].last_used_date >= start && history[0].last_used_date <= end,
+            "last_used_date was not set properly"
+        );
+    }
+
+    #[test]
+    fn test_password_history_on_unchanged_password() {
+        let original_cipher = generate_cipher();
+        let mut new_cipher = generate_cipher();
+
+        new_cipher.update_password_history(&original_cipher);
+
+        // Password history should be empty since password didn't change
+        assert!(
+            new_cipher.password_history.is_none()
+                || new_cipher.password_history.as_ref().unwrap().is_empty()
+        );
+    }
+
+    #[test]
+    fn test_password_history_is_preserved() {
+        use chrono::TimeZone;
+
+        let mut original_cipher = generate_cipher();
+        original_cipher.password_history = Some(
+            (0..4)
+                .map(|i| PasswordHistoryView {
+                    password: format!("old_password_{}", i),
+                    last_used_date: chrono::Utc
+                        .with_ymd_and_hms(2025, i + 1, i + 1, i, i, i)
+                        .unwrap(),
+                })
+                .collect(),
+        );
+
+        let mut new_cipher = generate_cipher();
+
+        new_cipher.update_password_history(&original_cipher);
+
+        assert!(new_cipher.password_history.is_some());
+        let history = new_cipher.password_history.unwrap();
+        assert_eq!(history.len(), 4);
+
+        assert_eq!(history[0].password, "old_password_0");
+        assert_eq!(
+            history[0].last_used_date,
+            chrono::Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap()
+        );
+        assert_eq!(history[1].password, "old_password_1");
+        assert_eq!(
+            history[1].last_used_date,
+            chrono::Utc.with_ymd_and_hms(2025, 2, 2, 1, 1, 1).unwrap()
+        );
+        assert_eq!(history[2].password, "old_password_2");
+        assert_eq!(
+            history[2].last_used_date,
+            chrono::Utc.with_ymd_and_hms(2025, 3, 3, 2, 2, 2).unwrap()
+        );
+        assert_eq!(history[3].password, "old_password_3");
+        assert_eq!(
+            history[3].last_used_date,
+            chrono::Utc.with_ymd_and_hms(2025, 4, 4, 3, 3, 3).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_password_history_with_hidden_fields() {
+        let mut original_cipher = generate_cipher();
+        original_cipher.fields = Some(vec![FieldView {
+            name: Some("Secret Key".to_string()),
+            value: Some("old_secret_value".to_string()),
+            r#type: crate::FieldType::Hidden,
+            linked_id: None,
+        }]);
+
+        let mut new_cipher = generate_cipher();
+        new_cipher.fields = Some(vec![FieldView {
+            name: Some("Secret Key".to_string()),
+            value: Some("new_secret_value".to_string()),
+            r#type: crate::FieldType::Hidden,
+            linked_id: None,
+        }]);
+
+        new_cipher.update_password_history(&original_cipher);
+
+        assert!(new_cipher.password_history.is_some());
+        let history = new_cipher.password_history.unwrap();
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].password, "Secret Key: old_secret_value");
+    }
+
+    #[test]
+    fn test_password_history_length_limit() {
+        use crate::password_history::MAX_PASSWORD_HISTORY_ENTRIES;
+
+        let mut original_cipher = generate_cipher();
+        original_cipher.password_history = Some(
+            (0..10)
+                .map(|i| PasswordHistoryView {
+                    password: format!("old_password_{}", i),
+                    last_used_date: chrono::Utc::now(),
+                })
+                .collect(),
+        );
+
+        let mut new_cipher = original_cipher.clone();
+        // Change password
+        if let Some(ref mut login) = new_cipher.login {
+            login.password = Some("brand_new_password".to_string());
+        }
+
+        new_cipher.update_password_history(&original_cipher);
+
+        assert!(new_cipher.password_history.is_some());
+        let history = new_cipher.password_history.unwrap();
+
+        // Should be limited to MAX_PASSWORD_HISTORY_ENTRIES
+        assert_eq!(history.len(), MAX_PASSWORD_HISTORY_ENTRIES);
+
+        // Most recent change (original password) should be first
+        assert_eq!(history[0].password, "test_password");
+        // Followed by the oldest entries from the existing history
+        assert_eq!(history[1].password, "old_password_0");
+        assert_eq!(history[2].password, "old_password_1");
+        assert_eq!(history[3].password, "old_password_2");
+        assert_eq!(history[4].password, "old_password_3");
     }
 }
