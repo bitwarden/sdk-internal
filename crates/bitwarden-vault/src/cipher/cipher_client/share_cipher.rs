@@ -891,7 +891,6 @@ mod tests {
             login.password = Some("new_password_456".to_string());
         }
 
-        // Act
         let result = cipher_client
             .share_cipher(
                 cipher_view.clone(),
@@ -901,7 +900,6 @@ mod tests {
             )
             .await;
 
-        // Assert
         let shared_cipher = result.unwrap();
         assert_eq!(shared_cipher.organization_id, Some(org_id));
         let decrypted_view = cipher_client.decrypt(shared_cipher.clone()).unwrap();
@@ -1020,7 +1018,6 @@ mod tests {
             login.password = Some("new_password_2".to_string());
         }
 
-        // Act
         let result = cipher_client
             .share_ciphers_bulk(
                 vec![cipher_view1, cipher_view2],
@@ -1029,7 +1026,6 @@ mod tests {
             )
             .await;
 
-        // Assert
         let shared_ciphers = result.unwrap();
         assert_eq!(shared_ciphers.len(), 2);
 
