@@ -264,7 +264,11 @@ mod tests {
         models::{CipherMiniResponseModelListResponseModel, CipherResponseModel},
     };
     use bitwarden_core::{Client, client::test_accounts::test_bitwarden_com_account};
-    use bitwarden_test::MemoryRepository;
+    use bitwarden_test::{MemoryRepository, start_api_mock};
+    use wiremock::{
+        Mock, ResponseTemplate,
+        matchers::{method, path},
+    };
 
     use super::*;
     use crate::{CipherRepromptType, CipherType, LoginView, VaultClientExt};
@@ -915,6 +919,138 @@ mod tests {
             decrypted_view.login.as_ref().unwrap().password,
             Some("new_password_456".to_string()),
             "New password should be set"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_share_ciphers_bulk_with_password_history() {
+        let org_id: OrganizationId = TEST_ORG_ID.parse().unwrap();
+        let collection_id: CollectionId = TEST_COLLECTION_ID_1.parse().unwrap();
+
+        let mut cipher_view1 = test_cipher_view_without_org();
+        cipher_view1.id = Some(TEST_CIPHER_ID.parse().unwrap());
+        if let Some(ref mut login) = cipher_view1.login {
+            login.password = Some("original_password_1".to_string());
+        }
+
+        let mut cipher_view2 = test_cipher_view_without_org();
+        cipher_view2.id = Some("11111111-2222-3333-4444-555555555555".parse().unwrap());
+        if let Some(ref mut login) = cipher_view2.login {
+            login.password = Some("original_password_2".to_string());
+        }
+
+        // Set up wiremock server with mock that echoes back the request data
+        let mock = Mock::given(method("PUT"))
+            .and(path("/ciphers/share"))
+            .and(wiremock::matchers::body_string_contains("passwordHistory"))
+            .respond_with(move |req: &wiremock::Request| {
+                let body_bytes = req.body.as_slice();
+                let request_body: bitwarden_api_api::models::CipherBulkShareRequestModel =
+                    serde_json::from_slice(body_bytes).expect("Failed to parse request body");
+
+                // Echo back the cipher data
+                let ciphers: Vec<_> = request_body
+                    .ciphers
+                    .into_iter()
+                    .map(
+                        |cipher| bitwarden_api_api::models::CipherMiniResponseModel {
+                            object: Some("cipherMini".to_string()),
+                            id: Some(cipher.id),
+                            organization_id: cipher.organization_id.and_then(|id| id.parse().ok()),
+                            r#type: cipher.r#type,
+                            name: Some(cipher.name),
+                            notes: cipher.notes,
+                            login: cipher.login,
+                            reprompt: cipher.reprompt,
+                            password_history: cipher.password_history,
+                            revision_date: Some("2024-01-30T17:55:36.150Z".to_string()),
+                            creation_date: Some("2024-01-30T17:55:36.150Z".to_string()),
+                            organization_use_totp: Some(true),
+                            fields: cipher.fields,
+                            key: cipher.key,
+                            ..Default::default()
+                        },
+                    )
+                    .collect();
+
+                let response =
+                    bitwarden_api_api::models::CipherMiniResponseModelListResponseModel {
+                        object: Some("list".to_string()),
+                        data: Some(ciphers),
+                        continuation_token: None,
+                    };
+
+                ResponseTemplate::new(200).set_body_json(&response)
+            });
+
+        // Set up the client with mocked server and repository.
+        let (mock_server, _config) = start_api_mock(vec![mock]).await;
+        let client = make_test_client_with_wiremock(&mock_server).await;
+        let repository = std::sync::Arc::new(MemoryRepository::<Cipher>::default());
+        let cipher_client = client.vault().ciphers();
+
+        let encrypted_original1 = cipher_client.encrypt(cipher_view1.clone()).unwrap();
+        repository
+            .set(
+                encrypted_original1.cipher.id.unwrap().to_string(),
+                encrypted_original1.cipher.clone(),
+            )
+            .await
+            .unwrap();
+
+        let encrypted_original2 = cipher_client.encrypt(cipher_view2.clone()).unwrap();
+        repository
+            .set(
+                encrypted_original2.cipher.id.unwrap().to_string(),
+                encrypted_original2.cipher.clone(),
+            )
+            .await
+            .unwrap();
+
+        client
+            .platform()
+            .state()
+            .register_client_managed(repository.clone());
+
+        // Change the passwords to make sure password_history is updated.
+        if let Some(ref mut login) = cipher_view1.login {
+            login.password = Some("new_password_1".to_string());
+        }
+        if let Some(ref mut login) = cipher_view2.login {
+            login.password = Some("new_password_2".to_string());
+        }
+
+        // Act
+        let result = cipher_client
+            .share_ciphers_bulk(
+                vec![cipher_view1, cipher_view2],
+                org_id,
+                vec![collection_id],
+            )
+            .await;
+
+        // Assert
+        let shared_ciphers = result.unwrap();
+        assert_eq!(shared_ciphers.len(), 2);
+
+        let decrypted_view1 = cipher_client.decrypt(shared_ciphers[0].clone()).unwrap();
+        assert_eq!(
+            decrypted_view1.password_history.unwrap()[0].password,
+            "original_password_1"
+        );
+        assert_eq!(
+            decrypted_view1.login.unwrap().password,
+            Some("new_password_1".to_string())
+        );
+
+        let decrypted_view2 = cipher_client.decrypt(shared_ciphers[1].clone()).unwrap();
+        assert_eq!(
+            decrypted_view2.password_history.unwrap()[0].password,
+            "original_password_2"
+        );
+        assert_eq!(
+            decrypted_view2.login.unwrap().password,
+            Some("new_password_2".to_string())
         );
     }
 }
