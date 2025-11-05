@@ -132,6 +132,9 @@ jobs:
         with:
           app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
           private-key: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-KEY }}
+          owner: bitwarden
+          repositories: sdk-internal
+          permission-actions: write
 
       - name: Log out from Azure
         uses: bitwarden/gh-actions/azure-logout@main
