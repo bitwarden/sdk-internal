@@ -332,8 +332,10 @@ impl KeyEncryptableWithContentType<SymmetricCryptoKey, EncString> for &[u8] {
 impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<Vec<u8>> {
         match (self, key) {
-            (EncString::Aes256Cbc_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
-                crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
+            (EncString::Aes256Cbc_B64 { .. }, SymmetricCryptoKey::Aes256CbcKey(_)) => {
+                Err(CryptoError::OperationNotSupported(
+                    UnsupportedOperationError::DecryptionNotImplementedForKey,
+                ))
             }
             (
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
@@ -578,7 +580,7 @@ mod tests {
     }
 
     #[test]
-    fn test_decrypt_cbc256() {
+    fn test_decrypt_fails_for_cbc256_keys() {
         let key = "hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe08=".to_string();
         let key = SymmetricCryptoKey::try_from(key).unwrap();
 
@@ -586,8 +588,16 @@ mod tests {
         let enc_string: EncString = enc_str.parse().unwrap();
         assert_eq!(enc_string.enc_type(), 0);
 
-        let dec_str: String = enc_string.decrypt_with_key(&key).unwrap();
-        assert_eq!(dec_str, "EncryptMe!");
+        let result: Result<String, CryptoError> = enc_string.decrypt_with_key(&key);
+        assert!(
+            matches!(
+                result,
+                Err(CryptoError::OperationNotSupported(
+                    crate::error::UnsupportedOperationError::DecryptionNotImplementedForKey
+                )),
+            ),
+            "Expected decrypt to fail when using deprecated type 0 key",
+        );
     }
 
     #[test]
