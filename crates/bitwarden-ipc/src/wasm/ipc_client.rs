@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use bitwarden_threading::cancellation_token::wasm::{AbortSignal, AbortSignalExt};
 use wasm_bindgen::prelude::*;
@@ -8,7 +8,8 @@ use crate::{
     IpcClient,
     ipc_client::{IpcClientSubscription, ReceiveError, SubscribeError},
     message::{IncomingMessage, OutgoingMessage},
-    traits::{InMemorySessionRepository, NoEncryptionCryptoProvider},
+    traits::NoEncryptionCryptoProvider,
+    wasm::{JsSessionRepository, RawJsSessionRepository},
 };
 
 /// JavaScript wrapper around the IPC client. For more information, see the
@@ -20,14 +21,8 @@ pub struct JsIpcClient {
     /// that interact with the IPC client, e.g. to register RPC handlers, trigger RPC requests,
     /// send typed messages, etc. For examples see
     /// [wasm::ipc_register_discover_handler](crate::wasm::ipc_register_discover_handler).
-    pub client: Arc<
-        IpcClient<
-            NoEncryptionCryptoProvider,
-            JsCommunicationBackend,
-            // TODO: Change session provider to a JS-implemented one
-            InMemorySessionRepository<()>,
-        >,
-    >,
+    pub client:
+        Arc<IpcClient<NoEncryptionCryptoProvider, JsCommunicationBackend, JsSessionRepository>>,
 }
 
 /// JavaScript wrapper around the IPC client subscription. For more information, see the
@@ -53,12 +48,15 @@ impl JsIpcClientSubscription {
 impl JsIpcClient {
     #[allow(missing_docs)]
     #[wasm_bindgen(constructor)]
-    pub fn new(communication_provider: &JsCommunicationBackend) -> JsIpcClient {
+    pub fn new(
+        communication_provider: &JsCommunicationBackend,
+        session_repository: RawJsSessionRepository,
+    ) -> JsIpcClient {
         JsIpcClient {
             client: IpcClient::new(
                 NoEncryptionCryptoProvider,
                 communication_provider.clone(),
-                InMemorySessionRepository::new(HashMap::new()),
+                JsSessionRepository::new(session_repository),
             ),
         }
     }
