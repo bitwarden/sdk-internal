@@ -309,17 +309,17 @@ jobs:
             "breaking-changes-detected")
               echo "Adding breaking-change label to PR #$PR_NUMBER"
               gh issue edit $PR_NUMBER --add-label "breaking-change" --repo ${{ github.repository }} || {
-                echo "⚠️ Failed to add label, but continuing"
+                echo "::warning::Failed to add label, but continuing"
               }
               ;;
             "no-breaking-changes")
               echo "Removing breaking-change label from PR #$PR_NUMBER"
               gh issue edit $PR_NUMBER --remove-label "breaking-change" --repo ${{ github.repository }} || {
-                echo "⚠️ Label may not exist or failed to remove, but continuing"
+                echo "::warning::Label may not exist or failed to remove, but continuing"
               }
               ;;
             *)
-              echo "⚠️ Unknown status '$CLIENT_STATUS', skipping label management"
+              echo "::warning::Unknown status '$CLIENT_STATUS', skipping label management"
               ;;
           esac
 
@@ -338,7 +338,7 @@ jobs:
           echo "💬 Updating final breaking change detection status comment..."
 
           if [ -z "$COMMENT_ID" ]; then
-            echo "⚠️ No comment ID found, skipping comment update"
+            echo "::warning::No comment ID found, skipping comment update"
             exit 0
           fi
 
@@ -383,7 +383,7 @@ jobs:
 
           gh api --method PATCH repos/${{ github.repository }}/issues/comments/$COMMENT_ID \
             --field body="$FINAL_COMMENT" || {
-            echo "⚠️ Failed to update comment, but continuing"
+            echo "::warning::Failed to update comment, but continuing"
           }
 
           echo "✅ Final comment updated"
