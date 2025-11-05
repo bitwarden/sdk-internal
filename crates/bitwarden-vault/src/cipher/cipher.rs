@@ -1,4 +1,10 @@
-use bitwarden_api_api::models::{CipherDetailsResponseModel, CipherResponseModel};
+use bitwarden_api_api::{
+    apis::ciphers_api::{PutShareError, PutShareManyError},
+    models::{
+        CipherDetailsResponseModel, CipherRequestModel, CipherResponseModel,
+        CipherWithIdRequestModel,
+    },
+};
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     MissingFieldError, OrganizationId, UserId,
@@ -10,8 +16,9 @@ use bitwarden_crypto::{
     PrimitiveEncryptable,
 };
 use bitwarden_error::bitwarden_error;
+use bitwarden_state::repository::RepositoryError;
 use bitwarden_uuid::uuid_newtype;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
@@ -30,8 +37,9 @@ use super::{
     secure_note, ssh_key,
 };
 use crate::{
-    AttachmentView, EncryptError, Fido2CredentialFullView, Fido2CredentialView, FolderId, Login,
-    LoginView, VaultParseError, password_history,
+    AttachmentView, DecryptError, EncryptError, Fido2CredentialFullView, Fido2CredentialView,
+    FieldView, FolderId, Login, LoginView, VaultParseError,
+    password_history::{self, MAX_PASSWORD_HISTORY_ENTRIES},
 };
 
 uuid_newtype!(pub CipherId);
@@ -45,11 +53,21 @@ pub enum CipherError {
     #[error(transparent)]
     Crypto(#[from] CryptoError),
     #[error(transparent)]
+    Decrypt(#[from] DecryptError),
+    #[error(transparent)]
     Encrypt(#[from] EncryptError),
     #[error(
         "This cipher contains attachments without keys. Those attachments will need to be reuploaded to complete the operation"
     )]
     AttachmentsWithoutKeys,
+    #[error("This cipher cannot be moved to the specified organization")]
+    OrganizationAlreadySet,
+    #[error(transparent)]
+    PutShare(#[from] bitwarden_api_api::apis::Error<PutShareError>),
+    #[error(transparent)]
+    PutShareMany(#[from] bitwarden_api_api::apis::Error<PutShareManyError>),
+    #[error(transparent)]
+    Repository(#[from] RepositoryError),
     #[error(transparent)]
     Chrono(#[from] chrono::ParseError),
     #[error(transparent)]
@@ -103,6 +121,148 @@ pub struct EncryptionContext {
     /// Organization-owned ciphers
     pub encrypted_for: UserId,
     pub cipher: Cipher,
+}
+
+impl TryFrom<EncryptionContext> for CipherWithIdRequestModel {
+    type Error = CipherError;
+    fn try_from(
+        EncryptionContext {
+            cipher,
+            encrypted_for,
+        }: EncryptionContext,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: require!(cipher.id).into(),
+            encrypted_for: Some(encrypted_for.into()),
+            r#type: Some(cipher.r#type.into()),
+            organization_id: cipher.organization_id.map(|o| o.to_string()),
+            folder_id: cipher.folder_id.as_ref().map(ToString::to_string),
+            favorite: cipher.favorite.into(),
+            reprompt: Some(cipher.reprompt.into()),
+            key: cipher.key.map(|k| k.to_string()),
+            name: cipher.name.to_string(),
+            notes: cipher.notes.map(|n| n.to_string()),
+            fields: Some(
+                cipher
+                    .fields
+                    .into_iter()
+                    .flatten()
+                    .map(Into::into)
+                    .collect(),
+            ),
+            password_history: Some(
+                cipher
+                    .password_history
+                    .into_iter()
+                    .flatten()
+                    .map(Into::into)
+                    .collect(),
+            ),
+            attachments: None,
+            attachments2: Some(
+                cipher
+                    .attachments
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|a| {
+                        a.id.map(|id| {
+                            (
+                                id,
+                                bitwarden_api_api::models::CipherAttachmentModel {
+                                    file_name: a.file_name.map(|n| n.to_string()),
+                                    key: a.key.map(|k| k.to_string()),
+                                },
+                            )
+                        })
+                    })
+                    .collect(),
+            ),
+            login: cipher.login.map(|l| Box::new(l.into())),
+            card: cipher.card.map(|c| Box::new(c.into())),
+            identity: cipher.identity.map(|i| Box::new(i.into())),
+            secure_note: cipher.secure_note.map(|s| Box::new(s.into())),
+            ssh_key: cipher.ssh_key.map(|s| Box::new(s.into())),
+            data: None, // TODO: Consume this instead of the individual fields above.
+            last_known_revision_date: Some(
+                cipher
+                    .revision_date
+                    .to_rfc3339_opts(SecondsFormat::Millis, true),
+            ),
+            archived_date: cipher
+                .archived_date
+                .map(|d| d.to_rfc3339_opts(SecondsFormat::Millis, true)),
+        })
+    }
+}
+
+impl From<EncryptionContext> for CipherRequestModel {
+    fn from(
+        EncryptionContext {
+            cipher,
+            encrypted_for,
+        }: EncryptionContext,
+    ) -> Self {
+        Self {
+            encrypted_for: Some(encrypted_for.into()),
+            r#type: Some(cipher.r#type.into()),
+            organization_id: cipher.organization_id.map(|o| o.to_string()),
+            folder_id: cipher.folder_id.as_ref().map(ToString::to_string),
+            favorite: cipher.favorite.into(),
+            reprompt: Some(cipher.reprompt.into()),
+            key: cipher.key.map(|k| k.to_string()),
+            name: cipher.name.to_string(),
+            notes: cipher.notes.map(|n| n.to_string()),
+            fields: Some(
+                cipher
+                    .fields
+                    .into_iter()
+                    .flatten()
+                    .map(Into::into)
+                    .collect(),
+            ),
+            password_history: Some(
+                cipher
+                    .password_history
+                    .into_iter()
+                    .flatten()
+                    .map(Into::into)
+                    .collect(),
+            ),
+            attachments: None,
+            attachments2: Some(
+                cipher
+                    .attachments
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|a| {
+                        a.id.map(|id| {
+                            (
+                                id,
+                                bitwarden_api_api::models::CipherAttachmentModel {
+                                    file_name: a.file_name.map(|n| n.to_string()),
+                                    key: a.key.map(|k| k.to_string()),
+                                },
+                            )
+                        })
+                    })
+                    .collect(),
+            ),
+            login: cipher.login.map(|l| Box::new(l.into())),
+            card: cipher.card.map(|c| Box::new(c.into())),
+            identity: cipher.identity.map(|i| Box::new(i.into())),
+            secure_note: cipher.secure_note.map(|s| Box::new(s.into())),
+            ssh_key: cipher.ssh_key.map(|s| Box::new(s.into())),
+            data: None, // TODO: Consume this instead of the individual fields above.
+            last_known_revision_date: Some(
+                cipher
+                    .revision_date
+                    .to_rfc3339_opts(SecondsFormat::Millis, true),
+            ),
+            archived_date: cipher
+                .archived_date
+                .map(|d| d.to_rfc3339_opts(SecondsFormat::Millis, true)),
+        }
+    }
 }
 
 #[allow(missing_docs)]
@@ -639,6 +799,27 @@ impl CipherView {
 
         Ok(fido2_credential[0].key_value.clone())
     }
+
+    pub(crate) fn update_password_history(&mut self, original_cipher: &CipherView) {
+        let changes = self
+            .login
+            .as_mut()
+            .map_or(vec![], |login| {
+                login.detect_password_change(&original_cipher.login)
+            })
+            .into_iter()
+            .chain(self.fields.as_deref().map_or(vec![], |fields| {
+                FieldView::detect_hidden_field_changes(
+                    fields,
+                    original_cipher.fields.as_deref().unwrap_or(&[]),
+                )
+            }))
+            .rev()
+            .chain(original_cipher.password_history.iter().flatten().cloned())
+            .take(MAX_PASSWORD_HISTORY_ENTRIES)
+            .collect();
+        self.password_history = Some(changes)
+    }
 }
 
 impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
@@ -702,6 +883,15 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             local_data: self.local_data.decrypt(ctx, ciphers_key)?,
             archived_date: self.archived_date,
         })
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl wasm_bindgen::__rt::VectorIntoJsValue for Cipher {
+    fn vector_into_jsvalue(
+        vector: wasm_bindgen::__rt::std::boxed::Box<[Self]>,
+    ) -> wasm_bindgen::JsValue {
+        wasm_bindgen::__rt::js_value_vector_into_jsvalue(vector)
     }
 }
 
@@ -896,7 +1086,7 @@ mod tests {
     use bitwarden_crypto::SymmetricCryptoKey;
 
     use super::*;
-    use crate::{Fido2Credential, login::Fido2CredentialListView};
+    use crate::{Fido2Credential, PasswordHistoryView, login::Fido2CredentialListView};
 
     // Test constants for encrypted strings
     const TEST_ENC_STRING_1: &str = "2.xzDCDWqRBpHm42EilUvyVw==|nIrWV3l/EeTbWTnAznrK0Q==|sUj8ol2OTgvvTvD86a9i9XUP58hmtCEBqhck7xT5YNk=";
@@ -1425,6 +1615,92 @@ mod tests {
     }
 
     #[test]
+    fn test_password_history_on_password_change() {
+        use chrono::Utc;
+
+        let original_cipher = generate_cipher();
+        let mut new_cipher = generate_cipher();
+
+        // Change password
+        if let Some(ref mut login) = new_cipher.login {
+            login.password = Some("new_password123".to_string());
+        }
+
+        let start = Utc::now();
+        new_cipher.update_password_history(&original_cipher);
+        let end = Utc::now();
+
+        assert!(new_cipher.password_history.is_some());
+        let history = new_cipher.password_history.unwrap();
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].password, "test_password");
+        assert!(
+            history[0].last_used_date >= start && history[0].last_used_date <= end,
+            "last_used_date was not set properly"
+        );
+    }
+
+    #[test]
+    fn test_password_history_on_unchanged_password() {
+        let original_cipher = generate_cipher();
+        let mut new_cipher = generate_cipher();
+
+        new_cipher.update_password_history(&original_cipher);
+
+        // Password history should be empty since password didn't change
+        assert!(
+            new_cipher.password_history.is_none()
+                || new_cipher.password_history.as_ref().unwrap().is_empty()
+        );
+    }
+
+    #[test]
+    fn test_password_history_is_preserved() {
+        use chrono::TimeZone;
+
+        let mut original_cipher = generate_cipher();
+        original_cipher.password_history = Some(
+            (0..4)
+                .map(|i| PasswordHistoryView {
+                    password: format!("old_password_{}", i),
+                    last_used_date: chrono::Utc
+                        .with_ymd_and_hms(2025, i + 1, i + 1, i, i, i)
+                        .unwrap(),
+                })
+                .collect(),
+        );
+
+        let mut new_cipher = generate_cipher();
+
+        new_cipher.update_password_history(&original_cipher);
+
+        assert!(new_cipher.password_history.is_some());
+        let history = new_cipher.password_history.unwrap();
+        assert_eq!(history.len(), 4);
+
+        assert_eq!(history[0].password, "old_password_0");
+        assert_eq!(
+            history[0].last_used_date,
+            chrono::Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap()
+        );
+        assert_eq!(history[1].password, "old_password_1");
+        assert_eq!(
+            history[1].last_used_date,
+            chrono::Utc.with_ymd_and_hms(2025, 2, 2, 1, 1, 1).unwrap()
+        );
+        assert_eq!(history[2].password, "old_password_2");
+        assert_eq!(
+            history[2].last_used_date,
+            chrono::Utc.with_ymd_and_hms(2025, 3, 3, 2, 2, 2).unwrap()
+        );
+        assert_eq!(history[3].password, "old_password_3");
+        assert_eq!(
+            history[3].last_used_date,
+            chrono::Utc.with_ymd_and_hms(2025, 4, 4, 3, 3, 3).unwrap()
+        );
+    }
+
+    #[test]
     fn test_populate_cipher_types_login_with_valid_data() {
         let mut cipher = Cipher {
             id: Some(TEST_UUID.parse().unwrap()),
@@ -1665,6 +1941,70 @@ mod tests {
             identity.country.as_ref().unwrap().to_string(),
             TEST_ENC_STRING_5
         );
+    }
+
+    #[test]
+
+    fn test_password_history_with_hidden_fields() {
+        let mut original_cipher = generate_cipher();
+        original_cipher.fields = Some(vec![FieldView {
+            name: Some("Secret Key".to_string()),
+            value: Some("old_secret_value".to_string()),
+            r#type: crate::FieldType::Hidden,
+            linked_id: None,
+        }]);
+
+        let mut new_cipher = generate_cipher();
+        new_cipher.fields = Some(vec![FieldView {
+            name: Some("Secret Key".to_string()),
+            value: Some("new_secret_value".to_string()),
+            r#type: crate::FieldType::Hidden,
+            linked_id: None,
+        }]);
+
+        new_cipher.update_password_history(&original_cipher);
+
+        assert!(new_cipher.password_history.is_some());
+        let history = new_cipher.password_history.unwrap();
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].password, "Secret Key: old_secret_value");
+    }
+
+    #[test]
+    fn test_password_history_length_limit() {
+        use crate::password_history::MAX_PASSWORD_HISTORY_ENTRIES;
+
+        let mut original_cipher = generate_cipher();
+        original_cipher.password_history = Some(
+            (0..10)
+                .map(|i| PasswordHistoryView {
+                    password: format!("old_password_{}", i),
+                    last_used_date: chrono::Utc::now(),
+                })
+                .collect(),
+        );
+
+        let mut new_cipher = original_cipher.clone();
+        // Change password
+        if let Some(ref mut login) = new_cipher.login {
+            login.password = Some("brand_new_password".to_string());
+        }
+
+        new_cipher.update_password_history(&original_cipher);
+
+        assert!(new_cipher.password_history.is_some());
+        let history = new_cipher.password_history.unwrap();
+
+        // Should be limited to MAX_PASSWORD_HISTORY_ENTRIES
+        assert_eq!(history.len(), MAX_PASSWORD_HISTORY_ENTRIES);
+
+        // Most recent change (original password) should be first
+        assert_eq!(history[0].password, "test_password");
+        // Followed by the oldest entries from the existing history
+        assert_eq!(history[1].password, "old_password_0");
+        assert_eq!(history[2].password, "old_password_1");
+        assert_eq!(history[3].password, "old_password_2");
+        assert_eq!(history[4].password, "old_password_3");
     }
 
     #[test]

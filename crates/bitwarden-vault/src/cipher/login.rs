@@ -17,7 +17,7 @@ use tsify::Tsify;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::cipher::CipherKind;
-use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
+use crate::{Cipher, PasswordHistoryView, VaultParseError, cipher::cipher::CopyableCipherFields};
 
 #[allow(missing_docs)]
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
@@ -335,6 +335,35 @@ impl LoginView {
             *creds = decrypted_creds.encrypt_composite(ctx, new_key)?;
         }
         Ok(())
+    }
+
+    /// Compares this LoginView to the original, and returns any new password history items.
+    pub(crate) fn detect_password_change(
+        &mut self,
+        original: &Option<LoginView>,
+    ) -> Vec<PasswordHistoryView> {
+        let Some(original_login) = original else {
+            return vec![];
+        };
+
+        let original_password = original_login.password.as_deref().unwrap_or("");
+        let current_password = self.password.as_deref().unwrap_or("");
+
+        if original_password.is_empty() {
+            // No original password - set revision date only if adding new password
+            if !current_password.is_empty() {
+                self.password_revision_date = Some(Utc::now());
+            }
+            vec![]
+        } else if original_password == current_password {
+            // Password unchanged - preserve original revision date
+            self.password_revision_date = original_login.password_revision_date;
+            vec![]
+        } else {
+            // Password changed - update revision date and track change
+            self.password_revision_date = Some(Utc::now());
+            vec![PasswordHistoryView::new_password(original_password)]
+        }
     }
 }
 
