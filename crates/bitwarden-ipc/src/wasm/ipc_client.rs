@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use bitwarden_threading::cancellation_token::wasm::{AbortSignal, AbortSignalExt};
 use wasm_bindgen::prelude::*;
@@ -8,8 +8,11 @@ use crate::{
     IpcClient,
     ipc_client::{IpcClientSubscription, ReceiveError, SubscribeError},
     message::{IncomingMessage, OutgoingMessage},
-    traits::NoEncryptionCryptoProvider,
-    wasm::{JsSessionRepository, RawJsSessionRepository},
+    traits::{InMemorySessionRepository, NoEncryptionCryptoProvider},
+    wasm::{
+        JsSessionRepository, RawJsSessionRepository,
+        generic_session_repository::GenericSessionRepository,
+    },
 };
 
 /// JavaScript wrapper around the IPC client. For more information, see the
@@ -21,8 +24,10 @@ pub struct JsIpcClient {
     /// that interact with the IPC client, e.g. to register RPC handlers, trigger RPC requests,
     /// send typed messages, etc. For examples see
     /// [wasm::ipc_register_discover_handler](crate::wasm::ipc_register_discover_handler).
-    pub client:
-        Arc<IpcClient<NoEncryptionCryptoProvider, JsCommunicationBackend, JsSessionRepository>>,
+    pub client: Arc<
+        IpcClient<NoEncryptionCryptoProvider, JsCommunicationBackend, GenericSessionRepository>,
+    >,
+    // Arc<IpcClient<NoEncryptionCryptoProvider, JsCommunicationBackend, JsSessionRepository>>,
 }
 
 /// JavaScript wrapper around the IPC client subscription. For more information, see the
@@ -46,9 +51,26 @@ impl JsIpcClientSubscription {
 
 #[wasm_bindgen(js_class = IpcClient)]
 impl JsIpcClient {
-    #[allow(missing_docs)]
-    #[wasm_bindgen(constructor)]
-    pub fn new(
+    /// Create a new `IpcClient` instance with an in-memory session repository for saving
+    /// sessions within the SDK.
+    #[wasm_bindgen(js_name = newWithSdkInMemorySessions)]
+    pub fn new_with_sdk_in_memory_sessions(
+        communication_provider: &JsCommunicationBackend,
+    ) -> JsIpcClient {
+        JsIpcClient {
+            client: IpcClient::new(
+                NoEncryptionCryptoProvider,
+                communication_provider.clone(),
+                GenericSessionRepository::InMemory(Arc::new(InMemorySessionRepository::new(
+                    HashMap::new(),
+                ))),
+            ),
+        }
+    }
+    /// Create a new `IpcClient` instance with a client-managed session repository for saving
+    /// sessions using State Provider.
+    #[wasm_bindgen(js_name = newWithClientManagedSessions)]
+    pub fn new_with_client_managed_sessions(
         communication_provider: &JsCommunicationBackend,
         session_repository: RawJsSessionRepository,
     ) -> JsIpcClient {
@@ -56,7 +78,9 @@ impl JsIpcClient {
             client: IpcClient::new(
                 NoEncryptionCryptoProvider,
                 communication_provider.clone(),
-                JsSessionRepository::new(session_repository),
+                GenericSessionRepository::JsSessionRepository(Arc::new(JsSessionRepository::new(
+                    session_repository,
+                ))),
             ),
         }
     }
