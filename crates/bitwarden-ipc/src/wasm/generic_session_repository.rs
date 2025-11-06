@@ -34,7 +34,7 @@ impl SessionRepository<Session> for GenericSessionRepository {
             GenericSessionRepository::InMemory(repo) => repo
                 .get(endpoint)
                 .await
-                .map_err(|_| unreachable!("InMemorySessionRepository::get never fails")),
+                .map_err(|_| "InMemorySessionRepository::get should never fail".to_owned()),
             GenericSessionRepository::JsSessionRepository(repo) => {
                 <JsSessionRepository as SessionRepository<Session>>::get(repo.as_ref(), endpoint)
                     .await
@@ -51,7 +51,7 @@ impl SessionRepository<Session> for GenericSessionRepository {
             GenericSessionRepository::InMemory(repo) => repo
                 .save(endpoint, session)
                 .await
-                .map_err(|_| unreachable!("InMemorySessionRepository::save never fails")),
+                .map_err(|_| "InMemorySessionRepository::save should never fail".to_owned()),
             GenericSessionRepository::JsSessionRepository(repo) => {
                 <JsSessionRepository as SessionRepository<Session>>::save(
                     repo.as_ref(),
@@ -68,7 +68,7 @@ impl SessionRepository<Session> for GenericSessionRepository {
             GenericSessionRepository::InMemory(repo) => repo
                 .remove(endpoint)
                 .await
-                .map_err(|_| unreachable!("InMemorySessionRepository::remove never fails")),
+                .map_err(|_| "InMemorySessionRepository::remove should never fail".to_owned()),
             GenericSessionRepository::JsSessionRepository(repo) => {
                 <JsSessionRepository as SessionRepository<Session>>::remove(repo.as_ref(), endpoint)
                     .await
