@@ -20,12 +20,12 @@ extern "C" {
     #[wasm_bindgen(js_name = IpcSessionRepository, typescript_type = "IpcSessionRepository")]
     pub type RawJsSessionRepository;
 
-    /// Used by the IPC framework to get a session for a specific destination.
+    /// Used by the IPC framework to get a session for a specific endpoint.
     #[wasm_bindgen(catch, method, structural)]
     pub async fn get(this: &RawJsSessionRepository, endpoint: Endpoint)
     -> Result<JsValue, JsValue>;
 
-    /// Used by the IPC framework to save a session for a specific destination.
+    /// Used by the IPC framework to save a session for a specific endpoint.
     #[wasm_bindgen(catch, method, structural)]
     pub async fn save(
         this: &RawJsSessionRepository,
@@ -33,7 +33,7 @@ extern "C" {
         session: JsValue,
     ) -> Result<(), JsValue>;
 
-    /// Used by the IPC framework to remove a session for a specific destination.
+    /// Used by the IPC framework to remove a session for a specific endpoint.
     #[wasm_bindgen(catch, method, structural)]
     pub async fn remove(this: &RawJsSessionRepository, endpoint: Endpoint) -> Result<(), JsValue>;
 }
@@ -62,10 +62,10 @@ where
     type SaveError = String;
     type RemoveError = String;
 
-    async fn get(&self, destination: Endpoint) -> Result<Option<Session>, Self::GetError> {
+    async fn get(&self, endpoint: Endpoint) -> Result<Option<Session>, Self::GetError> {
         self.0
             .run_in_thread(move |repo| async move {
-                let js_value = repo.get(destination).await.map_err(|e| format!("{e:?}"))?;
+                let js_value = repo.get(endpoint).await.map_err(|e| format!("{e:?}"))?;
                 if js_value.is_undefined() || js_value.is_null() {
                     return Ok(None);
                 }
@@ -78,11 +78,11 @@ where
             .map_err(|e| e.to_string())?
     }
 
-    async fn save(&self, destination: Endpoint, session: Session) -> Result<(), Self::SaveError> {
+    async fn save(&self, endpoint: Endpoint, session: Session) -> Result<(), Self::SaveError> {
         self.0
             .run_in_thread(move |repo| async move {
                 let js_value = serde_wasm_bindgen::to_value(&session).map_err(|e| e.to_string())?;
-                repo.save(destination, js_value)
+                repo.save(endpoint, js_value)
                     .await
                     .map_err(|e| format!("{e:?}"))
             })
@@ -90,10 +90,10 @@ where
             .map_err(|e| e.to_string())?
     }
 
-    async fn remove(&self, destination: Endpoint) -> Result<(), Self::RemoveError> {
+    async fn remove(&self, endpoint: Endpoint) -> Result<(), Self::RemoveError> {
         self.0
             .run_in_thread(move |repo| async move {
-                repo.remove(destination).await.map_err(|e| format!("{e:?}"))
+                repo.remove(endpoint).await.map_err(|e| format!("{e:?}"))
             })
             .await
             .map_err(|e| e.to_string())?
