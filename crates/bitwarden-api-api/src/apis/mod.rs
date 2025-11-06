@@ -174,6 +174,7 @@ pub mod slack_integration_api;
 pub mod stripe_api;
 pub mod sync_api;
 pub mod tax_api;
+pub mod teams_integration_api;
 pub mod trash_api;
 pub mod two_factor_api;
 pub mod users_api;
@@ -259,6 +260,7 @@ struct ApiClientReal {
     stripe_api: stripe_api::StripeApiClient,
     sync_api: sync_api::SyncApiClient,
     tax_api: tax_api::TaxApiClient,
+    teams_integration_api: teams_integration_api::TeamsIntegrationApiClient,
     trash_api: trash_api::TrashApiClient,
     two_factor_api: two_factor_api::TwoFactorApiClient,
     users_api: users_api::UsersApiClient,
@@ -336,6 +338,7 @@ pub struct ApiClientMock {
     pub stripe_api: stripe_api::MockStripeApi,
     pub sync_api: sync_api::MockSyncApi,
     pub tax_api: tax_api::MockTaxApi,
+    pub teams_integration_api: teams_integration_api::MockTeamsIntegrationApi,
     pub trash_api: trash_api::MockTrashApi,
     pub two_factor_api: two_factor_api::MockTwoFactorApi,
     pub users_api: users_api::MockUsersApi,
@@ -407,6 +410,7 @@ impl ApiClient {
             stripe_api: stripe_api::StripeApiClient::new(configuration.clone()),
             sync_api: sync_api::SyncApiClient::new(configuration.clone()),
             tax_api: tax_api::TaxApiClient::new(configuration.clone()),
+            teams_integration_api: teams_integration_api::TeamsIntegrationApiClient::new(configuration.clone()),
             trash_api: trash_api::TrashApiClient::new(configuration.clone()),
             two_factor_api: two_factor_api::TwoFactorApiClient::new(configuration.clone()),
             users_api: users_api::UsersApiClient::new(configuration.clone()),
@@ -479,6 +483,7 @@ impl ApiClient {
             stripe_api: stripe_api::MockStripeApi::new(),
             sync_api: sync_api::MockSyncApi::new(),
             tax_api: tax_api::MockTaxApi::new(),
+            teams_integration_api: teams_integration_api::MockTeamsIntegrationApi::new(),
             trash_api: trash_api::MockTrashApi::new(),
             two_factor_api: two_factor_api::MockTwoFactorApi::new(),
             users_api: users_api::MockUsersApi::new(),
@@ -957,6 +962,13 @@ impl ApiClient {
             ApiClient::Real(real) => &real.tax_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.tax_api,
+        }
+    }
+    pub fn teams_integration_api(&self) -> &dyn teams_integration_api::TeamsIntegrationApi {
+        match self {
+            ApiClient::Real(real) => &real.teams_integration_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.teams_integration_api,
         }
     }
     pub fn trash_api(&self) -> &dyn trash_api::TrashApi {

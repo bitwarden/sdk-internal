@@ -5,7 +5,7 @@ mod decryptable;
 pub use decryptable::Decryptable;
 
 pub(crate) mod key_id;
-pub use key_id::{KeyId, KeyIds};
+pub use key_id::{KeyId, KeyIds, LocalId};
 
 /// Types implementing [IdentifyKey] are capable of knowing which cryptographic key is
 /// needed to encrypt/decrypt them.
@@ -27,7 +27,7 @@ pub(crate) mod tests {
             B((u8, u8)),
 
             #[local]
-            C(u8),
+            C(LocalId),
         }
 
         #[asymmetric]
@@ -35,7 +35,7 @@ pub(crate) mod tests {
             A(u8),
             B,
             #[local]
-            C(&'static str),
+            C(LocalId),
         }
 
         #[signing]
@@ -43,7 +43,7 @@ pub(crate) mod tests {
             A(u8),
             B,
             #[local]
-            C(&'static str),
+            C(LocalId),
         }
 
        pub TestIds => TestSymmKey, TestAsymmKey, TestSigningKey;

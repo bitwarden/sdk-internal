@@ -9,7 +9,7 @@ use super::internal::InternalClient;
 #[cfg(feature = "internal")]
 use crate::client::flags::Flags;
 use crate::client::{
-    client_settings::ClientSettings,
+    client_settings::{ClientName, ClientSettings},
     internal::{ApiConfigurations, ClientManagedTokens, SdkManagedTokens, Tokens},
 };
 
@@ -72,6 +72,22 @@ impl Client {
             HeaderValue::from_str(&(settings.device_type as u8).to_string())
                 .expect("All numbers are valid ASCII"),
         );
+
+        if let Some(client_type) = Into::<Option<ClientName>>::into(settings.device_type) {
+            headers.append(
+                "Bitwarden-Client-Name",
+                HeaderValue::from_str(&client_type.to_string())
+                    .expect("All ASCII strings are valid header values"),
+            );
+        }
+
+        if let Some(version) = &settings.bitwarden_client_version {
+            headers.append(
+                "Bitwarden-Client-Version",
+                HeaderValue::from_str(version).expect("Version should be a valid header value"),
+            );
+        }
+
         let client_builder = new_client_builder().default_headers(headers);
 
         let client = client_builder.build().expect("Build should not fail");

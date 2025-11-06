@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bitwarden_api_api::models::CipherFieldModel;
 use bitwarden_core::{
     MissingFieldError,
@@ -16,7 +18,7 @@ use tsify::Tsify;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::linked_id::LinkedIdType;
-use crate::VaultParseError;
+use crate::{PasswordHistoryView, VaultParseError};
 
 /// Represents the type of a [FieldView].
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq, Eq)]
@@ -88,6 +90,44 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Field> for FieldView {
     }
 }
 
+impl FieldView {
+    /// Compares two sets of FieldView and detects changes in hidden fields, for building password
+    /// history.
+    pub(crate) fn detect_hidden_field_changes(
+        fields: &[FieldView],
+        original: &[FieldView],
+    ) -> Vec<PasswordHistoryView> {
+        let current_fields = Self::extract_hidden_fields(fields);
+        let original_fields = Self::extract_hidden_fields(original);
+
+        original_fields
+            .into_iter()
+            .filter_map(|(field_name, original_value)| {
+                let current_value = current_fields.get(&field_name);
+                if current_value != Some(&original_value) {
+                    Some(PasswordHistoryView::new_field(&field_name, &original_value))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    fn extract_hidden_fields(fields: &[FieldView]) -> HashMap<String, String> {
+        fields
+            .iter()
+            .filter_map(|f| match (&f.r#type, &f.name, &f.value) {
+                (FieldType::Hidden, Some(name), Some(value))
+                    if !name.is_empty() && !value.is_empty() =>
+                {
+                    Some((name.clone(), value.clone()))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+}
+
 impl Decryptable<KeyIds, SymmetricKeyId, FieldView> for Field {
     fn decrypt(
         &self,
@@ -126,6 +166,28 @@ impl From<bitwarden_api_api::models::FieldType> for FieldType {
             bitwarden_api_api::models::FieldType::Hidden => FieldType::Hidden,
             bitwarden_api_api::models::FieldType::Boolean => FieldType::Boolean,
             bitwarden_api_api::models::FieldType::Linked => FieldType::Linked,
+        }
+    }
+}
+
+impl From<Field> for bitwarden_api_api::models::CipherFieldModel {
+    fn from(field: Field) -> Self {
+        Self {
+            name: field.name.map(|n| n.to_string()),
+            value: field.value.map(|v| v.to_string()),
+            r#type: Some(field.r#type.into()),
+            linked_id: field.linked_id.map(|id| u32::from(id) as i32),
+        }
+    }
+}
+
+impl From<FieldType> for bitwarden_api_api::models::FieldType {
+    fn from(field_type: FieldType) -> Self {
+        match field_type {
+            FieldType::Text => bitwarden_api_api::models::FieldType::Text,
+            FieldType::Hidden => bitwarden_api_api::models::FieldType::Hidden,
+            FieldType::Boolean => bitwarden_api_api::models::FieldType::Boolean,
+            FieldType::Linked => bitwarden_api_api::models::FieldType::Linked,
         }
     }
 }

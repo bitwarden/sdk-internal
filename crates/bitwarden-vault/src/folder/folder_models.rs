@@ -41,15 +41,6 @@ pub struct FolderView {
     pub revision_date: DateTime<Utc>,
 }
 
-#[cfg(feature = "wasm")]
-impl wasm_bindgen::__rt::VectorIntoJsValue for FolderView {
-    fn vector_into_jsvalue(
-        vector: wasm_bindgen::__rt::std::boxed::Box<[Self]>,
-    ) -> wasm_bindgen::JsValue {
-        wasm_bindgen::__rt::js_value_vector_into_jsvalue(vector)
-    }
-}
-
 impl IdentifyKey<SymmetricKeyId> for Folder {
     fn key_identifier(&self) -> SymmetricKeyId {
         SymmetricKeyId::User

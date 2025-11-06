@@ -71,6 +71,39 @@ impl PartialEq for Aes256CbcHmacKey {
 pub struct XChaCha20Poly1305Key {
     pub(crate) key_id: [u8; KEY_ID_SIZE],
     pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
+    /// Controls which key operations are allowed with this key. Note: Only checking decrypt is
+    /// implemented right now, and implementing is tracked here <https://bitwarden.atlassian.net/browse/PM-27513>.
+    /// Further, disabling decrypt will also disable unwrap. The only use-case so far is
+    /// `DataEnvelope`.
+    #[zeroize(skip)]
+    pub(crate) supported_operations: Vec<KeyOperation>,
+}
+
+impl XChaCha20Poly1305Key {
+    /// Creates a new XChaCha20Poly1305Key with a securely sampled cryptographic key and key id.
+    pub fn make() -> Self {
+        let mut rng = rand::thread_rng();
+        let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
+        rng.fill(enc_key.as_mut_slice());
+        let mut key_id = [0u8; KEY_ID_SIZE];
+        rng.fill(&mut key_id);
+
+        Self {
+            enc_key,
+            key_id,
+            supported_operations: vec![
+                KeyOperation::Decrypt,
+                KeyOperation::Encrypt,
+                KeyOperation::WrapKey,
+                KeyOperation::UnwrapKey,
+            ],
+        }
+    }
+
+    pub(crate) fn disable_key_operation(&mut self, op: KeyOperation) -> &mut Self {
+        self.supported_operations.retain(|k| *k != op);
+        self
+    }
 }
 
 impl ConstantTimeEq for XChaCha20Poly1305Key {
@@ -134,6 +167,12 @@ impl SymmetricCryptoKey {
         Self::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
             enc_key,
             key_id: KeyId::make().into(),
+            supported_operations: vec![
+                KeyOperation::Decrypt,
+                KeyOperation::Encrypt,
+                KeyOperation::WrapKey,
+                KeyOperation::UnwrapKey,
+            ],
         })
     }
 
@@ -199,13 +238,11 @@ impl SymmetricCryptoKey {
             }
             Self::XChaCha20Poly1305Key(key) => {
                 let builder = coset::CoseKeyBuilder::new_symmetric_key(key.enc_key.to_vec());
-                let mut cose_key = builder
-                    .key_id(key.key_id.to_vec())
-                    .add_key_op(KeyOperation::Decrypt)
-                    .add_key_op(KeyOperation::Encrypt)
-                    .add_key_op(KeyOperation::WrapKey)
-                    .add_key_op(KeyOperation::UnwrapKey)
-                    .build();
+                let mut cose_key = builder.key_id(key.key_id.to_vec());
+                for op in &key.supported_operations {
+                    cose_key = cose_key.add_key_op(*op);
+                }
+                let mut cose_key = cose_key.build();
                 cose_key.alg = Some(RegisteredLabelWithPrivate::PrivateUse(
                     cose::XCHACHA20_POLY1305,
                 ));
@@ -445,6 +482,7 @@ pub fn derive_symmetric_key(name: &str) -> Aes256CbcHmacKey {
 #[cfg(test)]
 mod tests {
     use bitwarden_encoding::B64;
+    use coset::iana::KeyOperation;
     use generic_array::GenericArray;
     use typenum::U32;
 
@@ -568,6 +606,12 @@ mod tests {
         let key2 = SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
             enc_key: Box::pin(GenericArray::<u8, U32>::default()),
             key_id: [0; 16],
+            supported_operations: vec![
+                KeyOperation::Decrypt,
+                KeyOperation::Encrypt,
+                KeyOperation::WrapKey,
+                KeyOperation::UnwrapKey,
+            ],
         });
         assert_ne!(key1, key2);
     }
@@ -630,18 +674,36 @@ mod tests {
                 vec![1u8; 32].as_slice(),
             )),
             key_id: [0; 16],
+            supported_operations: vec![
+                KeyOperation::Decrypt,
+                KeyOperation::Encrypt,
+                KeyOperation::WrapKey,
+                KeyOperation::UnwrapKey,
+            ],
         };
         let key2 = XChaCha20Poly1305Key {
             enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
                 vec![1u8; 32].as_slice(),
             )),
             key_id: [0; 16],
+            supported_operations: vec![
+                KeyOperation::Decrypt,
+                KeyOperation::Encrypt,
+                KeyOperation::WrapKey,
+                KeyOperation::UnwrapKey,
+            ],
         };
         let key3 = XChaCha20Poly1305Key {
             enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
                 vec![2u8; 32].as_slice(),
             )),
             key_id: [1; 16],
+            supported_operations: vec![
+                KeyOperation::Decrypt,
+                KeyOperation::Encrypt,
+                KeyOperation::WrapKey,
+                KeyOperation::UnwrapKey,
+            ],
         };
         assert_eq!(key1, key2);
         assert_ne!(key1, key3);
@@ -652,10 +714,22 @@ mod tests {
         let key1 = XChaCha20Poly1305Key {
             enc_key: Box::pin(GenericArray::<u8, U32>::default()),
             key_id: [0; 16],
+            supported_operations: vec![
+                KeyOperation::Decrypt,
+                KeyOperation::Encrypt,
+                KeyOperation::WrapKey,
+                KeyOperation::UnwrapKey,
+            ],
         };
         let key2 = XChaCha20Poly1305Key {
             enc_key: Box::pin(GenericArray::<u8, U32>::default()),
             key_id: [1; 16],
+            supported_operations: vec![
+                KeyOperation::Decrypt,
+                KeyOperation::Encrypt,
+                KeyOperation::WrapKey,
+                KeyOperation::UnwrapKey,
+            ],
         };
         assert_ne!(key1, key2);
 

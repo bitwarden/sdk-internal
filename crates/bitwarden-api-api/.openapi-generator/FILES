@@ -63,6 +63,7 @@ src/apis/slack_integration_api.rs
 src/apis/stripe_api.rs
 src/apis/sync_api.rs
 src/apis/tax_api.rs
+src/apis/teams_integration_api.rs
 src/apis/trash_api.rs
 src/apis/two_factor_api.rs
 src/apis/users_api.rs
