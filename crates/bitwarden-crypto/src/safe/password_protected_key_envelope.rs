@@ -239,11 +239,16 @@ impl PasswordProtectedKeyEnvelope {
             &self.cose_encrypt.protected.header,
             CONTAINED_KEY_ID,
             "key id",
-        )?;
-        let key_id_array: [u8; 16] = key_id_bytes.as_slice().try_into().map_err(|_| {
-            PasswordProtectedKeyEnvelopeError::Parsing("Invalid key id".to_string())
-        })?;
-        Ok(Some(KeyId::from(key_id_array)))
+        );
+
+        if let Some(bytes) = key_id_bytes.ok() {
+            let key_id_array: [u8; 16] = key_id_bytes.as_slice().try_into().map_err(|_| {
+                PasswordProtectedKeyEnvelopeError::Parsing("Invalid key id".to_string())
+            })?;
+            Ok(Some(KeyId::from(key_id_array)))
+        } else {
+            Ok(None)
+        }
     }
 }
 
