@@ -1,3 +1,11 @@
+//! Generic session repository abstraction allowing IPC clients to choose between
+//! SDK-managed (in-memory) and client-managed (JavaScript-backed) session storage.
+//!
+//! This is a workaround because wasm-bindgen does not handle generics.
+//!
+//! Use SDK-managed when state providers might not make sense, for example if they
+//! will use insecure IPC to save the data, defeating the whole point of a secure session.
+
 use std::sync::Arc;
 
 use crate::{
