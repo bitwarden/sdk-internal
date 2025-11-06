@@ -27,7 +27,6 @@ pub struct JsIpcClient {
     pub client: Arc<
         IpcClient<NoEncryptionCryptoProvider, JsCommunicationBackend, GenericSessionRepository>,
     >,
-    // Arc<IpcClient<NoEncryptionCryptoProvider, JsCommunicationBackend, JsSessionRepository>>,
 }
 
 /// JavaScript wrapper around the IPC client subscription. For more information, see the
