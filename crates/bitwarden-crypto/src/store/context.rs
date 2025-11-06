@@ -3,16 +3,17 @@ use std::{
     sync::{RwLockReadGuard, RwLockWriteGuard},
 };
 
+use coset::iana::KeyOperation;
 use serde::Serialize;
 use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
-    AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CryptoError, EncString, KeyId,
-    KeyIds, LocalId, PublicKeyEncryptionAlgorithm, Result, RotatedUserKeys, Signature,
-    SignatureAlgorithm, SignedObject, SignedPublicKey, SignedPublicKeyMessage, SigningKey,
-    SymmetricCryptoKey, UnsignedSharedKey, derive_shareable_key, error::UnsupportedOperationError,
-    signing, store::backend::StoreBackend,
+    AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CoseEncrypt0Bytes, CryptoError,
+    EncString, KeyId, KeyIds, LocalId, PublicKeyEncryptionAlgorithm, Result, RotatedUserKeys,
+    Signature, SignatureAlgorithm, SignedObject, SignedPublicKey, SignedPublicKeyMessage,
+    SigningKey, SymmetricCryptoKey, UnsignedSharedKey, derive_shareable_key,
+    error::UnsupportedOperationError, signing, store::backend::StoreBackend,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -174,8 +175,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let (content_bytes, content_format) =
-                    crate::cose::decrypt_xchacha20_poly1305(data, key)?;
+                let (content_bytes, content_format) = crate::cose::decrypt_xchacha20_poly1305(
+                    &CoseEncrypt0Bytes::from(data.clone()),
+                    key,
+                )?;
                 match content_format {
                     ContentFormat::BitwardenLegacyKey => {
                         SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(content_bytes))?
@@ -388,7 +391,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(signed_public_key)
     }
 
-    fn get_symmetric_key(&self, key_id: Ids::Symmetric) -> Result<&SymmetricCryptoKey> {
+    pub(crate) fn get_symmetric_key(&self, key_id: Ids::Symmetric) -> Result<&SymmetricCryptoKey> {
         if key_id.is_local() {
             self.local_symmetric_keys.get(key_id)
         } else {
@@ -421,6 +424,14 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     #[deprecated(note = "This function should ideally never be used outside this crate")]
     #[allow(missing_docs)]
     pub fn set_symmetric_key(
+        &mut self,
+        key_id: Ids::Symmetric,
+        key: SymmetricCryptoKey,
+    ) -> Result<()> {
+        self.set_symmetric_key_internal(key_id, key)
+    }
+
+    pub(crate) fn set_symmetric_key_internal(
         &mut self,
         key_id: Ids::Symmetric,
         key: SymmetricCryptoKey,
@@ -508,7 +519,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
-                let (data, _) = crate::cose::decrypt_xchacha20_poly1305(data, key)?;
+                let (data, _) = crate::cose::decrypt_xchacha20_poly1305(
+                    &CoseEncrypt0Bytes::from(data.clone()),
+                    key,
+                )?;
                 Ok(data)
             }
             _ => Err(CryptoError::InvalidKey),
@@ -528,6 +542,9 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
             )),
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
             SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {
+                if !key.supported_operations.contains(&KeyOperation::Encrypt) {
+                    return Err(CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt));
+                }
                 EncString::encrypt_xchacha20_poly1305(data, key, content_format)
             }
         }
@@ -842,6 +859,30 @@ mod tests {
                 .to_public_key()
                 .to_der()
                 .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_encrypt_fails_when_operation_not_allowed() {
+        use coset::iana::KeyOperation;
+        let store = KeyStore::<TestIds>::default();
+        let mut ctx = store.context_mut();
+        let key_id = TestSymmKey::A(0);
+        // Key with only Decrypt allowed
+        let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
+            key_id: [0u8; 16],
+            enc_key: Box::pin([0u8; 32].into()),
+            supported_operations: vec![KeyOperation::Decrypt],
+        });
+        ctx.set_symmetric_key(key_id, key).unwrap();
+        let data = DataView("should fail".to_string(), key_id);
+        let result = data.encrypt_composite(&mut ctx, key_id);
+        assert!(
+            matches!(
+                result,
+                Err(CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt))
+            ),
+            "Expected encrypt to fail with KeyOperationNotSupported",
         );
     }
 }
