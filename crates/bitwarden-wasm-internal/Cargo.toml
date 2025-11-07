@@ -13,7 +13,10 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-bitwarden-license = ["bitwarden-pm/bitwarden-license", "dep:bitwarden-commercial-vault"]
+bitwarden-license = [
+  "bitwarden-pm/bitwarden-license",
+  "dep:bitwarden-commercial-vault",
+]
 
 [lib]
 crate-type = ["cdylib"]

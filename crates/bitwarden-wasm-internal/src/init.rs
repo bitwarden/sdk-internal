@@ -1,6 +1,9 @@
 use tracing::Level;
 use tracing_subscriber::{
-    EnvFilter, fmt::format::Pretty, layer::SubscriberExt as _, util::SubscriberInitExt as _,
+    EnvFilter,
+    fmt::{format::Pretty, time::UtcTime},
+    layer::SubscriberExt as _,
+    util::SubscriberInitExt as _,
 };
 use tracing_web::{MakeWebConsoleWriter, performance_layer};
 use wasm_bindgen::prelude::*;
