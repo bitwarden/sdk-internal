@@ -449,11 +449,14 @@ dependencies = [
 name = "bitwarden-auth"
 version = "1.0.0"
 dependencies = [
+ "bitwarden-api-identity",
  "bitwarden-core",
+ "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-test",
  "chrono",
  "reqwest",
+ "schemars 1.0.0",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
