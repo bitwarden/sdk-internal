@@ -21,5 +21,5 @@ name = "wasm-bindgen-test-runner"
 path = "wasm-bindgen-test-runner.rs"
 
 [dependencies]
-env_logger = ">=0.11.1, <0.12"
+env_logger = "0.11.1"
 wasm-bindgen-cli = { workspace = true }
