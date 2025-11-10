@@ -156,8 +156,7 @@ jobs:
     if: github.event_name == 'pull_request'
     needs: build
     permissions:
-      contents: write
-      actions: write
+      contents: read
       pull-requests: write
       id-token: write
     uses: ./.github/workflows/detect-breaking-changes.yml

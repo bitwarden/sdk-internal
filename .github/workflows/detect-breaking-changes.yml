@@ -38,7 +38,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
   pull-requests: write
   id-token: write
 
@@ -121,12 +120,11 @@ jobs:
           permissions-actions: write
           repositories: |
             clients
-            sdk-internal
 
       - name: Create initial status comment
         id: initial-comment
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SDK_VERSION: ${{ steps.context.outputs.sdk_version }}
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -272,7 +270,7 @@ jobs:
       - name: Manage breaking change labels
         if: always()
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CLIENT_STATUS: ${{ steps.trigger-dispatch-and-watch.outputs.status }}
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
         run: |
@@ -301,7 +299,7 @@ jobs:
       - name: Update final status comment
         if: always()
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COMMENT_ID: ${{ steps.initial-comment.outputs.comment_id }}
           SDK_VERSION: ${{ steps.context.outputs.sdk_version }}
           CLIENT_STATUS: ${{ steps.trigger-dispatch-and-watch.outputs.status }}
