@@ -16,6 +16,8 @@ use crate::models;
 pub struct MasterPasswordUnlockResponseModel {
     #[serde(rename = "kdf", alias = "Kdf")]
     pub kdf: Box<models::MasterPasswordUnlockKdfResponseModel>,
+    /// The user's symmetric key encrypted with their master key. Also known as
+    /// \"MasterKeyWrappedUserKey\"
     #[serde(
         rename = "masterKeyEncryptedUserKey",
         alias = "MasterKeyEncryptedUserKey"
