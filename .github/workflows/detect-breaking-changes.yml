@@ -34,7 +34,7 @@ on:
       client_branch:
         description: "The branch to target on the client repo"
         type: string
-        default: "sdk-warn-on-breaking-changes"
+        default: "main"
 
 permissions:
   contents: read
