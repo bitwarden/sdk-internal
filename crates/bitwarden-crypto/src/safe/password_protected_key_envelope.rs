@@ -703,4 +703,18 @@ mod tests {
         let contained_key_id = envelope.contained_key_id().unwrap();
         assert_eq!(Some(key_id), contained_key_id);
     }
+
+    #[test]
+    fn test_no_key_id() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
+        let test_key = ctx.generate_symmetric_key();
+
+        let password = "test_password";
+
+        // Seal the key with a password
+        let envelope = PasswordProtectedKeyEnvelope::seal(test_key, password, &ctx).unwrap();
+        let contained_key_id = envelope.contained_key_id().unwrap();
+        assert_eq!(None, contained_key_id);
+    }
 }
