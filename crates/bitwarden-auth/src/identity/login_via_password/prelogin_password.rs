@@ -12,7 +12,7 @@ use crate::identity::IdentityClient;
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
-pub enum PasswordPreloginError {
+pub enum PreloginPasswordError {
     #[error(transparent)]
     Api(#[from] ApiError),
     #[error(transparent)]
@@ -28,7 +28,7 @@ pub enum PasswordPreloginError {
     derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
-pub struct PasswordPreloginData {
+pub struct PreloginPasswordData {
     /// The Key Derivation Function (KDF) configuration for the user
     pub kdf: Kdf,
 }
@@ -41,11 +41,11 @@ impl IdentityClient {
     /// * `email` - The user's email address
     ///
     /// # Returns
-    /// * `PasswordPreloginData` - Contains the KDF configuration for the user
-    pub async fn get_password_prelogin_data(
+    /// * `PreloginPasswordData` - Contains the KDF configuration for the user
+    pub async fn get_prelogin_password_data(
         &self,
         email: String,
-    ) -> Result<PasswordPreloginData, PasswordPreloginError> {
+    ) -> Result<PreloginPasswordData, PreloginPasswordError> {
         let request_model = PreloginRequestModel::new(email);
         let config = self.client.internal.get_api_configurations().await;
         let response = config
@@ -55,13 +55,13 @@ impl IdentityClient {
             .await
             .map_err(ApiError::from)?;
 
-        let kdf = parse_password_prelogin_response(response)?;
-        Ok(PasswordPreloginData { kdf })
+        let kdf = parse_prelogin_password_response(response)?;
+        Ok(PreloginPasswordData { kdf })
     }
 }
 
-/// Parses the password prelogin API response into a KDF configuration
-fn parse_password_prelogin_response(
+/// Parses the prelogin password API response into a KDF configuration
+fn parse_prelogin_password_response(
     response: PreloginResponseModel,
 ) -> Result<Kdf, MissingFieldError> {
     use std::num::NonZeroU32;
@@ -118,7 +118,7 @@ mod tests {
             kdf_parallelism: None,
         };
 
-        let result = parse_password_prelogin_response(response).unwrap();
+        let result = parse_prelogin_password_response(response).unwrap();
 
         assert_eq!(
             result,
@@ -137,7 +137,7 @@ mod tests {
             kdf_parallelism: None,
         };
 
-        let result = parse_password_prelogin_response(response).unwrap();
+        let result = parse_prelogin_password_response(response).unwrap();
 
         assert_eq!(
             result,
@@ -156,7 +156,7 @@ mod tests {
             kdf_parallelism: Some(4),
         };
 
-        let result = parse_password_prelogin_response(response).unwrap();
+        let result = parse_prelogin_password_response(response).unwrap();
 
         assert_eq!(
             result,
@@ -177,7 +177,7 @@ mod tests {
             kdf_parallelism: None,
         };
 
-        let result = parse_password_prelogin_response(response).unwrap();
+        let result = parse_prelogin_password_response(response).unwrap();
 
         assert_eq!(
             result,
@@ -198,7 +198,7 @@ mod tests {
             kdf_parallelism: None,
         };
 
-        let result = parse_password_prelogin_response(response);
+        let result = parse_prelogin_password_response(response);
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), MissingFieldError { .. }));
@@ -214,7 +214,7 @@ mod tests {
             kdf_parallelism: None,
         };
 
-        let result = parse_password_prelogin_response(response).unwrap();
+        let result = parse_prelogin_password_response(response).unwrap();
 
         assert_eq!(
             result,
@@ -234,7 +234,7 @@ mod tests {
             kdf_parallelism: Some(4),
         };
 
-        let result = parse_password_prelogin_response(response).unwrap();
+        let result = parse_prelogin_password_response(response).unwrap();
 
         assert_eq!(
             result,
