@@ -18,6 +18,8 @@ on:
         default: false
         type: boolean
 
+
+
 jobs:
   bump_version:
     name: "Bump ${{ inputs.project }} Version to v${{ inputs.version_number }}"
