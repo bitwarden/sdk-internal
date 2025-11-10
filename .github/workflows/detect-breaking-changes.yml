@@ -23,10 +23,6 @@ on:
         description: "Target client repository (e.g., 'bitwarden/clients')"
         required: true
         type: string
-      client_event_type:
-        description: "Repository dispatch event type"
-        required: true
-        type: string
       client_label:
         description: "Client label for display purposes"
         required: true
@@ -35,6 +31,10 @@ on:
         description: "Target workflow filename in client repo"
         required: true
         type: string
+      client_branch:
+        description: "The branch to target on the client repo"
+        type: string
+        default: "sdk-warn-on-breaking-changes"
 
 permissions:
   contents: read
@@ -52,9 +52,9 @@ jobs:
         working-directory: .
     env:
       _CLIENT_REPO: ${{ inputs.client_repo }}
-      _EVENT_TYPE: ${{ inputs.client_event_type }}
       _CLIENT_LABEL: ${{ inputs.client_label }}
       _WORKFLOW_NAME: ${{ inputs.client_workflow }}
+      _BRANCH_NAME: ${{ inputs.client_branch }}
       _MAX_RETRIES: 3
 
     steps:
@@ -80,45 +80,19 @@ jobs:
           echo "  SDK Version: $SDK_VERSION"
           echo "  Source Run ID: $SOURCE_RUN_ID"
 
-      - name: Prepare dispatch payload
-        id: payload
+      - name: Prepare workflow inputs
+        id: inputs
         env:
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
           SDK_VERSION: ${{ steps.context.outputs.sdk_version }}
-          PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
           SOURCE_RUN_ID: ${{ steps.context.outputs.source_run_id }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          # Create payload JSON
-          PAYLOAD=$(jq -n \
-            --arg pr_number "$PR_NUMBER" \
-            --arg sdk_version "$SDK_VERSION" \
-            --arg source_repo "$GITHUB_REPOSITORY" \
-            --arg workflow_context "$_WORKFLOW_NAME" \
-            --arg client_label "$_CLIENT_LABEL" \
-            --arg pr_head_sha "$PR_HEAD_SHA" \
-            --arg pr_base_ref "main" \
-            --arg comment_id "" \
-            --arg run_id "$SOURCE_RUN_ID" \
-            --arg artifact_name "sdk-internal" \
-            '{
-              pr_number: $pr_number,
-              sdk_version: $sdk_version,
-              source_repo: $source_repo,
-              workflow_context: $workflow_context,
-              client_label: $client_label,
-              pr_head_sha: $pr_head_sha,
-              pr_base_ref: $pr_base_ref,
-              comment_id: $comment_id,
-              artifacts_info: {
-                run_id: $run_id,
-                artifact_name: $artifact_name
-              }
-            }')
-
-          echo "payload<<EOF" >> $GITHUB_OUTPUT
-          echo "$PAYLOAD" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "sdk_version=$SDK_VERSION" >> $GITHUB_OUTPUT
+          echo "source_repo=$GITHUB_REPOSITORY" >> $GITHUB_OUTPUT
+          echo "artifacts_run_id=$SOURCE_RUN_ID" >> $GITHUB_OUTPUT
+          echo "artifact_name=sdk-internal" >> $GITHUB_OUTPUT
 
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
@@ -141,7 +115,7 @@ jobs:
           app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
           private-key: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-KEY }}
           owner: ${{ github.repository_owner }}
-          permission-contents: write
+          permissions-actions: write
           repositories: |
             clients
             sdk-internal
@@ -191,17 +165,20 @@ jobs:
 
           echo "✅ Initial comment created/updated"
 
-      - name: Trigger client repository dispatch and watch
+      - name: Trigger client workflow dispatch and watch
         id: trigger-dispatch-and-watch
         timeout-minutes: 15
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          PAYLOAD: ${{ steps.payload.outputs.payload }}
-          SDK_VERSION: ${{ steps.context.outputs.sdk_version }}
+          PR_NUMBER: ${{ steps.inputs.outputs.pr_number }}
+          SDK_VERSION: ${{ steps.inputs.outputs.sdk_version }}
+          SOURCE_REPO: ${{ steps.inputs.outputs.source_repo }}
+          ARTIFACTS_RUN_ID: ${{ steps.inputs.outputs.artifacts_run_id }}
+          ARTIFACT_NAME: ${{ steps.inputs.outputs.artifact_name }}
         run: |
-          echo "🚀 Triggering $_WORKFLOW_NAME in $_CLIENT_REPO..."
+          echo "🚀 Triggering ${_WORKFLOW_NAME} in ${_CLIENT_REPO} via workflow_dispatch..."
 
-          # Step 1: Dispatch the workflow
+          # Step 1: Trigger workflow via workflow_dispatch
           RETRY_COUNT=0
           DISPATCH_SUCCESS=false
 
@@ -209,18 +186,11 @@ jobs:
             RETRY_COUNT=$((RETRY_COUNT + 1))
             echo "🔄 Attempt $RETRY_COUNT of $_MAX_RETRIES for $_CLIENT_REPO..."
             
-            # Create the complete dispatch payload  
-            DISPATCH_PAYLOAD=$(jq -n \
-              --arg event_type "$_EVENT_TYPE" \
-              --argjson client_payload "$PAYLOAD" \
-              '{
-                event_type: $event_type,
-                client_payload: $client_payload
-              }')
-            
-            if echo "$DISPATCH_PAYLOAD" | gh api repos/$_CLIENT_REPO/dispatches \
-                --method POST \
-                --input -; then
+            if gh workflow run $_WORKFLOW_NAME --repo $_CLIENT_REPO --ref "$_BRANCH_NAME" \
+                -f sdk_version="$SDK_VERSION" \
+                -f source_repo="$SOURCE_REPO" \
+                -f artifacts_run_id="$ARTIFACTS_RUN_ID" \
+                -f artifact_name="$ARTIFACT_NAME"; then
               
               echo "✅ Successfully triggered $_CLIENT_REPO ($_CLIENT_LABEL)"
               echo "✅ **$_CLIENT_REPO**: $_WORKFLOW_NAME triggered - [Monitor Progress](https://github.com/$_CLIENT_REPO/actions)" >> $GITHUB_STEP_SUMMARY
@@ -247,7 +217,7 @@ jobs:
           MAX_RUN_LIST_RETRIES=10
           WORKFLOW_RUN_ID=""
 
-          JQ_FILTER='.[] | select(.status as $s | (["requested", "queued", "in_progress", "waiting"] | contains([$s])) and (.displayTitle | contains("'"$SDK_VERSION"'")) and (.name | startswith("SDK breaking change check"))) | .databaseId'
+          JQ_FILTER='.[] | select(.status as $s | (["requested", "queued", "in_progress", "waiting"] | contains([$s])) and (.displayTitle | contains("'"$SDK_VERSION"'")) and (.name | contains("SDK breaking change check"))) | .databaseId'
 
           while
             sleep 5

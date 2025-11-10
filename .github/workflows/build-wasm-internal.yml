@@ -168,6 +168,5 @@ jobs:
       pr_head_ref: ${{ github.event.pull_request.head.ref }}
       build_run_id: ${{ github.run_id }}
       client_repo: "bitwarden/clients"
-      client_event_type: "sdk-breaking-change-check"
       client_label: "typescript"
       client_workflow: "sdk-breaking-change-check.yml"
