@@ -19,7 +19,8 @@ use crate::{
 };
 
 // Custom COSE algorithm values
-// NOTE: Any algorithm value below -65536 is reserved for private use in the IANA allocations and can be used freely.
+// NOTE: Any algorithm value below -65536 is reserved for private use in the IANA allocations and
+// can be used freely.
 /// XChaCha20 <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha-03> is used over ChaCha20
 /// to be able to randomly generate nonces, and to not have to worry about key wearout. Since
 /// the draft was never published as an RFC, we use a private-use value for the algorithm.
@@ -27,12 +28,14 @@ pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
 pub(crate) const ALG_ARGON2ID13: i64 = -71000;
 
 // Custom labels for COSE headers
-// NOTE: Any label below -65536 is reserved for private use in the IANA allocations and can be used freely.
+// NOTE: Any label below -65536 is reserved for private use in the IANA allocations and can be used
+// freely.
 pub(crate) const ARGON2_SALT: i64 = -71001;
 pub(crate) const ARGON2_ITERATIONS: i64 = -71002;
 pub(crate) const ARGON2_MEMORY: i64 = -71003;
 pub(crate) const ARGON2_PARALLELISM: i64 = -71004;
-/// Indicates for any object containing a key (wrapped key, password protected key envelope) which key ID that contained key has
+/// Indicates for any object containing a key (wrapped key, password protected key envelope) which
+/// key ID that contained key has
 pub(crate) const CONTAINED_KEY_ID: i64 = -71005;
 
 // Note: These are in the "unregistered" tree: https://datatracker.ietf.org/doc/html/rfc6838#section-3.4
