@@ -34,6 +34,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
 
       - name: Install rust
         uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # stable
@@ -78,12 +80,14 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.ref }}
+          persist-credentials: false
 
       - name: Checkout repo (Push or manual run)
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Install rust
         uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # stable

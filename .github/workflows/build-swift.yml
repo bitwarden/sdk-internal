@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
 
       - name: Get Package Version
         id: retrieve-version
@@ -38,6 +40,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
 
       - name: Install rust
         uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # stable
@@ -83,14 +87,14 @@ jobs:
       - name: Upload BitwardenFFI.xcframework artifact
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
-          name: BitwardenFFI-${{ env._VERSION }}-${{ steps.build.outputs.short-sha }}.xcframework
+          name: BitwardenFFI-${_VERSION}-${{ steps.build.outputs.short-sha }}.xcframework
           path: artifacts
           if-no-files-found: error
 
       - name: Upload BitwardenSdk sources
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
-          name: BitwardenSdk-${{ env._VERSION }}-${{ steps.build.outputs.short-sha }}-sources
+          name: BitwardenSdk-${_VERSION}-${{ steps.build.outputs.short-sha }}-sources
           path: crates/bitwarden-uniffi/swift/Sources/BitwardenSdk
           if-no-files-found: error
 
