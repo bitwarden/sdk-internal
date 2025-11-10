@@ -242,7 +242,7 @@ impl PasswordProtectedKeyEnvelope {
         );
 
         if let Some(bytes) = key_id_bytes.ok() {
-            let key_id_array: [u8; 16] = key_id_bytes.as_slice().try_into().map_err(|_| {
+            let key_id_array: [u8; 16] = bytes.as_slice().try_into().map_err(|_| {
                 PasswordProtectedKeyEnvelopeError::Parsing("Invalid key id".to_string())
             })?;
             Ok(Some(KeyId::from(key_id_array)))
