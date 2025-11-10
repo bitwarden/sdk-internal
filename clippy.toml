@@ -1,2 +1,10 @@
-allow-unwrap-in-tests=true
-allow-expect-in-tests=true
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+
+await-holding-invalid-types = [
+    { path = "bitwarden_crypto::KeyStoreContext", reason = """
+Contains a RwLock guard that will limit concurrency and even deadlock when held across await points.
+Instead, prefer to hold a reference to bitwarden_core::KeyStore and use its encrypt/decrypt methods directly.
+If you require access to KeyStoreContext, create short-lived KeyStoreContext instances as needed.
+""" },
+]
