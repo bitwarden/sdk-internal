@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use bitwarden_core::{Client, OrganizationId};
-use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, SymmetricCryptoKey};
+use bitwarden_crypto::IdentifyKey;
+#[cfg(feature = "wasm")]
+use bitwarden_crypto::{CompositeEncryptable, SymmetricCryptoKey};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -9,14 +11,17 @@ use bitwarden_state::repository::{Repository, RepositoryError};
 use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
+#[cfg(feature = "wasm")]
+use crate::Fido2CredentialFullView;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
-    Fido2CredentialFullView, cipher::cipher::DecryptCipherListResult,
+    cipher::cipher::DecryptCipherListResult,
 };
 
 mod create;
 mod edit;
 mod get;
+mod share_cipher;
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -195,6 +200,7 @@ impl CiphersClient {
 mod tests {
 
     use bitwarden_core::client::test_accounts::test_bitwarden_com_account;
+    #[cfg(feature = "wasm")]
     use bitwarden_crypto::CryptoError;
 
     use super::*;
@@ -533,6 +539,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "wasm")]
     async fn test_encrypt_cipher_for_rotation() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
