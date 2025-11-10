@@ -108,6 +108,9 @@ jobs:
           keyvault: gh-org-bitwarden
           secrets: "BW-GHAPP-ID,BW-GHAPP-KEY"
 
+      - name: Log out from Azure
+        uses: bitwarden/gh-actions/azure-logout@main
+
       - name: Generate GH App token
         uses: actions/create-github-app-token@30bf6253fa41bdc8d1501d202ad15287582246b4 # v2.0.3
         id: app-token
@@ -357,6 +360,3 @@ jobs:
           }
 
           echo "✅ Final comment updated"
-
-      - name: Log out from Azure
-        uses: bitwarden/gh-actions/azure-logout@main
