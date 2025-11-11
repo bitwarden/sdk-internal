@@ -22,12 +22,12 @@ pub enum PreloginPasswordError {
 /// Response containing the data required before password-based authentication
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))] // add mobile support
 #[cfg_attr(
     feature = "wasm",
     derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
-)]
+)] // add wasm support
 pub struct PreloginPasswordData {
     /// The Key Derivation Function (KDF) configuration for the user
     pub kdf: Kdf,
