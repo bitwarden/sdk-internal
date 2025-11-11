@@ -462,58 +462,56 @@ mod tests {
         cipher_id: CipherId,
         name: &str,
     ) {
-        let mut ctx = store.context();
+        let cipher = {
+            let mut ctx = store.context();
 
-        repository
-            .set(
-                cipher_id.to_string(),
-                Cipher {
-                    id: Some(cipher_id),
-                    organization_id: None,
-                    folder_id: None,
-                    collection_ids: vec![],
-                    key: None,
-                    name: name.encrypt(&mut ctx, SymmetricKeyId::User).unwrap(),
-                    notes: None,
-                    r#type: CipherType::Login,
-                    login: Some(Login {
-                        username: Some("test@example.com")
-                            .map(|u| u.encrypt(&mut ctx, SymmetricKeyId::User))
-                            .transpose()
-                            .unwrap(),
-                        password: Some("password123")
-                            .map(|p| p.encrypt(&mut ctx, SymmetricKeyId::User))
-                            .transpose()
-                            .unwrap(),
-                        password_revision_date: None,
-                        uris: None,
-                        totp: None,
-                        autofill_on_page_load: None,
-                        fido2_credentials: None,
-                    }),
-                    identity: None,
-                    card: None,
-                    secure_note: None,
-                    ssh_key: None,
-                    favorite: false,
-                    reprompt: CipherRepromptType::None,
-                    organization_use_totp: true,
-                    edit: true,
-                    permissions: None,
-                    view_password: true,
-                    local_data: None,
-                    attachments: None,
-                    fields: None,
-                    password_history: None,
-                    creation_date: "2024-01-01T00:00:00Z".parse().unwrap(),
-                    deleted_date: None,
-                    revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
-                    archived_date: None,
-                    data: None,
-                },
-            )
-            .await
-            .unwrap();
+            Cipher {
+                id: Some(cipher_id),
+                organization_id: None,
+                folder_id: None,
+                collection_ids: vec![],
+                key: None,
+                name: name.encrypt(&mut ctx, SymmetricKeyId::User).unwrap(),
+                notes: None,
+                r#type: CipherType::Login,
+                login: Some(Login {
+                    username: Some("test@example.com")
+                        .map(|u| u.encrypt(&mut ctx, SymmetricKeyId::User))
+                        .transpose()
+                        .unwrap(),
+                    password: Some("password123")
+                        .map(|p| p.encrypt(&mut ctx, SymmetricKeyId::User))
+                        .transpose()
+                        .unwrap(),
+                    password_revision_date: None,
+                    uris: None,
+                    totp: None,
+                    autofill_on_page_load: None,
+                    fido2_credentials: None,
+                }),
+                identity: None,
+                card: None,
+                secure_note: None,
+                ssh_key: None,
+                favorite: false,
+                reprompt: CipherRepromptType::None,
+                organization_use_totp: true,
+                edit: true,
+                permissions: None,
+                view_password: true,
+                local_data: None,
+                attachments: None,
+                fields: None,
+                password_history: None,
+                creation_date: "2024-01-01T00:00:00Z".parse().unwrap(),
+                deleted_date: None,
+                revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
+                archived_date: None,
+                data: None,
+            }
+        };
+
+        repository.set(cipher_id.to_string(), cipher).await.unwrap();
     }
 
     #[tokio::test]
