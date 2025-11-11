@@ -886,6 +886,24 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
     }
 }
 
+#[cfg(feature = "wasm")]
+impl wasm_bindgen::__rt::VectorIntoJsValue for Cipher {
+    fn vector_into_jsvalue(
+        vector: wasm_bindgen::__rt::std::boxed::Box<[Self]>,
+    ) -> wasm_bindgen::JsValue {
+        wasm_bindgen::__rt::js_value_vector_into_jsvalue(vector)
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl wasm_bindgen::__rt::VectorIntoJsValue for CipherView {
+    fn vector_into_jsvalue(
+        vector: wasm_bindgen::__rt::std::boxed::Box<[Self]>,
+    ) -> wasm_bindgen::JsValue {
+        wasm_bindgen::__rt::js_value_vector_into_jsvalue(vector)
+    }
+}
+
 impl IdentifyKey<SymmetricKeyId> for Cipher {
     fn key_identifier(&self) -> SymmetricKeyId {
         match self.organization_id {

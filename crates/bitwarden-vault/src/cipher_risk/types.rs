@@ -96,3 +96,12 @@ pub struct CipherRiskResult {
     /// None if not found or if no password_map was provided.
     pub reuse_count: Option<u32>,
 }
+
+#[cfg(feature = "wasm")]
+impl wasm_bindgen::__rt::VectorIntoJsValue for CipherRiskResult {
+    fn vector_into_jsvalue(
+        vector: wasm_bindgen::__rt::std::boxed::Box<[Self]>,
+    ) -> wasm_bindgen::JsValue {
+        wasm_bindgen::__rt::js_value_vector_into_jsvalue(vector)
+    }
+}

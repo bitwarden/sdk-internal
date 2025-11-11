@@ -90,7 +90,7 @@ jobs:
           key: wasm-cargo-cache
 
       - name: Install wasm-bindgen-cli
-        run: cargo install wasm-bindgen-cli --version 0.2.105 --locked
+        run: cargo install wasm-bindgen-cli --version 0.2.100 --locked
 
       - name: Build
         run: ./build.sh -r ${{ matrix.license_type.build_flags }}

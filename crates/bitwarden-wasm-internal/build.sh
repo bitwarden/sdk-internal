@@ -63,4 +63,4 @@ npx terser ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_interna
 
 # Typecheck the generated TypeScript definitions
 cd crates/bitwarden-wasm-internal/${NPM_FOLDER}
-npx tsc --noEmit --lib es2020,dom,ESNext.Disposable bitwarden_wasm_internal.d.ts
+npx tsc --noEmit --lib es2020,dom bitwarden_wasm_internal.d.ts
