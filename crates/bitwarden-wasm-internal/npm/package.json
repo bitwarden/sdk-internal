@@ -20,7 +20,7 @@
     "node/bitwarden_wasm_internal.js",
     "VERSION"
   ],
-  "main": "node/bitwarden_wasm_internal.js",
+  "main": "node/index.js",
   "module": "index.js",
   "types": "bitwarden_wasm_internal.d.ts",
   "scripts": {},
