@@ -1,6 +1,5 @@
 use log::{Level, info, set_max_level};
-use tracing_subscriber::fmt::format::Pretty;
-use tracing_subscriber::prelude::*;
+use tracing_subscriber::{fmt::format::Pretty, prelude::*};
 use tracing_web::{MakeWebConsoleWriter, performance_layer};
 use wasm_bindgen::prelude::*;
 
