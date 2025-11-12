@@ -459,6 +459,7 @@ dependencies = [
  "schemars 1.0.0",
  "serde",
  "serde_json",
+ "serde_repr",
  "thiserror 2.0.12",
  "tokio",
  "tsify",
