@@ -16,12 +16,14 @@ use bitwarden_crypto::{
     PrimitiveEncryptable,
 };
 use bitwarden_error::bitwarden_error;
+use bitwarden_log_error_macro::log_error;
 use bitwarden_state::repository::RepositoryError;
 use bitwarden_uuid::uuid_newtype;
 use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
+use tracing::info;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 #[cfg(feature = "wasm")]
@@ -512,6 +514,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
 }
 
 impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
+    #[log_error(cipher_id = &self.id)]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -573,6 +576,7 @@ impl Cipher {
     /// * `key` - The key to use to decrypt the cipher key, this should be the user or organization
     ///   key
     /// * `ciphers_key` - The encrypted cipher key
+    #[log_error]
     pub(super) fn decrypt_cipher_key(
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,

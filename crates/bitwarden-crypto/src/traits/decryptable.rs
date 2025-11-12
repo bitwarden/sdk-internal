@@ -1,3 +1,5 @@
+use bitwarden_log_error_macro::log_error;
+
 use crate::{CryptoError, EncString, KeyId, KeyIds, store::KeyStoreContext};
 
 /// A decryption operation that takes the input value and decrypts it into the output value.
@@ -9,6 +11,7 @@ pub trait Decryptable<Ids: KeyIds, Key: KeyId, Output> {
 }
 
 impl<Ids: KeyIds> Decryptable<Ids, Ids::Symmetric, Vec<u8>> for EncString {
+    #[log_error]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -19,6 +22,7 @@ impl<Ids: KeyIds> Decryptable<Ids, Ids::Symmetric, Vec<u8>> for EncString {
 }
 
 impl<Ids: KeyIds> Decryptable<Ids, Ids::Symmetric, String> for EncString {
+    #[log_error]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,

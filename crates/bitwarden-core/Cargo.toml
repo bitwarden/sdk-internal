@@ -43,6 +43,7 @@ bitwarden-api-identity = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-log-error-macro = { workspace = true }
 bitwarden-state = { workspace = true }
 bitwarden-uniffi-error = { workspace = true, optional = true }
 bitwarden-uuid = { workspace = true }
@@ -59,6 +60,7 @@ serde_json = { workspace = true }
 serde_qs = { workspace = true }
 serde_repr = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true, features = ["tokio"] }
 uuid = { workspace = true }

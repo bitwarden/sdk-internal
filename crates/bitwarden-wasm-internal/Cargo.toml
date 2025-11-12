@@ -27,6 +27,7 @@ bitwarden-core = { workspace = true, features = ["wasm", "internal"] }
 bitwarden-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-error = { workspace = true }
 bitwarden-ipc = { workspace = true, features = ["wasm"] }
+bitwarden-log-error-macro = { workspace = true }
 bitwarden-pm = { workspace = true, features = ["wasm"] }
 bitwarden-ssh = { workspace = true, features = ["wasm"] }
 bitwarden-state = { workspace = true, features = ["wasm"] }
@@ -36,6 +37,9 @@ console_error_panic_hook = "0.1.7"
 console_log = { version = "1.0.0", features = ["color"] }
 log = "0.4.20"
 serde = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = "0.3.20"
+tracing-web = "0.1.3"
 tsify = { workspace = true }
 # When upgrading wasm-bindgen, make sure to update the version in the workflows!
 wasm-bindgen = { version = "=0.2.105", features = ["serde-serialize"] }

@@ -10,7 +10,9 @@ use bitwarden_crypto::{
 use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
 use bitwarden_error::bitwarden_error;
 #[cfg(feature = "internal")]
-use log::warn;
+use bitwarden_log_error_macro::log_error;
+#[cfg(feature = "internal")]
+use log::{info, warn};
 use thiserror::Error;
 
 #[cfg(any(feature = "secrets", feature = "internal"))]
@@ -108,11 +110,13 @@ impl EncryptionSettings {
     }
 
     #[cfg(feature = "internal")]
+    #[log_error]
     fn init_v1(
         user_key: Aes256CbcHmacKey,
         private_key: EncString,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
+        info!("Account has v1 encryption keys");
         let user_key = SymmetricCryptoKey::Aes256CbcHmacKey(user_key);
 
         let private_key = {
@@ -146,6 +150,7 @@ impl EncryptionSettings {
     }
 
     #[cfg(feature = "internal")]
+    #[log_error]
     fn init_v2(
         user_key: XChaCha20Poly1305Key,
         private_key: EncString,
@@ -154,6 +159,7 @@ impl EncryptionSettings {
         store: &KeyStore<KeyIds>,
         sdk_security_state: &RwLock<Option<SecurityState>>,
     ) -> Result<(), EncryptionSettingsError> {
+        info!("Account has v2 encryption keys");
         use crate::key_management::SecurityState;
 
         let user_key = SymmetricCryptoKey::XChaCha20Poly1305Key(user_key);
@@ -200,6 +206,7 @@ impl EncryptionSettings {
     }
 
     #[cfg(feature = "internal")]
+    #[log_error]
     pub(crate) fn set_org_keys(
         org_enc_keys: Vec<(OrganizationId, UnsignedSharedKey)>,
         store: &KeyStore<KeyIds>,

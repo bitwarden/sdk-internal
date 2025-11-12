@@ -517,6 +517,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-log-error-macro",
  "bitwarden-state",
  "bitwarden-uniffi-error",
  "bitwarden-uuid",
@@ -536,6 +537,7 @@ dependencies = [
  "serde_repr",
  "thiserror 2.0.12",
  "tokio",
+ "tracing",
  "tsify",
  "uniffi",
  "uuid",
@@ -553,6 +555,7 @@ dependencies = [
  "argon2",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-log-error-macro",
  "bitwarden-uniffi-error",
  "cbc",
  "chacha20poly1305",
@@ -579,6 +582,7 @@ dependencies = [
  "sha2",
  "subtle",
  "thiserror 2.0.12",
+ "tracing",
  "tsify",
  "typenum",
  "uniffi",
@@ -722,6 +726,15 @@ dependencies = [
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "bitwarden-log-error-macro"
+version = "1.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -918,6 +931,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-log-error-macro",
  "bitwarden-state",
  "bitwarden-test",
  "bitwarden-uuid",
@@ -925,6 +939,7 @@ dependencies = [
  "data-encoding",
  "futures",
  "hmac",
+ "log",
  "percent-encoding",
  "reqwest",
  "serde",
@@ -934,6 +949,7 @@ dependencies = [
  "sha2",
  "thiserror 2.0.12",
  "tokio",
+ "tracing",
  "tsify",
  "uniffi",
  "uuid",
@@ -953,6 +969,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-ipc",
+ "bitwarden-log-error-macro",
  "bitwarden-pm",
  "bitwarden-ssh",
  "bitwarden-state",
@@ -962,6 +979,9 @@ dependencies = [
  "console_log",
  "log",
  "serde",
+ "tracing",
+ "tracing-subscriber",
+ "tracing-web",
  "tsify",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -5090,7 +5110,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "784e0ac535deb450455cbfa28a6f0df145ea1bb7ae51b821cf5e7927fdcfbdd0"
 dependencies = [
  "pin-project-lite",
+ "tracing-attributes",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-attributes"
+version = "0.1.30"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "81383ab64e72a7a8b8e13130c49e3dab29def6d0c7d76a03087b3cf71c5c6903"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -5114,14 +5146,41 @@ dependencies = [
 ]
 
 [[package]]
-name = "tracing-subscriber"
-version = "0.3.19"
+name = "tracing-log"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8189decb5ac0fa7bc8b96b7cb9b2701d60d48805aca84a238004d665fcc4008"
+checksum = "ee855f1f400bd0e5c02d150ae5de3840039a3f54b025156404e34c23c03f47c3"
 dependencies = [
+ "log",
+ "once_cell",
+ "tracing-core",
+]
+
+[[package]]
+name = "tracing-subscriber"
+version = "0.3.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2054a14f5307d601f88daf0553e1cbf472acc4f2c51afab632431cdcd72124d5"
+dependencies = [
+ "nu-ansi-term",
  "sharded-slab",
+ "smallvec",
  "thread_local",
  "tracing-core",
+ "tracing-log",
+]
+
+[[package]]
+name = "tracing-web"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9e6a141feebd51f8d91ebfd785af50fca223c570b86852166caa3b141defe7c"
+dependencies = [
+ "js-sys",
+ "tracing-core",
+ "tracing-subscriber",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]

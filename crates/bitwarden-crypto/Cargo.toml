@@ -33,6 +33,7 @@ argon2 = { version = "=0.6.0-rc.1", features = [
 ], default-features = false }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-log-error-macro = { workspace = true }
 bitwarden-uniffi-error = { workspace = true, optional = true }
 cbc = { version = ">=0.1.2, <0.2", features = ["alloc", "zeroize"] }
 chacha20poly1305 = { version = "0.10.1" }
@@ -59,6 +60,7 @@ subtle = ">=2.5.0, <3.0"
 thiserror = { workspace = true }
 tsify = { workspace = true, optional = true }
 typenum = ">=1.18.0, <1.19.0"
+tracing = { workspace = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
