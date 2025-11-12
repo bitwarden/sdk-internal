@@ -1,4 +1,4 @@
-use bitwarden_log_error_macro::log_error;
+use tracing::instrument;
 
 use crate::{CryptoError, EncString, KeyId, KeyIds, store::KeyStoreContext};
 
@@ -11,7 +11,7 @@ pub trait Decryptable<Ids: KeyIds, Key: KeyId, Output> {
 }
 
 impl<Ids: KeyIds> Decryptable<Ids, Ids::Symmetric, Vec<u8>> for EncString {
-    #[log_error]
+    #[instrument(err, skip(self, ctx, key))]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -22,7 +22,7 @@ impl<Ids: KeyIds> Decryptable<Ids, Ids::Symmetric, Vec<u8>> for EncString {
 }
 
 impl<Ids: KeyIds> Decryptable<Ids, Ids::Symmetric, String> for EncString {
-    #[log_error]
+    #[instrument(err, skip(self, ctx, key))]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
