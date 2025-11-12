@@ -134,7 +134,7 @@ jobs:
         env:
           RUST_NIGHTLY_TOOLCHAIN: ${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}
         run: |
-          rustup toolchain install "${RUST_NIGHTLY_TOOLCHAIN}}"
+          rustup toolchain install "${RUST_NIGHTLY_TOOLCHAIN}"
           rustup component add rustfmt --toolchain "${RUST_NIGHTLY_TOOLCHAIN}"-x86_64-unknown-linux-gnu
 
       - name: Cache cargo registry

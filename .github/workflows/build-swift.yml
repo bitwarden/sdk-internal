@@ -87,14 +87,14 @@ jobs:
       - name: Upload BitwardenFFI.xcframework artifact
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
-          name: BitwardenFFI-${_VERSION}-${{ steps.build.outputs.short-sha }}.xcframework
+          name: BitwardenFFI-${{ env._VERSION}}-${{ steps.build.outputs.short-sha }}.xcframework
           path: artifacts
           if-no-files-found: error
 
       - name: Upload BitwardenSdk sources
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
-          name: BitwardenSdk-${_VERSION}-${{ steps.build.outputs.short-sha }}-sources
+          name: BitwardenSdk-${{ env._VERSION }}-${{ steps.build.outputs.short-sha }}-sources
           path: crates/bitwarden-uniffi/swift/Sources/BitwardenSdk
           if-no-files-found: error
 
