@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use bitwarden_core::Client;
-use bitwarden_log_error_macro::log_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -29,7 +28,6 @@ impl FoldersClient {
     }
 
     /// Encrypt a [Folder] to [FolderView].
-    #[log_error(folder_id = &folder.id)]
     pub fn decrypt(&self, folder: Folder) -> Result<FolderView, DecryptError> {
         let key_store = self.client.internal.get_key_store();
         let folder_view = key_store.decrypt(&folder)?;
