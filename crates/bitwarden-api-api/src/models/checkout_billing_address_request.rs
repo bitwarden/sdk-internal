@@ -14,11 +14,15 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CheckoutBillingAddressRequest {
-    #[serde(rename = "country")]
+    #[serde(rename = "country", alias = "Country")]
     pub country: String,
-    #[serde(rename = "postalCode")]
+    #[serde(rename = "postalCode", alias = "PostalCode")]
     pub postal_code: String,
-    #[serde(rename = "taxId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "taxId",
+        alias = "TaxId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub tax_id: Option<Box<models::TaxIdRequest>>,
 }
 

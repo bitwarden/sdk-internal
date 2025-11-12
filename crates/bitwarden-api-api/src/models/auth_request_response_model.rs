@@ -14,39 +14,81 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AuthRequestResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    #[serde(rename = "publicKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "publicKey",
+        alias = "PublicKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub public_key: Option<String>,
     #[serde(
         rename = "requestDeviceIdentifier",
+        alias = "RequestDeviceIdentifier",
         skip_serializing_if = "Option::is_none"
     )]
     pub request_device_identifier: Option<String>,
     #[serde(
         rename = "requestDeviceTypeValue",
+        alias = "RequestDeviceTypeValue",
         skip_serializing_if = "Option::is_none"
     )]
     pub request_device_type_value: Option<models::DeviceType>,
-    #[serde(rename = "requestDeviceType", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "requestDeviceType",
+        alias = "RequestDeviceType",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub request_device_type: Option<String>,
-    #[serde(rename = "requestIpAddress", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "requestIpAddress",
+        alias = "RequestIpAddress",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub request_ip_address: Option<String>,
-    #[serde(rename = "requestCountryName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "requestCountryName",
+        alias = "RequestCountryName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub request_country_name: Option<String>,
-    #[serde(rename = "key", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
-    #[serde(rename = "masterPasswordHash", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "masterPasswordHash",
+        alias = "MasterPasswordHash",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub master_password_hash: Option<String>,
-    #[serde(rename = "creationDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "creationDate",
+        alias = "CreationDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub creation_date: Option<String>,
-    #[serde(rename = "responseDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "responseDate",
+        alias = "ResponseDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub response_date: Option<String>,
-    #[serde(rename = "requestApproved", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "requestApproved",
+        alias = "RequestApproved",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub request_approved: Option<bool>,
-    #[serde(rename = "origin", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "origin",
+        alias = "Origin",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub origin: Option<String>,
 }
 

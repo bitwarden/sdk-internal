@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MinimalBillingAddressRequest {
-    #[serde(rename = "country")]
+    #[serde(rename = "country", alias = "Country")]
     pub country: String,
-    #[serde(rename = "postalCode")]
+    #[serde(rename = "postalCode", alias = "PostalCode")]
     pub postal_code: String,
 }
 

@@ -14,17 +14,37 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BillingInvoice {
-    #[serde(rename = "amount", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "amount",
+        alias = "Amount",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub amount: Option<f64>,
-    #[serde(rename = "date", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "date",
+        alias = "Date",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub date: Option<String>,
-    #[serde(rename = "url", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "url", alias = "Url", skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
-    #[serde(rename = "pdfUrl", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "pdfUrl",
+        alias = "PdfUrl",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub pdf_url: Option<String>,
-    #[serde(rename = "number", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "number",
+        alias = "Number",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub number: Option<String>,
-    #[serde(rename = "paid", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "paid",
+        alias = "Paid",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub paid: Option<bool>,
 }
 

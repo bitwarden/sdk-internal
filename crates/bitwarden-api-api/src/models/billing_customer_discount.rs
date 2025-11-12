@@ -14,13 +14,25 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BillingCustomerDiscount {
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
-    #[serde(rename = "active", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "active",
+        alias = "Active",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub active: Option<bool>,
-    #[serde(rename = "percentOff", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "percentOff",
+        alias = "PercentOff",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub percent_off: Option<f64>,
-    #[serde(rename = "appliesTo", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "appliesTo",
+        alias = "AppliesTo",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub applies_to: Option<Vec<String>>,
 }
 
