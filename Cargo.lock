@@ -517,7 +517,6 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
- "bitwarden-log-error-macro",
  "bitwarden-state",
  "bitwarden-uniffi-error",
  "bitwarden-uuid",
@@ -555,7 +554,6 @@ dependencies = [
  "argon2",
  "bitwarden-encoding",
  "bitwarden-error",
- "bitwarden-log-error-macro",
  "bitwarden-uniffi-error",
  "cbc",
  "chacha20poly1305",
@@ -726,15 +724,6 @@ dependencies = [
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
-]
-
-[[package]]
-name = "bitwarden-log-error-macro"
-version = "1.0.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -931,7 +920,6 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
- "bitwarden-log-error-macro",
  "bitwarden-state",
  "bitwarden-test",
  "bitwarden-uuid",
@@ -969,7 +957,6 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-ipc",
- "bitwarden-log-error-macro",
  "bitwarden-pm",
  "bitwarden-ssh",
  "bitwarden-state",

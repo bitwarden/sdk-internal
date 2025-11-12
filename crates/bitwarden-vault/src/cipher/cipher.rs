@@ -16,13 +16,13 @@ use bitwarden_crypto::{
     PrimitiveEncryptable,
 };
 use bitwarden_error::bitwarden_error;
-use bitwarden_log_error_macro::log_error;
 use bitwarden_state::repository::RepositoryError;
 use bitwarden_uuid::uuid_newtype;
 use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
+use tracing::instrument;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 #[cfg(feature = "wasm")]
@@ -513,7 +513,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
 }
 
 impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
-    #[log_error(cipher_id = &self.id, org_id = &self.organization_id, has_cipher_key = self.key.is_some())]
+    #[instrument(err, skip(self, ctx, key), fields(cipher_id = ?self.id, org_id = ?self.organization_id, kind = ?self.r#type))]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -575,7 +575,7 @@ impl Cipher {
     /// * `key` - The key to use to decrypt the cipher key, this should be the user or organization
     ///   key
     /// * `ciphers_key` - The encrypted cipher key
-    #[log_error]
+    #[instrument(err, skip(ctx, key, ciphers_key))]
     pub(super) fn decrypt_cipher_key(
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,

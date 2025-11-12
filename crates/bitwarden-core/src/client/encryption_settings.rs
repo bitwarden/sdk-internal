@@ -10,10 +10,10 @@ use bitwarden_crypto::{
 use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
 use bitwarden_error::bitwarden_error;
 #[cfg(feature = "internal")]
-use bitwarden_log_error_macro::log_error;
-#[cfg(feature = "internal")]
 use log::{info, warn};
 use thiserror::Error;
+#[cfg(feature = "internal")]
+use tracing::instrument;
 
 #[cfg(any(feature = "secrets", feature = "internal"))]
 use crate::OrganizationId;
@@ -110,7 +110,7 @@ impl EncryptionSettings {
     }
 
     #[cfg(feature = "internal")]
-    #[log_error]
+    #[instrument(err, skip(user_key, private_key, store))]
     fn init_v1(
         user_key: Aes256CbcHmacKey,
         private_key: EncString,
@@ -150,7 +150,17 @@ impl EncryptionSettings {
     }
 
     #[cfg(feature = "internal")]
-    #[log_error]
+    #[instrument(
+        err,
+        skip(
+            user_key,
+            private_key,
+            signing_key,
+            security_state,
+            store,
+            sdk_security_state
+        )
+    )]
     fn init_v2(
         user_key: XChaCha20Poly1305Key,
         private_key: EncString,
@@ -206,7 +216,7 @@ impl EncryptionSettings {
     }
 
     #[cfg(feature = "internal")]
-    #[log_error]
+    #[instrument(err, skip(org_enc_keys, store))]
     pub(crate) fn set_org_keys(
         org_enc_keys: Vec<(OrganizationId, UnsignedSharedKey)>,
         store: &KeyStore<KeyIds>,
