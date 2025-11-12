@@ -304,6 +304,12 @@ impl InternalClient {
         user_key: SymmetricCryptoKey,
         key_state: UserKeyState,
     ) -> Result<(), EncryptionSettingsError> {
+        let span = tracing::info_span!(
+            "User Crypto Initialization",
+            user_id = ?self.get_user_id(),
+        );
+        let _enter = span.enter();
+
         match user_key {
             SymmetricCryptoKey::Aes256CbcHmacKey(ref user_key) => {
                 EncryptionSettings::new_decrypted_key(
