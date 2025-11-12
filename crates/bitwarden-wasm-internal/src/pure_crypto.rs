@@ -10,6 +10,7 @@ use bitwarden_crypto::{
     PrimitiveEncryptable, SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes,
     SymmetricCryptoKey, UnsignedSharedKey, VerifyingKey,
 };
+use tracing::instrument;
 use wasm_bindgen::prelude::*;
 
 /// This module represents a stopgap solution to provide access to primitive crypto functions for JS
@@ -28,6 +29,7 @@ impl PureCrypto {
         Self::symmetric_decrypt_string(enc_string, key)
     }
 
+    #[instrument(skip_all)]
     pub fn symmetric_decrypt_string(
         enc_string: String,
         key: Vec<u8>,
@@ -36,6 +38,7 @@ impl PureCrypto {
         EncString::from_str(&enc_string)?.decrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
     }
 
+    #[instrument(skip_all)]
     pub fn symmetric_decrypt_bytes(
         enc_string: String,
         key: Vec<u8>,
@@ -46,6 +49,7 @@ impl PureCrypto {
 
     /// DEPRECATED: Use `symmetric_decrypt_filedata` instead.
     /// Cleanup ticket: <https://bitwarden.atlassian.net/browse/PM-21247>
+    #[instrument(skip_all)]
     pub fn symmetric_decrypt_array_buffer(
         enc_bytes: Vec<u8>,
         key: Vec<u8>,
@@ -53,6 +57,7 @@ impl PureCrypto {
         Self::symmetric_decrypt_filedata(enc_bytes, key)
     }
 
+    #[instrument(skip_all)]
     pub fn symmetric_decrypt_filedata(
         enc_bytes: Vec<u8>,
         key: Vec<u8>,
@@ -76,6 +81,7 @@ impl PureCrypto {
             .map(|enc| enc.to_string())
     }
 
+    #[instrument(skip_all)]
     pub fn symmetric_encrypt_filedata(
         plain: Vec<u8>,
         key: Vec<u8>,
@@ -86,6 +92,7 @@ impl PureCrypto {
             .to_buffer()
     }
 
+    #[instrument(skip_all)]
     pub fn decrypt_user_key_with_master_password(
         encrypted_user_key: String,
         master_password: String,
@@ -100,6 +107,7 @@ impl PureCrypto {
         Ok(result.to_encoded().to_vec())
     }
 
+    #[instrument(skip_all)]
     pub fn encrypt_user_key_with_master_password(
         user_key: Vec<u8>,
         master_password: String,
@@ -147,6 +155,7 @@ impl PureCrypto {
 
     /// Unwraps (decrypts) a wrapped symmetric key using a symmetric wrapping key, returning the
     /// unwrapped key as a serialized byte array.
+    #[instrument(skip_all)]
     pub fn unwrap_symmetric_key(
         wrapped_key: String,
         wrapping_key: Vec<u8>,
@@ -169,6 +178,7 @@ impl PureCrypto {
     /// used. The specific use-case for this function is to enable rotateable key sets, where
     /// the "public key" is not public, with the intent of preventing the server from being able
     /// to overwrite the user key unlocked by the rotateable keyset.
+    #[instrument(skip_all)]
     pub fn wrap_encapsulation_key(
         encapsulation_key: Vec<u8>,
         wrapping_key: Vec<u8>,
@@ -185,6 +195,7 @@ impl PureCrypto {
 
     /// Unwraps (decrypts) a wrapped SPKI DER encoded encapsulation (public) key using a symmetric
     /// wrapping key.
+    #[instrument(skip_all)]
     pub fn unwrap_encapsulation_key(
         wrapped_key: String,
         wrapping_key: Vec<u8>,
@@ -199,6 +210,7 @@ impl PureCrypto {
 
     /// Wraps (encrypts) a PKCS8 DER encoded decapsulation (private) key using a symmetric wrapping
     /// key,
+    #[instrument(skip_all)]
     pub fn wrap_decapsulation_key(
         decapsulation_key: Vec<u8>,
         wrapping_key: Vec<u8>,
@@ -215,6 +227,7 @@ impl PureCrypto {
 
     /// Unwraps (decrypts) a wrapped PKCS8 DER encoded decapsulation (private) key using a symmetric
     /// wrapping key.
+    #[instrument(skip_all)]
     pub fn unwrap_decapsulation_key(
         wrapped_key: String,
         wrapping_key: Vec<u8>,
@@ -230,6 +243,7 @@ impl PureCrypto {
     /// Encapsulates (encrypts) a symmetric key using an asymmetric encapsulation key (public key)
     /// in SPKI format, returning the encapsulated key as a string. Note: This is unsigned, so
     /// the sender's authenticity cannot be verified by the recipient.
+    #[instrument(skip_all)]
     pub fn encapsulate_key_unsigned(
         shared_key: Vec<u8>,
         encapsulation_key: Vec<u8>,
@@ -246,6 +260,7 @@ impl PureCrypto {
     /// Decapsulates (decrypts) a symmetric key using an decapsulation key (private key) in PKCS8
     /// DER format. Note: This is unsigned, so the sender's authenticity cannot be verified by the
     /// recipient.
+    #[instrument(skip_all)]
     pub fn decapsulate_key_unsigned(
         encapsulated_key: String,
         decapsulation_key: Vec<u8>,
@@ -283,6 +298,7 @@ impl PureCrypto {
     /// identity claimed ownership of the public key. This is a one-sided claim and merely shows
     /// that the signing identity has the intent to receive messages encrypted to the public
     /// key.
+    #[instrument(skip_all)]
     pub fn verify_and_unwrap_signed_public_key(
         signed_public_key: Vec<u8>,
         verifying_key: Vec<u8>,
