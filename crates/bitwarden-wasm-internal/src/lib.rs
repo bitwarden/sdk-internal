@@ -2,6 +2,7 @@
 
 mod client;
 mod custom_types;
+mod flight_recorder_callback_writer;
 mod init;
 mod platform;
 mod pure_crypto;
