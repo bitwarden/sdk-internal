@@ -514,7 +514,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
 }
 
 impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
-    #[log_error(cipher_id = &self.id)]
+    #[log_error(cipher_id = &self.id, org_id = &self.organization_id, has_cipher_key = self.key.is_some())]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
