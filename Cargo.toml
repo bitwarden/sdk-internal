@@ -75,7 +75,13 @@ serde_repr = ">=0.1.12, <0.2"
 serde-wasm-bindgen = ">=0.6.0, <0.7"
 syn = ">=2.0.87, <3"
 thiserror = ">=1.0.40, <3"
-tracing = "= 0.1.41"
+tracing = { version = "0.1.41" }
+tracing-subscriber = { version = "0.3.20", features = [
+    "fmt",
+    "env-filter",
+    "tracing-log",
+    "time",
+] }
 tokio = { version = "1.36.0", features = ["macros"] }
 tsify = { version = ">=0.5.5, <0.6", features = [
     "js",
