@@ -14,39 +14,67 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationUpgradeRequestModel {
-    #[serde(rename = "businessName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "businessName",
+        alias = "BusinessName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub business_name: Option<String>,
-    #[serde(rename = "planType", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "planType",
+        alias = "PlanType",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub plan_type: Option<models::PlanType>,
-    #[serde(rename = "additionalSeats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "additionalSeats",
+        alias = "AdditionalSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub additional_seats: Option<i32>,
     #[serde(
         rename = "additionalStorageGb",
+        alias = "AdditionalStorageGb",
         skip_serializing_if = "Option::is_none"
     )]
     pub additional_storage_gb: Option<i32>,
-    #[serde(rename = "additionalSmSeats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "additionalSmSeats",
+        alias = "AdditionalSmSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub additional_sm_seats: Option<i32>,
     #[serde(
         rename = "additionalServiceAccounts",
+        alias = "AdditionalServiceAccounts",
         skip_serializing_if = "Option::is_none"
     )]
     pub additional_service_accounts: Option<i32>,
-    #[serde(rename = "useSecretsManager")]
+    #[serde(rename = "useSecretsManager", alias = "UseSecretsManager")]
     pub use_secrets_manager: bool,
-    #[serde(rename = "premiumAccessAddon", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "premiumAccessAddon",
+        alias = "PremiumAccessAddon",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub premium_access_addon: Option<bool>,
     #[serde(
         rename = "billingAddressCountry",
+        alias = "BillingAddressCountry",
         skip_serializing_if = "Option::is_none"
     )]
     pub billing_address_country: Option<String>,
     #[serde(
         rename = "billingAddressPostalCode",
+        alias = "BillingAddressPostalCode",
         skip_serializing_if = "Option::is_none"
     )]
     pub billing_address_postal_code: Option<String>,
-    #[serde(rename = "keys", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "keys",
+        alias = "Keys",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub keys: Option<Box<models::OrganizationKeysRequestModel>>,
 }
 

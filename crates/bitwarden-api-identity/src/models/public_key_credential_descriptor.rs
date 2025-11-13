@@ -16,12 +16,20 @@ use crate::models;
 #[serde_as]
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PublicKeyCredentialDescriptor {
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "type",
+        alias = "R#type",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub r#type: Option<models::PublicKeyCredentialType>,
     #[serde_as(as = "Option<serde_with::base64::Base64>")]
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<Vec<u8>>,
-    #[serde(rename = "transports", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "transports",
+        alias = "Transports",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub transports: Option<Vec<models::AuthenticatorTransport>>,
 }
 

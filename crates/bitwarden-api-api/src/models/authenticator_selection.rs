@@ -16,12 +16,21 @@ use crate::models;
 pub struct AuthenticatorSelection {
     #[serde(
         rename = "authenticatorAttachment",
+        alias = "AuthenticatorAttachment",
         skip_serializing_if = "Option::is_none"
     )]
     pub authenticator_attachment: Option<models::AuthenticatorAttachment>,
-    #[serde(rename = "requireResidentKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "requireResidentKey",
+        alias = "RequireResidentKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub require_resident_key: Option<bool>,
-    #[serde(rename = "userVerification", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "userVerification",
+        alias = "UserVerification",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub user_verification: Option<models::UserVerificationRequirement>,
 }
 

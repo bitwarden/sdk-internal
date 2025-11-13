@@ -14,9 +14,13 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CipherBulkMoveRequestModel {
-    #[serde(rename = "ids")]
+    #[serde(rename = "ids", alias = "Ids")]
     pub ids: Vec<String>,
-    #[serde(rename = "folderId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "folderId",
+        alias = "FolderId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub folder_id: Option<String>,
 }
 

@@ -14,9 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SmImportRequestModel {
-    #[serde(rename = "projects", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "projects",
+        alias = "Projects",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub projects: Option<Vec<models::InnerProjectImportRequestModel>>,
-    #[serde(rename = "secrets", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "secrets",
+        alias = "Secrets",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub secrets: Option<Vec<models::InnerSecretImportRequestModel>>,
 }
 

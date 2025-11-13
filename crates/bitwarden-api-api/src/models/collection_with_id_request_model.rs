@@ -14,15 +14,27 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CollectionWithIdRequestModel {
-    #[serde(rename = "name")]
+    #[serde(rename = "name", alias = "Name")]
     pub name: String,
-    #[serde(rename = "externalId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "externalId",
+        alias = "ExternalId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub external_id: Option<String>,
-    #[serde(rename = "groups", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "groups",
+        alias = "Groups",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub groups: Option<Vec<models::SelectionReadOnlyRequestModel>>,
-    #[serde(rename = "users", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "users",
+        alias = "Users",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub users: Option<Vec<models::SelectionReadOnlyRequestModel>>,
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
 }
 

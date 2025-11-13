@@ -14,9 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CipherPartialRequestModel {
-    #[serde(rename = "folderId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "folderId",
+        alias = "FolderId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub folder_id: Option<String>,
-    #[serde(rename = "favorite", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "favorite",
+        alias = "Favorite",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub favorite: Option<bool>,
 }
 
