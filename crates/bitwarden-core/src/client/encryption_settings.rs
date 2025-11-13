@@ -205,7 +205,7 @@ impl EncryptionSettings {
     }
 
     #[cfg(feature = "internal")]
-    #[instrument(err, skip(org_enc_keys, store))]
+    #[instrument(err, skip_all)]
     pub(crate) fn set_org_keys(
         org_enc_keys: Vec<(OrganizationId, UnsignedSharedKey)>,
         store: &KeyStore<KeyIds>,
