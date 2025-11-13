@@ -934,6 +934,7 @@ dependencies = [
  "serde_repr",
  "sha1",
  "sha2",
+ "subtle",
  "thiserror 2.0.12",
  "tokio",
  "tracing",
