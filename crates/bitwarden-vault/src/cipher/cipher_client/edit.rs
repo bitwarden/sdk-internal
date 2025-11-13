@@ -99,7 +99,7 @@ impl TryFrom<CipherView> for CipherEditRequest {
 }
 
 impl CipherEditRequest {
-    fn generate_cipher_key(
+    pub(crate) fn generate_cipher_key(
         &mut self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
@@ -319,6 +319,7 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     repository: &R,
     encrypted_for: UserId,
     request: CipherEditRequest,
+    is_admin: bool,
 ) -> Result<CipherView, EditCipherError> {
     let cipher_id = request.id;
 
@@ -333,19 +334,29 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     let mut cipher_request = key_store.encrypt(request)?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
-    let response = api_client
-        .ciphers_api()
-        .put(cipher_id.into(), Some(cipher_request))
-        .await
-        .map_err(ApiError::from)?;
+    let cipher = if is_admin {
+        api_client
+            .ciphers_api()
+            .put_admin(cipher_id.into(), Some(cipher_request))
+            .await
+            .map_err(ApiError::from)?
+            .try_into()
+            .unwrap()
+    } else {
+        let cipher: Cipher = api_client
+            .ciphers_api()
+            .put(cipher_id.into(), Some(cipher_request))
+            .await
+            .map_err(ApiError::from)?
+            .try_into()?;
 
-    let cipher: Cipher = response.try_into()?;
+        debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
 
-    debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
-
-    repository
-        .set(cipher_id.to_string(), cipher.clone())
-        .await?;
+        repository
+            .set(cipher_id.to_string(), cipher.clone())
+            .await?;
+        cipher
+    };
 
     Ok(key_store.decrypt(&cipher)?)
 }
@@ -353,9 +364,24 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     /// Edit an existing [Cipher] and save it to the server.
-    pub async fn edit(
+    pub async fn edit(&self, request: CipherEditRequest) -> Result<CipherView, EditCipherError> {
+        self.edit_internal(request, false).await
+    }
+
+    // putCipherAdmin(id, request: CipherRequest)
+    // ciphers_id_admin_put
+    #[allow(missing_docs)] // TODO: add docs
+    pub async fn admin_edit(
+        &self,
+        request: CipherEditRequest,
+    ) -> Result<CipherView, EditCipherError> {
+        self.edit_internal(request, true).await
+    }
+
+    async fn edit_internal(
         &self,
         mut request: CipherEditRequest,
+        is_admin: bool,
     ) -> Result<CipherView, EditCipherError> {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations().await;
@@ -386,6 +412,7 @@ impl CiphersClient {
             repository.as_ref(),
             user_id,
             request,
+            is_admin,
         )
         .await
     }
@@ -583,6 +610,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
+            false,
         )
         .await
         .unwrap();
@@ -608,6 +636,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
+            false,
         )
         .await;
 
@@ -649,6 +678,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
+            false,
         )
         .await;
 
