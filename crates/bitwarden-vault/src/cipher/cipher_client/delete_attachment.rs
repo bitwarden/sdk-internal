@@ -25,8 +25,7 @@ async fn delete_attachment(
             .await?
     };
 
-    let boxed_cipher: Box<models::Cipher> = require!(response.cipher);
-    let cipher_response = *boxed_cipher;
+    let cipher_response: Box<models::Cipher> = require!(response.cipher);
     let mut cipher = require!(repository.get(cipher_id.to_string()).await?);
 
     cipher.revision_date = require!(cipher_response.revision_date)
@@ -50,7 +49,7 @@ impl CiphersClient {
     pub async fn delete_attachment(
         &self,
         cipher_id: CipherId,
-        attachment_id: String,
+        attachment_id: &str,
     ) -> Result<Cipher, CipherError> {
         let config = self.client.internal.get_api_configurations().await;
 
@@ -68,7 +67,7 @@ impl CiphersClient {
     pub async fn delete_attachment_as_admin(
         &self,
         cipher_id: CipherId,
-        attachment_id: String,
+        attachment_id: &str,
     ) -> Result<Cipher, CipherError> {
         let config = self.client.internal.get_api_configurations().await;
 
