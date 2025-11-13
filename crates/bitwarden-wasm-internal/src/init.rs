@@ -1,9 +1,6 @@
 use tracing::Level;
 use tracing_subscriber::{
-    EnvFilter,
-    fmt::{format::Pretty, time::UtcTime},
-    layer::SubscriberExt as _,
-    util::SubscriberInitExt as _,
+    EnvFilter, fmt::format::Pretty, layer::SubscriberExt as _, util::SubscriberInitExt as _,
 };
 use tracing_web::{MakeWebConsoleWriter, performance_layer};
 use wasm_bindgen::prelude::*;
@@ -39,8 +36,8 @@ pub fn init_sdk(log_level: Option<LogLevel>) {
         .from_env_lossy();
 
     let fmt = tracing_subscriber::fmt::layer()
-        .with_ansi(false) // Only partially supported across browsers
-        .with_timer(UtcTime::rfc_3339())
+        .with_ansi(false) // only partially supported across browsers
+        .without_time() // time is not supported in wasm
         .with_writer(MakeWebConsoleWriter::new()); // write events to the console
 
     let perf_layer = performance_layer().with_details_from_fields(Pretty::default());
