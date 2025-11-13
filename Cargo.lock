@@ -927,7 +927,6 @@ dependencies = [
  "data-encoding",
  "futures",
  "hmac",
- "log",
  "percent-encoding",
  "reqwest",
  "serde",
