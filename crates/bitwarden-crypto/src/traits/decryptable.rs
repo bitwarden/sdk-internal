@@ -11,7 +11,7 @@ pub trait Decryptable<Ids: KeyIds, Key: KeyId, Output> {
 }
 
 impl<Ids: KeyIds> Decryptable<Ids, Ids::Symmetric, Vec<u8>> for EncString {
-    #[instrument(err, skip(self, ctx, key))]
+    #[instrument(err, skip_all)]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -22,7 +22,7 @@ impl<Ids: KeyIds> Decryptable<Ids, Ids::Symmetric, Vec<u8>> for EncString {
 }
 
 impl<Ids: KeyIds> Decryptable<Ids, Ids::Symmetric, String> for EncString {
-    #[instrument(err, skip(self, ctx, key))]
+    #[instrument(err, skip_all)]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
