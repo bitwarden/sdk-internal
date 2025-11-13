@@ -1,5 +1,7 @@
 //! Request models for Identity API endpoints that cannot be auto-generated
-//! (e.g., connect/token endpoints) and are shared across multiple features within the identity client
+//! (e.g., connect/token endpoints) and are shared across multiple features within the identity
+//! client
 //!
 //! For standard controller endpoints, use the `bitwarden-api-identity` crate.
-pub mod user_token_request_payload;
+mod user_token_api_request;
+pub(crate) use user_token_api_request::UserTokenApiRequest;

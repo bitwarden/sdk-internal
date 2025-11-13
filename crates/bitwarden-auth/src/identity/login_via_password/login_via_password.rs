@@ -1,20 +1,30 @@
-use crate::identity::IdentityClient;
+use serde::Serialize;
 
-///
+use crate::identity::{
+    IdentityClient, api_models::request::UserTokenApiRequest,
+    login_via_password::PasswordLoginRequest,
+};
+
+/// API request model for logging in via password.
 #[derive(Serialize, Debug)]
-struct PasswordLoginRequestPayload {
+#[allow(dead_code)]
+struct PasswordLoginApiRequest {
     // Common user token request payload
     #[serde(flatten)]
-    user_token_request_payload: UserTokenRequestPayload,
+    user_token_request_payload: UserTokenApiRequest,
 
     /// Bitwarden user email address
+    #[serde(rename = "username")]
     pub email: String,
+
     /// Bitwarden user master password hash
+    #[serde(rename = "password")]
     pub master_password_hash: String,
 }
 
 impl IdentityClient {
-    pub async fn login_via_password(&self, request: PasswordLoginRequest) {
-        // Implementation goes here
-    }
+    // TODO: add implementation for login via password
+    // pub async fn login_via_password(&self, request: PasswordLoginRequest) {
+    //     // Implementation goes here
+    // }
 }

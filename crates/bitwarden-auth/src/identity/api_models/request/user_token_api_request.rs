@@ -4,11 +4,11 @@ use serde::{Deserialize, Serialize};
 use crate::api::enums::{GrantType, Scope, TwoFactorProvider};
 
 /// The common payload properties to send to the /connect/token endpoint to obtain
-/// tokens for a BW user. This is intended to be flattened into other request payloads
+/// tokens for a BW user. This is intended to be flattened into other api requests
 /// that represent specific login mechanisms (e.g., password, SSO, etc)
 /// in order to avoid duplication of common OAuth fields and custom BW fields.
 #[derive(Serialize, Deserialize, Debug)]
-struct UserTokenRequestPayload {
+pub(crate) struct UserTokenApiRequest {
     // Standard OAuth2 fields
     /// The client ID for the SDK consuming client.
     /// Note: snake_case is intentional to match the API expectations.
