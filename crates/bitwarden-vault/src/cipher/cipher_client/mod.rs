@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use bitwarden_core::{Client, OrganizationId};
+use bitwarden_api_api::apis::{ApiClient, ciphers_api::CiphersApi};
+use bitwarden_core::{Client, OrganizationId, client::ApiConfigurations};
 use bitwarden_crypto::IdentifyKey;
 #[cfg(feature = "wasm")]
 use bitwarden_crypto::{CompositeEncryptable, SymmetricCryptoKey};
@@ -20,6 +21,7 @@ use crate::{
 
 mod admin;
 mod create;
+mod delete;
 mod edit;
 mod get;
 mod share_cipher;
@@ -194,6 +196,10 @@ impl CiphersClient {
             .platform()
             .state()
             .get_client_managed::<Cipher>()?)
+    }
+
+    async fn get_api_configurations(&self) -> Arc<ApiConfigurations> {
+        self.client.internal.get_api_configurations().await
     }
 }
 
