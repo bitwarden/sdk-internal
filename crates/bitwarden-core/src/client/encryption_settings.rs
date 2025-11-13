@@ -110,7 +110,7 @@ impl EncryptionSettings {
     }
 
     #[cfg(feature = "internal")]
-    #[instrument(err, skip(user_key, private_key, store))]
+    #[instrument(err, skip_all)]
     fn init_v1(
         user_key: Aes256CbcHmacKey,
         private_key: EncString,
@@ -150,17 +150,7 @@ impl EncryptionSettings {
     }
 
     #[cfg(feature = "internal")]
-    #[instrument(
-        err,
-        skip(
-            user_key,
-            private_key,
-            signing_key,
-            security_state,
-            store,
-            sdk_security_state
-        )
-    )]
+    #[instrument(err, skip_all)]
     fn init_v2(
         user_key: XChaCha20Poly1305Key,
         private_key: EncString,
