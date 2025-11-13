@@ -575,7 +575,7 @@ impl Cipher {
     /// * `key` - The key to use to decrypt the cipher key, this should be the user or organization
     ///   key
     /// * `ciphers_key` - The encrypted cipher key
-    #[instrument(err, skip(ctx, key, ciphers_key))]
+    #[instrument(err, skip_all)]
     pub(super) fn decrypt_cipher_key(
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
