@@ -14,9 +14,13 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TaxInfoUpdateRequestModel {
-    #[serde(rename = "country")]
+    #[serde(rename = "country", alias = "Country")]
     pub country: String,
-    #[serde(rename = "postalCode", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "postalCode",
+        alias = "PostalCode",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub postal_code: Option<String>,
 }
 

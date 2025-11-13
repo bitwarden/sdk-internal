@@ -133,7 +133,6 @@ pub mod info_api;
 pub mod installations_api;
 pub mod invoices_api;
 pub mod licenses_api;
-pub mod misc_api;
 pub mod notifications_api;
 pub mod organization_auth_requests_api;
 pub mod organization_billing_api;
@@ -213,7 +212,6 @@ struct ApiClientReal {
     installations_api: installations_api::InstallationsApiClient,
     invoices_api: invoices_api::InvoicesApiClient,
     licenses_api: licenses_api::LicensesApiClient,
-    misc_api: misc_api::MiscApiClient,
     notifications_api: notifications_api::NotificationsApiClient,
     organization_auth_requests_api:
         organization_auth_requests_api::OrganizationAuthRequestsApiClient,
@@ -290,7 +288,6 @@ pub struct ApiClientMock {
     pub installations_api: installations_api::MockInstallationsApi,
     pub invoices_api: invoices_api::MockInvoicesApi,
     pub licenses_api: licenses_api::MockLicensesApi,
-    pub misc_api: misc_api::MockMiscApi,
     pub notifications_api: notifications_api::MockNotificationsApi,
     pub organization_auth_requests_api:
         organization_auth_requests_api::MockOrganizationAuthRequestsApi,
@@ -369,7 +366,6 @@ impl ApiClient {
             installations_api: installations_api::InstallationsApiClient::new(configuration.clone()),
             invoices_api: invoices_api::InvoicesApiClient::new(configuration.clone()),
             licenses_api: licenses_api::LicensesApiClient::new(configuration.clone()),
-            misc_api: misc_api::MiscApiClient::new(configuration.clone()),
             notifications_api: notifications_api::NotificationsApiClient::new(configuration.clone()),
             organization_auth_requests_api: organization_auth_requests_api::OrganizationAuthRequestsApiClient::new(configuration.clone()),
             organization_billing_api: organization_billing_api::OrganizationBillingApiClient::new(configuration.clone()),
@@ -442,7 +438,6 @@ impl ApiClient {
             installations_api: installations_api::MockInstallationsApi::new(),
             invoices_api: invoices_api::MockInvoicesApi::new(),
             licenses_api: licenses_api::MockLicensesApi::new(),
-            misc_api: misc_api::MockMiscApi::new(),
             notifications_api: notifications_api::MockNotificationsApi::new(),
             organization_auth_requests_api: organization_auth_requests_api::MockOrganizationAuthRequestsApi::new(),
             organization_billing_api: organization_billing_api::MockOrganizationBillingApi::new(),
@@ -644,13 +639,6 @@ impl ApiClient {
             ApiClient::Real(real) => &real.licenses_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.licenses_api,
-        }
-    }
-    pub fn misc_api(&self) -> &dyn misc_api::MiscApi {
-        match self {
-            ApiClient::Real(real) => &real.misc_api,
-            #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.misc_api,
         }
     }
     pub fn notifications_api(&self) -> &dyn notifications_api::NotificationsApi {

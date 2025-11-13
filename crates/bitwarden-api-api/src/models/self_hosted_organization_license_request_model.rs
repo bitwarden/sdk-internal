@@ -14,9 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SelfHostedOrganizationLicenseRequestModel {
-    #[serde(rename = "licenseKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "licenseKey",
+        alias = "LicenseKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub license_key: Option<String>,
-    #[serde(rename = "billingSyncKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "billingSyncKey",
+        alias = "BillingSyncKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub billing_sync_key: Option<String>,
 }
 

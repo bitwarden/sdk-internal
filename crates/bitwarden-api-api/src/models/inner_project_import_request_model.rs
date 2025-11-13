@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InnerProjectImportRequestModel {
-    #[serde(rename = "id")]
+    #[serde(rename = "id", alias = "Id")]
     pub id: uuid::Uuid,
-    #[serde(rename = "name")]
+    #[serde(rename = "name", alias = "Name")]
     pub name: String,
 }
 

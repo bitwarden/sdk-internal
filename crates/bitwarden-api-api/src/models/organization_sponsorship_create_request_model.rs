@@ -14,15 +14,27 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationSponsorshipCreateRequestModel {
-    #[serde(rename = "planSponsorshipType")]
+    #[serde(rename = "planSponsorshipType", alias = "PlanSponsorshipType")]
     pub plan_sponsorship_type: models::PlanSponsorshipType,
-    #[serde(rename = "sponsoredEmail")]
+    #[serde(rename = "sponsoredEmail", alias = "SponsoredEmail")]
     pub sponsored_email: String,
-    #[serde(rename = "friendlyName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "friendlyName",
+        alias = "FriendlyName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub friendly_name: Option<String>,
-    #[serde(rename = "isAdminInitiated", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "isAdminInitiated",
+        alias = "IsAdminInitiated",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub is_admin_initiated: Option<bool>,
-    #[serde(rename = "notes", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "notes",
+        alias = "Notes",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub notes: Option<String>,
 }
 

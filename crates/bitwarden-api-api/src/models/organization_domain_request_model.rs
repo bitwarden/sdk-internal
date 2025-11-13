@@ -14,7 +14,7 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationDomainRequestModel {
-    #[serde(rename = "domainName")]
+    #[serde(rename = "domainName", alias = "DomainName")]
     pub domain_name: String,
 }
 

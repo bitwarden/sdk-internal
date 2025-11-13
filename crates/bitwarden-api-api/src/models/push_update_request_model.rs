@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PushUpdateRequestModel {
-    #[serde(rename = "devices")]
+    #[serde(rename = "devices", alias = "Devices")]
     pub devices: Vec<models::PushDeviceRequestModel>,
-    #[serde(rename = "organizationId")]
+    #[serde(rename = "organizationId", alias = "OrganizationId")]
     pub organization_id: String,
 }
 
