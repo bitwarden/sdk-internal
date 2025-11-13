@@ -11,6 +11,7 @@ use bitwarden_encoding::B64;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use subtle::ConstantTimeEq;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 #[cfg(feature = "wasm")]
@@ -70,7 +71,7 @@ impl LoginUriView {
         use sha2::Digest;
         let uri_hash = sha2::Sha256::new().chain_update(uri.as_bytes()).finalize();
 
-        uri_hash.as_slice() == cs.as_bytes()
+        uri_hash.as_slice().ct_eq(cs.as_bytes()).into()
     }
 
     pub(crate) fn generate_checksum(&mut self) {
