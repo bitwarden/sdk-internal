@@ -12,4 +12,5 @@ pub(crate) enum GrantType {
     /// Bitwarden user.
     SendAccess,
     // TODO: Add other grant types as needed.
+    Password,
 }
