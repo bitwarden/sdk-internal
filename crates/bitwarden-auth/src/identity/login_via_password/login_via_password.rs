@@ -11,7 +11,7 @@ use crate::identity::{
 struct PasswordLoginApiRequest {
     // Common user token request payload
     #[serde(flatten)]
-    user_token_request_payload: UserTokenApiRequest,
+    user_token_api_request: UserTokenApiRequest,
 
     /// Bitwarden user email address
     #[serde(rename = "username")]

@@ -12,14 +12,14 @@ pub(crate) struct UserTokenApiRequest {
     // Standard OAuth2 fields
     /// The client ID for the SDK consuming client.
     /// Note: snake_case is intentional to match the API expectations.
-    pub(crate) client_id: String,
+    client_id: String,
 
     /// The grant type for the token request.
     /// Note: snake_case is intentional to match the API expectations.
-    pub(crate) grant_type: GrantType,
+    grant_type: GrantType,
 
     /// The scope for the token request.
-    pub(crate) scope: Scope,
+    scope: Scope,
 
     // Custom fields BW uses for user token requests
     /// The device type making the request.
