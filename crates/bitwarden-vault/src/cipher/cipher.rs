@@ -513,7 +513,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
 }
 
 impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
-    #[instrument(err, skip(self, ctx, key), fields(cipher_id = ?self.id, org_id = ?self.organization_id, kind = ?self.r#type))]
+    #[instrument(err, skip_all, fields(cipher_id = ?self.id, org_id = ?self.organization_id, kind = ?self.r#type))]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
