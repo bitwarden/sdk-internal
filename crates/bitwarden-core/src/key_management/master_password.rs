@@ -126,11 +126,8 @@ pub struct MasterPasswordAuthenticationData {
 }
 
 impl MasterPasswordAuthenticationData {
-    pub(crate) fn derive(
-        password: &str,
-        kdf: &Kdf,
-        salt: &str,
-    ) -> Result<Self, MasterPasswordError> {
+    #[allow(missing_docs)]
+    pub fn derive(password: &str, kdf: &Kdf, salt: &str) -> Result<Self, MasterPasswordError> {
         let master_key = MasterKey::derive(password, salt, kdf)
             .map_err(|_| MasterPasswordError::InvalidKdfConfiguration)?;
         let hash = master_key.derive_master_key_hash(
