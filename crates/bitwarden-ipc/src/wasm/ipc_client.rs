@@ -6,6 +6,7 @@ use wasm_bindgen::prelude::*;
 use super::communication_backend::JsCommunicationBackend;
 use crate::{
     IpcClient,
+    crypto_provider::noise::protocol::NoiseCryptoProvider,
     ipc_client::{IpcClientSubscription, ReceiveError, SubscribeError},
     message::{IncomingMessage, OutgoingMessage},
     traits::{InMemorySessionRepository, NoEncryptionCryptoProvider},
@@ -58,7 +59,7 @@ impl JsIpcClient {
     ) -> JsIpcClient {
         JsIpcClient {
             client: IpcClient::new(
-                NoEncryptionCryptoProvider,
+                NoiseCryptoProvider,
                 communication_provider.clone(),
                 GenericSessionRepository::InMemory(Arc::new(InMemorySessionRepository::new(
                     HashMap::new(),
