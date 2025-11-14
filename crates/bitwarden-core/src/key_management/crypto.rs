@@ -17,6 +17,7 @@ use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use tracing::info;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
@@ -167,6 +168,12 @@ pub(super) async fn initialize_user_crypto(
     }
 
     let key_state = (&req).into();
+    let _span_guard = tracing::info_span!(
+        "User Crypto Initialization",
+        user_id = ?client.internal.get_user_id(),
+        method = ?req.method
+    )
+    .entered();
 
     match req.method {
         InitUserCryptoMethod::Password { password, user_key } => {
@@ -260,6 +267,8 @@ pub(super) async fn initialize_user_crypto(
                 .initialize_user_crypto_master_key(master_key, user_key, key_state)?;
         }
     }
+
+    info!("User crypto initialized successfully");
 
     client
         .internal
