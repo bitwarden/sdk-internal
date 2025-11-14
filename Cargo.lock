@@ -791,6 +791,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-logging"
+version = "1.0.0"
+dependencies = [
+ "js-sys",
+ "tsify",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "bitwarden-pm"
 version = "1.0.0"
 dependencies = [
