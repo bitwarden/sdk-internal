@@ -6,7 +6,6 @@ use wasm_bindgen::prelude::*;
 #[derive(Clone)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct IdentityClient {
-    #[allow(dead_code)] // TODO: Remove when methods using client are implemented
     pub(crate) client: Client,
 }
 
@@ -15,11 +14,6 @@ impl IdentityClient {
     pub(crate) fn new(client: Client) -> Self {
         Self { client }
     }
-}
-
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
-impl IdentityClient {
-    // TODO: Add methods to interact with the Identity API.
 }
 
 #[cfg(test)]
