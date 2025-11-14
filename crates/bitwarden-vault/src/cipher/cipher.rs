@@ -1,5 +1,7 @@
 use bitwarden_api_api::{
-    apis::ciphers_api::{PutShareError, PutShareManyError},
+    apis::ciphers_api::{
+        DeleteAttachmentAdminError, DeleteAttachmentError, PutShareError, PutShareManyError,
+    },
     models::{
         CipherDetailsResponseModel, CipherRequestModel, CipherResponseModel,
         CipherWithIdRequestModel,
@@ -72,6 +74,10 @@ pub enum CipherError {
     Chrono(#[from] chrono::ParseError),
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
+    #[error(transparent)]
+    DeleteAttachment(#[from] bitwarden_api_api::apis::Error<DeleteAttachmentError>),
+    #[error(transparent)]
+    DeleteAttachmentAdmin(#[from] bitwarden_api_api::apis::Error<DeleteAttachmentAdminError>),
 }
 
 /// Helper trait for operations on cipher types.
