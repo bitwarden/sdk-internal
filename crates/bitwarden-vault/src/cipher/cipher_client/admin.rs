@@ -1,14 +1,13 @@
-use bitwarden_api_api::models::{CipherCreateRequestModel, CipherMiniResponseModel};
+use bitwarden_api_api::models::{
+    CipherCollectionsRequestModel, CipherCreateRequestModel, CipherDetailsResponseModel,
+    CipherMiniDetailsResponseModelListResponseModel, CipherMiniResponseModel,
+};
 use bitwarden_collections::collection::{self, CollectionId};
-use bitwarden_core::{NotAuthenticatedError, OrganizationId};
-use bitwarden_crypto::{CompositeEncryptable, IdentifyKey};
+use bitwarden_crypto::IdentifyKey;
 
 use crate::{
-    Cipher, CipherError, CiphersClient,
-    cipher_client::{
-        create::{CipherCreateRequest, CipherCreateRequestInternal},
-        edit::{CipherEditRequest, EditCipherError},
-    },
+    Cipher, CipherError, CipherId, CipherView, CiphersClient, cipher,
+    cipher_client::create::{CipherCreateRequest, CipherCreateRequestInternal},
 };
 
 // TS Api Service
@@ -58,61 +57,55 @@ impl CiphersClient {
         let mut cipher: Cipher = response.unwrap().try_into()?; // TODO: Fix unwrap
         cipher.collection_ids = collection_ids;
 
+        // TODO: Decrypt this.
         Ok(cipher)
     }
 
-    // getCiphersOrganization(organizationId)
-    // ciphers_organization_details_get
-    pub async fn admin_get_org_details(
-        &self,
-        org_id: OrganizationId,
-        includeMemberItems: bool,
-    ) -> Result<Cipher, CipherError> {
-        let _ = org_id;
-        todo!()
-    }
-    // deleteCipherAdmin(id)
-    // ciphers_id_admin_delete
-    pub async fn admin_delete(&self, request: CipherCreateRequest) -> Result<Cipher, CipherError> {
-        todo!()
-    }
-    // deleteManyCiphersAdmin(request)
-    // ciphers_admin_delete
-    pub async fn admin_delete_many(
-        &self,
-        request: CipherCreateRequest,
-    ) -> Result<Cipher, CipherError> {
-        todo!()
-    }
-    // putCipherCollectionsAdmin(id, request)
     // ciphers_id_collections_admin_put
     pub async fn admin_update_collection(
         &self,
-        request: CipherCreateRequest,
-    ) -> Result<Cipher, CipherError> {
-        todo!()
+        cipher_id: CipherId,
+        collection_ids: Vec<CollectionId>,
+        is_admin: bool,
+    ) -> Result<CipherView, CipherError> {
+        let req = CipherCollectionsRequestModel {
+            collection_ids: collection_ids
+                .into_iter()
+                .map(|id| id.to_string())
+                .collect(),
+        };
+
+        let api_config = self.get_api_configurations().await;
+        let api = api_config.api_client.ciphers_api();
+        let cipher = if is_admin {
+            api.put_collections_admin(&cipher_id.to_string(), Some(req))
+                .await
+                .unwrap()
+                .try_into()?
+        } else {
+            let response: Cipher = api
+                .put_collections(cipher_id.into(), Some(req))
+                .await
+                .unwrap()
+                .try_into()?; // TODO: the uszhe
+            self.get_repository()?
+                .set(cipher_id.to_string(), response.clone())
+                .await?;
+            response
+        };
+
+        Ok(self.decrypt(cipher)?)
     }
-    // putDeleteCipherAdmin(id)
-    // ciphers_id_delete_admin_put
-    pub async fn admin_soft_delete(
-        &self,
-        request: CipherCreateRequest,
-    ) -> Result<Cipher, CipherError> {
-        todo!()
-    }
-    // putDeleteManyCiphersAdmin(request)
-    // ciphers_delete_admin_put
-    pub async fn admin_soft_delete_many(
-        &self,
-        request: CipherCreateRequest,
-    ) -> Result<Cipher, CipherError> {
-        todo!()
-    }
+
     // putRestoreCipherAdmin(id)
     // ciphers_id_restore_admin_put
-    pub async fn admin_restore(&self, request: CipherCreateRequest) -> Result<Cipher, CipherError> {
+    pub async fn admin_restore(
+        &self,
+        _request: CipherCreateRequest,
+    ) -> Result<Cipher, CipherError> {
         todo!()
     }
+
     // putRestoreManyCiphersAdmin(request)
     // ciphers_restore_admin_put
     pub async fn admin_restore_many(
