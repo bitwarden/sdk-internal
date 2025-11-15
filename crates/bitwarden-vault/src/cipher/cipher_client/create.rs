@@ -60,7 +60,7 @@ pub struct CipherCreateRequest {
 /// Used as an intermediary between the public-facing [CipherCreateRequest], and the encrypted
 /// value. This allows us to manage the cipher key creation internally.
 #[derive(Clone, Debug)]
-struct CipherCreateRequestInternal {
+pub(crate) struct CipherCreateRequestInternal {
     create_request: CipherCreateRequest,
     key: Option<EncString>,
 }
@@ -77,7 +77,7 @@ impl From<CipherCreateRequest> for CipherCreateRequestInternal {
 impl CipherCreateRequestInternal {
     /// Generate a new key for the cipher, re-encrypting internal data, if necessary, and stores the
     /// encrypted key to the cipher data.
-    fn generate_cipher_key(
+    pub(crate) fn generate_cipher_key(
         &mut self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
