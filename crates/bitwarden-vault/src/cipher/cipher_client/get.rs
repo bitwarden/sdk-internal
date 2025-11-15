@@ -1,11 +1,14 @@
-use bitwarden_core::key_management::KeyIds;
+use bitwarden_api_api::models::CipherMiniDetailsResponseModelListResponseModel;
+use bitwarden_core::{OrganizationId, key_management::KeyIds};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
 
 use super::CiphersClient;
-use crate::{Cipher, CipherView, ItemNotFoundError, cipher::cipher::DecryptCipherListResult};
+use crate::{
+    Cipher, CipherError, CipherView, ItemNotFoundError, cipher::cipher::DecryptCipherListResult,
+};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -53,6 +56,29 @@ impl CiphersClient {
         let repository = self.get_repository()?;
 
         list_ciphers(key_store, repository.as_ref()).await
+    }
+
+    /// Get all ciphers for an organization. Currently returns `Err` if any ciphers fail to
+    /// deserialize or decrypt
+    pub async fn list_org_ciphers(
+        &self,
+        org_id: OrganizationId,
+        include_member_items: bool,
+    ) -> Result<DecryptCipherListResult, CipherError> {
+        let configs = self.get_api_configurations().await;
+        let api = configs.api_client.ciphers_api();
+        let response: CipherMiniDetailsResponseModelListResponseModel = api
+            .get_organization_ciphers(Some(org_id.into()), Some(include_member_items))
+            .await
+            .unwrap(); // TODO: Remove unwrap
+        let ciphers = response
+            .data
+            .into_iter()
+            .flatten()
+            .map(TryInto::<Cipher>::try_into)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(self.decrypt_list_with_failures(ciphers))
     }
 
     /// Get [Cipher] by ID from state and decrypt it to a [CipherView].
