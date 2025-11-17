@@ -14,12 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RegisterSendVerificationEmailRequestModel {
-    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub name: Option<String>,
-    #[serde(rename = "email")]
+    #[serde(rename = "email", alias = "Email")]
     pub email: Option<String>,
     #[serde(
         rename = "receiveMarketingEmails",
+        alias = "ReceiveMarketingEmails",
         skip_serializing_if = "Option::is_none"
     )]
     pub receive_marketing_emails: Option<bool>,

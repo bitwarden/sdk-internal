@@ -21,7 +21,6 @@ src/apis/info_api.rs
 src/apis/installations_api.rs
 src/apis/invoices_api.rs
 src/apis/licenses_api.rs
-src/apis/misc_api.rs
 src/apis/mod.rs
 src/apis/notifications_api.rs
 src/apis/organization_auth_requests_api.rs
@@ -112,7 +111,6 @@ src/models/billing_subscription_item.rs
 src/models/billing_subscription_upcoming_invoice.rs
 src/models/billing_transaction.rs
 src/models/bit_pay_credit_request.rs
-src/models/bit_pay_invoice_request_model.rs
 src/models/bulk_collection_access_request_model.rs
 src/models/bulk_create_security_tasks_request_model.rs
 src/models/bulk_delete_response_model.rs
@@ -255,6 +253,7 @@ src/models/member_decryption_type.rs
 src/models/minimal_billing_address_request.rs
 src/models/minimal_tokenized_payment_method_request.rs
 src/models/mod.rs
+src/models/non_tokenized_payment_method_request.rs
 src/models/notification_response_model.rs
 src/models/notification_response_model_list_response_model.rs
 src/models/open_id_connect_redirect_behavior.rs
@@ -287,6 +286,7 @@ src/models/organization_license.rs
 src/models/organization_no_payment_create_request.rs
 src/models/organization_password_manager_request_model.rs
 src/models/organization_public_key_response_model.rs
+src/models/organization_report_metrics_request.rs
 src/models/organization_response_model.rs
 src/models/organization_seat_request_model.rs
 src/models/organization_sponsorship_create_request_model.rs
@@ -370,6 +370,7 @@ src/models/preview_organization_subscription_purchase_tax_request.rs
 src/models/preview_organization_subscription_update_tax_request.rs
 src/models/preview_premium_subscription_purchase_tax_request.rs
 src/models/priority.rs
+src/models/private_keys_response_model.rs
 src/models/product_tier_type.rs
 src/models/profile_organization_response_model.rs
 src/models/profile_organization_response_model_list_response_model.rs
@@ -416,6 +417,9 @@ src/models/pub_key_cred_param.rs
 src/models/public_key_credential_descriptor.rs
 src/models/public_key_credential_rp_entity.rs
 src/models/public_key_credential_type.rs
+src/models/public_key_encryption_key_pair_request_model.rs
+src/models/public_key_encryption_key_pair_response_model.rs
+src/models/public_keys_response_model.rs
 src/models/push_device_request_model.rs
 src/models/push_registration_request_model.rs
 src/models/push_settings.rs
@@ -450,6 +454,7 @@ src/models/secrets_manager_update_selections.rs
 src/models/secrets_sync_response_model.rs
 src/models/secrets_with_projects_inner_secret.rs
 src/models/secure_note_type.rs
+src/models/security_state_model.rs
 src/models/security_task_create_request.rs
 src/models/security_task_metrics_response_model.rs
 src/models/security_task_status.rs
@@ -484,6 +489,8 @@ src/models/set_key_connector_key_request_model.rs
 src/models/set_password_request_model.rs
 src/models/set_verify_devices_request_model.rs
 src/models/setup_business_unit_request_body.rs
+src/models/signature_key_pair_request_model.rs
+src/models/signature_key_pair_response_model.rs
 src/models/sm_export_response_model.rs
 src/models/sm_import_request_model.rs
 src/models/sso_configuration_data.rs

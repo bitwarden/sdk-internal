@@ -14,7 +14,7 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BulkDenyAdminAuthRequestRequestModel {
-    #[serde(rename = "ids", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "ids", alias = "Ids", skip_serializing_if = "Option::is_none")]
     pub ids: Option<Vec<uuid::Uuid>>,
 }
 

@@ -14,13 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DeviceRequestModel {
-    #[serde(rename = "type")]
+    #[serde(rename = "type", alias = "R#type")]
     pub r#type: models::DeviceType,
-    #[serde(rename = "name")]
+    #[serde(rename = "name", alias = "Name")]
     pub name: String,
-    #[serde(rename = "identifier")]
+    #[serde(rename = "identifier", alias = "Identifier")]
     pub identifier: String,
-    #[serde(rename = "pushToken", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "pushToken",
+        alias = "PushToken",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub push_token: Option<String>,
 }
 
