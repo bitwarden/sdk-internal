@@ -14,8 +14,6 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PolicyRequestModel {
-    #[serde(rename = "type", alias = "R#type")]
-    pub r#type: models::PolicyType,
     #[serde(rename = "enabled", alias = "Enabled")]
     pub enabled: bool,
     #[serde(
@@ -27,9 +25,8 @@ pub struct PolicyRequestModel {
 }
 
 impl PolicyRequestModel {
-    pub fn new(r#type: models::PolicyType, enabled: bool) -> PolicyRequestModel {
+    pub fn new(enabled: bool) -> PolicyRequestModel {
         PolicyRequestModel {
-            r#type,
             enabled,
             data: None,
         }
