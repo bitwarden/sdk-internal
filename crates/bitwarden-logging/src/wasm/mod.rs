@@ -1,10 +1,7 @@
-pub mod event;
-pub mod level;
-pub mod span;
+mod event;
+mod level;
+mod span;
 
-// use wasm_bindgen::prelude::*;
-
-// use crate::wasm::span::Span;
-
-// #[wasm_bindgen]
-// pub struct Tracing {}
+pub use event::*;
+pub use level::*;
+pub use span::*;

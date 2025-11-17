@@ -1037,6 +1037,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-ipc",
+ "bitwarden-logging",
  "bitwarden-pm",
  "bitwarden-ssh",
  "bitwarden-state",
