@@ -1,10 +1,12 @@
 use bitwarden_api_api::{apis::ciphers_api::CiphersApi, models};
-use bitwarden_core::require;
-use bitwarden_state::repository::Repository;
+use bitwarden_core::{ApiError, MissingFieldError, require};
+use bitwarden_error::bitwarden_error;
+use bitwarden_state::repository::{Repository, RepositoryError};
+use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{Cipher, CipherError, CipherId, CiphersClient, VaultParseError};
+use crate::{Cipher, CipherId, CiphersClient, VaultParseError};
 
 /// Standalone function to delete an attachment from a cipher that is extracted for ease of unit
 /// testing.
@@ -14,15 +16,17 @@ async fn delete_attachment(
     cipher_id: CipherId,
     attachment_id: &str,
     admin: bool,
-) -> Result<Cipher, CipherError> {
+) -> Result<Cipher, CipherDeleteAttachmentError> {
     let response = if admin {
         api_client
             .delete_attachment_admin(cipher_id.into(), attachment_id)
-            .await?
+            .await
+            .map_err(ApiError::from)?
     } else {
         api_client
             .delete_attachment(cipher_id.into(), attachment_id)
-            .await?
+            .await
+            .map_err(ApiError::from)?
     };
 
     let cipher_response: Box<models::Cipher> = require!(response.cipher);
@@ -50,7 +54,7 @@ impl CiphersClient {
         &self,
         cipher_id: CipherId,
         attachment_id: &str,
-    ) -> Result<Cipher, CipherError> {
+    ) -> Result<Cipher, CipherDeleteAttachmentError> {
         let config = self.client.internal.get_api_configurations().await;
 
         delete_attachment(
@@ -68,7 +72,7 @@ impl CiphersClient {
         &self,
         cipher_id: CipherId,
         attachment_id: &str,
-    ) -> Result<Cipher, CipherError> {
+    ) -> Result<Cipher, CipherDeleteAttachmentError> {
         let config = self.client.internal.get_api_configurations().await;
 
         delete_attachment(
@@ -80,6 +84,20 @@ impl CiphersClient {
         )
         .await
     }
+}
+
+#[allow(missing_docs)]
+#[bitwarden_error(flat)]
+#[derive(Debug, Error)]
+pub enum CipherDeleteAttachmentError {
+    #[error(transparent)]
+    Repository(#[from] RepositoryError),
+    #[error(transparent)]
+    ApiError(#[from] ApiError),
+    #[error(transparent)]
+    VaultParse(#[from] VaultParseError),
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError),
 }
 
 #[cfg(test)]
@@ -353,7 +371,10 @@ mod tests {
         .await;
 
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), CipherError::MissingField(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            CipherDeleteAttachmentError::MissingField(_)
+        ));
     }
 
     #[tokio::test]
