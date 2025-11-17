@@ -795,6 +795,10 @@ name = "bitwarden-logging"
 version = "1.0.0"
 dependencies = [
  "js-sys",
+ "once_cell",
+ "tokio",
+ "tracing",
+ "tracing_dynamic",
  "tsify",
  "wasm-bindgen",
 ]
@@ -5781,6 +5785,16 @@ dependencies = [
  "tracing-subscriber",
  "wasm-bindgen",
  "web-sys",
+]
+
+[[package]]
+name = "tracing_dynamic"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "636b306d6eee126f663f6e39d049378976d6cdcc63ea99253648385ee7247ac2"
+dependencies = [
+ "tracing",
+ "tracing-core",
 ]
 
 [[package]]
