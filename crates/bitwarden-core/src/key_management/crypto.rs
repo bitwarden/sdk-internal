@@ -360,6 +360,7 @@ pub(super) fn make_update_kdf(
     })
 }
 
+/// Response from the `make_update_password` function
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
