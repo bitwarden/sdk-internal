@@ -12,3 +12,6 @@ pub mod login_via_password;
 
 // API models should be private to the identity module as they are only used internally.
 pub(crate) mod api_models;
+
+/// Common send function for login requests
+mod send_login_request;

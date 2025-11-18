@@ -1,7 +1,12 @@
-use bitwarden_core::DeviceType;
-use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
-use crate::api::enums::{GrantType, Scope, TwoFactorProvider, scopes_to_string};
+use bitwarden_core::{DeviceType, auth::login::LoginError, client::ApiConfigurations};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+
+use crate::{
+    api::enums::{GrantType, Scope, TwoFactorProvider, scopes_to_string},
+    identity::send_login_request::send_login_request,
+};
 
 /// Standard scopes for user token requests: "api offline_access"
 pub(crate) const STANDARD_USER_SCOPES: &[Scope] = &[Scope::Api, Scope::OfflineAccess];
@@ -11,7 +16,8 @@ pub(crate) const STANDARD_USER_SCOPES: &[Scope] = &[Scope::Api, Scope::OfflineAc
 /// that represent specific login mechanisms (e.g., password, SSO, etc)
 /// in order to avoid duplication of common OAuth fields and custom BW fields.
 #[derive(Serialize, Deserialize, Debug)]
-pub(crate) struct UserTokenApiRequest {
+#[serde(bound = "T: Serialize + DeserializeOwned + Debug")] // Ensure T meets trait bounds
+pub(crate) struct UserLoginApiRequest<T: Serialize + DeserializeOwned + Debug> {
     // Standard OAuth2 fields
     /// The client ID for the SDK consuming client.
     /// Note: snake_case is intentional to match the API expectations.
@@ -49,10 +55,14 @@ pub(crate) struct UserTokenApiRequest {
     /// Whether to remember two-factor authentication on this device.
     #[serde(rename = "twoFactorRemember")]
     pub two_factor_remember: Option<bool>,
+
+    // Specific login mechanism fields would go here (e.g., password, SSO, etc)
+    #[serde(flatten)]
+    pub login_mechanism_fields: T,
 }
 
-impl UserTokenApiRequest {
-    /// Creates a new UserTokenApiRequest with standard scopes ("api offline_access").
+impl<T: Serialize + DeserializeOwned + Debug> UserLoginApiRequest<T> {
+    /// Creates a new UserLoginApiRequest with standard scopes ("api offline_access").
     /// The scope can be overridden after construction if needed for specific auth flows.
     pub(crate) fn new(
         client_id: String,
@@ -60,6 +70,7 @@ impl UserTokenApiRequest {
         device_type: DeviceType,
         device_identifier: String,
         device_name: String,
+        login_mechanism_fields: T,
     ) -> Self {
         Self {
             client_id,
@@ -71,6 +82,16 @@ impl UserTokenApiRequest {
             two_factor_token: None,
             two_factor_provider: None,
             two_factor_remember: None,
+            login_mechanism_fields,
         }
+    }
+
+    // TODO: move LoginError from bitwarden-core and clean up
+    // TODO: move and call this directly in login_via_password
+    pub(crate) async fn send(
+        &self,
+        configurations: &ApiConfigurations,
+    ) -> Result<serde_json::Value, LoginError> {
+        send_login_request(configurations, self).await
     }
 }

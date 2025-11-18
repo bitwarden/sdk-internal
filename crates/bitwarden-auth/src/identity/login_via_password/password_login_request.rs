@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::identity::{login_via_password::PreloginPasswordData, models::LoginRequest};
 
-/// SDK request model for logging in via password
+/// Public SDK request model for logging in via password
 #[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))] // add mobile support

@@ -1,82 +1,37 @@
 use bitwarden_core::key_management::MasterPasswordAuthenticationData;
-use serde::Serialize;
 
-use crate::{
-    api::enums::GrantType,
-    identity::{
-        IdentityClient, api_models::request::UserTokenApiRequest,
-        login_via_password::PasswordLoginRequest,
-    },
+use crate::identity::{
+    IdentityClient,
+    api_models::request::UserLoginApiRequest,
+    login_via_password::{PasswordLoginApiRequest, PasswordLoginRequest},
 };
 
-/// API request model for logging in via password.
-#[derive(Serialize, Debug)]
-#[allow(dead_code)]
-struct PasswordLoginApiRequest {
-    // Common user token request payload
-    #[serde(flatten)]
-    user_token_api_request: UserTokenApiRequest,
-
-    /// Bitwarden user email address
-    #[serde(rename = "username")]
-    pub email: String,
-
-    /// Bitwarden user master password hash
-    #[serde(rename = "password")]
-    pub master_password_hash: String,
-}
-
-/// Converts a `PasswordLoginRequest` and `MasterPasswordAuthenticationData` into a
-/// `PasswordLoginApiRequest` for making the API call.
-impl From<(PasswordLoginRequest, MasterPasswordAuthenticationData)> for PasswordLoginApiRequest {
-    fn from(
-        (request, master_password_authentication): (
-            PasswordLoginRequest,
+impl IdentityClient {
+    /// Logs in a user via their email and master password.
+    ///
+    /// This function derives the necessary master password authentication data
+    /// using the provided prelogin data, constructs the appropriate API request,
+    /// and sends the request to the Identity connect/token endpoint to log the user in.
+    pub async fn login_via_password(&self, request: PasswordLoginRequest) {
+        // use request password prelogin data to derive master password authentication data:
+        let master_password_authentication: Result<
             MasterPasswordAuthenticationData,
-        ),
-    ) -> Self {
-        // Create the UserTokenApiRequest with standard scopes configuration
-        let user_token_api_request = UserTokenApiRequest::new(
-            request.login_request.client_id,
-            GrantType::Password,
-            request.login_request.device.device_type,
-            request.login_request.device.device_identifier,
-            request.login_request.device.device_name,
+            bitwarden_core::key_management::MasterPasswordError,
+        > = MasterPasswordAuthenticationData::derive(
+            &request.password,
+            &request.prelogin_data.kdf,
+            &request.email,
         );
 
-        Self {
-            user_token_api_request,
-            email: request.email,
-            master_password_hash: master_password_authentication
-                .master_password_authentication_hash
-                .to_string(),
-        }
+        // construct API request
+        let api_request: UserLoginApiRequest<PasswordLoginApiRequest> =
+            (request, master_password_authentication.unwrap()).into();
+
+        // make API call to login endpoint with api_request
+        let api_configs = self.client.internal.get_api_configurations().await;
+
+        let response = api_request.send(&api_configs).await;
+
+        // TODO: figure out how to handle errors.
     }
-}
-
-impl IdentityClient {
-    // #![allow(dead_code)]
-    // #![allow(unused_imports)]
-    // #![allow(unused_variables)]
-    // #![allow(missing_docs)]
-    // pub async fn login_via_password(&self, request: PasswordLoginRequest) {
-    //     // use request password prelogin data to derive master password authentication data:
-    //     let master_password_authentication: Result<
-    //         MasterPasswordAuthenticationData,
-    //         bitwarden_core::key_management::MasterPasswordError,
-    //     > = MasterPasswordAuthenticationData::derive( &request.password,
-    //     > &request.prelogin_data.kdf, &request.email,
-    //     );
-
-    //     // construct API request
-    //     let api_request: PasswordLoginApiRequest =
-    //         (request, master_password_authentication.unwrap()).into();
-
-    //     // make API call to login endpoint with api_request
-    //     let config = self.client.internal.get_api_configurations().await;
-
-    //     // TODO: next week talk through implementing the actual API call and handling the
-    // response     // The existing password flow uses a base send_identity_connect_request
-    // which is re-used     // across multiple login methods. Should we do the same here?
-    // }
 }
