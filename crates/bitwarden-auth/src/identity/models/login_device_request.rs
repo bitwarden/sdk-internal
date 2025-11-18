@@ -15,6 +15,12 @@ use serde::{Deserialize, Serialize};
 )] // add wasm support
 pub struct LoginDeviceRequest {
     /// The type of device making the login request
+    /// Note: today, we already have the DeviceType on the ApiConfigurations
+    /// but we do not have the other device fields so we will accept the device data at login time
+    /// for now. In the future, we might refactor the unauthN client to instantiate with full
+    /// device info which would deprecate this struct. However, using the device_type here
+    /// allows us to avoid any timing issues in scenarios where the device type could change
+    /// between client instantiation and login (unlikely but possible).
     pub device_type: DeviceType,
 
     /// Unique identifier for the device
