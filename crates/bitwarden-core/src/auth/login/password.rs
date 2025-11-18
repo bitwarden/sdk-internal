@@ -22,7 +22,7 @@ pub(crate) async fn login_password(
     use bitwarden_crypto::EncString;
 
     use crate::{
-        client::{UserLoginMethod, internal::UserKeyState},
+        client::UserLoginMethod,
         require,
     };
 
@@ -40,6 +40,8 @@ pub(crate) async fn login_password(
     let response = request_identity_tokens(client, input, &password_hash).await?;
 
     if let IdentityTokenResponse::Authenticated(r) = &response {
+        use crate::key_management::account_cryptographic_state::WrappedUserAccountCryptographicState;
+
         client.internal.set_tokens(
             r.access_token.clone(),
             r.refresh_token.clone(),
@@ -48,11 +50,7 @@ pub(crate) async fn login_password(
 
         let private_key: EncString = require!(&r.private_key).parse()?;
 
-        let user_key_state = UserKeyState {
-            private_key,
-            signing_key: None,
-            security_state: None,
-        };
+        let user_key_state = WrappedUserAccountCryptographicState::V1 { private_key };
 
         let master_password_unlock = r
             .user_decryption_options

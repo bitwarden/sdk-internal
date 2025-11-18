@@ -8,8 +8,8 @@ use crate::{
         api::{request::ApiTokenRequest, response::IdentityTokenResponse},
         login::{LoginError, PasswordLoginResponse, response::two_factor::TwoFactorProviders},
     },
-    client::{LoginMethod, UserLoginMethod, internal::UserKeyState},
-    key_management::UserDecryptionData,
+    client::{LoginMethod, UserLoginMethod},
+    key_management::{UserDecryptionData, account_cryptographic_state::WrappedUserAccountCryptographicState},
     require,
 };
 
@@ -31,11 +31,7 @@ pub(crate) async fn login_api_key(
 
         let private_key: EncString = require!(&r.private_key).parse()?;
 
-        let user_key_state = UserKeyState {
-            private_key,
-            signing_key: None,
-            security_state: None,
-        };
+        let user_key_state = WrappedUserAccountCryptographicState::V1 { private_key };
 
         let master_password_unlock = r
             .user_decryption_options

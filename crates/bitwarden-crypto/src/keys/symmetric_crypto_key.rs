@@ -20,6 +20,14 @@ use super::{
 };
 use crate::{BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, cose};
 
+/// The symmetric key algorithm to use when generating a new symmetric key.
+pub enum SymmetricKeyAlgorithm {
+    /// Used for V1 user keys and data encryption
+    Aes256CbcHmac,
+    /// Used for V2 user keys and data envelopes
+    XChaCha20Poly1305,
+}
+
 /// [Aes256CbcKey] is a symmetric encryption key, consisting of one 256-bit key,
 /// used to decrypt legacy type 0 enc strings. The data is not authenticated
 /// so this should be used with caution, and removed where possible.
@@ -151,6 +159,14 @@ impl SymmetricCryptoKey {
         rng.fill(mac_key.as_mut_slice());
 
         Self::Aes256CbcHmacKey(Aes256CbcHmacKey { enc_key, mac_key })
+    }
+
+    /// Make a new [SymmetricCryptoKey] for the specified algorithm
+    pub fn make(algorithm: SymmetricKeyAlgorithm) -> Self {
+        match algorithm {
+            SymmetricKeyAlgorithm::Aes256CbcHmac => Self::make_aes256_cbc_hmac_key(),
+            SymmetricKeyAlgorithm::XChaCha20Poly1305 => Self::make_xchacha20_poly1305_key(),
+        }
     }
 
     /// Generate a new random AES256_CBC_HMAC [SymmetricCryptoKey]
