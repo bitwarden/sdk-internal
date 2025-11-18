@@ -32,6 +32,7 @@ chrono = { workspace = true }
 reqwest = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 serde_repr = { workspace = true }
 thiserror = { workspace = true }
 tsify = { workspace = true, optional = true }
@@ -40,7 +41,6 @@ wasm-bindgen-futures = { workspace = true, optional = true }
 
 [dev-dependencies]
 bitwarden-test = { workspace = true }
-serde_json = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
 wiremock = "0.6.0"
 
