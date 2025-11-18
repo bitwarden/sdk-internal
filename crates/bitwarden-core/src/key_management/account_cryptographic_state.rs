@@ -196,7 +196,7 @@ mod tests {
         let signed_public_key = temp_ctx.make_signed_public_key(private_key_id, signing_key_id).unwrap();
 
         // Sign and wrap security state
-        let user_id = 42u64; // arbitrary user id for tests
+        let user_id = UserId::new_v4();
         let security_state = SecurityState::initialize_for_user(user_id);
         let signed_security_state = security_state.sign(signing_key_id, &mut temp_ctx).unwrap();
 
