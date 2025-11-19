@@ -9,9 +9,7 @@ use crate::api::enums::{GrantType, Scope, TwoFactorProvider, scopes_to_string};
 pub(crate) const STANDARD_USER_SCOPES: &[Scope] = &[Scope::Api, Scope::OfflineAccess];
 
 /// The common payload properties to send to the /connect/token endpoint to obtain
-/// tokens for a BW user. This is intended to be flattened into other api requests
-/// that represent specific login mechanisms (e.g., password, SSO, etc)
-/// in order to avoid duplication of common OAuth fields and custom BW fields.
+/// tokens for a BW user.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(bound = "T: Serialize + DeserializeOwned + Debug")] // Ensure T meets trait bounds
 pub(crate) struct UserLoginApiRequest<T: Serialize + DeserializeOwned + Debug> {
@@ -53,7 +51,7 @@ pub(crate) struct UserLoginApiRequest<T: Serialize + DeserializeOwned + Debug> {
     #[serde(rename = "twoFactorRemember")]
     pub two_factor_remember: Option<bool>,
 
-    // Specific login mechanism fields would go here (e.g., password, SSO, etc)
+    // Specific login mechanism fields will go here (e.g., password, SSO, etc)
     #[serde(flatten)]
     pub login_mechanism_fields: T,
 }
