@@ -194,7 +194,7 @@ struct ContentView: View {
                 userId: nil,
                 kdfParams: kdf,
                 email: EMAIL,
-                accountCryptographicState: WrappedUserAccountCryptographicState.V1(privateKey: loginData.PrivateKey),
+                accountCryptographicState: WrappedUserAccountCryptographicState.v1(privateKey: loginData.PrivateKey),
                 method: InitUserCryptoMethod.password(
                     password: PASSWORD,
                     userKey: loginData.Key
@@ -252,9 +252,7 @@ struct ContentView: View {
             userId: nil,
             kdfParams: kdf,
             email: EMAIL,
-            privateKey: privateKey,
-            signingKey: nil,
-            securityState: nil,
+            accountCryptographicState: WrappedUserAccountCryptographicState.v1(privateKey: privateKey),
             method: InitUserCryptoMethod.decryptedKey(
                 decryptedUserKey: key
             )
@@ -281,9 +279,7 @@ struct ContentView: View {
             userId: nil,
             kdfParams: kdf,
             email: EMAIL,
-            privateKey: privateKey,
-            signingKey: nil,
-            securityState: nil,
+            accountCryptographicState: WrappedUserAccountCryptographicState.v1(privateKey: privateKey),
             method: InitUserCryptoMethod.pin(pin: PIN, pinProtectedUserKey: pinProtectedUserKey)
         ))
     }
