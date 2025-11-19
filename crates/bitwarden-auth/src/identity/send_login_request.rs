@@ -8,6 +8,7 @@ use crate::identity::api_models::{
     login_request_header::LoginRequestHeader, request::UserLoginApiRequest,
 };
 
+/// A common function to send login requests to the Identity connect/token endpoint.
 pub(crate) async fn send_login_request(
     api_configs: &ApiConfigurations,
     api_request: &UserLoginApiRequest<impl Serialize + DeserializeOwned + std::fmt::Debug>,
@@ -21,23 +22,18 @@ pub(crate) async fn send_login_request(
     let mut request = identity_config
         .client
         .post(format!("{}/connect/token", &identity_config.base_path))
-        .header(
-            reqwest::header::CONTENT_TYPE,
-            "application/x-www-form-urlencoded; charset=utf-8",
-        )
         .header(reqwest::header::ACCEPT, "application/json")
+        // Add custom device type header
         .header(
             device_type_header.header_name(),
             device_type_header.header_value(),
-        );
+        )
+        // per OAuth2 spec recommendation for token requests (https://www.rfc-editor.org/rfc/rfc6749.html#section-5.1)
+        // we must include "no-store" cache control
+        .header(reqwest::header::CACHE_CONTROL, "no-store")
+        // use form to encode as application/x-www-form-urlencoded
+        .form(&api_request);
 
-    //   let request: reqwest::RequestBuilder = configurations
-    //         .identity_config
-    //         .client
-    //         .post(&url)
-    //         .header(reqwest::header::ACCEPT, "application/json")
-    //         .header(reqwest::header::CACHE_CONTROL, "no-store")
-    //         .form(&api_request);
     // return empty json for now
     Ok(serde_json::json!({}))
 }

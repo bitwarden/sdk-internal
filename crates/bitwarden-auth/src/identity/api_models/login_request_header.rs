@@ -24,9 +24,6 @@ impl LoginRequestHeader {
     }
 }
 
-// TODO: see if we can implement a to header tryInto trait for this instead of defining header_name
-// and header_value methods
-
 #[cfg(test)]
 mod tests {
     use super::*;
