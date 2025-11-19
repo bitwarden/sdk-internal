@@ -639,12 +639,6 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 
     /// Set a symmetric key in the context.
     ///
-    /// This function will insert or replace the key identified by `key_id` in the local context
-    /// if `key_id.is_local()` is true, otherwise it will update the global key store (if this
-    /// context has write access). It is marked deprecated to discourage external usage; prefer
-    /// `add_local_symmetric_key` for creating new local keys or `set_symmetric_key_internal`
-    /// when operating inside the crate.
-    ///
     /// # Errors
     /// Returns [`CryptoError::ReadOnlyKeyStore`] if the context does not have write access when
     /// attempting to modify the global store.
@@ -682,11 +676,6 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 
     /// Set an asymmetric (private) key in the context.
     ///
-    /// This will insert or replace the asymmetric key at `key_id`. If `key_id.is_local()` the
-    /// key is stored in the context-local backend, otherwise it will be written to the global
-    /// backend (if this context has write access). This method is deprecated for external use;
-    /// prefer `add_local_asymmetric_key` to create local keys or use internal APIs when needed.
-    ///
     /// # Errors
     /// Returns [`CryptoError::ReadOnlyKeyStore`] if attempting to write to the global store when
     /// the context is read-only.
@@ -718,6 +707,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Sets a signing key in the context
+    /// 
+    /// # Errors
+    /// Returns [`CryptoError::ReadOnlyKeyStore`] if attempting to write to the global store when
+    /// the context is read-only.
     #[deprecated(note = "This function should ideally never be used outside this crate")]
     pub fn set_signing_key(&mut self, key_id: Ids::Signing, key: SigningKey) -> Result<()> {
         if key_id.is_local() {
