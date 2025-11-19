@@ -27,7 +27,7 @@ wasm = ["dep:tsify", "dep:wasm-bindgen"] # WASM support
 
 [dependencies]
 aes = { version = ">=0.8.2, <0.9", features = ["zeroize"] }
-argon2 = { version = "=0.6.0-rc.1", features = [
+argon2 = { version = "=0.6.0-rc.2", features = [
     "std",
     "zeroize",
 ], default-features = false }
