@@ -304,7 +304,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ) -> Result<EncString> {
         let wrapping_key = self.get_symmetric_key(wrapping_key)?;
         let signing_key = self.get_signing_key(key_to_wrap)?.to_owned();
-        signing_key.to_cose().encrypt_with_key(&wrapping_key)
+        signing_key.to_cose().encrypt_with_key(wrapping_key)
     }
 
     /// Wrap (encrypt) a private/asymmetric key with a symmetric key.
