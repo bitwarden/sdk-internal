@@ -11,10 +11,7 @@ use thiserror::Error;
 use crate::OrganizationId;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::key_management::{KeyIds, SymmetricKeyId};
-use crate::{
-    MissingPrivateKeyError, error::UserIdAlreadySetError,
-    key_management::account_cryptographic_state::AccountCryptographyInitializationError,
-};
+use crate::{MissingPrivateKeyError, error::UserIdAlreadySetError};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -23,8 +20,8 @@ pub enum EncryptionSettingsError {
     #[error("Cryptography error, {0}")]
     Crypto(#[from] bitwarden_crypto::CryptoError),
 
-    #[error("Cryptography Initialization error, {0}")]
-    CryptoInitialization(#[from] AccountCryptographyInitializationError),
+    #[error("Cryptography Initialization error")]
+    CryptoInitialization,
 
     #[error(transparent)]
     MissingPrivateKey(#[from] MissingPrivateKeyError),

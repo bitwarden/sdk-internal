@@ -286,7 +286,7 @@ impl InternalClient {
     ) -> Result<(), EncryptionSettingsError> {
         account_crypto_state
             .set_to_context(&self.key_store, &self.security_state, &user_key)
-            .map_err(EncryptionSettingsError::from)
+            .map_err(|_| EncryptionSettingsError::CryptoInitialization)
     }
 
     #[cfg(feature = "internal")]
