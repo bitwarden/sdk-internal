@@ -1,13 +1,16 @@
-use bitwarden_api_api::models::{
-    CipherBulkRestoreRequestModel, CipherCollectionsRequestModel, CipherCreateRequestModel,
-    CipherMiniResponseModelListResponseModel,
+use bitwarden_api_api::{
+    apis::ciphers_api::PostAdminError,
+    models::{
+        CipherBulkRestoreRequestModel, CipherCollectionsRequestModel, CipherCreateRequestModel,
+        CipherMiniResponseModel, CipherMiniResponseModelListResponseModel,
+    },
 };
 use bitwarden_collections::collection::CollectionId;
-use bitwarden_core::OrganizationId;
+use bitwarden_core::{ApiError, OrganizationId};
 use bitwarden_crypto::{Decryptable, IdentifyKey};
 
 use crate::{
-    Cipher, CipherError, CipherId, CipherView, CiphersClient, DecryptCipherListResult,
+    Cipher, CipherError, CipherId, CipherView, CiphersClient, DecryptCipherListResult, cipher,
     cipher_client::create::{CipherCreateRequest, CipherCreateRequestInternal},
 };
 
@@ -42,7 +45,7 @@ impl CiphersClient {
             cipher: Box::new(key_store.encrypt(request_internal)?),
         };
 
-        let response = self
+        let cipher: Cipher = self
             .client
             .internal
             .get_api_configurations()
@@ -50,12 +53,11 @@ impl CiphersClient {
             .api_client
             .ciphers_api()
             .post_admin(Some(request))
-            .await;
+            .await?
+            .try_into()?;
+        let cipher_view = self.decrypt(cipher)?;
 
-        let mut cipher: Cipher = response.unwrap().try_into()?; // TODO: Fix unwrap
-        cipher.collection_ids = collection_ids;
-
-        Ok(self.decrypt(cipher)?)
+        Ok(cipher_view)
     }
 
     // ciphers_id_collections_admin_put
@@ -76,14 +78,12 @@ impl CiphersClient {
         let api = api_config.api_client.ciphers_api();
         let cipher = if is_admin {
             api.put_collections_admin(&cipher_id.to_string(), Some(req))
-                .await
-                .unwrap()
+                .await?
                 .try_into()?
         } else {
             let response: Cipher = api
                 .put_collections(cipher_id.into(), Some(req))
-                .await
-                .unwrap()
+                .await?
                 .try_into()?; // TODO: the uszhe
             self.get_repository()?
                 .set(cipher_id.to_string(), response.clone())
@@ -103,10 +103,10 @@ impl CiphersClient {
         let api = api_config.api_client.ciphers_api();
 
         let cipher: Cipher = if is_admin {
-            let response = api.put_restore_admin(cipher_id.into()).await.unwrap();
+            let response = api.put_restore_admin(cipher_id.into()).await?;
             response.try_into()?
         } else {
-            let response = api.put_restore(cipher_id.into()).await.unwrap();
+            let response = api.put_restore(cipher_id.into()).await?;
             let cipher: Cipher = response.try_into()?;
 
             cipher
@@ -128,8 +128,7 @@ impl CiphersClient {
                 ids: cipher_ids.into_iter().map(|id| id.to_string()).collect(),
                 organization_id: Some(org_id.into()),
             }))
-            .await
-            .unwrap() // TODO - handle error
+            .await?
             .data
             .into_iter()
             .flatten()
@@ -140,8 +139,7 @@ impl CiphersClient {
                 ids: cipher_ids.into_iter().map(|id| id.to_string()).collect(),
                 organization_id: None,
             }))
-            .await
-            .unwrap() // TODO - handle error
+            .await?
             .data
             .into_iter()
             .flatten()
