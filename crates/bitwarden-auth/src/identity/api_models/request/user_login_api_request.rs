@@ -85,13 +85,4 @@ impl<T: Serialize + DeserializeOwned + Debug> UserLoginApiRequest<T> {
             login_mechanism_fields,
         }
     }
-
-    // TODO: move LoginError from bitwarden-core and clean up
-    // TODO: move and call this directly in login_via_password
-    pub(crate) async fn send(
-        &self,
-        configurations: &ApiConfigurations,
-    ) -> Result<serde_json::Value, LoginError> {
-        send_login_request(configurations, self).await
-    }
 }

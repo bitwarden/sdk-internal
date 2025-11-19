@@ -4,6 +4,7 @@ use crate::identity::{
     IdentityClient,
     api_models::request::UserLoginApiRequest,
     login_via_password::{PasswordLoginApiRequest, PasswordLoginRequest},
+    send_login_request::send_login_request,
 };
 
 impl IdentityClient {
@@ -30,7 +31,7 @@ impl IdentityClient {
         // make API call to login endpoint with api_request
         let api_configs = self.client.internal.get_api_configurations().await;
 
-        let response = api_request.send(&api_configs).await;
+        let response = send_login_request(&api_configs, &api_request).await;
 
         // TODO: figure out how to handle errors.
     }
