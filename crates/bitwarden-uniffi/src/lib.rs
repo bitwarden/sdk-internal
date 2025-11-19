@@ -2,7 +2,7 @@
 
 uniffi::setup_scaffolding!();
 
-use std::sync::Arc;
+use std::sync::{Arc, Once};
 
 use auth::AuthClient;
 use bitwarden_core::{ClientSettings, client::internal::ClientManagedTokens};
@@ -111,22 +111,65 @@ impl Client {
     }
 }
 
+static INIT: Once = Once::new();
+
 fn init_logger() {
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
-        .try_init();
+    use tracing_subscriber::{EnvFilter, layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
-    #[cfg(target_os = "ios")]
-    let _ = oslog::OsLogger::new("com.8bit.bitwarden")
-        .level_filter(log::LevelFilter::Info)
-        .init();
+    INIT.call_once(|| {
+        // the log level prioritization is determined by:
+        //    1. if RUST_LOG is detected at runtime
+        //    2. if RUST_LOG is provided at compile time
+        //    3. default to INFO
+        let filter = EnvFilter::builder()
+            .with_default_directive(
+                option_env!("RUST_LOG")
+                    .unwrap_or("info")
+                    .parse()
+                    .expect("should provide valid log level at compile time."),
+            )
+            .from_env_lossy();
 
-    #[cfg(target_os = "android")]
-    android_logger::init_once(
-        android_logger::Config::default()
-            .with_tag("com.bitwarden.sdk")
-            .with_max_level(log::LevelFilter::Info),
-    );
+        let fmtlayer = tracing_subscriber::fmt::layer()
+            .with_ansi(true)
+            .with_file(true)
+            .with_line_number(true)
+            .with_target(true)
+            .pretty();
+
+        #[cfg(target_os = "ios")]
+        {
+            const TAG: &str = "com.8bit.bitwarden";
+
+            tracing_subscriber::registry()
+                .with(fmtlayer)
+                .with(filter)
+                .with(tracing_oslog::OsLogger::new(TAG, "default"))
+                .init();
+        }
+
+        #[cfg(target_os = "android")]
+        {
+            const TAG: &str = "com.bitwarden.sdk";
+
+            tracing_subscriber::registry()
+                .with(fmtlayer)
+                .with(filter)
+                .with(
+                    tracing_android::layer(TAG)
+                        .expect("initialization of android logcat tracing layer"),
+                )
+                .init();
+        }
+
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        {
+            tracing_subscriber::registry()
+                .with(fmtlayer)
+                .with(filter)
+                .init();
+        }
+    });
 }
 
 /// Setup the error converter to ensure conversion errors don't cause panics
