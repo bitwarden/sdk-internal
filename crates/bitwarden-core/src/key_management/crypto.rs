@@ -1419,16 +1419,6 @@ mod tests {
     #[tokio::test]
     async fn test_make_v2_keys_for_v1_user_with_v2_user_fails() {
         let client = Client::new(None);
-        #[allow(deprecated)]
-        client
-            .internal
-            .get_key_store()
-            .context_mut()
-            .set_symmetric_key(
-                SymmetricKeyId::User,
-                SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-            )
-            .unwrap();
         initialize_user_crypto(
             &client,
             InitUserCryptoRequest {
@@ -1488,16 +1478,6 @@ mod tests {
     #[tokio::test]
     async fn test_get_v2_rotated_account_keys() {
         let client = Client::new(None);
-        #[allow(deprecated)]
-        client
-            .internal
-            .get_key_store()
-            .context_mut()
-            .set_symmetric_key(
-                SymmetricKeyId::User,
-                SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-            )
-            .unwrap();
         initialize_user_crypto(
             &client,
             InitUserCryptoRequest {
