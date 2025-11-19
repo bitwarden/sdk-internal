@@ -346,9 +346,7 @@ class MainActivity : FragmentActivity() {
                         userId = null,
                         kdfParams = kdf,
                         email = EMAIL,
-                        privateKey = privateKey!!,
-                        signingKey = null,
-                        securityState = null,
+                        accountCryptographicState = WrappedUserAccountCryptographicState.V1(privateKey = privateKey!!),
                         method = InitUserCryptoMethod.DecryptedKey(decryptedUserKey = key)
                     )
                 )
@@ -386,9 +384,7 @@ class MainActivity : FragmentActivity() {
                     userId = null,
                     kdfParams = kdf,
                     email = EMAIL,
-                    privateKey = privateKey!!,
-                    signingKey = null,
-                    securityState = null,
+                    accountCryptographicState = WrappedUserAccountCryptographicState.V1(privateKey = privateKey!!)
                     method = InitUserCryptoMethod.Pin(
                         pinProtectedUserKey = pinProtectedUserKey, pin = PIN
                     )
