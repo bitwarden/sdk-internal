@@ -25,7 +25,9 @@ use crate::{
     client::{LoginMethod, UserLoginMethod, encryption_settings::EncryptionSettingsError},
     error::StatefulCryptoError,
     key_management::{
-        AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId, account_cryptographic_state::WrappedUserAccountCryptographicState, master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData}
+        AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
+        account_cryptographic_state::WrappedUserAccountCryptographicState,
+        master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData},
     },
 };
 
@@ -56,7 +58,8 @@ pub struct InitUserCryptoRequest {
     pub kdf_params: Kdf,
     /// The user's email address
     pub email: String,
-    /// The user's account cryptographic state, containing their signature and public-key-encryption keys, along with the signed security state, protected by the user key
+    /// The user's account cryptographic state, containing their signature and
+    /// public-key-encryption keys, along with the signed security state, protected by the user key
     pub account_cryptographic_state: WrappedUserAccountCryptographicState,
     /// The method to decrypt the user's account symmetric key (user key)
     pub method: InitUserCryptoMethod,
@@ -975,7 +978,9 @@ mod tests {
                 user_id: Some(UserId::new_v4()),
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
-                account_cryptographic_state: WrappedUserAccountCryptographicState::V1 { private_key: priv_key.to_owned() },
+                account_cryptographic_state: WrappedUserAccountCryptographicState::V1 {
+                    private_key: priv_key.to_owned(),
+                },
                 method: InitUserCryptoMethod::Password {
                     password: "123412341234".into(),
                     user_key: new_password_response.new_key,
@@ -1055,7 +1060,9 @@ mod tests {
                     iterations: 100_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                account_cryptographic_state: WrappedUserAccountCryptographicState::V1 { private_key: priv_key.to_owned() },
+                account_cryptographic_state: WrappedUserAccountCryptographicState::V1 {
+                    private_key: priv_key.to_owned(),
+                },
                 method: InitUserCryptoMethod::Pin {
                     pin: "1234".into(),
                     pin_protected_user_key: pin_key.pin_protected_user_key,
@@ -1098,7 +1105,9 @@ mod tests {
                     iterations: 100_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                account_cryptographic_state: WrappedUserAccountCryptographicState::V1 { private_key: priv_key.to_owned() },
+                account_cryptographic_state: WrappedUserAccountCryptographicState::V1 {
+                    private_key: priv_key.to_owned(),
+                },
                 method: InitUserCryptoMethod::Pin {
                     pin: "1234".into(),
                     pin_protected_user_key,
@@ -1143,7 +1152,11 @@ mod tests {
                     iterations: 100_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                account_cryptographic_state: WrappedUserAccountCryptographicState::V1 { private_key: make_key_pair(user_key.try_into().unwrap()).unwrap().user_key_encrypted_private_key },
+                account_cryptographic_state: WrappedUserAccountCryptographicState::V1 {
+                    private_key: make_key_pair(user_key.try_into().unwrap())
+                        .unwrap()
+                        .user_key_encrypted_private_key,
+                },
                 method: InitUserCryptoMethod::DecryptedKey {
                     decrypted_user_key: user_key.to_string(),
                 },
@@ -1165,7 +1178,11 @@ mod tests {
                     iterations: 600_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                account_cryptographic_state: WrappedUserAccountCryptographicState::V1 { private_key: make_key_pair(user_key.try_into().unwrap()).unwrap().user_key_encrypted_private_key },
+                account_cryptographic_state: WrappedUserAccountCryptographicState::V1 {
+                    private_key: make_key_pair(user_key.try_into().unwrap())
+                        .unwrap()
+                        .user_key_encrypted_private_key,
+                },
                 method: InitUserCryptoMethod::PinEnvelope {
                     pin: test_pin.to_string(),
                     pin_protected_user_key_envelope: enroll_response
@@ -1347,7 +1364,9 @@ mod tests {
                     iterations: 100_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                account_cryptographic_state: WrappedUserAccountCryptographicState::V1 { private_key: priv_key.to_owned() },
+                account_cryptographic_state: WrappedUserAccountCryptographicState::V1 {
+                    private_key: priv_key.to_owned(),
+                },
                 method: InitUserCryptoMethod::Password {
                     password: "asdfasdfasdf".into(),
                     user_key: encrypted_userkey.clone(),

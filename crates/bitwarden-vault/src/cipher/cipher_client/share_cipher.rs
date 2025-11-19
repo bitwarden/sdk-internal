@@ -263,7 +263,10 @@ mod tests {
         apis::ApiClient,
         models::{CipherMiniResponseModelListResponseModel, CipherResponseModel},
     };
-    use bitwarden_core::{Client, client::test_accounts::test_bitwarden_com_account, key_management::account_cryptographic_state::WrappedUserAccountCryptographicState};
+    use bitwarden_core::{
+        Client, client::test_accounts::test_bitwarden_com_account,
+        key_management::account_cryptographic_state::WrappedUserAccountCryptographicState,
+    };
     use bitwarden_test::{MemoryRepository, start_api_mock};
     use wiremock::{
         Mock, ResponseTemplate,

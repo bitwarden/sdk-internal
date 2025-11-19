@@ -11,7 +11,9 @@ use crate::{
         auth_request::new_auth_request,
     },
     key_management::{
-        UserDecryptionData, account_cryptographic_state::WrappedUserAccountCryptographicState, crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest}
+        UserDecryptionData,
+        account_cryptographic_state::WrappedUserAccountCryptographicState,
+        crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
     },
     require,
 };

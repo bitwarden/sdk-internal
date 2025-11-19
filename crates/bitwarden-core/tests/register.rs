@@ -8,7 +8,10 @@ async fn test_register_initialize_crypto() {
 
     use bitwarden_core::{
         Client, UserId,
-        key_management::{account_cryptographic_state::WrappedUserAccountCryptographicState, crypto::{InitUserCryptoMethod, InitUserCryptoRequest}},
+        key_management::{
+            account_cryptographic_state::WrappedUserAccountCryptographicState,
+            crypto::{InitUserCryptoMethod, InitUserCryptoRequest},
+        },
     };
     use bitwarden_crypto::Kdf;
 

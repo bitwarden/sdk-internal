@@ -5,8 +5,7 @@ use bitwarden_crypto::KeyStore;
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{
-    EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey,
-    safe::PasswordProtectedKeyEnvelope,
+    EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey, safe::PasswordProtectedKeyEnvelope,
 };
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
@@ -23,13 +22,12 @@ use crate::{
 #[cfg(feature = "internal")]
 use crate::{
     client::{
-        encryption_settings::{EncryptionSettingsError},
-        flags::Flags,
-        login_method::UserLoginMethod,
+        encryption_settings::EncryptionSettingsError, flags::Flags, login_method::UserLoginMethod,
     },
     error::NotAuthenticatedError,
     key_management::{
-        MasterPasswordUnlockData, SecurityState, account_cryptographic_state::WrappedUserAccountCryptographicState 
+        MasterPasswordUnlockData, SecurityState,
+        account_cryptographic_state::WrappedUserAccountCryptographicState,
     },
 };
 
@@ -286,7 +284,8 @@ impl InternalClient {
         user_key: SymmetricCryptoKey,
         account_crypto_state: WrappedUserAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
-        account_crypto_state.set_to_context(&self.key_store, &self.security_state, &user_key)
+        account_crypto_state
+            .set_to_context(&self.key_store, &self.security_state, &user_key)
             .unwrap();
         Ok(())
     }

@@ -84,7 +84,8 @@ mod tests {
     use bitwarden_crypto::{EncString, Kdf};
 
     use crate::{
-        auth::password::{validate::validate_password_user_key, validate_password}, key_management::account_cryptographic_state::WrappedUserAccountCryptographicState,
+        auth::password::{validate::validate_password_user_key, validate_password},
+        key_management::account_cryptographic_state::WrappedUserAccountCryptographicState,
     };
 
     #[test]
@@ -148,9 +149,7 @@ mod tests {
             .initialize_user_crypto_master_key(
                 master_key,
                 user_key.clone(),
-                WrappedUserAccountCryptographicState::V1 {
-                    private_key,
-                },
+                WrappedUserAccountCryptographicState::V1 { private_key },
             )
             .unwrap();
 
@@ -200,9 +199,7 @@ mod tests {
             .initialize_user_crypto_master_key(
                 master_key,
                 user_key.parse().unwrap(),
-                WrappedUserAccountCryptographicState::V1 {
-                    private_key,
-                },
+                WrappedUserAccountCryptographicState::V1 { private_key },
             )
             .unwrap();
 

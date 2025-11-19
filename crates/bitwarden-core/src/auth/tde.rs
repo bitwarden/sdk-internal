@@ -5,8 +5,8 @@ use bitwarden_crypto::{
 use bitwarden_encoding::B64;
 
 use crate::{
-    Client,
-    client::encryption_settings::EncryptionSettingsError, key_management::account_cryptographic_state::WrappedUserAccountCryptographicState,
+    Client, client::encryption_settings::EncryptionSettingsError,
+    key_management::account_cryptographic_state::WrappedUserAccountCryptographicState,
 };
 
 /// This function generates a new user key and key pair, initializes the client's crypto with the

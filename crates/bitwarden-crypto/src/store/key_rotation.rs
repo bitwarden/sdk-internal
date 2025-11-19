@@ -49,7 +49,8 @@ pub fn dangerous_get_v2_rotated_account_keys<Ids: KeyIds>(
 mod tests {
     use super::*;
     use crate::{
-        AsymmetricCryptoKey, KeyDecryptable, KeyStore, Pkcs8PrivateKeyBytes, SignatureAlgorithm, SigningKey, traits::tests::TestIds
+        AsymmetricCryptoKey, KeyDecryptable, KeyStore, Pkcs8PrivateKeyBytes, SignatureAlgorithm,
+        SigningKey, traits::tests::TestIds,
     };
 
     #[test]
@@ -58,7 +59,8 @@ mod tests {
         let mut ctx = store.context_mut();
 
         // Make the keys
-        let current_user_signing_key_id = ctx.make_signing_key(SignatureAlgorithm::Ed25519).unwrap();
+        let current_user_signing_key_id =
+            ctx.make_signing_key(SignatureAlgorithm::Ed25519).unwrap();
         let current_user_private_key_id = ctx.make_asymmetric_key().unwrap();
 
         // Get the rotated account keys

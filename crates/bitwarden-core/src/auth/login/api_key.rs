@@ -9,7 +9,9 @@ use crate::{
         login::{LoginError, PasswordLoginResponse, response::two_factor::TwoFactorProviders},
     },
     client::{LoginMethod, UserLoginMethod},
-    key_management::{UserDecryptionData, account_cryptographic_state::WrappedUserAccountCryptographicState},
+    key_management::{
+        UserDecryptionData, account_cryptographic_state::WrappedUserAccountCryptographicState,
+    },
     require,
 };
 

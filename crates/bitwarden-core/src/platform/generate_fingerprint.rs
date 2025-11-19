@@ -81,7 +81,9 @@ mod tests {
     use bitwarden_crypto::{Kdf, MasterKey};
 
     use super::*;
-    use crate::{Client, key_management::account_cryptographic_state::WrappedUserAccountCryptographicState};
+    use crate::{
+        Client, key_management::account_cryptographic_state::WrappedUserAccountCryptographicState,
+    };
 
     #[test]
     fn test_generate_user_fingerprint() {
@@ -105,7 +107,9 @@ mod tests {
             .initialize_user_crypto_master_key(
                 master_key,
                 user_key.parse().unwrap(),
-                WrappedUserAccountCryptographicState::V1 { private_key: private_key.parse().unwrap() },
+                WrappedUserAccountCryptographicState::V1 {
+                    private_key: private_key.parse().unwrap(),
+                },
             )
             .unwrap();
 

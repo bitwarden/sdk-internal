@@ -197,7 +197,9 @@ mod tests {
     use bitwarden_core::{
         ClientSettings, DeviceType,
         key_management::{
-            SymmetricKeyId, account_cryptographic_state::WrappedUserAccountCryptographicState, crypto::{InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest}
+            SymmetricKeyId,
+            account_cryptographic_state::WrappedUserAccountCryptographicState,
+            crypto::{InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest},
         },
     };
     use bitwarden_crypto::{EncString, Kdf, UnsignedSharedKey};
