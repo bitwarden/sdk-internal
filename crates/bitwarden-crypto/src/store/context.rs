@@ -248,6 +248,14 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Move a symmetric key from one identifier to another within the context
+    /// 
+    /// The key value is copied to `to` and the original identifier `from` is removed.
+    /// This operates on either the local or global store depending on whether the ids are
+    /// local identifiers.
+    ///
+    /// # Errors
+    /// Returns an error if the source key does not exist or if setting the destination key
+    /// fails (for example due to read-only global store).
     pub fn move_symmetric_key(&mut self, from: Ids::Symmetric, to: Ids::Symmetric) -> Result<()> {
         let key = self.get_symmetric_key(from)?.to_owned();
         #[allow(deprecated)]
