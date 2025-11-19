@@ -3,9 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     api::enums::GrantType,
-    identity::{
-        api_models::request::UserLoginApiRequest, login_via_password::PasswordLoginRequest,
-    },
+    identity::{api_models::request::LoginApiRequest, login_via_password::PasswordLoginRequest},
 };
 
 /// Internal API request model for logging in via password.
@@ -26,7 +24,7 @@ pub(crate) struct PasswordLoginApiRequest {
 /// Converts a `PasswordLoginRequest` and `MasterPasswordAuthenticationData` into a
 /// `PasswordLoginApiRequest` for making the API call.
 impl From<(PasswordLoginRequest, MasterPasswordAuthenticationData)>
-    for UserLoginApiRequest<PasswordLoginApiRequest>
+    for LoginApiRequest<PasswordLoginApiRequest>
 {
     fn from(
         (request, master_password_authentication): (
@@ -43,7 +41,7 @@ impl From<(PasswordLoginRequest, MasterPasswordAuthenticationData)>
         };
 
         // Create the UserLoginApiRequest with standard scopes configuration and return
-        UserLoginApiRequest::new(
+        LoginApiRequest::new(
             request.login_request.client_id,
             GrantType::Password,
             request.login_request.device.device_type,

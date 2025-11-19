@@ -2,7 +2,7 @@ use bitwarden_core::key_management::MasterPasswordAuthenticationData;
 
 use crate::identity::{
     IdentityClient,
-    api_models::request::UserLoginApiRequest,
+    api_models::request::LoginApiRequest,
     login_via_password::{PasswordLoginApiRequest, PasswordLoginRequest},
     send_login_request::send_login_request,
 };
@@ -25,7 +25,7 @@ impl IdentityClient {
         );
 
         // construct API request
-        let api_request: UserLoginApiRequest<PasswordLoginApiRequest> =
+        let api_request: LoginApiRequest<PasswordLoginApiRequest> =
             (request, master_password_authentication.unwrap()).into();
 
         // make API call to login endpoint with api_request

@@ -3,5 +3,5 @@
 //! client
 //!
 //! For standard controller endpoints, use the `bitwarden-api-identity` crate.
-mod user_login_api_request;
-pub(crate) use user_login_api_request::UserLoginApiRequest;
+mod login_api_request;
+pub(crate) use login_api_request::LoginApiRequest;

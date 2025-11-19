@@ -5,13 +5,13 @@ use bitwarden_core::client::ApiConfigurations;
 use serde::{Serialize, de::DeserializeOwned};
 
 use crate::identity::api_models::{
-    login_request_header::LoginRequestHeader, request::UserLoginApiRequest,
+    login_request_header::LoginRequestHeader, request::LoginApiRequest,
 };
 
 /// A common function to send login requests to the Identity connect/token endpoint.
 pub(crate) async fn send_login_request(
     api_configs: &ApiConfigurations,
-    api_request: &UserLoginApiRequest<impl Serialize + DeserializeOwned + std::fmt::Debug>,
+    api_request: &LoginApiRequest<impl Serialize + DeserializeOwned + std::fmt::Debug>,
 ) -> Result<serde_json::Value, bitwarden_core::auth::login::LoginError> {
     let identity_config = &api_configs.identity_config;
 

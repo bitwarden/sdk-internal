@@ -12,7 +12,7 @@ pub(crate) const STANDARD_USER_SCOPES: &[Scope] = &[Scope::Api, Scope::OfflineAc
 /// tokens for a BW user.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(bound = "T: Serialize + DeserializeOwned + Debug")] // Ensure T meets trait bounds
-pub(crate) struct UserLoginApiRequest<T: Serialize + DeserializeOwned + Debug> {
+pub(crate) struct LoginApiRequest<T: Serialize + DeserializeOwned + Debug> {
     // Standard OAuth2 fields
     /// The client ID for the SDK consuming client.
     /// Note: snake_case is intentional to match the API expectations.
@@ -56,7 +56,7 @@ pub(crate) struct UserLoginApiRequest<T: Serialize + DeserializeOwned + Debug> {
     pub login_mechanism_fields: T,
 }
 
-impl<T: Serialize + DeserializeOwned + Debug> UserLoginApiRequest<T> {
+impl<T: Serialize + DeserializeOwned + Debug> LoginApiRequest<T> {
     /// Creates a new UserLoginApiRequest with standard scopes ("api offline_access").
     /// The scope can be overridden after construction if needed for specific auth flows.
     pub(crate) fn new(
