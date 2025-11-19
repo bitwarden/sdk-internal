@@ -304,7 +304,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ) -> Result<EncString> {
         let wrapping_key = self.get_symmetric_key(wrapping_key)?;
         let signing_key = self.get_signing_key(key_to_wrap)?.to_owned();
-        signing_key.to_cose().encrypt_with_key(wrapping_key)
+        signing_key.to_cose().encrypt_with_key(&wrapping_key)
     }
 
     /// Wrap (encrypt) a private/asymmetric key with a symmetric key.
@@ -572,7 +572,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ///
     /// Deprecated: intended only for internal use and tests. This exposes the underlying
     /// `AsymmetricCryptoKey` reference directly and should not be used by external code. Prefer
-    /// using the public key via [`get_public_key`] or higher-level operations instead.
+    /// using the public key via `get_public_key` or other higher-level APIs instead.
     ///
     /// # Errors
     /// Returns [`CryptoError::MissingKeyId`] if the key id does not exist in the context.

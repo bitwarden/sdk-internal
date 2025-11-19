@@ -194,9 +194,7 @@ struct ContentView: View {
                 userId: nil,
                 kdfParams: kdf,
                 email: EMAIL,
-                privateKey: loginData.PrivateKey,
-                signingKey: nil,
-                securityState: nil,
+                accountCryptographicState: WrappedUserAccountCryptographicState.V1(privateKey: loginData.PrivateKey),
                 method: InitUserCryptoMethod.password(
                     password: PASSWORD,
                     userKey: loginData.Key
