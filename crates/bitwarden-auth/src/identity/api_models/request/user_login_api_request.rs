@@ -1,12 +1,9 @@
 use std::fmt::Debug;
 
-use bitwarden_core::{DeviceType, auth::login::LoginError, client::ApiConfigurations};
+use bitwarden_core::DeviceType;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-use crate::{
-    api::enums::{GrantType, Scope, TwoFactorProvider, scopes_to_string},
-    identity::send_login_request::send_login_request,
-};
+use crate::api::enums::{GrantType, Scope, TwoFactorProvider, scopes_to_string};
 
 /// Standard scopes for user token requests: "api offline_access"
 pub(crate) const STANDARD_USER_SCOPES: &[Scope] = &[Scope::Api, Scope::OfflineAccess];
