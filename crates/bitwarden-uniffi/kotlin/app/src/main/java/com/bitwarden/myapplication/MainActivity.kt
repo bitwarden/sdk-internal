@@ -259,9 +259,7 @@ class MainActivity : FragmentActivity() {
                 userId = null,
                 kdfParams = kdf,
                 email = EMAIL,
-                privateKey = loginBody.PrivateKey,
-                signingKey = null,
-                securityState = null,
+                accountCryptographicState = WrappedUserAccountCryptographicState.V1(privateKey = loginBody.PrivateKey),
                 method = InitUserCryptoMethod.Password(
                     password = PASSWORD, userKey = loginBody.Key
                 )
