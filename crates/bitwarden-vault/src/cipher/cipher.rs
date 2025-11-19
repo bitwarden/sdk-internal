@@ -8,7 +8,7 @@ use bitwarden_api_api::{
 };
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
-    MissingFieldError, OrganizationId, UserId,
+    ApiError, MissingFieldError, OrganizationId, UserId,
     key_management::{KeyIds, SymmetricKeyId},
     require,
 };
@@ -64,15 +64,19 @@ pub enum CipherError {
     #[error("This cipher cannot be moved to the specified organization")]
     OrganizationAlreadySet,
     #[error(transparent)]
-    PutShare(#[from] bitwarden_api_api::apis::Error<PutShareError>),
-    #[error(transparent)]
-    PutShareMany(#[from] bitwarden_api_api::apis::Error<PutShareManyError>),
-    #[error(transparent)]
     Repository(#[from] RepositoryError),
     #[error(transparent)]
     Chrono(#[from] chrono::ParseError),
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
+    #[error(transparent)]
+    Api(#[from] ApiError),
+}
+
+impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherError {
+    fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
+        Self::Api(value.into())
+    }
 }
 
 /// Helper trait for operations on cipher types.
