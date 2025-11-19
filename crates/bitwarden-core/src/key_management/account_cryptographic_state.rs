@@ -66,6 +66,7 @@ impl From<CryptoError> for AccountCryptographyInitializationError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[allow(clippy::large_enum_variant)]
 pub enum WrappedUserAccountCryptographicState {
     /// A V1 user has only a private key.
     V1 {
