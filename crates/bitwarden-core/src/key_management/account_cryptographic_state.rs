@@ -214,7 +214,7 @@ impl WrappedUserAccountCryptographicState {
                     .unwrap_private_key(tmp_user_key_id, private_key)
                     .map_err(|_| AccountCryptographyInitializationError::WrongUserKey)?;
 
-                ctx.move_asymmetric_key( private_key_id, AsymmetricKeyId::UserPrivateKey)?;
+                ctx.move_asymmetric_key(private_key_id, AsymmetricKeyId::UserPrivateKey)?;
                 ctx.move_symmetric_key(tmp_user_key_id, SymmetricKeyId::User)?;
             }
             WrappedUserAccountCryptographicState::V2 {
@@ -242,7 +242,8 @@ impl WrappedUserAccountCryptographicState {
                 ctx.move_asymmetric_key(private_key_id, AsymmetricKeyId::UserPrivateKey)?;
                 ctx.move_signing_key(signing_key_id, SigningKeyId::UserSigningKey)?;
                 ctx.move_symmetric_key(tmp_user_key_id, SymmetricKeyId::User)?;
-                // Not manually dropping ctx here would lead to a deadlock, since storing the state needs to acquire a lock on the inner key store
+                // Not manually dropping ctx here would lead to a deadlock, since storing the state
+                // needs to acquire a lock on the inner key store
                 drop(ctx);
                 store.set_security_state_version(security_state.version());
                 *sdk_security_state.write().expect("RwLock not poisoned") = Some(security_state);
