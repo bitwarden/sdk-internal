@@ -8,7 +8,7 @@ async fn test_register_initialize_crypto() {
 
     use bitwarden_core::{
         Client, UserId,
-        key_management::crypto::{InitUserCryptoMethod, InitUserCryptoRequest},
+        key_management::{account_cryptographic_state::WrappedUserAccountCryptographicState, crypto::{InitUserCryptoMethod, InitUserCryptoRequest}},
     };
     use bitwarden_crypto::Kdf;
 
@@ -32,9 +32,9 @@ async fn test_register_initialize_crypto() {
             user_id: Some(UserId::new_v4()),
             kdf_params: kdf,
             email: email.to_owned(),
-            private_key: register_response.keys.private,
-            signing_key: None,
-            security_state: None,
+            account_cryptographic_state: WrappedUserAccountCryptographicState::V1 {
+                private_key: register_response.keys.private,
+            },
             method: InitUserCryptoMethod::Password {
                 password: password.to_owned(),
                 user_key: register_response.encrypted_user_key,

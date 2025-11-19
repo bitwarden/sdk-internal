@@ -20,6 +20,7 @@ use crate::{
 
 /// A `VerifyingKey` without the key id. This enum contains a variant for each supported signature
 /// scheme.
+#[derive(Clone)]
 pub(super) enum RawVerifyingKey {
     Ed25519(ed25519_dalek::VerifyingKey),
 }
@@ -27,6 +28,7 @@ pub(super) enum RawVerifyingKey {
 /// A verifying key is a public key used for verifying signatures. It can be published to other
 /// users, who can use it to verify that messages were signed by the holder of the corresponding
 /// `SigningKey`.
+#[derive(Clone)]
 pub struct VerifyingKey {
     pub(super) id: KeyId,
     pub(super) inner: RawVerifyingKey,

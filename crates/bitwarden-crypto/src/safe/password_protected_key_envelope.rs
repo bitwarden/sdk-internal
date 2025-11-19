@@ -466,7 +466,7 @@ impl FromWasmAbi for PasswordProtectedKeyEnvelope {
 mod tests {
     use super::*;
     use crate::{
-        KeyStore, SymmetricKeyAlgorithm, traits::tests::{TestIds, TestSymmKey}
+        KeyStore, SymmetricKeyAlgorithm, traits::tests::{TestIds}
     };
 
     const TEST_UNSEALED_COSEKEY_ENCODED: &[u8] = &[

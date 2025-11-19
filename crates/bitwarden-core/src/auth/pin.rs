@@ -49,7 +49,7 @@ mod tests {
     use bitwarden_crypto::{Kdf, MasterKey};
 
     use super::*;
-    use crate::client::{Client, LoginMethod, UserLoginMethod, internal::UserKeyState};
+    use crate::{client::{Client, LoginMethod, UserLoginMethod}, key_management::account_cryptographic_state::WrappedUserAccountCryptographicState};
 
     fn init_client() -> Client {
         let client = Client::new(None);
@@ -78,10 +78,8 @@ mod tests {
             .initialize_user_crypto_master_key(
                 master_key,
                 user_key.parse().unwrap(),
-                UserKeyState {
+                WrappedUserAccountCryptographicState::V1 {
                     private_key,
-                    signing_key: None,
-                    security_state: None,
                 },
             )
             .unwrap();
