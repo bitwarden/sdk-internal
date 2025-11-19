@@ -383,7 +383,7 @@ class MainActivity : FragmentActivity() {
                     userId = null,
                     kdfParams = kdf,
                     email = EMAIL,
-                    accountCryptographicState = WrappedUserAccountCryptographicState.V1(privateKey = privateKey!!)
+                    accountCryptographicState = WrappedUserAccountCryptographicState.V1(privateKey = privateKey!!),
                     method = InitUserCryptoMethod.Pin(
                         pinProtectedUserKey = pinProtectedUserKey, pin = PIN
                     )
