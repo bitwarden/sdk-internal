@@ -248,7 +248,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Move a symmetric key from one identifier to another within the context
-    /// 
+    ///
     /// The key value is copied to `to` and the original identifier `from` is removed.
     /// This operates on either the local or global store depending on whether the ids are
     /// local identifiers.
@@ -707,7 +707,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Sets a signing key in the context
-    /// 
+    ///
     /// # Errors
     /// Returns [`CryptoError::ReadOnlyKeyStore`] if attempting to write to the global store when
     /// the context is read-only.
