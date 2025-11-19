@@ -6,10 +6,10 @@ use serde::{Deserialize, Serialize};
 /// resource server when the token is used.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Scope {
-    /// The scope for accessing the Bitwarden API.
+    /// The scope for accessing the Bitwarden API as a Bitwarden user.
     #[serde(rename = "api")]
     Api,
-    /// The scope for obtaining refresh tokens that allow offline access.
+    /// The scope for obtaining Bitwarden user scoped refresh tokens that allow offline access.
     #[serde(rename = "offline_access")]
     OfflineAccess,
     /// The scope for accessing send resources outside the context of a Bitwarden user.
