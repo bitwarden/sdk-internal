@@ -1,7 +1,9 @@
+#[cfg(any(feature = "internal", feature = "secrets"))]
+use bitwarden_crypto::KeyStore;
+#[cfg(feature = "secrets")]
+use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
 use bitwarden_crypto::UnsignedSharedKey;
-#[cfg(any(feature = "internal", feature = "secrets"))]
-use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
