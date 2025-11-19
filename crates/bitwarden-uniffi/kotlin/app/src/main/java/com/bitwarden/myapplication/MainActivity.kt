@@ -28,6 +28,7 @@ import com.bitwarden.vault.Folder
 import com.bitwarden.core.InitOrgCryptoRequest
 import com.bitwarden.core.InitUserCryptoMethod
 import com.bitwarden.core.InitUserCryptoRequest
+import com.bitwarden.core.WrappedUserAccountCryptographicState
 import com.bitwarden.core.Uuid
 import com.bitwarden.crypto.HashPurpose
 import com.bitwarden.crypto.Kdf
