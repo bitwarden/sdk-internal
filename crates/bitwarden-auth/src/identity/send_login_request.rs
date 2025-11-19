@@ -15,11 +15,12 @@ pub(crate) async fn send_login_request(
 ) -> Result<serde_json::Value, bitwarden_core::auth::login::LoginError> {
     let identity_config = &api_configs.identity_config;
 
-    let url = format!("{}/connect/token", &identity_config.base_path);
+    let url: String = format!("{}/connect/token", &identity_config.base_path);
 
-    let device_type_header = LoginRequestHeader::DeviceType(api_request.device_type);
+    let device_type_header: LoginRequestHeader =
+        LoginRequestHeader::DeviceType(api_request.device_type);
 
-    let mut request = identity_config
+    let mut request: reqwest::RequestBuilder = identity_config
         .client
         .post(format!("{}/connect/token", &identity_config.base_path))
         .header(reqwest::header::ACCEPT, "application/json")
@@ -33,6 +34,11 @@ pub(crate) async fn send_login_request(
         .header(reqwest::header::CACHE_CONTROL, "no-store")
         // use form to encode as application/x-www-form-urlencoded
         .form(&api_request);
+
+    let response: reqwest::Response = request
+        .send()
+        .await
+        .map_err(bitwarden_core::ApiError::from)?;
 
     // return empty json for now
     Ok(serde_json::json!({}))
