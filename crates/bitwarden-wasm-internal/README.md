@@ -11,12 +11,13 @@ contain no logic but rather only handle WASM unique conversions and bindings. Bu
 ### Requirements
 
 - `wasm32-unknown-unknown` rust target.
-- `wasm-bindgen-cli` installed.
 - `binaryen` installed for `wasm-opt` and `wasm2js`.
+- npm packages must be installed in the `npm` folder. Run `npm ci` inside:
+  - **OSS:** `crates/bitwarden-wasm-internal/npm`
+  - **Commercial:** `crates/bitwarden-wasm-internal/bitwarden_license/npm`
 
 ```bash
 rustup target add wasm32-unknown-unknown
-cargo install -f wasm-bindgen-cli
 brew install binaryen
 ```
 
