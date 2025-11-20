@@ -47,6 +47,7 @@ impl From<(PasswordLoginRequest, MasterPasswordAuthenticationData)>
             request.login_request.device.device_type,
             request.login_request.device.device_identifier,
             request.login_request.device.device_name,
+            request.login_request.device.device_push_token,
             password_login_api_request,
         )
     }

@@ -38,6 +38,10 @@ pub(crate) struct LoginApiRequest<T: Serialize + DeserializeOwned + Debug> {
     #[serde(rename = "deviceName")]
     pub device_name: String,
 
+    /// The push notification registration token for mobile devices.
+    #[serde(rename = "devicePushToken")]
+    pub device_push_token: Option<String>,
+
     // Two-factor authentication fields
     /// The two-factor authentication token.
     #[serde(rename = "twoFactorToken")]
@@ -65,6 +69,7 @@ impl<T: Serialize + DeserializeOwned + Debug> LoginApiRequest<T> {
         device_type: DeviceType,
         device_identifier: String,
         device_name: String,
+        device_push_token: Option<String>,
         login_mechanism_fields: T,
     ) -> Self {
         Self {
@@ -74,6 +79,7 @@ impl<T: Serialize + DeserializeOwned + Debug> LoginApiRequest<T> {
             device_type,
             device_identifier,
             device_name,
+            device_push_token,
             two_factor_token: None,
             two_factor_provider: None,
             two_factor_remember: None,

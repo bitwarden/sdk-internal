@@ -28,4 +28,7 @@ pub struct LoginDeviceRequest {
 
     /// Human-readable name of the device
     pub device_name: String,
+
+    /// Push notification token for the device (only for mobile devices)
+    pub device_push_token: Option<String>,
 }
