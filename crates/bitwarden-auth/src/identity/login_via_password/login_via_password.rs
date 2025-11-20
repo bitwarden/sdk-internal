@@ -2,9 +2,8 @@ use bitwarden_core::key_management::MasterPasswordAuthenticationData;
 
 use crate::identity::{
     IdentityClient,
-    api_models::request::LoginApiRequest,
+    api::{request::LoginApiRequest, send_login_request},
     login_via_password::{PasswordLoginApiRequest, PasswordLoginRequest},
-    send_login_request::send_login_request,
 };
 
 impl IdentityClient {

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     api::enums::GrantType,
-    identity::{api_models::request::LoginApiRequest, login_via_password::PasswordLoginRequest},
+    identity::{api::request::LoginApiRequest, login_via_password::PasswordLoginRequest},
 };
 
 /// Internal API request model for logging in via password.

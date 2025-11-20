@@ -4,7 +4,7 @@
 use bitwarden_core::client::ApiConfigurations;
 use serde::{Serialize, de::DeserializeOwned};
 
-use crate::identity::api_models::{
+use crate::identity::api::{
     login_request_header::LoginRequestHeader,
     request::LoginApiRequest,
     response::{LoginErrorApiResponse, LoginSuccessApiResponse},

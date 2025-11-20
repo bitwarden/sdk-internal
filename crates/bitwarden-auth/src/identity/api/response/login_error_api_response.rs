@@ -22,8 +22,6 @@ pub enum InvalidGrantError {
     Unknown,
 }
 
-// TODO: add invalid request error enums for password as well
-
 /// Per RFC 6749 Section 5.2, these are the standard error responses for OAuth 2.0 token requests.
 /// https://datatracker.ietf.org/doc/html/rfc6749#section-5.2
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
@@ -38,10 +36,6 @@ pub enum OAuth2ErrorApiResponse {
         #[cfg_attr(feature = "wasm", tsify(optional))]
         /// The optional error description for invalid request errors.
         error_description: Option<String>,
-        // #[serde(default, skip_serializing_if = "Option::is_none")]
-        // #[cfg_attr(feature = "wasm", tsify(optional))]
-        // /// The optional specific error type for invalid request errors.
-        // send_access_error_type: Option<SendAccessTokenInvalidRequestError>,
     },
 
     /// Invalid grant error, typically due to invalid credentials.
@@ -50,12 +44,6 @@ pub enum OAuth2ErrorApiResponse {
         #[cfg_attr(feature = "wasm", tsify(optional))]
         /// The optional error description for invalid grant errors.
         error_description: Option<InvalidGrantError>,
-        // #[serde(default, skip_serializing_if = "Option::is_none")]
-        // #[cfg_attr(feature = "wasm", tsify(optional))]
-        // /// The optional specific error type for invalid grant errors.
-        // send_access_error_type: Option<SendAccessTokenInvalidGrantError>,
-
-        // We need to handle invalid_username_or_password for password grant errors
     },
 
     /// Invalid client error, typically due to an invalid client secret or client ID.

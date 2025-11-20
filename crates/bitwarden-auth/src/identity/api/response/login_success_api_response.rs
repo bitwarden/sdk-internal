@@ -2,7 +2,7 @@ use bitwarden_api_identity::models::KdfType;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroU32;
 
-use crate::identity::api_models::response::UserDecryptionOptionsResponse;
+use crate::identity::api::response::UserDecryptionOptionsResponse;
 
 /// API response model for a successful login via the Identity API.
 /// OAuth 2.0 Successful Response RFC reference: <https://datatracker.ietf.org/doc/html/rfc6749#section-5.1>
