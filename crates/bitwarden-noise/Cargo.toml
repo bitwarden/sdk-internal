@@ -16,7 +16,9 @@ keywords.workspace = true
 
 [features]
 wasm = [
-    "bitwarden-error/wasm"
+    "bitwarden-error/wasm",
+    "dep:tsify",
+    "dep:wasm-bindgen"
 ]
 
 [dependencies]
@@ -24,14 +26,14 @@ bitwarden-error = { workspace = true }
 tsify = { workspace = true, optional = true }
 serde.workspace = true
 uniffi = { workspace = true, optional = true }
-wasm-bindgen = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
 js-sys = { workspace = true }
 thiserror.workspace = true
 
 base64 = "0.22"
 getrandom = { version = "0.2", features = ["js"] }
 snow = "0.9"
-web-sys = "0.3"
+once_cell = "1.19"
 
 [lints]
 workspace = true

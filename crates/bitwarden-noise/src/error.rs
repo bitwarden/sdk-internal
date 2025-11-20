@@ -3,7 +3,7 @@ use thiserror::Error;
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
-#[derive(Error, Debug)]
+#[derive(Debug, Error)]
 pub enum NoiseProtocolError {
     #[error("Failed to parse pattern")]
     NoisePatternParse,
@@ -41,4 +41,8 @@ pub enum NoiseProtocolError {
     UseEncryptInstead,
     #[error("Handshake already complete, use decrypt() instead")]
     UseDecryptInstead,
+    #[error("Invalid protocol handle")]
+    InvalidHandle,
+    #[error("Protocol store lock poisoned")]
+    LockPoisoned,
 }

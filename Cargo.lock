@@ -771,13 +771,13 @@ dependencies = [
  "bitwarden-error",
  "getrandom 0.2.16",
  "js-sys",
+ "once_cell",
  "serde",
  "snow",
  "thiserror 1.0.69",
  "tsify",
  "uniffi",
  "wasm-bindgen",
- "web-sys",
 ]
 
 [[package]]
@@ -1010,6 +1010,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-ipc",
+ "bitwarden-noise",
  "bitwarden-pm",
  "bitwarden-ssh",
  "bitwarden-state",

@@ -9,6 +9,9 @@ use snow::{Builder, HandshakeState, TransportState};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
 use crate::error::NoiseProtocolError;
 
 // Noise patterns
@@ -271,4 +274,128 @@ impl NoiseProtocol {
         // This would need to be stored during handshake if needed
         Err(NoiseProtocolError::RemoteStaticKeyNotAvailable)
     }
+}
+
+// ===== WASM-Compatible State Management =====
+
+/// Handle to a NoiseProtocol instance for WASM compatibility
+/// This allows us to store the non-serializable NoiseProtocol internally
+/// and only expose a simple numeric handle across the WASM boundary
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct NoiseProtocolHandle(u32);
+
+/// Global state manager for NoiseProtocol instances
+/// Uses Arc<Mutex<>> to allow safe concurrent access from WASM
+static PROTOCOL_STORE: once_cell::sync::Lazy<Arc<Mutex<ProtocolStore>>> =
+    once_cell::sync::Lazy::new(|| Arc::new(Mutex::new(ProtocolStore::new())));
+
+struct ProtocolStore {
+    protocols: HashMap<u32, NoiseProtocol>,
+    next_id: u32,
+}
+
+impl ProtocolStore {
+    fn new() -> Self {
+        Self {
+            protocols: HashMap::new(),
+            next_id: 1,
+        }
+    }
+
+    fn insert(&mut self, protocol: NoiseProtocol) -> NoiseProtocolHandle {
+        let handle = NoiseProtocolHandle(self.next_id);
+        self.next_id = self.next_id.wrapping_add(1);
+        self.protocols.insert(handle.0, protocol);
+        handle
+    }
+
+    fn get_mut(&mut self, handle: NoiseProtocolHandle) -> Result<&mut NoiseProtocol, NoiseProtocolError> {
+        self.protocols
+            .get_mut(&handle.0)
+            .ok_or(NoiseProtocolError::InvalidHandle)
+    }
+
+    fn remove(&mut self, handle: NoiseProtocolHandle) -> Result<NoiseProtocol, NoiseProtocolError> {
+        self.protocols
+            .remove(&handle.0)
+            .ok_or(NoiseProtocolError::InvalidHandle)
+    }
+}
+
+/// Create a new Noise protocol instance and return a handle to it
+///
+/// # Arguments
+/// * `is_initiator` - Whether this is the initiator (true) or responder (false)
+/// * `static_secret_key` - Optional static secret key (if None, generates new one)
+/// * `psk` - Optional pre-shared key for additional authentication
+pub fn create_noise_protocol(
+    is_initiator: bool,
+    static_secret_key: Option<Vec<u8>>,
+    psk: Option<Vec<u8>>,
+) -> Result<NoiseProtocolHandle, NoiseProtocolError> {
+    let protocol = NoiseProtocol::new(is_initiator, static_secret_key, psk)?;
+    let mut store = PROTOCOL_STORE.lock().map_err(|_| NoiseProtocolError::LockPoisoned)?;
+    Ok(store.insert(protocol))
+}
+
+/// Write a handshake message
+pub fn noise_write_message(
+    handle: NoiseProtocolHandle,
+    payload: Option<Vec<u8>>,
+) -> Result<Vec<u8>, NoiseProtocolError> {
+    let mut store = PROTOCOL_STORE.lock().map_err(|_| NoiseProtocolError::LockPoisoned)?;
+    let protocol = store.get_mut(handle)?;
+    protocol.write_message(payload)
+}
+
+/// Read a handshake message from the peer
+pub fn noise_read_message(
+    handle: NoiseProtocolHandle,
+    message: Vec<u8>,
+) -> Result<Vec<u8>, NoiseProtocolError> {
+    let mut store = PROTOCOL_STORE.lock().map_err(|_| NoiseProtocolError::LockPoisoned)?;
+    let protocol = store.get_mut(handle)?;
+    protocol.read_message(&message)
+}
+
+/// Complete the handshake and derive transport keys
+pub fn noise_split(handle: NoiseProtocolHandle) -> Result<(), NoiseProtocolError> {
+    let mut store = PROTOCOL_STORE.lock().map_err(|_| NoiseProtocolError::LockPoisoned)?;
+    let protocol = store.get_mut(handle)?;
+    protocol.split()
+}
+
+/// Encrypt a message (after handshake is complete)
+pub fn noise_encrypt_message(
+    handle: NoiseProtocolHandle,
+    plaintext: Vec<u8>,
+) -> Result<Vec<u8>, NoiseProtocolError> {
+    let mut store = PROTOCOL_STORE.lock().map_err(|_| NoiseProtocolError::LockPoisoned)?;
+    let protocol = store.get_mut(handle)?;
+    protocol.encrypt_message(&plaintext)
+}
+
+/// Decrypt a message (after handshake is complete)
+pub fn noise_decrypt_message(
+    handle: NoiseProtocolHandle,
+    ciphertext: Vec<u8>,
+) -> Result<Vec<u8>, NoiseProtocolError> {
+    let mut store = PROTOCOL_STORE.lock().map_err(|_| NoiseProtocolError::LockPoisoned)?;
+    let protocol = store.get_mut(handle)?;
+    protocol.decrypt_message(&ciphertext)
+}
+
+/// Check if handshake is complete
+pub fn noise_is_handshake_complete(handle: NoiseProtocolHandle) -> Result<bool, NoiseProtocolError> {
+    let mut store = PROTOCOL_STORE.lock().map_err(|_| NoiseProtocolError::LockPoisoned)?;
+    let protocol = store.get_mut(handle)?;
+    Ok(protocol.is_handshake_complete())
+}
+
+/// Destroy a noise protocol instance and free its resources
+pub fn destroy_noise_protocol(handle: NoiseProtocolHandle) -> Result<(), NoiseProtocolError> {
+    let mut store = PROTOCOL_STORE.lock().map_err(|_| NoiseProtocolError::LockPoisoned)?;
+    store.remove(handle)?;
+    Ok(())
 }
