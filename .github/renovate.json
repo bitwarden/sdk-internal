@@ -16,6 +16,11 @@
   },
   "packageRules": [
     {
+      "groupName": "rust",
+      "matchManagers": ["custom.regex", "dockerfile"],
+      "matchDepNames": ["rust"]
+    },
+    {
       "matchManagers": ["cargo"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "pyo3 non-major",
