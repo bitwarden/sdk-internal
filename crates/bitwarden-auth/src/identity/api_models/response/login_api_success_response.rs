@@ -1,3 +1,9 @@
+use bitwarden_api_identity::models::KdfType;
+use serde::{Deserialize, Serialize};
+use std::num::NonZeroU32;
+
+use crate::identity::api_models::response::UserDecryptionOptionsResponse;
+
 /// API response model for a successful login via the Identity API.
 /// OAuth 2.0 Successful Response RFC reference: <https://datatracker.ietf.org/doc/html/rfc6749#section-5.1>
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -19,6 +25,7 @@ pub(crate) struct LoginApiSuccessResponse {
     /// This token can be used to obtain new access tokens when the current one expires.
     pub refresh_token: Option<String>,
 
+    // Custom Bitwarden connect/token response fields:
     #[serde(rename = "privateKey", alias = "PrivateKey")]
     pub(crate) private_key: Option<String>,
     #[serde(alias = "Key")]
@@ -44,5 +51,5 @@ pub(crate) struct LoginApiSuccessResponse {
     key_connector_url: Option<String>,
 
     #[serde(rename = "userDecryptionOptions", alias = "UserDecryptionOptions")]
-    pub(crate) user_decryption_options: Option<UserDecryptionOptionsResponseModel>,
+    pub(crate) user_decryption_options: Option<UserDecryptionOptionsResponse>,
 }
