@@ -284,8 +284,10 @@ impl InternalClient {
         user_key: SymmetricCryptoKey,
         account_crypto_state: WrappedUserAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
+        let mut ctx = self.key_store.context_mut();
+        let user_key = ctx.add_local_symmetric_key(user_key);
         account_crypto_state
-            .set_to_context(&self.key_store, &self.security_state, &user_key)
+            .set_to_context(&self.security_state, user_key, &self.key_store, ctx)
             .map_err(|_| EncryptionSettingsError::CryptoInitialization)
     }
 

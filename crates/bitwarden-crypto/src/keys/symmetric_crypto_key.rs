@@ -21,6 +21,7 @@ use super::{
 use crate::{BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, cose};
 
 /// The symmetric key algorithm to use when generating a new symmetric key.
+#[derive(Debug, PartialEq)]
 pub enum SymmetricKeyAlgorithm {
     /// Used for V1 user keys and data encryption
     Aes256CbcHmac,

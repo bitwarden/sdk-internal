@@ -674,6 +674,21 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         key_id
     }
 
+    /// Get the type of a symmetric key stored in the context.
+    pub fn get_algorithm(&self, key_id: Ids::Symmetric) -> Result<SymmetricKeyAlgorithm> {
+        let key = self.get_symmetric_key(key_id)?;
+        match key {
+            // Note this is dropped soon
+            SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
+                UnsupportedOperationError::EncryptionNotImplementedForKey,
+            )),
+            SymmetricCryptoKey::Aes256CbcHmacKey(_) => Ok(SymmetricKeyAlgorithm::Aes256CbcHmac),
+            SymmetricCryptoKey::XChaCha20Poly1305Key(_) => {
+                Ok(SymmetricKeyAlgorithm::XChaCha20Poly1305)
+            }
+        }
+    }
+
     /// Set an asymmetric (private) key in the context.
     ///
     /// # Errors
@@ -1113,5 +1128,26 @@ mod tests {
             ),
             "Expected encrypt to fail with KeyOperationNotSupported",
         );
+    }
+
+    #[test]
+    fn test_move_key() {
+        let store: KeyStore<TestIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        // Generate and insert a key
+        let key_id = TestSymmKey::A(0);
+        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        ctx.set_symmetric_key(key_id, key.clone()).unwrap();
+
+        assert!(ctx.has_symmetric_key(key_id));
+
+        // Move the key to a new identifier
+        let new_key_id = TestSymmKey::A(1);
+        ctx.move_symmetric_key(key_id, new_key_id).unwrap();
+
+        // Ensure the old key id is gone and the new `one has the key
+        assert!(!ctx.has_symmetric_key(key_id));
+        assert!(ctx.has_symmetric_key(new_key_id));
     }
 }
