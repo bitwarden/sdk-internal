@@ -231,9 +231,10 @@ impl WrappedUserAccountCryptographicState {
                     return Err(AccountCryptographyInitializationError::WrongUserKeyType);
                 }
                 if let Some(signed_public_key) = signed_public_key {
-                    signed_public_key.to_owned().verify_and_unwrap(&ctx.get_verifying_key(
-                        SigningKeyId::UserSigningKey,
-                    )?).map_err(|_| AccountCryptographyInitializationError::TamperedData)?;
+                    signed_public_key
+                        .to_owned()
+                        .verify_and_unwrap(&ctx.get_verifying_key(SigningKeyId::UserSigningKey)?)
+                        .map_err(|_| AccountCryptographyInitializationError::TamperedData)?;
                 }
 
                 let private_key_id = ctx
