@@ -310,7 +310,7 @@ impl WrappedUserAccountCryptographicState {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::RwLock;
+    use std::{str::FromStr, sync::RwLock};
 
     use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
 
@@ -318,7 +318,7 @@ mod tests {
     use crate::key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId};
 
     #[test]
-    fn test_set_to_context_v1_roundtrip() {
+    fn test_set_to_context_v1() {
         // Prepare a temporary store to create wrapped state using a known user key
         let temp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut temp_ctx = temp_store.context_mut();
@@ -359,7 +359,7 @@ mod tests {
     }
 
     #[test]
-    fn test_set_to_context_v2_roundtrip() {
+    fn test_set_to_context_v2() {
         // Prepare a temporary store to create wrapped state using a known user key
         let temp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut temp_ctx = temp_store.context_mut();
@@ -421,5 +421,28 @@ mod tests {
         assert!(store.context().has_symmetric_key(SymmetricKeyId::User));
         // Ensure security state was recorded
         assert!(sdk_security_state.read().unwrap().is_some());
+    }
+
+    #[test]
+    fn test_to_private_keys_request_model_v2() {
+        let temp_store: KeyStore<KeyIds> = KeyStore::default();
+        let user_id = UserId::new_v4();
+        let wrapped_account_cryptography_state = WrappedUserAccountCryptographicState::make(&temp_store, user_id).unwrap();
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        let model = wrapped_account_cryptography_state
+            .to_private_keys_request_model(&store)
+            .expect("to_private_keys_request_model should succeed");
+
+        let ctx = store.context();
+
+        let sig_pair = model.signature_key_pair.expect("signature_key_pair present");
+        assert_eq!(sig_pair.verifying_key.unwrap(), B64::from(ctx.get_verifying_key(SigningKeyId::UserSigningKey).unwrap().to_cose()).to_string());
+
+        let pk_pair = model.public_key_encryption_key_pair;
+        assert_eq!(pk_pair.public_key.unwrap(), B64::from(ctx.get_public_key(AsymmetricKeyId::UserPrivateKey).unwrap().to_der().unwrap()).to_string());
+
+        let signed_security_state = model.security_state.clone().expect("security_state present");
+        let security_state = SignedSecurityState::from_str(signed_security_state.security_state.unwrap().as_str()).unwrap().verify_and_unwrap(&ctx.get_verifying_key(SigningKeyId::UserSigningKey).unwrap()).expect("security state should verify");
+        assert_eq!(security_state.version(), model.security_state.unwrap().security_version as u64);
     }
 }
