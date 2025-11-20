@@ -81,7 +81,9 @@ pub enum WrappedUserAccountCryptographicState {
         /// The user's encryption private key, wrapped by the user key.
         private_key: EncString,
         /// The user's public-key for the private key, signed by the user's signing key.
-        signed_public_key: SignedPublicKey,
+        /// Note: This is optional for backwards compatibility. After a few releases, this will be made non-optional once all clients store the response
+        /// on sync.
+        signed_public_key: Option<SignedPublicKey>,
         /// The user's signing key, wrapped by the user key.
         signing_key: EncString,
         /// The user's signed security state.
@@ -177,7 +179,7 @@ impl WrappedUserAccountCryptographicState {
 
         Ok(WrappedUserAccountCryptographicState::V2 {
             private_key: ctx.wrap_private_key(user_key, private_key)?,
-            signed_public_key,
+            signed_public_key: Some(signed_public_key),
             signing_key: ctx.wrap_signing_key(user_key, signing_key)?,
             security_state: signed_security_state,
         })
@@ -301,7 +303,7 @@ impl WrappedUserAccountCryptographicState {
             WrappedUserAccountCryptographicState::V1 { .. } => Ok(None),
             WrappedUserAccountCryptographicState::V2 {
                 signed_public_key, ..
-            } => Ok(Some(signed_public_key)),
+            } => Ok(signed_public_key.as_ref()),
         }
     }
 }
