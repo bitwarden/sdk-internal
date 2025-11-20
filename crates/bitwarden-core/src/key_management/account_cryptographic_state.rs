@@ -357,10 +357,7 @@ mod tests {
         let ctx = store.context();
 
         // Assert that the private key and user symmetric key were set in the store
-        assert!(
-            ctx
-                .has_asymmetric_key(AsymmetricKeyId::UserPrivateKey)
-        );
+        assert!(ctx.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey));
         assert!(ctx.has_symmetric_key(SymmetricKeyId::User));
     }
 
