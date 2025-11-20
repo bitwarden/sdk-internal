@@ -1,0 +1,35 @@
+[package]
+name = "bitwarden-noise"
+description = """
+Internal crate for bitwarden NOISE protocol tunnel. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+readme.workspace = true
+keywords.workspace = true
+
+[features]
+wasm = [
+    "bitwarden-error/wasm"
+]
+
+[dependencies]
+bitwarden-error = { workspace = true }
+# tsify = { workspace = true, optional = true }
+uniffi = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true }
+js-sys = { workspace = true }
+
+base64 = "0.22"
+getrandom = { version = "0.2", features = ["js"] }
+snow = "0.9"
+web-sys = "0.3"
+
+[lints]
+workspace = true

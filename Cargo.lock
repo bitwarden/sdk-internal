@@ -199,7 +199,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d911686206fdd816a61ed5226535997149b0fc7726e37fee46f407c9ff82ed87"
 dependencies = [
  "base64ct",
- "blake2",
+ "blake2 0.11.0-rc.2",
  "cpufeatures",
  "password-hash",
  "rayon",
@@ -764,6 +764,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-noise"
+version = "1.0.0"
+dependencies = [
+ "base64 0.22.1",
+ "bitwarden-error",
+ "getrandom 0.2.16",
+ "js-sys",
+ "snow",
+ "uniffi",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
 name = "bitwarden-pm"
 version = "1.0.0"
 dependencies = [
@@ -1005,6 +1019,15 @@ dependencies = [
  "tsify",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "blake2"
+version = "0.10.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46502ad458c9a52b69d4d4d32775c788b7a1b85e8bc9d482d92250fc0e3f8efe"
+dependencies = [
+ "digest 0.10.7",
 ]
 
 [[package]]
@@ -4740,6 +4763,22 @@ name = "smawk"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b7c388c1b5e93756d0c740965c41e8822f866621d41acbdf6336a6a168f8840c"
+
+[[package]]
+name = "snow"
+version = "0.9.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "850948bee068e713b8ab860fe1adc4d109676ab4c3b621fd8147f06b261f2f85"
+dependencies = [
+ "aes-gcm",
+ "blake2 0.10.6",
+ "chacha20poly1305",
+ "curve25519-dalek",
+ "rand_core 0.6.4",
+ "rustc_version",
+ "sha2",
+ "subtle",
+]
 
 [[package]]
 name = "socket2"
