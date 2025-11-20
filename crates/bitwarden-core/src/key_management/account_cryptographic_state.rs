@@ -81,8 +81,8 @@ pub enum WrappedUserAccountCryptographicState {
         /// The user's encryption private key, wrapped by the user key.
         private_key: EncString,
         /// The user's public-key for the private key, signed by the user's signing key.
-        /// Note: This is optional for backwards compatibility. After a few releases, this will be made non-optional once all clients store the response
-        /// on sync.
+        /// Note: This is optional for backwards compatibility. After a few releases, this will be
+        /// made non-optional once all clients store the response on sync.
         signed_public_key: Option<SignedPublicKey>,
         /// The user's signing key, wrapped by the user key.
         signing_key: EncString,
@@ -427,7 +427,8 @@ mod tests {
     fn test_to_private_keys_request_model_v2() {
         let temp_store: KeyStore<KeyIds> = KeyStore::default();
         let user_id = UserId::new_v4();
-        let wrapped_account_cryptography_state = WrappedUserAccountCryptographicState::make(&temp_store, user_id).unwrap();
+        let wrapped_account_cryptography_state =
+            WrappedUserAccountCryptographicState::make(&temp_store, user_id).unwrap();
         let store: KeyStore<KeyIds> = KeyStore::default();
         let model = wrapped_account_cryptography_state
             .to_private_keys_request_model(&store)
@@ -435,14 +436,43 @@ mod tests {
 
         let ctx = store.context();
 
-        let sig_pair = model.signature_key_pair.expect("signature_key_pair present");
-        assert_eq!(sig_pair.verifying_key.unwrap(), B64::from(ctx.get_verifying_key(SigningKeyId::UserSigningKey).unwrap().to_cose()).to_string());
+        let sig_pair = model
+            .signature_key_pair
+            .expect("signature_key_pair present");
+        assert_eq!(
+            sig_pair.verifying_key.unwrap(),
+            B64::from(
+                ctx.get_verifying_key(SigningKeyId::UserSigningKey)
+                    .unwrap()
+                    .to_cose()
+            )
+            .to_string()
+        );
 
         let pk_pair = model.public_key_encryption_key_pair;
-        assert_eq!(pk_pair.public_key.unwrap(), B64::from(ctx.get_public_key(AsymmetricKeyId::UserPrivateKey).unwrap().to_der().unwrap()).to_string());
+        assert_eq!(
+            pk_pair.public_key.unwrap(),
+            B64::from(
+                ctx.get_public_key(AsymmetricKeyId::UserPrivateKey)
+                    .unwrap()
+                    .to_der()
+                    .unwrap()
+            )
+            .to_string()
+        );
 
-        let signed_security_state = model.security_state.clone().expect("security_state present");
-        let security_state = SignedSecurityState::from_str(signed_security_state.security_state.unwrap().as_str()).unwrap().verify_and_unwrap(&ctx.get_verifying_key(SigningKeyId::UserSigningKey).unwrap()).expect("security state should verify");
-        assert_eq!(security_state.version(), model.security_state.unwrap().security_version as u64);
+        let signed_security_state = model
+            .security_state
+            .clone()
+            .expect("security_state present");
+        let security_state =
+            SignedSecurityState::from_str(signed_security_state.security_state.unwrap().as_str())
+                .unwrap()
+                .verify_and_unwrap(&ctx.get_verifying_key(SigningKeyId::UserSigningKey).unwrap())
+                .expect("security state should verify");
+        assert_eq!(
+            security_state.version(),
+            model.security_state.unwrap().security_version as u64
+        );
     }
 }
