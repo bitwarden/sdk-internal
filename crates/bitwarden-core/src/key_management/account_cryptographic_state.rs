@@ -46,6 +46,9 @@ pub enum AccountCryptographyInitializationError {
     /// The decrypted data is corrupt.
     #[error("Decryption succeeded but produced corrupt data")]
     CorruptData,
+    /// The decrypted data is corrupt.
+    #[error("Signature or mac verification failed, the data may have been tampered with")]
+    TamperedData,
     /// The key store is already initialized with account keys. Currently, updating keys is not a
     /// supported operation
     #[error("Key store is already initialized")]
@@ -207,7 +210,6 @@ impl WrappedUserAccountCryptographicState {
             WrappedUserAccountCryptographicState::V1 { private_key } => {
                 info!("Initializing V1 account cryptographic state");
                 if ctx.get_algorithm(user_key)? != SymmetricKeyAlgorithm::Aes256CbcHmac {
-                    println!("User key algorithm: {:?}", ctx.get_algorithm(user_key)?);
                     return Err(AccountCryptographyInitializationError::WrongUserKeyType);
                 }
 
@@ -226,7 +228,6 @@ impl WrappedUserAccountCryptographicState {
             } => {
                 info!("Initializing V2 account cryptographic state");
                 if ctx.get_algorithm(user_key)? != SymmetricKeyAlgorithm::XChaCha20Poly1305 {
-                    println!("User key algorithm: {:?}", ctx.get_algorithm(user_key)?);
                     return Err(AccountCryptographyInitializationError::WrongUserKeyType);
                 }
 
@@ -240,7 +241,7 @@ impl WrappedUserAccountCryptographicState {
                 let security_state: SecurityState = security_state
                     .to_owned()
                     .verify_and_unwrap(&ctx.get_verifying_key(signing_key_id)?)
-                    .map_err(|_| AccountCryptographyInitializationError::CorruptData)?;
+                    .map_err(|_| AccountCryptographyInitializationError::TamperedData)?;
                 ctx.move_asymmetric_key(private_key_id, AsymmetricKeyId::UserPrivateKey)?;
                 ctx.move_signing_key(signing_key_id, SigningKeyId::UserSigningKey)?;
                 ctx.move_symmetric_key(user_key, SymmetricKeyId::User)?;
