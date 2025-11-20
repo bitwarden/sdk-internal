@@ -157,7 +157,7 @@ impl WrappedUserAccountCryptographicState {
                         security_version: security_state
                             .clone()
                             .verify_and_unwrap(vk_ref)
-                            .map_err(|_| AccountCryptographyInitializationError::CorruptData)?
+                            .map_err(|_| AccountCryptographyInitializationError::TamperedData)?
                             .version() as i32,
                     }))
                 }
@@ -222,13 +222,18 @@ impl WrappedUserAccountCryptographicState {
             }
             WrappedUserAccountCryptographicState::V2 {
                 private_key,
-                signed_public_key: _,
+                signed_public_key,
                 signing_key,
                 security_state,
             } => {
                 info!("Initializing V2 account cryptographic state");
                 if ctx.get_algorithm(user_key)? != SymmetricKeyAlgorithm::XChaCha20Poly1305 {
                     return Err(AccountCryptographyInitializationError::WrongUserKeyType);
+                }
+                if let Some(signed_public_key) = signed_public_key {
+                    signed_public_key.to_owned().verify_and_unwrap(&ctx.get_verifying_key(
+                        SigningKeyId::UserSigningKey,
+                    )?).map_err(|_| AccountCryptographyInitializationError::TamperedData)?;
                 }
 
                 let private_key_id = ctx
