@@ -237,7 +237,7 @@ impl WrappedUserAccountCryptographicState {
                 let signing_key_id = ctx
                     .unwrap_signing_key(user_key, signing_key)
                     .map_err(|_| AccountCryptographyInitializationError::WrongUserKey)?;
-                
+
                 if let Some(signed_public_key) = signed_public_key {
                     signed_public_key
                         .to_owned()
