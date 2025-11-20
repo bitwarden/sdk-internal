@@ -5,14 +5,16 @@ use bitwarden_core::client::ApiConfigurations;
 use serde::{Serialize, de::DeserializeOwned};
 
 use crate::identity::api_models::{
-    login_request_header::LoginRequestHeader, request::LoginApiRequest,
+    login_request_header::LoginRequestHeader,
+    request::LoginApiRequest,
+    response::{LoginErrorApiResponse, LoginSuccessApiResponse},
 };
 
 /// A common function to send login requests to the Identity connect/token endpoint.
 pub(crate) async fn send_login_request(
     api_configs: &ApiConfigurations,
     api_request: &LoginApiRequest<impl Serialize + DeserializeOwned + std::fmt::Debug>,
-) -> Result<serde_json::Value, bitwarden_core::auth::login::LoginError> {
+) -> Result<LoginSuccessApiResponse, LoginErrorApiResponse> {
     let identity_config = &api_configs.identity_config;
 
     let url: String = format!("{}/connect/token", &identity_config.base_path);
@@ -20,9 +22,9 @@ pub(crate) async fn send_login_request(
     let device_type_header: LoginRequestHeader =
         LoginRequestHeader::DeviceType(api_request.device_type);
 
-    let mut request: reqwest::RequestBuilder = identity_config
+    let request: reqwest::RequestBuilder = identity_config
         .client
-        .post(format!("{}/connect/token", &identity_config.base_path))
+        .post(url)
         .header(reqwest::header::ACCEPT, "application/json")
         // Add custom device type header
         .header(
@@ -35,11 +37,21 @@ pub(crate) async fn send_login_request(
         // use form to encode as application/x-www-form-urlencoded
         .form(&api_request);
 
-    let response: reqwest::Response = request
-        .send()
-        .await
-        .map_err(bitwarden_core::ApiError::from)?;
+    let response: reqwest::Response = request.send().await?;
 
-    // return empty json for now
-    Ok(serde_json::json!({}))
+    let response_status = response.status();
+
+    if response_status.is_success() {
+        let login_success_api_response: LoginSuccessApiResponse = response.json().await?;
+
+        // TODO: define LoginSuccessResponse model in SDK layer and add into trait from
+        // LoginSuccessApiResponse to convert between API model and SDK model
+
+        return Ok(login_success_api_response);
+    }
+
+    // Handle error response
+    let login_error_api_response: LoginErrorApiResponse = response.json().await?;
+
+    Err(login_error_api_response)
 }
