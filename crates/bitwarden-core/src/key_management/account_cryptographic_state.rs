@@ -394,7 +394,7 @@ mod tests {
 
         let wrapped = WrappedUserAccountCryptographicState::V2 {
             private_key: wrapped_private,
-            signed_public_key,
+            signed_public_key: Some(signed_public_key),
             signing_key: wrapped_signing,
             security_state: signed_security_state,
         };
