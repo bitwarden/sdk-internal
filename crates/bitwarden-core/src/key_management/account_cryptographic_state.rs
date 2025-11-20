@@ -241,7 +241,7 @@ impl WrappedUserAccountCryptographicState {
                 if let Some(signed_public_key) = signed_public_key {
                     signed_public_key
                         .to_owned()
-                        .verify_and_unwrap(&ctx.get_verifying_key(SigningKeyId::UserSigningKey)?)
+                        .verify_and_unwrap(&ctx.get_verifying_key(signing_key_id)?)
                         .map_err(|_| AccountCryptographyInitializationError::TamperedData)?;
                 }
 
