@@ -59,6 +59,7 @@ serde_json = { workspace = true }
 serde_qs = { workspace = true }
 serde_repr = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true, features = ["tokio"] }
 uuid = { workspace = true }

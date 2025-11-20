@@ -11,6 +11,8 @@ use bitwarden_crypto::{
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;
+#[cfg(feature = "internal")]
+use tracing::instrument;
 
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::client::encryption_settings::EncryptionSettings;
@@ -288,6 +290,7 @@ impl InternalClient {
     }
 
     #[cfg(feature = "internal")]
+    #[instrument(err, skip_all)]
     pub(crate) fn initialize_user_crypto_master_key(
         &self,
         master_key: MasterKey,
@@ -299,6 +302,7 @@ impl InternalClient {
     }
 
     #[cfg(feature = "internal")]
+    #[instrument(err, skip_all, fields(user_id = ?self.get_user_id()))]
     pub(crate) fn initialize_user_crypto_decrypted_key(
         &self,
         user_key: SymmetricCryptoKey,
@@ -340,6 +344,7 @@ impl InternalClient {
     }
 
     #[cfg(feature = "internal")]
+    #[instrument(err, skip_all)]
     pub(crate) fn initialize_user_crypto_pin(
         &self,
         pin_key: PinKey,
@@ -351,6 +356,7 @@ impl InternalClient {
     }
 
     #[cfg(feature = "internal")]
+    #[instrument(err, skip_all)]
     pub(crate) fn initialize_user_crypto_pin_envelope(
         &self,
         pin: String,
@@ -393,6 +399,7 @@ impl InternalClient {
     }
 
     #[cfg(feature = "internal")]
+    #[instrument(err, skip_all)]
     pub(crate) fn initialize_user_crypto_master_password_unlock(
         &self,
         password: String,
