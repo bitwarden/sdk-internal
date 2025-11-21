@@ -23,8 +23,7 @@ use super::CiphersClient;
 use crate::{
     AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, DecryptError,
     FieldView, FolderId, ItemNotFoundError, PasswordHistoryView, VaultParseError,
-    cipher::cipher::IntoCipherError, cipher_view_type::CipherViewType,
-    password_history::MAX_PASSWORD_HISTORY_ENTRIES,
+    cipher_view_type::CipherViewType, password_history::MAX_PASSWORD_HISTORY_ENTRIES,
 };
 
 #[allow(missing_docs)]
@@ -49,16 +48,6 @@ pub enum EditCipherError {
     Uuid(#[from] uuid::Error),
     #[error(transparent)]
     Decrypt(#[from] DecryptError),
-}
-
-impl From<IntoCipherError> for EditCipherError {
-    fn from(value: IntoCipherError) -> Self {
-        match value {
-            IntoCipherError::Crypto(e) => Self::Crypto(e),
-            IntoCipherError::VaultParse(e) => Self::VaultParse(e),
-            IntoCipherError::MissingField(e) => Self::MissingField(e),
-        }
-    }
 }
 
 impl<T> From<bitwarden_api_api::apis::Error<T>> for EditCipherError {
@@ -360,8 +349,7 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
             .put_admin(cipher_id.into(), Some(cipher_request))
             .await
             .map_err(ApiError::from)?
-            .try_into()
-            .unwrap()
+            .try_into()?
     } else {
         let cipher: Cipher = api_client
             .ciphers_api()
@@ -437,6 +425,7 @@ impl CiphersClient {
         .await
     }
 
+    /// Adds the cipher matched by [CipherId] to any number of collections on the server.
     pub async fn update_collection(
         &self,
         cipher_id: CipherId,

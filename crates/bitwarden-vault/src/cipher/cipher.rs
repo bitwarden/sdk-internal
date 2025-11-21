@@ -1059,6 +1059,138 @@ impl TryFrom<CipherResponseModel> for Cipher {
     }
 }
 
+impl TryFrom<CipherMiniResponseModel> for Cipher {
+    type Error = VaultParseError;
+    fn try_from(cipher_mini: CipherMiniResponseModel) -> Result<Self, Self::Error> {
+        Ok(Cipher {
+            id: cipher_mini.id.map(CipherId::new),
+            organization_id: cipher_mini.organization_id.map(OrganizationId::new),
+            key: EncString::try_from_optional(cipher_mini.key)?,
+            name: require!(EncString::try_from_optional(cipher_mini.name)?),
+            notes: EncString::try_from_optional(cipher_mini.notes)?,
+            r#type: require!(cipher_mini.r#type).into(),
+            login: cipher_mini.login.map(|l| (*l).try_into()).transpose()?,
+            identity: cipher_mini.identity.map(|i| (*i).try_into()).transpose()?,
+            card: cipher_mini.card.map(|c| (*c).try_into()).transpose()?,
+            secure_note: cipher_mini
+                .secure_note
+                .map(|s| (*s).try_into())
+                .transpose()?,
+            ssh_key: cipher_mini.ssh_key.map(|s| (*s).try_into()).transpose()?,
+            reprompt: cipher_mini
+                .reprompt
+                .map(|r| r.into())
+                .unwrap_or(CipherRepromptType::None),
+            organization_use_totp: cipher_mini.organization_use_totp.unwrap_or(true),
+            attachments: cipher_mini
+                .attachments
+                .map(|a| a.into_iter().map(|a| a.try_into()).collect())
+                .transpose()?,
+            fields: cipher_mini
+                .fields
+                .map(|f| f.into_iter().map(|f| f.try_into()).collect())
+                .transpose()?,
+            password_history: cipher_mini
+                .password_history
+                .map(|p| p.into_iter().map(|p| p.try_into()).collect())
+                .transpose()?,
+            creation_date: require!(cipher_mini.creation_date)
+                .parse()
+                .map_err(Into::<VaultParseError>::into)?,
+            deleted_date: cipher_mini
+                .deleted_date
+                .map(|d| d.parse())
+                .transpose()
+                .map_err(Into::<VaultParseError>::into)?,
+            revision_date: require!(cipher_mini.revision_date)
+                .parse()
+                .map_err(Into::<VaultParseError>::into)?,
+            archived_date: cipher_mini
+                .archived_date
+                .map(|d| d.parse())
+                .transpose()
+                .map_err(Into::<VaultParseError>::into)?,
+            edit: Default::default(),
+            favorite: Default::default(),
+            folder_id: Default::default(),
+            permissions: Default::default(),
+            view_password: Default::default(),
+            local_data: Default::default(),
+            collection_ids: Default::default(),
+            data: None,
+        })
+    }
+}
+
+impl TryFrom<CipherMiniDetailsResponseModel> for Cipher {
+    type Error = VaultParseError;
+
+    fn try_from(cipher_mini: CipherMiniDetailsResponseModel) -> Result<Self, Self::Error> {
+        Ok(Cipher {
+            id: cipher_mini.id.map(CipherId::new),
+            organization_id: cipher_mini.organization_id.map(OrganizationId::new),
+            key: EncString::try_from_optional(cipher_mini.key)?,
+            name: require!(EncString::try_from_optional(cipher_mini.name)?),
+            notes: EncString::try_from_optional(cipher_mini.notes)?,
+            r#type: require!(cipher_mini.r#type).into(),
+            login: cipher_mini.login.map(|l| (*l).try_into()).transpose()?,
+            identity: cipher_mini.identity.map(|i| (*i).try_into()).transpose()?,
+            card: cipher_mini.card.map(|c| (*c).try_into()).transpose()?,
+            secure_note: cipher_mini
+                .secure_note
+                .map(|s| (*s).try_into())
+                .transpose()?,
+            ssh_key: cipher_mini.ssh_key.map(|s| (*s).try_into()).transpose()?,
+            reprompt: cipher_mini
+                .reprompt
+                .map(|r| r.into())
+                .unwrap_or(CipherRepromptType::None),
+            organization_use_totp: cipher_mini.organization_use_totp.unwrap_or(true),
+            attachments: cipher_mini
+                .attachments
+                .map(|a| a.into_iter().map(|a| a.try_into()).collect())
+                .transpose()?,
+            fields: cipher_mini
+                .fields
+                .map(|f| f.into_iter().map(|f| f.try_into()).collect())
+                .transpose()?,
+            password_history: cipher_mini
+                .password_history
+                .map(|p| p.into_iter().map(|p| p.try_into()).collect())
+                .transpose()?,
+            creation_date: require!(cipher_mini.creation_date)
+                .parse()
+                .map_err(Into::<VaultParseError>::into)?,
+            deleted_date: cipher_mini
+                .deleted_date
+                .map(|d| d.parse())
+                .transpose()
+                .map_err(Into::<VaultParseError>::into)?,
+            revision_date: require!(cipher_mini.revision_date)
+                .parse()
+                .map_err(Into::<VaultParseError>::into)?,
+            archived_date: cipher_mini
+                .archived_date
+                .map(|d| d.parse())
+                .transpose()
+                .map_err(Into::<VaultParseError>::into)?,
+            collection_ids: cipher_mini
+                .collection_ids
+                .into_iter()
+                .flatten()
+                .map(CollectionId::new)
+                .collect(),
+            data: None,
+            folder_id: Default::default(),
+            favorite: Default::default(),
+            edit: Default::default(),
+            permissions: Default::default(),
+            view_password: Default::default(),
+            local_data: Default::default(),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -2113,149 +2245,5 @@ mod tests {
         let result = cipher.populate_cipher_types();
 
         assert!(matches!(result, Err(VaultParseError::SerdeJson(_))));
-    }
-}
-
-impl TryFrom<CipherMiniResponseModel> for Cipher {
-    type Error = VaultParseError;
-    fn try_from(cipher_mini: CipherMiniResponseModel) -> Result<Self, Self::Error> {
-        Ok(Cipher {
-            id: cipher_mini.id.map(CipherId::new),
-            organization_id: cipher_mini.organization_id.map(OrganizationId::new),
-            key: EncString::try_from_optional(cipher_mini.key)?,
-            name: require!(EncString::try_from_optional(cipher_mini.name)?),
-            notes: EncString::try_from_optional(cipher_mini.notes)?,
-            r#type: require!(cipher_mini.r#type).into(),
-            login: cipher_mini.login.map(|l| (*l).try_into()).transpose()?,
-            identity: cipher_mini.identity.map(|i| (*i).try_into()).transpose()?,
-            card: cipher_mini.card.map(|c| (*c).try_into()).transpose()?,
-            secure_note: cipher_mini
-                .secure_note
-                .map(|s| (*s).try_into())
-                .transpose()?,
-            ssh_key: cipher_mini.ssh_key.map(|s| (*s).try_into()).transpose()?,
-            reprompt: cipher_mini
-                .reprompt
-                .map(|r| r.into())
-                .unwrap_or(CipherRepromptType::None),
-            organization_use_totp: cipher_mini.organization_use_totp.unwrap_or(true),
-            attachments: cipher_mini
-                .attachments
-                .map(|a| a.into_iter().map(|a| a.try_into()).collect())
-                .transpose()?,
-            fields: cipher_mini
-                .fields
-                .map(|f| f.into_iter().map(|f| f.try_into()).collect())
-                .transpose()?,
-            password_history: cipher_mini
-                .password_history
-                .map(|p| p.into_iter().map(|p| p.try_into()).collect())
-                .transpose()?,
-            creation_date: require!(cipher_mini.creation_date)
-                .parse()
-                .map_err(Into::<VaultParseError>::into)?,
-            deleted_date: cipher_mini
-                .deleted_date
-                .map(|d| d.parse())
-                .transpose()
-                .map_err(Into::<VaultParseError>::into)?,
-            revision_date: require!(cipher_mini.revision_date)
-                .parse()
-                .map_err(Into::<VaultParseError>::into)?,
-            archived_date: cipher_mini
-                .archived_date
-                .map(|d| d.parse())
-                .transpose()
-                .map_err(Into::<VaultParseError>::into)?,
-            edit: Default::default(),
-            favorite: Default::default(),
-            folder_id: Default::default(),
-            permissions: Default::default(),
-            view_password: Default::default(),
-            local_data: Default::default(),
-            collection_ids: Default::default(),
-            data: None,
-        })
-    }
-}
-
-#[allow(missing_docs)]
-#[bitwarden_error(flat)]
-#[derive(Debug, Error)]
-pub enum IntoCipherError {
-    #[error(transparent)]
-    Crypto(#[from] CryptoError),
-    #[error(transparent)]
-    VaultParse(#[from] VaultParseError),
-    #[error(transparent)]
-    MissingField(#[from] MissingFieldError),
-}
-
-impl TryFrom<CipherMiniDetailsResponseModel> for Cipher {
-    type Error = IntoCipherError;
-
-    fn try_from(cipher_mini: CipherMiniDetailsResponseModel) -> Result<Self, Self::Error> {
-        Ok(Cipher {
-            id: cipher_mini.id.map(CipherId::new),
-            organization_id: cipher_mini.organization_id.map(OrganizationId::new),
-            key: EncString::try_from_optional(cipher_mini.key)?,
-            name: require!(EncString::try_from_optional(cipher_mini.name)?),
-            notes: EncString::try_from_optional(cipher_mini.notes)?,
-            r#type: require!(cipher_mini.r#type).into(),
-            login: cipher_mini.login.map(|l| (*l).try_into()).transpose()?,
-            identity: cipher_mini.identity.map(|i| (*i).try_into()).transpose()?,
-            card: cipher_mini.card.map(|c| (*c).try_into()).transpose()?,
-            secure_note: cipher_mini
-                .secure_note
-                .map(|s| (*s).try_into())
-                .transpose()?,
-            ssh_key: cipher_mini.ssh_key.map(|s| (*s).try_into()).transpose()?,
-            reprompt: cipher_mini
-                .reprompt
-                .map(|r| r.into())
-                .unwrap_or(CipherRepromptType::None),
-            organization_use_totp: cipher_mini.organization_use_totp.unwrap_or(true),
-            attachments: cipher_mini
-                .attachments
-                .map(|a| a.into_iter().map(|a| a.try_into()).collect())
-                .transpose()?,
-            fields: cipher_mini
-                .fields
-                .map(|f| f.into_iter().map(|f| f.try_into()).collect())
-                .transpose()?,
-            password_history: cipher_mini
-                .password_history
-                .map(|p| p.into_iter().map(|p| p.try_into()).collect())
-                .transpose()?,
-            creation_date: require!(cipher_mini.creation_date)
-                .parse()
-                .map_err(Into::<VaultParseError>::into)?,
-            deleted_date: cipher_mini
-                .deleted_date
-                .map(|d| d.parse())
-                .transpose()
-                .map_err(Into::<VaultParseError>::into)?,
-            revision_date: require!(cipher_mini.revision_date)
-                .parse()
-                .map_err(Into::<VaultParseError>::into)?,
-            archived_date: cipher_mini
-                .archived_date
-                .map(|d| d.parse())
-                .transpose()
-                .map_err(Into::<VaultParseError>::into)?,
-            collection_ids: cipher_mini
-                .collection_ids
-                .into_iter()
-                .flatten()
-                .map(CollectionId::new)
-                .collect(),
-            data: None,
-            folder_id: Default::default(),
-            favorite: Default::default(),
-            edit: Default::default(),
-            permissions: Default::default(),
-            view_password: Default::default(),
-            local_data: Default::default(),
-        })
     }
 }

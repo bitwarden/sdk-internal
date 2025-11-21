@@ -21,7 +21,7 @@ use wasm_bindgen::prelude::*;
 use super::CiphersClient;
 use crate::{
     Cipher, CipherRepromptType, CipherView, FieldView, FolderId, VaultParseError,
-    cipher::cipher::IntoCipherError, cipher_view_type::CipherViewType,
+    cipher_view_type::CipherViewType,
 };
 
 #[allow(missing_docs)]
@@ -40,16 +40,6 @@ pub enum CreateCipherError {
     NotAuthenticated(#[from] NotAuthenticatedError),
     #[error(transparent)]
     Repository(#[from] RepositoryError),
-}
-
-impl From<IntoCipherError> for CreateCipherError {
-    fn from(value: IntoCipherError) -> Self {
-        match value {
-            IntoCipherError::Crypto(e) => Self::Crypto(e),
-            IntoCipherError::VaultParse(e) => Self::VaultParse(e),
-            IntoCipherError::MissingField(e) => Self::MissingField(e),
-        }
-    }
 }
 
 impl<T> From<bitwarden_api_api::apis::Error<T>> for CreateCipherError {
@@ -310,7 +300,7 @@ impl CiphersClient {
             internal_request.generate_cipher_key(&mut key_store.context(), key)?;
         }
 
-        Ok(create_cipher(
+        create_cipher(
             key_store,
             &config.api_client,
             repository.as_ref(),
@@ -320,7 +310,6 @@ impl CiphersClient {
             as_admin,
         )
         .await
-        .unwrap())
     }
 
     /// Creates a new [Cipher] and save it to the server.
