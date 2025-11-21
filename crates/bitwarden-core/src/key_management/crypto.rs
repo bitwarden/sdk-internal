@@ -164,7 +164,7 @@ pub(super) async fn initialize_user_crypto(
         client.internal.init_user_id(user_id)?;
     }
 
-    let key_state = req.account_cryptographic_state.clone();
+    let key_state = req.account_cryptographic_state;
 
     match req.method {
         InitUserCryptoMethod::Password { password, user_key } => {
@@ -1401,10 +1401,10 @@ mod tests {
                 },
                 email: "test@bitwarden.com".into(),
                 account_cryptographic_state: WrappedUserAccountCryptographicState::V2 {
-                    private_key: enrollment_response.private_key.clone(),
-                    signing_key: enrollment_response.signing_key.clone(),
-                    security_state: enrollment_response.security_state.clone(),
-                    signed_public_key: Some(enrollment_response.signed_public_key.clone()),
+                    private_key: enrollment_response.private_key,
+                    signing_key: enrollment_response.signing_key,
+                    security_state: enrollment_response.security_state,
+                    signed_public_key: Some(enrollment_response.signed_public_key),
                 },
                 method: InitUserCryptoMethod::Password {
                     password: "asdfasdfasdf".into(),
