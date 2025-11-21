@@ -1454,14 +1454,9 @@ mod tests {
     #[test]
     fn test_get_v2_rotated_account_keys_non_v2_user() {
         let client = Client::new(None);
-        let mut ctx = client
-            .internal
-            .get_key_store()
-            .context_mut();
-        let local_key_id = ctx 
-            .make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        ctx
-            .persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+        let mut ctx = client.internal.get_key_store().context_mut();
+        let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
             .unwrap();
         drop(ctx);
 

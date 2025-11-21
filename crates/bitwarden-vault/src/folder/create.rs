@@ -98,13 +98,13 @@ mod tests {
     #[tokio::test]
     async fn test_create_folder() {
         let store: KeyStore<KeyIds> = KeyStore::default();
-        let local_key_id = store
-            .context_mut()
+        let mut ctx = store.context_mut();
+        let local_key_id = ctx
             .make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        store
-            .context_mut()
+        ctx
             .persist_symmetric_key(local_key_id, SymmetricKeyId::User)
             .unwrap();
+        drop(ctx);
 
         let folder_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
 
@@ -162,13 +162,13 @@ mod tests {
     #[tokio::test]
     async fn test_create_folder_http_error() {
         let store: KeyStore<KeyIds> = KeyStore::default();
-        let local_key_id = store
-            .context_mut()
+        let mut ctx = store.context_mut();
+        let local_key_id = ctx
             .make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        store
-            .context_mut()
+        ctx
             .persist_symmetric_key(local_key_id, SymmetricKeyId::User)
             .unwrap();
+        drop(ctx);
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.folders_api.expect_post().returning(move |_model| {

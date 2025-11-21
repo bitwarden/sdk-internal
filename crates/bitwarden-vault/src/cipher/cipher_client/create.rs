@@ -311,13 +311,11 @@ mod tests {
     #[tokio::test]
     async fn test_create_cipher() {
         let store: KeyStore<KeyIds> = KeyStore::default();
-        let local_key_id = store
-            .context_mut()
-            .make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        store
-            .context_mut()
-            .persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+        let mut ctx = store.context_mut();
+        let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
             .unwrap();
+        drop(ctx);
 
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
 
@@ -413,13 +411,11 @@ mod tests {
     #[tokio::test]
     async fn test_create_cipher_http_error() {
         let store: KeyStore<KeyIds> = KeyStore::default();
-        let local_key_id = store
-            .context_mut()
-            .make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        store
-            .context_mut()
-            .persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+        let mut ctx = store.context_mut();
+        let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
             .unwrap();
+        drop(ctx);
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.ciphers_api.expect_post().returning(move |_body| {

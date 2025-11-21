@@ -885,21 +885,16 @@ mod tests {
 
         // Generate and insert a key
         let key_a0_id = TestSymmKey::A(0);
-        let local_key_id = store
-            .context_mut()
-            .make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        store
-            .context_mut()
-            .persist_symmetric_key(local_key_id, TestSymmKey::A(0))
+        let mut ctx = store.context_mut();
+        let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        ctx.persist_symmetric_key(local_key_id, TestSymmKey::A(0))
             .unwrap();
 
-        assert!(store.context().has_symmetric_key(key_a0_id));
+        assert!(ctx.has_symmetric_key(key_a0_id));
 
         // Encrypt some data with the key
         let data = DataView("Hello, World!".to_string(), key_a0_id);
-        let _encrypted: Data = data
-            .encrypt_composite(&mut store.context(), key_a0_id)
-            .unwrap();
+        let _encrypted: Data = data.encrypt_composite(&mut ctx, key_a0_id).unwrap();
     }
 
     #[test]

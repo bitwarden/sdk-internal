@@ -166,10 +166,8 @@ mod tests {
 
         let mut ctx = store.context_mut();
 
-        let local_key_id = ctx
-            .make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        ctx
-            .persist_symmetric_key(local_key_id, SymmetricKeyId::Organization(org_id))
+        let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::Organization(org_id))
             .unwrap();
         drop(ctx);
 

@@ -426,12 +426,9 @@ pub(crate) mod tests {
 
         // Create a bunch of random keys
         for n in 0..15 {
-            let local_key_id = store
-                .context_mut()
-                .make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            store
-                .context_mut()
-                .persist_symmetric_key(local_key_id, TestSymmKey::A(n))
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, TestSymmKey::A(n))
                 .unwrap();
         }
 
