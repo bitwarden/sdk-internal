@@ -257,7 +257,11 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// # Errors
     /// Returns an error if the source key does not exist or if setting the destination key
     /// fails (for example due to read-only global store).
-    pub fn persist_symmetric_key(&mut self, from: Ids::Symmetric, to: Ids::Symmetric) -> Result<()> {
+    pub fn persist_symmetric_key(
+        &mut self,
+        from: Ids::Symmetric,
+        to: Ids::Symmetric,
+    ) -> Result<()> {
         if !from.is_local() || to.is_local() {
             return Err(CryptoError::InvalidKeyStoreOperation);
         }
@@ -685,7 +689,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Get the type of a symmetric key stored in the context.
-    pub fn get_symmetric_key_algorithm(&self, key_id: Ids::Symmetric) -> Result<SymmetricKeyAlgorithm> {
+    pub fn get_symmetric_key_algorithm(
+        &self,
+        key_id: Ids::Symmetric,
+    ) -> Result<SymmetricKeyAlgorithm> {
         let key = self.get_symmetric_key(key_id)?;
         match key {
             // Note this is dropped soon
