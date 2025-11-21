@@ -1,10 +1,6 @@
-use bitwarden_api_api::{
-    apis::ciphers_api::{PutShareError, PutShareManyError},
-    models::{
-        CipherDetailsResponseModel, CipherMiniDetailsResponseModel, CipherMiniResponseModel,
-        CipherMiniResponseModelListResponseModel, CipherRequestModel, CipherResponseModel,
-        CipherWithIdRequestModel,
-    },
+use bitwarden_api_api::models::{
+    CipherDetailsResponseModel, CipherMiniDetailsResponseModel, CipherMiniResponseModel,
+    CipherRequestModel, CipherResponseModel, CipherWithIdRequestModel,
 };
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
@@ -2121,7 +2117,7 @@ mod tests {
 }
 
 impl TryFrom<CipherMiniResponseModel> for Cipher {
-    type Error = CipherError;
+    type Error = VaultParseError;
     fn try_from(cipher_mini: CipherMiniResponseModel) -> Result<Self, Self::Error> {
         Ok(Cipher {
             id: cipher_mini.id.map(CipherId::new),
@@ -2183,8 +2179,20 @@ impl TryFrom<CipherMiniResponseModel> for Cipher {
     }
 }
 
+#[allow(missing_docs)]
+#[bitwarden_error(flat)]
+#[derive(Debug, Error)]
+pub enum IntoCipherError {
+    #[error(transparent)]
+    Crypto(#[from] CryptoError),
+    #[error(transparent)]
+    VaultParse(#[from] VaultParseError),
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError),
+}
+
 impl TryFrom<CipherMiniDetailsResponseModel> for Cipher {
-    type Error = CipherError;
+    type Error = IntoCipherError;
 
     fn try_from(cipher_mini: CipherMiniDetailsResponseModel) -> Result<Self, Self::Error> {
         Ok(Cipher {

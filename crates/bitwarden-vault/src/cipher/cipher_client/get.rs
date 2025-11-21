@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::CipherMiniDetailsResponseModelListResponseModel;
-use bitwarden_core::{OrganizationId, key_management::KeyIds};
+use bitwarden_core::{MissingFieldError, OrganizationId, key_management::KeyIds};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -7,7 +7,8 @@ use thiserror::Error;
 
 use super::CiphersClient;
 use crate::{
-    Cipher, CipherError, CipherView, ItemNotFoundError, cipher::cipher::DecryptCipherListResult,
+    Cipher, CipherError, CipherView, ItemNotFoundError, VaultParseError,
+    cipher::cipher::{DecryptCipherListResult, IntoCipherError},
 };
 
 #[allow(missing_docs)]
@@ -19,7 +20,21 @@ pub enum GetCipherError {
     #[error(transparent)]
     Crypto(#[from] CryptoError),
     #[error(transparent)]
+    VaultParse(#[from] VaultParseError),
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError),
+    #[error(transparent)]
     RepositoryError(#[from] RepositoryError),
+}
+
+impl From<IntoCipherError> for GetCipherError {
+    fn from(value: IntoCipherError) -> Self {
+        match value {
+            IntoCipherError::Crypto(e) => e.into(),
+            IntoCipherError::VaultParse(e) => e.into(),
+            IntoCipherError::MissingField(e) => e.into(),
+        }
+    }
 }
 
 async fn get_cipher(
@@ -64,7 +79,7 @@ impl CiphersClient {
         &self,
         org_id: OrganizationId,
         include_member_items: bool,
-    ) -> Result<DecryptCipherListResult, CipherError> {
+    ) -> Result<DecryptCipherListResult, GetCipherError> {
         let configs = self.get_api_configurations().await;
         let api = configs.api_client.ciphers_api();
         let response: CipherMiniDetailsResponseModelListResponseModel = api

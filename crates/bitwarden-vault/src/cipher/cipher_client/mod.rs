@@ -19,11 +19,11 @@ use crate::{
     cipher::cipher::DecryptCipherListResult,
 };
 
-mod admin;
 mod create;
 mod delete;
 mod edit;
 mod get;
+mod restore;
 mod share_cipher;
 
 #[allow(missing_docs)]

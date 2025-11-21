@@ -1,4 +1,5 @@
-use bitwarden_api_api::models::CipherRequestModel;
+use bitwarden_api_api::models::{CipherCollectionsRequestModel, CipherRequestModel};
+use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
     key_management::{KeyIds, SymmetricKeyId},
@@ -20,9 +21,10 @@ use wasm_bindgen::prelude::*;
 
 use super::CiphersClient;
 use crate::{
-    AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldView,
-    FolderId, ItemNotFoundError, PasswordHistoryView, VaultParseError,
-    cipher_view_type::CipherViewType, password_history::MAX_PASSWORD_HISTORY_ENTRIES,
+    AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, DecryptError,
+    FieldView, FolderId, ItemNotFoundError, PasswordHistoryView, VaultParseError,
+    cipher::cipher::IntoCipherError, cipher_view_type::CipherViewType,
+    password_history::MAX_PASSWORD_HISTORY_ENTRIES,
 };
 
 #[allow(missing_docs)]
@@ -45,6 +47,24 @@ pub enum EditCipherError {
     Repository(#[from] RepositoryError),
     #[error(transparent)]
     Uuid(#[from] uuid::Error),
+    #[error(transparent)]
+    Decrypt(#[from] DecryptError),
+}
+
+impl From<IntoCipherError> for EditCipherError {
+    fn from(value: IntoCipherError) -> Self {
+        match value {
+            IntoCipherError::Crypto(e) => Self::Crypto(e),
+            IntoCipherError::VaultParse(e) => Self::VaultParse(e),
+            IntoCipherError::MissingField(e) => Self::MissingField(e),
+        }
+    }
+}
+
+impl<T> From<bitwarden_api_api::apis::Error<T>> for EditCipherError {
+    fn from(val: bitwarden_api_api::apis::Error<T>) -> Self {
+        Self::Api(val.into())
+    }
 }
 
 /// Request to edit a cipher.
@@ -371,7 +391,7 @@ impl CiphersClient {
     // putCipherAdmin(id, request: CipherRequest)
     // ciphers_id_admin_put
     #[allow(missing_docs)] // TODO: add docs
-    pub async fn admin_edit(
+    pub async fn edit_as_admin(
         &self,
         request: CipherEditRequest,
     ) -> Result<CipherView, EditCipherError> {
@@ -415,6 +435,39 @@ impl CiphersClient {
             is_admin,
         )
         .await
+    }
+
+    pub async fn update_collection(
+        &self,
+        cipher_id: CipherId,
+        collection_ids: Vec<CollectionId>,
+        is_admin: bool,
+    ) -> Result<CipherView, EditCipherError> {
+        let req = CipherCollectionsRequestModel {
+            collection_ids: collection_ids
+                .into_iter()
+                .map(|id| id.to_string())
+                .collect(),
+        };
+
+        let api_config = self.get_api_configurations().await;
+        let api = api_config.api_client.ciphers_api();
+        let cipher = if is_admin {
+            api.put_collections_admin(&cipher_id.to_string(), Some(req))
+                .await?
+                .try_into()?
+        } else {
+            let response: Cipher = api
+                .put_collections(cipher_id.into(), Some(req))
+                .await?
+                .try_into()?;
+            self.get_repository()?
+                .set(cipher_id.to_string(), response.clone())
+                .await?;
+            response
+        };
+
+        Ok(self.decrypt(cipher)?)
     }
 }
 

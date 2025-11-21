@@ -1,4 +1,5 @@
-use bitwarden_api_api::models::CipherRequestModel;
+use bitwarden_api_api::models::{CipherCreateRequestModel, CipherRequestModel};
+use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
     key_management::{KeyIds, SymmetricKeyId},
@@ -20,7 +21,7 @@ use wasm_bindgen::prelude::*;
 use super::CiphersClient;
 use crate::{
     Cipher, CipherRepromptType, CipherView, FieldView, FolderId, VaultParseError,
-    cipher_view_type::CipherViewType,
+    cipher::cipher::IntoCipherError, cipher_view_type::CipherViewType,
 };
 
 #[allow(missing_docs)]
@@ -39,6 +40,22 @@ pub enum CreateCipherError {
     NotAuthenticated(#[from] NotAuthenticatedError),
     #[error(transparent)]
     Repository(#[from] RepositoryError),
+}
+
+impl From<IntoCipherError> for CreateCipherError {
+    fn from(value: IntoCipherError) -> Self {
+        match value {
+            IntoCipherError::Crypto(e) => Self::Crypto(e),
+            IntoCipherError::VaultParse(e) => Self::VaultParse(e),
+            IntoCipherError::MissingField(e) => Self::MissingField(e),
+        }
+    }
+}
+
+impl<T> From<bitwarden_api_api::apis::Error<T>> for CreateCipherError {
+    fn from(val: bitwarden_api_api::apis::Error<T>) -> Self {
+        Self::Api(val.into())
+    }
 }
 
 /// Request to add a cipher.
@@ -218,28 +235,57 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     repository: &R,
     encrypted_for: UserId,
     request: CipherCreateRequestInternal,
+    collection_ids: Vec<CollectionId>,
+    as_admin: bool,
 ) -> Result<CipherView, CreateCipherError> {
     let mut cipher_request = key_store.encrypt(request)?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
-    let resp = api_client
-        .ciphers_api()
-        .post(Some(cipher_request))
-        .await
-        .map_err(ApiError::from)?;
-    let cipher: Cipher = resp.try_into()?;
-    repository
-        .set(require!(cipher.id).to_string(), cipher.clone())
-        .await?;
+    let cipher: Cipher;
+    if as_admin && cipher_request.organization_id.is_some() {
+        cipher = api_client
+            .ciphers_api()
+            .post_admin(Some(CipherCreateRequestModel {
+                collection_ids: Some(collection_ids.into_iter().map(Into::into).collect()),
+                cipher: Box::new(cipher_request),
+            }))
+            .await?
+            .try_into()?;
+    } else if !collection_ids.is_empty() {
+        cipher = api_client
+            .ciphers_api()
+            .post_create(Some(CipherCreateRequestModel {
+                collection_ids: Some(collection_ids.into_iter().map(Into::into).collect()),
+                cipher: Box::new(cipher_request),
+            }))
+            .await
+            .map_err(ApiError::from)?
+            .try_into()?;
+        repository
+            .set(require!(cipher.id).to_string(), cipher.clone())
+            .await?;
+    } else {
+        cipher = api_client
+            .ciphers_api()
+            .post(Some(cipher_request))
+            .await
+            .map_err(ApiError::from)?
+            .try_into()?;
+        repository
+            .set(require!(cipher.id).to_string(), cipher.clone())
+            .await?;
+    }
+
     Ok(key_store.decrypt(&cipher)?)
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
-    /// Create a new [Cipher] and save it to the server.
-    pub async fn create(
+    async fn create_cipher(
         &self,
         request: CipherCreateRequest,
+        collection_ids: Vec<CollectionId>,
+        as_admin: bool,
     ) -> Result<CipherView, CreateCipherError> {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations().await;
@@ -264,14 +310,35 @@ impl CiphersClient {
             internal_request.generate_cipher_key(&mut key_store.context(), key)?;
         }
 
-        create_cipher(
+        Ok(create_cipher(
             key_store,
             &config.api_client,
             repository.as_ref(),
             user_id,
             internal_request,
+            collection_ids,
+            as_admin,
         )
         .await
+        .unwrap())
+    }
+
+    /// Creates a new [Cipher] and save it to the server.
+    pub async fn create(
+        &self,
+        request: CipherCreateRequest,
+        collection_ids: Vec<CollectionId>,
+    ) -> Result<CipherView, CreateCipherError> {
+        self.create_cipher(request, collection_ids, false).await
+    }
+
+    /// Creates a new [Cipher] for an organization, using the admin server endpoints endpoints.
+    pub async fn create_as_admin(
+        &self,
+        request: CipherCreateRequest,
+        collection_ids: Vec<CollectionId>,
+    ) -> Result<CipherView, CreateCipherError> {
+        self.create_cipher(request, collection_ids, false).await
     }
 }
 
@@ -372,6 +439,8 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request.into(),
+            vec![],
+            false,
         )
         .await
         .unwrap();
@@ -435,6 +504,8 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request.into(),
+            vec![],
+            false,
         )
         .await;
 
