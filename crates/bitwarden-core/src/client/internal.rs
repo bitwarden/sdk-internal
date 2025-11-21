@@ -296,10 +296,10 @@ impl InternalClient {
         &self,
         pin_key: PinKey,
         pin_protected_user_key: EncString,
-        key_state: WrappedUserAccountCryptographicState,
+        account_crypto_state: WrappedUserAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
         let decrypted_user_key = pin_key.decrypt_user_key(pin_protected_user_key)?;
-        self.initialize_user_crypto_decrypted_key(decrypted_user_key, key_state)
+        self.initialize_user_crypto_decrypted_key(decrypted_user_key, account_crypto_state)
     }
 
     #[cfg(feature = "internal")]
@@ -307,7 +307,7 @@ impl InternalClient {
         &self,
         pin: String,
         pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
-        key_state: WrappedUserAccountCryptographicState,
+        account_crypto_state: WrappedUserAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
         let decrypted_user_key = {
             // Note: This block ensures ctx is dropped. Otherwise it would cause a deadlock when
@@ -323,7 +323,7 @@ impl InternalClient {
             ctx.dangerous_get_symmetric_key(decrypted_user_key_id)?
                 .clone()
         };
-        self.initialize_user_crypto_decrypted_key(decrypted_user_key, key_state)
+        self.initialize_user_crypto_decrypted_key(decrypted_user_key, account_crypto_state)
     }
 
     #[cfg(feature = "secrets")]
@@ -349,7 +349,7 @@ impl InternalClient {
         &self,
         password: String,
         master_password_unlock: MasterPasswordUnlockData,
-        key_state: WrappedUserAccountCryptographicState,
+        account_crypto_state: WrappedUserAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
         let master_key = MasterKey::derive(
             &password,
@@ -358,7 +358,7 @@ impl InternalClient {
         )?;
         let user_key =
             master_key.decrypt_user_key(master_password_unlock.master_key_wrapped_user_key)?;
-        self.initialize_user_crypto_decrypted_key(user_key, key_state)
+        self.initialize_user_crypto_decrypted_key(user_key, account_crypto_state)
     }
 
     /// Sets the local KDF state for the master password unlock login method.

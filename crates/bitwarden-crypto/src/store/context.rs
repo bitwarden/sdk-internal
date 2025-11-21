@@ -855,14 +855,10 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CompositeEncryptable, CoseKeyBytes,
-        CoseSerializable, CryptoError, Decryptable, KeyDecryptable, LocalId, Pkcs8PrivateKeyBytes,
-        SignatureAlgorithm, SigningKey, SigningNamespace, SymmetricCryptoKey,
-        store::{
+        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CompositeEncryptable, CoseKeyBytes, CoseSerializable, CryptoError, Decryptable, KeyDecryptable, LocalId, Pkcs8PrivateKeyBytes, SignatureAlgorithm, SigningKey, SigningNamespace, SymmetricCryptoKey, SymmetricKeyAlgorithm, store::{
             KeyStore,
             tests::{Data, DataView},
-        },
-        traits::tests::{TestIds, TestSigningKey, TestSymmKey},
+        }, traits::tests::{TestIds, TestSigningKey, TestSymmKey}
     };
 
     #[test]
@@ -1153,18 +1149,16 @@ mod tests {
         let mut ctx = store.context_mut();
 
         // Generate and insert a key
-        let key_id = TestSymmKey::A(0);
-        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        ctx.set_symmetric_key(key_id, key.clone()).unwrap();
+        let key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
 
-        assert!(ctx.has_symmetric_key(key_id));
+        assert!(ctx.has_symmetric_key(key));
 
         // Move the key to a new identifier
         let new_key_id = TestSymmKey::A(1);
-        ctx.persist_symmetric_key(key_id, new_key_id).unwrap();
+        ctx.persist_symmetric_key(key, new_key_id).unwrap();
 
         // Ensure the old key id is gone and the new `one has the key
-        assert!(!ctx.has_symmetric_key(key_id));
+        assert!(!ctx.has_symmetric_key(key));
         assert!(ctx.has_symmetric_key(new_key_id));
     }
 }
