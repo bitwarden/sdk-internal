@@ -855,10 +855,15 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CompositeEncryptable, CoseKeyBytes, CoseSerializable, CryptoError, Decryptable, KeyDecryptable, LocalId, Pkcs8PrivateKeyBytes, SignatureAlgorithm, SigningKey, SigningNamespace, SymmetricCryptoKey, SymmetricKeyAlgorithm, store::{
+        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CompositeEncryptable, CoseKeyBytes,
+        CoseSerializable, CryptoError, Decryptable, KeyDecryptable, LocalId, Pkcs8PrivateKeyBytes,
+        SignatureAlgorithm, SigningKey, SigningNamespace, SymmetricCryptoKey,
+        SymmetricKeyAlgorithm,
+        store::{
             KeyStore,
             tests::{Data, DataView},
-        }, traits::tests::{TestIds, TestSigningKey, TestSymmKey}
+        },
+        traits::tests::{TestIds, TestSigningKey, TestSymmKey},
     };
 
     #[test]
