@@ -114,6 +114,13 @@ impl TryFrom<&CoseSign1Bytes> for SignedSecurityState {
     }
 }
 
+impl From<&SignedSecurityState> for String {
+    fn from(val: &SignedSecurityState) -> Self {
+        let bytes: CoseSign1Bytes = val.clone().into();
+        B64::from(bytes.as_ref()).to_string()
+    }
+}
+
 impl From<SignedSecurityState> for String {
     fn from(val: SignedSecurityState) -> Self {
         let bytes: CoseSign1Bytes = val.into();

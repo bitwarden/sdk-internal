@@ -112,9 +112,9 @@ mod tests {
     use super::*;
     use crate::{
         UserId,
-        client::internal::UserKeyState,
         key_management::{
             SymmetricKeyId,
+            account_cryptographic_state::WrappedUserAccountCryptographicState,
             crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
         },
     };
@@ -165,11 +165,7 @@ mod tests {
             .initialize_user_crypto_master_key(
                 master_key,
                 user_key,
-                UserKeyState {
-                    private_key,
-                    signing_key: None,
-                    security_state: None,
-                },
+                WrappedUserAccountCryptographicState::V1 { private_key },
             )
             .unwrap();
 
@@ -240,10 +236,8 @@ mod tests {
             .initialize_user_crypto_master_key(
                 master_key,
                 user_key,
-                UserKeyState {
+                WrappedUserAccountCryptographicState::V1 {
                     private_key: private_key.clone(),
-                    signing_key: None,
-                    security_state: None,
                 },
             )
             .unwrap();
@@ -262,9 +256,9 @@ mod tests {
                 user_id: Some(UserId::new_v4()),
                 kdf_params: kdf,
                 email: email.to_owned(),
-                private_key,
-                signing_key: None,
-                security_state: None,
+                account_cryptographic_state: WrappedUserAccountCryptographicState::V1 {
+                    private_key,
+                },
                 method: InitUserCryptoMethod::AuthRequest {
                     request_private_key: auth_req.private_key,
                     method: AuthRequestMethod::UserKey {
