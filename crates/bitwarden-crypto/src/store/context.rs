@@ -856,7 +856,7 @@ mod tests {
 
     use crate::{
         AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CompositeEncryptable, CoseKeyBytes,
-        CoseSerializable, CryptoError, Decryptable, KeyDecryptable, LocalId, Pkcs8PrivateKeyBytes,
+        CoseSerializable, CryptoError, Decryptable, KeyDecryptable, Pkcs8PrivateKeyBytes,
         SignatureAlgorithm, SigningKey, SigningNamespace, SymmetricCryptoKey,
         SymmetricKeyAlgorithm,
         store::{
