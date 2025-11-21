@@ -3,6 +3,8 @@ use std::{borrow::Cow, str::FromStr};
 use bitwarden_encoding::{B64, FromStrVisitor};
 use coset::{CborSerializable, iana::KeyOperation};
 use serde::Deserialize;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::convert::FromWasmAbi;
 
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
@@ -73,6 +75,25 @@ pub enum EncString {
     Cose_Encrypt0_B64 {
         data: Vec<u8>,
     },
+}
+
+#[cfg(feature = "wasm")]
+impl wasm_bindgen::describe::WasmDescribe for EncString {
+    fn describe() {
+        <String as wasm_bindgen::describe::WasmDescribe>::describe();
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl FromWasmAbi for EncString {
+    type Abi = <String as FromWasmAbi>::Abi;
+
+    unsafe fn from_abi(abi: Self::Abi) -> Self {
+        use wasm_bindgen::UnwrapThrowExt;
+
+        let s = unsafe { String::from_abi(abi) };
+        Self::from_str(&s).unwrap_throw()
+    }
 }
 
 /// Deserializes an [EncString] from a string.
