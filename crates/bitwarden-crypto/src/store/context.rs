@@ -301,7 +301,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
             return Err(CryptoError::InvalidKeyStoreOperation);
         }
         let key = self.get_signing_key(from)?.to_owned();
-        self.drop_signing_key(from)
+        self.drop_signing_key(from)?;
         #[allow(deprecated)]
         self.set_signing_key(to, key)?;
         Ok(())
