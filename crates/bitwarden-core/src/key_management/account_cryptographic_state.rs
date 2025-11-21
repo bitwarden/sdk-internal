@@ -192,7 +192,7 @@ impl WrappedUserAccountCryptographicState {
 
     /// Set the decrypted account cryptographic state to the context's non-local storage. Note, that
     /// this drops the context and clears the existing local state.
-    pub fn set_to_context(
+    pub(crate) fn set_to_context(
         &self,
         sdk_security_state: &RwLock<Option<SecurityState>>,
         user_key: SymmetricKeyId,
