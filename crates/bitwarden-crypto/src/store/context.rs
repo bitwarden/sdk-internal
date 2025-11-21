@@ -286,7 +286,8 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// Move a signing key from one identifier to another within this context.
     ///
     /// The signing key at `from` will be copied to `to` and the original `from` will be removed.
-    /// This method is useful for renaming or migrating keys between local identifiers.
+    /// This operates on either the local or global store depending on whether the ids are
+    /// local identifiers.
     ///
     /// # Errors
     /// Returns an error if the source key does not exist or updating the destination fails.
