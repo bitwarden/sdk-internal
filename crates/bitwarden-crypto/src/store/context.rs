@@ -165,26 +165,29 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     fn drop_symmetric_key(&mut self, key_id: Ids::Symmetric) -> Result<()> {
-        if let Ok(keys) = self.global_keys.get_mut() {
-            keys.symmetric_keys.remove(key_id);
+        if key_id.is_local() {
+            self.local_symmetric_keys.remove(key_id);
+        } else {
+            self.global_keys.get_mut()?.symmetric_keys.remove(key_id);
         }
-        self.local_symmetric_keys.remove(key_id);
         Ok(())
     }
 
     fn drop_asymmetric_key(&mut self, key_id: Ids::Asymmetric) -> Result<()> {
-        if let Ok(keys) = self.global_keys.get_mut() {
-            keys.asymmetric_keys.remove(key_id);
+        if key_id.is_local() {
+            self.local_asymmetric_keys.remove(key_id);
+        } else {
+            self.global_keys.get_mut()?.asymmetric_keys.remove(key_id);
         }
-        self.local_asymmetric_keys.remove(key_id);
         Ok(())
     }
 
     fn drop_signing_key(&mut self, key_id: Ids::Signing) -> Result<()> {
-        if let Ok(keys) = self.global_keys.get_mut() {
-            keys.signing_keys.remove(key_id);
+        if key_id.is_local() {
+            self.local_signing_keys.remove(key_id);
+        } else {
+            self.global_keys.get_mut()?.signing_keys.remove(key_id);
         }
-        self.local_signing_keys.remove(key_id);
         Ok(())
     }
 
@@ -247,55 +250,61 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(new_key_id)
     }
 
-    /// Move a symmetric key from one identifier to another within the context
+    /// Move a symmetric key from a local identifier to a global identifier within the context
     ///
     /// The key value is copied to `to` and the original identifier `from` is removed.
-    /// This operates on either the local or global store depending on whether the ids are
-    /// local identifiers.
     ///
     /// # Errors
     /// Returns an error if the source key does not exist or if setting the destination key
     /// fails (for example due to read-only global store).
-    pub fn move_symmetric_key(&mut self, from: Ids::Symmetric, to: Ids::Symmetric) -> Result<()> {
+    pub fn persist_symmetric_key(&mut self, from: Ids::Symmetric, to: Ids::Symmetric) -> Result<()> {
+        if !from.is_local() || to.is_local() {
+            return Err(CryptoError::InvalidKeyStoreOperation);
+        }
         let key = self.get_symmetric_key(from)?.to_owned();
+        self.drop_symmetric_key(from)?;
         #[allow(deprecated)]
         self.set_symmetric_key(to, key)?;
-        self.drop_symmetric_key(from)
+        Ok(())
     }
 
-    /// Move an asymmetric key from one identifier to another within this context.
+    /// Move an asymmetric key from a local identifier to a global identifier within the context
     ///
     /// The key value is copied to `to` and the original identifier `from` is removed.
-    /// This operates on either the local or global store depending on whether the ids are
-    /// local identifiers.
     ///
     /// # Errors
     /// Returns an error if the source key does not exist or if setting the destination key
     /// fails (for example due to read-only global store).
-    pub fn move_asymmetric_key(
+    pub fn persist_asymmetric_key(
         &mut self,
         from: Ids::Asymmetric,
         to: Ids::Asymmetric,
     ) -> Result<()> {
+        if !from.is_local() || to.is_local() {
+            return Err(CryptoError::InvalidKeyStoreOperation);
+        }
         let key = self.get_asymmetric_key(from)?.to_owned();
+        self.drop_asymmetric_key(from)?;
         #[allow(deprecated)]
         self.set_asymmetric_key(to, key)?;
-        self.drop_asymmetric_key(from)
+        Ok(())
     }
 
-    /// Move a signing key from one identifier to another within this context.
+    /// Move a signing key from a local identifier to a global identifier within the context
     ///
-    /// The signing key at `from` will be copied to `to` and the original `from` will be removed.
-    /// This operates on either the local or global store depending on whether the ids are
-    /// local identifiers.
+    /// The key value at `from` will be copied to `to` and the original `from` will be removed.
     ///
     /// # Errors
     /// Returns an error if the source key does not exist or updating the destination fails.
-    pub fn move_signing_key(&mut self, from: Ids::Signing, to: Ids::Signing) -> Result<()> {
+    pub fn persist_signing_key(&mut self, from: Ids::Signing, to: Ids::Signing) -> Result<()> {
+        if !from.is_local() || to.is_local() {
+            return Err(CryptoError::InvalidKeyStoreOperation);
+        }
         let key = self.get_signing_key(from)?.to_owned();
+        self.drop_signing_key(from)
         #[allow(deprecated)]
         self.set_signing_key(to, key)?;
-        self.drop_signing_key(from)
+        Ok(())
     }
 
     /// Wrap (encrypt) a signing key with a symmetric key.
@@ -1145,7 +1154,7 @@ mod tests {
 
         // Move the key to a new identifier
         let new_key_id = TestSymmKey::A(1);
-        ctx.move_symmetric_key(key_id, new_key_id).unwrap();
+        ctx.persist_symmetric_key(key_id, new_key_id).unwrap();
 
         // Ensure the old key id is gone and the new `one has the key
         assert!(!ctx.has_symmetric_key(key_id));

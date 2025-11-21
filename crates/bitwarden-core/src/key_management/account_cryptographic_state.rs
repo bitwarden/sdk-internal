@@ -190,8 +190,9 @@ impl WrappedUserAccountCryptographicState {
         ))
     }
 
-    /// Set the decrypted account cryptographic state to the context's non-local storage. Note, that
-    /// this drops the context and clears the existing local state.
+    /// Set the decrypted account cryptographic state to the context's non-local storage.
+    /// This needs a mutable context passed in that already has a user_key set to a local key slot, for which che id is passed in as `user_key`.
+    /// Note, that this function drops the context and clears the existing local state, after persisting it.
     pub(crate) fn set_to_context(
         &self,
         sdk_security_state: &RwLock<Option<SecurityState>>,
@@ -217,8 +218,8 @@ impl WrappedUserAccountCryptographicState {
                     .unwrap_private_key(user_key, private_key)
                     .map_err(|_| AccountCryptographyInitializationError::WrongUserKey)?;
 
-                ctx.move_asymmetric_key(private_key_id, AsymmetricKeyId::UserPrivateKey)?;
-                ctx.move_symmetric_key(user_key, SymmetricKeyId::User)?;
+                ctx.persist_asymmetric_key(private_key_id, AsymmetricKeyId::UserPrivateKey)?;
+                ctx.persist_symmetric_key(user_key, SymmetricKeyId::User)?;
             }
             WrappedUserAccountCryptographicState::V2 {
                 private_key,
@@ -249,9 +250,9 @@ impl WrappedUserAccountCryptographicState {
                     .to_owned()
                     .verify_and_unwrap(&ctx.get_verifying_key(signing_key_id)?)
                     .map_err(|_| AccountCryptographyInitializationError::TamperedData)?;
-                ctx.move_asymmetric_key(private_key_id, AsymmetricKeyId::UserPrivateKey)?;
-                ctx.move_signing_key(signing_key_id, SigningKeyId::UserSigningKey)?;
-                ctx.move_symmetric_key(user_key, SymmetricKeyId::User)?;
+                ctx.persist_asymmetric_key(private_key_id, AsymmetricKeyId::UserPrivateKey)?;
+                ctx.persist_signing_key(signing_key_id, SigningKeyId::UserSigningKey)?;
+                ctx.persist_symmetric_key(user_key, SymmetricKeyId::User)?;
                 // Not manually dropping ctx here would lead to a deadlock, since storing the state
                 // needs to acquire a lock on the inner key store
                 drop(ctx);
