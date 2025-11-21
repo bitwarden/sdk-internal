@@ -113,7 +113,7 @@ impl WrappedUserAccountCryptographicState {
                         verifying_key: Some(
                             B64::from(
                                 verifying_key
-                                    .clone()
+                                    .as_ref()
                                     .map(|vk| vk.to_cose())
                                     .ok_or(AccountCryptographyInitializationError::CorruptData)?,
                             )
