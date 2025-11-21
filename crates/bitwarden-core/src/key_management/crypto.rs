@@ -164,7 +164,7 @@ pub(super) async fn initialize_user_crypto(
         client.internal.init_user_id(user_id)?;
     }
 
-    let key_state = req.account_cryptographic_state.clone();
+    let key_state = req.account_cryptographic_state;
 
     match req.method {
         InitUserCryptoMethod::Password { password, user_key } => {
