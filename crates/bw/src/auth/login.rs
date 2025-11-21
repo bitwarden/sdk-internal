@@ -8,7 +8,7 @@ use bitwarden_core::{
 };
 use color_eyre::eyre::{Result, bail};
 use inquire::{Password, Text};
-use log::{debug, error, info};
+use tracing::{debug, error, info};
 
 use crate::vault::{SyncRequest, sync};
 
@@ -27,10 +27,10 @@ pub(crate) async fn login_password(client: Client, email: Option<String>) -> Res
         .await?;
 
     if let Some(two_factor) = result.two_factor {
-        error!("{two_factor:?}");
+        error!(?two_factor);
 
         let two_factor = if let Some(tf) = two_factor.authenticator {
-            debug!("{tf:?}");
+            debug!(?tf);
 
             let token = Text::new("Authenticator code").prompt()?;
 
@@ -49,7 +49,7 @@ pub(crate) async fn login_password(client: Client, email: Option<String>) -> Res
                 })
                 .await?;
 
-            info!("Two factor code sent to {tf:?}");
+            info!(?tf, "Two factor code sent to");
             let token = Text::new("Two factor code").prompt()?;
 
             Some(TwoFactorRequest {
@@ -70,9 +70,9 @@ pub(crate) async fn login_password(client: Client, email: Option<String>) -> Res
             })
             .await?;
 
-        debug!("{result:?}");
+        debug!(?result);
     } else {
-        debug!("{result:?}");
+        debug!(?result);
     }
 
     let res = sync(
@@ -82,7 +82,7 @@ pub(crate) async fn login_password(client: Client, email: Option<String>) -> Res
         },
     )
     .await?;
-    info!("{res:#?}");
+    info!(?res);
 
     Ok(())
 }
@@ -106,7 +106,7 @@ pub(crate) async fn login_api_key(
         })
         .await?;
 
-    debug!("{result:?}");
+    debug!(?result);
 
     Ok(())
 }

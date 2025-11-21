@@ -26,7 +26,6 @@ bitwarden-vault = { workspace = true }
 chrono = { workspace = true }
 coset = ">=0.3.7, <0.4"
 itertools = ">=0.13.0, <0.15"
-log = { workspace = true }
 p256 = ">=0.13.2, <0.14"
 passkey = { git = "https://github.com/bitwarden/passkey-rs", rev = "3b764633ebc6576c07bdd12ee14d8e5c87b494ed" }
 passkey-client = { git = "https://github.com/bitwarden/passkey-rs", rev = "3b764633ebc6576c07bdd12ee14d8e5c87b494ed", features = [
@@ -36,6 +35,7 @@ reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 

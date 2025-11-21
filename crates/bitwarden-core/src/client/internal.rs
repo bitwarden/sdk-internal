@@ -194,9 +194,9 @@ impl InternalClient {
 
     #[cfg(any(feature = "internal", feature = "secrets"))]
     pub(crate) fn set_login_method(&self, login_method: LoginMethod) {
-        use log::debug;
+        use tracing::debug;
 
-        debug! {"setting login method: {login_method:#?}"}
+        debug!(?login_method, "setting login method.");
         *self.login_method.write().expect("RwLock is not poisoned") = Some(Arc::new(login_method));
     }
 

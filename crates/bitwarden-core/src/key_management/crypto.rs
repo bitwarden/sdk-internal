@@ -672,11 +672,11 @@ pub(super) fn verify_asymmetric_keys(
             private_key_decryptable: true,
             valid_private_key: true,
         },
-        Err(e) => {
-            log::debug!("User asymmetric keys verification: {e}");
+        Err(error) => {
+            tracing::debug!(%error, "User asymmetric keys verification");
 
             VerifyAsymmetricKeysResponse {
-                private_key_decryptable: !matches!(e, VerifyError::DecryptFailed(_)),
+                private_key_decryptable: !matches!(error, VerifyError::DecryptFailed(_)),
                 valid_private_key: false,
             }
         }

@@ -4,7 +4,6 @@ use bitwarden_core::Client;
 use bitwarden_crypto::CryptoError;
 use bitwarden_vault::{CipherError, CipherView, EncryptionContext};
 use itertools::Itertools;
-use log::error;
 use passkey::{
     authenticator::{Authenticator, DiscoverabilitySupport, StoreInfo, UIHint, UserCheck},
     types::{
@@ -13,6 +12,7 @@ use passkey::{
     },
 };
 use thiserror::Error;
+use tracing::error;
 
 use super::{
     AAGUID, CheckUserOptions, CipherViewContainer, Fido2CredentialStore, Fido2UserInterface,
@@ -419,8 +419,8 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             }
         }
 
-        inner(self, ids, rp_id).await.map_err(|e| {
-            error!("Error finding credentials: {e:?}");
+        inner(self, ids, rp_id).await.map_err(|error| {
+            error!(%error, "Error finding credentials.");
             VendorError::try_from(0xF0)
                 .expect("Valid vendor error code")
                 .into()
@@ -501,8 +501,8 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             Ok(())
         }
 
-        inner(self, cred, user, rp, options).await.map_err(|e| {
-            error!("Error saving credential: {e:?}");
+        inner(self, cred, user, rp, options).await.map_err(|error| {
+            error!(%error, "Error saving credential.");
             VendorError::try_from(0xF1)
                 .expect("Valid vendor error code")
                 .into()
@@ -579,8 +579,8 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             Ok(())
         }
 
-        inner(self, cred).await.map_err(|e| {
-            error!("Error updating credential: {e:?}");
+        inner(self, cred).await.map_err(|error| {
+            error!(%error, "Error updating credential.");
             VendorError::try_from(0xF2)
                 .expect("Valid vendor error code")
                 .into()
@@ -644,8 +644,8 @@ impl passkey::authenticator::UserValidationMethod for UserValidationMethodImpl<'
             }
         };
 
-        let result = result.map_err(|e| {
-            error!("Error checking user: {e:?}");
+        let result = result.map_err(|error| {
+            error!(%error, "Error checking user.");
             Ctap2Error::UserVerificationInvalid
         })?;
 

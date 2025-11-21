@@ -9,9 +9,9 @@ use bitwarden_crypto::{
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
 use bitwarden_error::bitwarden_error;
-#[cfg(feature = "internal")]
-use log::warn;
 use thiserror::Error;
+#[cfg(feature = "internal")]
+use tracing::warn;
 
 #[cfg(any(feature = "secrets", feature = "internal"))]
 use crate::OrganizationId;

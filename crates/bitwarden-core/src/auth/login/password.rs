@@ -1,7 +1,7 @@
-#[cfg(feature = "internal")]
-use log::info;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "internal")]
+use tracing::info;
 
 use crate::auth::{
     api::response::IdentityTokenResponse, login::response::two_factor::TwoFactorProviders,

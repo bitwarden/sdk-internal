@@ -1,5 +1,5 @@
-use log::debug;
 use serde::{Deserialize, Serialize};
+use tracing::debug;
 use uuid::Uuid;
 
 use crate::{
@@ -23,7 +23,7 @@ impl AccessTokenRequest {
             client_secret: client_secret.to_string(),
             grant_type: "client_credentials".to_string(),
         };
-        debug!("initializing {obj:?}");
+        debug!(?obj, "initializing");
         obj
     }
 

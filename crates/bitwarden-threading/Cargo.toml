@@ -23,11 +23,11 @@ wasm = [
 [dependencies]
 bitwarden-error = { workspace = true }
 js-sys = { workspace = true, optional = true }
-log = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 tokio = { features = ["sync", "time", "rt"], workspace = true }
 tokio-util = { version = "0.7.15" }
+tracing = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 
 [target.'cfg(target_arch="wasm32")'.dependencies]

@@ -5,7 +5,9 @@ use bitwarden_cli::install_color_eyre;
 use clap::{CommandFactory, Parser};
 use clap_complete::Shell;
 use color_eyre::eyre::Result;
-use env_logger::Target;
+use tracing_subscriber::{
+    EnvFilter, prelude::__tracing_subscriber_SubscriberExt as _, util::SubscriberInitExt as _,
+};
 
 use crate::{command::*, render::CommandResult};
 
@@ -19,8 +21,24 @@ mod vault;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
-        .target(Target::Stderr)
+    // the log level hierarchy is determined by:
+    //    - if RUST_LOG is detected at runtime
+    //    - if RUST_LOG is provided at compile time
+    //    - default to INFO
+    let filter = EnvFilter::builder()
+        .with_default_directive(
+            option_env!("RUST_LOG")
+                .unwrap_or("info")
+                .parse()
+                .expect("should provide valid log level at compile time."),
+        )
+        // parse directives from the RUST_LOG environment variable,
+        // overriding the default directive for matching targets.
+        .from_env_lossy();
+
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
+        .with(filter)
         .init();
 
     let cli = Cli::parse();
