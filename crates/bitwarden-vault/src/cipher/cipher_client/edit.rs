@@ -517,11 +517,12 @@ mod tests {
     #[tokio::test]
     async fn test_edit_cipher() {
         let store: KeyStore<KeyIds> = KeyStore::default();
-        let mut ctx = store.context_mut();
-        let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
-            .unwrap();
-        drop(ctx);
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+                .unwrap();
+        }
 
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
 
@@ -619,11 +620,12 @@ mod tests {
     #[tokio::test]
     async fn test_edit_cipher_http_error() {
         let store: KeyStore<KeyIds> = KeyStore::default();
-        let mut ctx = store.context_mut();
-        let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
-            .unwrap();
-        drop(ctx);
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+                .unwrap();
+        }
 
         let cipher_id: CipherId = "5faa9684-c793-4a2d-8a12-b33900187097".parse().unwrap();
 
