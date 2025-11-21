@@ -152,7 +152,7 @@ impl From<bitwarden_api_api::models::CollectionType> for CollectionType {
 #[cfg(test)]
 mod tests {
     use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
-    use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricCryptoKey};
+    use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricKeyAlgorithm};
 
     use super::*;
 
@@ -162,13 +162,14 @@ mod tests {
     // Helper function to create a test key store with a symmetric key
     fn create_test_key_store() -> KeyStore<KeyIds> {
         let store = KeyStore::<KeyIds>::default();
-        let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let org_id = ORGANIZATION_ID.parse().unwrap();
 
-        #[allow(deprecated)]
+        let local_key_id = store
+            .context_mut()
+            .make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
         store
             .context_mut()
-            .set_symmetric_key(SymmetricKeyId::Organization(org_id), key)
+            .persist_symmetric_key(local_key_id, SymmetricKeyId::Organization(org_id))
             .unwrap();
 
         store

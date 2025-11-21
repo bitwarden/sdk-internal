@@ -170,20 +170,21 @@ impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptableWithContentType<Ids, Key, O
 mod tests {
     use crate::{
         AsymmetricCryptoKey, ContentFormat, Decryptable, KeyStore, PrimitiveEncryptable,
-        PublicKeyEncryptionAlgorithm, SymmetricCryptoKey,
+        PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm,
         traits::{encryptable::PrimitiveEncryptableWithContentType, tests::*},
     };
 
     fn test_store() -> KeyStore<TestIds> {
         let store = KeyStore::<TestIds>::default();
 
-        let symm_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let asymm_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
-        #[allow(deprecated)]
+        let local_key_id = store
+            .context_mut()
+            .make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
         store
             .context_mut()
-            .set_symmetric_key(TestSymmKey::A(0), symm_key.clone())
+            .persist_symmetric_key(local_key_id, TestSymmKey::A(0))
             .unwrap();
         #[allow(deprecated)]
         store

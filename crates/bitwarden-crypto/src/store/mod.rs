@@ -380,7 +380,7 @@ fn batch_chunk_size(len: usize) -> usize {
 #[cfg(test)]
 pub(crate) mod tests {
     use crate::{
-        EncString, PrimitiveEncryptable, SymmetricCryptoKey,
+        EncString, PrimitiveEncryptable, SymmetricKeyAlgorithm,
         store::{KeyStore, KeyStoreContext},
         traits::tests::{TestIds, TestSymmKey},
     };
@@ -426,13 +426,12 @@ pub(crate) mod tests {
 
         // Create a bunch of random keys
         for n in 0..15 {
-            #[allow(deprecated)]
+            let local_key_id = store
+                .context_mut()
+                .make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
             store
                 .context_mut()
-                .set_symmetric_key(
-                    TestSymmKey::A(n),
-                    SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-                )
+                .persist_symmetric_key(local_key_id, TestSymmKey::A(n))
                 .unwrap();
         }
 

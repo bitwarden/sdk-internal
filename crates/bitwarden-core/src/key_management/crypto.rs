@@ -829,7 +829,7 @@ pub(crate) fn get_v2_rotated_account_keys(
 mod tests {
     use std::num::NonZeroU32;
 
-    use bitwarden_crypto::RsaKeyPair;
+    use bitwarden_crypto::{RsaKeyPair, SymmetricKeyAlgorithm};
 
     use super::*;
     use crate::Client;
@@ -1454,15 +1454,16 @@ mod tests {
     #[test]
     fn test_get_v2_rotated_account_keys_non_v2_user() {
         let client = Client::new(None);
-        #[allow(deprecated)]
+        let local_key_id = client
+            .internal
+            .get_key_store()
+            .context_mut()
+            .make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
         client
             .internal
             .get_key_store()
             .context_mut()
-            .set_symmetric_key(
-                SymmetricKeyId::User,
-                SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-            )
+            .persist_symmetric_key(local_key_id, SymmetricKeyId::User)
             .unwrap();
 
         let result = get_v2_rotated_account_keys(&client);

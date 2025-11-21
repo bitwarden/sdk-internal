@@ -855,10 +855,15 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CompositeEncryptable, CoseKeyBytes, CoseSerializable, CryptoError, Decryptable, KeyDecryptable, LocalId, Pkcs8PrivateKeyBytes, SignatureAlgorithm, SigningKey, SigningNamespace, SymmetricCryptoKey, SymmetricKeyAlgorithm, store::{
+        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CompositeEncryptable, CoseKeyBytes,
+        CoseSerializable, CryptoError, Decryptable, KeyDecryptable, Pkcs8PrivateKeyBytes,
+        SignatureAlgorithm, SigningKey, SigningNamespace, SymmetricCryptoKey,
+        SymmetricKeyAlgorithm,
+        store::{
             KeyStore,
             tests::{Data, DataView},
-        }, traits::tests::{TestIds, TestSigningKey, TestSymmKey}
+        },
+        traits::tests::{TestIds, TestSigningKey, TestSymmKey},
     };
 
     #[test]
@@ -880,11 +885,12 @@ mod tests {
 
         // Generate and insert a key
         let key_a0_id = TestSymmKey::A(0);
-        let key_a0 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-
+        let local_key_id = store
+            .context_mut()
+            .make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
         store
             .context_mut()
-            .set_symmetric_key(TestSymmKey::A(0), key_a0.clone())
+            .persist_symmetric_key(local_key_id, TestSymmKey::A(0))
             .unwrap();
 
         assert!(store.context().has_symmetric_key(key_a0_id));
@@ -899,23 +905,16 @@ mod tests {
     #[test]
     fn test_key_encryption() {
         let store: KeyStore<TestIds> = KeyStore::default();
-        let local = LocalId::new();
 
         let mut ctx = store.context();
 
         // Generate and insert a key
-        let key_1_id = TestSymmKey::C(local);
-        let key_1 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-
-        ctx.set_symmetric_key(key_1_id, key_1.clone()).unwrap();
+        let key_1_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
 
         assert!(ctx.has_symmetric_key(key_1_id));
 
         // Generate and insert a new key
-        let key_2_id = TestSymmKey::C(local);
-        let key_2 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-
-        ctx.set_symmetric_key(key_2_id, key_2.clone()).unwrap();
+        let key_2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
 
         assert!(ctx.has_symmetric_key(key_2_id));
 
@@ -945,12 +944,12 @@ mod tests {
 
         // Aes256 CBC HMAC keys
         let key_aes_1_id = TestSymmKey::A(1);
-        let key_aes_1 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        ctx.set_symmetric_key(key_aes_1_id, key_aes_1.clone())
+        let local_key_1_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        ctx.persist_symmetric_key(local_key_1_id, key_aes_1_id)
             .unwrap();
         let key_aes_2_id = TestSymmKey::A(2);
-        let key_aes_2 = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        ctx.set_symmetric_key(key_aes_2_id, key_aes_2.clone())
+        let local_key_2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        ctx.persist_symmetric_key(local_key_2_id, key_aes_2_id)
             .unwrap();
 
         // XChaCha20 Poly1305 keys
