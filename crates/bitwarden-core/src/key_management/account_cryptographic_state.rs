@@ -209,7 +209,7 @@ impl WrappedUserAccountCryptographicState {
         match self {
             WrappedUserAccountCryptographicState::V1 { private_key } => {
                 info!("Initializing V1 account cryptographic state");
-                if ctx.get_algorithm(user_key)? != SymmetricKeyAlgorithm::Aes256CbcHmac {
+                if ctx.get_symmetric_key_algorithm(user_key)? != SymmetricKeyAlgorithm::Aes256CbcHmac {
                     return Err(AccountCryptographyInitializationError::WrongUserKeyType);
                 }
 
@@ -227,7 +227,7 @@ impl WrappedUserAccountCryptographicState {
                 security_state,
             } => {
                 info!("Initializing V2 account cryptographic state");
-                if ctx.get_algorithm(user_key)? != SymmetricKeyAlgorithm::XChaCha20Poly1305 {
+                if ctx.get_symmetric_key_algorithm(user_key)? != SymmetricKeyAlgorithm::XChaCha20Poly1305 {
                     return Err(AccountCryptographyInitializationError::WrongUserKeyType);
                 }
 

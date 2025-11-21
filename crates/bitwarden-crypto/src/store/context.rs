@@ -676,7 +676,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Get the type of a symmetric key stored in the context.
-    pub fn get_algorithm(&self, key_id: Ids::Symmetric) -> Result<SymmetricKeyAlgorithm> {
+    pub fn get_symmetric_key_algorithm(&self, key_id: Ids::Symmetric) -> Result<SymmetricKeyAlgorithm> {
         let key = self.get_symmetric_key(key_id)?;
         match key {
             // Note this is dropped soon
