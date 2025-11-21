@@ -5,8 +5,7 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{
-    CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext,
-    PrimitiveEncryptable,
+    CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext, PrimitiveEncryptable,
 };
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
