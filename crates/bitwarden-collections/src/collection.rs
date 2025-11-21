@@ -164,13 +164,14 @@ mod tests {
         let store = KeyStore::<KeyIds>::default();
         let org_id = ORGANIZATION_ID.parse().unwrap();
 
-        let local_key_id = store
-            .context_mut()
+        let mut ctx = store.context_mut();
+
+        let local_key_id = ctx
             .make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        store
-            .context_mut()
+        ctx
             .persist_symmetric_key(local_key_id, SymmetricKeyId::Organization(org_id))
             .unwrap();
+        drop(ctx);
 
         store
     }
