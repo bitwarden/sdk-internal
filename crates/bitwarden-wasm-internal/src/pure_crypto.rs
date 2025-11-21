@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use bitwarden_core::key_management::KeyIds;
-#[allow(deprecated)]
+#[expect(deprecated)]
 use bitwarden_crypto::dangerous_derive_kdf_material;
 use bitwarden_crypto::{
     AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, CoseKeyBytes,
@@ -159,7 +159,7 @@ impl PureCrypto {
         // Note: The order of arguments is different here, and should probably be refactored
         let unwrapped = context
             .unwrap_symmetric_key(wrapping_key, &EncString::from_str(wrapped_key.as_str())?)?;
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         let key = context.dangerous_get_symmetric_key(unwrapped)?;
         Ok(key.to_encoded().to_vec())
     }
@@ -301,7 +301,7 @@ impl PureCrypto {
         salt: &[u8],
         kdf: Kdf,
     ) -> Result<Vec<u8>, CryptoError> {
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         dangerous_derive_kdf_material(password, salt, &kdf)
     }
 

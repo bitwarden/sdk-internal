@@ -24,7 +24,7 @@ pub struct Card {
     pub number: Option<EncString>,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -48,7 +48,7 @@ pub struct CardListView {
     pub brand: Option<String>,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Serialize, Deserialize)]
 pub enum CardBrand {
     Visa,

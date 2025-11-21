@@ -8,7 +8,7 @@ use crate::{OrganizationId, auth::AccessToken};
 
 #[derive(Debug)]
 pub(crate) enum LoginMethod {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     User(UserLoginMethod),
     // TODO: Organizations supports api key
     // Organization(OrganizationLoginMethod),
@@ -16,7 +16,7 @@ pub(crate) enum LoginMethod {
     ServiceAccount(ServiceAccountLoginMethod),
 }
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[derive(Debug)]
 pub(crate) enum UserLoginMethod {
     Username {

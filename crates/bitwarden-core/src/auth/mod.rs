@@ -11,18 +11,18 @@ mod access_token;
 mod api;
 #[cfg(feature = "internal")]
 pub(crate) use api::response::user_decryption_options_response::UserDecryptionOptionsResponseModel;
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod auth_client;
 mod jwt_token;
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod login;
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[cfg(feature = "internal")]
 pub mod password;
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[cfg(feature = "internal")]
 pub mod pin;
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod renew;
 pub use access_token::{AccessToken, AccessTokenInvalidError};
 pub use jwt_token::*;
@@ -49,7 +49,7 @@ mod key_connector;
 pub use key_connector::KeyConnectorResponse;
 
 /// Error for authentication related operations
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum AuthValidateError {

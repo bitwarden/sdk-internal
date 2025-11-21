@@ -45,7 +45,7 @@ extern "C" {
 }
 
 #[wasm_bindgen_test]
-#[allow(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
+#[expect(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
 pub async fn test_get_cipher() {
     console_error_panic_hook::set_once();
 

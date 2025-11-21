@@ -14,7 +14,7 @@ use crate::{
 };
 // This module is a workaround to avoid deprecated warnings that come from the ZeroizeOnDrop
 // macro expansion
-#[allow(deprecated)]
+#[expect(deprecated)]
 mod internal {
     #[cfg(feature = "wasm")]
     #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
@@ -52,9 +52,9 @@ mod internal {
     /// Where:
     /// - `[type]`: is a digit number representing the variant.
     /// - `[data]`: is the encrypted data.
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     #[derive(Clone, zeroize::ZeroizeOnDrop)]
-    #[allow(unused, non_camel_case_types)]
+    #[expect(unused, non_camel_case_types)]
     pub enum UnsignedSharedKey {
         /// 3
         Rsa2048_OaepSha256_B64 { data: Vec<u8> },
@@ -92,13 +92,13 @@ impl FromStr for UnsignedSharedKey {
                 let data = from_b64_vec(parts[0])?;
                 Ok(UnsignedSharedKey::Rsa2048_OaepSha1_B64 { data })
             }
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             ("5", 2) => {
                 let data = from_b64_vec(parts[0])?;
                 let mac: Vec<u8> = from_b64_vec(parts[1])?;
                 Ok(UnsignedSharedKey::Rsa2048_OaepSha256_HmacSha256_B64 { data, mac })
             }
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             ("6", 2) => {
                 let data = from_b64_vec(parts[0])?;
                 let mac: Vec<u8> = from_b64_vec(parts[1])?;
@@ -119,11 +119,11 @@ impl Display for UnsignedSharedKey {
         let parts: Vec<&[u8]> = match self {
             UnsignedSharedKey::Rsa2048_OaepSha256_B64 { data } => vec![data],
             UnsignedSharedKey::Rsa2048_OaepSha1_B64 { data } => vec![data],
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             UnsignedSharedKey::Rsa2048_OaepSha256_HmacSha256_B64 { data, mac } => {
                 vec![data, mac]
             }
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             UnsignedSharedKey::Rsa2048_OaepSha1_HmacSha256_B64 { data, mac } => {
                 vec![data, mac]
             }
@@ -183,9 +183,9 @@ impl UnsignedSharedKey {
         match self {
             UnsignedSharedKey::Rsa2048_OaepSha256_B64 { .. } => 3,
             UnsignedSharedKey::Rsa2048_OaepSha1_B64 { .. } => 4,
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             UnsignedSharedKey::Rsa2048_OaepSha256_HmacSha256_B64 { .. } => 5,
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             UnsignedSharedKey::Rsa2048_OaepSha1_HmacSha256_B64 { .. } => 6,
         }
     }
@@ -209,11 +209,11 @@ impl UnsignedSharedKey {
                     Rsa2048_OaepSha1_B64 { data } => {
                         rsa_private_key.decrypt(Oaep::new::<sha1::Sha1>(), data)
                     }
-                    #[allow(deprecated)]
+                    #[expect(deprecated)]
                     Rsa2048_OaepSha256_HmacSha256_B64 { data, .. } => {
                         rsa_private_key.decrypt(Oaep::new::<sha2::Sha256>(), data)
                     }
-                    #[allow(deprecated)]
+                    #[expect(deprecated)]
                     Rsa2048_OaepSha1_HmacSha256_B64 { data, .. } => {
                         rsa_private_key.decrypt(Oaep::new::<sha1::Sha1>(), data)
                     }

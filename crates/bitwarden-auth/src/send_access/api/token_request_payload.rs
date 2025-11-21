@@ -14,11 +14,11 @@ use crate::{
 pub(crate) enum SendAccessTokenPayloadCredentials {
     // Uses inline variant syntax for these as we don't need to reference them as independent
     // types elsewhere.
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     Password { password_hash_b64: String },
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     Email { email: String },
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     EmailOtp { email: String, otp: String },
     /// Represents an anonymous request, which does not require credentials.
     Anonymous,

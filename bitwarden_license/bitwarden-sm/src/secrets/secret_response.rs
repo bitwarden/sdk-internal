@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::error::SecretsManagerError;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SecretResponse {
@@ -86,7 +86,7 @@ impl SecretResponse {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SecretsResponse {

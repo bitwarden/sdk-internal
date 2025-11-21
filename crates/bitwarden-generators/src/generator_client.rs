@@ -8,7 +8,7 @@ use crate::{
     username::username,
 };
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct GeneratorClient {
     client: Client,
@@ -102,7 +102,7 @@ impl GeneratorClient {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub trait GeneratorClientsExt {
     fn generator(&self) -> GeneratorClient;
 }

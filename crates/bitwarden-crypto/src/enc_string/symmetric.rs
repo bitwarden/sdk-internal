@@ -53,9 +53,9 @@ export type EncString = Tagged<string, "EncString">;
 /// - `[data]`: is the encrypted data.
 /// - `[mac]`: (optional) is the MAC used to validate the integrity of the data.
 /// - `[cose_encrypt0_bytes]`: is the COSE Encrypt0 message, serialized to bytes
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Clone, zeroize::ZeroizeOnDrop, PartialEq)]
-#[allow(unused, non_camel_case_types)]
+#[expect(unused, non_camel_case_types)]
 pub enum EncString {
     /// 0
     Aes256Cbc_B64 {
@@ -115,7 +115,7 @@ impl EncString {
         s.map(|s| s.parse()).transpose()
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn from_buffer(buf: &[u8]) -> Result<Self> {
         if buf.is_empty() {
             return Err(EncStringParseError::NoType.into());
@@ -149,7 +149,7 @@ impl EncString {
         }
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn to_buffer(&self) -> Result<Vec<u8>> {
         let mut buf;
 
@@ -182,7 +182,7 @@ impl EncString {
 // from serializing to a string. For Aes256_Cbc, or Aes256_Cbc_Hmac, `ToString` and `Debug`
 // are the same. For `Cose_Encrypt0`, `Debug` will print the decoded COSE message, while
 // `ToString` will print the Cose_Encrypt0 bytes, encoded in base64.
-#[allow(clippy::to_string_trait_impl)]
+#[expect(clippy::to_string_trait_impl)]
 impl ToString for EncString {
     fn to_string(&self) -> String {
         fn fmt_parts(enc_type: u8, parts: &[&[u8]]) -> String {

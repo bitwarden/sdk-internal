@@ -1,4 +1,4 @@
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod response;
 
 #[cfg(feature = "internal")]
@@ -31,7 +31,7 @@ mod access_token;
 #[cfg(feature = "secrets")]
 pub use access_token::*;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, thiserror::Error)]
 pub enum LoginError {
     #[error(transparent)]

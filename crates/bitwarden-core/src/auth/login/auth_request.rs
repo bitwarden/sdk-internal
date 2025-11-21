@@ -17,7 +17,7 @@ use crate::{
     require,
 };
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub struct NewAuthRequestResponse {
     pub fingerprint: String,
     email: String,

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 /// Provides user decryption options used to unlock user's vault.
 /// Currently, only master password unlock is supported.
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub(crate) struct UserDecryptionOptionsResponseModel {
     /// Contains information needed to unlock user's vault with master password.

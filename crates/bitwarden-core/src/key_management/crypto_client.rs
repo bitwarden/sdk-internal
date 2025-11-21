@@ -132,7 +132,7 @@ impl CryptoClient {
     ) -> Result<Vec<u8>, CryptoClientError> {
         let mut ctx = self.client.internal.get_key_store().context_mut();
         let key_slot = envelope.unseal(pin.as_str(), &mut ctx)?;
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         let key = ctx.dangerous_get_symmetric_key(key_slot)?;
         Ok(key.to_encoded().to_vec())
     }

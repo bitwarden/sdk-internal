@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use bitwarden_encoding::{B64, FromStrVisitor, NotB64EncodedError};
 use ciborium::value::Integer;
-#[allow(unused_imports)]
+#[expect(unused_imports)]
 use coset::{CborSerializable, ProtectedHeader, RegisteredLabel, iana::CoapContentFormat};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use thiserror::Error;

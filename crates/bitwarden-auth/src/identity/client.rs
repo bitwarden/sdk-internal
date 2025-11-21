@@ -6,7 +6,7 @@ use wasm_bindgen::prelude::*;
 #[derive(Clone)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct IdentityClient {
-    #[allow(dead_code)] // TODO: Remove when methods using client are implemented
+    #[expect(dead_code)] // TODO: Remove when methods using client are implemented
     pub(crate) client: Client,
 }
 

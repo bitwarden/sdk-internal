@@ -39,11 +39,11 @@ pub struct SendEmailOtpCredentials {
 // {"password_hash_b64": "value"} instead of {"type": "password", "password_hash_b64": "value"}.
 #[serde(untagged)]
 pub enum SendAccessCredentials {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     Password(SendPasswordCredentials),
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     Email(SendEmailCredentials),
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     EmailOtp(SendEmailOtpCredentials),
 }
 

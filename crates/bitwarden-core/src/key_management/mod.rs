@@ -71,7 +71,7 @@ key_ids! {
 pub fn create_test_crypto_with_user_key(key: SymmetricCryptoKey) -> KeyStore<KeyIds> {
     let store = KeyStore::default();
 
-    #[allow(deprecated)]
+    #[expect(deprecated)]
     store
         .context_mut()
         .set_symmetric_key(SymmetricKeyId::User, key.clone())
@@ -91,13 +91,13 @@ pub fn create_test_crypto_with_user_and_org_key(
 ) -> KeyStore<KeyIds> {
     let store = KeyStore::default();
 
-    #[allow(deprecated)]
+    #[expect(deprecated)]
     store
         .context_mut()
         .set_symmetric_key(SymmetricKeyId::User, key.clone())
         .expect("Mutable context");
 
-    #[allow(deprecated)]
+    #[expect(deprecated)]
     store
         .context_mut()
         .set_symmetric_key(SymmetricKeyId::Organization(org_id), org_key.clone())

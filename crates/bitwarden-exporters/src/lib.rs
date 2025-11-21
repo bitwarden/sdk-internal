@@ -26,7 +26,7 @@ mod error;
 mod export;
 pub use error::ExportError;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(
     feature = "wasm",
@@ -43,7 +43,7 @@ pub enum ExportFormat {
 ///
 /// These are mostly duplicated from the `bitwarden` vault models to facilitate a stable export API
 /// that is not tied to the internal vault models. We may revisit this in the future.
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub struct Folder {
     pub id: Uuid,
     pub name: String,
@@ -53,7 +53,7 @@ pub struct Folder {
 ///
 /// These are mostly duplicated from the `bitwarden` vault models to facilitate a stable export API
 /// that is not tied to the internal vault models. We may revisit this in the future.
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Clone)]
 pub struct Cipher {
     pub id: Uuid,
@@ -78,7 +78,7 @@ pub struct Cipher {
 ///
 /// These are mostly duplicated from the `bitwarden` vault models to facilitate a stable export API
 /// that is not tied to the internal vault models. We may revisit this in the future.
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub struct ImportingCipher {
@@ -278,7 +278,7 @@ impl From<LoginUri> for bitwarden_vault::LoginUriView {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Field {
     pub name: Option<String>,
@@ -287,7 +287,7 @@ pub struct Field {
     pub linked_id: Option<u32>,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub enum CipherType {
@@ -310,7 +310,7 @@ impl fmt::Display for CipherType {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub struct Login {
@@ -322,14 +322,14 @@ pub struct Login {
     pub fido2_credentials: Option<Vec<Fido2Credential>>,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LoginUri {
     pub uri: Option<String>,
     pub r#match: Option<u8>,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub struct Fido2Credential {
@@ -368,7 +368,7 @@ impl From<Fido2Credential> for Fido2CredentialFullView {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub struct Card {
@@ -380,21 +380,21 @@ pub struct Card {
     pub number: Option<String>,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub struct SecureNote {
     pub r#type: SecureNoteType,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub enum SecureNoteType {
     Generic = 0,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct Identity {
     pub title: Option<String>,
@@ -417,7 +417,7 @@ pub struct Identity {
     pub license_number: Option<String>,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub struct SshKey {

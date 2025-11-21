@@ -201,7 +201,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 
         let new_key_id = Ids::Symmetric::new_local(LocalId::new());
 
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         self.set_symmetric_key(new_key_id, key)?;
 
         // Returning the new key identifier for convenience
@@ -277,7 +277,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         let decapsulated_key =
             encapsulated_shared_key.decapsulate_key_unsigned(decapsulation_key)?;
 
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         self.set_symmetric_key(new_key_id, decapsulated_key)?;
 
         // Returning the new key identifier for convenience
@@ -330,7 +330,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         key_id: Ids::Symmetric,
     ) -> Result<Ids::Symmetric> {
         let key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         self.set_symmetric_key(key_id, key)?;
         Ok(key_id)
     }
@@ -359,7 +359,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         info: Option<&str>,
     ) -> Result<Ids::Symmetric> {
         let key_id = Ids::Symmetric::new_local(LocalId::new());
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         self.set_symmetric_key(
             key_id,
             SymmetricCryptoKey::Aes256CbcHmacKey(derive_shareable_key(secret, name, info)),
@@ -368,7 +368,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn dangerous_get_symmetric_key(
         &self,
         key_id: Ids::Symmetric,
@@ -377,7 +377,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn dangerous_get_asymmetric_key(
         &self,
         key_id: Ids::Asymmetric,
@@ -431,7 +431,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn set_symmetric_key(
         &mut self,
         key_id: Ids::Symmetric,
@@ -464,7 +464,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     #[deprecated(note = "This function should ideally never be used outside this crate")]
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn set_asymmetric_key(
         &mut self,
         key_id: Ids::Asymmetric,
@@ -574,7 +574,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// Signs the given data using the specified signing key, for the given
     /// [crate::SigningNamespace] and returns the signature and the serialized message. See
     /// [crate::SigningKey::sign_detached]
-    #[allow(unused)]
+    #[expect(unused)]
     pub(crate) fn sign_detached<Message: Serialize>(
         &self,
         key: Ids::Signing,
@@ -599,7 +599,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 }
 
 #[cfg(test)]
-#[allow(deprecated)]
+#[expect(deprecated)]
 mod tests {
     use serde::{Deserialize, Serialize};
 

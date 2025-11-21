@@ -34,7 +34,7 @@ pub enum GetSelectedCredentialError {
     Crypto(#[from] CryptoError),
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum MakeCredentialError {
@@ -50,7 +50,7 @@ pub enum MakeCredentialError {
     Other(String),
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum GetAssertionError {
@@ -68,7 +68,7 @@ pub enum GetAssertionError {
     Other(String),
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum SilentlyDiscoverCredentialsError {
@@ -82,7 +82,7 @@ pub enum SilentlyDiscoverCredentialsError {
     FromCipherView(#[from] Fido2CredentialAutofillViewError),
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum CredentialsForAutofillError {
@@ -96,7 +96,7 @@ pub enum CredentialsForAutofillError {
     FromCipherView(#[from] Fido2CredentialAutofillViewError),
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub struct Fido2Authenticator<'a> {
     pub client: &'a Client,
     pub user_interface: &'a dyn Fido2UserInterface,
@@ -107,7 +107,7 @@ pub struct Fido2Authenticator<'a> {
 }
 
 impl<'a> Fido2Authenticator<'a> {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn new(
         client: &'a Client,
         user_interface: &'a dyn Fido2UserInterface,
@@ -122,7 +122,7 @@ impl<'a> Fido2Authenticator<'a> {
         }
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn make_credential(
         &mut self,
         request: MakeCredentialRequest,
@@ -190,7 +190,7 @@ impl<'a> Fido2Authenticator<'a> {
         })
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn get_assertion(
         &mut self,
         request: GetAssertionRequest,
@@ -251,7 +251,7 @@ impl<'a> Fido2Authenticator<'a> {
         })
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn silently_discover_credentials(
         &mut self,
         rp_id: String,

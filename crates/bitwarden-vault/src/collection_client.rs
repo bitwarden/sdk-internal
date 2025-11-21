@@ -14,7 +14,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::DecryptError;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(Clone)]
 pub struct CollectionsClient {
@@ -23,14 +23,14 @@ pub struct CollectionsClient {
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CollectionsClient {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn decrypt(&self, collection: Collection) -> Result<CollectionView, DecryptError> {
         let key_store = self.client.internal.get_key_store();
         let view = key_store.decrypt(&collection)?;
         Ok(view)
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn decrypt_list(
         &self,
         collections: Vec<Collection>,

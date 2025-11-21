@@ -16,7 +16,7 @@ use crate::{error::CollectionsParseError, tree::TreeItem};
 
 uuid_newtype!(pub CollectionId);
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -33,7 +33,7 @@ pub struct Collection {
     pub r#type: CollectionType,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -66,7 +66,7 @@ pub enum CollectionType {
     DefaultUserCollection = 1,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 impl Decryptable<KeyIds, SymmetricKeyId, CollectionView> for Collection {
     fn decrypt(
         &self,
@@ -92,7 +92,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CollectionView> for Collection {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 impl TryFrom<CollectionDetailsResponseModel> for Collection {
     type Error = CollectionsParseError;
 
@@ -111,14 +111,14 @@ impl TryFrom<CollectionDetailsResponseModel> for Collection {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 impl IdentifyKey<SymmetricKeyId> for Collection {
     fn key_identifier(&self) -> SymmetricKeyId {
         SymmetricKeyId::Organization(self.organization_id)
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 impl TreeItem for CollectionView {
     fn id(&self) -> Uuid {
         self.id.map(|id| id.0).unwrap_or_default()
@@ -165,7 +165,7 @@ mod tests {
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let org_id = ORGANIZATION_ID.parse().unwrap();
 
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         store
             .context_mut()
             .set_symmetric_key(SymmetricKeyId::Organization(org_id), key)

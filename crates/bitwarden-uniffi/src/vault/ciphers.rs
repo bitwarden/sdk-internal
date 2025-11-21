@@ -6,7 +6,7 @@ use bitwarden_vault::{
 
 use crate::Result;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(uniffi::Object)]
 pub struct CiphersClient(pub(crate) bitwarden_vault::CiphersClient);
 

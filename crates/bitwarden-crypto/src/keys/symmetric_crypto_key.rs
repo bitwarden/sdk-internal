@@ -121,9 +121,9 @@ impl PartialEq for XChaCha20Poly1305Key {
 /// A symmetric encryption key. Used to encrypt and decrypt [`EncString`](crate::EncString)
 #[derive(ZeroizeOnDrop, Clone)]
 pub enum SymmetricCryptoKey {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     Aes256CbcKey(Aes256CbcKey),
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     Aes256CbcHmacKey(Aes256CbcHmacKey),
     /// Data encrypted by XChaCha20Poly1305Key keys has type
     /// [`Cose_Encrypt0_B64`](crate::EncString::Cose_Encrypt0_B64)
@@ -263,7 +263,7 @@ impl SymmetricCryptoKey {
         Ok(key)
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn to_base64(&self) -> B64 {
         B64::from(self.to_encoded().as_ref())
     }
@@ -449,7 +449,7 @@ impl From<EncodedSymmetricKey> for Vec<u8> {
 }
 impl EncodedSymmetricKey {
     /// Returns the content format of the encoded symmetric key.
-    #[allow(private_interfaces)]
+    #[expect(private_interfaces)]
     pub fn content_format(&self) -> ContentFormat {
         match self {
             EncodedSymmetricKey::BitwardenLegacyKey(_) => ContentFormat::BitwardenLegacyKey,

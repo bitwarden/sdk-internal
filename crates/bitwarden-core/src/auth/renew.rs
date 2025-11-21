@@ -105,7 +105,7 @@ async fn renew_token_sdk_managed(
                     {
                         let key_store = client.get_key_store();
                         let ctx = key_store.context();
-                        #[allow(deprecated)]
+                        #[expect(deprecated)]
                         if let Ok(enc_key) = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User) {
                             let state =
                                 ClientState::new(r.access_token.clone(), enc_key.to_base64());

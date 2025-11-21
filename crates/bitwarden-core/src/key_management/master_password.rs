@@ -13,7 +13,7 @@ use wasm_bindgen::prelude::*;
 use crate::{MissingFieldError, require};
 
 /// Error for master password related operations.
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
 pub enum MasterPasswordError {
@@ -110,7 +110,7 @@ fn kdf_parse_nonzero_u32(value: impl TryInto<u32>) -> Result<NonZeroU32, MasterP
 }
 
 /// Represents the data required to authenticate with the master password.
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]

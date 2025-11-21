@@ -51,7 +51,7 @@ impl From<&InitUserCryptoRequest> for UserKeyState {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub struct ApiConfigurations {
     pub identity_client: bitwarden_api_identity::apis::ApiClient,
     pub api_client: bitwarden_api_api::apis::ApiClient,
@@ -118,7 +118,7 @@ pub trait ClientManagedTokens: std::fmt::Debug + Send + Sync {
 pub(crate) struct SdkManagedTokens {
     // These two fields are always written to, but they are not read
     // from the secrets manager SDK.
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     access_token: Option<String>,
     pub(crate) expires_on: Option<i64>,
 
@@ -126,7 +126,7 @@ pub(crate) struct SdkManagedTokens {
     pub(crate) refresh_token: Option<String>,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug)]
 pub struct InternalClient {
     pub(crate) user_id: OnceLock<UserId>,
@@ -142,7 +142,7 @@ pub struct InternalClient {
     pub(crate) __api_configurations: RwLock<Arc<ApiConfigurations>>,
 
     /// Reqwest client useable for external integrations like email forwarders, HIBP.
-    #[allow(unused)]
+    #[expect(unused)]
     pub(crate) external_client: reqwest::Client,
 
     pub(super) key_store: KeyStore<KeyIds>,
@@ -175,7 +175,7 @@ impl InternalClient {
             .clone()
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn get_access_token_organization(&self) -> Option<OrganizationId> {
         match self
             .login_method
@@ -218,7 +218,7 @@ impl InternalClient {
             .set_tokens(token);
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     #[cfg(feature = "internal")]
     pub fn get_kdf(&self) -> Result<Kdf, NotAuthenticatedError> {
         match self
@@ -234,7 +234,7 @@ impl InternalClient {
         }
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn get_api_configurations(&self) -> Arc<ApiConfigurations> {
         // At the moment we ignore the error result from the token renewal, if it fails,
         // the token will end up expiring and the next operation is going to fail anyway.
@@ -245,13 +245,13 @@ impl InternalClient {
             .clone()
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     #[cfg(feature = "internal")]
     pub fn get_http_client(&self) -> &reqwest::Client {
         &self.external_client
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn get_key_store(&self) -> &KeyStore<KeyIds> {
         &self.key_store
     }
@@ -268,7 +268,7 @@ impl InternalClient {
             .map_or(1, |state| state.version())
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn init_user_id(&self, user_id: UserId) -> Result<(), UserIdAlreadySetError> {
         let set_uuid = self.user_id.get_or_init(|| user_id);
 
@@ -282,7 +282,7 @@ impl InternalClient {
         }
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn get_user_id(&self) -> Option<UserId> {
         self.user_id.get().copied()
     }
@@ -367,7 +367,7 @@ impl InternalClient {
 
             // Allowing deprecated here, until a refactor to pass the Local key ids to
             // `initialized_user_crypto_decrypted_key`
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             ctx.dangerous_get_symmetric_key(decrypted_user_key_id)?
                 .clone()
         };
@@ -383,7 +383,7 @@ impl InternalClient {
         EncryptionSettings::new_single_org_key(organization_id, key, &self.key_store);
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     #[cfg(feature = "internal")]
     pub fn initialize_org_crypto(
         &self,

@@ -4,7 +4,7 @@ use thiserror::Error;
 use crate::CipherError;
 
 /// Generic error type for vault encryption errors.
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum EncryptError {
@@ -15,7 +15,7 @@ pub enum EncryptError {
 }
 
 /// Generic error type for decryption errors
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum DecryptError {
@@ -23,7 +23,7 @@ pub enum DecryptError {
     Crypto(#[from] bitwarden_crypto::CryptoError),
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 pub enum VaultParseError {
     #[error(transparent)]

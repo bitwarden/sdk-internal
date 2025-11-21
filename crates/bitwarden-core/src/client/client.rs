@@ -42,7 +42,7 @@ impl Client {
         let settings = settings_input.unwrap_or_default();
 
         fn new_client_builder() -> reqwest::ClientBuilder {
-            #[allow(unused_mut)]
+            #[expect(unused_mut)]
             let mut client_builder = reqwest::Client::builder();
 
             #[cfg(not(target_arch = "wasm32"))]

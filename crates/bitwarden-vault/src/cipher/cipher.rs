@@ -44,7 +44,7 @@ use crate::{
 
 uuid_newtype!(pub CipherId);
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum CipherError {
@@ -87,7 +87,7 @@ pub(super) trait CipherKind {
     fn get_copyable_fields(&self, cipher: Option<&Cipher>) -> Vec<CopyableCipherFields>;
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
@@ -100,7 +100,7 @@ pub enum CipherType {
     SshKey = 5,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Clone, Copy, Default, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
@@ -111,7 +111,7 @@ pub enum CipherRepromptType {
     Password = 1,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -265,7 +265,7 @@ impl From<EncryptionContext> for CipherRequestModel {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -310,7 +310,7 @@ pub struct Cipher {
 
 bitwarden_state::register_repository_item!(Cipher, "Cipher");
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -352,7 +352,7 @@ pub struct CipherView {
     pub archived_date: Option<DateTime<Utc>>,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
@@ -383,7 +383,7 @@ pub enum CopyableCipherFields {
     SecureNotes,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -620,7 +620,7 @@ impl Cipher {
     /// This replaces the values provided by the API in the `login`, `secure_note`, `card`,
     /// `identity`, and `ssh_key` fields, relying instead on client-side parsing of the
     /// `data` field.
-    #[allow(unused)] // Will be used by future changes to support cipher versioning.
+    #[expect(unused)] // Will be used by future changes to support cipher versioning.
     pub(crate) fn populate_cipher_types(&mut self) -> Result<(), VaultParseError> {
         let data = self
             .data
@@ -638,7 +638,7 @@ impl Cipher {
     }
 }
 impl CipherView {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn generate_cipher_key(
         &mut self,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -655,14 +655,14 @@ impl CipherView {
         Ok(())
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn generate_checksums(&mut self) {
         if let Some(l) = self.login.as_mut() {
             l.generate_checksums();
         }
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn remove_invalid_checksums(&mut self) {
         if let Some(uris) = self.login.as_mut().and_then(|l| l.uris.as_mut()) {
             uris.retain(|u| u.is_checksum_valid());
@@ -681,7 +681,7 @@ impl CipherView {
         Ok(())
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn decrypt_fido2_credentials(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -762,7 +762,7 @@ impl CipherView {
         Ok(())
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn set_new_fido2_credentials(
         &mut self,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -778,7 +778,7 @@ impl CipherView {
         Ok(())
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn get_fido2_credentials(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -793,7 +793,7 @@ impl CipherView {
         Ok(res)
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn decrypt_fido2_private_key(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -1443,7 +1443,7 @@ mod tests {
             let attachment_key_enc = ctx
                 .wrap_symmetric_key(SymmetricKeyId::User, attachment_key)
                 .unwrap();
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             let attachment_key_val = ctx
                 .dangerous_get_symmetric_key(attachment_key)
                 .unwrap()
@@ -1480,7 +1480,7 @@ mod tests {
         let new_attachment_key_id = ctx
             .unwrap_symmetric_key(org_key, &new_attachment_key)
             .unwrap();
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         let new_attachment_key_dec = ctx
             .dangerous_get_symmetric_key(new_attachment_key_id)
             .unwrap();
@@ -1544,9 +1544,9 @@ mod tests {
         let new_cipher_key_dec = ctx
             .unwrap_symmetric_key(org_key, &wrapped_new_cipher_key)
             .unwrap();
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         let new_cipher_key_dec = ctx.dangerous_get_symmetric_key(new_cipher_key_dec).unwrap();
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         let cipher_key_val = ctx.dangerous_get_symmetric_key(cipher_key).unwrap();
 
         assert_eq!(new_cipher_key_dec, cipher_key_val);

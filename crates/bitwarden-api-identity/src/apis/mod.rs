@@ -93,7 +93,7 @@ pub fn parse_deep_object(prefix: &str, value: &serde_json::Value) -> Vec<(String
 
 /// Internal use only
 /// A content type supported by this client.
-#[allow(dead_code)]
+#[expect(dead_code)]
 enum ContentType {
     Json,
     Text,
@@ -120,7 +120,7 @@ pub mod configuration;
 
 use std::sync::Arc;
 
-#[allow(clippy::large_enum_variant, private_interfaces)]
+#[expect(clippy::large_enum_variant, private_interfaces)]
 pub enum ApiClient {
     Real(ApiClientReal),
     #[cfg(feature = "mockall")]

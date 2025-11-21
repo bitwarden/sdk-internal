@@ -1,7 +1,7 @@
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum CollectionDecryptError {
@@ -9,7 +9,7 @@ pub enum CollectionDecryptError {
     Crypto(#[from] bitwarden_crypto::CryptoError),
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 pub enum CollectionsParseError {
     #[error(transparent)]

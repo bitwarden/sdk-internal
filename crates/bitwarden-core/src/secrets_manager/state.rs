@@ -24,7 +24,7 @@ pub(crate) struct ClientState {
     pub(crate) encryption_key: B64,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, thiserror::Error)]
 pub enum StateFileError {
     #[error(transparent)]

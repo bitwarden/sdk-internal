@@ -11,13 +11,13 @@ use crate::{
     traits::{CommunicationBackend, CommunicationBackendReceiver},
 };
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 #[bitwarden_error(basic)]
 #[error("Failed to deserialize incoming message: {0}")]
 pub struct DeserializeError(String);
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 #[bitwarden_error(basic)]
 #[error("Incoming message channel failed: {0}")]

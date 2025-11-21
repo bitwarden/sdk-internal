@@ -180,12 +180,12 @@ mod tests {
         let symm_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let asymm_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         store
             .context_mut()
             .set_symmetric_key(TestSymmKey::A(0), symm_key.clone())
             .unwrap();
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         store
             .context_mut()
             .set_asymmetric_key(TestAsymmKey::A(0), asymm_key.clone())

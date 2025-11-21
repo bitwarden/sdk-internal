@@ -52,7 +52,7 @@ impl Default for ClientSettings {
     }
 }
 
-#[allow(non_camel_case_types, missing_docs)]
+#[expect(non_camel_case_types, missing_docs)]
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, JsonSchema)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(

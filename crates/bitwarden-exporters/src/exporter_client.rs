@@ -9,7 +9,7 @@ use crate::{
     export::{export_cxf, export_organization_vault, export_vault, import_cxf},
 };
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct ExporterClient {
     client: Client,
@@ -21,7 +21,7 @@ impl ExporterClient {
         Self { client }
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn export_vault(
         &self,
         folders: Vec<Folder>,
@@ -31,7 +31,7 @@ impl ExporterClient {
         export_vault(&self.client, folders, ciphers, format)
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn export_organization_vault(
         &self,
         collections: Vec<Collection>,
@@ -66,7 +66,7 @@ impl ExporterClient {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub trait ExporterClientExt {
     fn exporters(&self) -> ExporterClient;
 }

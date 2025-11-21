@@ -1,2 +1,2 @@
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod two_factor;

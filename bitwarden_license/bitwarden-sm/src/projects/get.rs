@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::{error::SecretsManagerError, projects::ProjectResponse};
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProjectGetRequest {

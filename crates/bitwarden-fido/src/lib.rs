@@ -49,7 +49,7 @@ const AAGUID: Aaguid = Aaguid([
     0xd5, 0x48, 0x82, 0x6e, 0x79, 0xb4, 0xdb, 0x40, 0xa3, 0xd8, 0x11, 0x11, 0x6f, 0x7e, 0x83, 0x49,
 ]);
 
-#[allow(dead_code, missing_docs)]
+#[expect(dead_code, missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SelectedCredential {
     cipher: CipherView,
@@ -74,7 +74,7 @@ impl CipherViewContainer {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 pub enum Fido2Error {
     #[error(transparent)]
@@ -129,7 +129,7 @@ fn try_from_credential_full_view(value: Fido2CredentialFullView) -> Result<Passk
     })
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 pub enum FillCredentialError {
     #[error(transparent)]
@@ -138,7 +138,7 @@ pub enum FillCredentialError {
     CoseKeyToPkcs8(#[from] CoseKeyToPkcs8Error),
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub fn fill_with_credential(
     view: &Fido2CredentialView,
     value: Passkey,
@@ -219,12 +219,12 @@ pub(crate) fn try_from_credential_full(
     })
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 #[error("Input should be a 16 byte array")]
 pub struct InvalidInputLengthError;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub fn guid_bytes_to_string(source: &[u8]) -> Result<String, InvalidInputLengthError> {
     if source.len() != 16 {
         return Err(InvalidInputLengthError);
@@ -232,12 +232,12 @@ pub fn guid_bytes_to_string(source: &[u8]) -> Result<String, InvalidInputLengthE
     Ok(uuid::Uuid::from_bytes(source.try_into().expect("Invalid length")).to_string())
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 #[error("Invalid GUID")]
 pub struct InvalidGuidError;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub fn string_to_guid_bytes(source: &str) -> Result<Vec<u8>, InvalidGuidError> {
     if source.starts_with("b64.") {
         let bytes =
@@ -251,7 +251,7 @@ pub fn string_to_guid_bytes(source: &str) -> Result<Vec<u8>, InvalidGuidError> {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 #[error("Unknown enum value")]
 pub struct UnknownEnumError;

@@ -8,7 +8,7 @@ use crate::{
 
 /// Represents data required to decrypt user's vault.
 /// Currently, this is only used for master password unlock.
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct UserDecryptionData {

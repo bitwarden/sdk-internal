@@ -2,7 +2,7 @@ use bitwarden_vault::{PasswordHistory, PasswordHistoryView};
 
 use crate::Result;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(uniffi::Object)]
 pub struct PasswordHistoryClient(pub(crate) bitwarden_vault::PasswordHistoryClient);
 

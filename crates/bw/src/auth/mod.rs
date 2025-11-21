@@ -77,7 +77,7 @@ pub struct RegisterArgs {
 }
 
 impl RegisterArgs {
-    #[allow(unused_variables, clippy::unused_async)]
+    #[expect(unused_variables, clippy::unused_async)]
     pub async fn run(self) -> CommandResult {
         let settings = self.server.map(|server| ClientSettings {
             api_url: format!("{server}/api"),

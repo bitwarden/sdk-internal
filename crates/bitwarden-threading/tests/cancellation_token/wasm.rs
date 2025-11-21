@@ -11,7 +11,7 @@ mod to_cancellation_token {
     use super::*;
 
     #[wasm_bindgen_test]
-    #[allow(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
+    #[expect(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
     #[cfg(target_arch = "wasm32")]
     async fn rust_cancel_does_not_propagate_to_js() {
         console_error_panic_hook::set_once();
@@ -31,7 +31,7 @@ mod to_cancellation_token {
     }
 
     #[wasm_bindgen_test]
-    #[allow(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
+    #[expect(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
     #[cfg(target_arch = "wasm32")]
     async fn js_abort_propagate_to_rust() {
         console_error_panic_hook::set_once();

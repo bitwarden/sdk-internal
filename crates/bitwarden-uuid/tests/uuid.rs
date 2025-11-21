@@ -44,7 +44,7 @@ fn test_deserialize() {
 }
 
 #[wasm_bindgen_test::wasm_bindgen_test]
-#[allow(dead_code)]
+#[expect(dead_code)]
 fn test_wasm_serialize() {
     let id: TestId = "d4a722ff-ce51-47f1-ba42-c2216f547851"
         .parse()

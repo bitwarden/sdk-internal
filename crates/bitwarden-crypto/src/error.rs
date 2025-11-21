@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::fingerprint::FingerprintError;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum CryptoError {

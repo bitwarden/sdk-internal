@@ -23,7 +23,7 @@ mod edit;
 mod get;
 mod share_cipher;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CiphersClient {
     pub(crate) client: Client,
@@ -31,7 +31,7 @@ pub struct CiphersClient {
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn encrypt(&self, mut cipher_view: CipherView) -> Result<EncryptionContext, EncryptError> {
         let user_id = self
             .client
@@ -109,14 +109,14 @@ impl CiphersClient {
         })
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn decrypt(&self, cipher: Cipher) -> Result<CipherView, DecryptError> {
         let key_store = self.client.internal.get_key_store();
         let cipher_view = key_store.decrypt(&cipher)?;
         Ok(cipher_view)
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn decrypt_list(&self, ciphers: Vec<Cipher>) -> Result<Vec<CipherListView>, DecryptError> {
         let key_store = self.client.internal.get_key_store();
         let cipher_views = key_store.decrypt_list(&ciphers)?;
@@ -135,7 +135,7 @@ impl CiphersClient {
         }
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn decrypt_fido2_credentials(
         &self,
         cipher_view: CipherView,
@@ -163,7 +163,7 @@ impl CiphersClient {
         Ok(cipher_view)
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn move_to_organization(
         &self,
         mut cipher_view: CipherView,
@@ -175,7 +175,7 @@ impl CiphersClient {
     }
 
     #[cfg(feature = "wasm")]
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn decrypt_fido2_private_key(
         &self,
         cipher_view: CipherView,

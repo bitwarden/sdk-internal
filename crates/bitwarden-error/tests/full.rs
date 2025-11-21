@@ -3,7 +3,7 @@
 #[cfg(feature = "wasm")]
 use wasm_bindgen_test::*;
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
 #[wasm_bindgen_test]
 #[cfg(feature = "wasm")]

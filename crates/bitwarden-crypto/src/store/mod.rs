@@ -75,7 +75,7 @@ pub use key_rotation::*;
 /// // Initialize the store and insert a test key
 /// let store: KeyStore<Ids> = KeyStore::default();
 ///
-/// #[allow(deprecated)]
+/// #[expect(deprecated)]
 /// store.context_mut().set_symmetric_key(SymmKeyId::User, SymmetricCryptoKey::make_aes256_cbc_hmac_key());
 ///
 /// // Define some data that needs to be encrypted
@@ -426,7 +426,7 @@ pub(crate) mod tests {
 
         // Create a bunch of random keys
         for n in 0..15 {
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             store
                 .context_mut()
                 .set_symmetric_key(

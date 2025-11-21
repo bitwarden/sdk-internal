@@ -64,7 +64,7 @@ pub enum SendType {
     File = 1,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -91,7 +91,7 @@ pub struct Send {
     pub expiration_date: Option<DateTime<Utc>>,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -125,7 +125,7 @@ pub struct SendView {
     pub expiration_date: Option<DateTime<Utc>>,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -144,7 +144,7 @@ pub struct SendListView {
 }
 
 impl Send {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn get_key(
         ctx: &mut KeyStoreContext<KeyIds>,
         send_key: &EncString,
@@ -427,7 +427,7 @@ mod tests {
 
         // Get the send key
         let send_key = Send::get_key(&mut ctx, &send_key, SymmetricKeyId::User).unwrap();
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         let send_key = ctx.dangerous_get_symmetric_key(send_key).unwrap();
         let send_key_b64 = send_key.to_base64();
         assert_eq!(

@@ -13,7 +13,7 @@ use super::{
 };
 use crate::types::InvalidOriginError;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum Fido2ClientError {
@@ -34,13 +34,13 @@ impl From<WebauthnError> for Fido2ClientError {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub struct Fido2Client<'a> {
     pub authenticator: Fido2Authenticator<'a>,
 }
 
 impl Fido2Client<'_> {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn register(
         &mut self,
         origin: Origin,
@@ -95,7 +95,7 @@ impl Fido2Client<'_> {
         })
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn authenticate(
         &mut self,
         origin: Origin,

@@ -7,7 +7,7 @@ use crate::{
     TotpClient, collection_client::CollectionsClient,
 };
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Clone)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct VaultClient {
@@ -72,7 +72,7 @@ impl VaultClient {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub trait VaultClientExt {
     fn vault(&self) -> VaultClient;
 }

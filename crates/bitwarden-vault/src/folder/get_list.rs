@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use crate::{Folder, FolderId, FolderView, ItemNotFoundError};
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum GetFolderError {

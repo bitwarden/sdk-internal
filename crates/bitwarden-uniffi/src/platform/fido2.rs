@@ -160,7 +160,7 @@ impl ClientFido2Client {
 // Note that uniffi doesn't support external traits for now it seems, so we have to duplicate them
 // here.
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[derive(uniffi::Record)]
 pub struct CheckUserResult {
     user_present: bool,
@@ -176,7 +176,7 @@ impl From<CheckUserResult> for bitwarden_fido::CheckUserResult {
     }
 }
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[derive(uniffi::Record)]
 pub struct CheckUserAndPickCredentialForCreationResult {
     cipher: CipherViewWrapper,

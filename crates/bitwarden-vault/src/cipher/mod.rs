@@ -1,7 +1,7 @@
 pub(crate) mod attachment;
 pub(crate) mod attachment_client;
 pub(crate) mod card;
-#[allow(clippy::module_inception)]
+#[expect(clippy::module_inception)]
 pub(crate) mod cipher;
 pub(crate) mod cipher_client;
 pub(crate) mod cipher_permissions;

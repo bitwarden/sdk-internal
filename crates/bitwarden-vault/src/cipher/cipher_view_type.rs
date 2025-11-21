@@ -9,7 +9,7 @@ use crate::{CardView, IdentityView, LoginView, SecureNoteView, SshKeyView};
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-#[allow(missing_docs, clippy::large_enum_variant)]
+#[expect(missing_docs, clippy::large_enum_variant)]
 pub enum CipherViewType {
     Login(LoginView),
     Card(CardView),
@@ -31,7 +31,7 @@ impl CipherViewType {
     }
 }
 
-#[allow(unused)]
+#[expect(unused)]
 impl CipherViewType {
     pub(crate) fn as_login_view_mut(&mut self) -> Option<&mut LoginView> {
         match self {

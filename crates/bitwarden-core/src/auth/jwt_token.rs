@@ -25,7 +25,7 @@ pub struct JwtToken {
 }
 
 /// Error when parsing JWT tokens.
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 pub enum JwtTokenParseError {
     #[error("JWT token parse error: {0}")]

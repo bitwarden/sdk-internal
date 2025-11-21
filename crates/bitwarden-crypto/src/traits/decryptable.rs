@@ -4,7 +4,7 @@ use crate::{CryptoError, EncString, KeyId, KeyIds, store::KeyStoreContext};
 /// Implementations should generally consist of calling [Decryptable::decrypt] for all the fields of
 /// the type.
 pub trait Decryptable<Ids: KeyIds, Key: KeyId, Output> {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     fn decrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: Key) -> Result<Output, CryptoError>;
 }
 
@@ -64,7 +64,7 @@ mod tests {
 
         let key = SymmetricCryptoKey::try_from("sJnO8rVi0dTwND43n0T9x7665s8mVUYNAaJ4nm7gx1iia1I7947URL60nwfIHaf9QJePO4VkNN0oT9jh4iC6aA==".to_string()).unwrap();
 
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         store
             .context_mut()
             .set_symmetric_key(TestSymmKey::A(0), key.clone())

@@ -12,18 +12,18 @@ use crate::{
 /// Aliases to maintain backward compatibility
 pub type ClientProjects = ProjectsClient;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub struct ProjectsClient {
     pub client: Client,
 }
 
 impl ProjectsClient {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn new(client: Client) -> Self {
         Self { client }
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn get(
         &self,
         input: &ProjectGetRequest,
@@ -31,7 +31,7 @@ impl ProjectsClient {
         get_project(&self.client, input).await
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn create(
         &self,
         input: &ProjectCreateRequest,
@@ -39,7 +39,7 @@ impl ProjectsClient {
         create_project(&self.client, input).await
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn list(
         &self,
         input: &ProjectsListRequest,
@@ -47,7 +47,7 @@ impl ProjectsClient {
         list_projects(&self.client, input).await
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn update(
         &self,
         input: &ProjectPutRequest,
@@ -55,7 +55,7 @@ impl ProjectsClient {
         update_project(&self.client, input).await
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn delete(
         &self,
         input: ProjectsDeleteRequest,
@@ -66,7 +66,7 @@ impl ProjectsClient {
 
 /// This trait is for backward compatibility
 pub trait ClientProjectsExt {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     fn projects(&self) -> ClientProjects;
 }
 
@@ -76,9 +76,9 @@ impl ClientProjectsExt for Client {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub trait ProjectsClientExt {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     fn projects(&self) -> ProjectsClient;
 }
 

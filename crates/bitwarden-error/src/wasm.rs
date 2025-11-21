@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 extern "C" {
     #[wasm_bindgen(js_name = Error)]

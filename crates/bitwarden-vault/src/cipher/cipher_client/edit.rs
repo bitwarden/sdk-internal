@@ -25,7 +25,7 @@ use crate::{
     cipher_view_type::CipherViewType, password_history::MAX_PASSWORD_HISTORY_ENTRIES,
 };
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum EditCipherError {
@@ -517,7 +517,7 @@ mod tests {
     #[tokio::test]
     async fn test_edit_cipher() {
         let store: KeyStore<KeyIds> = KeyStore::default();
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeyId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
@@ -619,7 +619,7 @@ mod tests {
     #[tokio::test]
     async fn test_edit_cipher_http_error() {
         let store: KeyStore<KeyIds> = KeyStore::default();
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeyId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),

@@ -31,10 +31,10 @@ pub(crate) fn satisfies_policy(
     true
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub struct MasterPasswordPolicyOptions {
     min_complexity: u8,
     min_length: u8,

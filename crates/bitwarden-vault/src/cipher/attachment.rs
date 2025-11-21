@@ -11,7 +11,7 @@ use tsify::Tsify;
 use super::Cipher;
 use crate::VaultParseError;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -35,7 +35,7 @@ impl From<Attachment> for CipherAttachmentModel {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -88,7 +88,7 @@ impl AttachmentView {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -97,7 +97,7 @@ pub struct AttachmentEncryptResult {
     pub contents: Vec<u8>,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub struct AttachmentFile {
     pub cipher: Cipher,
     pub attachment: AttachmentView,
@@ -109,7 +109,7 @@ pub struct AttachmentFile {
     pub contents: EncString,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub struct AttachmentFileView<'a> {
     pub cipher: Cipher,
     pub attachment: AttachmentView,
@@ -215,7 +215,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, AttachmentView> for Attachment {
         let decrypted_key = if let Some(attachment_key) = &self.key {
             let content_key_id = ctx.unwrap_symmetric_key(key, attachment_key)?;
 
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             let actual_key = ctx.dangerous_get_symmetric_key(content_key_id)?;
 
             Some(actual_key.to_base64())

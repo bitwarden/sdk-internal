@@ -7,16 +7,16 @@ use tsify::Tsify;
 #[serde(rename_all = "snake_case")]
 /// Invalid request errors - typically due to missing parameters.
 pub enum SendAccessTokenInvalidRequestError {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     SendIdRequired,
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     PasswordHashB64Required,
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     EmailRequired,
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     EmailAndOtpRequiredOtpSent,
 
     /// Fallback for unknown variants for forward compatibility
@@ -29,19 +29,19 @@ pub enum SendAccessTokenInvalidRequestError {
 #[serde(rename_all = "snake_case")]
 /// Invalid grant errors - typically due to invalid credentials.
 pub enum SendAccessTokenInvalidGrantError {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     SendIdInvalid,
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     PasswordHashB64Invalid,
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     EmailInvalid,
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     OtpInvalid,
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     OtpGenerationFailed,
 
     /// Fallback for unknown variants for forward compatibility

@@ -8,7 +8,7 @@ use bitwarden_vault::collection_client::AncestorMap;
 
 use crate::Result;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(uniffi::Object)]
 pub struct CollectionsClient(pub(crate) bitwarden_vault::collection_client::CollectionsClient);
 

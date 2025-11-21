@@ -7,13 +7,13 @@ use crate::{
     Fido2CredentialStore, Fido2UserInterface,
 };
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Clone)]
 pub struct ClientFido2 {
     pub(crate) client: Client,
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum DecryptFido2AutofillCredentialsError {
@@ -22,12 +22,12 @@ pub enum DecryptFido2AutofillCredentialsError {
 }
 
 impl ClientFido2 {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn new(client: Client) -> Self {
         Self { client }
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn create_authenticator<'a>(
         &'a self,
         user_interface: &'a dyn Fido2UserInterface,
@@ -36,7 +36,7 @@ impl ClientFido2 {
         Fido2Authenticator::new(&self.client, user_interface, credential_store)
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn create_client<'a>(
         &'a self,
         user_interface: &'a dyn Fido2UserInterface,
@@ -47,7 +47,7 @@ impl ClientFido2 {
         }
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn decrypt_fido2_autofill_credentials(
         &self,
         cipher_view: CipherView,
@@ -61,7 +61,7 @@ impl ClientFido2 {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub trait ClientFido2Ext {
     fn fido2(&self) -> ClientFido2;
 }

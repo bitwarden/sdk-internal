@@ -25,7 +25,7 @@ pub use device_key::{DeviceKey, TrustDeviceResponse};
 mod pin_key;
 pub use pin_key::PinKey;
 mod kdf;
-#[allow(deprecated)]
+#[expect(deprecated)]
 pub use kdf::dangerous_derive_kdf_material;
 mod key_id;
 pub use kdf::{

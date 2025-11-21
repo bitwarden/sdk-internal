@@ -31,7 +31,7 @@ pub struct FingerprintResponse {
 }
 
 /// Errors that can occur when computing a fingerprint.
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error))]
 pub enum FingerprintError {
@@ -47,7 +47,7 @@ pub(crate) fn generate_fingerprint(input: &FingerprintRequest) -> Result<String,
 }
 
 /// Errors that can occur when computing a fingerprint.
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum UserFingerprintError {
@@ -65,7 +65,7 @@ pub(crate) fn generate_user_fingerprint(
     let ctx = key_store.context();
     // FIXME: [PM-18110] This should be removed once the key store can handle public keys and
     // fingerprints
-    #[allow(deprecated)]
+    #[expect(deprecated)]
     let private_key = ctx.dangerous_get_asymmetric_key(AsymmetricKeyId::UserPrivateKey)?;
 
     let public_key = private_key.to_public_key().to_der()?;

@@ -73,7 +73,7 @@ pub(crate) fn auth_request_decrypt_master_key(
     Ok(master_key.decrypt_user_key(user_key)?)
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
 pub enum ApproveAuthRequestError {
@@ -94,7 +94,7 @@ pub(crate) fn approve_auth_request(
     let ctx = key_store.context();
 
     // FIXME: [PM-18110] This should be removed once the key store can handle public key encryption
-    #[allow(deprecated)]
+    #[expect(deprecated)]
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     Ok(UnsignedSharedKey::encapsulate_key_unsigned(
@@ -281,7 +281,7 @@ mod tests {
         let existing_key = {
             let key_store = existing_device.internal.get_key_store();
             let ctx = key_store.context();
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
@@ -290,7 +290,7 @@ mod tests {
         let new_key = {
             let key_store = new_device.internal.get_key_store();
             let ctx = key_store.context();
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()

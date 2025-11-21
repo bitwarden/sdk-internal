@@ -7,7 +7,7 @@ use bitwarden_encoding::B64;
 
 use crate::error::Result;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(uniffi::Object)]
 pub struct CryptoClient(pub(crate) bitwarden_core::key_management::CryptoClient);
 

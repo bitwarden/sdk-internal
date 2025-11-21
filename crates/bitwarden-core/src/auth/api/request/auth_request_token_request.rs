@@ -27,7 +27,7 @@ pub(crate) struct AuthRequestTokenRequest {
     access_code: String,
 }
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 impl AuthRequestTokenRequest {
     pub(crate) fn new(
         email: &str,

@@ -38,7 +38,7 @@ pub struct JsIpcClientSubscription {
 
 #[wasm_bindgen(js_class = IpcClientSubscription)]
 impl JsIpcClientSubscription {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn receive(
         &mut self,
         abort_signal: Option<AbortSignal>,
@@ -84,18 +84,18 @@ impl JsIpcClient {
         }
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn start(&self) {
         self.client.start().await
     }
 
     #[wasm_bindgen(js_name = isRunning)]
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn is_running(&self) -> bool {
         self.client.is_running().await
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn send(&self, message: OutgoingMessage) -> Result<(), JsError> {
         self.client
             .send(message)
@@ -103,7 +103,7 @@ impl JsIpcClient {
             .map_err(|e| JsError::new(&e))
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn subscribe(&self) -> Result<JsIpcClientSubscription, SubscribeError> {
         let subscription = self.client.subscribe(None).await?;
         Ok(JsIpcClientSubscription { subscription })

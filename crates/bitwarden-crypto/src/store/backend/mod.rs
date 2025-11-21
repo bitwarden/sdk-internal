@@ -25,7 +25,7 @@ pub trait StoreBackend<Key: KeyId>: ZeroizeOnDrop + Send + Sync {
     /// Retrieves a key from the store.
     fn get(&self, key_id: Key) -> Option<&Key::KeyValue>;
 
-    #[allow(unused)]
+    #[expect(unused)]
     /// Removes a key from the store.
     fn remove(&mut self, key_id: Key);
 

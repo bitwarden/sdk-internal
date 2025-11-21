@@ -50,7 +50,7 @@ mod private {
 /// which can still be mis-used, but has to be misused explicitly.
 pub trait ConstContentFormat: private::Sealed {
     /// Returns the content format as a `ContentFormat` enum.
-    #[allow(private_interfaces)]
+    #[expect(private_interfaces)]
     fn content_format() -> ContentFormat;
 }
 
@@ -122,7 +122,7 @@ pub(crate) type Utf8Bytes = Bytes<Utf8ContentFormat>;
 pub struct OctetStreamContentFormat;
 impl private::Sealed for OctetStreamContentFormat {}
 impl ConstContentFormat for OctetStreamContentFormat {
-    #[allow(private_interfaces)]
+    #[expect(private_interfaces)]
     fn content_format() -> ContentFormat {
         ContentFormat::OctetStream
     }
@@ -136,7 +136,7 @@ pub type OctetStreamBytes = Bytes<OctetStreamContentFormat>;
 pub struct Pkcs8PrivateKeyDerContentFormat;
 impl private::Sealed for Pkcs8PrivateKeyDerContentFormat {}
 impl ConstContentFormat for Pkcs8PrivateKeyDerContentFormat {
-    #[allow(private_interfaces)]
+    #[expect(private_interfaces)]
     fn content_format() -> ContentFormat {
         ContentFormat::Pkcs8PrivateKey
     }
@@ -150,7 +150,7 @@ pub type Pkcs8PrivateKeyBytes = Bytes<Pkcs8PrivateKeyDerContentFormat>;
 pub struct SpkiPublicKeyDerContentFormat;
 impl private::Sealed for SpkiPublicKeyDerContentFormat {}
 impl ConstContentFormat for SpkiPublicKeyDerContentFormat {
-    #[allow(private_interfaces)]
+    #[expect(private_interfaces)]
     fn content_format() -> ContentFormat {
         ContentFormat::SPKIPublicKeyDer
     }
@@ -171,7 +171,7 @@ pub trait FromB64ContentFormat {}
 pub struct CoseKeyContentFormat;
 impl private::Sealed for CoseKeyContentFormat {}
 impl ConstContentFormat for CoseKeyContentFormat {
-    #[allow(private_interfaces)]
+    #[expect(private_interfaces)]
     fn content_format() -> ContentFormat {
         ContentFormat::CoseKey
     }
@@ -187,7 +187,7 @@ pub type CoseKeyBytes = Bytes<CoseKeyContentFormat>;
 pub struct BitwardenLegacyKeyContentFormat;
 impl private::Sealed for BitwardenLegacyKeyContentFormat {}
 impl ConstContentFormat for BitwardenLegacyKeyContentFormat {
-    #[allow(private_interfaces)]
+    #[expect(private_interfaces)]
     fn content_format() -> ContentFormat {
         ContentFormat::BitwardenLegacyKey
     }
@@ -203,7 +203,7 @@ pub type BitwardenLegacyKeyBytes = Bytes<BitwardenLegacyKeyContentFormat>;
 pub struct CoseSign1ContentFormat;
 impl private::Sealed for CoseSign1ContentFormat {}
 impl ConstContentFormat for CoseSign1ContentFormat {
-    #[allow(private_interfaces)]
+    #[expect(private_interfaces)]
     fn content_format() -> ContentFormat {
         ContentFormat::CoseSign1
     }
@@ -219,7 +219,7 @@ pub type CoseSign1Bytes = Bytes<CoseSign1ContentFormat>;
 pub struct CborContentFormat;
 impl private::Sealed for CborContentFormat {}
 impl ConstContentFormat for CborContentFormat {
-    #[allow(private_interfaces)]
+    #[expect(private_interfaces)]
     fn content_format() -> ContentFormat {
         ContentFormat::Cbor
     }
@@ -233,7 +233,7 @@ pub type CborBytes = Bytes<CborContentFormat>;
 pub struct CoseEncrypt0ContentFormat;
 impl private::Sealed for CoseEncrypt0ContentFormat {}
 impl ConstContentFormat for CoseEncrypt0ContentFormat {
-    #[allow(private_interfaces)]
+    #[expect(private_interfaces)]
     fn content_format() -> ContentFormat {
         ContentFormat::CoseEncrypt0
     }

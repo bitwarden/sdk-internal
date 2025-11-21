@@ -63,7 +63,7 @@ impl PasswordProtectedKeyEnvelope {
         password: &str,
         ctx: &KeyStoreContext<Ids>,
     ) -> Result<Self, PasswordProtectedKeyEnvelopeError> {
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         let key_ref = ctx
             .dangerous_get_symmetric_key(key_to_seal)
             .map_err(|_| PasswordProtectedKeyEnvelopeError::KeyMissing)?;
@@ -519,7 +519,7 @@ mod tests {
         let key = envelope
             .unseal(TESTVECTOR_PASSWORD, &mut ctx)
             .expect("Unsealing should succeed");
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         let unsealed_key = ctx
             .dangerous_get_symmetric_key(key)
             .expect("Key should exist in the key store");
@@ -539,7 +539,7 @@ mod tests {
         let key = envelope
             .unseal(TESTVECTOR_PASSWORD, &mut ctx)
             .expect("Unsealing should succeed");
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         let unsealed_key = ctx
             .dangerous_get_symmetric_key(key)
             .expect("Key should exist in the key store");
@@ -567,12 +567,12 @@ mod tests {
         let key = deserialized.unseal(password, &mut ctx).unwrap();
 
         // Verify that the unsealed key matches the original key
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         let unsealed_key = ctx
             .dangerous_get_symmetric_key(key)
             .expect("Key should exist in the key store");
 
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         let key_before_sealing = ctx
             .dangerous_get_symmetric_key(test_key)
             .expect("Key should exist in the key store");
@@ -598,12 +598,12 @@ mod tests {
         let key = deserialized.unseal(password, &mut ctx).unwrap();
 
         // Verify that the unsealed key matches the original key
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         let unsealed_key = ctx
             .dangerous_get_symmetric_key(key)
             .expect("Key should exist in the key store");
 
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         let key_before_sealing = ctx
             .dangerous_get_symmetric_key(test_key)
             .expect("Key should exist in the key store");

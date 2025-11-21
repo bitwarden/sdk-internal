@@ -7,17 +7,17 @@ use std::sync::Arc;
 use auth::AuthClient;
 use bitwarden_core::{ClientSettings, client::internal::ClientManagedTokens};
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod auth;
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod crypto;
 mod error;
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod platform;
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod tool;
 mod uniffi_support;
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod vault;
 
 #[cfg(target_os = "android")]
@@ -29,7 +29,7 @@ use platform::PlatformClient;
 use tool::{ExporterClient, GeneratorClients, SendClient, SshClient};
 use vault::VaultClient;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(uniffi::Object)]
 pub struct Client(pub(crate) bitwarden_pm::PasswordManagerClient);
 
@@ -63,7 +63,7 @@ impl Client {
         VaultClient(self.0.vault())
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn platform(&self) -> PlatformClient {
         PlatformClient(self.0.0.clone())
     }

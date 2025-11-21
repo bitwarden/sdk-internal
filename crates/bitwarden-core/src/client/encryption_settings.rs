@@ -21,7 +21,7 @@ use crate::key_management::{AsymmetricKeyId, SecurityState, SignedSecurityState,
 use crate::key_management::{KeyIds, SymmetricKeyId};
 use crate::{MissingPrivateKeyError, error::UserIdAlreadySetError};
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum EncryptionSettingsError {
@@ -47,7 +47,7 @@ pub enum EncryptionSettingsError {
     WrongPin,
 }
 
-#[allow(clippy::large_enum_variant)]
+#[expect(clippy::large_enum_variant)]
 #[cfg(feature = "internal")]
 pub(crate) enum AccountEncryptionKeys {
     V1 {
@@ -62,7 +62,7 @@ pub(crate) enum AccountEncryptionKeys {
     },
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub struct EncryptionSettings {}
 
 impl EncryptionSettings {
@@ -133,7 +133,7 @@ impl EncryptionSettings {
         };
 
         // FIXME: [PM-18098] When this is part of crypto we won't need to use deprecated methods
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         {
             let mut ctx = store.context_mut();
             ctx.set_symmetric_key(SymmetricKeyId::User, user_key)?;
@@ -173,7 +173,7 @@ impl EncryptionSettings {
         store.set_security_state_version(security_state.version());
         *sdk_security_state.write().expect("RwLock not poisoned") = Some(security_state);
 
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         {
             let mut ctx = store.context_mut();
             ctx.set_symmetric_key(SymmetricKeyId::User, user_key)?;
@@ -193,7 +193,7 @@ impl EncryptionSettings {
         store: &KeyStore<KeyIds>,
     ) {
         // FIXME: [PM-18098] When this is part of crypto we won't need to use deprecated methods
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         store
             .context_mut()
             .set_symmetric_key(SymmetricKeyId::Organization(organization_id), key)

@@ -17,7 +17,7 @@ pub(crate) fn validate_pin(
         .get_login_method()
         .ok_or(NotAuthenticatedError)?;
 
-    #[allow(irrefutable_let_patterns)]
+    #[expect(irrefutable_let_patterns)]
     let LoginMethod::User(login_method) = login_method.as_ref() else {
         return Err(NotAuthenticatedError)?;
     };
@@ -28,7 +28,7 @@ pub(crate) fn validate_pin(
             let key_store = client.internal.get_key_store();
             let ctx = key_store.context();
             // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
             let pin_key = PinKey::derive(pin.as_bytes(), email.as_bytes(), kdf)?;

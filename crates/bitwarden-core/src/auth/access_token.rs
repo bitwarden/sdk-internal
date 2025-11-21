@@ -6,7 +6,7 @@ use thiserror::Error;
 use uuid::Uuid;
 use zeroize::Zeroizing;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 pub enum AccessTokenInvalidError {
     #[error("Doesn't contain a decryption key")]

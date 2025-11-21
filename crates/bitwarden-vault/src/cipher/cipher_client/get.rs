@@ -7,7 +7,7 @@ use thiserror::Error;
 use super::CiphersClient;
 use crate::{Cipher, CipherView, ItemNotFoundError, cipher::cipher::DecryptCipherListResult};
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum GetCipherError {

@@ -32,7 +32,7 @@ fn variant_for_basic_enum() {
 
 #[test]
 fn variant_for_enum_with_fields() {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     #[bitwarden_error(flat)]
     enum ComplexError {
         Foo(String),
@@ -57,7 +57,7 @@ fn variant_for_enum_with_fields() {
 #[test]
 #[cfg(feature = "wasm")]
 fn variant_names_for_enum() {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     #[bitwarden_error(flat)]
     enum SimpleEnum {
         Foo,
@@ -82,7 +82,7 @@ fn variant_names_for_enum() {
 
 #[wasm_bindgen_test]
 #[cfg(feature = "wasm")]
-#[allow(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
+#[expect(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
 fn converts_to_js_error() {
     use bitwarden_error::wasm::SdkJsError;
     use wasm_bindgen::JsValue;
@@ -110,7 +110,7 @@ fn converts_to_js_error() {
 
 #[wasm_bindgen_test]
 #[cfg(feature = "wasm")]
-#[allow(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
+#[expect(dead_code)] // Not actually dead, but rust-analyzer doesn't understand `wasm_bindgen_test`
 fn outputs_different_name_when_given_export_as() {
     use bitwarden_error::wasm::SdkJsError;
     use wasm_bindgen::JsValue;

@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::{ApiError, Client, MissingFieldError, require};
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 pub enum PreloginError {
     #[error(transparent)]

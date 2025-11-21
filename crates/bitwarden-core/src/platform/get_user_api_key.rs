@@ -27,7 +27,7 @@ use crate::{
     require,
 };
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Debug, Error)]
 pub enum UserApiKeyError {
     #[error(transparent)]

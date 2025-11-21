@@ -2,11 +2,11 @@ use bitwarden_core::Client;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Clone)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CommercialVaultClient {
-    #[allow(unused)]
+    #[expect(unused)]
     pub(crate) client: Client,
 }
 
@@ -19,7 +19,7 @@ impl CommercialVaultClient {
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CommercialVaultClient {}
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub trait CommercialVaultClientExt {
     fn vault(&self) -> CommercialVaultClient;
 }

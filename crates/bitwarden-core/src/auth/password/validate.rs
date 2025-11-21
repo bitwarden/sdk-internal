@@ -18,7 +18,7 @@ pub(crate) fn validate_password(
         .get_login_method()
         .ok_or(NotAuthenticatedError)?;
 
-    #[allow(irrefutable_let_patterns)]
+    #[expect(irrefutable_let_patterns)]
     if let LoginMethod::User(login_method) = login_method.as_ref() {
         match login_method {
             UserLoginMethod::Username { email, kdf, .. }
@@ -50,7 +50,7 @@ pub(crate) fn validate_password_user_key(
         .get_login_method()
         .ok_or(NotAuthenticatedError)?;
 
-    #[allow(irrefutable_let_patterns)]
+    #[expect(irrefutable_let_patterns)]
     if let LoginMethod::User(login_method) = login_method.as_ref() {
         match login_method {
             UserLoginMethod::Username { email, kdf, .. }
@@ -63,7 +63,7 @@ pub(crate) fn validate_password_user_key(
                 let key_store = client.internal.get_key_store();
                 let ctx = key_store.context();
                 // FIXME: [PM-18099] Once MasterKey deals with KeyIds, this should be updated
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 let existing_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
                 if user_key != *existing_key {

@@ -102,7 +102,7 @@ impl AsymmetricCryptoKey {
         }
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn from_pem(pem: &str) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
@@ -112,7 +112,7 @@ impl AsymmetricCryptoKey {
         })
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn from_der(der: &Pkcs8PrivateKeyBytes) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
@@ -122,7 +122,7 @@ impl AsymmetricCryptoKey {
         })
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn to_der(&self) -> Result<Pkcs8PrivateKeyBytes> {
         match &self.inner {
             RawPrivateKey::RsaOaepSha1(private_key) => {

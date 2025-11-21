@@ -9,7 +9,7 @@ use tsify::Tsify;
 
 use crate::util::capitalize_first_letter;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[bitwarden_error(full)]
 #[derive(Debug, Error)]
 pub enum PassphraseError {

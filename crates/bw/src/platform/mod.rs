@@ -45,7 +45,7 @@ pub enum ConfigCommand {
 }
 
 impl ConfigCommand {
-    #[allow(clippy::unused_async)]
+    #[expect(clippy::unused_async)]
     pub async fn run(self) -> CommandResult {
         todo!()
     }

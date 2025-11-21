@@ -102,7 +102,7 @@ impl<ThreadState> ThreadBoundRunner<ThreadState>
 where
     ThreadState: 'static,
 {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn new(state: ThreadState) -> Self {
         let (call_channel_tx, mut call_channel_rx) =
             tokio::sync::mpsc::channel::<CallRequest<ThreadState>>(1);
@@ -204,7 +204,7 @@ mod test {
             input.0 + input.1
         }
 
-        #[allow(clippy::unused_async)]
+        #[expect(clippy::unused_async)]
         pub async fn async_add(&self, input: (i32, i32)) -> i32 {
             input.0 + input.1
         }

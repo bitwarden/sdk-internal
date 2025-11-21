@@ -28,7 +28,7 @@ impl std::fmt::Debug for StateRegistry {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum StateRegistryError {
@@ -48,7 +48,7 @@ pub struct RepositoryNotFoundError;
 
 impl StateRegistry {
     /// Creates a new empty `StateRegistry`.
-    #[allow(clippy::new_without_default)]
+    #[expect(clippy::new_without_default)]
     pub fn new() -> Self {
         StateRegistry {
             client_managed: RwLock::new(HashMap::new()),

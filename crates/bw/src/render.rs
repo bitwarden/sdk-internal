@@ -4,7 +4,7 @@ use clap::ValueEnum;
 use crate::command::Cli;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
-#[allow(clippy::upper_case_acronyms)]
+#[expect(clippy::upper_case_acronyms)]
 pub(crate) enum Output {
     JSON,
     YAML,

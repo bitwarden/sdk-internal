@@ -55,7 +55,7 @@ pub trait RepositoryItem: Internal + Send + Sync + 'static {
 }
 
 /// This struct holds metadata about a registered repository item type.
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub struct RepositoryItemData {
     type_id: TypeId,
@@ -105,7 +105,7 @@ pub const fn validate_registry_name(name: &str) -> bool {
 pub struct RepositoryMigrations {
     pub(crate) steps: Vec<RepositoryMigrationStep>,
     // This is used only by indexedDB
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub(crate) version: u32,
 }
 

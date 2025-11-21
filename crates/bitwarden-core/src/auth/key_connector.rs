@@ -1,7 +1,7 @@
 use bitwarden_crypto::{CryptoError, MasterKey, RsaKeyPair};
 use bitwarden_encoding::B64;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct KeyConnectorResponse {
     pub master_key: B64,

@@ -2,7 +2,7 @@
 
 use std::sync::OnceLock;
 
-#[allow(clippy::type_complexity)]
+#[expect(clippy::type_complexity)]
 static ERROR_TO_UNIFFI_ERROR: OnceLock<
     Box<dyn Fn(Box<dyn std::error::Error + Send + Sync>) -> anyhow::Error + Send + Sync + 'static>,
 > = OnceLock::new();

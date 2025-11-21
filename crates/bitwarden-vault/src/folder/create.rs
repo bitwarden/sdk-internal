@@ -46,7 +46,7 @@ impl IdentifyKey<SymmetricKeyId> for FolderAddEditRequest {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum CreateFolderError {
@@ -98,7 +98,7 @@ mod tests {
     #[tokio::test]
     async fn test_create_folder() {
         let store: KeyStore<KeyIds> = KeyStore::default();
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeyId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
@@ -160,7 +160,7 @@ mod tests {
     #[tokio::test]
     async fn test_create_folder_http_error() {
         let store: KeyStore<KeyIds> = KeyStore::default();
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeyId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),

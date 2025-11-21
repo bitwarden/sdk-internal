@@ -10,7 +10,7 @@ use tsify::Tsify;
 
 use crate::util::capitalize_first_letter;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum UsernameError {
@@ -48,7 +48,7 @@ pub enum AppendType {
 /// Configures the email forwarding service to use.
 /// For instructions on how to configure each service, see the documentation:
 /// <https://bitwarden.com/help/generator/#username-types>
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub enum ForwarderServiceType {
     /// Previously known as "AnonAddy"
     AddyIo {
@@ -75,7 +75,7 @@ pub enum ForwarderServiceType {
     },
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]

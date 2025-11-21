@@ -17,7 +17,7 @@ use super::{
 };
 
 /// Error type for cipher risk evaluation operations
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum CipherRiskError {

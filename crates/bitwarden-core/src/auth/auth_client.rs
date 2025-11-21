@@ -33,18 +33,18 @@ use crate::{
     client::encryption_settings::EncryptionSettingsError,
 };
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub struct AuthClient {
     pub(crate) client: crate::Client,
 }
 
 impl AuthClient {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn renew_token(&self) -> Result<(), LoginError> {
         renew_token(&self.client.internal).await
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     #[cfg(feature = "secrets")]
     pub async fn login_access_token(
         &self,
@@ -56,7 +56,7 @@ impl AuthClient {
 
 #[cfg(feature = "internal")]
 impl AuthClient {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn password_strength(
         &self,
         password: String,
@@ -66,7 +66,7 @@ impl AuthClient {
         password_strength(password, email, additional_inputs)
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn satisfies_policy(
         &self,
         password: String,
@@ -76,7 +76,7 @@ impl AuthClient {
         satisfies_policy(password, strength, policy)
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn make_register_keys(
         &self,
         email: String,
@@ -86,7 +86,7 @@ impl AuthClient {
         make_register_keys(email, password, kdf)
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn make_register_tde_keys(
         &self,
         email: String,
@@ -96,20 +96,20 @@ impl AuthClient {
         make_register_tde_keys(&self.client, email, org_public_key, remember_device)
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn make_key_connector_keys(&self) -> Result<KeyConnectorResponse, CryptoError> {
         let mut rng = rand::thread_rng();
         make_key_connector_keys(&mut rng)
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn prelogin(&self, email: String) -> Result<Kdf, PreloginError> {
         use crate::auth::login::prelogin;
 
         prelogin(&self.client, email).await
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn login_password(
         &self,
         input: &PasswordLoginRequest,
@@ -117,7 +117,7 @@ impl AuthClient {
         login_password(&self.client, input).await
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn login_api_key(
         &self,
         input: &ApiKeyLoginRequest,
@@ -125,7 +125,7 @@ impl AuthClient {
         login_api_key(&self.client, input).await
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn send_two_factor_email(
         &self,
         tf: &TwoFactorEmailRequest,
@@ -133,7 +133,7 @@ impl AuthClient {
         send_two_factor_email(&self.client, tf).await
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn validate_password(
         &self,
         password: String,
@@ -142,7 +142,7 @@ impl AuthClient {
         validate_password(&self.client, password, password_hash)
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn validate_password_user_key(
         &self,
         password: String,
@@ -151,7 +151,7 @@ impl AuthClient {
         validate_password_user_key(&self.client, password, encrypted_user_key)
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn validate_pin(
         &self,
         pin: String,
@@ -160,12 +160,12 @@ impl AuthClient {
         validate_pin(&self.client, pin, pin_protected_user_key)
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn new_auth_request(&self, email: &str) -> Result<AuthRequestResponse, CryptoError> {
         new_auth_request(email)
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn approve_auth_request(
         &self,
         public_key: B64,
@@ -173,7 +173,7 @@ impl AuthClient {
         approve_auth_request(&self.client, public_key)
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn trust_device(&self) -> Result<TrustDeviceResponse, TrustDeviceError> {
         trust_device(&self.client)
     }
@@ -181,7 +181,7 @@ impl AuthClient {
 
 #[cfg(feature = "internal")]
 impl AuthClient {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn login_device(
         &self,
         email: String,
@@ -192,7 +192,7 @@ impl AuthClient {
         send_new_auth_request(&self.client, email, device_identifier).await
     }
 
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub async fn login_device_complete(
         &self,
         auth_req: NewAuthRequestResponse,
@@ -203,7 +203,7 @@ impl AuthClient {
     }
 }
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 #[cfg(feature = "internal")]
 #[derive(Debug, thiserror::Error)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error), uniffi(flat_error))]
@@ -219,14 +219,14 @@ fn trust_device(client: &Client) -> Result<TrustDeviceResponse, TrustDeviceError
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18099] Once DeviceKey deals with KeyIds, this should be updated
-    #[allow(deprecated)]
+    #[expect(deprecated)]
     let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     Ok(DeviceKey::trust_device(user_key)?)
 }
 
 impl Client {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn auth(&self) -> AuthClient {
         AuthClient {
             client: self.clone(),

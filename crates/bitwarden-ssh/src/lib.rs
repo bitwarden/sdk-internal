@@ -1,12 +1,12 @@
 #![doc = include_str!("../README.md")]
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod error;
 mod export;
 pub use export::export_pkcs8_der_key;
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod generator;
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod import;
 
 use bitwarden_vault::SshKeyView;
