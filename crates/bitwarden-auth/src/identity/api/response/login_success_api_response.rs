@@ -26,12 +26,20 @@ pub(crate) struct LoginSuccessApiResponse {
     pub refresh_token: Option<String>,
 
     // Custom Bitwarden connect/token response fields:
+    /// The user's user key encrypted private key
     #[serde(rename = "privateKey", alias = "PrivateKey")]
     pub(crate) private_key: Option<String>,
+
+    /// The user's master key encrypted user key.
     #[serde(alias = "Key")]
     pub(crate) key: Option<String>,
+
+    /// Two factor remember me token to be used for future requests to bypass 2FA prompts
+    /// for a limited time.
     #[serde(rename = "twoFactorToken")]
     two_factor_token: Option<String>,
+
+    /// Master key derivation function type
     #[serde(alias = "Kdf")]
     kdf: KdfType,
     #[serde(
@@ -39,12 +47,20 @@ pub(crate) struct LoginSuccessApiResponse {
         alias = "KdfIterations",
         default = "bitwarden_crypto::default_pbkdf2_iterations"
     )]
+    /// Master key derivation function iterations
     kdf_iterations: NonZeroU32,
 
+    // TODO: can we just not include this as it should be deprecated
     #[serde(rename = "resetMasterPassword", alias = "ResetMasterPassword")]
     pub reset_master_password: bool,
+
+    // TODO: do we want to pass this along unchanged or should we convert to
+    // an enum for ForceSetPasswordReason like we have in clients?
+    /// If an admin has forced a password reset for the user, this will be true.
     #[serde(rename = "forcePasswordReset", alias = "ForcePasswordReset")]
     pub force_password_reset: bool,
+
+    ///
     #[serde(rename = "apiUseKeyConnector", alias = "ApiUseKeyConnector")]
     api_use_key_connector: Option<bool>,
     #[serde(rename = "keyConnectorUrl", alias = "KeyConnectorUrl")]
