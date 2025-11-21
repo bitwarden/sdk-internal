@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use bitwarden_api_api::apis::{ApiClient, ciphers_api::CiphersApi};
 use bitwarden_core::{Client, OrganizationId, client::ApiConfigurations};
 use bitwarden_crypto::IdentifyKey;
 #[cfg(feature = "wasm")]
@@ -23,7 +22,6 @@ mod create;
 mod delete;
 mod edit;
 mod get;
-mod restore;
 mod share_cipher;
 
 #[allow(missing_docs)]
