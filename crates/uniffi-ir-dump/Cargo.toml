@@ -1,0 +1,29 @@
+[package]
+name = "uniffi-ir-dump"
+version = "0.1.0"
+publish = false
+
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[[bin]]
+name = "uniffi-ir-dump"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = ">=1.0, <2.0"
+serde = { workspace = true, features = ["derive"] }
+camino = ">=1.1, <2.0"
+uniffi = { workspace = true }
+uniffi_bindgen = { workspace = true }
+uniffi_meta = { workspace = true }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true
