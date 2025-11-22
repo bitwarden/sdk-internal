@@ -64,8 +64,7 @@ impl CiphersClient {
         list_ciphers(key_store, repository.as_ref()).await
     }
 
-    /// Get all ciphers for an organization. Currently returns `Err` if any ciphers fail to
-    /// deserialize or decrypt
+    /// Get all ciphers for an organization.
     pub async fn list_org_ciphers(
         &self,
         org_id: OrganizationId,
