@@ -19,6 +19,7 @@ use crate::{
 };
 
 mod create;
+mod delete_attachment;
 mod edit;
 mod get;
 mod share_cipher;
