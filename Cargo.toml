@@ -78,6 +78,12 @@ subtle = ">=2.5.0, <3.0"
 syn = ">=2.0.87, <3"
 thiserror = ">=1.0.40, <3"
 tokio = { version = "1.36.0", features = ["macros"] }
+tracing = { version = "0.1.41" }
+tracing-subscriber = { version = "0.3.20", features = [
+    "fmt",
+    "env-filter",
+    "tracing-log",
+] }
 tsify = { version = ">=0.5.5, <0.6", features = [
     "js",
 ], default-features = false }
