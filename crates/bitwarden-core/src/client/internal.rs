@@ -252,13 +252,6 @@ impl InternalClient {
         &self.external_client
     }
 
-    #[cfg(feature = "internal")]
-    pub async fn get_api_client(&self) -> ApiClient {
-        ApiClient::new(&Arc::new(
-            self.get_api_configurations().await.api_config.clone(),
-        ))
-    }
-
     #[allow(missing_docs)]
     pub fn get_key_store(&self) -> &KeyStore<KeyIds> {
         &self.key_store

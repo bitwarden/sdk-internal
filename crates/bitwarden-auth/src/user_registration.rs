@@ -30,7 +30,7 @@ impl UserRegistrationClient {
     pub async fn example(&self) {
         let client = &self.client.internal;
         #[allow(unused_variables)]
-        let api_client = client.get_api_client().await;
+        let api_client = &client.get_api_configurations().await.api_client;
         // Do API request here. It will be authenticated using the client's tokens.
     }
 }
