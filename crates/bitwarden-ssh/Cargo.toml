@@ -28,7 +28,7 @@ bitwarden-error = { workspace = true }
 bitwarden-vault = { workspace = true }
 ed25519 = { version = ">=2.2.3, <3.0", features = ["pkcs8"] }
 ed25519-dalek = { workspace = true, features = ["pkcs8"] }
-pem-rfc7468 = "0.7.0"
+pem-rfc7468 = "1.0.0"
 pkcs8 = { version = ">=0.10.2, <0.11", features = ["encryption"] }
 rand = ">=0.8.5, <0.9"
 rsa = ">=0.9.2, <0.10"
