@@ -37,7 +37,7 @@ impl AuthClient {
     }
 
     /// Client for initializing user account cryptography and unlock methods after JIT provisioning
-    pub fn user_registration_client(&self) -> UserRegistrationClient {
+    pub fn user_registration(&self) -> UserRegistrationClient {
         UserRegistrationClient::new(self.client.clone())
     }
 }
