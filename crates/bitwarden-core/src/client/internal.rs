@@ -1,5 +1,7 @@
 use std::sync::{Arc, OnceLock, RwLock};
 
+#[cfg(feature = "internal")]
+use bitwarden_api_api::apis::ApiClient;
 use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::SymmetricCryptoKey;
@@ -127,7 +129,6 @@ pub(crate) struct SdkManagedTokens {
 }
 
 #[allow(missing_docs)]
-#[derive(Debug)]
 pub struct InternalClient {
     pub(crate) user_id: OnceLock<UserId>,
     pub(crate) tokens: RwLock<Tokens>,
@@ -249,6 +250,14 @@ impl InternalClient {
     #[cfg(feature = "internal")]
     pub fn get_http_client(&self) -> &reqwest::Client {
         &self.external_client
+    }
+
+    #[cfg(feature = "internal")]
+    pub async fn get_api_client(&self) -> ApiClient {
+        let api_client = ApiClient::new(&Arc::new(
+            self.get_api_configurations().await.api_config.clone(),
+        ));
+        api_client
     }
 
     #[allow(missing_docs)]
