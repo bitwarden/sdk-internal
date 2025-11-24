@@ -1,61 +1,125 @@
 # Bitwarden Internal SDK
 
-Rust SDK centralizing business logic. You're reviewing code as a senior Rust engineer mentoring
-teammates.
+Cross-platform Rust SDK implementing Bitwarden's core business logic. You're reviewing code as a
+senior Rust engineer mentoring teammates.
 
-## Client Pattern
+**Edition:** Rust 2024 (released Feb 20, 2025) - Use
+[Rust 2024 edition features](https://doc.rust-lang.org/edition-guide/rust-2024/) including async
+closures, let chains, and enhanced safety requirements.
 
-PasswordManagerClient ([bitwarden-pm](crates/bitwarden-pm/src/lib.rs)) wraps
-[bitwarden_core::Client](crates/bitwarden-core/src/client/client.rs) and exposes sub-clients:
-`auth()`, `vault()`, `crypto()`, `sends()`, `generators()`, `exporters()`.
+**Crate documentation**: When working in any crate, read that crate's `CLAUDE.md` (if it exists) for
+critical rules, `README.md` for architecture, and examine code in `examples/` (public API usage) and
+`tests/` (integration patterns). These files supplement the repository-wide guidance below and
+**must be read** before suggesting changes to that crate AND before a code review.
 
-**Lifecycle**
+## Architecture Overview
 
-- Init → Lock/Unlock → Logout (drops instance). Memento pattern for state resurrection.
+Monorepo crates organized in **four architectural layers**:
 
-**Storage**
+### 1. Foundation Layer
 
-- Consuming apps use `HashMap<UserId, PasswordManagerClient>`.
+- **bitwarden-crypto**: Cryptographic primitives, KeyStore with thread-safe RwLock-based access,
+  ephemeral KeyStoreContext with auto-cleared local keys, COSE format support
+- **bitwarden-state**: Type-safe Repository pattern for SDK state (client-managed vs SDK-managed)
+- **bitwarden-threading**: ThreadBoundRunner for !Send types in WASM/GUI contexts (uses PhantomData
+  marker)
+- **bitwarden-ipc**: Type-safe IPC framework with pluggable encryption/transport, Arc-based shared
+  ownership
+- **bitwarden-error**: Error handling across platforms (basic/flat/full modes via proc macro)
+- **bitwarden-encoding**, **bitwarden-uuid**: Encoding and UUID utilities
 
-## Issues necessitating comments
+### 2. Core Infrastructure
 
-**Auto-generated code changes**
+- **bitwarden-core**: Base Client struct extended by feature crates via extension traits. **DO NOT
+  add functionality here - use feature crates instead.**
 
-- Changes to `bitwarden-api-api/` or `bitwarden-api-identity/` are generally discouraged. These are
-  auto-generated from swagger specs.
+### 3. Feature Implementations
 
-**Secrets in logs/errors**
+- **bitwarden-pm**: PasswordManagerClient wrapping core Client, exposes sub-clients: `auth()`,
+  `vault()`, `crypto()`, `sends()`, `generators()`, `exporters()`
+  - Lifecycle: Init → Lock/Unlock → Logout (drops instance)
+  - Storage: Apps use `HashMap<UserId, PasswordManagerClient>`
+- **bitwarden-vault**: Vault item models (encrypted/decrypted states) with Encryptable trait
+- **bitwarden-collections**: Collection models with tree structure via TreeItem trait
+- **bitwarden-auth**: Authentication (send access tokens)
+- **bitwarden-send**: Encrypted temporary secret sharing
+- **bitwarden-generators**: Password/passphrase generators
+- **bitwarden-ssh**: SSH key generation/import
+- **bitwarden-exporters**: Vault export/import with multiple formats
+- **bitwarden-fido**: FIDO2 two-factor authentication
 
-- Do not log keys, passwords, or vault data in logs or error paths. Redact sensitive data.
+### 4. Cross-Platform Bindings
 
-**Business logic in WASM**
+- **bitwarden-api-api**, **bitwarden-api-identity**: Auto-generated API clients (**DO NOT edit -
+  regenerate from OpenAPI specs**)
+- **bitwarden-uniffi**: Mobile bindings (Swift/Kotlin) via UniFFI
+  - Structs: `#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]`
+  - Enums: `#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]`
+  - Include `uniffi::setup_scaffolding!()` in lib.rs
+- **bitwarden-wasm-internal**: WebAssembly bindings (**thin bindings only - no business logic**)
+  - Structs: `#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]`
 
-- `bitwarden-wasm-internal` contains only thin bindings. Move business logic to feature crates.
+## Critical Patterns & Rules
 
-**Unsafe without justification**
+### Cryptography (bitwarden-crypto)
 
-- Any `unsafe` block needs a comment explaining why it's safe and what invariants are being upheld.
+- **DO NOT modify** without careful consideration - backward compatibility is critical
+- **KeyStoreContext**: Never hold across await points (enforced by clippy lint
+  `await_holding_invalid_type`)
+- Naming: `derive_` for deterministic key derivation, `make_` for non-deterministic generation
+- Use `bitwarden-crypto/src/safe` high-level APIs first (password-protected key envelope, data
+  envelope)
 
-**Changes to `bitwarden-crypto/` core functionality**
+### State Management (bitwarden-state)
 
-- Generally speaking, this crate should not be modified. Changes need a comment explaining why.
+- **Client-managed**: App and SDK share data pool (requires manual setup)
+- **SDK-managed**: SDK exclusively handles storage (migration-based, ordering is critical)
+- Register types with `register_repository_item!` macro
+- Type safety via TypeId-based type erasure with runtime downcast checks
 
-**New crypto algorithms or key derivation**
+### Threading (bitwarden-threading)
 
-- Detailed description, review and audit trail required. Document algorithm choice rationale and
-  test vectors.
+- Use ThreadBoundRunner for !Send types (WASM contexts, GUI handles, Rc<T>)
+- Pins state to thread via spawn_local, tasks via mpsc channel
+- PhantomData<\*const ()> for !Send marker (zero-cost)
 
-**Encryption/decryption modifications**
+### Error Handling (bitwarden-error-macro)
 
-- Verify backward compatibility. Existing encrypted data must remain decryptable.
+- Three modes: **basic** (string), **flat** (variant), **full** (structure)
+- Generates FlatError trait, WASM bindings, TypeScript interfaces, UniFFI errors
+- Conditional code generation via cfg! for WASM
 
-**Breaking serialization**
+### Security Requirements
 
-- Backward compatibility required. Users must decrypt vaults from older versions.
+- **Never log** keys, passwords, or vault data in logs or error paths
+- **Redact sensitive data** in all error messages
+- **Unsafe blocks** require comments explaining safety and invariants
+- **Encryption/decryption changes** must maintain backward compatibility (existing encrypted data
+  must remain decryptable)
+- **Breaking serialization** prohibited - users must decrypt vaults from older versions
 
-**Breaking API changes**
+### API Changes
 
-- Document migration path for clients.
+- **Breaking changes**: Automated detection via cross-repo workflow (see commit 9574dcc1)
+- TypeScript compilation tested against `clients` repo on PR
+- Document migration path for clients
+
+## Development Workflow
+
+**Build & Test:**
+
+- `cargo check --all-features --all-targets` - Quick validation
+- `cargo test --workspace --all-features` - Full test suite
+
+**Format & Lint:**
+
+- `cargo +nightly fmt --workspace` - Code formatting
+- `cargo clippy --workspace` - Linting (includes custom await_holding_invalid_type for
+  KeyStoreContext)
+
+**WASM Testing:**
+
+- `cargo test --target wasm32-unknown-unknown --all-features` - WASM-specific tests
 
 ## References
 
@@ -66,3 +130,5 @@ PasswordManagerClient ([bitwarden-pm](crates/bitwarden-pm/src/lib.rs)) wraps
 - [Code Style](https://contributing.bitwarden.com/contributing/code-style/)
 - [Security Whitepaper](https://bitwarden.com/help/bitwarden-security-white-paper/)
 - [Security Definitions](https://contributing.bitwarden.com/architecture/security/definitions)
+- [Rust 2024 Edition Guide](https://doc.rust-lang.org/edition-guide/rust-2024/)
+- [Rust 1.85.0 Release (Rust 2024)](https://blog.rust-lang.org/2025/02/20/Rust-1.85.0/)
