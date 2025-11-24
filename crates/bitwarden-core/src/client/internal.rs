@@ -254,7 +254,6 @@ impl InternalClient {
 
     #[cfg(feature = "internal")]
     pub async fn get_api_client(&self) -> ApiClient {
-        
         ApiClient::new(&Arc::new(
             self.get_api_configurations().await.api_config.clone(),
         ))
