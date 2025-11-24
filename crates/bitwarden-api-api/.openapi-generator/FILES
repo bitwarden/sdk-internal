@@ -53,6 +53,7 @@ src/apis/secrets_manager_events_api.rs
 src/apis/secrets_manager_porting_api.rs
 src/apis/security_task_api.rs
 src/apis/self_hosted_account_billing_api.rs
+src/apis/self_hosted_billing_api.rs
 src/apis/self_hosted_organization_licenses_api.rs
 src/apis/self_hosted_organization_sponsorships_api.rs
 src/apis/sends_api.rs
