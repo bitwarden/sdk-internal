@@ -127,6 +127,7 @@ pub(crate) struct SdkManagedTokens {
 }
 
 #[allow(missing_docs)]
+#[derive(Debug)]
 pub struct InternalClient {
     pub(crate) user_id: OnceLock<UserId>,
     pub(crate) tokens: RwLock<Tokens>,

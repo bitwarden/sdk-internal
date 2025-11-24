@@ -14,7 +14,7 @@ use crate::client::{
 };
 
 /// The main struct to interact with the Bitwarden SDK.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Client {
     // Important: The [`Client`] struct requires its `Clone` implementation to return an owned
     // reference to the same instance. This is required to properly use the FFI API, where we can't
