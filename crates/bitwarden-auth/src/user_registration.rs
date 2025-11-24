@@ -27,7 +27,7 @@ impl UserRegistrationClient {
     /// Example method to demonstrate usage of the client.
     /// Note: This will be removed once real methods are implemented.
     #[allow(unused)]
-    pub async fn example(&self) {
+    async fn example(&self) {
         let client = &self.client.internal;
         #[allow(unused_variables)]
         let api_client = &client.get_api_configurations().await.api_client;
