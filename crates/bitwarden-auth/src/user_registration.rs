@@ -2,8 +2,8 @@
 //! It is used both for the initial registration request in the case of password registrations,
 //! and for cryptography initialization for a jit provisioned user. After a method
 //! on this client is called, the user account should have initialized account keys, an
-//! authentication method such as SSO or master password, and a decryption method such as key-connector,
-//! TDE, or master password.
+//! authentication method such as SSO or master password, and a decryption method such as
+//! key-connector, TDE, or master password.
 
 use bitwarden_core::Client;
 #[cfg(feature = "wasm")]
