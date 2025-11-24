@@ -254,10 +254,10 @@ impl InternalClient {
 
     #[cfg(feature = "internal")]
     pub async fn get_api_client(&self) -> ApiClient {
-        let api_client = ApiClient::new(&Arc::new(
+        
+        ApiClient::new(&Arc::new(
             self.get_api_configurations().await.api_config.clone(),
-        ));
-        api_client
+        ))
     }
 
     #[allow(missing_docs)]
