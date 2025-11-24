@@ -319,6 +319,8 @@ impl PureCrypto {
         Ok(result.to_encoded().to_vec())
     }
 
+    /// Given an encrypted private RSA key and the symmetric key it is wrapped with, this returns
+    /// the corresponding public RSA key in DER format.
     pub fn rsa_extract_public_key(
         encrypted_private_key: EncString,
         wrapping_key: Vec<u8>,
