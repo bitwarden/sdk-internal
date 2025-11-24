@@ -1,7 +1,5 @@
 use std::sync::{Arc, OnceLock, RwLock};
 
-#[cfg(feature = "internal")]
-use bitwarden_api_api::apis::ApiClient;
 use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::SymmetricCryptoKey;
