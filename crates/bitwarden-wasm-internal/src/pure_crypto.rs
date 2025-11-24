@@ -323,13 +323,12 @@ impl PureCrypto {
         encrypted_private_key: EncString,
         wrapping_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
-        let wrapping_key = SymmetricCryptoKey::try_from(
-            &BitwardenLegacyKeyBytes::from(wrapping_key),
-        )?;
-        let decrypted_private_key: Vec<u8> = encrypted_private_key.decrypt_with_key(&wrapping_key)?;
-        let private_key = AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(
-            decrypted_private_key,
-        ))?;
+        let wrapping_key =
+            SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(wrapping_key))?;
+        let decrypted_private_key: Vec<u8> =
+            encrypted_private_key.decrypt_with_key(&wrapping_key)?;
+        let private_key =
+            AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(decrypted_private_key))?;
         let public_key = private_key.to_public_key();
         Ok(public_key.to_der()?.to_vec())
     }
