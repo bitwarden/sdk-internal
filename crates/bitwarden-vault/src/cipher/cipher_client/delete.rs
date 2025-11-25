@@ -2,6 +2,7 @@ use bitwarden_api_api::models::{CipherBulkDeleteRequestModel, CipherBulkRestoreR
 use bitwarden_core::{ApiError, OrganizationId};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::RepositoryError;
+use chrono::Utc;
 use thiserror::Error;
 
 use crate::{
@@ -97,11 +98,23 @@ impl CiphersClient {
         Ok(())
     }
 
+    async fn process_soft_delete(&self, cipher_id: CipherId) -> Result<(), RepositoryError> {
+        let repository = self.get_repository()?;
+        let cipher: Option<Cipher> = repository.get(cipher_id.to_string()).await?;
+        if let Some(mut cipher) = cipher {
+            cipher.deleted_date = Some(Utc::now());
+            cipher.archived_date = None;
+            repository.set(cipher_id.to_string(), cipher).await?;
+        }
+        Ok(())
+    }
+
     /// Soft-deletes the [Cipher] with the matching [CipherId] from the server.
     pub async fn soft_delete(&self, cipher_id: CipherId) -> Result<(), DeleteCipherError> {
         let configs = self.get_api_configurations().await;
         let api = configs.api_client.ciphers_api();
         api.put_delete(cipher_id.into()).await?;
+        self.process_soft_delete(cipher_id).await?;
         Ok(())
     }
 
@@ -122,10 +135,13 @@ impl CiphersClient {
         let configs = self.get_api_configurations().await;
         let api = configs.api_client.ciphers_api();
         api.put_delete_many(Some(CipherBulkDeleteRequestModel {
-            ids: cipher_ids.into_iter().map(|id| id.to_string()).collect(),
+            ids: cipher_ids.iter().map(|id| id.to_string()).collect(),
             organization_id: organization_id.map(|id| id.to_string()),
         }))
         .await?;
+        for cipher_id in cipher_ids {
+            self.process_soft_delete(cipher_id).await?;
+        }
         Ok(())
     }
 
@@ -142,6 +158,17 @@ impl CiphersClient {
             organization_id: organization_id.map(|id| id.to_string()),
         }))
         .await?;
+        Ok(())
+    }
+
+    async fn process_restore(&self, cipher_id: CipherId) -> Result<(), RepositoryError> {
+        let repository = self.get_repository()?;
+        let cipher: Option<Cipher> = repository.get(cipher_id.to_string()).await?;
+        if let Some(mut cipher) = cipher {
+            cipher.deleted_date = Some(Utc::now());
+            cipher.archived_date = None;
+            repository.set(cipher_id.to_string(), cipher).await?;
+        }
         Ok(())
     }
 
@@ -215,6 +242,7 @@ mod tests {
     use bitwarden_crypto::{EncString, Kdf};
     use bitwarden_test::{MemoryRepository, start_api_mock};
 
+    use chrono::Utc;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
         matchers::{method, path_regex},
@@ -412,7 +440,7 @@ mod tests {
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
         let cipher_id_2: CipherId = TEST_CIPHER_ID_2.parse().unwrap();
         client
-            .delete_many_as_admin(vec![cipher_id, cipher_id_2], None)
+            .delete_many_as_admin(vec![cipher_id, cipher_id_2], TEST_ORG_ID.parse().ok())
             .await
             .unwrap();
     }
@@ -433,7 +461,20 @@ mod tests {
             .set(cipher_id.to_string(), generate_test_cipher())
             .await
             .unwrap();
+
+        let start_time = Utc::now();
         client.soft_delete(cipher_id).await.unwrap();
+        let end_time = Utc::now();
+
+        let cipher: Cipher = repository
+            .get(cipher_id.to_string())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            cipher.deleted_date.unwrap() >= start_time && cipher.deleted_date.unwrap() <= end_time,
+            "Cipher was flagged as deleted in the repository."
+        );
     }
 
     #[tokio::test]
@@ -476,10 +517,35 @@ mod tests {
             .set(TEST_CIPHER_ID_2.to_string(), cipher_2)
             .await
             .unwrap();
+
         client
             .soft_delete_many(vec![cipher_id, cipher_id_2], None)
             .await
             .unwrap();
+
+        let start_time = Utc::now();
+        let cipher_1 = repository
+            .get(cipher_id.to_string())
+            .await
+            .unwrap()
+            .unwrap();
+        let cipher_2 = repository
+            .get(cipher_id_2.to_string())
+            .await
+            .unwrap()
+            .unwrap();
+        let end_time = Utc::now();
+
+        assert!(
+            cipher_1.deleted_date.unwrap() >= start_time
+                && cipher_1.deleted_date.unwrap() <= end_time,
+            "Cipher was flagged as deleted in the repository."
+        );
+        assert!(
+            cipher_2.deleted_date.unwrap() >= start_time
+                && cipher_2.deleted_date.unwrap() <= end_time,
+            "Cipher was flagged as deleted in the repository."
+        );
     }
 
     #[tokio::test]
@@ -495,7 +561,7 @@ mod tests {
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
         let cipher_id_2: CipherId = TEST_CIPHER_ID_2.parse().unwrap();
         client
-            .soft_delete_many_as_admin(vec![cipher_id, cipher_id_2], TEST_ORG_ID.parse().ok())
+            .delete_many_as_admin(vec![cipher_id, cipher_id_2], TEST_ORG_ID.parse().ok())
             .await
             .unwrap();
     }
