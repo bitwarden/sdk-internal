@@ -1,6 +1,7 @@
 use std::{error::Error, sync::OnceLock};
 
 use jni::sys::{JavaVM, jint, jsize};
+use tracing::{error, info};
 
 pub static JAVA_VM: OnceLock<jni::JavaVM> = OnceLock::new();
 
@@ -9,7 +10,7 @@ pub static JAVA_VM: OnceLock<jni::JavaVM> = OnceLock::new();
 #[allow(non_snake_case)]
 #[unsafe(no_mangle)]
 pub extern "system" fn JNI_OnLoad(vm_ptr: jni::JavaVM, _reserved: *mut std::ffi::c_void) -> jint {
-    log::info!("JNI_OnLoad initializing");
+    info!("JNI_OnLoad initializing");
     JAVA_VM.get_or_init(|| vm_ptr);
     jni::sys::JNI_VERSION_1_6
 }
@@ -18,25 +19,25 @@ pub fn init() {
     fn init_inner() -> Result<(), Box<dyn Error>> {
         let jvm = match JAVA_VM.get() {
             Some(jvm) => {
-                log::info!("JavaVM already initialized");
+                info!("JavaVM already initialized");
                 jvm
             }
             None => {
-                log::info!("JavaVM not initialized, initializing now");
+                info!("JavaVM not initialized, initializing now");
                 let jvm = java_vm()?;
                 JAVA_VM.get_or_init(|| jvm)
             }
         };
 
         let mut env = jvm.attach_current_thread_permanently()?;
-        log::info!("Initializing Android verifier");
+        info!("Initializing Android verifier");
         init_verifier(&mut env)?;
-        log::info!("SDK Android support initialized");
+        info!("SDK Android support initialized");
         Ok(())
     }
 
-    if let Err(e) = init_inner() {
-        log::error!("Failed to initialize Android support: {:#?}", e);
+    if let Err(error) = init_inner() {
+        error!(%error, "Failed to initialize Android support");
     }
 }
 
