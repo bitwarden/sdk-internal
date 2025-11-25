@@ -477,13 +477,18 @@ dependencies = [
 name = "bitwarden-auth"
 version = "1.0.0"
 dependencies = [
+ "bitwarden-api-api",
+ "bitwarden-api-identity",
  "bitwarden-core",
+ "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-test",
  "chrono",
  "reqwest",
+ "schemars 1.0.0",
  "serde",
  "serde_json",
+ "serde_repr",
  "thiserror 2.0.12",
  "tokio",
  "tsify",
