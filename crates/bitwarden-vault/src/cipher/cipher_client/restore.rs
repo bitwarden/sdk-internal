@@ -6,8 +6,8 @@ use chrono::Utc;
 use thiserror::Error;
 
 use crate::{
-    Cipher, CipherId, CipherView, CiphersClient, DecryptCipherListResult, DecryptError,
-    VaultParseError,
+    Cipher, CipherId, CipherListView, CipherListViewType, CipherView, CiphersClient,
+    DecryptCipherListResult, DecryptError, VaultParseError,
 };
 
 #[allow(missing_docs)]
@@ -132,7 +132,7 @@ mod tests {
         matchers::{method, path_regex},
     };
 
-    use crate::{Cipher, CipherId, CiphersClient, VaultClientExt};
+    use crate::{Cipher, CipherId, CiphersClient, Login, VaultClientExt};
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
     const TEST_CIPHER_ID_2: &str = "6faa9684-c793-4a2d-8a12-b33900187098";
@@ -211,7 +211,14 @@ mod tests {
             fields: Default::default(),
             collection_ids: Default::default(),
             key: Default::default(),
-            login: Default::default(),
+            login: Some(Login{
+                username: None,
+                password: None,
+                password_revision_date: None,
+                uris: None, totp: None,
+                autofill_on_page_load: None,
+                fido2_credentials: None,
+            }),
             identity: Default::default(),
             card: Default::default(),
             secure_note: Default::default(),
@@ -300,6 +307,7 @@ mod tests {
                         r#type: Some(cipher.r#type.into()),
                         creation_date: Some(cipher.creation_date.to_string()),
                         revision_date: Some(Utc::now().to_string()),
+                        login: cipher.login.clone().map(|l| Box::new(l.into())),
                         ..Default::default()
                     })
                 }),
@@ -346,6 +354,7 @@ mod tests {
                                         id: cipher_1.id.map(|id| id.into()),
                                         name: Some(cipher_1.name.to_string()),
                                         r#type: Some(cipher_1.r#type.into()),
+                                        login: cipher_1.login.clone().map(|l| Box::new(l.into())),
                                         creation_date: cipher_1.creation_date.to_string().into(),
                                         deleted_date: None,
                                         revision_date: Some(Utc::now().to_string()),
@@ -355,6 +364,7 @@ mod tests {
                                         id: cipher_2.id.map(|id| id.into()),
                                         name: Some(cipher_2.name.to_string()),
                                         r#type: Some(cipher_2.r#type.into()),
+                                        login: cipher_2.login.clone().map(|l| Box::new(l.into())),
                                         creation_date: cipher_2.creation_date.to_string().into(),
                                         deleted_date: None,
                                         revision_date: Some(Utc::now().to_string()),
@@ -411,21 +421,66 @@ mod tests {
 
     #[tokio::test]
     async fn test_restore_many_as_admin() {
-        let (mock_server, _config) = start_api_mock(vec![
-            Mock::given(method("PUT"))
-                .and(path_regex(r"/ciphers/restore-admin"))
-                .respond_with(move |_req: &wiremock::Request| ResponseTemplate::new(200)),
-        ])
-        .await;
-        let client = create_client_with_wiremock(mock_server).await;
+        let cipher_id_2: CipherId = TEST_CIPHER_ID_2.parse().unwrap();
+        let mut cipher_1 = generate_test_cipher();
+        cipher_1.deleted_date = Some(Utc::now());
+        let mut cipher_2 = generate_test_cipher();
+        cipher_2.deleted_date = Some(Utc::now());
+        cipher_2.id = Some(cipher_id_2);
 
-        let ciphers = client
-            .restore_many(vec![
-                TEST_CIPHER_ID.parse().unwrap(),
-                TEST_CIPHER_ID_2.parse().unwrap(),
+        let (mock_server, _config) = {
+            let (cipher_1, cipher_2) = (cipher_1.clone(), cipher_2.clone());
+            start_api_mock(vec![
+                Mock::given(method("PUT"))
+                    .and(path_regex(r"/ciphers/restore-admin"))
+                    .respond_with(move |_req: &wiremock::Request| {
+                        let (cipher_1, cipher_2) = (cipher_1.clone(), cipher_2.clone());
+                        ResponseTemplate::new(200).set_body_json(
+                            CipherMiniResponseModelListResponseModel {
+                                object: None,
+                                data: Some(vec![
+                                    CipherMiniResponseModel {
+                                        id: cipher_1.id.map(|id| id.into()),
+                                        name: Some(cipher_1.name.to_string()),
+                                        r#type: Some(cipher_1.r#type.into()),
+                                        login: cipher_1.login.clone().map(|l| Box::new(l.into())),
+                                        creation_date: cipher_1.creation_date.to_string().into(),
+                                        deleted_date: None,
+                                        revision_date: Some(Utc::now().to_string()),
+                                        ..Default::default()
+                                    },
+                                    CipherMiniResponseModel {
+                                        id: cipher_2.id.map(|id| id.into()),
+                                        name: Some(cipher_2.name.to_string()),
+                                        r#type: Some(cipher_2.r#type.into()),
+                                        login: cipher_2.login.clone().map(|l| Box::new(l.into())),
+                                        creation_date: cipher_2.creation_date.to_string().into(),
+                                        deleted_date: None,
+                                        revision_date: Some(Utc::now().to_string()),
+                                        ..Default::default()
+                                    },
+                                ]),
+                                continuation_token: None,
+                            },
+                        )
+                    }),
             ])
             .await
+        };
+        let client = create_client_with_wiremock(mock_server).await;
+
+        let start_time = Utc::now();
+        let ciphers = client
+            .restore_many_as_admin(
+                vec![
+                    TEST_CIPHER_ID.parse().unwrap(),
+                    TEST_CIPHER_ID_2.parse().unwrap(),
+                ],
+                TEST_ORG_ID.parse().unwrap(),
+            )
+            .await
             .unwrap();
+        let end_time = Utc::now();
 
         assert_eq!(ciphers.successes.len(), 2,);
         assert_eq!(ciphers.failures.len(), 0,);
@@ -435,9 +490,18 @@ mod tests {
         );
         assert_eq!(
             ciphers.successes[1].id,
-            Some(TEST_CIPHER_ID.parse().unwrap()),
+            Some(TEST_CIPHER_ID_2.parse().unwrap()),
         );
         assert_eq!(ciphers.successes[0].deleted_date, None,);
         assert_eq!(ciphers.successes[1].deleted_date, None,);
+
+        assert!(
+            ciphers.successes[0].revision_date >= start_time
+                && ciphers.successes[0].revision_date <= end_time
+        );
+        assert!(
+            ciphers.successes[1].revision_date >= start_time
+                && ciphers.successes[1].revision_date <= end_time
+        );
     }
 }
