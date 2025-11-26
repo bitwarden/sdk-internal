@@ -165,7 +165,7 @@ impl WrappedUserAccountCryptographicState {
         })
     }
 
-    /// Creates a new V2 account cryptographic state with fresh keys.This does not change the user
+    /// Creates a new V2 account cryptographic state with fresh keys. This does not change the user
     /// state, but does set some keys to the local context.
     pub fn make(
         ctx: &mut KeyStoreContext<KeyIds>,
