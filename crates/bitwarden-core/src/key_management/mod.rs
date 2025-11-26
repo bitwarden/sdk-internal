@@ -28,7 +28,9 @@ pub(crate) use master_password::{MasterPasswordAuthenticationData, MasterPasswor
 #[cfg(feature = "internal")]
 mod security_state;
 #[cfg(feature = "internal")]
-pub use security_state::{SecurityState, SignedSecurityState};
+pub use security_state::{
+    MINIMUM_ENFORCE_ICON_URI_HASH_VERSION, SecurityState, SignedSecurityState,
+};
 #[cfg(feature = "internal")]
 mod user_decryption;
 #[cfg(feature = "internal")]

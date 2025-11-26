@@ -14,20 +14,41 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UserAccessPolicyResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "read", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "read",
+        alias = "Read",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub read: Option<bool>,
-    #[serde(rename = "write", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "write",
+        alias = "Write",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub write: Option<bool>,
-    #[serde(rename = "organizationUserId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationUserId",
+        alias = "OrganizationUserId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_user_id: Option<uuid::Uuid>,
     #[serde(
         rename = "organizationUserName",
+        alias = "OrganizationUserName",
         skip_serializing_if = "Option::is_none"
     )]
     pub organization_user_name: Option<String>,
-    #[serde(rename = "currentUser", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "currentUser",
+        alias = "CurrentUser",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub current_user: Option<bool>,
 }
 

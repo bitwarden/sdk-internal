@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RequestSmAccessRequestModel {
-    #[serde(rename = "organizationId")]
+    #[serde(rename = "organizationId", alias = "OrganizationId")]
     pub organization_id: uuid::Uuid,
-    #[serde(rename = "emailContent")]
+    #[serde(rename = "emailContent", alias = "EmailContent")]
     pub email_content: String,
 }
 

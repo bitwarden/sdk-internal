@@ -14,71 +14,167 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PlanResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "type",
+        alias = "R#type",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub r#type: Option<models::PlanType>,
-    #[serde(rename = "productTier", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "productTier",
+        alias = "ProductTier",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub product_tier: Option<models::ProductTierType>,
-    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub name: Option<String>,
-    #[serde(rename = "isAnnual", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "isAnnual",
+        alias = "IsAnnual",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub is_annual: Option<bool>,
     #[serde(
         rename = "nameLocalizationKey",
+        alias = "NameLocalizationKey",
         skip_serializing_if = "Option::is_none"
     )]
     pub name_localization_key: Option<String>,
     #[serde(
         rename = "descriptionLocalizationKey",
+        alias = "DescriptionLocalizationKey",
         skip_serializing_if = "Option::is_none"
     )]
     pub description_localization_key: Option<String>,
     #[serde(
         rename = "canBeUsedByBusiness",
+        alias = "CanBeUsedByBusiness",
         skip_serializing_if = "Option::is_none"
     )]
     pub can_be_used_by_business: Option<bool>,
-    #[serde(rename = "trialPeriodDays", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "trialPeriodDays",
+        alias = "TrialPeriodDays",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub trial_period_days: Option<i32>,
-    #[serde(rename = "hasSelfHost", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "hasSelfHost",
+        alias = "HasSelfHost",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub has_self_host: Option<bool>,
-    #[serde(rename = "hasPolicies", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "hasPolicies",
+        alias = "HasPolicies",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub has_policies: Option<bool>,
-    #[serde(rename = "hasGroups", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "hasGroups",
+        alias = "HasGroups",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub has_groups: Option<bool>,
-    #[serde(rename = "hasDirectory", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "hasDirectory",
+        alias = "HasDirectory",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub has_directory: Option<bool>,
-    #[serde(rename = "hasEvents", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "hasEvents",
+        alias = "HasEvents",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub has_events: Option<bool>,
-    #[serde(rename = "hasTotp", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "hasTotp",
+        alias = "HasTotp",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub has_totp: Option<bool>,
-    #[serde(rename = "has2fa", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "has2fa",
+        alias = "Has2fa",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub has2fa: Option<bool>,
-    #[serde(rename = "hasApi", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "hasApi",
+        alias = "HasApi",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub has_api: Option<bool>,
-    #[serde(rename = "hasSso", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "hasSso",
+        alias = "HasSso",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub has_sso: Option<bool>,
     #[serde(
         rename = "hasOrganizationDomains",
+        alias = "HasOrganizationDomains",
         skip_serializing_if = "Option::is_none"
     )]
     pub has_organization_domains: Option<bool>,
-    #[serde(rename = "hasResetPassword", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "hasResetPassword",
+        alias = "HasResetPassword",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub has_reset_password: Option<bool>,
-    #[serde(rename = "usersGetPremium", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "usersGetPremium",
+        alias = "UsersGetPremium",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub users_get_premium: Option<bool>,
-    #[serde(rename = "upgradeSortOrder", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "upgradeSortOrder",
+        alias = "UpgradeSortOrder",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub upgrade_sort_order: Option<i32>,
-    #[serde(rename = "displaySortOrder", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "displaySortOrder",
+        alias = "DisplaySortOrder",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub display_sort_order: Option<i32>,
-    #[serde(rename = "legacyYear", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "legacyYear",
+        alias = "LegacyYear",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub legacy_year: Option<i32>,
-    #[serde(rename = "disabled", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "disabled",
+        alias = "Disabled",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub disabled: Option<bool>,
-    #[serde(rename = "secretsManager", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "secretsManager",
+        alias = "SecretsManager",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub secrets_manager: Option<Box<models::SecretsManagerPlanFeaturesResponseModel>>,
-    #[serde(rename = "passwordManager", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "passwordManager",
+        alias = "PasswordManager",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub password_manager: Option<Box<models::PasswordManagerPlanFeaturesResponseModel>>,
 }
 

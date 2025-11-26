@@ -1,0 +1,360 @@
+name: SDK Breaking Change Detection
+
+on:
+  workflow_call:
+    inputs:
+      pr_number:
+        description: "PR number"
+        required: true
+        type: string
+      pr_head_sha:
+        description: "PR head SHA"
+        required: true
+        type: string
+      pr_head_ref:
+        description: "PR head ref"
+        required: true
+        type: string
+      build_run_id:
+        description: "Build workflow run ID for artifacts"
+        required: true
+        type: string
+      client_repo:
+        description: "Target client repository (e.g., 'bitwarden/clients')"
+        required: true
+        type: string
+      client_label:
+        description: "Client label for display purposes"
+        required: true
+        type: string
+      client_workflow:
+        description: "Target workflow filename in client repo"
+        required: true
+        type: string
+      client_branch:
+        description: "The branch to target on the client repo"
+        type: string
+        default: "main"
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+jobs:
+  detect-breaking-changes:
+    name: Detect client breaking changes
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        shell: bash
+        working-directory: .
+    env:
+      _CLIENT_REPO: ${{ inputs.client_repo }}
+      _CLIENT_LABEL: ${{ inputs.client_label }}
+      _WORKFLOW_NAME: ${{ inputs.client_workflow }}
+      _BRANCH_NAME: ${{ inputs.client_branch }}
+      _MAX_RETRIES: 3
+
+    steps:
+      - name: Set context variables
+        id: context
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          PR_HEAD_SHA: ${{ inputs.pr_head_sha }}
+          PR_HEAD_REF: ${{ inputs.pr_head_ref }}
+          SOURCE_RUN_ID: ${{ inputs.build_run_id }}
+        run: |
+          SHORT_SHA="${PR_HEAD_SHA:0:7}"
+          SDK_VERSION="${PR_HEAD_REF} (${SHORT_SHA})"
+
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "pr_head_sha=$PR_HEAD_SHA" >> $GITHUB_OUTPUT
+          echo "pr_head_ref=$PR_HEAD_REF" >> $GITHUB_OUTPUT
+          echo "sdk_version=$SDK_VERSION" >> $GITHUB_OUTPUT
+          echo "source_run_id=$SOURCE_RUN_ID" >> $GITHUB_OUTPUT
+
+          echo "📊 Context:"
+          echo "  PR Number: $PR_NUMBER"
+          echo "  SDK Version: $SDK_VERSION"
+          echo "  Source Run ID: $SOURCE_RUN_ID"
+
+      - name: Prepare workflow inputs
+        id: inputs
+        env:
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          SDK_VERSION: ${{ steps.context.outputs.sdk_version }}
+          SOURCE_RUN_ID: ${{ steps.context.outputs.source_run_id }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "sdk_version=$SDK_VERSION" >> $GITHUB_OUTPUT
+          echo "source_repo=$GITHUB_REPOSITORY" >> $GITHUB_OUTPUT
+          echo "artifacts_run_id=$SOURCE_RUN_ID" >> $GITHUB_OUTPUT
+          echo "artifact_name=sdk-internal" >> $GITHUB_OUTPUT
+
+      - name: Log in to Azure
+        uses: bitwarden/gh-actions/azure-login@main
+        with:
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
+
+      - name: Get Azure Key Vault secrets
+        id: get-kv-secrets
+        uses: bitwarden/gh-actions/get-keyvault-secrets@main
+        with:
+          keyvault: gh-org-bitwarden
+          secrets: "BW-GHAPP-ID,BW-GHAPP-KEY"
+
+      - name: Log out from Azure
+        uses: bitwarden/gh-actions/azure-logout@main
+
+      - name: Generate GH App token
+        uses: actions/create-github-app-token@30bf6253fa41bdc8d1501d202ad15287582246b4 # v2.0.3
+        id: app-token
+        with:
+          app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
+          private-key: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-KEY }}
+          owner: ${{ github.repository_owner }}
+          permissions-actions: write
+          repositories: |
+            clients
+
+      - name: Create initial status comment
+        id: initial-comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SDK_VERSION: ${{ steps.context.outputs.sdk_version }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: |
+          echo "💬 Creating initial breaking change detection status comment..."
+
+          COMMENT_HEADER="<!-- SDK-BREAKING-CHANGE-CHECK -->"
+          TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+
+          INITIAL_COMMENT=$(cat << EOF
+          $COMMENT_HEADER
+          ## 🔍 SDK Breaking Change Detection Status
+
+          **SDK Version:** \`$SDK_VERSION\`  
+          **Started:** $TIMESTAMP  
+          **Progress:** 🚀 Triggering client workflows and waiting for completion...
+
+          ---
+          *Results will be updated when workflow completes. [View SDK workflow](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)*
+          EOF
+          )
+
+          # Check for existing comment from previous runs
+          EXISTING_COMMENT=$(gh api repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments | \
+            jq -r --arg header "$COMMENT_HEADER" '.[] | select(.body | contains($header)) | .id' | head -1)
+
+          if [ -n "$EXISTING_COMMENT" ]; then
+            echo "Updating existing comment ID: $EXISTING_COMMENT"
+            gh api --method PATCH repos/$GITHUB_REPOSITORY/issues/comments/$EXISTING_COMMENT \
+              --field body="$INITIAL_COMMENT"
+            echo "comment_id=$EXISTING_COMMENT" >> $GITHUB_OUTPUT
+          else
+            echo "Creating new comment"
+            COMMENT_ID=$(gh api --method POST repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments \
+              --field body="$INITIAL_COMMENT" --jq '.id')
+            echo "comment_id=$COMMENT_ID" >> $GITHUB_OUTPUT
+          fi
+
+          echo "✅ Initial comment created/updated"
+
+      - name: Trigger client workflow dispatch and watch
+        id: trigger-dispatch-and-watch
+        timeout-minutes: 15
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ steps.inputs.outputs.pr_number }}
+          SDK_VERSION: ${{ steps.inputs.outputs.sdk_version }}
+          SOURCE_REPO: ${{ steps.inputs.outputs.source_repo }}
+          ARTIFACTS_RUN_ID: ${{ steps.inputs.outputs.artifacts_run_id }}
+          ARTIFACT_NAME: ${{ steps.inputs.outputs.artifact_name }}
+        run: |
+          echo "🚀 Triggering ${_WORKFLOW_NAME} in ${_CLIENT_REPO} via workflow_dispatch..."
+
+          # Step 1: Trigger workflow via workflow_dispatch
+          RETRY_COUNT=0
+          DISPATCH_SUCCESS=false
+
+          while [ $RETRY_COUNT -lt $_MAX_RETRIES ]; do
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "🔄 Attempt $RETRY_COUNT of $_MAX_RETRIES for $_CLIENT_REPO..."
+            
+            if gh workflow run $_WORKFLOW_NAME --repo $_CLIENT_REPO --ref "$_BRANCH_NAME" \
+                -f sdk_version="$SDK_VERSION" \
+                -f source_repo="$SOURCE_REPO" \
+                -f artifacts_run_id="$ARTIFACTS_RUN_ID" \
+                -f artifact_name="$ARTIFACT_NAME"; then
+              
+              echo "✅ Successfully triggered $_CLIENT_REPO ($_CLIENT_LABEL)"
+              echo "✅ **$_CLIENT_REPO**: $_WORKFLOW_NAME triggered - [Monitor Progress](https://github.com/$_CLIENT_REPO/actions)" >> $GITHUB_STEP_SUMMARY
+              DISPATCH_SUCCESS=true
+              break
+            else
+              echo "⚠️ $_CLIENT_REPO dispatch attempt $RETRY_COUNT failed"
+              [ $RETRY_COUNT -lt $_MAX_RETRIES ] && sleep 5
+            fi
+          done
+
+          if [ "$DISPATCH_SUCCESS" = "false" ]; then
+            echo "::error::Failed to trigger $_CLIENT_REPO after $_MAX_RETRIES attempts"
+            echo "::warning::$_CLIENT_LABEL breaking change detection will be skipped"
+            echo "❌ **$_CLIENT_REPO**: Failed to trigger - [Manual Check Required](https://github.com/$_CLIENT_REPO)" >> $GITHUB_STEP_SUMMARY
+            echo "client_error_code=1" >> $GITHUB_OUTPUT
+            echo "status=dispatch-failed" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Step 2: Wait for workflow to appear and monitor
+          echo "🔍 Looking for triggered workflow run..."
+          RETRY_COUNT=0
+          MAX_RUN_LIST_RETRIES=10
+          WORKFLOW_RUN_ID=""
+
+          JQ_FILTER='.[] | select(.status as $s | (["requested", "queued", "in_progress", "waiting"] | contains([$s])) and (.displayTitle | contains("'"$SDK_VERSION"'")) and (.name | contains("SDK breaking change check"))) | .databaseId'
+
+          while
+            sleep 5
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "🔄 Attempt $RETRY_COUNT of $MAX_RUN_LIST_RETRIES to find workflow run..."
+            WORKFLOW_RUN_ID=$(gh run list --repo $_CLIENT_REPO --workflow=$_WORKFLOW_NAME --limit=10 \
+              --json databaseId,status,displayTitle,name --jq "$JQ_FILTER" | head -1)
+            [ -z "$WORKFLOW_RUN_ID" ] && [ $RETRY_COUNT -lt $MAX_RUN_LIST_RETRIES ]
+          do true; done
+
+          if [ -z "$WORKFLOW_RUN_ID" ]; then
+            echo "::error::No workflow found after $MAX_RUN_LIST_RETRIES attempts."
+            echo "::warning::$_CLIENT_LABEL breaking change detection will be skipped"
+            echo "❌ **$_CLIENT_REPO**: Workflow not found - [Manual Check Required](https://github.com/$_CLIENT_REPO)" >> $GITHUB_STEP_SUMMARY
+            echo "client_error_code=1" >> $GITHUB_OUTPUT
+            echo "status=workflow-not-found" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "🔍 Workflow run ID: $WORKFLOW_RUN_ID"
+          WORKFLOW_URL="https://github.com/$_CLIENT_REPO/actions/runs/$WORKFLOW_RUN_ID"
+          echo "## 🔗 $_CLIENT_LABEL SDK Test Run: [$WORKFLOW_RUN_ID]($WORKFLOW_URL)" >> $GITHUB_STEP_SUMMARY
+
+          # Step 3: Monitor workflow execution
+          echo "⏳ Watching workflow execution with gh run watch..."
+          ERROR_CODE=0
+          WATCH_START_TIME=$(date +%s)
+
+          if ! gh run watch $WORKFLOW_RUN_ID --repo $_CLIENT_REPO --compact --exit-status --interval 30; then
+            echo "❌ $_CLIENT_LABEL SDK Test failed."
+            echo "❌ **$_CLIENT_LABEL Status:** Failed - [View Details]($WORKFLOW_URL)" >> $GITHUB_STEP_SUMMARY
+            echo "status=breaking-changes-detected" >> $GITHUB_OUTPUT
+            ERROR_CODE=1
+          else
+            echo "✅ $_CLIENT_LABEL SDK Test passed."  
+            echo "✅ **$_CLIENT_LABEL Status:** Passed - [View Details]($WORKFLOW_URL)" >> $GITHUB_STEP_SUMMARY
+            echo "status=no-breaking-changes" >> $GITHUB_OUTPUT
+          fi
+
+          WATCH_END_TIME=$(date +%s)
+          TOTAL_WAIT_TIME=$((WATCH_END_TIME - WATCH_START_TIME))
+
+          echo "client_error_code=$ERROR_CODE" >> $GITHUB_OUTPUT
+          echo "workflow_run_id=$WORKFLOW_RUN_ID" >> $GITHUB_OUTPUT
+          echo "total_wait_time=$TOTAL_WAIT_TIME" >> $GITHUB_OUTPUT
+
+          echo "⏱️ **Synchronization Complete**: Waited ${TOTAL_WAIT_TIME}s for client workflow" >> $GITHUB_STEP_SUMMARY
+
+      - name: Manage breaking change labels
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLIENT_STATUS: ${{ steps.trigger-dispatch-and-watch.outputs.status }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+        run: |
+          echo "🏷️ Managing breaking change labels..."
+
+          case "$CLIENT_STATUS" in
+            "breaking-changes-detected")
+              echo "Adding breaking-change label to PR #$PR_NUMBER"
+              gh issue edit $PR_NUMBER --add-label "breaking-change" --repo ${{ github.repository }} || {
+                echo "::warning::Failed to add label, but continuing"
+              }
+              ;;
+            "no-breaking-changes")
+              echo "Removing breaking-change label from PR #$PR_NUMBER"
+              gh issue edit $PR_NUMBER --remove-label "breaking-change" --repo ${{ github.repository }} || {
+                echo "::warning::Label may not exist or failed to remove, but continuing"
+              }
+              ;;
+            *)
+              echo "::warning::Unknown status '$CLIENT_STATUS', skipping label management"
+              ;;
+          esac
+
+          echo "✅ Label management completed"
+
+      - name: Update final status comment
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_ID: ${{ steps.initial-comment.outputs.comment_id }}
+          SDK_VERSION: ${{ steps.context.outputs.sdk_version }}
+          CLIENT_STATUS: ${{ steps.trigger-dispatch-and-watch.outputs.status }}
+          WORKFLOW_ID: ${{ steps.trigger-dispatch-and-watch.outputs.workflow_run_id }}
+          TOTAL_TIME: ${{ steps.trigger-dispatch-and-watch.outputs.total_wait_time }}
+        run: |
+          echo "💬 Updating final breaking change detection status comment..."
+
+          if [ -z "$COMMENT_ID" ]; then
+            echo "::warning::No comment ID found, skipping comment update"
+            exit 0
+          fi
+
+          COMMENT_HEADER="<!-- SDK-BREAKING-CHANGE-CHECK -->"
+          TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+
+          # Determine status message
+          case "$CLIENT_STATUS" in
+            "breaking-changes-detected")
+              STATUS_EMOJI="❌"
+              STATUS_MESSAGE="Breaking changes detected"
+              STATUS_DETAILS="TypeScript compilation failed with new SDK version - [View Details](https://github.com/$_CLIENT_REPO/actions/runs/$WORKFLOW_ID)"
+              ;;
+            "no-breaking-changes")
+              STATUS_EMOJI="✅"  
+              STATUS_MESSAGE="No breaking changes detected"
+              STATUS_DETAILS="TypeScript compilation passed with new SDK version - [View Details](https://github.com/$_CLIENT_REPO/actions/runs/$WORKFLOW_ID)"
+              ;;
+            *)
+              STATUS_EMOJI="⚠️"
+              STATUS_MESSAGE="Workflow execution issues"
+              STATUS_DETAILS="Check workflow logs for details"
+              ;;
+          esac
+
+          FINAL_COMMENT=$(cat << EOF
+          $COMMENT_HEADER
+          ## 🔍 SDK Breaking Change Detection Results
+
+          **SDK Version:** \`$SDK_VERSION\`  
+          **Completed:** $TIMESTAMP  
+          **Total Time:** ${TOTAL_TIME:-"Unknown"}s
+
+          | Client | Status | Details |
+          |--------|---------|------------|
+          |$_CLIENT_LABEL|$STATUS_EMOJI $STATUS_MESSAGE|$STATUS_DETAILS|
+
+          ---
+          *Breaking change detection completed. [View SDK workflow](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})*
+          EOF
+          )
+
+          gh api --method PATCH repos/${{ github.repository }}/issues/comments/$COMMENT_ID \
+            --field body="$FINAL_COMMENT" || {
+            echo "::warning::Failed to update comment, but continuing"
+          }
+
+          echo "✅ Final comment updated"
