@@ -14,33 +14,81 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProviderOrganizationOrganizationDetailsResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    #[serde(rename = "providerId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "providerId",
+        alias = "ProviderId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub provider_id: Option<uuid::Uuid>,
-    #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationId",
+        alias = "OrganizationId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_id: Option<uuid::Uuid>,
-    #[serde(rename = "key", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
-    #[serde(rename = "settings", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "settings",
+        alias = "Settings",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub settings: Option<String>,
-    #[serde(rename = "creationDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "creationDate",
+        alias = "CreationDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub creation_date: Option<String>,
-    #[serde(rename = "revisionDate", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "revisionDate",
+        alias = "RevisionDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub revision_date: Option<String>,
-    #[serde(rename = "userCount", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "userCount",
+        alias = "UserCount",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub user_count: Option<i32>,
-    #[serde(rename = "seats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "seats",
+        alias = "Seats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub seats: Option<i32>,
-    #[serde(rename = "occupiedSeats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "occupiedSeats",
+        alias = "OccupiedSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub occupied_seats: Option<i32>,
-    #[serde(rename = "remainingSeats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "remainingSeats",
+        alias = "RemainingSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub remaining_seats: Option<i32>,
-    #[serde(rename = "plan", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "plan",
+        alias = "Plan",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub plan: Option<String>,
-    #[serde(rename = "organizationName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationName",
+        alias = "OrganizationName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_name: Option<String>,
 }
 

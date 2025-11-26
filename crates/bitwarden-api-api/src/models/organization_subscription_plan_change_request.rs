@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationSubscriptionPlanChangeRequest {
-    #[serde(rename = "tier")]
+    #[serde(rename = "tier", alias = "Tier")]
     pub tier: models::ProductTierType,
-    #[serde(rename = "cadence")]
+    #[serde(rename = "cadence", alias = "Cadence")]
     pub cadence: models::PlanCadenceType,
 }
 

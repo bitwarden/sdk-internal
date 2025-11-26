@@ -14,23 +14,43 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SetPasswordRequestModel {
-    #[serde(rename = "masterPasswordHash")]
+    #[serde(rename = "masterPasswordHash", alias = "MasterPasswordHash")]
     pub master_password_hash: String,
-    #[serde(rename = "key")]
+    #[serde(rename = "key", alias = "Key")]
     pub key: String,
-    #[serde(rename = "masterPasswordHint", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "masterPasswordHint",
+        alias = "MasterPasswordHint",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub master_password_hint: Option<String>,
-    #[serde(rename = "keys", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "keys",
+        alias = "Keys",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub keys: Option<Box<models::KeysRequestModel>>,
-    #[serde(rename = "kdf")]
+    #[serde(rename = "kdf", alias = "Kdf")]
     pub kdf: models::KdfType,
-    #[serde(rename = "kdfIterations")]
+    #[serde(rename = "kdfIterations", alias = "KdfIterations")]
     pub kdf_iterations: i32,
-    #[serde(rename = "kdfMemory", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "kdfMemory",
+        alias = "KdfMemory",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub kdf_memory: Option<i32>,
-    #[serde(rename = "kdfParallelism", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "kdfParallelism",
+        alias = "KdfParallelism",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub kdf_parallelism: Option<i32>,
-    #[serde(rename = "orgIdentifier", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "orgIdentifier",
+        alias = "OrgIdentifier",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub org_identifier: Option<String>,
 }
 

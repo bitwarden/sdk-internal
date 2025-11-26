@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CipherPasswordHistoryModel {
-    #[serde(rename = "password")]
+    #[serde(rename = "password", alias = "Password")]
     pub password: String,
-    #[serde(rename = "lastUsedDate")]
+    #[serde(rename = "lastUsedDate", alias = "LastUsedDate")]
     pub last_used_date: String,
 }
 

@@ -14,35 +14,91 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UserLicense {
-    #[serde(rename = "licenseKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "licenseKey",
+        alias = "LicenseKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub license_key: Option<String>,
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub name: Option<String>,
-    #[serde(rename = "email", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "email",
+        alias = "Email",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub email: Option<String>,
-    #[serde(rename = "premium", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "premium",
+        alias = "Premium",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub premium: Option<bool>,
-    #[serde(rename = "maxStorageGb", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "maxStorageGb",
+        alias = "MaxStorageGb",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub max_storage_gb: Option<i32>,
-    #[serde(rename = "version", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "version",
+        alias = "Version",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub version: Option<i32>,
-    #[serde(rename = "issued", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "issued",
+        alias = "Issued",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub issued: Option<String>,
-    #[serde(rename = "refresh", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "refresh",
+        alias = "Refresh",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub refresh: Option<String>,
-    #[serde(rename = "expires", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "expires",
+        alias = "Expires",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub expires: Option<String>,
-    #[serde(rename = "trial", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "trial",
+        alias = "Trial",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub trial: Option<bool>,
-    #[serde(rename = "licenseType", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "licenseType",
+        alias = "LicenseType",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub license_type: Option<models::LicenseType>,
-    #[serde(rename = "hash", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "hash",
+        alias = "Hash",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub hash: Option<String>,
-    #[serde(rename = "signature", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "signature",
+        alias = "Signature",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub signature: Option<String>,
-    #[serde(rename = "token", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "token",
+        alias = "Token",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub token: Option<String>,
 }
 

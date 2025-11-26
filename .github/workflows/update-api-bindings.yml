@@ -35,6 +35,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
+          persist-credentials: true
 
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
@@ -130,9 +131,11 @@ jobs:
           echo "RUST_NIGHTLY_TOOLCHAIN=${RUST_NIGHTLY_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
 
       - name: Install rust nightly
+        env:
+          RUST_NIGHTLY_TOOLCHAIN: ${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}
         run: |
-          rustup toolchain install "${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}"
-          rustup component add rustfmt --toolchain "${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}"-x86_64-unknown-linux-gnu
+          rustup toolchain install "${RUST_NIGHTLY_TOOLCHAIN}"
+          rustup component add rustfmt --toolchain "${RUST_NIGHTLY_TOOLCHAIN}"-x86_64-unknown-linux-gnu
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
@@ -161,7 +164,9 @@ jobs:
         run: ./support/build-api-ci.sh
 
       - name: Format
-        run: cargo +"${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}" fmt
+        env:
+          RUST_NIGHTLY_TOOLCHAIN: ${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}
+        run: cargo +"${RUST_NIGHTLY_TOOLCHAIN}" fmt
 
       - name: Set Commit Info
         id: commit-info

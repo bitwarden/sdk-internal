@@ -14,10 +14,15 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SecretsManagerUpdateSelections {
-    #[serde(rename = "seats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "seats",
+        alias = "Seats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub seats: Option<i32>,
     #[serde(
         rename = "additionalServiceAccounts",
+        alias = "AdditionalServiceAccounts",
         skip_serializing_if = "Option::is_none"
     )]
     pub additional_service_accounts: Option<i32>,

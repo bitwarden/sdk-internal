@@ -14,55 +14,101 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SecretsManagerPlanFeaturesResponseModel {
-    #[serde(rename = "maxServiceAccounts", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "maxServiceAccounts",
+        alias = "MaxServiceAccounts",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub max_service_accounts: Option<i32>,
     #[serde(
         rename = "allowServiceAccountsAutoscale",
+        alias = "AllowServiceAccountsAutoscale",
         skip_serializing_if = "Option::is_none"
     )]
     pub allow_service_accounts_autoscale: Option<bool>,
     #[serde(
         rename = "stripeServiceAccountPlanId",
+        alias = "StripeServiceAccountPlanId",
         skip_serializing_if = "Option::is_none"
     )]
     pub stripe_service_account_plan_id: Option<String>,
     #[serde(
         rename = "additionalPricePerServiceAccount",
+        alias = "AdditionalPricePerServiceAccount",
         skip_serializing_if = "Option::is_none"
     )]
     pub additional_price_per_service_account: Option<f64>,
-    #[serde(rename = "baseServiceAccount", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "baseServiceAccount",
+        alias = "BaseServiceAccount",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub base_service_account: Option<i32>,
     #[serde(
         rename = "maxAdditionalServiceAccount",
+        alias = "MaxAdditionalServiceAccount",
         skip_serializing_if = "Option::is_none"
     )]
     pub max_additional_service_account: Option<i32>,
     #[serde(
         rename = "hasAdditionalServiceAccountOption",
+        alias = "HasAdditionalServiceAccountOption",
         skip_serializing_if = "Option::is_none"
     )]
     pub has_additional_service_account_option: Option<bool>,
-    #[serde(rename = "stripeSeatPlanId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "stripeSeatPlanId",
+        alias = "StripeSeatPlanId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub stripe_seat_plan_id: Option<String>,
     #[serde(
         rename = "hasAdditionalSeatsOption",
+        alias = "HasAdditionalSeatsOption",
         skip_serializing_if = "Option::is_none"
     )]
     pub has_additional_seats_option: Option<bool>,
-    #[serde(rename = "basePrice", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "basePrice",
+        alias = "BasePrice",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub base_price: Option<f64>,
-    #[serde(rename = "seatPrice", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "seatPrice",
+        alias = "SeatPrice",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub seat_price: Option<f64>,
-    #[serde(rename = "baseSeats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "baseSeats",
+        alias = "BaseSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub base_seats: Option<i32>,
-    #[serde(rename = "maxSeats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "maxSeats",
+        alias = "MaxSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub max_seats: Option<i32>,
-    #[serde(rename = "maxAdditionalSeats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "maxAdditionalSeats",
+        alias = "MaxAdditionalSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub max_additional_seats: Option<i32>,
-    #[serde(rename = "allowSeatAutoscale", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "allowSeatAutoscale",
+        alias = "AllowSeatAutoscale",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub allow_seat_autoscale: Option<bool>,
-    #[serde(rename = "maxProjects", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "maxProjects",
+        alias = "MaxProjects",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub max_projects: Option<i32>,
 }
 

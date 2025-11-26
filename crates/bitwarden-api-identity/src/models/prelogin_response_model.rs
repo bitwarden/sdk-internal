@@ -14,13 +14,25 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PreloginResponseModel {
-    #[serde(rename = "kdf", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "kdf", alias = "Kdf", skip_serializing_if = "Option::is_none")]
     pub kdf: Option<models::KdfType>,
-    #[serde(rename = "kdfIterations", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "kdfIterations",
+        alias = "KdfIterations",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub kdf_iterations: Option<i32>,
-    #[serde(rename = "kdfMemory", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "kdfMemory",
+        alias = "KdfMemory",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub kdf_memory: Option<i32>,
-    #[serde(rename = "kdfParallelism", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "kdfParallelism",
+        alias = "KdfParallelism",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub kdf_parallelism: Option<i32>,
 }
 

@@ -14,9 +14,12 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct KeyRegenerationRequestModel {
-    #[serde(rename = "userPublicKey")]
+    #[serde(rename = "userPublicKey", alias = "UserPublicKey")]
     pub user_public_key: Option<String>,
-    #[serde(rename = "userKeyEncryptedUserPrivateKey")]
+    #[serde(
+        rename = "userKeyEncryptedUserPrivateKey",
+        alias = "UserKeyEncryptedUserPrivateKey"
+    )]
     pub user_key_encrypted_user_private_key: Option<String>,
 }
 

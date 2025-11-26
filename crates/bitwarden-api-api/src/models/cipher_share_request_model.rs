@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CipherShareRequestModel {
-    #[serde(rename = "collectionIds")]
+    #[serde(rename = "collectionIds", alias = "CollectionIds")]
     pub collection_ids: Vec<String>,
-    #[serde(rename = "cipher")]
+    #[serde(rename = "cipher", alias = "Cipher")]
     pub cipher: Box<models::CipherRequestModel>,
 }
 

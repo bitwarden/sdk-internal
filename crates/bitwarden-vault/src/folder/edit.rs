@@ -76,19 +76,14 @@ mod tests {
         folder_id: FolderId,
         name: &str,
     ) {
-        repository
-            .set(
-                folder_id.to_string(),
-                Folder {
-                    id: Some(folder_id),
-                    name: name
-                        .encrypt(&mut store.context(), SymmetricKeyId::User)
-                        .unwrap(),
-                    revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
-                },
-            )
-            .await
-            .unwrap();
+        let folder = Folder {
+            id: Some(folder_id),
+            name: name
+                .encrypt(&mut store.context(), SymmetricKeyId::User)
+                .unwrap(),
+            revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
+        };
+        repository.set(folder_id.to_string(), folder).await.unwrap();
     }
 
     #[tokio::test]

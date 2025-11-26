@@ -14,55 +14,141 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EventResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "type",
+        alias = "R#type",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub r#type: Option<models::EventType>,
-    #[serde(rename = "userId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "userId",
+        alias = "UserId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub user_id: Option<uuid::Uuid>,
-    #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationId",
+        alias = "OrganizationId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_id: Option<uuid::Uuid>,
-    #[serde(rename = "providerId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "providerId",
+        alias = "ProviderId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub provider_id: Option<uuid::Uuid>,
-    #[serde(rename = "cipherId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "cipherId",
+        alias = "CipherId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub cipher_id: Option<uuid::Uuid>,
-    #[serde(rename = "collectionId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "collectionId",
+        alias = "CollectionId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub collection_id: Option<uuid::Uuid>,
-    #[serde(rename = "groupId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "groupId",
+        alias = "GroupId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub group_id: Option<uuid::Uuid>,
-    #[serde(rename = "policyId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "policyId",
+        alias = "PolicyId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub policy_id: Option<uuid::Uuid>,
-    #[serde(rename = "organizationUserId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationUserId",
+        alias = "OrganizationUserId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_user_id: Option<uuid::Uuid>,
-    #[serde(rename = "providerUserId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "providerUserId",
+        alias = "ProviderUserId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub provider_user_id: Option<uuid::Uuid>,
     #[serde(
         rename = "providerOrganizationId",
+        alias = "ProviderOrganizationId",
         skip_serializing_if = "Option::is_none"
     )]
     pub provider_organization_id: Option<uuid::Uuid>,
-    #[serde(rename = "actingUserId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "actingUserId",
+        alias = "ActingUserId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub acting_user_id: Option<uuid::Uuid>,
-    #[serde(rename = "installationId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "installationId",
+        alias = "InstallationId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub installation_id: Option<uuid::Uuid>,
-    #[serde(rename = "date", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "date",
+        alias = "Date",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub date: Option<String>,
-    #[serde(rename = "deviceType", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "deviceType",
+        alias = "DeviceType",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub device_type: Option<models::DeviceType>,
-    #[serde(rename = "ipAddress", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "ipAddress",
+        alias = "IpAddress",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub ip_address: Option<String>,
-    #[serde(rename = "systemUser", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "systemUser",
+        alias = "SystemUser",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub system_user: Option<models::EventSystemUser>,
-    #[serde(rename = "domainName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "domainName",
+        alias = "DomainName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub domain_name: Option<String>,
-    #[serde(rename = "secretId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "secretId",
+        alias = "SecretId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub secret_id: Option<uuid::Uuid>,
-    #[serde(rename = "projectId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "projectId",
+        alias = "ProjectId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub project_id: Option<uuid::Uuid>,
-    #[serde(rename = "serviceAccountId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "serviceAccountId",
+        alias = "ServiceAccountId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub service_account_id: Option<uuid::Uuid>,
     #[serde(
         rename = "grantedServiceAccountId",
+        alias = "GrantedServiceAccountId",
         skip_serializing_if = "Option::is_none"
     )]
     pub granted_service_account_id: Option<uuid::Uuid>,

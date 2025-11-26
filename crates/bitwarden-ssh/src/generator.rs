@@ -27,29 +27,29 @@ pub enum KeyAlgorithm {
 pub fn generate_sshkey(
     key_algorithm: KeyAlgorithm,
 ) -> Result<SshKeyView, error::KeyGenerationError> {
-    let rng = rand::rng();
-    generate_sshkey_internal(key_algorithm, rng)
+    let mut rng = rand::rng();
+    generate_sshkey_internal(key_algorithm, &mut rng)
 }
 
-fn generate_sshkey_internal(
+fn generate_sshkey_internal<R: CryptoRng + ?Sized>(
     key_algorithm: KeyAlgorithm,
-    mut rng: impl CryptoRng,
+    rng: &mut R,
 ) -> Result<SshKeyView, error::KeyGenerationError> {
     let private_key = match key_algorithm {
-        KeyAlgorithm::Ed25519 => ssh_key::PrivateKey::random(&mut rng, Algorithm::Ed25519)
+        KeyAlgorithm::Ed25519 => ssh_key::PrivateKey::random(rng, Algorithm::Ed25519)
             .map_err(KeyGenerationError::KeyGeneration),
-        KeyAlgorithm::Rsa3072 => create_rsa_key(&mut rng, 3072),
-        KeyAlgorithm::Rsa4096 => create_rsa_key(&mut rng, 4096),
+        KeyAlgorithm::Rsa3072 => create_rsa_key(rng, 3072),
+        KeyAlgorithm::Rsa4096 => create_rsa_key(rng, 4096),
     }?;
 
     ssh_private_key_to_view(private_key).map_err(|_| KeyGenerationError::KeyConversion)
 }
 
-fn create_rsa_key(
-    mut rng: impl CryptoRng,
+fn create_rsa_key<R: CryptoRng + ?Sized>(
+    rng: &mut R,
     bits: usize,
 ) -> Result<ssh_key::PrivateKey, error::KeyGenerationError> {
-    let rsa_keypair = ssh_key::private::RsaKeypair::random(&mut rng, bits)
+    let rsa_keypair = ssh_key::private::RsaKeypair::random(rng, bits)
         .map_err(KeyGenerationError::KeyGeneration)?;
     let private_key =
         ssh_key::PrivateKey::new(ssh_key::private::KeypairData::from(rsa_keypair), "")

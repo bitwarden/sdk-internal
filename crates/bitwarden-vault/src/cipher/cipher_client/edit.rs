@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use bitwarden_api_api::models::CipherRequestModel;
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
@@ -22,13 +20,10 @@ use wasm_bindgen::prelude::*;
 
 use super::CiphersClient;
 use crate::{
-    AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldType,
-    FieldView, FolderId, ItemNotFoundError, PasswordHistoryView, VaultParseError,
-    cipher_view_type::CipherViewType,
+    AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldView,
+    FolderId, ItemNotFoundError, PasswordHistoryView, VaultParseError,
+    cipher_view_type::CipherViewType, password_history::MAX_PASSWORD_HISTORY_ENTRIES,
 };
-
-/// Maximum number of password history entries to retain
-const MAX_PASSWORD_HISTORY_ENTRIES: usize = 5;
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -161,72 +156,22 @@ impl CipherEditRequestInternal {
         &mut self,
         original_cipher: &CipherView,
     ) -> Vec<PasswordHistoryView> {
-        if !matches!(self.edit_request.r#type, CipherViewType::Login(_))
-            || original_cipher.r#type != CipherType::Login
-        {
-            return vec![];
-        }
-
-        let (Some(original_login), Some(current_login)) = (
-            original_cipher.login.as_ref(),
-            self.edit_request.r#type.as_login_view_mut(),
-        ) else {
-            return vec![];
-        };
-
-        let original_password = original_login.password.as_deref().unwrap_or("");
-        let current_password = current_login.password.as_deref().unwrap_or("");
-
-        if original_password.is_empty() {
-            // No original password - set revision date only if adding new password
-            if !current_password.is_empty() {
-                current_login.password_revision_date = Some(Utc::now());
-            }
-            vec![]
-        } else if original_password == current_password {
-            // Password unchanged - preserve original revision date
-            current_login.password_revision_date = original_login.password_revision_date;
-            vec![]
-        } else {
-            // Password changed - update revision date and track change
-            current_login.password_revision_date = Some(Utc::now());
-            vec![PasswordHistoryView::new_password(original_password)]
-        }
+        self.edit_request
+            .r#type
+            .as_login_view_mut()
+            .map_or(vec![], |login| {
+                login.detect_password_change(&original_cipher.login)
+            })
     }
 
     fn detect_hidden_field_changes(
         &self,
         original_cipher: &CipherView,
     ) -> Vec<PasswordHistoryView> {
-        let original_fields =
-            Self::extract_hidden_fields(original_cipher.fields.as_deref().unwrap_or_default());
-        let current_fields = Self::extract_hidden_fields(&self.edit_request.fields);
-
-        original_fields
-            .into_iter()
-            .filter_map(|(field_name, original_value)| {
-                let current_value = current_fields.get(&field_name);
-                if current_value != Some(&original_value) {
-                    Some(PasswordHistoryView::new_field(&field_name, &original_value))
-                } else {
-                    None
-                }
-            })
-            .collect()
-    }
-
-    fn extract_hidden_fields(fields: &[FieldView]) -> HashMap<String, String> {
-        fields
-            .iter()
-            .filter_map(|f| match (&f.r#type, &f.name, &f.value) {
-                (FieldType::Hidden, Some(name), Some(value))
-                    if !name.is_empty() && !value.is_empty() =>
-                {
-                    Some((name.clone(), value.clone()))
-                }
-                _ => None,
-            })
-            .collect()
+        FieldView::detect_hidden_field_changes(
+            self.edit_request.fields.as_slice(),
+            original_cipher.fields.as_deref().unwrap_or(&[]),
+        )
     }
 
     fn generate_checksums(&mut self) {
@@ -456,7 +401,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        Cipher, CipherId, CipherRepromptType, CipherType, Login, LoginView, PasswordHistoryView,
+        Cipher, CipherId, CipherRepromptType, CipherType, FieldType, Login, LoginView,
+        PasswordHistoryView,
     };
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
@@ -516,57 +462,56 @@ mod tests {
         cipher_id: CipherId,
         name: &str,
     ) {
-        let mut ctx = store.context();
+        let cipher = {
+            let mut ctx = store.context();
 
-        repository
-            .set(
-                cipher_id.to_string(),
-                Cipher {
-                    id: Some(cipher_id),
-                    organization_id: None,
-                    folder_id: None,
-                    collection_ids: vec![],
-                    key: None,
-                    name: name.encrypt(&mut ctx, SymmetricKeyId::User).unwrap(),
-                    notes: None,
-                    r#type: CipherType::Login,
-                    login: Some(Login {
-                        username: Some("test@example.com")
-                            .map(|u| u.encrypt(&mut ctx, SymmetricKeyId::User))
-                            .transpose()
-                            .unwrap(),
-                        password: Some("password123")
-                            .map(|p| p.encrypt(&mut ctx, SymmetricKeyId::User))
-                            .transpose()
-                            .unwrap(),
-                        password_revision_date: None,
-                        uris: None,
-                        totp: None,
-                        autofill_on_page_load: None,
-                        fido2_credentials: None,
-                    }),
-                    identity: None,
-                    card: None,
-                    secure_note: None,
-                    ssh_key: None,
-                    favorite: false,
-                    reprompt: CipherRepromptType::None,
-                    organization_use_totp: true,
-                    edit: true,
-                    permissions: None,
-                    view_password: true,
-                    local_data: None,
-                    attachments: None,
-                    fields: None,
-                    password_history: None,
-                    creation_date: "2024-01-01T00:00:00Z".parse().unwrap(),
-                    deleted_date: None,
-                    revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
-                    archived_date: None,
-                },
-            )
-            .await
-            .unwrap();
+            Cipher {
+                id: Some(cipher_id),
+                organization_id: None,
+                folder_id: None,
+                collection_ids: vec![],
+                key: None,
+                name: name.encrypt(&mut ctx, SymmetricKeyId::User).unwrap(),
+                notes: None,
+                r#type: CipherType::Login,
+                login: Some(Login {
+                    username: Some("test@example.com")
+                        .map(|u| u.encrypt(&mut ctx, SymmetricKeyId::User))
+                        .transpose()
+                        .unwrap(),
+                    password: Some("password123")
+                        .map(|p| p.encrypt(&mut ctx, SymmetricKeyId::User))
+                        .transpose()
+                        .unwrap(),
+                    password_revision_date: None,
+                    uris: None,
+                    totp: None,
+                    autofill_on_page_load: None,
+                    fido2_credentials: None,
+                }),
+                identity: None,
+                card: None,
+                secure_note: None,
+                ssh_key: None,
+                favorite: false,
+                reprompt: CipherRepromptType::None,
+                organization_use_totp: true,
+                edit: true,
+                permissions: None,
+                view_password: true,
+                local_data: None,
+                attachments: None,
+                fields: None,
+                password_history: None,
+                creation_date: "2024-01-01T00:00:00Z".parse().unwrap(),
+                deleted_date: None,
+                revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
+                archived_date: None,
+                data: None,
+            }
+        };
+
+        repository.set(cipher_id.to_string(), cipher).await.unwrap();
     }
 
     #[tokio::test]
