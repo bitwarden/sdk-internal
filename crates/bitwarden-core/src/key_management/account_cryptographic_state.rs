@@ -70,7 +70,7 @@ impl From<CryptoError> for AccountCryptographyInitializationError {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[allow(clippy::large_enum_variant)]
-pub enum WrappedUserAccountCryptographicState {
+pub enum WrappedAccountCryptographicState {
     /// A V1 user has only a private key.
     V1 {
         /// The user's encryption private key, wrapped by the user key.
@@ -94,9 +94,9 @@ pub enum WrappedUserAccountCryptographicState {
     },
 }
 
-impl WrappedUserAccountCryptographicState {
+impl WrappedAccountCryptographicState {
     /// Converts to a PrivateKeysResponseModel in order to make API requests. Since the
-    /// [WrappedUserAccountCryptographicState] is encrypted, the key store needs to contain the
+    /// [WrappedAccountCryptographicState] is encrypted, the key store needs to contain the
     /// user key required to unlock this state.
     pub fn to_private_keys_request_model(
         &self,
@@ -106,8 +106,8 @@ impl WrappedUserAccountCryptographicState {
         Ok(PrivateKeysResponseModel {
             object: Some("privateKeys".to_string()),
             signature_key_pair: match self {
-                WrappedUserAccountCryptographicState::V1 { .. } => None,
-                WrappedUserAccountCryptographicState::V2 { signing_key, .. } => Some(Box::new(
+                WrappedAccountCryptographicState::V1 { .. } => None,
+                WrappedAccountCryptographicState::V2 { signing_key, .. } => Some(Box::new(
                     bitwarden_api_api::models::SignatureKeyPairResponseModel {
                         wrapped_signing_key: Some(signing_key.to_string()),
                         verifying_key: Some(
@@ -126,10 +126,10 @@ impl WrappedUserAccountCryptographicState {
             public_key_encryption_key_pair: Box::new(
                 bitwarden_api_api::models::PublicKeyEncryptionKeyPairResponseModel {
                     wrapped_private_key: match self {
-                        WrappedUserAccountCryptographicState::V1 { private_key } => {
+                        WrappedAccountCryptographicState::V1 { private_key } => {
                             Some(private_key.to_string())
                         }
-                        WrappedUserAccountCryptographicState::V2 { private_key, .. } => {
+                        WrappedAccountCryptographicState::V2 { private_key, .. } => {
                             Some(private_key.to_string())
                         }
                     },
@@ -145,8 +145,8 @@ impl WrappedUserAccountCryptographicState {
                 },
             ),
             security_state: match self {
-                WrappedUserAccountCryptographicState::V1 { .. } => None,
-                WrappedUserAccountCryptographicState::V2 { security_state, .. } => {
+                WrappedAccountCryptographicState::V1 { .. } => None,
+                WrappedAccountCryptographicState::V2 { security_state, .. } => {
                     // ensure we have a verifying key reference and convert the verified state's
                     // version to i32 for the API model
                     let vk_ref = verifying_key
@@ -181,7 +181,7 @@ impl WrappedUserAccountCryptographicState {
 
         Ok((
             user_key,
-            WrappedUserAccountCryptographicState::V2 {
+            WrappedAccountCryptographicState::V2 {
                 private_key: ctx.wrap_private_key(user_key, private_key)?,
                 signed_public_key: Some(signed_public_key),
                 signing_key: ctx.wrap_signing_key(user_key, signing_key)?,
@@ -209,7 +209,7 @@ impl WrappedUserAccountCryptographicState {
         }
 
         match self {
-            WrappedUserAccountCryptographicState::V1 { private_key } => {
+            WrappedAccountCryptographicState::V1 { private_key } => {
                 info!("Initializing V1 account cryptographic state");
                 if ctx.get_symmetric_key_algorithm(user_key)?
                     != SymmetricKeyAlgorithm::Aes256CbcHmac
@@ -224,7 +224,7 @@ impl WrappedUserAccountCryptographicState {
                 ctx.persist_asymmetric_key(private_key_id, AsymmetricKeyId::UserPrivateKey)?;
                 ctx.persist_symmetric_key(user_key, SymmetricKeyId::User)?;
             }
-            WrappedUserAccountCryptographicState::V2 {
+            WrappedAccountCryptographicState::V2 {
                 private_key,
                 signed_public_key,
                 signing_key,
@@ -276,8 +276,8 @@ impl WrappedUserAccountCryptographicState {
         store: &KeyStore<KeyIds>,
     ) -> Result<Option<VerifyingKey>, AccountCryptographyInitializationError> {
         match self {
-            WrappedUserAccountCryptographicState::V1 { .. } => Ok(None),
-            WrappedUserAccountCryptographicState::V2 { signing_key, .. } => {
+            WrappedAccountCryptographicState::V1 { .. } => Ok(None),
+            WrappedAccountCryptographicState::V2 { signing_key, .. } => {
                 let mut ctx = store.context_mut();
                 let signing_key = ctx
                     .unwrap_signing_key(SymmetricKeyId::User, signing_key)
@@ -296,8 +296,8 @@ impl WrappedUserAccountCryptographicState {
         store: &KeyStore<KeyIds>,
     ) -> Result<Option<AsymmetricPublicCryptoKey>, AccountCryptographyInitializationError> {
         match self {
-            WrappedUserAccountCryptographicState::V1 { private_key }
-            | WrappedUserAccountCryptographicState::V2 { private_key, .. } => {
+            WrappedAccountCryptographicState::V1 { private_key }
+            | WrappedAccountCryptographicState::V2 { private_key, .. } => {
                 let mut ctx = store.context_mut();
                 let private_key = ctx
                     .unwrap_private_key(SymmetricKeyId::User, private_key)
@@ -314,8 +314,8 @@ impl WrappedUserAccountCryptographicState {
         &self,
     ) -> Result<Option<&SignedPublicKey>, AccountCryptographyInitializationError> {
         match self {
-            WrappedUserAccountCryptographicState::V1 { .. } => Ok(None),
-            WrappedUserAccountCryptographicState::V2 {
+            WrappedAccountCryptographicState::V1 { .. } => Ok(None),
+            WrappedAccountCryptographicState::V2 {
                 signed_public_key, ..
             } => Ok(signed_public_key.as_ref()),
         }
@@ -347,7 +347,7 @@ mod tests {
         let wrapped_private = temp_ctx.wrap_private_key(user_key, private_key_id).unwrap();
 
         // Construct the V1 wrapped state
-        let wrapped = WrappedUserAccountCryptographicState::V1 {
+        let wrapped = WrappedAccountCryptographicState::V1 {
             private_key: wrapped_private,
         };
         #[allow(deprecated)]
@@ -404,7 +404,7 @@ mod tests {
         let wrapped_private = temp_ctx.wrap_private_key(user_key, private_key_id).unwrap();
         let wrapped_signing = temp_ctx.wrap_signing_key(user_key, signing_key_id).unwrap();
 
-        let wrapped = WrappedUserAccountCryptographicState::V2 {
+        let wrapped = WrappedAccountCryptographicState::V2 {
             private_key: wrapped_private,
             signed_public_key: Some(signed_public_key),
             signing_key: wrapped_signing,
@@ -450,7 +450,7 @@ mod tests {
         let mut temp_ctx = temp_store.context_mut();
         let user_id = UserId::new_v4();
         let (user_key, wrapped_account_cryptography_state) =
-            WrappedUserAccountCryptographicState::make(&mut temp_ctx, user_id).unwrap();
+            WrappedAccountCryptographicState::make(&mut temp_ctx, user_id).unwrap();
 
         wrapped_account_cryptography_state
             .set_to_context(&RwLock::new(None), user_key, &temp_store, temp_ctx)

@@ -27,7 +27,7 @@ use crate::{
     error::NotAuthenticatedError,
     key_management::{
         MasterPasswordUnlockData, SecurityState,
-        account_cryptographic_state::WrappedUserAccountCryptographicState,
+        account_cryptographic_state::WrappedAccountCryptographicState,
     },
 };
 
@@ -272,7 +272,7 @@ impl InternalClient {
         &self,
         master_key: MasterKey,
         user_key: EncString,
-        account_crypto_state: WrappedUserAccountCryptographicState,
+        account_crypto_state: WrappedAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
         let user_key = master_key.decrypt_user_key(user_key)?;
         self.initialize_user_crypto_decrypted_key(user_key, account_crypto_state)
@@ -282,7 +282,7 @@ impl InternalClient {
     pub(crate) fn initialize_user_crypto_decrypted_key(
         &self,
         user_key: SymmetricCryptoKey,
-        account_crypto_state: WrappedUserAccountCryptographicState,
+        account_crypto_state: WrappedAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
         let mut ctx = self.key_store.context_mut();
         let user_key = ctx.add_local_symmetric_key(user_key);
@@ -296,7 +296,7 @@ impl InternalClient {
         &self,
         pin_key: PinKey,
         pin_protected_user_key: EncString,
-        account_crypto_state: WrappedUserAccountCryptographicState,
+        account_crypto_state: WrappedAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
         let decrypted_user_key = pin_key.decrypt_user_key(pin_protected_user_key)?;
         self.initialize_user_crypto_decrypted_key(decrypted_user_key, account_crypto_state)
@@ -307,7 +307,7 @@ impl InternalClient {
         &self,
         pin: String,
         pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
-        account_crypto_state: WrappedUserAccountCryptographicState,
+        account_crypto_state: WrappedAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
         let decrypted_user_key = {
             // Note: This block ensures ctx is dropped. Otherwise it would cause a deadlock when
@@ -349,7 +349,7 @@ impl InternalClient {
         &self,
         password: String,
         master_password_unlock: MasterPasswordUnlockData,
-        account_crypto_state: WrappedUserAccountCryptographicState,
+        account_crypto_state: WrappedAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
         let master_key = MasterKey::derive(
             &password,
