@@ -745,7 +745,7 @@ mod tests {
                             .organization_id
                             .and_then(|id| id.parse().ok()),
                         name: Some(request_body.name.clone()),
-                        r#type: request_body.r#type.clone(),
+                        r#type: request_body.r#type,
                         creation_date: Some(Utc::now().to_string()),
                         revision_date: Some(Utc::now().to_string()),
                         ..Default::default()

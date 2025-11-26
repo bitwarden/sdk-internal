@@ -599,7 +599,7 @@ mod tests {
                             .organization_id
                             .and_then(|id| id.parse().ok()),
                         name: Some(request_body.cipher.name.clone()),
-                        r#type: request_body.cipher.r#type.clone(),
+                        r#type: request_body.cipher.r#type,
                         creation_date: Some(Utc::now().to_string()),
                         revision_date: Some(Utc::now().to_string()),
                         ..Default::default()
@@ -668,7 +668,7 @@ mod tests {
                             .organization_id
                             .and_then(|id| id.parse().ok()),
                         name: Some(request_body.cipher.name.clone()),
-                        r#type: request_body.cipher.r#type.clone(),
+                        r#type: request_body.cipher.r#type,
                         creation_date: Some(Utc::now().to_string()),
                         revision_date: Some(Utc::now().to_string()),
                         ..Default::default()
@@ -708,7 +708,7 @@ mod tests {
         let repository = client.get_repository().unwrap();
         let cipher = repository.get(TEST_CIPHER_ID.to_string()).await.unwrap();
         // Should not update local repository for admin endpoints.
-        assert!(matches!(cipher, None));
+        assert!(cipher.is_none());
 
         assert_eq!(response.id, Some(TEST_CIPHER_ID.parse().unwrap()));
         assert_eq!(response.organization_id, Some(TEST_ORG_ID.parse().unwrap()));
