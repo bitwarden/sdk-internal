@@ -198,7 +198,7 @@ mod tests {
         ClientSettings, DeviceType,
         key_management::{
             SymmetricKeyId,
-            account_cryptographic_state::WrappedUserAccountCryptographicState,
+            account_cryptographic_state::WrappedAccountCryptographicState,
             crypto::{InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest},
         },
     };
@@ -281,7 +281,7 @@ mod tests {
             user_id: Some(TEST_USER_ID.parse().unwrap()),
             kdf_params: Kdf::default(),
             email: TEST_USER_EMAIL.to_string(),
-            account_cryptographic_state: WrappedUserAccountCryptographicState::V1 {
+            account_cryptographic_state: WrappedAccountCryptographicState::V1 {
                 private_key: TEST_ACCOUNT_PRIVATE_KEY.parse().unwrap(),
             },
             method: InitUserCryptoMethod::Password {

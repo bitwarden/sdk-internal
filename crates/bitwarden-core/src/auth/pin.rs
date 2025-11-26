@@ -51,7 +51,7 @@ mod tests {
     use super::*;
     use crate::{
         client::{Client, LoginMethod, UserLoginMethod},
-        key_management::account_cryptographic_state::WrappedUserAccountCryptographicState,
+        key_management::account_cryptographic_state::WrappedAccountCryptographicState,
     };
 
     fn init_client() -> Client {
@@ -81,7 +81,7 @@ mod tests {
             .initialize_user_crypto_master_key(
                 master_key,
                 user_key.parse().unwrap(),
-                WrappedUserAccountCryptographicState::V1 { private_key },
+                WrappedAccountCryptographicState::V1 { private_key },
             )
             .unwrap();
 

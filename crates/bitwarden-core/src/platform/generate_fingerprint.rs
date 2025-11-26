@@ -82,7 +82,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        Client, key_management::account_cryptographic_state::WrappedUserAccountCryptographicState,
+        Client, key_management::account_cryptographic_state::WrappedAccountCryptographicState,
     };
 
     #[test]
@@ -107,7 +107,7 @@ mod tests {
             .initialize_user_crypto_master_key(
                 master_key,
                 user_key.parse().unwrap(),
-                WrappedUserAccountCryptographicState::V1 {
+                WrappedAccountCryptographicState::V1 {
                     private_key: private_key.parse().unwrap(),
                 },
             )

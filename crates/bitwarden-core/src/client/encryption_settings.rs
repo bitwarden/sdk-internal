@@ -6,8 +6,6 @@ use bitwarden_crypto::SymmetricCryptoKey;
 use bitwarden_crypto::UnsignedSharedKey;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
-#[cfg(feature = "internal")]
-use tracing::warn;
 
 #[cfg(any(feature = "secrets", feature = "internal"))]
 use crate::OrganizationId;

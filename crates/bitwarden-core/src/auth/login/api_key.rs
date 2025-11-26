@@ -10,7 +10,7 @@ use crate::{
     },
     client::{LoginMethod, UserLoginMethod},
     key_management::{
-        UserDecryptionData, account_cryptographic_state::WrappedUserAccountCryptographicState,
+        UserDecryptionData, account_cryptographic_state::WrappedAccountCryptographicState,
     },
     require,
 };
@@ -33,7 +33,7 @@ pub(crate) async fn login_api_key(
 
         let private_key: EncString = require!(&r.private_key).parse()?;
 
-        let user_key_state = WrappedUserAccountCryptographicState::V1 { private_key };
+        let user_key_state = WrappedAccountCryptographicState::V1 { private_key };
 
         let master_password_unlock = r
             .user_decryption_options

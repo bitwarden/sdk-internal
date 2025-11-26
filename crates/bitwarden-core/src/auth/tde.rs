@@ -6,7 +6,7 @@ use bitwarden_encoding::B64;
 
 use crate::{
     Client, client::encryption_settings::EncryptionSettingsError,
-    key_management::account_cryptographic_state::WrappedUserAccountCryptographicState,
+    key_management::account_cryptographic_state::WrappedAccountCryptographicState,
 };
 
 /// This function generates a new user key and key pair, initializes the client's crypto with the
@@ -36,7 +36,7 @@ pub(super) fn make_register_tde_keys(
         user_key.0,
         // TODO (https://bitwarden.atlassian.net/browse/PM-21771) Signing keys are not supported on registration yet. This needs to be changed as
         // soon as registration is supported.
-        WrappedUserAccountCryptographicState::V1 {
+        WrappedAccountCryptographicState::V1 {
             private_key: key_pair.private.clone(),
         },
     )?;

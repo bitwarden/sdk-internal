@@ -486,7 +486,7 @@ mod tests {
             .to_string()
         );
 
-        let pk_pair = model.public_key_encryption_key_pair;
+        let pk_pair = model.public_key_encryption_key_pair.unwrap();
         assert_eq!(
             pk_pair.public_key.unwrap(),
             B64::from(

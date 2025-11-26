@@ -37,7 +37,7 @@ pub(crate) async fn login_password(
     let response = request_identity_tokens(client, input, &password_hash).await?;
 
     if let IdentityTokenResponse::Authenticated(r) = &response {
-        use crate::key_management::account_cryptographic_state::WrappedUserAccountCryptographicState;
+        use crate::key_management::account_cryptographic_state::WrappedAccountCryptographicState;
 
         client.internal.set_tokens(
             r.access_token.clone(),
@@ -47,7 +47,7 @@ pub(crate) async fn login_password(
 
         let private_key: EncString = require!(&r.private_key).parse()?;
 
-        let user_key_state = WrappedUserAccountCryptographicState::V1 { private_key };
+        let user_key_state = WrappedAccountCryptographicState::V1 { private_key };
 
         let master_password_unlock = r
             .user_decryption_options
