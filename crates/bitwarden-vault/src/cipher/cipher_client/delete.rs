@@ -473,7 +473,7 @@ mod tests {
         let cipher_id_2: CipherId = TEST_CIPHER_ID_2.parse().unwrap();
 
         client
-            .delete_many_as_admin(vec![cipher_id, cipher_id_2], TEST_ORG_ID.parse().ok())
+            .soft_delete_many_as_admin(vec![cipher_id, cipher_id_2], TEST_ORG_ID.parse().ok())
             .await
             .unwrap();
     }
