@@ -849,7 +849,7 @@ dependencies = [
  "pem-rfc7468 1.0.0",
  "pkcs8 0.11.0-rc.8",
  "rand 0.10.0-rc.5",
- "rand_chacha 0.9.0",
+ "rand_chacha 0.10.0-rc.1",
  "rand_core 0.10.0-rc-2",
  "rsa 0.10.0-rc.10",
  "serde",
@@ -4159,6 +4159,16 @@ checksum = "d3022b5f1df60f26e1ffddd6c66e8aa15de382ae63b3a0c1bfc0e4d3e3f325cb"
 dependencies = [
  "ppv-lite86",
  "rand_core 0.9.3",
+]
+
+[[package]]
+name = "rand_chacha"
+version = "0.10.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8626de1da3fa5b7c07fb164f63390baf745ec135ebd2a1fe70d3a8d653d5a56"
+dependencies = [
+ "ppv-lite86",
+ "rand_core 0.10.0-rc-2",
 ]
 
 [[package]]

@@ -49,7 +49,7 @@ uniffi = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
-rand_chacha = "0.9.0"
+rand_chacha = "0.10.0-rc.1"
 
 [lints]
 workspace = true
