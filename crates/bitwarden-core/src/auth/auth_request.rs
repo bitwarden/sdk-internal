@@ -256,9 +256,7 @@ mod tests {
                 user_id: Some(UserId::new_v4()),
                 kdf_params: kdf,
                 email: email.to_owned(),
-                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
-                    private_key,
-                },
+                account_cryptographic_state: WrappedAccountCryptographicState::V1 { private_key },
                 method: InitUserCryptoMethod::AuthRequest {
                     request_private_key: auth_req.private_key,
                     method: AuthRequestMethod::UserKey {
