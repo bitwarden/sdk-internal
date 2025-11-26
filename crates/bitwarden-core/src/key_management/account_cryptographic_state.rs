@@ -192,7 +192,7 @@ impl WrappedUserAccountCryptographicState {
 
     /// Set the decrypted account cryptographic state to the context's non-local storage.
     /// This needs a mutable context passed in that already has a user_key set to a local key slot,
-    /// for which che id is passed in as `user_key`. Note, that this function drops the context
+    /// for which the id is passed in as `user_key`. Note, that this function drops the context
     /// and clears the existing local state, after persisting it.
     pub(crate) fn set_to_context(
         &self,
