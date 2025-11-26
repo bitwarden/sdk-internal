@@ -1,26 +1,11 @@
-use bitwarden_api_api::models::{CipherBulkDeleteRequestModel, CipherBulkRestoreRequestModel};
+use bitwarden_api_api::models::CipherBulkDeleteRequestModel;
 use bitwarden_core::{ApiError, OrganizationId};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::RepositoryError;
 use chrono::Utc;
 use thiserror::Error;
 
-use crate::{
-    Cipher, CipherId, CipherView, CiphersClient, DecryptCipherListResult, DecryptError,
-    VaultParseError,
-};
-
-#[allow(missing_docs)]
-#[bitwarden_error(flat)]
-#[derive(Debug, Error)]
-pub enum RestoreCipherError {
-    #[error(transparent)]
-    Api(#[from] ApiError),
-    #[error(transparent)]
-    VaultParse(#[from] VaultParseError),
-    #[error(transparent)]
-    Decrypt(#[from] DecryptError),
-}
+use crate::{Cipher, CipherId, CiphersClient};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -35,12 +20,6 @@ pub enum DeleteCipherError {
 impl<T> From<bitwarden_api_api::apis::Error<T>> for DeleteCipherError {
     fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
         Self::Api(value.into())
-    }
-}
-
-impl<T> From<bitwarden_api_api::apis::Error<T>> for RestoreCipherError {
-    fn from(val: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(val.into())
     }
 }
 
@@ -159,75 +138,6 @@ impl CiphersClient {
         }))
         .await?;
         Ok(())
-    }
-
-    async fn process_restore(&self, cipher_id: CipherId) -> Result<(), RepositoryError> {
-        let repository = self.get_repository()?;
-        let cipher: Option<Cipher> = repository.get(cipher_id.to_string()).await?;
-        if let Some(mut cipher) = cipher {
-            cipher.deleted_date = Some(Utc::now());
-            cipher.archived_date = None;
-            repository.set(cipher_id.to_string(), cipher).await?;
-        }
-        Ok(())
-    }
-
-    /// Restores a soft-deleted cipher on the server.
-    pub async fn restore(&self, cipher_id: CipherId) -> Result<CipherView, RestoreCipherError> {
-        let api_config = self.get_api_configurations().await;
-        let api = api_config.api_client.ciphers_api();
-
-        let cipher: Cipher = api.put_restore(cipher_id.into()).await?.try_into()?;
-
-        Ok(self.decrypt(cipher)?)
-    }
-
-    /// Restores a soft-deleted cipher on the server, using the admin endpoint.
-    pub async fn restore_as_admin(
-        &self,
-        cipher_id: CipherId,
-    ) -> Result<CipherView, RestoreCipherError> {
-        let api_config = self.get_api_configurations().await;
-        let api = api_config.api_client.ciphers_api();
-
-        let cipher: Cipher = api.put_restore_admin(cipher_id.into()).await?.try_into()?;
-
-        Ok(self.decrypt(cipher)?)
-    }
-
-    /// Restores multiple soft-deleted ciphers on the server.
-    pub async fn restore_many(
-        &self,
-        cipher_ids: Vec<CipherId>,
-        org_id: Option<OrganizationId>,
-    ) -> Result<DecryptCipherListResult, RestoreCipherError> {
-        let api_config = self.get_api_configurations().await;
-        let api = api_config.api_client.ciphers_api();
-
-        let ciphers: Vec<Cipher> = if let Some(org_id) = org_id {
-            api.put_restore_many_admin(Some(CipherBulkRestoreRequestModel {
-                ids: cipher_ids.into_iter().map(|id| id.to_string()).collect(),
-                organization_id: Some(org_id.into()),
-            }))
-            .await?
-            .data
-            .into_iter()
-            .flatten()
-            .map(|c| c.try_into())
-            .collect::<Result<Vec<_>, _>>()?
-        } else {
-            api.put_restore_many(Some(CipherBulkRestoreRequestModel {
-                ids: cipher_ids.into_iter().map(|id| id.to_string()).collect(),
-                organization_id: None,
-            }))
-            .await?
-            .data
-            .into_iter()
-            .flatten()
-            .map(|c| c.try_into())
-            .collect::<Result<Vec<Cipher>, _>>()?
-        };
-        Ok(self.decrypt_list_with_failures(ciphers))
     }
 }
 
@@ -518,12 +428,13 @@ mod tests {
             .await
             .unwrap();
 
+        let start_time = Utc::now();
         client
             .soft_delete_many(vec![cipher_id, cipher_id_2], None)
             .await
             .unwrap();
+        let end_time = Utc::now();
 
-        let start_time = Utc::now();
         let cipher_1 = repository
             .get(cipher_id.to_string())
             .await
@@ -534,7 +445,6 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        let end_time = Utc::now();
 
         assert!(
             cipher_1.deleted_date.unwrap() >= start_time
@@ -557,32 +467,14 @@ mod tests {
         ])
         .await;
 
+        // Populate the repository with test ciphers.
         let client = create_client_with_wiremock(mock_server).await;
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
         let cipher_id_2: CipherId = TEST_CIPHER_ID_2.parse().unwrap();
+
         client
             .delete_many_as_admin(vec![cipher_id, cipher_id_2], TEST_ORG_ID.parse().ok())
             .await
             .unwrap();
-    }
-
-    #[tokio::test]
-    async fn test_restore() {
-        todo!()
-    }
-
-    #[tokio::test]
-    async fn test_restore_as_admin() {
-        todo!()
-    }
-
-    #[tokio::test]
-    async fn test_restore_many() {
-        todo!()
-    }
-
-    #[tokio::test]
-    async fn test_restore_many_as_admin() {
-        todo!()
     }
 }
