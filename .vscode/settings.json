@@ -35,5 +35,5 @@
     "zxcvbn"
   ],
   "rust-analyzer.cargo.targetDir": true,
-  "rust-analyzer.cargo.features": ["all"]
+  "rust-analyzer.cargo.features": ["wasm", "internal"]
 }
