@@ -10,7 +10,7 @@
 
 use std::sync::RwLock;
 
-use bitwarden_api_api::models::{PrivateKeysResponseModel, SecurityStateModel};
+use bitwarden_api_api::models::{AccountKeysRequestModel, SecurityStateModel};
 use bitwarden_crypto::{
     AsymmetricPublicCryptoKey, CoseSerializable, CryptoError, EncString, KeyStore, KeyStoreContext,
     PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKey, SymmetricKeyAlgorithm,
@@ -18,9 +18,9 @@ use bitwarden_crypto::{
 };
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
-use log::info;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tracing::info;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
@@ -95,20 +95,31 @@ pub enum WrappedAccountCryptographicState {
 }
 
 impl WrappedAccountCryptographicState {
-    /// Converts to a PrivateKeysResponseModel in order to make API requests. Since the
+    /// Converts to a AccountKeysRequestModel in order to make API requests. Since the
     /// [WrappedAccountCryptographicState] is encrypted, the key store needs to contain the
     /// user key required to unlock this state.
-    pub fn to_private_keys_request_model(
+    pub fn to_request_model(
         &self,
         store: &KeyStore<KeyIds>,
-    ) -> Result<PrivateKeysResponseModel, AccountCryptographyInitializationError> {
+    ) -> Result<AccountKeysRequestModel, AccountCryptographyInitializationError> {
         let verifying_key = self.verifying_key(store)?;
-        Ok(PrivateKeysResponseModel {
-            object: Some("privateKeys".to_string()),
+        Ok(AccountKeysRequestModel {
+            // Note: This property is deprecated and should be removed after a transition period.
+            user_key_encrypted_account_private_key: match self {
+                WrappedAccountCryptographicState::V1 { private_key }
+                | WrappedAccountCryptographicState::V2 { private_key, .. } => {
+                    Some(private_key.to_string())
+                }
+            },
+            // Note: This property is deprecated and should be removed after a transition period.
+            account_public_key: match self.public_key(store)? {
+                Some(pk) => Some(B64::from(pk.to_der()?).to_string()),
+                None => None,
+            },
             signature_key_pair: match self {
                 WrappedAccountCryptographicState::V1 { .. } => None,
                 WrappedAccountCryptographicState::V2 { signing_key, .. } => Some(Box::new(
-                    bitwarden_api_api::models::SignatureKeyPairResponseModel {
+                    bitwarden_api_api::models::SignatureKeyPairRequestModel {
                         wrapped_signing_key: Some(signing_key.to_string()),
                         verifying_key: Some(
                             B64::from(
@@ -119,17 +130,19 @@ impl WrappedAccountCryptographicState {
                             )
                             .to_string(),
                         ),
-                        object: Some("signatureKeyPair".to_string()),
+                        signature_algorithm: verifying_key.as_ref().map(|vk| {
+                            match vk.algorithm() {
+                                SignatureAlgorithm::Ed25519 => "ed25519".to_string(),
+                            }
+                        }),
                     },
                 )),
             },
-            public_key_encryption_key_pair: Box::new(
-                bitwarden_api_api::models::PublicKeyEncryptionKeyPairResponseModel {
+            public_key_encryption_key_pair: Some(Box::new(
+                bitwarden_api_api::models::PublicKeyEncryptionKeyPairRequestModel {
                     wrapped_private_key: match self {
-                        WrappedAccountCryptographicState::V1 { private_key } => {
-                            Some(private_key.to_string())
-                        }
-                        WrappedAccountCryptographicState::V2 { private_key, .. } => {
+                        WrappedAccountCryptographicState::V1 { private_key }
+                        | WrappedAccountCryptographicState::V2 { private_key, .. } => {
                             Some(private_key.to_string())
                         }
                     },
@@ -141,9 +154,8 @@ impl WrappedAccountCryptographicState {
                         Ok(Some(spk)) => Some(spk.clone().into()),
                         _ => None,
                     },
-                    object: Some("publicKeyEncryptionKeyPair".to_string()),
                 },
-            ),
+            )),
             security_state: match self {
                 WrappedAccountCryptographicState::V1 { .. } => None,
                 WrappedAccountCryptographicState::V2 { security_state, .. } => {
@@ -456,7 +468,7 @@ mod tests {
             .set_to_context(&RwLock::new(None), user_key, &temp_store, temp_ctx)
             .unwrap();
         let model = wrapped_account_cryptography_state
-            .to_private_keys_request_model(&temp_store)
+            .to_request_model(&temp_store)
             .expect("to_private_keys_request_model should succeed");
 
         let ctx = temp_store.context();
