@@ -101,7 +101,7 @@ impl CiphersClient {
     pub async fn soft_delete_as_admin(&self, cipher_id: CipherId) -> Result<(), DeleteCipherError> {
         let configs = self.get_api_configurations().await;
         let api = configs.api_client.ciphers_api();
-        api.put_delete_admin(cipher_id.into()).await?; // TODO: Map errors properly.
+        api.put_delete_admin(cipher_id.into()).await?;
         Ok(())
     }
 

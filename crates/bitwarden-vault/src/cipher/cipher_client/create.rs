@@ -67,7 +67,7 @@ pub struct CipherCreateRequest {
 /// Used as an intermediary between the public-facing [CipherCreateRequest], and the encrypted
 /// value. This allows us to manage the cipher key creation internally.
 #[derive(Clone, Debug)]
-pub(crate) struct CipherCreateRequestInternal {
+struct CipherCreateRequestInternal {
     create_request: CipherCreateRequest,
     key: Option<EncString>,
 }

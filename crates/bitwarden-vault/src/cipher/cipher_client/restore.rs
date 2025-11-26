@@ -1,13 +1,12 @@
-use bitwarden_api_api::models::{CipherBulkDeleteRequestModel, CipherBulkRestoreRequestModel};
+use bitwarden_api_api::models::CipherBulkRestoreRequestModel;
 use bitwarden_core::{ApiError, OrganizationId};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::RepositoryError;
-use chrono::Utc;
 use thiserror::Error;
 
 use crate::{
-    Cipher, CipherId, CipherListView, CipherListViewType, CipherView, CiphersClient,
-    DecryptCipherListResult, DecryptError, VaultParseError,
+    Cipher, CipherId, CipherView, CiphersClient, DecryptCipherListResult, DecryptError,
+    VaultParseError,
 };
 
 #[allow(missing_docs)]
