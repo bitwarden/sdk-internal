@@ -165,7 +165,7 @@ impl WrappedUserAccountCryptographicState {
         })
     }
 
-    /// Creates a new V2 account cryptographic state with fresh keys. This does not change the user
+    /// Creates a new V2 account cryptographic state with fresh keys.This does not change the user
     /// state, but does set some keys to the local context.
     pub fn make(
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -192,7 +192,7 @@ impl WrappedUserAccountCryptographicState {
 
     /// Set the decrypted account cryptographic state to the context's non-local storage.
     /// This needs a mutable context passed in that already has a user_key set to a local key slot,
-    /// for which the id is passed in as `user_key`. Note, that this function drops the context
+    /// for which che id is passed in as `user_key`. Note, that this function drops the context
     /// and clears the existing local state, after persisting it.
     pub(crate) fn set_to_context(
         &self,
@@ -289,7 +289,7 @@ impl WrappedUserAccountCryptographicState {
         }
     }
 
-    /// Retrieve the verifying key from the wrapped state, if present. This requires the user key to
+    /// Retrieve the public key from the wrapped state, if present. This requires the user key to
     /// be present in the store.
     fn public_key(
         &self,
