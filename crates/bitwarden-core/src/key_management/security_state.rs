@@ -116,7 +116,7 @@ impl TryFrom<&CoseSign1Bytes> for SignedSecurityState {
 
 impl From<&SignedSecurityState> for String {
     fn from(val: &SignedSecurityState) -> Self {
-        val.clone().into()
+        val.to_owned().into()
     }
 }
 
