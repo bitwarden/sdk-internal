@@ -46,6 +46,12 @@ pub struct PolicyDetailResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub enabled: Option<bool>,
+    #[serde(
+        rename = "revisionDate",
+        alias = "RevisionDate",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub revision_date: Option<String>,
     /// Indicates whether the Policy can be enabled/disabled
     #[serde(
         rename = "canToggleState",
@@ -64,6 +70,7 @@ impl PolicyDetailResponseModel {
             r#type: None,
             data: None,
             enabled: None,
+            revision_date: None,
             can_toggle_state: None,
         }
     }

@@ -46,6 +46,12 @@ pub struct PolicyResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub enabled: Option<bool>,
+    #[serde(
+        rename = "revisionDate",
+        alias = "RevisionDate",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub revision_date: Option<String>,
 }
 
 impl PolicyResponseModel {
@@ -57,6 +63,7 @@ impl PolicyResponseModel {
             r#type: None,
             data: None,
             enabled: None,
+            revision_date: None,
         }
     }
 }

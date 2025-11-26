@@ -29,6 +29,12 @@ pub struct TrialSendVerificationEmailRequestModel {
     )]
     pub receive_marketing_emails: Option<bool>,
     #[serde(
+        rename = "fromMarketing",
+        alias = "FromMarketing",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub from_marketing: Option<String>,
+    #[serde(
         rename = "productTier",
         alias = "ProductTier",
         skip_serializing_if = "Option::is_none"
@@ -54,6 +60,7 @@ impl TrialSendVerificationEmailRequestModel {
             name: None,
             email,
             receive_marketing_emails: None,
+            from_marketing: None,
             product_tier: None,
             products: None,
             trial_length: None,

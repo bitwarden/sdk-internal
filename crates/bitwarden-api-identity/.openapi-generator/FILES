@@ -8,11 +8,12 @@ src/lib.rs
 src/models/assertion_options.rs
 src/models/authentication_extensions_client_inputs.rs
 src/models/authenticator_transport.rs
+src/models/kdf_settings.rs
 src/models/kdf_type.rs
 src/models/keys_request_model.rs
 src/models/mod.rs
-src/models/prelogin_request_model.rs
-src/models/prelogin_response_model.rs
+src/models/password_prelogin_request_model.rs
+src/models/password_prelogin_response_model.rs
 src/models/product_tier_type.rs
 src/models/product_type.rs
 src/models/public_key_credential_descriptor.rs
