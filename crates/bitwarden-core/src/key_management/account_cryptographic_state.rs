@@ -196,7 +196,7 @@ impl WrappedUserAccountCryptographicState {
     /// and clears the existing local state, after persisting it.
     pub(crate) fn set_to_context(
         &self,
-        sdk_security_state: &RwLock<Option<SecurityState>>,
+        security_state_rwlock: &RwLock<Option<SecurityState>>,
         user_key: SymmetricKeyId,
         store: &KeyStore<KeyIds>,
         mut ctx: KeyStoreContext<KeyIds>,
@@ -262,7 +262,7 @@ impl WrappedUserAccountCryptographicState {
                 // needs to acquire a lock on the inner key store
                 drop(ctx);
                 store.set_security_state_version(security_state.version());
-                *sdk_security_state.write().expect("RwLock not poisoned") = Some(security_state);
+                *security_state_rwlock.write().expect("RwLock not poisoned") = Some(security_state);
             }
         }
 
@@ -362,11 +362,11 @@ mod tests {
         let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let user_key = ctx.add_local_symmetric_key(user_key);
-        let sdk_security_state = RwLock::new(None);
+        let security_state = RwLock::new(None);
 
         // This should succeed and move keys into the expected global slots
         wrapped
-            .set_to_context(&sdk_security_state, user_key, &store, ctx)
+            .set_to_context(&security_state, user_key, &store, ctx)
             .unwrap();
         let ctx = store.context();
 
@@ -422,10 +422,10 @@ mod tests {
         let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let user_key = ctx.add_local_symmetric_key(user_key);
-        let sdk_security_state = RwLock::new(None);
+        let security_state = RwLock::new(None);
 
         wrapped
-            .set_to_context(&sdk_security_state, user_key, &store, ctx)
+            .set_to_context(&security_state, user_key, &store, ctx)
             .unwrap();
 
         assert!(store.context().has_symmetric_key(SymmetricKeyId::User));
@@ -441,7 +441,7 @@ mod tests {
                 .has_signing_key(SigningKeyId::UserSigningKey)
         );
         // Ensure security state was recorded
-        assert!(sdk_security_state.read().unwrap().is_some());
+        assert!(security_state.read().unwrap().is_some());
     }
 
     #[test]

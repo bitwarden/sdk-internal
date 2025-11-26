@@ -1,4 +1,4 @@
-#[cfg(any(feature = "wasm", test))]
+#[cfg(feature = "wasm")]
 use bitwarden_crypto::safe::PasswordProtectedKeyEnvelope;
 use bitwarden_crypto::{CryptoError, Decryptable, Kdf};
 #[cfg(feature = "internal")]
