@@ -41,7 +41,8 @@ impl CiphersClient {
         Ok(())
     }
 
-    /// Deletes all [Cipher] objects with a matching [CipherId] from the server, using the admin endpoint.
+    /// Deletes all [Cipher] objects with a matching [CipherId] from the server, using the admin
+    /// endpoint.
     pub async fn delete_many_as_admin(
         &self,
         cipher_ids: Vec<CipherId>,
@@ -97,7 +98,8 @@ impl CiphersClient {
         Ok(())
     }
 
-    /// Soft-deletes the [Cipher] with the matching [CipherId] from the server, using the admin endpoint.
+    /// Soft-deletes the [Cipher] with the matching [CipherId] from the server, using the admin
+    /// endpoint.
     pub async fn soft_delete_as_admin(&self, cipher_id: CipherId) -> Result<(), DeleteCipherError> {
         let configs = self.get_api_configurations().await;
         let api = configs.api_client.ciphers_api();
@@ -124,7 +126,8 @@ impl CiphersClient {
         Ok(())
     }
 
-    /// Soft-deletes all [Cipher] objects for the given [CipherId]s from the server, using the admin endpoint.
+    /// Soft-deletes all [Cipher] objects for the given [CipherId]s from the server, using the admin
+    /// endpoint.
     pub async fn soft_delete_many_as_admin(
         &self,
         cipher_ids: Vec<CipherId>,
@@ -151,7 +154,6 @@ mod tests {
     };
     use bitwarden_crypto::{EncString, Kdf};
     use bitwarden_test::{MemoryRepository, start_api_mock};
-
     use chrono::Utc;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,

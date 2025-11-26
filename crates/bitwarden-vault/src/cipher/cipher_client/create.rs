@@ -342,15 +342,13 @@ impl CiphersClient {
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::{apis::ApiClient, models::CipherResponseModel};
-    use bitwarden_core::Client;
     use bitwarden_core::{
-        ClientSettings, DeviceType, UserId,
+        Client, ClientSettings, DeviceType, UserId,
         key_management::crypto::{
             InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest,
         },
     };
-    use bitwarden_crypto::SymmetricCryptoKey;
-    use bitwarden_crypto::{EncString, Kdf};
+    use bitwarden_crypto::{EncString, Kdf, SymmetricCryptoKey};
     use bitwarden_test::{MemoryRepository, start_api_mock};
     use chrono::Utc;
     use wiremock::{

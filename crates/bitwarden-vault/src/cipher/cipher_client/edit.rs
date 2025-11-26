@@ -758,16 +758,25 @@ mod tests {
         ])
         .await;
         let client = create_client_with_wiremock(&mock_server).await;
+        let repository = client.get_repository().unwrap();
 
         let cipher_view = generate_test_cipher();
-        let request = cipher_view.try_into().unwrap();
+        repository
+            .set(
+                TEST_CIPHER_ID.to_string(),
+                client.encrypt(cipher_view.clone()).unwrap().cipher,
+            )
+            .await
+            .unwrap();
 
+        let request = cipher_view.try_into().unwrap();
+        let start_time = Utc::now();
         let result = client.edit_as_admin(request).await.unwrap();
 
-        let repository = client.get_repository().unwrap();
         let cipher = repository.get(TEST_CIPHER_ID.to_string()).await.unwrap();
         // Should not update local repository for admin endpoints.
-        assert!(matches!(cipher, None));
+        assert!(result.revision_date > start_time);
+        assert!(cipher.unwrap().revision_date < start_time);
 
         assert_eq!(result.id, TEST_CIPHER_ID.parse().ok());
         assert_eq!(result.name, "Test Login");

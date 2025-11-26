@@ -124,7 +124,6 @@ mod tests {
     };
     use bitwarden_crypto::{EncString, Kdf};
     use bitwarden_test::{MemoryRepository, start_api_mock};
-
     use chrono::Utc;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
