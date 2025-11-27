@@ -64,7 +64,7 @@ Monorepo crates organized in **four architectural layers**:
 - **KeyStoreContext**: Never hold across await points (enforced by clippy lint
   `await_holding_invalid_type`)
 - Naming: `derive_` for deterministic key derivation, `make_` for non-deterministic generation
-- Use `bitwarden-crypto/src/safe` high-level APIs first (password-protected key envelope, data
+- Use `bitwarden_crypto::safe` module first (password-protected key envelope, data envelope)
   envelope)
 
 ### State Management (bitwarden-state)
