@@ -1,4 +1,5 @@
-use bitwarden_api_api::models::CipherRequestModel;
+use bitwarden_api_api::models::{CipherCollectionsRequestModel, CipherRequestModel};
+use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
     key_management::{KeyIds, SymmetricKeyId},
@@ -20,8 +21,8 @@ use wasm_bindgen::prelude::*;
 
 use super::CiphersClient;
 use crate::{
-    AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldView,
-    FolderId, ItemNotFoundError, PasswordHistoryView, VaultParseError,
+    AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, DecryptError,
+    FieldView, FolderId, ItemNotFoundError, PasswordHistoryView, VaultParseError,
     cipher_view_type::CipherViewType, password_history::MAX_PASSWORD_HISTORY_ENTRIES,
 };
 
@@ -45,6 +46,14 @@ pub enum EditCipherError {
     Repository(#[from] RepositoryError),
     #[error(transparent)]
     Uuid(#[from] uuid::Error),
+    #[error(transparent)]
+    Decrypt(#[from] DecryptError),
+}
+
+impl<T> From<bitwarden_api_api::apis::Error<T>> for EditCipherError {
+    fn from(val: bitwarden_api_api::apis::Error<T>) -> Self {
+        Self::Api(val.into())
+    }
 }
 
 /// Request to edit a cipher.
@@ -99,7 +108,7 @@ impl TryFrom<CipherView> for CipherEditRequest {
 }
 
 impl CipherEditRequest {
-    fn generate_cipher_key(
+    pub(crate) fn generate_cipher_key(
         &mut self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
@@ -319,6 +328,7 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     repository: &R,
     encrypted_for: UserId,
     request: CipherEditRequest,
+    is_admin: bool,
 ) -> Result<CipherView, EditCipherError> {
     let cipher_id = request.id;
 
@@ -333,19 +343,28 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     let mut cipher_request = key_store.encrypt(request)?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
-    let response = api_client
-        .ciphers_api()
-        .put(cipher_id.into(), Some(cipher_request))
-        .await
-        .map_err(ApiError::from)?;
+    let cipher = if is_admin {
+        api_client
+            .ciphers_api()
+            .put_admin(cipher_id.into(), Some(cipher_request))
+            .await
+            .map_err(ApiError::from)?
+            .try_into()?
+    } else {
+        let cipher: Cipher = api_client
+            .ciphers_api()
+            .put(cipher_id.into(), Some(cipher_request))
+            .await
+            .map_err(ApiError::from)?
+            .try_into()?;
 
-    let cipher: Cipher = response.try_into()?;
+        debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
 
-    debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
-
-    repository
-        .set(cipher_id.to_string(), cipher.clone())
-        .await?;
+        repository
+            .set(cipher_id.to_string(), cipher.clone())
+            .await?;
+        cipher
+    };
 
     Ok(key_store.decrypt(&cipher)?)
 }
@@ -353,9 +372,24 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     /// Edit an existing [Cipher] and save it to the server.
-    pub async fn edit(
+    pub async fn edit(&self, request: CipherEditRequest) -> Result<CipherView, EditCipherError> {
+        self.edit_internal(request, false).await
+    }
+
+    // putCipherAdmin(id, request: CipherRequest)
+    // ciphers_id_admin_put
+    #[allow(missing_docs)] // TODO: add docs
+    pub async fn edit_as_admin(
+        &self,
+        request: CipherEditRequest,
+    ) -> Result<CipherView, EditCipherError> {
+        self.edit_internal(request, true).await
+    }
+
+    async fn edit_internal(
         &self,
         mut request: CipherEditRequest,
+        is_admin: bool,
     ) -> Result<CipherView, EditCipherError> {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations().await;
@@ -386,27 +420,73 @@ impl CiphersClient {
             repository.as_ref(),
             user_id,
             request,
+            is_admin,
         )
         .await
+    }
+
+    /// Adds the cipher matched by [CipherId] to any number of collections on the server.
+    pub async fn update_collection(
+        &self,
+        cipher_id: CipherId,
+        collection_ids: Vec<CollectionId>,
+        is_admin: bool,
+    ) -> Result<CipherView, EditCipherError> {
+        let req = CipherCollectionsRequestModel {
+            collection_ids: collection_ids
+                .into_iter()
+                .map(|id| id.to_string())
+                .collect(),
+        };
+
+        let api_config = self.get_api_configurations().await;
+        let api = api_config.api_client.ciphers_api();
+        let cipher = if is_admin {
+            api.put_collections_admin(&cipher_id.to_string(), Some(req))
+                .await?
+                .try_into()?
+        } else {
+            let response: Cipher = api
+                .put_collections(cipher_id.into(), Some(req))
+                .await?
+                .try_into()?;
+            self.get_repository()?
+                .set(cipher_id.to_string(), response.clone())
+                .await?;
+            response
+        };
+
+        Ok(self.decrypt(cipher)?)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::{apis::ApiClient, models::CipherResponseModel};
-    use bitwarden_core::key_management::SymmetricKeyId;
-    use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricCryptoKey};
-    use bitwarden_test::MemoryRepository;
+    use bitwarden_core::{
+        Client, ClientSettings, DeviceType,
+        key_management::{
+            SymmetricKeyId,
+            crypto::{InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest},
+        },
+    };
+    use bitwarden_crypto::{Kdf, KeyStore, PrimitiveEncryptable, SymmetricCryptoKey};
+    use bitwarden_test::{MemoryRepository, start_api_mock};
     use chrono::TimeZone;
+    use wiremock::{
+        Mock, ResponseTemplate,
+        matchers::{method, path_regex},
+    };
 
     use super::*;
     use crate::{
         Cipher, CipherId, CipherRepromptType, CipherType, FieldType, Login, LoginView,
-        PasswordHistoryView,
+        PasswordHistoryView, VaultClientExt,
     };
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
     const TEST_USER_ID: &str = "550e8400-e29b-41d4-a716-446655440000";
+    const TEST_ORG_ID: &str = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8";
 
     fn generate_test_cipher() -> CipherView {
         CipherView {
@@ -446,6 +526,65 @@ mod tests {
             revision_date: "2025-01-01T00:00:00Z".parse().unwrap(),
             archived_date: None,
         }
+    }
+
+    async fn create_client_with_wiremock(mock_server: &wiremock::MockServer) -> CiphersClient {
+        let settings = ClientSettings {
+            identity_url: format!("http://{}", mock_server.address()),
+            api_url: format!("http://{}", mock_server.address()),
+            user_agent: "Bitwarden Test".into(),
+            device_type: DeviceType::SDK,
+            bitwarden_client_version: None,
+        };
+
+        let client = Client::new(Some(settings));
+
+        client
+            .internal
+            .load_flags(std::collections::HashMap::from([(
+                "enableCipherKeyEncryption".to_owned(),
+                true,
+            )]));
+
+        let user_request = InitUserCryptoRequest {
+            user_id: Some(UserId::new(uuid::uuid!(TEST_USER_ID))),
+            kdf_params: Kdf::PBKDF2 {
+                iterations: 600_000.try_into().unwrap(),
+            },
+            email: "test@bitwarden.com".to_owned(),
+            private_key: "2.yN7l00BOlUE0Sb0M//Q53w==|EwKG/BduQRQ33Izqc/ogoBROIoI5dmgrxSo82sgzgAMIBt3A2FZ9vPRMY+GWT85JiqytDitGR3TqwnFUBhKUpRRAq4x7rA6A1arHrFp5Tp1p21O3SfjtvB3quiOKbqWk6ZaU1Np9HwqwAecddFcB0YyBEiRX3VwF2pgpAdiPbSMuvo2qIgyob0CUoC/h4Bz1be7Qa7B0Xw9/fMKkB1LpOm925lzqosyMQM62YpMGkjMsbZz0uPopu32fxzDWSPr+kekNNyLt9InGhTpxLmq1go/pXR2uw5dfpXc5yuta7DB0EGBwnQ8Vl5HPdDooqOTD9I1jE0mRyuBpWTTI3FRnu3JUh3rIyGBJhUmHqGZvw2CKdqHCIrQeQkkEYqOeJRJVdBjhv5KGJifqT3BFRwX/YFJIChAQpebNQKXe/0kPivWokHWwXlDB7S7mBZzhaAPidZvnuIhalE2qmTypDwHy22FyqV58T8MGGMchcASDi/QXI6kcdpJzPXSeU9o+NC68QDlOIrMVxKFeE7w7PvVmAaxEo0YwmuAzzKy9QpdlK0aab/xEi8V4iXj4hGepqAvHkXIQd+r3FNeiLfllkb61p6WTjr5urcmDQMR94/wYoilpG5OlybHdbhsYHvIzYoLrC7fzl630gcO6t4nM24vdB6Ymg9BVpEgKRAxSbE62Tqacxqnz9AcmgItb48NiR/He3n3ydGjPYuKk/ihZMgEwAEZvSlNxYONSbYrIGDtOY+8Nbt6KiH3l06wjZW8tcmFeVlWv+tWotnTY9IqlAfvNVTjtsobqtQnvsiDjdEVtNy/s2ci5TH+NdZluca2OVEr91Wayxh70kpM6ib4UGbfdmGgCo74gtKvKSJU0rTHakQ5L9JlaSDD5FamBRyI0qfL43Ad9qOUZ8DaffDCyuaVyuqk7cz9HwmEmvWU3VQ+5t06n/5kRDXttcw8w+3qClEEdGo1KeENcnXCB32dQe3tDTFpuAIMLqwXs6FhpawfZ5kPYvLPczGWaqftIs/RXJ/EltGc0ugw2dmTLpoQhCqrcKEBDoYVk0LDZKsnzitOGdi9mOWse7Se8798ib1UsHFUjGzISEt6upestxOeupSTOh0v4+AjXbDzRUyogHww3V+Bqg71bkcMxtB+WM+pn1XNbVTyl9NR040nhP7KEf6e9ruXAtmrBC2ah5cFEpLIot77VFZ9ilLuitSz+7T8n1yAh1IEG6xxXxninAZIzi2qGbH69O5RSpOJuJTv17zTLJQIIc781JwQ2TTwTGnx5wZLbffhCasowJKd2EVcyMJyhz6ru0PvXWJ4hUdkARJs3Xu8dus9a86N8Xk6aAPzBDqzYb1vyFIfBxP0oO8xFHgd30Cgmz8UrSE3qeWRrF8ftrI6xQnFjHBGWD/JWSvd6YMcQED0aVuQkuNW9ST/DzQThPzRfPUoiL10yAmV7Ytu4fR3x2sF0Yfi87YhHFuCMpV/DsqxmUizyiJuD938eRcH8hzR/VO53Qo3UIsqOLcyXtTv6THjSlTopQ+JOLOnHm1w8dzYbLN44OG44rRsbihMUQp+wUZ6bsI8rrOnm9WErzkbQFbrfAINdoCiNa6cimYIjvvnMTaFWNymqY1vZxGztQiMiHiHYwTfwHTXrb9j0uPM=|09J28iXv9oWzYtzK2LBT6Yht4IT4MijEkk0fwFdrVQ4=".parse::<EncString>().unwrap(),
+            signing_key: None,
+            security_state: None,
+            method: InitUserCryptoMethod::Password {
+                password: "asdfasdfasdf".to_owned(),
+                user_key: "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=".parse().unwrap(),
+            }
+        };
+
+        let org_request = InitOrgCryptoRequest {
+            organization_keys: std::collections::HashMap::from([(
+                TEST_ORG_ID.parse().unwrap(),
+                "4.rY01mZFXHOsBAg5Fq4gyXuklWfm6mQASm42DJpx05a+e2mmp+P5W6r54WU2hlREX0uoTxyP91bKKwickSPdCQQ58J45LXHdr9t2uzOYyjVzpzebFcdMw1eElR9W2DW8wEk9+mvtWvKwu7yTebzND+46y1nRMoFydi5zPVLSlJEf81qZZ4Uh1UUMLwXz+NRWfixnGXgq2wRq1bH0n3mqDhayiG4LJKgGdDjWXC8W8MMXDYx24SIJrJu9KiNEMprJE+XVF9nQVNijNAjlWBqkDpsfaWTUfeVLRLctfAqW1blsmIv4RQ91PupYJZDNc8nO9ZTF3TEVM+2KHoxzDJrLs2Q==".parse().unwrap()
+            )])
+        };
+
+        client
+            .crypto()
+            .initialize_user_crypto(user_request)
+            .await
+            .unwrap();
+        client
+            .crypto()
+            .initialize_org_crypto(org_request)
+            .await
+            .unwrap();
+
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(MemoryRepository::<Cipher>::default()));
+
+        client.vault().ciphers()
     }
 
     fn create_test_login_cipher(password: &str) -> CipherView {
@@ -581,11 +720,63 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
+            false,
         )
         .await
         .unwrap();
 
         assert_eq!(result.id, Some(cipher_id));
+        assert_eq!(result.name, "Test Login");
+    }
+
+    #[tokio::test]
+    async fn test_edit_cipher_as_admin() {
+        let (mock_server, _config) = start_api_mock(vec![
+            Mock::given(method("PUT"))
+                .and(path_regex(r"/ciphers/[a-f0-9-]+"))
+                .respond_with(move |req: &wiremock::Request| {
+                    let body_bytes = req.body.as_slice();
+                    let request_body: CipherRequestModel =
+                        serde_json::from_slice(body_bytes).expect("Failed to parse request body");
+
+                    let response = CipherResponseModel {
+                        id: Some(TEST_CIPHER_ID.try_into().unwrap()),
+                        organization_id: request_body
+                            .organization_id
+                            .and_then(|id| id.parse().ok()),
+                        name: Some(request_body.name.clone()),
+                        r#type: request_body.r#type,
+                        creation_date: Some(Utc::now().to_string()),
+                        revision_date: Some(Utc::now().to_string()),
+                        ..Default::default()
+                    };
+
+                    ResponseTemplate::new(200).set_body_json(&response)
+                }),
+        ])
+        .await;
+        let client = create_client_with_wiremock(&mock_server).await;
+        let repository = client.get_repository().unwrap();
+
+        let cipher_view = generate_test_cipher();
+        repository
+            .set(
+                TEST_CIPHER_ID.to_string(),
+                client.encrypt(cipher_view.clone()).unwrap().cipher,
+            )
+            .await
+            .unwrap();
+
+        let request = cipher_view.try_into().unwrap();
+        let start_time = Utc::now();
+        let result = client.edit_as_admin(request).await.unwrap();
+
+        let cipher = repository.get(TEST_CIPHER_ID.to_string()).await.unwrap();
+        // Should not update local repository for admin endpoints.
+        assert!(result.revision_date > start_time);
+        assert!(cipher.unwrap().revision_date < start_time);
+
+        assert_eq!(result.id, TEST_CIPHER_ID.parse().ok());
         assert_eq!(result.name, "Test Login");
     }
 
@@ -606,6 +797,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
+            false,
         )
         .await;
 
@@ -647,6 +839,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
+            false,
         )
         .await;
 
