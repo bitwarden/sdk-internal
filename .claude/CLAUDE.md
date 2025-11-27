@@ -128,4 +128,3 @@ Monorepo crates organized in **four architectural layers**:
 - [Security Whitepaper](https://bitwarden.com/help/bitwarden-security-white-paper/)
 - [Security Definitions](https://contributing.bitwarden.com/architecture/security/definitions)
 - [Rust 2024 Edition Guide](https://doc.rust-lang.org/edition-guide/rust-2024/)
-- [Rust 1.85.0 Release (Rust 2024)](https://blog.rust-lang.org/2025/02/20/Rust-1.85.0/)
