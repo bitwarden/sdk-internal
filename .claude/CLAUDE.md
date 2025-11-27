@@ -54,7 +54,7 @@ Monorepo crates organized in **four architectural layers**:
   - Enums: `#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]`
   - Include `uniffi::setup_scaffolding!()` in lib.rs
 - **bitwarden-wasm-internal**: WebAssembly bindings (**thin bindings only - no business logic**)
-  - Structs: `#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]`
+  - Structs: `#[derive(Serialize, Deserialize)]` with `#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]`
 
 ## Critical Patterns & Rules
 
