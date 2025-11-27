@@ -1,8 +1,7 @@
 # bitwarden-threading
 
-Read [README.md](./README.md) for architecture overview and consult runnable code in
-[examples/](./examples/) (usage demonstrations of the public API) and [tests/](./tests/)
-(integration tests showing how components work together) for correct usage patterns.
+Read any available documentation: [README.md](./README.md) for architecture,
+[examples/](./examples/) for usage patterns, and [tests/](./tests/) for integration tests.
 
 ## Critical Rules
 

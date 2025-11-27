@@ -1,16 +1,13 @@
 # Bitwarden Internal SDK
 
-Cross-platform Rust SDK implementing Bitwarden's core business logic. You're reviewing code as a
-senior Rust engineer mentoring teammates.
+Cross-platform Rust SDK implementing Bitwarden's core business logic.
 
-**Edition:** Rust 2024 (released Feb 20, 2025) - Use
-[Rust 2024 edition features](https://doc.rust-lang.org/edition-guide/rust-2024/) including async
-closures, let chains, and enhanced safety requirements.
+**Rust Edition:** The SDK targets the
+[2024](https://doc.rust-lang.org/nightly/edition-guide/rust-2024/index.html) edition of Rust.
 
-**Crate documentation**: When working in any crate, read that crate's `CLAUDE.md` (if it exists) for
-critical rules, `README.md` for architecture, and examine code in `examples/` (public API usage) and
-`tests/` (integration patterns). These files supplement the repository-wide guidance below and
-**must be read** before suggesting changes to that crate AND before a code review.
+**Crate documentation**: Before working in any crate, read available documentation: `CLAUDE.md` for
+critical rules, `README.md` for architecture, `examples/` for usage patterns, and `tests/` for
+integration tests. **Read all available files before suggesting changes.**
 
 ## Architecture Overview
 
