@@ -465,10 +465,7 @@ impl FromWasmAbi for PasswordProtectedKeyEnvelope {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        KeyStore,
-        traits::tests::{TestIds, TestSymmKey},
-    };
+    use crate::{KeyStore, SymmetricKeyAlgorithm, traits::tests::TestIds};
 
     const TEST_UNSEALED_COSEKEY_ENCODED: &[u8] = &[
         165, 1, 4, 2, 80, 63, 208, 189, 183, 204, 37, 72, 170, 179, 236, 190, 208, 22, 65, 227,
@@ -553,7 +550,7 @@ mod tests {
     fn test_make_envelope() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
-        let test_key = ctx.make_cose_symmetric_key(TestSymmKey::A(0)).unwrap();
+        let test_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         let password = "test_password";
 
@@ -637,7 +634,7 @@ mod tests {
     fn test_wrong_password() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
-        let test_key = ctx.make_cose_symmetric_key(TestSymmKey::A(0)).unwrap();
+        let test_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         let password = "test_password";
         let wrong_password = "wrong_password";

@@ -85,7 +85,7 @@ mod tests {
 
     use crate::{
         auth::password::{validate::validate_password_user_key, validate_password},
-        client::internal::UserKeyState,
+        key_management::account_cryptographic_state::WrappedAccountCryptographicState,
     };
 
     #[test]
@@ -149,11 +149,7 @@ mod tests {
             .initialize_user_crypto_master_key(
                 master_key,
                 user_key.clone(),
-                UserKeyState {
-                    private_key,
-                    signing_key: None,
-                    security_state: None,
-                },
+                WrappedAccountCryptographicState::V1 { private_key },
             )
             .unwrap();
 
@@ -203,11 +199,7 @@ mod tests {
             .initialize_user_crypto_master_key(
                 master_key,
                 user_key.parse().unwrap(),
-                UserKeyState {
-                    private_key,
-                    signing_key: None,
-                    security_state: None,
-                },
+                WrappedAccountCryptographicState::V1 { private_key },
             )
             .unwrap();
 

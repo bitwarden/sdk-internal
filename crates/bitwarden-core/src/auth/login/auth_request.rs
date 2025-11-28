@@ -12,6 +12,7 @@ use crate::{
     },
     key_management::{
         UserDecryptionData,
+        account_cryptographic_state::WrappedAccountCryptographicState,
         crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
     },
     require,
@@ -127,9 +128,9 @@ pub(crate) async fn complete_auth_request(
                 user_id: None,
                 kdf_params: kdf,
                 email: salt,
-                private_key: require!(r.private_key).parse()?,
-                signing_key: None,
-                security_state: None,
+                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
+                    private_key: require!(r.private_key).parse()?,
+                },
                 method: InitUserCryptoMethod::AuthRequest {
                     request_private_key: auth_req.private_key,
                     method,
