@@ -1,3 +1,4 @@
+use tracing::span::Id;
 use wasm_bindgen::prelude::*;
 
 use crate::{dynamic_tracing::event_factory::EventFactory, wasm::level::TracingLevel};
@@ -11,7 +12,8 @@ pub struct EventDefinition {
 impl EventDefinition {
     #[wasm_bindgen(constructor)]
     pub fn new(name: String, target: String, level: TracingLevel, fields: Vec<String>) -> Self {
-        let fields_slice: &[&str] = &fields.iter().map(String::as_str).collect::<Vec<&str>>();
+        let mut fields_slice = fields.iter().map(String::as_str).collect::<Vec<&str>>();
+        fields_slice.push("message");
         Self {
             factory: EventFactory::new(
                 &name,
@@ -20,13 +22,18 @@ impl EventDefinition {
                 None,
                 None,
                 None,
-                fields_slice,
+                &fields_slice,
             ),
         }
     }
+}
 
-    // TODO: Add fields
-    pub fn record(&self) {
-        self.factory.create().build();
+impl EventDefinition {
+    pub fn record(&self, span_id: Option<Id>, message: String) {
+        self.factory
+            .create()
+            .with_span_id(span_id)
+            .with("message", &message)
+            .build();
     }
 }

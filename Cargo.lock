@@ -801,6 +801,7 @@ dependencies = [
  "tracing-core",
  "tsify",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]

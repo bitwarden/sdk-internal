@@ -16,6 +16,7 @@ pub enum EventBuilder<'a> {
         metadata: &'static Metadata<'static>,
         fields: &'static BTreeMap<&'static str, Field>,
         values: Vec<(&'static Field, Option<&'a dyn Value>)>,
+        parent: Option<tracing::Id>,
     },
     Disabled,
 }
@@ -29,6 +30,7 @@ impl Builder for EventBuilder<'_> {
             metadata,
             fields,
             values: Vec::new(),
+            parent: None,
         }
     }
     fn create_disabled(_metadata: &'static Metadata<'static>) -> Self {
@@ -46,10 +48,21 @@ impl<'a> EventBuilder<'a> {
         }
         self
     }
+
+    pub fn with_span_id(&mut self, parent: Option<tracing::Id>) -> &mut Self {
+        if let EventBuilder::Enabled { parent: p, .. } = self {
+            *p = parent;
+        }
+        self
+    }
+
     #[inline]
     pub fn build(&self) {
         if let EventBuilder::Enabled {
-            metadata, values, ..
+            parent,
+            metadata,
+            values,
+            ..
         } = self
         {
             macro_rules! finish {
@@ -58,7 +71,7 @@ impl<'a> EventBuilder<'a> {
                         let values: [(&'static Field, Option<&'a (dyn Value)>); $n] =
                             values.as_slice().try_into().unwrap();
                         let value_set = metadata.fields().value_set(&values);
-                        ::tracing::Event::dispatch(metadata, &value_set);
+                        ::tracing::Event::child_of(parent.clone(), metadata, &value_set);
                         return;
                     }
                 };
