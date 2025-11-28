@@ -1,8 +1,7 @@
 use tracing;
-use tracing_dynamic::SpanFactory;
 use wasm_bindgen::prelude::*;
 
-use crate::wasm::level::TracingLevel;
+use crate::{dynamic_tracing::span_factory::SpanFactory, wasm::level::TracingLevel};
 
 #[wasm_bindgen]
 pub struct SpanDefinition {

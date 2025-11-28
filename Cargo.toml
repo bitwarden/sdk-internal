@@ -81,6 +81,7 @@ syn = ">=2.0.87, <3"
 thiserror = ">=1.0.40, <3"
 tokio = { version = "1.36.0", features = ["macros"] }
 tracing = { version = "0.1.41" }
+tracing-core = { version = ">=0.1.35, <0.2" }
 tracing-subscriber = { version = "0.3.20", features = [
     "fmt",
     "env-filter",

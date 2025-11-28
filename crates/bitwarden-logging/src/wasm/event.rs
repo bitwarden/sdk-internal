@@ -1,7 +1,6 @@
-use tracing_dynamic::EventFactory;
 use wasm_bindgen::prelude::*;
 
-use crate::wasm::level::TracingLevel;
+use crate::{dynamic_tracing::event_factory::EventFactory, wasm::level::TracingLevel};
 
 #[wasm_bindgen]
 pub struct EventDefinition {
