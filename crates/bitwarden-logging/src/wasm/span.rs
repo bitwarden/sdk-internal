@@ -3,7 +3,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     dynamic_tracing::span_factory::SpanFactory,
-    wasm::{EventDefinition, level::TracingLevel},
+    wasm::{EventDefinition, FieldValue, level::TracingLevel},
 };
 
 #[wasm_bindgen]
@@ -22,8 +22,11 @@ impl SpanDefinition {
     }
 
     // TODO: Add fields
-    pub fn enter(&self) -> Span {
+    pub fn enter(&self, fields: Vec<FieldValue>) -> Span {
         let span = self.factory.create().build();
+        for field in fields {
+            span.record(field.name.as_str(), &field.value);
+        }
         Span::new(span)
     }
 }
@@ -43,8 +46,16 @@ impl Span {
 
 #[wasm_bindgen]
 impl Span {
-    pub fn record(&self, event: &EventDefinition, message: String) {
-        event.record(self.span.id(), message);
+    pub fn record(&self, event: &EventDefinition, message: Option<String>) {
+        event.record(
+            self.span.id(),
+            message.unwrap_or_else(|| {
+                self.span
+                    .metadata()
+                    .map(|m| m.name().to_owned())
+                    .unwrap_or_default()
+            }),
+        );
     }
 
     // Does not work yet due to wasm-bindgen-futures issues
