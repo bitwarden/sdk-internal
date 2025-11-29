@@ -14,16 +14,25 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UnlockDataRequestModel {
-    #[serde(rename = "masterPasswordUnlockData")]
+    #[serde(
+        rename = "masterPasswordUnlockData",
+        alias = "MasterPasswordUnlockData"
+    )]
     pub master_password_unlock_data: Box<models::MasterPasswordUnlockAndAuthenticationDataModel>,
-    #[serde(rename = "emergencyAccessUnlockData")]
+    #[serde(
+        rename = "emergencyAccessUnlockData",
+        alias = "EmergencyAccessUnlockData"
+    )]
     pub emergency_access_unlock_data: Option<Vec<models::EmergencyAccessWithIdRequestModel>>,
-    #[serde(rename = "organizationAccountRecoveryUnlockData")]
+    #[serde(
+        rename = "organizationAccountRecoveryUnlockData",
+        alias = "OrganizationAccountRecoveryUnlockData"
+    )]
     pub organization_account_recovery_unlock_data:
         Option<Vec<models::ResetPasswordWithOrgIdRequestModel>>,
-    #[serde(rename = "passkeyUnlockData")]
+    #[serde(rename = "passkeyUnlockData", alias = "PasskeyUnlockData")]
     pub passkey_unlock_data: Option<Vec<models::WebAuthnLoginRotateKeyRequestModel>>,
-    #[serde(rename = "deviceKeyUnlockData")]
+    #[serde(rename = "deviceKeyUnlockData", alias = "DeviceKeyUnlockData")]
     pub device_key_unlock_data: Option<Vec<models::OtherDeviceKeysUpdateRequestModel>>,
 }
 

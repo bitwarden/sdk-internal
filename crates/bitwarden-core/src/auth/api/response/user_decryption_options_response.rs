@@ -10,6 +10,7 @@ pub(crate) struct UserDecryptionOptionsResponseModel {
     /// None when user have no master password.
     #[serde(
         rename = "masterPasswordUnlock",
+        alias = "MasterPasswordUnlock",
         skip_serializing_if = "Option::is_none"
     )]
     pub(crate) master_password_unlock: Option<MasterPasswordUnlockResponseModel>,

@@ -56,8 +56,8 @@ chrono = { version = ">=0.4.26, <0.5", features = [
 ], default-features = false }
 data-encoding = ">=2.0, <3"
 ed25519-dalek = { version = ">=2.1.1, <=2.2.0" }
+futures = ">=0.3.31, <0.4"
 js-sys = { version = ">=0.3.72, <0.4" }
-log = ">=0.4.18, <0.5"
 proc-macro2 = ">=1.0.89, <2"
 quote = ">=1.0.37, <2"
 reqwest = { version = ">=0.12.5, <0.13", features = [
@@ -72,19 +72,29 @@ serde_bytes = { version = ">=0.11.17, <0.12.0" }
 serde_json = ">=1.0.96, <2.0"
 serde_qs = ">=0.12.0, <0.16"
 serde_repr = ">=0.1.12, <0.2"
+serde-wasm-bindgen = ">=0.6.0, <0.7"
+subtle = ">=2.5.0, <3.0"
 syn = ">=2.0.87, <3"
 thiserror = ">=1.0.40, <3"
 tokio = { version = "1.36.0", features = ["macros"] }
+tracing = { version = "0.1.41" }
+tracing-subscriber = { version = "0.3.20", features = [
+    "fmt",
+    "env-filter",
+    "tracing-log",
+] }
 tsify = { version = ">=0.5.5, <0.6", features = [
     "js",
 ], default-features = false }
 uniffi = "=0.29.4"
 uuid = { version = ">=1.3.3, <2.0", features = ["serde", "v4", "js"] }
 validator = { version = ">=0.18.1, <0.21", features = ["derive"] }
-wasm-bindgen = { version = ">=0.2.91, <0.3", features = ["serde-serialize"] }
-wasm-bindgen-futures = "0.4.41"
-wasm-bindgen-test = "0.3.45"
+wasm-bindgen = { version = "=0.2.105", features = ["serde-serialize"] }
+wasm-bindgen-cli = "=0.2.105"
+wasm-bindgen-futures = "0.4.55"
+wasm-bindgen-test = "0.3.55"
 wiremock = ">=0.6.0, <0.7"
+zxcvbn = ">=3.0.1, <4.0"
 
 # There is an incompatibility when using pkcs5 and chacha20 on wasm builds. This can be removed once a new
 # rustcrypto-formats crate version is released since the fix has been upstreamed.
@@ -100,6 +110,7 @@ uniffi_bindgen = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f7
 uniffi_build = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
 
 [workspace.lints.clippy]
+disallowed-macros = "deny"
 unused_async = "deny"
 unwrap_used = "deny"
 string_slice = "warn"

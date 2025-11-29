@@ -14,12 +14,30 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UpdateOrganizationReportSummaryRequest {
-    #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationId",
+        alias = "OrganizationId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_id: Option<uuid::Uuid>,
-    #[serde(rename = "reportId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "reportId",
+        alias = "ReportId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub report_id: Option<uuid::Uuid>,
-    #[serde(rename = "summaryData", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "summaryData",
+        alias = "SummaryData",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub summary_data: Option<String>,
+    #[serde(
+        rename = "metrics",
+        alias = "Metrics",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub metrics: Option<Box<models::OrganizationReportMetricsRequest>>,
 }
 
 impl UpdateOrganizationReportSummaryRequest {
@@ -28,6 +46,7 @@ impl UpdateOrganizationReportSummaryRequest {
             organization_id: None,
             report_id: None,
             summary_data: None,
+            metrics: None,
         }
     }
 }

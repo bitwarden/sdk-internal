@@ -22,15 +22,19 @@ pub use crypto_client::CryptoClient;
 #[cfg(feature = "internal")]
 mod master_password;
 #[cfg(feature = "internal")]
-mod non_generic_wrappers;
+pub use master_password::MasterPasswordError;
 #[cfg(feature = "internal")]
-pub(crate) use non_generic_wrappers::*;
+pub(crate) use master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData};
 #[cfg(feature = "internal")]
 mod security_state;
 #[cfg(feature = "internal")]
+pub use security_state::{
+    MINIMUM_ENFORCE_ICON_URI_HASH_VERSION, SecurityState, SignedSecurityState,
+};
+#[cfg(feature = "internal")]
 mod user_decryption;
 #[cfg(feature = "internal")]
-pub use security_state::{SecurityState, SignedSecurityState};
+pub use user_decryption::UserDecryptionData;
 
 use crate::OrganizationId;
 
@@ -41,21 +45,21 @@ key_ids! {
         User,
         Organization(OrganizationId),
         #[local]
-        Local(&'static str),
+        Local(LocalId),
     }
 
     #[asymmetric]
     pub enum AsymmetricKeyId {
         UserPrivateKey,
         #[local]
-        Local(&'static str),
+        Local(LocalId),
     }
 
     #[signing]
     pub enum SigningKeyId {
         UserSigningKey,
         #[local]
-        Local(&'static str),
+        Local(LocalId),
     }
 
     pub KeyIds => SymmetricKeyId, AsymmetricKeyId, SigningKeyId;

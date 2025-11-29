@@ -175,7 +175,7 @@ where
                 let rpc_topic = RPC_REQUEST_PAYLOAD_TYPE_NAME.to_owned();
                 select! {
                     _ = cancellation_token.cancelled() => {
-                        log::debug!("Cancellation signal received, stopping IPC client");
+                        tracing::debug!("Cancellation signal received, stopping IPC client");
                         break;
                     }
                     received = client.crypto.receive(&com_receiver, &client.communication, &client.sessions) => {
@@ -185,19 +185,19 @@ where
                             }
                             Ok(message) => {
                                 if client_tx.send(message).is_err() {
-                                    log::error!("Failed to save incoming message");
+                                    tracing::error!("Failed to save incoming message");
                                     break;
                                 };
                             }
-                            Err(e) => {
-                                log::error!("Error receiving message: {e:?}");
+                            Err(error) => {
+                                tracing::error!(?error, "Error receiving message");
                                 break;
                             }
                         }
                     }
                 }
             }
-            log::debug!("IPC client shutting down");
+            tracing::debug!("IPC client shutting down");
             client.stop().await;
         };
 
@@ -244,7 +244,7 @@ where
             .await;
 
         if result.is_err() {
-            log::error!("Error sending message: {result:?}");
+            tracing::error!(?result, "Error sending message");
             self.stop().await;
         }
 
@@ -378,11 +378,11 @@ where
             match handle(incoming_message, &client.handlers).await {
                 Ok(outgoing_message) => {
                     if client.send(outgoing_message).await.is_err() {
-                        log::error!("Failed to send response message");
+                        tracing::error!("Failed to send response message");
                     }
                 }
-                Err(e) => {
-                    log::error!("Error handling RPC request: {e:?}");
+                Err(error) => {
+                    tracing::error!(%error, "Error handling RPC request");
                 }
             }
         };

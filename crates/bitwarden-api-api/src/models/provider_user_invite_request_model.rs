@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProviderUserInviteRequestModel {
-    #[serde(rename = "emails")]
+    #[serde(rename = "emails", alias = "Emails")]
     pub emails: Vec<String>,
-    #[serde(rename = "type")]
+    #[serde(rename = "type", alias = "R#type")]
     pub r#type: models::ProviderUserType,
 }
 

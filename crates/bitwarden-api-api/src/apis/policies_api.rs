@@ -66,7 +66,7 @@ pub trait PoliciesApi: Send + Sync {
     async fn put_v_next<'a>(
         &self,
         org_id: uuid::Uuid,
-        r#type: &'a str,
+        r#type: models::PolicyType,
         save_policy_request: Option<models::SavePolicyRequest>,
     ) -> Result<models::PolicyResponseModel, Error<PutVNextError>>;
 }
@@ -406,14 +406,14 @@ impl PoliciesApi for PoliciesApiClient {
     async fn put_v_next<'a>(
         &self,
         org_id: uuid::Uuid,
-        r#type: &'a str,
+        r#type: models::PolicyType,
         save_policy_request: Option<models::SavePolicyRequest>,
     ) -> Result<models::PolicyResponseModel, Error<PutVNextError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
 
-        let local_var_uri_str = format!("{}/organizations/{orgId}/policies/{type}/vnext", local_var_configuration.base_path, orgId=org_id, type=crate::apis::urlencode(r#type));
+        let local_var_uri_str = format!("{}/organizations/{orgId}/policies/{type}/vnext", local_var_configuration.base_path, orgId=org_id, type=r#type.to_string());
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 

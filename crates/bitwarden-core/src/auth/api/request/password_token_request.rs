@@ -1,5 +1,5 @@
-use log::debug;
 use serde::{Deserialize, Serialize};
+use tracing::debug;
 
 use crate::{
     DeviceType,
@@ -56,7 +56,7 @@ impl PasswordTokenRequest {
             two_factor_provider: tf.map(|t| t.provider.clone()),
             two_factor_remember: tf.map(|t| t.remember),
         };
-        debug!("initializing {obj:?}");
+        debug!(?obj, "initializing");
         obj
     }
 

@@ -9,3 +9,6 @@ crates/bitwarden-uniffi/swift/*
 
 # Test fixtures
 crates/bitwarden-exporters/resources/*
+
+# CI output
+clippy_result.sarif

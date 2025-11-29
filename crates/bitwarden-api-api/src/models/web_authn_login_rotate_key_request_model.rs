@@ -14,11 +14,11 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WebAuthnLoginRotateKeyRequestModel {
-    #[serde(rename = "id")]
+    #[serde(rename = "id", alias = "Id")]
     pub id: uuid::Uuid,
-    #[serde(rename = "encryptedUserKey")]
+    #[serde(rename = "encryptedUserKey", alias = "EncryptedUserKey")]
     pub encrypted_user_key: String,
-    #[serde(rename = "encryptedPublicKey")]
+    #[serde(rename = "encryptedPublicKey", alias = "EncryptedPublicKey")]
     pub encrypted_public_key: String,
 }
 

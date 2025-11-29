@@ -1,3 +1,4 @@
+use bitwarden_api_api::models::CipherAttachmentModel;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
@@ -25,6 +26,15 @@ pub struct Attachment {
     pub key: Option<EncString>,
 }
 
+impl From<Attachment> for CipherAttachmentModel {
+    fn from(attachment: Attachment) -> Self {
+        Self {
+            file_name: attachment.file_name.map(|f| f.to_string()),
+            key: attachment.key.map(|k| k.to_string()),
+        }
+    }
+}
+
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -49,6 +59,33 @@ pub struct AttachmentView {
     /// Do not rely on this field for long-term use.
     #[cfg(feature = "wasm")]
     pub decrypted_key: Option<String>,
+}
+
+impl AttachmentView {
+    pub(crate) fn reencrypt_key(
+        &mut self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        old_key: SymmetricKeyId,
+        new_key: SymmetricKeyId,
+    ) -> Result<(), CryptoError> {
+        if let Some(attachment_key) = &mut self.key {
+            let tmp_attachment_key_id = ctx.unwrap_symmetric_key(old_key, attachment_key)?;
+            *attachment_key = ctx.wrap_symmetric_key(new_key, tmp_attachment_key_id)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn reencrypt_keys(
+        attachment_views: &mut Vec<AttachmentView>,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        old_key: SymmetricKeyId,
+        new_key: SymmetricKeyId,
+    ) -> Result<(), CryptoError> {
+        for attachment in attachment_views {
+            attachment.reencrypt_key(ctx, old_key, new_key)?;
+        }
+        Ok(())
+    }
 }
 
 #[allow(missing_docs)]
@@ -78,7 +115,6 @@ pub struct AttachmentFileView<'a> {
     pub attachment: AttachmentView,
     pub contents: &'a [u8],
 }
-const ATTACHMENT_KEY: SymmetricKeyId = SymmetricKeyId::Local("attachment_key");
 
 impl IdentifyKey<SymmetricKeyId> for AttachmentFileView<'_> {
     fn key_identifier(&self) -> SymmetricKeyId {
@@ -105,7 +141,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, AttachmentEncryptResult>
 
         // Because this is a new attachment, we have to generate a key for it, encrypt the contents
         // with it, and then encrypt the key with the cipher key
-        let attachment_key = ctx.generate_symmetric_key(ATTACHMENT_KEY)?;
+        let attachment_key = ctx.generate_symmetric_key();
         let encrypted_contents =
             OctetStreamBytes::from(self.contents).encrypt(ctx, attachment_key)?;
         attachment.key = Some(ctx.wrap_symmetric_key(ciphers_key, attachment_key)?);
@@ -143,8 +179,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, Vec<u8>> for AttachmentFile {
 
         // Version 2 or 3, `AttachmentKey` or `CipherKey(AttachmentKey)`
         if let Some(attachment_key) = &self.attachment.key {
-            let content_key =
-                ctx.unwrap_symmetric_key(ciphers_key, ATTACHMENT_KEY, attachment_key)?;
+            let content_key = ctx.unwrap_symmetric_key(ciphers_key, attachment_key)?;
             self.contents.decrypt(ctx, content_key)
         } else {
             // Legacy attachment version 1, use user/org key
@@ -178,7 +213,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, AttachmentView> for Attachment {
     ) -> Result<AttachmentView, CryptoError> {
         #[cfg(feature = "wasm")]
         let decrypted_key = if let Some(attachment_key) = &self.key {
-            let content_key_id = ctx.unwrap_symmetric_key(key, ATTACHMENT_KEY, attachment_key)?;
+            let content_key_id = ctx.unwrap_symmetric_key(key, attachment_key)?;
 
             #[allow(deprecated)]
             let actual_key = ctx.dangerous_get_symmetric_key(content_key_id)?;
@@ -253,6 +288,7 @@ mod tests {
             size_name: Some("100 Bytes".into()),
             file_name: Some("Test.txt".into()),
             key: None,
+            #[cfg(feature = "wasm")]
             decrypted_key: None,
         };
 
@@ -287,6 +323,7 @@ mod tests {
                 deleted_date: None,
                 revision_date: "2023-07-27T19:28:05.240Z".parse().unwrap(),
                 archived_date: None,
+                data: None,
             },
             attachment,
             contents: contents.as_slice(),
@@ -311,6 +348,7 @@ mod tests {
             size_name: Some("161 Bytes".into()),
             file_name: Some("Test.txt".into()),
             key: Some("2.r288/AOSPiaLFkW07EBGBw==|SAmnnCbOLFjX5lnURvoualOetQwuyPc54PAmHDTRrhT0gwO9ailna9U09q9bmBfI5XrjNNEsuXssgzNygRkezoVQvZQggZddOwHB6KQW5EQ=|erIMUJp8j+aTcmhdE50zEX+ipv/eR1sZ7EwULJm/6DY=".parse().unwrap()),
+            #[cfg(feature = "wasm")]
             decrypted_key: None,
         };
 
@@ -342,6 +380,7 @@ mod tests {
             deleted_date: None,
             revision_date: "2023-07-27T19:28:05.240Z".parse().unwrap(),
             archived_date: None,
+            data: None,
         };
 
         let enc_file = B64::try_from("Ao00qr1xLsV+ZNQpYZ/UwEwOWo3hheKwCYcOGIbsorZ6JIG2vLWfWEXCVqP0hDuzRvmx8otApNZr8pJYLNwCe1aQ+ySHQYGkdubFjoMojulMbQ959Y4SJ6Its/EnVvpbDnxpXTDpbutDxyhxfq1P3lstL2G9rObJRrxiwdGlRGu1h94UA1fCCkIUQux5LcqUee6W4MyQmRnsUziH8gGzmtI=").unwrap();
@@ -370,6 +409,7 @@ mod tests {
             size_name: Some("161 Bytes".into()),
             file_name: Some("Test.txt".into()),
             key: None,
+            #[cfg(feature = "wasm")]
             decrypted_key: None,
         };
 
@@ -401,6 +441,7 @@ mod tests {
             deleted_date: None,
             revision_date: "2023-07-27T19:28:05.240Z".parse().unwrap(),
             archived_date: None,
+            data: None,
         };
 
         let enc_file = B64::try_from("AsQLXOBHrJ8porroTUlPxeJOm9XID7LL9D2+KwYATXEpR1EFjLBpcCvMmnqcnYLXIEefe9TCeY4Us50ux43kRSpvdB7YkjxDKV0O1/y6tB7qC4vvv9J9+O/uDEnMx/9yXuEhAW/LA/TsU/WAgxkOM0uTvm8JdD9LUR1z9Ql7zOWycMVzkvGsk2KBNcqAdrotS5FlDftZOXyU8pWecNeyA/w=").unwrap();

@@ -5,14 +5,14 @@
 
 use coset::{
     CborSerializable, ContentType, Header, Label,
-    iana::{self, CoapContentFormat},
+    iana::{self, CoapContentFormat, KeyOperation},
 };
 use generic_array::GenericArray;
 use thiserror::Error;
 use typenum::U32;
 
 use crate::{
-    ContentFormat, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
+    ContentFormat, CoseEncrypt0Bytes, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
     content_format::{Bytes, ConstContentFormat, CoseContentFormat},
     error::{EncStringParseError, EncodingError},
     xchacha20,
@@ -33,6 +33,7 @@ pub(crate) const ARGON2_PARALLELISM: i64 = -71004;
 // Note: These are in the "unregistered" tree: https://datatracker.ietf.org/doc/html/rfc6838#section-3.4
 // These are only used within Bitwarden, and not meant for exchange with other systems.
 const CONTENT_TYPE_PADDED_UTF8: &str = "application/x.bitwarden.utf8-padded";
+pub(crate) const CONTENT_TYPE_PADDED_CBOR: &str = "application/x.bitwarden.cbor-padded";
 const CONTENT_TYPE_BITWARDEN_LEGACY_KEY: &str = "application/x.bitwarden.legacy-key";
 const CONTENT_TYPE_SPKI_PUBLIC_KEY: &str = "application/x.bitwarden.spki-public-key";
 
@@ -40,13 +41,15 @@ const CONTENT_TYPE_SPKI_PUBLIC_KEY: &str = "application/x.bitwarden.spki-public-
 //
 /// The label used for the namespace ensuring strong domain separation when using signatures.
 pub(crate) const SIGNING_NAMESPACE: i64 = -80000;
+/// The label used for the namespace ensuring strong domain separation when using data envelopes.
+pub(crate) const DATA_ENVELOPE_NAMESPACE: i64 = -80001;
 
 /// Encrypts a plaintext message using XChaCha20Poly1305 and returns a COSE Encrypt0 message
 pub(crate) fn encrypt_xchacha20_poly1305(
     plaintext: &[u8],
     key: &crate::XChaCha20Poly1305Key,
     content_format: ContentFormat,
-) -> Result<Vec<u8>, CryptoError> {
+) -> Result<CoseEncrypt0Bytes, CryptoError> {
     let mut plaintext = plaintext.to_vec();
 
     let header_builder: coset::HeaderBuilder = content_format.into();
@@ -78,14 +81,15 @@ pub(crate) fn encrypt_xchacha20_poly1305(
     cose_encrypt0
         .to_vec()
         .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))
+        .map(CoseEncrypt0Bytes::from)
 }
 
 /// Decrypts a COSE Encrypt0 message, using a XChaCha20Poly1305 key
 pub(crate) fn decrypt_xchacha20_poly1305(
-    cose_encrypt0_message: &[u8],
+    cose_encrypt0_message: &CoseEncrypt0Bytes,
     key: &crate::XChaCha20Poly1305Key,
 ) -> Result<(Vec<u8>, ContentFormat), CryptoError> {
-    let msg = coset::CoseEncrypt0::from_slice(cose_encrypt0_message)
+    let msg = coset::CoseEncrypt0::from_slice(cose_encrypt0_message.as_ref())
         .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))?;
 
     let Some(ref alg) = msg.protected.header.alg else {
@@ -141,6 +145,25 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
             })
             .ok_or(CryptoError::InvalidKey)?;
         let alg = cose_key.alg.as_ref().ok_or(CryptoError::InvalidKey)?;
+        let key_opts = cose_key
+            .key_ops
+            .iter()
+            .map(|op| match op {
+                coset::RegisteredLabel::Assigned(iana::KeyOperation::Encrypt) => {
+                    Ok(KeyOperation::Encrypt)
+                }
+                coset::RegisteredLabel::Assigned(iana::KeyOperation::Decrypt) => {
+                    Ok(KeyOperation::Decrypt)
+                }
+                coset::RegisteredLabel::Assigned(iana::KeyOperation::WrapKey) => {
+                    Ok(KeyOperation::WrapKey)
+                }
+                coset::RegisteredLabel::Assigned(iana::KeyOperation::UnwrapKey) => {
+                    Ok(KeyOperation::UnwrapKey)
+                }
+                _ => Err(CryptoError::InvalidKey),
+            })
+            .collect::<Result<Vec<KeyOperation>, CryptoError>>()?;
 
         match alg {
             coset::Algorithm::PrivateUse(XCHACHA20_POLY1305) => {
@@ -156,7 +179,11 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
                     .try_into()
                     .map_err(|_| CryptoError::InvalidKey)?;
                 Ok(SymmetricCryptoKey::XChaCha20Poly1305Key(
-                    XChaCha20Poly1305Key { enc_key, key_id },
+                    XChaCha20Poly1305Key {
+                        enc_key,
+                        key_id,
+                        supported_operations: key_opts,
+                    },
                 ))
             }
             _ => Err(CryptoError::InvalidKey),
@@ -180,12 +207,16 @@ impl From<ContentFormat> for coset::HeaderBuilder {
             }
             ContentFormat::CoseSign1 => header_builder.content_format(CoapContentFormat::CoseSign1),
             ContentFormat::CoseKey => header_builder.content_format(CoapContentFormat::CoseKey),
+            ContentFormat::CoseEncrypt0 => {
+                header_builder.content_format(CoapContentFormat::CoseEncrypt0)
+            }
             ContentFormat::BitwardenLegacyKey => {
                 header_builder.content_type(CONTENT_TYPE_BITWARDEN_LEGACY_KEY.to_string())
             }
             ContentFormat::OctetStream => {
                 header_builder.content_format(CoapContentFormat::OctetStream)
             }
+            ContentFormat::Cbor => header_builder.content_format(CoapContentFormat::Cbor),
         }
     }
 }
@@ -211,6 +242,7 @@ impl TryFrom<&coset::Header> for ContentFormat {
             Some(ContentType::Assigned(CoapContentFormat::OctetStream)) => {
                 Ok(ContentFormat::OctetStream)
             }
+            Some(ContentType::Assigned(CoapContentFormat::Cbor)) => Ok(ContentFormat::Cbor),
             _ => Err(CryptoError::EncString(
                 EncStringParseError::CoseMissingContentType,
             )),
@@ -362,8 +394,16 @@ mod test {
         let key = XChaCha20Poly1305Key {
             key_id: KEY_ID,
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
+            supported_operations: vec![
+                KeyOperation::Decrypt,
+                KeyOperation::Encrypt,
+                KeyOperation::WrapKey,
+                KeyOperation::UnwrapKey,
+            ],
         };
-        let decrypted = decrypt_xchacha20_poly1305(TEST_VECTOR_COSE_ENCRYPT0, &key).unwrap();
+        let decrypted =
+            decrypt_xchacha20_poly1305(&CoseEncrypt0Bytes::from(TEST_VECTOR_COSE_ENCRYPT0), &key)
+                .unwrap();
         assert_eq!(
             decrypted,
             (TEST_VECTOR_PLAINTEXT.to_vec(), ContentFormat::OctetStream)
@@ -375,9 +415,15 @@ mod test {
         let key = XChaCha20Poly1305Key {
             key_id: [1; 16], // Different key ID
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
+            supported_operations: vec![
+                KeyOperation::Decrypt,
+                KeyOperation::Encrypt,
+                KeyOperation::WrapKey,
+                KeyOperation::UnwrapKey,
+            ],
         };
         assert!(matches!(
-            decrypt_xchacha20_poly1305(TEST_VECTOR_COSE_ENCRYPT0, &key),
+            decrypt_xchacha20_poly1305(&CoseEncrypt0Bytes::from(TEST_VECTOR_COSE_ENCRYPT0), &key),
             Err(CryptoError::WrongCoseKeyId)
         ));
     }
@@ -394,11 +440,17 @@ mod test {
             .create_ciphertext(&[], &[], |_, _| Vec::new())
             .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
             .build();
-        let serialized_message = cose_encrypt0.to_vec().unwrap();
+        let serialized_message = CoseEncrypt0Bytes::from(cose_encrypt0.to_vec().unwrap());
 
         let key = XChaCha20Poly1305Key {
             key_id: KEY_ID,
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
+            supported_operations: vec![
+                KeyOperation::Decrypt,
+                KeyOperation::Encrypt,
+                KeyOperation::WrapKey,
+                KeyOperation::UnwrapKey,
+            ],
         };
         assert!(matches!(
             decrypt_xchacha20_poly1305(&serialized_message, &key),

@@ -25,7 +25,7 @@ pub enum PlanType {
     EnterpriseMonthly2019 = 4,
     EnterpriseAnnually2019 = 5,
     Custom = 6,
-    FamiliesAnnually = 7,
+    FamiliesAnnually2025 = 7,
     TeamsMonthly2020 = 8,
     TeamsAnnually2020 = 9,
     EnterpriseMonthly2020 = 10,
@@ -40,6 +40,7 @@ pub enum PlanType {
     EnterpriseMonthly = 19,
     EnterpriseAnnually = 20,
     TeamsStarter = 21,
+    FamiliesAnnually = 22,
 }
 
 impl std::fmt::Display for PlanType {
@@ -55,7 +56,7 @@ impl std::fmt::Display for PlanType {
                 Self::EnterpriseMonthly2019 => "4",
                 Self::EnterpriseAnnually2019 => "5",
                 Self::Custom => "6",
-                Self::FamiliesAnnually => "7",
+                Self::FamiliesAnnually2025 => "7",
                 Self::TeamsMonthly2020 => "8",
                 Self::TeamsAnnually2020 => "9",
                 Self::EnterpriseMonthly2020 => "10",
@@ -70,6 +71,7 @@ impl std::fmt::Display for PlanType {
                 Self::EnterpriseMonthly => "19",
                 Self::EnterpriseAnnually => "20",
                 Self::TeamsStarter => "21",
+                Self::FamiliesAnnually => "22",
             }
         )
     }

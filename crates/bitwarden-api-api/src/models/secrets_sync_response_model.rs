@@ -14,11 +14,23 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SecretsSyncResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "hasChanges", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "hasChanges",
+        alias = "HasChanges",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub has_changes: Option<bool>,
-    #[serde(rename = "secrets", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "secrets",
+        alias = "Secrets",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub secrets: Option<Box<models::BaseSecretResponseModelListResponseModel>>,
 }
 

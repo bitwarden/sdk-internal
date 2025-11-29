@@ -14,7 +14,7 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ChangePlanFrequencyRequest {
-    #[serde(rename = "newPlanType")]
+    #[serde(rename = "newPlanType", alias = "NewPlanType")]
     pub new_plan_type: models::PlanType,
 }
 

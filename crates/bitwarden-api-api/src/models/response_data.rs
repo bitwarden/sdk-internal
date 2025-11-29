@@ -17,10 +17,18 @@ use crate::models;
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ResponseData {
     #[serde_as(as = "Option<serde_with::base64::Base64>")]
-    #[serde(rename = "attestationObject", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "attestationObject",
+        alias = "AttestationObject",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub attestation_object: Option<Vec<u8>>,
     #[serde_as(as = "Option<serde_with::base64::Base64>")]
-    #[serde(rename = "clientDataJSON", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "clientDataJSON",
+        alias = "ClientDataJson",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub client_data_json: Option<Vec<u8>>,
 }
 

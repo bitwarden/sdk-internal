@@ -1,0 +1,25 @@
+[package]
+name = "wasm-bindgen-cli-runner"
+version = "0.1.0"
+publish = false
+
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[[bin]]
+name = "wasm-bindgen-runner"
+path = "wasm-bindgen-runner.rs"
+
+[[bin]]
+name = "wasm-bindgen-test-runner"
+path = "wasm-bindgen-test-runner.rs"
+
+[dependencies]
+env_logger = "0.11.1"
+wasm-bindgen-cli = { workspace = true }

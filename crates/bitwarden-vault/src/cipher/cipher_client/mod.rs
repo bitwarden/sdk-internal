@@ -1,15 +1,27 @@
-use bitwarden_core::{Client, OrganizationId, key_management::SymmetricKeyId};
-use bitwarden_crypto::{CompositeEncryptable, IdentifyKey, SymmetricCryptoKey};
+use std::sync::Arc;
+
+use bitwarden_core::{Client, OrganizationId};
+use bitwarden_crypto::IdentifyKey;
+#[cfg(feature = "wasm")]
+use bitwarden_crypto::{CompositeEncryptable, SymmetricCryptoKey};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
+use bitwarden_state::repository::{Repository, RepositoryError};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
+#[cfg(feature = "wasm")]
+use crate::Fido2CredentialFullView;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
-    Fido2CredentialFullView, cipher::cipher::DecryptCipherListResult,
+    cipher::cipher::DecryptCipherListResult,
 };
+
+mod create;
+mod edit;
+mod get;
+mod share_cipher;
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -75,9 +87,7 @@ impl CiphersClient {
         let mut ctx = key_store.context();
 
         // Set the new key in the key store context
-        const NEW_KEY_ID: SymmetricKeyId = SymmetricKeyId::Local("new_cipher_key");
-        #[allow(deprecated)]
-        ctx.set_symmetric_key(NEW_KEY_ID, new_key)?;
+        let new_key_id = ctx.add_local_symmetric_key(new_key);
 
         if cipher_view.key.is_none()
             && self
@@ -86,12 +96,12 @@ impl CiphersClient {
                 .get_flags()
                 .enable_cipher_key_encryption
         {
-            cipher_view.generate_cipher_key(&mut ctx, NEW_KEY_ID)?;
+            cipher_view.generate_cipher_key(&mut ctx, new_key_id)?;
         } else {
-            cipher_view.reencrypt_cipher_keys(&mut ctx, NEW_KEY_ID)?;
+            cipher_view.reencrypt_cipher_keys(&mut ctx, new_key_id)?;
         }
 
-        let cipher = cipher_view.encrypt_composite(&mut ctx, NEW_KEY_ID)?;
+        let cipher = cipher_view.encrypt_composite(&mut ctx, new_key_id)?;
 
         Ok(EncryptionContext {
             cipher,
@@ -176,10 +186,21 @@ impl CiphersClient {
     }
 }
 
+impl CiphersClient {
+    fn get_repository(&self) -> Result<Arc<dyn Repository<Cipher>>, RepositoryError> {
+        Ok(self
+            .client
+            .platform()
+            .state()
+            .get_client_managed::<Cipher>()?)
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
     use bitwarden_core::client::test_accounts::test_bitwarden_com_account;
+    #[cfg(feature = "wasm")]
     use bitwarden_crypto::CryptoError;
 
     use super::*;
@@ -222,6 +243,7 @@ mod tests {
             deleted_date: None,
             revision_date: "2024-05-31T11:20:58.4566667Z".parse().unwrap(),
             archived_date: None,
+            data: None,
         }
     }
 
@@ -326,6 +348,7 @@ mod tests {
                 deleted_date: None,
                 revision_date: "2024-05-31T09:35:55.12Z".parse().unwrap(),
                 archived_date: None,
+                data: None,
             }])
 
             .unwrap();
@@ -516,6 +539,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "wasm")]
     async fn test_encrypt_cipher_for_rotation() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 

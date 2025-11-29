@@ -14,15 +14,15 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AuthRequestCreateRequestModel {
-    #[serde(rename = "email")]
+    #[serde(rename = "email", alias = "Email")]
     pub email: String,
-    #[serde(rename = "publicKey")]
+    #[serde(rename = "publicKey", alias = "PublicKey")]
     pub public_key: String,
-    #[serde(rename = "deviceIdentifier")]
+    #[serde(rename = "deviceIdentifier", alias = "DeviceIdentifier")]
     pub device_identifier: String,
-    #[serde(rename = "accessCode")]
+    #[serde(rename = "accessCode", alias = "AccessCode")]
     pub access_code: String,
-    #[serde(rename = "type")]
+    #[serde(rename = "type", alias = "R#type")]
     pub r#type: models::AuthRequestType,
 }
 

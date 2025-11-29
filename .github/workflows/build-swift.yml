@@ -19,7 +19,9 @@ jobs:
       package_version: ${{ steps.retrieve-version.outputs.package_version }}
     steps:
       - name: Checkout repo
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
 
       - name: Get Package Version
         id: retrieve-version
@@ -37,10 +39,12 @@ jobs:
       _VERSION: ${{ needs.version.outputs.package_version }}
     steps:
       - name: Checkout repo
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
 
       - name: Install rust
-        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # stable
+        uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # stable
         with:
           toolchain: stable
 
@@ -81,14 +85,14 @@ jobs:
           cp -rf crates/bitwarden-uniffi/swift/BitwardenFFI.xcframework artifacts
 
       - name: Upload BitwardenFFI.xcframework artifact
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: BitwardenFFI-${{ env._VERSION }}-${{ steps.build.outputs.short-sha }}.xcframework
           path: artifacts
           if-no-files-found: error
 
       - name: Upload BitwardenSdk sources
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: BitwardenSdk-${{ env._VERSION }}-${{ steps.build.outputs.short-sha }}-sources
           path: crates/bitwarden-uniffi/swift/Sources/BitwardenSdk
@@ -121,7 +125,7 @@ jobs:
         uses: bitwarden/gh-actions/azure-logout@main
 
       - name: Trigger Swift release
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           github-token: ${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
           script: |

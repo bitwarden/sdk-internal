@@ -35,6 +35,7 @@ pub use store::{
     KeyStore, KeyStoreContext, RotatedUserKeys, dangerous_get_v2_rotated_account_keys,
 };
 mod cose;
+pub(crate) use cose::CONTENT_TYPE_PADDED_CBOR;
 pub use cose::CoseSerializable;
 pub mod safe;
 mod signing;
@@ -42,7 +43,7 @@ pub use signing::*;
 mod traits;
 mod xchacha20;
 pub use traits::{
-    CompositeEncryptable, Decryptable, IdentifyKey, KeyId, KeyIds, PrimitiveEncryptable,
+    CompositeEncryptable, Decryptable, IdentifyKey, KeyId, KeyIds, LocalId, PrimitiveEncryptable,
 };
 pub use zeroizing_alloc::ZeroAlloc as ZeroizingAllocator;
 

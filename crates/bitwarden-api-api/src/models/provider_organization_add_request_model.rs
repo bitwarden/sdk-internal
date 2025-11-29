@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProviderOrganizationAddRequestModel {
-    #[serde(rename = "organizationId")]
+    #[serde(rename = "organizationId", alias = "OrganizationId")]
     pub organization_id: uuid::Uuid,
-    #[serde(rename = "key")]
+    #[serde(rename = "key", alias = "Key")]
     pub key: String,
 }
 

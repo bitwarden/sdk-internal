@@ -9,6 +9,8 @@ mod cipher;
 pub use cipher::*;
 mod duplicate_detection;
 pub use duplicate_detection::*;
+mod cipher_risk;
+pub use cipher_risk::*;
 mod folder;
 pub use folder::*;
 mod password_history;
@@ -25,9 +27,6 @@ mod error;
 pub use error::{DecryptError, EncryptError, VaultParseError};
 mod vault_client;
 pub use vault_client::{VaultClient, VaultClientExt};
-
-mod sync;
-pub use sync::{SyncRequest, SyncResponse};
 
 #[allow(missing_docs)]
 pub mod collection_client;
