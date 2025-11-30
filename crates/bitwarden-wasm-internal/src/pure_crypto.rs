@@ -328,11 +328,11 @@ impl PureCrypto {
     /// returns the corresponding public RSA key in DER format.
     pub fn rsa_extract_public_key(private_key: Vec<u8>) -> Result<Vec<u8>, RsaError> {
         let private_key = AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key))
-            .map_err(|_| RsaError::KeyParseFailed)?;
+            .map_err(|_| RsaError::KeyParse)?;
         let public_key = private_key.to_public_key();
         Ok(public_key
             .to_der()
-            .map_err(|_| RsaError::KeySerializeFailed)?
+            .map_err(|_| RsaError::KeySerialize)?
             .to_vec())
     }
 
@@ -341,7 +341,7 @@ impl PureCrypto {
         let private_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         Ok(private_key
             .to_der()
-            .map_err(|_| RsaError::KeySerializeFailed)?
+            .map_err(|_| RsaError::KeySerialize)?
             .to_vec())
     }
 
@@ -351,32 +351,32 @@ impl PureCrypto {
         private_key: Vec<u8>,
     ) -> Result<Vec<u8>, RsaError> {
         let private_key = RsaPrivateKey::from_pkcs8_der(private_key.as_slice())
-            .map_err(|_| RsaError::KeyParseFailed)?;
+            .map_err(|_| RsaError::KeyParse)?;
         let padding = Oaep::new::<Sha1>();
         private_key
             .decrypt(padding, &encrypted_data)
-            .map_err(|_| RsaError::DecryptionFailed)
+            .map_err(|_| RsaError::Decryption)
     }
 
     /// Encrypts data using RSAES-OAEP with SHA-1
     pub fn rsa_encrypt_data(plain_data: Vec<u8>, public_key: Vec<u8>) -> Result<Vec<u8>, RsaError> {
         let public_key = RsaPublicKey::from_public_key_der(public_key.as_slice())
-            .map_err(|_| RsaError::KeyParseFailed)?;
+            .map_err(|_| RsaError::KeyParse)?;
         let padding = Oaep::new::<Sha1>();
         let mut rng = rand::thread_rng();
         public_key
             .encrypt(&mut rng, padding, &plain_data)
-            .map_err(|_| RsaError::EncryptionFailed)
+            .map_err(|_| RsaError::Encryption)
     }
 }
 
 #[wasm_bindgen]
 #[derive(Debug)]
 pub enum RsaError {
-    DecryptionFailed,
-    EncryptionFailed,
-    KeyParseFailed,
-    KeySerializeFailed,
+    Decryption,
+    Encryption,
+    KeyParse,
+    KeySerialize,
 }
 
 #[cfg(test)]
