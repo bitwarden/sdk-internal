@@ -36,7 +36,7 @@ pub(crate) const IDENTITY_SEALED_ENVELOPE_SENDER_FINGERPRINT: i64 = -71006;
 // These are only used within Bitwarden, and not meant for exchange with other systems.
 const CONTENT_TYPE_PADDED_UTF8: &str = "application/x.bitwarden.utf8-padded";
 pub(crate) const CONTENT_TYPE_PADDED_CBOR: &str = "application/x.bitwarden.cbor-padded";
-const CONTENT_TYPE_BITWARDEN_LEGACY_KEY: &str = "application/x.bitwarden.legacy-key";
+pub(crate) const CONTENT_TYPE_BITWARDEN_LEGACY_KEY: &str = "application/x.bitwarden.legacy-key";
 const CONTENT_TYPE_SPKI_PUBLIC_KEY: &str = "application/x.bitwarden.spki-public-key";
 
 // Labels

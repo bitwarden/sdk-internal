@@ -29,6 +29,7 @@
 
 mod cose;
 use cose::*;
+pub(crate) use cose::namespace;
 mod namespace;
 pub use namespace::SigningNamespace;
 mod signed_object;
