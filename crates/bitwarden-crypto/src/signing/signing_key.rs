@@ -16,7 +16,7 @@ use crate::{
     content_format::CoseKeyContentFormat,
     cose::CoseSerializable,
     error::{EncodingError, Result},
-    keys::KeyId,
+    keys::KeyId, traits::KeyFingerprint,
 };
 
 /// A `SigningKey` without the key id. This enum contains a variant for each supported signature

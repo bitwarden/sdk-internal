@@ -1,12 +1,13 @@
 use std::pin::Pin;
 
-use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::DecodePublicKey};
+use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::DecodePublicKey, traits::PublicKeyParts};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use sha2::Digest as _;
 
 use super::key_encryptable::CryptoKey;
 use crate::{
     Pkcs8PrivateKeyBytes, SpkiPublicKeyBytes,
-    error::{CryptoError, Result},
+    error::{CryptoError, Result}, traits::DeriveFingerprint,
 };
 
 /// Algorithm / public key encryption scheme used for encryption/decryption.
@@ -54,6 +55,35 @@ impl AsymmetricPublicCryptoKey {
                 .as_bytes()
                 .to_owned()
                 .into()),
+        }
+    }
+}
+
+impl DeriveFingerprint for AsymmetricPublicCryptoKey {
+    fn fingerprint(&self) -> crate::traits::KeyFingerprint {
+        match &self.inner {
+            RawPublicKey::RsaOaepSha1(key) => {
+                // An RSA key has two components - the exponent e and the modulus n. To create a canonical
+                // representation, we serialize both components in big-endian byte order and concatenate. However, to prevent collisions,
+                // we prefix each of these with the length of the component as a 2-byte big-endian integer.
+                let e = key.e().to_bytes_be();
+                let e_len = e.len() as u16;
+                let n = key.n().to_bytes_be();
+                let n_len = n.len() as u16;
+                let mut canonical_representation = Vec::with_capacity(4 + e.len() + n.len());
+                canonical_representation.extend_from_slice(&e_len.to_be_bytes());
+                canonical_representation.extend_from_slice(&e);
+                canonical_representation.extend_from_slice(&n_len.to_be_bytes());
+                canonical_representation.extend_from_slice(&n);
+
+                // Now hash the canonical representation with SHA-256 to get the fingerprint
+                let digest = sha2::Sha256::digest(&canonical_representation);
+                let arr: [u8; 32] = digest
+                    .as_slice()
+                    .try_into()
+                    .expect("SHA-256 digest should be 32 bytes");
+                crate::traits::KeyFingerprint(arr)
+            }
         }
     }
 }

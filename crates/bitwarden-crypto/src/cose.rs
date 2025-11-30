@@ -29,6 +29,8 @@ pub(crate) const ARGON2_SALT: i64 = -71001;
 pub(crate) const ARGON2_ITERATIONS: i64 = -71002;
 pub(crate) const ARGON2_MEMORY: i64 = -71003;
 pub(crate) const ARGON2_PARALLELISM: i64 = -71004;
+pub(crate) const IDENTITY_SEALED_ENVELOPE_RECIPIENT_FINGERPRINT: i64 = -71005;
+pub(crate) const IDENTITY_SEALED_ENVELOPE_SENDER_FINGERPRINT: i64 = -71006;
 
 // Note: These are in the "unregistered" tree: https://datatracker.ietf.org/doc/html/rfc6838#section-3.4
 // These are only used within Bitwarden, and not meant for exchange with other systems.

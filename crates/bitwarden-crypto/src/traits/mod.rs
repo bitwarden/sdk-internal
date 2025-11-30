@@ -7,6 +7,9 @@ pub use decryptable::Decryptable;
 pub(crate) mod key_id;
 pub use key_id::{KeyId, KeyIds, LocalId};
 
+pub(crate) mod key_fingerprint;
+pub use key_fingerprint::{DeriveFingerprint, KeyFingerprint};
+
 /// Types implementing [IdentifyKey] are capable of knowing which cryptographic key is
 /// needed to encrypt/decrypt them.
 pub trait IdentifyKey<Key: KeyId> {
