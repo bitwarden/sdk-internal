@@ -16,6 +16,10 @@ pub enum SigningNamespace {
     SecurityState = 2,
     /// The namespace for identity-sealed key envelopes used in secure key transport
     IdentitySealedKeyEnvelope = 3,
+    /// The namespace for an identity claim
+    IdentityClaim = 4,
+    /// The namespace for a membership agreement
+    MembershipAgreement = 5,
     /// This namespace is only used in tests
     #[cfg(test)]
     ExampleNamespace = -1,

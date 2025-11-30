@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 
 /// Fingerprints are 256-bit. Anything human readable can be derived from that. This is enough
@@ -8,6 +9,8 @@ const FINGERPRINT_LENGTH: usize = 32;
 /// from the key material using a cryptographic hash function. It also has a pseudo-random
 /// distribution and MUST be derived using a cryptographic hash function / there MUST NOT be direct
 /// control over the output.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct KeyFingerprint(pub(crate) [u8; FINGERPRINT_LENGTH]);
 
 /// A trait for deriving a key fingerprint from a cryptographic key. To implement, this MUST take a

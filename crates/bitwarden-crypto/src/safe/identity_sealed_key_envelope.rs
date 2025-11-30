@@ -92,7 +92,7 @@ impl IdentitySealedKeyEnvelope {
     pub fn seal(
         sender_signing_key: &SigningKey,
         recipient_verifying_key: &VerifyingKey,
-        recipient_public_key: SignedPublicKey,
+        recipient_public_key: &SignedPublicKey,
         key_to_share: &SymmetricCryptoKey,
     ) -> Result<Self, IdentitySealedKeyEnvelopeError> {
         let (payload, content_type) = match key_to_share.to_encoded_raw() {
@@ -102,6 +102,7 @@ impl IdentitySealedKeyEnvelope {
             crate::EncodedSymmetricKey::CoseKey(bytes) => (bytes.to_vec(), ContentFormat::CoseKey),
         };
         let recipient_public_key = recipient_public_key
+            .to_owned()
             .verify_and_unwrap(recipient_verifying_key)
             .map_err(|_| IdentitySealedKeyEnvelopeError::RecipientPublicKeyVerificationFailed)?;
 
@@ -489,16 +490,10 @@ mod tests {
         let envelope = IdentitySealedKeyEnvelope::seal(
             &sender_signing_key,
             &recipient_verifying_key,
-            signed_public_key,
+            &signed_public_key,
             &key_to_share,
         )
         .expect("Failed to seal key");
-
-        println!(
-            "Sealed IdentitySealedKeyEnvelope: {:?}",
-            envelope.to_string()
-        );
-        println!("{:?}", envelope.cose_sign1);
 
         // Unseal the key
         let unsealed_key = envelope
@@ -548,7 +543,7 @@ mod tests {
         let envelope = IdentitySealedKeyEnvelope::seal(
             &sender_signing_key,
             &recipient_verifying_key,
-            signed_public_key,
+            &signed_public_key,
             &key_to_share,
         )
         .expect("Failed to seal key");
@@ -600,7 +595,7 @@ mod tests {
         let envelope = IdentitySealedKeyEnvelope::seal(
             &sender_signing_key,
             &recipient_verifying_key,
-            signed_public_key,
+            &signed_public_key,
             &key_to_share,
         )
         .expect("Failed to seal key");
@@ -617,6 +612,95 @@ mod tests {
                 Err(IdentitySealedKeyEnvelopeError::RsaOperationFailed)
             ),
             "Expected RSA decryption to fail with wrong recipient key"
+        );
+    }
+
+    /// Generates test vectors for the identity sealed key envelope.
+    /// Run with: cargo test -p bitwarden-crypto generate_test_vectors -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn generate_test_vectors() {
+        use crate::CoseSerializable;
+
+        // Create sender's signing key pair
+        let sender_signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
+        let sender_verifying_key = sender_signing_key.to_verifying_key();
+
+        // Create recipient's signing key pair (for identity)
+        let recipient_signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
+        let recipient_verifying_key = recipient_signing_key.to_verifying_key();
+
+        // Create recipient's encryption key pair
+        let recipient_private_key =
+            AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let recipient_public_key = recipient_private_key.to_public_key();
+
+        // Sign the recipient's public key with their signing key
+        let signed_public_key = SignedPublicKeyMessage::from_public_key(&recipient_public_key)
+            .expect("Failed to create signed public key message")
+            .sign(&recipient_signing_key)
+            .expect("Failed to sign public key");
+
+        // Create a symmetric key to share
+        let key_to_share = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+
+        // Seal the key
+        let envelope = IdentitySealedKeyEnvelope::seal(
+            &sender_signing_key,
+            &recipient_verifying_key,
+            &signed_public_key,
+            &key_to_share,
+        )
+        .expect("Failed to seal key");
+
+        // Verify roundtrip works
+        let unsealed_key = envelope
+            .unseal(
+                &sender_verifying_key,
+                &recipient_verifying_key,
+                &recipient_private_key,
+            )
+            .expect("Failed to unseal key");
+        assert_eq!(key_to_share.to_base64(), unsealed_key.to_base64());
+
+        // Print test vectors
+        println!("// Test vectors for IdentitySealedKeyEnvelope");
+        println!(
+            "const TEST_SENDER_SIGNING_KEY: &str = \"{}\";",
+            B64::from(sender_signing_key.to_cose().as_ref())
+        );
+        println!(
+            "const TEST_SENDER_VERIFYING_KEY: &str = \"{}\";",
+            B64::from(sender_verifying_key.to_cose().as_ref())
+        );
+        println!(
+            "const TEST_RECIPIENT_SIGNING_KEY: &str = \"{}\";",
+            B64::from(recipient_signing_key.to_cose().as_ref())
+        );
+        println!(
+            "const TEST_RECIPIENT_VERIFYING_KEY: &str = \"{}\";",
+            B64::from(recipient_verifying_key.to_cose().as_ref())
+        );
+        println!(
+            "const TEST_RECIPIENT_PRIVATE_KEY: &str = \"{}\";",
+            B64::from(
+                recipient_private_key
+                    .to_der()
+                    .expect("Failed to serialize private key")
+                    .as_ref()
+            )
+        );
+        println!(
+            "const TEST_SIGNED_PUBLIC_KEY: &str = \"{}\";",
+            String::from(signed_public_key)
+        );
+        println!(
+            "const TEST_KEY_TO_SHARE: &str = \"{}\";",
+            key_to_share.to_base64()
+        );
+        println!(
+            "const TEST_ENVELOPE: &str = \"{}\";",
+            String::from(envelope)
         );
     }
 }
