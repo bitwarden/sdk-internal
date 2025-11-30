@@ -4,9 +4,16 @@ use bitwarden_core::key_management::KeyIds;
 #[allow(deprecated)]
 use bitwarden_crypto::dangerous_derive_kdf_material;
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, CoseKeyBytes, CoseSerializable, CoseSign1Bytes, CryptoError, Decryptable, EncString, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey, OctetStreamBytes, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey, VerifyingKey
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, CoseKeyBytes,
+    CoseSerializable, CoseSign1Bytes, CryptoError, Decryptable, EncString, Kdf, KeyDecryptable,
+    KeyEncryptable, KeyStore, MasterKey, OctetStreamBytes, Pkcs8PrivateKeyBytes,
+    PrimitiveEncryptable, PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKey,
+    SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey, VerifyingKey,
 };
-use rsa::{Oaep, RsaPrivateKey, RsaPublicKey, pkcs8::{DecodePrivateKey, DecodePublicKey}};
+use rsa::{
+    Oaep, RsaPrivateKey, RsaPublicKey,
+    pkcs8::{DecodePrivateKey, DecodePublicKey},
+};
 use sha1::Sha1;
 use wasm_bindgen::prelude::*;
 
@@ -317,23 +324,25 @@ impl PureCrypto {
         Ok(result.to_encoded().to_vec())
     }
 
-    /// Given a decrypted private RSA key PKCS8 DER and the symmetric key it is wrapped with, this returns
-    /// the corresponding public RSA key in DER format.
-    pub fn rsa_extract_public_key(
-        private_key: Vec<u8>,
-    ) -> Result<Vec<u8>, RsaError> {
-        let private_key =
-            AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key))
-                .map_err(|_| RsaError::KeyParseFailed)?;
+    /// Given a decrypted private RSA key PKCS8 DER and the symmetric key it is wrapped with, this
+    /// returns the corresponding public RSA key in DER format.
+    pub fn rsa_extract_public_key(private_key: Vec<u8>) -> Result<Vec<u8>, RsaError> {
+        let private_key = AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key))
+            .map_err(|_| RsaError::KeyParseFailed)?;
         let public_key = private_key.to_public_key();
-        Ok(public_key.to_der().map_err(|_| RsaError::KeySerializeFailed)?.to_vec())
+        Ok(public_key
+            .to_der()
+            .map_err(|_| RsaError::KeySerializeFailed)?
+            .to_vec())
     }
 
     /// Generates a new RSA key pair and returns the private key
-    pub fn rsa_generate_keypair(
-    ) -> Result<Vec<u8>, RsaError> {
+    pub fn rsa_generate_keypair() -> Result<Vec<u8>, RsaError> {
         let private_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-        Ok(private_key.to_der().map_err(|_| RsaError::KeySerializeFailed)?.to_vec())
+        Ok(private_key
+            .to_der()
+            .map_err(|_| RsaError::KeySerializeFailed)?
+            .to_vec())
     }
 
     /// Decrypts data using RSAES-OAEP with SHA-1
@@ -344,20 +353,19 @@ impl PureCrypto {
         let private_key = RsaPrivateKey::from_pkcs8_der(private_key.as_slice())
             .map_err(|_| RsaError::KeyParseFailed)?;
         let padding = Oaep::new::<Sha1>();
-        private_key.decrypt(padding, &encrypted_data)
+        private_key
+            .decrypt(padding, &encrypted_data)
             .map_err(|_| RsaError::DecryptionFailed)
     }
 
     /// Encrypts data using RSAES-OAEP with SHA-1
-    pub fn rsa_encrypt_data(
-        plain_data: Vec<u8>,
-        public_key: Vec<u8>,
-    ) -> Result<Vec<u8>, RsaError> {
+    pub fn rsa_encrypt_data(plain_data: Vec<u8>, public_key: Vec<u8>) -> Result<Vec<u8>, RsaError> {
         let public_key = RsaPublicKey::from_public_key_der(public_key.as_slice())
             .map_err(|_| RsaError::KeyParseFailed)?;
         let padding = Oaep::new::<Sha1>();
         let mut rng = rand::thread_rng();
-        public_key.encrypt(&mut rng, padding, &plain_data)
+        public_key
+            .encrypt(&mut rng, padding, &plain_data)
             .map_err(|_| RsaError::EncryptionFailed)
     }
 }
