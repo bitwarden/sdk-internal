@@ -43,6 +43,8 @@ impl TryFrom<i64> for SigningNamespace {
             1 => Ok(SigningNamespace::SignedPublicKey),
             2 => Ok(SigningNamespace::SecurityState),
             3 => Ok(SigningNamespace::IdentitySealedKeyEnvelope),
+            4 => Ok(SigningNamespace::IdentityClaim),
+            5 => Ok(SigningNamespace::MembershipAgreement),
             #[cfg(test)]
             -1 => Ok(SigningNamespace::ExampleNamespace),
             #[cfg(test)]

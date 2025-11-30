@@ -84,7 +84,6 @@ fn main() {
         &alice_verifying_key,
         &SigningNamespace::MembershipAgreement,
     ));
-    // Then, she unseals it
     let key = identity_sealed_key_envelope
         .unseal(&admin_verifying_key, &alice_verifying_key, &alice_private_key)
         .expect("Failed to unseal organization key");
