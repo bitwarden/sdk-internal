@@ -7,7 +7,8 @@ use sha2::Digest as _;
 use super::key_encryptable::CryptoKey;
 use crate::{
     Pkcs8PrivateKeyBytes, SpkiPublicKeyBytes,
-    error::{CryptoError, Result}, traits::DeriveFingerprint,
+    error::{CryptoError, Result},
+    traits::DeriveFingerprint,
 };
 
 /// Algorithm / public key encryption scheme used for encryption/decryption.
@@ -63,9 +64,11 @@ impl DeriveFingerprint for AsymmetricPublicCryptoKey {
     fn fingerprint(&self) -> crate::traits::KeyFingerprint {
         match &self.inner {
             RawPublicKey::RsaOaepSha1(key) => {
-                // An RSA key has two components - the exponent e and the modulus n. To create a canonical
-                // representation, we serialize both components in big-endian byte order and concatenate. However, to prevent collisions,
-                // we prefix each of these with the length of the component as a 2-byte big-endian integer.
+                // An RSA key has two components - the exponent e and the modulus n. To create a
+                // canonical representation, we serialize both components in
+                // big-endian byte order and concatenate. However, to prevent collisions,
+                // we prefix each of these with the length of the component as a 2-byte big-endian
+                // integer.
                 let e = key.e().to_bytes_be();
                 let e_len = e.len() as u16;
                 let n = key.n().to_bytes_be();

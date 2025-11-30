@@ -16,7 +16,8 @@ use crate::{
     content_format::CoseKeyContentFormat,
     cose::CoseSerializable,
     error::{EncodingError, SignatureError},
-    keys::KeyId, traits::{DeriveFingerprint, KeyFingerprint},
+    keys::KeyId,
+    traits::{DeriveFingerprint, KeyFingerprint},
 };
 
 /// A `VerifyingKey` without the key id. This enum contains a variant for each supported signature
@@ -63,10 +64,11 @@ impl DeriveFingerprint for VerifyingKey {
     fn fingerprint(&self) -> KeyFingerprint {
         match &self.inner {
             RawVerifyingKey::Ed25519(key) => {
-                // Ed25519 public keys are directly and trivially a canonical and non-colliding representation of the key pair.
-                // While Ed25519 keys are already 256 bits, they are not pseudo-randomly distributed and do not
-                // satisfy the properties of a fingerprint directly. Therefore, they are hashed using SHA-256
-                // to get a pseudo-random distribution.
+                // Ed25519 public keys are directly and trivially a canonical and non-colliding
+                // representation of the key pair. While Ed25519 keys are already
+                // 256 bits, they are not pseudo-randomly distributed and do not
+                // satisfy the properties of a fingerprint directly. Therefore, they are hashed
+                // using SHA-256 to get a pseudo-random distribution.
                 let digest = sha2::Sha256::digest(&key.to_bytes());
                 let arr: [u8; 32] = digest
                     .as_slice()
