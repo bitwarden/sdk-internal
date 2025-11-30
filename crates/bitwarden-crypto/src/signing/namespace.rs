@@ -14,6 +14,8 @@ pub enum SigningNamespace {
     SignedPublicKey = 1,
     /// The namespace for SignedSecurityState
     SecurityState = 2,
+    /// The namespace for identity-sealed key envelopes used in secure key transport
+    IdentitySealedKeyEnvelope = 3,
     /// This namespace is only used in tests
     #[cfg(test)]
     ExampleNamespace = -1,
@@ -36,6 +38,7 @@ impl TryFrom<i64> for SigningNamespace {
         match value {
             1 => Ok(SigningNamespace::SignedPublicKey),
             2 => Ok(SigningNamespace::SecurityState),
+            3 => Ok(SigningNamespace::IdentitySealedKeyEnvelope),
             #[cfg(test)]
             -1 => Ok(SigningNamespace::ExampleNamespace),
             #[cfg(test)]

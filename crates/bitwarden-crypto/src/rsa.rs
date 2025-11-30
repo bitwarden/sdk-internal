@@ -55,7 +55,7 @@ pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
 }
 
 /// Encrypt data using RSA-OAEP-SHA1 with a 2048 bit key
-pub(super) fn encrypt_rsa2048_oaep_sha1(public_key: &RsaPublicKey, data: &[u8]) -> Result<Vec<u8>> {
+pub(crate) fn encrypt_rsa2048_oaep_sha1(public_key: &RsaPublicKey, data: &[u8]) -> Result<Vec<u8>> {
     let mut rng = rand::thread_rng();
 
     let padding = Oaep::new::<Sha1>();

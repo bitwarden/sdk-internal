@@ -43,7 +43,7 @@ impl VerifyingKey {
     /// Verifies the signature of the given data, for the given namespace.
     /// This should never be used directly, but only through the `verify` method, to enforce
     /// strong domain separation of the signatures.
-    pub(super) fn verify_raw(&self, signature: &[u8], data: &[u8]) -> Result<(), CryptoError> {
+    pub(crate) fn verify_raw(&self, signature: &[u8], data: &[u8]) -> Result<(), CryptoError> {
         match &self.inner {
             RawVerifyingKey::Ed25519(key) => {
                 let sig = ed25519_dalek::Signature::from_bytes(
