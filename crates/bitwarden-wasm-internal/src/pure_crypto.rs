@@ -371,6 +371,7 @@ impl PureCrypto {
 }
 
 #[wasm_bindgen]
+#[derive(Debug)]
 pub enum RsaError {
     DecryptionFailed,
     EncryptionFailed,
@@ -738,5 +739,15 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         )
         .unwrap();
         assert_eq!(user_key.0.to_encoded().to_vec(), decrypted_user_key);
+    }
+
+    #[test]
+    fn test_rsa_round_trip() {
+        let private_key = PureCrypto::rsa_generate_keypair().unwrap();
+        let public_key = PureCrypto::rsa_extract_public_key(private_key.clone()).unwrap();
+        let plain_data = b"Test RSA encryption data".to_vec();
+        let encrypted_data = PureCrypto::rsa_encrypt_data(plain_data.clone(), public_key).unwrap();
+        let decrypted_data = PureCrypto::rsa_decrypt_data(encrypted_data, private_key).unwrap();
+        assert_eq!(plain_data, decrypted_data);
     }
 }
