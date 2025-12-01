@@ -20,10 +20,17 @@ impl SpanDefinition {
             factory: SpanFactory::new(&name, &target, level.into(), None, None, None, fields_slice),
         }
     }
-
-    // TODO: Add fields
     pub fn enter(&self, fields: Vec<FieldValue>) -> Span {
         let span = self.factory.create().build();
+        for field in fields {
+            span.record(field.name.as_str(), &field.value);
+        }
+        Span::new(span)
+    }
+
+    pub fn enter_with_parent(&self, parent: &Span, fields: Vec<FieldValue>) -> Span {
+        let span = self.factory.create().with_parent(parent.span.id()).build();
+        // TODO: fix duplicate code
         for field in fields {
             span.record(field.name.as_str(), &field.value);
         }
@@ -46,7 +53,14 @@ impl Span {
 
 #[wasm_bindgen]
 impl Span {
-    pub fn record(&self, event: &EventDefinition, message: Option<String>) {
+    /// Record a field on the span. Use when the span is already entered
+    /// and the field value was not known at span creation time.
+    pub fn record(&self, field: FieldValue) {
+        self.span.record(field.name.as_str(), &field.value);
+    }
+
+    /// Emit an event associated with this span.
+    pub fn event(&self, event: &EventDefinition, message: Option<String>) {
         event.record(
             self.span.id(),
             message.unwrap_or_else(|| {

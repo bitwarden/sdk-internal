@@ -15,6 +15,7 @@ pub enum SpanBuilder<'a> {
         metadata: &'static Metadata<'static>,
         fields: &'static BTreeMap<&'static str, Field>,
         values: Vec<(&'static Field, Option<&'a dyn Value>)>,
+        parent: Option<tracing::Id>,
     },
     Disabled {
         metadata: &'static Metadata<'static>,
@@ -30,6 +31,7 @@ impl Builder for SpanBuilder<'_> {
             metadata,
             fields,
             values: Vec::new(),
+            parent: None,
         }
     }
     fn create_disabled(metadata: &'static Metadata<'static>) -> Self {
@@ -38,6 +40,13 @@ impl Builder for SpanBuilder<'_> {
 }
 
 impl<'a> SpanBuilder<'a> {
+    pub fn with_parent(&mut self, parent: Option<tracing::Id>) -> &mut Self {
+        if let SpanBuilder::Enabled { parent: p, .. } = self {
+            *p = parent;
+        }
+        self
+    }
+
     #[inline]
     pub fn with(&mut self, name: &str, value: &'a dyn Value) -> &mut Self {
         if let SpanBuilder::Enabled { values, fields, .. } = self {
@@ -51,7 +60,10 @@ impl<'a> SpanBuilder<'a> {
     pub fn build(&self) -> Span {
         match self {
             SpanBuilder::Enabled {
-                metadata, values, ..
+                parent,
+                metadata,
+                values,
+                ..
             } => {
                 macro_rules! finish {
                     ($n:literal) => {
@@ -59,7 +71,7 @@ impl<'a> SpanBuilder<'a> {
                             let values: [(&'static Field, Option<&'a (dyn Value)>); $n] =
                                 values.as_slice().try_into().unwrap();
                             let value_set = metadata.fields().value_set(&values);
-                            return Span::new(metadata, &value_set);
+                            return ::tracing::Span::child_of(parent.clone(), metadata, &value_set);
                         }
                     };
                 }
