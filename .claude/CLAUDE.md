@@ -20,7 +20,8 @@ Monorepo crates organized in **four architectural layers**:
   keys held in memory.
 - **bitwarden-state**: Type-safe Repository pattern for SDK state (client-managed vs SDK-managed)
 - **bitwarden-threading**: ThreadBoundRunner for !Send types in WASM/GUI contexts (uses PhantomData
-  marker) **bitwarden-ipc**: Type-safe IPC framework with pluggable encryption/transport
+  marker)
+- **bitwarden-ipc**: Type-safe IPC framework with pluggable encryption/transport
 - **bitwarden-error**: Error handling across platforms (basic/flat/full modes via proc macro)
 - **bitwarden-encoding**, **bitwarden-uuid**: Encoding and UUID utilities
 
@@ -61,11 +62,10 @@ Monorepo crates organized in **four architectural layers**:
 ### Cryptography (bitwarden-crypto)
 
 - **DO NOT modify** without careful consideration - backward compatibility is critical
-- **KeyStoreContext**: Never hold across await points (enforced by clippy lint
-  `await_holding_invalid_type`)
+- **KeyStoreContext**: Never hold across await points
 - Naming: `derive_` for deterministic key derivation, `make_` for non-deterministic generation
-- Use `bitwarden_crypto::safe` module first (password-protected key envelope, data envelope)
-  envelope) instead of more low-level primitives
+- Use `bitwarden_crypto::safe` module first (password-protected key envelope, data envelope) instead
+  of more low-level primitives
 - IMPORTANT: Use constant time equality checks
 - Do not expose low-level / hazmat functions from the crypto crate.
 - Do not expose key material from the crypto crate, use key references in the key store instead
@@ -114,8 +114,7 @@ Monorepo crates organized in **four architectural layers**:
 **Format & Lint:**
 
 - `cargo +nightly fmt --workspace` - Code formatting
-- `cargo clippy --workspace` - Linting (includes custom await_holding_invalid_type for
-  KeyStoreContext)
+- Use `cargo clippy` to lint code and catch common mistakes
 
 **WASM Testing:**
 
