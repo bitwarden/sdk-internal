@@ -69,7 +69,9 @@ Monorepo crates organized in **four architectural layers**:
 - IMPORTANT: Use constant time equality checks
 - Do not expose low-level / hazmat functions from the crypto crate.
 - Do not expose key material from the crypto crate, use key references in the key store instead
-
+- IMPORTANT: Use constant time equality checks
+- Do not expose low-level / hazmat functions from the crypto crate. 
+- Do not expose key material from the crypto crate, use key references in the key store instead
 ### State Management (bitwarden-state)
 
 - **Client-managed**: App and SDK share data pool (requires manual setup)
