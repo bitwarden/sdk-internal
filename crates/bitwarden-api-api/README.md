@@ -12,7 +12,7 @@ client.
 - API version: latest
 - Package version: 1.0.0
 - Server Git commit:
-  [`fdfec0ac4df89b33896aadf532e95404f01747c0`](https://github.com/bitwarden/server/commit/fdfec0ac4df89b33896aadf532e95404f01747c0)
+  [`8a67aafbe5e01a738b479ebb82185fbc947866f8`](https://github.com/bitwarden/server/commit/8a67aafbe5e01a738b479ebb82185fbc947866f8)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -352,7 +352,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationsApi_                        | [**post_subscribe_secrets_manager**](docs/OrganizationsApi.md#organizations_post_subscribe_secrets_manager)                                                      | **POST** /organizations/{id}/subscribe-secrets-manager                                                   |
 | _OrganizationsApi_                        | [**post_subscription**](docs/OrganizationsApi.md#organizations_post_subscription)                                                                                | **POST** /organizations/{id}/subscription                                                                |
 | _OrganizationsApi_                        | [**post_upgrade**](docs/OrganizationsApi.md#organizations_post_upgrade)                                                                                          | **POST** /organizations/{id}/upgrade                                                                     |
-| _OrganizationsApi_                        | [**put**](docs/OrganizationsApi.md#organizations_put)                                                                                                            | **PUT** /organizations/{id}                                                                              |
+| _OrganizationsApi_                        | [**put**](docs/OrganizationsApi.md#organizations_put)                                                                                                            | **PUT** /organizations/{organizationId}                                                                  |
 | _OrganizationsApi_                        | [**put_collection_management**](docs/OrganizationsApi.md#organizations_put_collection_management)                                                                | **PUT** /organizations/{id}/collection-management                                                        |
 | _OrganizationsApi_                        | [**put_tax_info**](docs/OrganizationsApi.md#organizations_put_tax_info)                                                                                          | **PUT** /organizations/{id}/tax                                                                          |
 | _OrganizationsApi_                        | [**rotate_api_key**](docs/OrganizationsApi.md#organizations_rotate_api_key)                                                                                      | **POST** /organizations/{id}/rotate-api-key                                                              |
