@@ -153,7 +153,7 @@ pub(super) fn decrypt_user_key(
         }
         EncString::Cose_Encrypt0_B64 { .. } => {
             return Err(CryptoError::OperationNotSupported(
-                crate::error::UnsupportedOperationError::EncryptionNotImplementedForKey,
+                crate::error::UnsupportedOperationError::DecryptionNotImplementedForKey,
             ));
         }
     };
