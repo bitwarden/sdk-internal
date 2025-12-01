@@ -34,8 +34,8 @@ pub(crate) struct LoginSuccessApiResponse {
     #[serde(alias = "Key")]
     pub(crate) key: Option<String>,
 
-    /// Two factor remember me token to be used for future requests to bypass 2FA prompts
-    /// for a limited time.
+    /// Two factor remember me token to be used for future requests
+    /// to bypass 2FA prompts for a limited time.
     #[serde(rename = "twoFactorToken")]
     two_factor_token: Option<String>,
 
@@ -60,12 +60,18 @@ pub(crate) struct LoginSuccessApiResponse {
     #[serde(rename = "forcePasswordReset", alias = "ForcePasswordReset")]
     pub force_password_reset: bool,
 
-    ///
+    /// Optional
+    // TODO: rename this to be clear that it's only for user API key logins
+    // for users who have key connector enabled on their account.
+    // They have to have their key connector url configured locally in their
+    // CLI environment to decrypt.
+    // TODO: Ask Oscar why we allow users to configure a local
+    // key connector URL when we always send the URL from server?
     #[serde(rename = "apiUseKeyConnector", alias = "ApiUseKeyConnector")]
     api_use_key_connector: Option<bool>,
-    #[serde(rename = "keyConnectorUrl", alias = "KeyConnectorUrl")]
-    key_connector_url: Option<String>,
 
+    // #[serde(rename = "keyConnectorUrl", alias = "KeyConnectorUrl")]
+    // key_connector_url: Option<String>,
     #[serde(rename = "userDecryptionOptions", alias = "UserDecryptionOptions")]
     pub(crate) user_decryption_options: Option<UserDecryptionOptionsResponse>,
 }

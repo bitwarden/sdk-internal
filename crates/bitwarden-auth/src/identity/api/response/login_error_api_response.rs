@@ -7,6 +7,10 @@ use tsify::Tsify;
 #[serde(rename_all = "snake_case")]
 pub enum PasswordInvalidGrantError {
     InvalidUsernameOrPassword,
+
+    /// Fallback for unknown variants for forward compatibility
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
