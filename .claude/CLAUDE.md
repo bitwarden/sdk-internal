@@ -7,7 +7,8 @@ Cross-platform Rust SDK implementing Bitwarden's core business logic.
 
 **Crate documentation**: Before working in any crate, read available documentation: `CLAUDE.md` for
 critical rules, `README.md` for architecture, `examples/` for usage patterns, and `tests/` for
-integration tests. **Read all available files before suggesting changes.**
+integration tests. **Before making changes or reviewing code, review relevant examples and tests for
+the specific functionality you're modifying.**
 
 ## Architecture Overview
 
@@ -15,13 +16,11 @@ Monorepo crates organized in **four architectural layers**:
 
 ### 1. Foundation Layer
 
-- **bitwarden-crypto**: Cryptographic primitives, KeyStore with thread-safe RwLock-based access,
-  ephemeral KeyStoreContext with auto-cleared local keys, COSE format support
+- **bitwarden-crypto**: Cryptographic primitives and protocols, key store for securely working with
+  keys held in memory.
 - **bitwarden-state**: Type-safe Repository pattern for SDK state (client-managed vs SDK-managed)
 - **bitwarden-threading**: ThreadBoundRunner for !Send types in WASM/GUI contexts (uses PhantomData
-  marker)
-- **bitwarden-ipc**: Type-safe IPC framework with pluggable encryption/transport, Arc-based shared
-  ownership
+  marker) **bitwarden-ipc**: Type-safe IPC framework with pluggable encryption/transport
 - **bitwarden-error**: Error handling across platforms (basic/flat/full modes via proc macro)
 - **bitwarden-encoding**, **bitwarden-uuid**: Encoding and UUID utilities
 
@@ -29,6 +28,8 @@ Monorepo crates organized in **four architectural layers**:
 
 - **bitwarden-core**: Base Client struct extended by feature crates via extension traits. **DO NOT
   add functionality here - use feature crates instead.**
+  - **bitwarden-api-api**, **bitwarden-api-identity**: Auto-generated API clients (**DO NOT edit -
+    regenerate from OpenAPI specs**)
 
 ### 3. Feature Implementations
 
@@ -36,8 +37,8 @@ Monorepo crates organized in **four architectural layers**:
   `vault()`, `crypto()`, `sends()`, `generators()`, `exporters()`
   - Lifecycle: Init → Lock/Unlock → Logout (drops instance)
   - Storage: Apps use `HashMap<UserId, PasswordManagerClient>`
-- **bitwarden-vault**: Vault item models (encrypted/decrypted states) with Encryptable trait
-- **bitwarden-collections**: Collection models with tree structure via TreeItem trait
+- **bitwarden-vault**: Vault item models, encryption/decryption and management
+- **bitwarden-collections**: Collection models, encryption/decryption and management
 - **bitwarden-auth**: Authentication (send access tokens)
 - **bitwarden-send**: Encrypted temporary secret sharing
 - **bitwarden-generators**: Password/passphrase generators
@@ -47,14 +48,13 @@ Monorepo crates organized in **four architectural layers**:
 
 ### 4. Cross-Platform Bindings
 
-- **bitwarden-api-api**, **bitwarden-api-identity**: Auto-generated API clients (**DO NOT edit -
-  regenerate from OpenAPI specs**)
 - **bitwarden-uniffi**: Mobile bindings (Swift/Kotlin) via UniFFI
   - Structs: `#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]`
   - Enums: `#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]`
   - Include `uniffi::setup_scaffolding!()` in lib.rs
 - **bitwarden-wasm-internal**: WebAssembly bindings (**thin bindings only - no business logic**)
-  - Structs: `#[derive(Serialize, Deserialize)]` with `#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]`
+  - Structs: `#[derive(Serialize, Deserialize)]` with
+    `#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]`
 
 ## Critical Patterns & Rules
 
@@ -65,7 +65,10 @@ Monorepo crates organized in **four architectural layers**:
   `await_holding_invalid_type`)
 - Naming: `derive_` for deterministic key derivation, `make_` for non-deterministic generation
 - Use `bitwarden_crypto::safe` module first (password-protected key envelope, data envelope)
-  envelope)
+  envelope) instead of more low-level primitives
+- IMPORTANT: Use constant time equality checks
+- Do not expose low-level / hazmat functions from the crypto crate.
+- Do not expose key material from the crypto crate, use key references in the key store instead
 
 ### State Management (bitwarden-state)
 
@@ -93,7 +96,7 @@ Monorepo crates organized in **four architectural layers**:
 - **Unsafe blocks** require comments explaining safety and invariants
 - **Encryption/decryption changes** must maintain backward compatibility (existing encrypted data
   must remain decryptable)
-- **Breaking serialization** prohibited - users must decrypt vaults from older versions
+- **Breaking serialization** strongly discouraged - users must decrypt vaults from older versions
 
 ### API Changes
 
