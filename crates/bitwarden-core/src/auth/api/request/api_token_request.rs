@@ -1,5 +1,5 @@
-use log::debug;
 use serde::{Deserialize, Serialize};
+use tracing::debug;
 
 use crate::{
     auth::{api::response::IdentityTokenResponse, login::LoginError},
@@ -31,7 +31,7 @@ impl ApiTokenRequest {
             device_name: "firefox".to_string(),
             grant_type: "client_credentials".to_string(),
         };
-        debug!("initializing {obj:?}");
+        debug!(?obj, "initializing");
         obj
     }
 

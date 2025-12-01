@@ -8,3 +8,11 @@ Instead, prefer to hold a reference to bitwarden_core::KeyStore and use its encr
 If you require access to KeyStoreContext, create short-lived KeyStoreContext instances as needed.
 """ },
 ]
+
+disallowed-macros = [
+  { path = "log::trace", reason = "Use tracing for logging needs", replacement = "tracing::trace" },
+  { path = "log::debug", reason = "Use tracing for logging needs", replacement = "tracing::debug" },
+  { path = "log::info", reason = "Use tracing for logging needs", replacement = "tracing::info" },
+  { path = "log::warn", reason = "Use tracing for logging needs", replacement = "tracing::warn" },
+  { path = "log::error", reason = "Use tracing for logging needs", replacement = "tracing::error" },
+]
