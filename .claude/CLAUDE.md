@@ -118,7 +118,8 @@ Monorepo crates organized in **four architectural layers**:
 
 **WASM Testing:**
 
-- `cargo test --target wasm32-unknown-unknown --all-features` - WASM-specific tests
+- `cargo test --target wasm32-unknown-unknown --features wasm -p bitwarden-error -p bitwarden-threading -p bitwarden-uuid` -
+  WASM-specific tests
 
 ## References
 
