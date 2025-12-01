@@ -324,7 +324,7 @@ impl PureCrypto {
         Ok(result.to_encoded().to_vec())
     }
 
-    /// Given a decrypted private RSA key PKCS8 DER and the symmetric key it is wrapped with, this
+    /// Given a decrypted private RSA key PKCS8 DER this
     /// returns the corresponding public RSA key in DER format.
     pub fn rsa_extract_public_key(private_key: Vec<u8>) -> Result<Vec<u8>, RsaError> {
         let private_key = AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key))
