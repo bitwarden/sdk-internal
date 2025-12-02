@@ -1,6 +1,9 @@
 #[cfg(feature = "wasm")]
 use bitwarden_crypto::safe::PasswordProtectedKeyEnvelope;
-use bitwarden_crypto::{CryptoError, Decryptable, Kdf};
+use bitwarden_crypto::{
+    AsymmetricPublicCryptoKey, CryptoError, Decryptable, DeviceKey, Kdf, SpkiPublicKeyBytes,
+    TrustDeviceResponse,
+};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use bitwarden_encoding::B64;
@@ -25,10 +28,13 @@ use crate::{
     Client,
     client::encryption_settings::EncryptionSettingsError,
     error::StatefulCryptoError,
-    key_management::crypto::{
-        CryptoClientError, EnrollPinResponse, UpdateKdfResponse, UserCryptoV2KeysResponse,
-        enroll_pin, get_v2_rotated_account_keys, make_update_kdf, make_update_password,
-        make_v2_keys_for_v1_user,
+    key_management::{
+        account_cryptographic_state::WrappedAccountCryptographicState,
+        crypto::{
+            CryptoClientError, EnrollPinResponse, UpdateKdfResponse, UserCryptoV2KeysResponse,
+            enroll_pin, get_v2_rotated_account_keys, make_update_kdf, make_update_password,
+            make_v2_keys_for_v1_user,
+        },
     },
 };
 
@@ -186,6 +192,39 @@ impl CryptoClient {
         request: DeriveKeyConnectorRequest,
     ) -> Result<B64, DeriveKeyConnectorError> {
         derive_key_connector(request)
+    }
+
+    /// Creates a new V2 account cryptographic state for TDE registration.
+    /// This generates fresh cryptographic keys (private key, signing key, signed public key,
+    /// and security state) wrapped with a new user key.
+    ///
+    /// Returns the wrapped account cryptographic state that can be used for registration.
+    /// The user key is not returned but is set in the client's key store.
+    pub fn make_user_tde_registration(
+        &self,
+        user_id: crate::UserId,
+        org_public_key: B64,
+    ) -> Result<
+        (
+            WrappedAccountCryptographicState,
+            TrustDeviceResponse,
+            UnsignedSharedKey,
+        ),
+        StatefulCryptoError,
+    > {
+        let mut ctx = self.client.internal.get_key_store().context_mut();
+        let (user_key, wrapped_state) =
+            WrappedAccountCryptographicState::make(&mut ctx, user_id)
+                .map_err(|_| StatefulCryptoError::AccountCryptographyCreation)?;
+        #[expect(deprecated)]
+        let user_key = ctx.dangerous_get_symmetric_key(user_key)?;
+
+        let device_key = DeviceKey::trust_device(&user_key)?;
+        let public_key =
+            AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))?;
+        let admin_reset = UnsignedSharedKey::encapsulate_key_unsigned(&user_key, &public_key)?;
+
+        Ok((wrapped_state, device_key, admin_reset))
     }
 }
 

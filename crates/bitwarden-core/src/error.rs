@@ -91,6 +91,8 @@ pub enum StatefulCryptoError {
     },
     #[error("Crypto error, {0}")]
     Crypto(#[from] bitwarden_crypto::CryptoError),
+    #[error("Account cryptography creation failed")]
+    AccountCryptographyCreation,
 }
 
 /// This macro is used to require that a value is present or return an error otherwise.
