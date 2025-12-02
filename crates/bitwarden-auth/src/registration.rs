@@ -12,18 +12,18 @@ use wasm_bindgen::prelude::*;
 /// Client for initializing a user account.
 #[derive(Clone)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
-pub struct UserRegistrationClient {
+pub struct RegistrationClient {
     #[allow(dead_code)]
     pub(crate) client: Client,
 }
 
-impl UserRegistrationClient {
+impl RegistrationClient {
     pub(crate) fn new(client: Client) -> Self {
         Self { client }
     }
 }
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
-impl UserRegistrationClient {
+impl RegistrationClient {
     /// Example method to demonstrate usage of the client.
     /// Note: This will be removed once real methods are implemented.
     #[allow(unused)]
