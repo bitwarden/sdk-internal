@@ -4,7 +4,6 @@ use bitwarden_encoding::{B64, FromStrVisitor};
 use coset::{CborSerializable, iana::KeyOperation};
 use serde::Deserialize;
 use tracing::instrument;
-
 #[cfg(feature = "wasm")]
 use wasm_bindgen::convert::FromWasmAbi;
 
