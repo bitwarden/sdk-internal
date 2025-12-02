@@ -3,8 +3,8 @@
 mod auth_client;
 
 pub mod identity;
+pub mod registration;
 pub mod send_access;
-pub mod user_registration;
 
 pub(crate) mod api; // keep internal to crate
 
