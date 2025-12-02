@@ -477,7 +477,9 @@ dependencies = [
 name = "bitwarden-auth"
 version = "1.0.0"
 dependencies = [
+ "bitwarden-api-api",
  "bitwarden-core",
+ "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-test",
  "chrono",

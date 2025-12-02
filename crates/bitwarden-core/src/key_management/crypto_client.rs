@@ -25,7 +25,7 @@ use crate::key_management::{
     },
 };
 use crate::{
-    Client,
+    Client, UserId,
     client::encryption_settings::EncryptionSettingsError,
     error::StatefulCryptoError,
     key_management::{
@@ -202,7 +202,7 @@ impl CryptoClient {
     /// The user key is not returned but is set in the client's key store.
     pub fn make_user_tde_registration(
         &self,
-        user_id: crate::UserId,
+        user_id: UserId,
         org_public_key: B64,
     ) -> Result<
         (
@@ -219,7 +219,10 @@ impl CryptoClient {
         #[expect(deprecated)]
         let user_key = ctx.dangerous_get_symmetric_key(user_key)?;
 
+        // TDE unlock method
         let device_key = DeviceKey::trust_device(&user_key)?;
+
+        // Account recovery enrollment
         let public_key =
             AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))?;
         let admin_reset = UnsignedSharedKey::encapsulate_key_unsigned(&user_key, &public_key)?;
