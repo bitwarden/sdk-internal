@@ -13,6 +13,7 @@ pub enum LogLevel {
     Warn,
     Error,
 }
+
 fn convert_level(level: LogLevel) -> Level {
     match level {
         LogLevel::Trace => Level::TRACE,
