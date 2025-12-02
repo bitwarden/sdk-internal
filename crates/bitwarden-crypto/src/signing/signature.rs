@@ -55,7 +55,7 @@ impl Signature {
             return false;
         }
 
-        if self.namespace().ok().as_ref() != Some(namespace) {
+        if self.namespace().unwrap() != *namespace {
             return false;
         }
 

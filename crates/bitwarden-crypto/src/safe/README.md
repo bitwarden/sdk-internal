@@ -28,3 +28,12 @@ Use the data envelope to protect a struct (document) of data. Examples include:
 The serialization of the data and the creation of a content encryption key is handled internally.
 Calling the API with a decrypted struct, the content encryption key ID and the encrypted data are
 returned.
+
+## Identity-sealed key envelope
+
+Use the identity sealed key envelope to share a symmetric key from one cryptographic identity to another cryptographic identity. Example use-cases include:
+- Sharing a symmetric key for emergency access
+- Sharing a symmetric key for organization membership
+- Sharing a symmetric key for ad-hoc item sharing
+
+This provides sender authentication, so that the recipient knows that the key was intended for them, and knows who it was sent by.
