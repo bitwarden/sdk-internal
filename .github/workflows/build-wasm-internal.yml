@@ -9,6 +9,8 @@ on:
       - "hotfix-rc"
   workflow_dispatch:
 
+permissions: {}
+
 defaults:
   run:
     shell: bash
@@ -91,14 +93,11 @@ jobs:
         with:
           key: wasm-cargo-cache
 
-      - name: Install wasm-bindgen-cli
-        run: cargo install wasm-bindgen-cli --version 0.2.105 --locked
-
       - name: Build
         run: ./build.sh -r ${{ matrix.license_type.build_flags }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ matrix.license_type.artifact_name }}
           path: ${{ github.workspace }}/crates/bitwarden-wasm-internal/${{ matrix.license_type.npm_folder }}/*

@@ -16,10 +16,20 @@
   },
   "packageRules": [
     {
+      "groupName": "rust",
+      "matchManagers": ["custom.regex", "dockerfile"],
+      "matchDepNames": ["rust"]
+    },
+    {
       "matchManagers": ["cargo"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "pyo3 non-major",
       "matchPackageNames": ["/pyo3*/"]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "wasm-bindgen group",
+      "matchPackageNames": ["/wasm-bindgen*/"]
     },
     {
       "groupName": "dockerfile minor",

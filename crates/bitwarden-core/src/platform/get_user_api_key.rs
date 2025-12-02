@@ -16,9 +16,9 @@ use std::sync::Arc;
 
 use bitwarden_api_api::models::{ApiKeyResponseModel, SecretVerificationRequestModel};
 use bitwarden_crypto::{CryptoError, HashPurpose, MasterKey};
-use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tracing::{debug, info};
 
 use super::SecretVerificationRequest;
 use crate::{
@@ -48,7 +48,7 @@ pub(crate) async fn get_user_api_key(
     input: &SecretVerificationRequest,
 ) -> Result<UserApiKeyResponse, UserApiKeyError> {
     info!("Getting Api Key");
-    debug!("{input:?}");
+    debug!(?input);
 
     let auth_settings = get_login_method(client)?;
     let config = client.internal.get_api_configurations().await;
