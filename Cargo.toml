@@ -60,11 +60,13 @@ futures = ">=0.3.31, <0.4"
 js-sys = { version = ">=0.3.72, <0.4" }
 proc-macro2 = ">=1.0.89, <2"
 quote = ">=1.0.37, <2"
+rand = ">=0.8.5, <0.9"
 reqwest = { version = ">=0.12.5, <0.13", features = [
     "json",
     "multipart",
     "http2",
 ], default-features = false }
+rsa = ">=0.9.2, <0.10"
 schemars = { version = ">=1.0.0, <2.0", features = ["uuid1", "chrono04"] }
 serde = { version = ">=1.0, <2.0", features = ["derive"] }
 serde_bytes = { version = ">=0.11.17, <0.12.0" }
@@ -72,6 +74,7 @@ serde_json = ">=1.0.96, <2.0"
 serde_qs = ">=0.12.0, <0.16"
 serde_repr = ">=0.1.12, <0.2"
 serde-wasm-bindgen = ">=0.6.0, <0.7"
+sha1 = ">=0.10.5, <0.11"
 subtle = ">=2.5.0, <3.0"
 syn = ">=2.0.87, <3"
 thiserror = ">=1.0.40, <3"
@@ -95,11 +98,7 @@ wasm-bindgen-test = "0.3.55"
 wiremock = ">=0.6.0, <0.7"
 zxcvbn = ">=3.0.1, <4.0"
 
-# There is an incompatibility when using pkcs5 and chacha20 on wasm builds. This can be removed once a new
-# rustcrypto-formats crate version is released since the fix has been upstreamed.
-# https://github.com/RustCrypto/formats/pull/1625
 [patch.crates-io]
-pkcs5 = { git = "https://github.com/bitwarden/rustcrypto-formats.git", rev = "2b27c63034217dd126bbf5ed874da51b84f8c705" }
 
 uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
 uniffi_core = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }

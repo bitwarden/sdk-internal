@@ -353,6 +353,7 @@ impl {{classname}} for {{classname}}Client {
         {{/hasHeaderParams}}
         {{#hasAuthMethods}}
         {{#authMethods}}
+        {{#-first}}
         {{#supportTokenSource}}
         // Obtain a token from source provider.
         // Tokens can be Id or access tokens depending on the provider type and configuration.
@@ -391,6 +392,7 @@ impl {{classname}} for {{classname}}Client {
         };
         {{/isOAuth}}
         {{/supportTokenSource}}
+        {{/-first}}
         {{/authMethods}}
         {{/hasAuthMethods}}
         {{#isMultipart}}

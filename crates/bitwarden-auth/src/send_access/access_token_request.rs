@@ -41,10 +41,16 @@ pub struct SendEmailOtpCredentials {
 pub enum SendAccessCredentials {
     #[allow(missing_docs)]
     Password(SendPasswordCredentials),
-    #[allow(missing_docs)]
-    Email(SendEmailCredentials),
+    // IMPORTANT: EmailOtp must come before Email due to #[serde(untagged)] deserialization.
+    // Serde tries variants in order and stops at the first match. Since EmailOtp has
+    // both "email" and "otp" fields, while Email only has "email", placing Email first
+    // would cause {"email": "...", "otp": "..."} to incorrectly match the Email variant
+    // (ignoring the "otp" field). We always must order untagged enum variants from most specific
+    // (most fields) to least specific (fewest fields).
     #[allow(missing_docs)]
     EmailOtp(SendEmailOtpCredentials),
+    #[allow(missing_docs)]
+    Email(SendEmailCredentials),
 }
 
 /// A request structure for requesting a send access token from the API.
@@ -204,15 +210,16 @@ mod tests {
             use serde_json::{from_str, to_string};
 
             use super::*;
+
             #[test]
-            fn deserializes_camelcase_from_ts() {
+            fn deserialize_struct_camelcase_from_ts() {
                 let json = r#"{ "passwordHashB64": "ha$h" }"#;
                 let s: SendPasswordCredentials = from_str(json).unwrap();
                 assert_eq!(s.password_hash_b64, "ha$h");
             }
 
             #[test]
-            fn serializes_camelcase_to_wire() {
+            fn serialize_struct_camelcase_to_wire() {
                 let s = SendPasswordCredentials {
                     password_hash_b64: "ha$h".into(),
                 };
@@ -221,31 +228,163 @@ mod tests {
             }
 
             #[test]
-            fn roundtrip_camel_in_to_camel_out() {
+            fn roundtrip_struct_camel_in_to_camel_out() {
                 let in_json = r#"{ "passwordHashB64": "ha$h" }"#;
                 let parsed: SendPasswordCredentials = from_str(in_json).unwrap();
                 let out_json = to_string(&parsed).unwrap();
                 assert_eq!(out_json, r#"{"passwordHashB64":"ha$h"}"#);
             }
+
+            #[test]
+            fn deserialize_enum_variant_from_json() {
+                let json = r#"{"passwordHashB64":"ha$h"}"#;
+                let creds: SendAccessCredentials = from_str(json).unwrap();
+                match creds {
+                    SendAccessCredentials::Password(password_creds) => {
+                        assert_eq!(password_creds.password_hash_b64, "ha$h");
+                    }
+                    _ => panic!("Expected Password variant"),
+                }
+            }
+
+            #[test]
+            fn serialize_enum_variant_to_json() {
+                let creds = SendAccessCredentials::Password(SendPasswordCredentials {
+                    password_hash_b64: "ha$h".into(),
+                });
+                let json = to_string(&creds).unwrap();
+                assert_eq!(json, r#"{"passwordHashB64":"ha$h"}"#);
+            }
+
+            #[test]
+            fn roundtrip_enum_variant_through_json() {
+                let in_json = r#"{"passwordHashB64":"ha$h"}"#;
+                let creds: SendAccessCredentials = from_str(in_json).unwrap();
+                let out_json = to_string(&creds).unwrap();
+                assert_eq!(out_json, r#"{"passwordHashB64":"ha$h"}"#);
+            }
         }
 
-        #[test]
-        fn serialize_email_credentials() {
-            let creds = SendAccessCredentials::Email(SendEmailCredentials {
-                email: "user@example.com".into(),
-            });
-            let json = serde_json::to_string(&creds).unwrap();
-            assert_eq!(json, r#"{"email":"user@example.com"}"#);
+        mod send_access_email_credentials_tests {
+            use serde_json::{from_str, to_string};
+
+            use super::*;
+
+            #[test]
+            fn deserialize_struct_camelcase_from_ts() {
+                let json = r#"{ "email": "user@example.com" }"#;
+                let s: SendEmailCredentials = from_str(json).unwrap();
+                assert_eq!(s.email, "user@example.com");
+            }
+
+            #[test]
+            fn serialize_struct_camelcase_to_wire() {
+                let s = SendEmailCredentials {
+                    email: "user@example.com".into(),
+                };
+                let json = to_string(&s).unwrap();
+                assert_eq!(json, r#"{"email":"user@example.com"}"#);
+            }
+
+            #[test]
+            fn roundtrip_struct_camel_in_to_camel_out() {
+                let in_json = r#"{ "email": "user@example.com" }"#;
+                let parsed: SendEmailCredentials = from_str(in_json).unwrap();
+                let out_json = to_string(&parsed).unwrap();
+                assert_eq!(out_json, r#"{"email":"user@example.com"}"#);
+            }
+
+            #[test]
+            fn deserialize_enum_variant_from_json() {
+                let json = r#"{"email":"user@example.com"}"#;
+                let creds: SendAccessCredentials = from_str(json).unwrap();
+                match creds {
+                    SendAccessCredentials::Email(email_creds) => {
+                        assert_eq!(email_creds.email, "user@example.com");
+                    }
+                    _ => panic!("Expected Email variant"),
+                }
+            }
+
+            #[test]
+            fn serialize_enum_variant_to_json() {
+                let creds = SendAccessCredentials::Email(SendEmailCredentials {
+                    email: "user@example.com".into(),
+                });
+                let json = to_string(&creds).unwrap();
+                assert_eq!(json, r#"{"email":"user@example.com"}"#);
+            }
+
+            #[test]
+            fn roundtrip_enum_variant_through_json() {
+                let in_json = r#"{"email":"user@example.com"}"#;
+                let creds: SendAccessCredentials = from_str(in_json).unwrap();
+                let out_json = to_string(&creds).unwrap();
+                assert_eq!(out_json, r#"{"email":"user@example.com"}"#);
+            }
         }
 
-        #[test]
-        fn serialize_email_otp_credentials() {
-            let creds = SendAccessCredentials::EmailOtp(SendEmailOtpCredentials {
-                email: "user@example.com".into(),
-                otp: "123456".into(),
-            });
-            let json = serde_json::to_string(&creds).unwrap();
-            assert_eq!(json, r#"{"email":"user@example.com","otp":"123456"}"#);
+        mod send_access_email_otp_credentials_tests {
+            use serde_json::{from_str, to_string};
+
+            use super::*;
+
+            #[test]
+            fn deserialize_struct_camelcase_from_ts() {
+                let json = r#"{ "email": "user@example.com", "otp": "123456" }"#;
+                let s: SendEmailOtpCredentials = from_str(json).unwrap();
+                assert_eq!(s.email, "user@example.com");
+                assert_eq!(s.otp, "123456");
+            }
+
+            #[test]
+            fn serialize_struct_camelcase_to_wire() {
+                let s = SendEmailOtpCredentials {
+                    email: "user@example.com".into(),
+                    otp: "123456".into(),
+                };
+                let json = to_string(&s).unwrap();
+                assert_eq!(json, r#"{"email":"user@example.com","otp":"123456"}"#);
+            }
+
+            #[test]
+            fn roundtrip_struct_camel_in_to_camel_out() {
+                let in_json = r#"{ "email": "user@example.com", "otp": "123456" }"#;
+                let parsed: SendEmailOtpCredentials = from_str(in_json).unwrap();
+                let out_json = to_string(&parsed).unwrap();
+                assert_eq!(out_json, r#"{"email":"user@example.com","otp":"123456"}"#);
+            }
+
+            #[test]
+            fn deserialize_enum_variant_from_json() {
+                let json = r#"{"email":"user@example.com","otp":"123456"}"#;
+                let creds: SendAccessCredentials = from_str(json).unwrap();
+                match creds {
+                    SendAccessCredentials::EmailOtp(otp_creds) => {
+                        assert_eq!(otp_creds.email, "user@example.com");
+                        assert_eq!(otp_creds.otp, "123456");
+                    }
+                    _ => panic!("Expected EmailOtp variant"),
+                }
+            }
+
+            #[test]
+            fn serialize_enum_variant_to_json() {
+                let creds = SendAccessCredentials::EmailOtp(SendEmailOtpCredentials {
+                    email: "user@example.com".into(),
+                    otp: "123456".into(),
+                });
+                let json = to_string(&creds).unwrap();
+                assert_eq!(json, r#"{"email":"user@example.com","otp":"123456"}"#);
+            }
+
+            #[test]
+            fn roundtrip_enum_variant_through_json() {
+                let in_json = r#"{"email":"user@example.com","otp":"123456"}"#;
+                let creds: SendAccessCredentials = from_str(in_json).unwrap();
+                let out_json = to_string(&creds).unwrap();
+                assert_eq!(out_json, r#"{"email":"user@example.com","otp":"123456"}"#);
+            }
         }
     }
 }
