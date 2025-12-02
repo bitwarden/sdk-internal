@@ -1,12 +1,16 @@
+use std::sync::RwLock;
+
+use bitwarden_api_api::models::AccountKeysRequestModel;
 #[cfg(feature = "wasm")]
 use bitwarden_crypto::safe::PasswordProtectedKeyEnvelope;
 use bitwarden_crypto::{
-    AsymmetricPublicCryptoKey, CryptoError, Decryptable, DeviceKey, Kdf, SpkiPublicKeyBytes,
-    TrustDeviceResponse,
+    AsymmetricPublicCryptoKey, CryptoError, Decryptable, DeviceKey, Kdf, KeyStore,
+    SpkiPublicKeyBytes, TrustDeviceResponse,
 };
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use bitwarden_encoding::B64;
+use bitwarden_error::bitwarden_error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -29,7 +33,9 @@ use crate::{
     client::encryption_settings::EncryptionSettingsError,
     error::StatefulCryptoError,
     key_management::{
-        account_cryptographic_state::WrappedAccountCryptographicState,
+        account_cryptographic_state::{
+            AccountCryptographyInitializationError, WrappedAccountCryptographicState,
+        },
         crypto::{
             CryptoClientError, EnrollPinResponse, UpdateKdfResponse, UserCryptoV2KeysResponse,
             enroll_pin, get_v2_rotated_account_keys, make_update_kdf, make_update_password,
@@ -207,15 +213,16 @@ impl CryptoClient {
     ) -> Result<
         (
             WrappedAccountCryptographicState,
+            AccountKeysRequestModel,
             TrustDeviceResponse,
             UnsignedSharedKey,
         ),
-        StatefulCryptoError,
+        MakeKeysError,
     > {
         let mut ctx = self.client.internal.get_key_store().context_mut();
         let (user_key, wrapped_state) =
             WrappedAccountCryptographicState::make(&mut ctx, user_id)
-                .map_err(|_| StatefulCryptoError::AccountCryptographyCreation)?;
+                .map_err(MakeKeysError::AccountCryptographyInitialization)?;
         #[expect(deprecated)]
         let user_key = ctx.dangerous_get_symmetric_key(user_key)?;
 
@@ -227,8 +234,39 @@ impl CryptoClient {
             AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))?;
         let admin_reset = UnsignedSharedKey::encapsulate_key_unsigned(&user_key, &public_key)?;
 
-        Ok((wrapped_state, device_key, admin_reset))
+        let store = KeyStore::default();
+        let security_state = RwLock::new(None);
+        wrapped_state.set_to_context(
+            &security_state,
+            SymmetricKeyId::User,
+            &store,
+            store.context_mut(),
+        );
+
+        let cryptography_state_request_model = wrapped_state
+            .to_request_model(&store)
+            .map_err(|_| MakeKeysError::RequestModelCreation)?;
+
+        Ok((
+            wrapped_state,
+            cryptography_state_request_model,
+            device_key,
+            admin_reset,
+        ))
     }
+}
+
+#[bitwarden_error(flat)]
+#[derive(Debug, thiserror::Error)]
+pub enum MakeKeysError {
+    /// Failed to initialize account cryptography
+    #[error("Failed to initialize account cryptography")]
+    AccountCryptographyInitialization(AccountCryptographyInitializationError),
+    #[error("Failed to make a request model")]
+    RequestModelCreation,
+    /// Generic crypto error
+    #[error("Cryptography error: {0}")]
+    CryptoError(#[from] CryptoError),
 }
 
 impl Client {
