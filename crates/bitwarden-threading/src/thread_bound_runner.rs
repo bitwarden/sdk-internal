@@ -138,7 +138,7 @@ where
                 Box::pin(async move {
                     let result = function(state);
                     return_channel_tx.send(result.await).unwrap_or_else(|_| {
-                        log::warn!(
+                        tracing::warn!(
                             "ThreadBoundDispatcher failed to send result back to the caller"
                         );
                     });

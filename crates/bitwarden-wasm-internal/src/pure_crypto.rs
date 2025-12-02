@@ -7,9 +7,14 @@ use bitwarden_crypto::{
     AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, CoseKeyBytes,
     CoseSerializable, CoseSign1Bytes, CryptoError, Decryptable, EncString, Kdf, KeyDecryptable,
     KeyEncryptable, KeyStore, MasterKey, OctetStreamBytes, Pkcs8PrivateKeyBytes,
-    PrimitiveEncryptable, SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes,
-    SymmetricCryptoKey, UnsignedSharedKey, VerifyingKey,
+    PrimitiveEncryptable, PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKey,
+    SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey, VerifyingKey,
 };
+use rsa::{
+    Oaep, RsaPrivateKey, RsaPublicKey,
+    pkcs8::{DecodePrivateKey, DecodePublicKey},
+};
+use sha1::Sha1;
 use wasm_bindgen::prelude::*;
 
 /// This module represents a stopgap solution to provide access to primitive crypto functions for JS
@@ -318,6 +323,60 @@ impl PureCrypto {
             .map_err(|_| CryptoError::InvalidKey)?;
         Ok(result.to_encoded().to_vec())
     }
+
+    /// Given a decrypted private RSA key PKCS8 DER this
+    /// returns the corresponding public RSA key in DER format.
+    pub fn rsa_extract_public_key(private_key: Vec<u8>) -> Result<Vec<u8>, RsaError> {
+        let private_key = AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key))
+            .map_err(|_| RsaError::KeyParse)?;
+        let public_key = private_key.to_public_key();
+        Ok(public_key
+            .to_der()
+            .map_err(|_| RsaError::KeySerialize)?
+            .to_vec())
+    }
+
+    /// Generates a new RSA key pair and returns the private key
+    pub fn rsa_generate_keypair() -> Result<Vec<u8>, RsaError> {
+        let private_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        Ok(private_key
+            .to_der()
+            .map_err(|_| RsaError::KeySerialize)?
+            .to_vec())
+    }
+
+    /// Decrypts data using RSAES-OAEP with SHA-1
+    pub fn rsa_decrypt_data(
+        encrypted_data: Vec<u8>,
+        private_key: Vec<u8>,
+    ) -> Result<Vec<u8>, RsaError> {
+        let private_key = RsaPrivateKey::from_pkcs8_der(private_key.as_slice())
+            .map_err(|_| RsaError::KeyParse)?;
+        let padding = Oaep::new::<Sha1>();
+        private_key
+            .decrypt(padding, &encrypted_data)
+            .map_err(|_| RsaError::Decryption)
+    }
+
+    /// Encrypts data using RSAES-OAEP with SHA-1
+    pub fn rsa_encrypt_data(plain_data: Vec<u8>, public_key: Vec<u8>) -> Result<Vec<u8>, RsaError> {
+        let public_key = RsaPublicKey::from_public_key_der(public_key.as_slice())
+            .map_err(|_| RsaError::KeyParse)?;
+        let padding = Oaep::new::<Sha1>();
+        let mut rng = rand::thread_rng();
+        public_key
+            .encrypt(&mut rng, padding, &plain_data)
+            .map_err(|_| RsaError::Encryption)
+    }
+}
+
+#[wasm_bindgen]
+#[derive(Debug)]
+pub enum RsaError {
+    Decryption,
+    Encryption,
+    KeyParse,
+    KeySerialize,
 }
 
 #[cfg(test)]
@@ -680,5 +739,15 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         )
         .unwrap();
         assert_eq!(user_key.0.to_encoded().to_vec(), decrypted_user_key);
+    }
+
+    #[test]
+    fn test_rsa_round_trip() {
+        let private_key = PureCrypto::rsa_generate_keypair().unwrap();
+        let public_key = PureCrypto::rsa_extract_public_key(private_key.clone()).unwrap();
+        let plain_data = b"Test RSA encryption data".to_vec();
+        let encrypted_data = PureCrypto::rsa_encrypt_data(plain_data.clone(), public_key).unwrap();
+        let decrypted_data = PureCrypto::rsa_decrypt_data(encrypted_data, private_key).unwrap();
+        assert_eq!(plain_data, decrypted_data);
     }
 }

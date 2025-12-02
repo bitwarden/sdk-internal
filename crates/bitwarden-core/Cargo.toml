@@ -49,7 +49,6 @@ bitwarden-uuid = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
 # We don't use this directly (it's used by rand), but we need it here to enable WASM support
 getrandom = { version = ">=0.2.9, <0.3", features = ["js"] }
-log = { workspace = true }
 rand = ">=0.8.5, <0.9"
 reqwest = { workspace = true }
 schemars = { workspace = true }
