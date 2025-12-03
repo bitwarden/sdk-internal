@@ -32,8 +32,13 @@ pub enum CryptoError {
     MissingKeyId(String),
     #[error("Key operation not supported by key: {0:?}")]
     KeyOperationNotSupported(KeyOperation),
+
+    // Note: These variants will be moved into their own key store error in a follow up ticket,
+    // since the crypto error is growing too large
     #[error("Crypto store is read-only")]
     ReadOnlyKeyStore,
+    #[error("Invalid key store operation")]
+    InvalidKeyStoreOperation,
 
     #[error("Insufficient KDF parameters")]
     InsufficientKdfParameters,

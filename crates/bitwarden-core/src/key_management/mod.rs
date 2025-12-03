@@ -13,6 +13,8 @@
 use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, key_ids};
 
 #[cfg(feature = "internal")]
+pub mod account_cryptographic_state;
+#[cfg(feature = "internal")]
 pub mod crypto;
 #[cfg(feature = "internal")]
 mod crypto_client;
