@@ -637,6 +637,11 @@ impl Cipher {
         }
         Ok(())
     }
+
+    pub(crate) fn soft_delete(&mut self) {
+        self.deleted_date = Some(Utc::now());
+        self.archived_date = None;
+    }
 }
 impl CipherView {
     #[allow(missing_docs)]
