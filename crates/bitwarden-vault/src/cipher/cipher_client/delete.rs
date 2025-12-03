@@ -24,14 +24,6 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for DeleteCipherError {
 }
 
 impl CiphersClient {
-    /// Deletes the [Cipher] with the matching [CipherId] from the server, using the admin endpoint.
-    pub async fn delete_as_admin(&self, cipher_id: CipherId) -> Result<(), ApiError> {
-        let configs = self.get_api_configurations().await;
-        let api = configs.api_client.ciphers_api();
-        api.delete_admin(cipher_id.into()).await?;
-        Ok(())
-    }
-
     /// Deletes the [Cipher] with the matching [CipherId] from the server.
     pub async fn delete(&self, cipher_id: CipherId) -> Result<(), DeleteCipherError> {
         let configs = self.get_api_configurations().await;
@@ -40,24 +32,6 @@ impl CiphersClient {
         self.get_repository()?.remove(cipher_id.to_string()).await?;
         Ok(())
     }
-
-    /// Deletes all [Cipher] objects with a matching [CipherId] from the server, using the admin
-    /// endpoint.
-    pub async fn delete_many_as_admin(
-        &self,
-        cipher_ids: Vec<CipherId>,
-        organization_id: Option<OrganizationId>,
-    ) -> Result<(), DeleteCipherError> {
-        let configs = self.get_api_configurations().await;
-        let api = configs.api_client.ciphers_api();
-        api.delete_many_admin(Some(CipherBulkDeleteRequestModel {
-            ids: cipher_ids.into_iter().map(|id| id.to_string()).collect(),
-            organization_id: organization_id.map(|id| id.to_string()),
-        }))
-        .await?;
-        Ok(())
-    }
-
     /// Deletes all [Cipher] objects with a matching [CipherId] from the server.
     pub async fn delete_many(
         &self,
@@ -82,8 +56,7 @@ impl CiphersClient {
         let repository = self.get_repository()?;
         let cipher: Option<Cipher> = repository.get(cipher_id.to_string()).await?;
         if let Some(mut cipher) = cipher {
-            cipher.deleted_date = Some(Utc::now());
-            cipher.archived_date = None;
+            cipher.soft_delete();
             repository.set(cipher_id.to_string(), cipher).await?;
         }
         Ok(())
@@ -97,16 +70,6 @@ impl CiphersClient {
         self.process_soft_delete(cipher_id).await?;
         Ok(())
     }
-
-    /// Soft-deletes the [Cipher] with the matching [CipherId] from the server, using the admin
-    /// endpoint.
-    pub async fn soft_delete_as_admin(&self, cipher_id: CipherId) -> Result<(), DeleteCipherError> {
-        let configs = self.get_api_configurations().await;
-        let api = configs.api_client.ciphers_api();
-        api.put_delete_admin(cipher_id.into()).await?;
-        Ok(())
-    }
-
     /// Soft-deletes all [Cipher] objects for the given [CipherId]s from the server.
     pub async fn soft_delete_many(
         &self,
@@ -123,23 +86,6 @@ impl CiphersClient {
         for cipher_id in cipher_ids {
             self.process_soft_delete(cipher_id).await?;
         }
-        Ok(())
-    }
-
-    /// Soft-deletes all [Cipher] objects for the given [CipherId]s from the server, using the admin
-    /// endpoint.
-    pub async fn soft_delete_many_as_admin(
-        &self,
-        cipher_ids: Vec<CipherId>,
-        organization_id: Option<OrganizationId>,
-    ) -> Result<(), DeleteCipherError> {
-        let configs = self.get_api_configurations().await;
-        let api = configs.api_client.ciphers_api();
-        api.put_delete_many_admin(Some(CipherBulkDeleteRequestModel {
-            ids: cipher_ids.into_iter().map(|id| id.to_string()).collect(),
-            organization_id: organization_id.map(|id| id.to_string()),
-        }))
-        .await?;
         Ok(())
     }
 }

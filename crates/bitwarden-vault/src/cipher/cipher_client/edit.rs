@@ -376,17 +376,8 @@ impl CiphersClient {
         self.edit_internal(request, false).await
     }
 
-    // putCipherAdmin(id, request: CipherRequest)
-    // ciphers_id_admin_put
-    #[allow(missing_docs)] // TODO: add docs
-    pub async fn edit_as_admin(
-        &self,
-        request: CipherEditRequest,
-    ) -> Result<CipherView, EditCipherError> {
-        self.edit_internal(request, true).await
-    }
-
-    async fn edit_internal(
+    /// A helper function to wrap all of the cipher edit routing logic.
+    pub(super) async fn edit_internal(
         &self,
         mut request: CipherEditRequest,
         is_admin: bool,
@@ -726,57 +717,6 @@ mod tests {
         .unwrap();
 
         assert_eq!(result.id, Some(cipher_id));
-        assert_eq!(result.name, "Test Login");
-    }
-
-    #[tokio::test]
-    async fn test_edit_cipher_as_admin() {
-        let (mock_server, _config) = start_api_mock(vec![
-            Mock::given(method("PUT"))
-                .and(path_regex(r"/ciphers/[a-f0-9-]+"))
-                .respond_with(move |req: &wiremock::Request| {
-                    let body_bytes = req.body.as_slice();
-                    let request_body: CipherRequestModel =
-                        serde_json::from_slice(body_bytes).expect("Failed to parse request body");
-
-                    let response = CipherResponseModel {
-                        id: Some(TEST_CIPHER_ID.try_into().unwrap()),
-                        organization_id: request_body
-                            .organization_id
-                            .and_then(|id| id.parse().ok()),
-                        name: Some(request_body.name.clone()),
-                        r#type: request_body.r#type,
-                        creation_date: Some(Utc::now().to_string()),
-                        revision_date: Some(Utc::now().to_string()),
-                        ..Default::default()
-                    };
-
-                    ResponseTemplate::new(200).set_body_json(&response)
-                }),
-        ])
-        .await;
-        let client = create_client_with_wiremock(&mock_server).await;
-        let repository = client.get_repository().unwrap();
-
-        let cipher_view = generate_test_cipher();
-        repository
-            .set(
-                TEST_CIPHER_ID.to_string(),
-                client.encrypt(cipher_view.clone()).unwrap().cipher,
-            )
-            .await
-            .unwrap();
-
-        let request = cipher_view.try_into().unwrap();
-        let start_time = Utc::now();
-        let result = client.edit_as_admin(request).await.unwrap();
-
-        let cipher = repository.get(TEST_CIPHER_ID.to_string()).await.unwrap();
-        // Should not update local repository for admin endpoints.
-        assert!(result.revision_date > start_time);
-        assert!(cipher.unwrap().revision_date < start_time);
-
-        assert_eq!(result.id, TEST_CIPHER_ID.parse().ok());
         assert_eq!(result.name, "Test Login");
     }
 

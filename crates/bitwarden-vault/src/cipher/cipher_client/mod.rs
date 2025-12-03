@@ -18,6 +18,7 @@ use crate::{
     cipher::cipher::DecryptCipherListResult,
 };
 
+mod cipher_admin_client;
 mod create;
 mod delete;
 mod edit;
