@@ -114,6 +114,12 @@ impl TryFrom<&CoseSign1Bytes> for SignedSecurityState {
     }
 }
 
+impl From<&SignedSecurityState> for String {
+    fn from(val: &SignedSecurityState) -> Self {
+        val.to_owned().into()
+    }
+}
+
 impl From<SignedSecurityState> for String {
     fn from(val: SignedSecurityState) -> Self {
         let bytes: CoseSign1Bytes = val.into();

@@ -278,7 +278,7 @@ impl CiphersClient {
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::{apis::ApiClient, models::CipherResponseModel};
-    use bitwarden_crypto::SymmetricCryptoKey;
+    use bitwarden_crypto::SymmetricKeyAlgorithm;
     use bitwarden_test::MemoryRepository;
 
     use super::*;
@@ -311,11 +311,12 @@ mod tests {
     #[tokio::test]
     async fn test_create_cipher() {
         let store: KeyStore<KeyIds> = KeyStore::default();
-        #[allow(deprecated)]
-        let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-        );
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+                .unwrap();
+        }
 
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
 
@@ -411,11 +412,12 @@ mod tests {
     #[tokio::test]
     async fn test_create_cipher_http_error() {
         let store: KeyStore<KeyIds> = KeyStore::default();
-        #[allow(deprecated)]
-        let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-        );
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+                .unwrap();
+        }
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.ciphers_api.expect_post().returning(move |_body| {
