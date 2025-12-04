@@ -236,12 +236,14 @@ impl CryptoClient {
 
         let store = KeyStore::default();
         let security_state = RwLock::new(None);
-        wrapped_state.set_to_context(
-            &security_state,
-            SymmetricKeyId::User,
-            &store,
-            store.context_mut(),
-        );
+        wrapped_state
+            .set_to_context(
+                &security_state,
+                SymmetricKeyId::User,
+                &store,
+                store.context_mut(),
+            )
+            .map_err(|e| MakeKeysError::AccountCryptographyInitialization(e.into()))?;
 
         let cryptography_state_request_model = wrapped_state
             .to_request_model(&store)
@@ -266,7 +268,7 @@ pub enum MakeKeysError {
     RequestModelCreation,
     /// Generic crypto error
     #[error("Cryptography error: {0}")]
-    CryptoError(#[from] CryptoError),
+    Crypto(#[from] CryptoError),
 }
 
 impl Client {

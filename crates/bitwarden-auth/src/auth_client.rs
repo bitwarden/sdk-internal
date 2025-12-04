@@ -3,8 +3,7 @@ use bitwarden_core::Client;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    identity::IdentityClient, send_access::SendAccessClient,
-    user_registration::UserRegistrationClient,
+    identity::IdentityClient, registration::RegistrationClient, send_access::SendAccessClient,
 };
 
 /// Subclient containing auth functionality.
@@ -37,8 +36,8 @@ impl AuthClient {
     }
 
     /// Client for initializing user account cryptography and unlock methods after JIT provisioning
-    pub fn user_registration(&self) -> UserRegistrationClient {
-        UserRegistrationClient::new(self.client.clone())
+    pub fn registration(&self) -> RegistrationClient {
+        RegistrationClient::new(self.client.clone())
     }
 }
 

@@ -479,6 +479,7 @@ version = "1.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
+ "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-test",
@@ -489,6 +490,7 @@ dependencies = [
  "thiserror 2.0.12",
  "tokio",
  "tsify",
+ "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wiremock",
