@@ -14,22 +14,18 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationUpdateRequestModel {
-    #[serde(rename = "name", alias = "Name")]
-    pub name: String,
     #[serde(
-        rename = "businessName",
-        alias = "BusinessName",
+        rename = "name",
+        alias = "Name",
         skip_serializing_if = "Option::is_none"
     )]
-    pub business_name: Option<String>,
-    #[serde(rename = "billingEmail", alias = "BillingEmail")]
-    pub billing_email: String,
+    pub name: Option<String>,
     #[serde(
-        rename = "permissions",
-        alias = "Permissions",
+        rename = "billingEmail",
+        alias = "BillingEmail",
         skip_serializing_if = "Option::is_none"
     )]
-    pub permissions: Option<Box<models::Permissions>>,
+    pub billing_email: Option<String>,
     #[serde(
         rename = "keys",
         alias = "Keys",
@@ -39,12 +35,10 @@ pub struct OrganizationUpdateRequestModel {
 }
 
 impl OrganizationUpdateRequestModel {
-    pub fn new(name: String, billing_email: String) -> OrganizationUpdateRequestModel {
+    pub fn new() -> OrganizationUpdateRequestModel {
         OrganizationUpdateRequestModel {
-            name,
-            business_name: None,
-            billing_email,
-            permissions: None,
+            name: None,
+            billing_email: None,
             keys: None,
         }
     }
