@@ -8,9 +8,8 @@
 use bitwarden_api_api::models::{
     KeysRequestModel, OrganizationUserResetPasswordEnrollmentRequestModel,
 };
-use bitwarden_core::{
-    Client, key_management::account_cryptographic_state::WrappedAccountCryptographicState,
-};
+use bitwarden_core::Client;
+use bitwarden_core::key_management::account_cryptographic_state::WrappedAccountCryptographicState;
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;

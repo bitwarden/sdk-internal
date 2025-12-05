@@ -326,6 +326,7 @@ impl PureCrypto {
 
     /// Given a decrypted private RSA key PKCS8 DER this
     /// returns the corresponding public RSA key in DER format.
+    /// HAZMAT WARNING: Do not use outside of implementing cryptofunctionservice
     pub fn rsa_extract_public_key(private_key: Vec<u8>) -> Result<Vec<u8>, RsaError> {
         let private_key = AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key))
             .map_err(|_| RsaError::KeyParse)?;
@@ -337,6 +338,7 @@ impl PureCrypto {
     }
 
     /// Generates a new RSA key pair and returns the private key
+    /// HAZMAT WARNING: Do not use outside of implementing cryptofunctionservice
     pub fn rsa_generate_keypair() -> Result<Vec<u8>, RsaError> {
         let private_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         Ok(private_key
@@ -346,6 +348,7 @@ impl PureCrypto {
     }
 
     /// Decrypts data using RSAES-OAEP with SHA-1
+    /// HAZMAT WARNING: Do not use outside of implementing cryptofunctionservice
     pub fn rsa_decrypt_data(
         encrypted_data: Vec<u8>,
         private_key: Vec<u8>,
@@ -359,6 +362,7 @@ impl PureCrypto {
     }
 
     /// Encrypts data using RSAES-OAEP with SHA-1
+    /// HAZMAT WARNING: Do not use outside of implementing cryptofunctionservice
     pub fn rsa_encrypt_data(plain_data: Vec<u8>, public_key: Vec<u8>) -> Result<Vec<u8>, RsaError> {
         let public_key = RsaPublicKey::from_public_key_der(public_key.as_slice())
             .map_err(|_| RsaError::KeyParse)?;
