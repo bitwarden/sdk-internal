@@ -1,9 +1,13 @@
 use std::fmt::Debug;
 
+use bitwarden_api_api::models::MasterPasswordPolicyResponseModel;
 use bitwarden_api_identity::models::KdfType;
 use std::num::NonZeroU32;
 
-use crate::identity::api::response::{LoginSuccessApiResponse, UserDecryptionOptionsApiResponse};
+use crate::identity::{
+    api::response::{LoginSuccessApiResponse, UserDecryptionOptionsApiResponse},
+    models::UserDecryptionOptionsResponse,
+};
 
 /// SDK response model for a successful login.
 /// This is the model that will be exposed to consuming applications.
@@ -18,39 +22,63 @@ use crate::identity::api::response::{LoginSuccessApiResponse, UserDecryptionOpti
 pub struct LoginSuccessResponse {
     /// The access token string.
     pub access_token: String,
+
     /// The duration in seconds until the token expires.
     pub expires_in: u64,
+
     /// The timestamp in milliseconds when the token expires.
+    /// We calculate this for more convenient token expiration handling.
     pub expires_at: i64,
+
     /// The scope of the access token.
+    /// OAuth 2.0 RFC reference: <https://datatracker.ietf.org/doc/html/rfc6749#section-3.3>
     pub scope: String,
-    /// The type of the token (typically "Bearer").
+
+    /// The type of the token.
+    /// This will be "Bearer" for send access tokens.
+    /// OAuth 2.0 RFC reference: <https://datatracker.ietf.org/doc/html/rfc6749#section-7.1>
     pub token_type: String,
+
     /// The optional refresh token string.
+    /// This token can be used to obtain new access tokens when the current one expires.
     pub refresh_token: Option<String>,
 
     // TODO: port over docs from API response
     // but also RENAME things to be more clear.
-    /// The user's encrypted private key.
-    pub private_key: Option<String>,
-    /// The user's encrypted symmetric key.
-    pub key: Option<String>,
+    /// The user key encrypted private key.
+    /// Note: previously known as "private_key".
+    pub user_key_encrypted_user_private_key: Option<String>,
+
+    /// The master key encrypted user key.
+    /// Note: previously known as "key".
+    pub master_key_encrypted_user_key: Option<String>,
+
     /// Two-factor authentication token for future requests.
     pub two_factor_token: Option<String>,
+
     /// The key derivation function type.
     pub kdf: KdfType,
-    /// The number of iterations for the key derivation function.
+
+    /// Master key derivation function iterations
     pub kdf_iterations: NonZeroU32,
-    /// Whether the user needs to reset their master password.
-    pub reset_master_password: bool,
-    /// Whether the user is forced to reset their password.
+
+    /// Indicates whether an admin has reset the user's master password,
+    /// requiring them to set a new password upon next login.
     pub force_password_reset: bool,
-    /// Whether the API uses Key Connector.
+
+    /// Indicates whether the user uses Key Connector and if the client should have a locally
+    /// configured Key Connector URL in their environment.
+    /// Note: This is currently only applicable for client_credential grant type logins and
+    /// is only expected to be relevant for the CLI
     pub api_use_key_connector: Option<bool>,
-    /// The URL for the Key Connector service.
-    pub key_connector_url: Option<String>,
-    /// User decryption options for the account.
-    // pub user_decryption_options: UserDecryptionOptionsResponse,
+
+    /// The user's decryption options for unlocking their vault.
+    pub user_decryption_options: UserDecryptionOptionsResponse,
+
+    // TODO: there isn't a top level domain model for this. Create one? or keep as is?
+    /// If the user is subject to an organization master password policy,
+    /// this field contains the requirements of that policy.
+    pub master_password_policy: Option<MasterPasswordPolicyResponseModel>,
 }
 
 impl From<LoginSuccessApiResponse> for LoginSuccessResponse {
@@ -69,15 +97,13 @@ impl From<LoginSuccessApiResponse> for LoginSuccessResponse {
             scope: response.scope,
             token_type: response.token_type,
             refresh_token: response.refresh_token,
-            private_key: response.private_key,
-            key: response.key,
+            user_key_encrypted_user_private_key: response.private_key,
+            master_key_encrypted_user_key: response.key,
             two_factor_token: response.two_factor_token,
             kdf: response.kdf,
             kdf_iterations: response.kdf_iterations,
-            reset_master_password: response.reset_master_password,
             force_password_reset: response.force_password_reset,
             api_use_key_connector: response.api_use_key_connector,
-            key_connector_url: response.key_connector_url,
             user_decryption_options: response.user_decryption_options,
         }
     }

@@ -1,6 +1,6 @@
+use bitwarden_api_api::models::MasterPasswordPolicyResponseModel;
 use bitwarden_api_identity::models::KdfType;
 use serde::{Deserialize, Serialize};
-use std::num::NonZeroU32;
 
 use crate::identity::api::response::UserDecryptionOptionsApiResponse;
 
@@ -26,51 +26,57 @@ pub(crate) struct LoginSuccessApiResponse {
     pub refresh_token: Option<String>,
 
     // Custom Bitwarden connect/token response fields:
+    // We send down uppercase fields today so we have to map them accordingly +
+    // we add aliases for deserialization flexibility.
     /// The user's user key encrypted private key
-    #[serde(rename = "privateKey", alias = "PrivateKey")]
-    pub(crate) private_key: Option<String>,
+    #[serde(rename = "PrivateKey", alias = "privateKey")]
+    pub private_key: Option<String>,
 
     /// The user's master key encrypted user key.
-    #[serde(alias = "Key")]
-    pub(crate) key: Option<String>,
+    #[serde(rename = "Key", alias = "key")]
+    pub key: Option<String>,
 
     /// Two factor remember me token to be used for future requests
     /// to bypass 2FA prompts for a limited time.
-    #[serde(rename = "twoFactorToken")]
-    two_factor_token: Option<String>,
+    #[serde(rename = "TwoFactorToken", alias = "twoFactorToken")]
+    pub two_factor_token: Option<String>,
 
     /// Master key derivation function type
-    #[serde(alias = "Kdf")]
-    kdf: KdfType,
+    #[serde(rename = "Kdf", alias = "kdf")]
+    pub kdf: KdfType,
 
     // TODO: ensure we convert to NonZeroU32 for the SDK model
     // for any Some values
-    #[serde(rename = "kdfIterations", alias = "KdfIterations")]
     /// Master key derivation function iterations
-    kdf_iterations: Option<i32>,
+    #[serde(rename = "KdfIterations", alias = "kdfIterations")]
+    pub kdf_iterations: Option<i32>,
 
     /// Master key derivation function memory
-    #[serde(rename = "kdfMemory", alias = "KdfMemory")]
-    kdf_memory: Option<i32>,
+    #[serde(rename = "KdfMemory", alias = "kdfMemory")]
+    pub kdf_memory: Option<i32>,
 
     /// Master key derivation function parallelism
-    #[serde(rename = "kdfParallelism", alias = "KdfParallelism")]
-    kdf_parallelism: Option<i32>,
+    #[serde(rename = "KdfParallelism", alias = "kdfParallelism")]
+    pub kdf_parallelism: Option<i32>,
 
     /// Indicates whether an admin has reset the user's master password,
     /// requiring them to set a new password upon next login.
-    #[serde(rename = "forcePasswordReset", alias = "ForcePasswordReset")]
+    #[serde(rename = "ForcePasswordReset", alias = "forcePasswordReset")]
     pub force_password_reset: Option<bool>,
 
     /// Indicates whether the user uses Key Connector and if the client should have a locally
     /// configured Key Connector URL in their environment.
     /// Note: This is currently only applicable for client_credential grant type logins and
     /// is only expected to be relevant for the CLI
-    #[serde(rename = "apiUseKeyConnector", alias = "ApiUseKeyConnector")]
-    api_use_key_connector: Option<bool>,
+    #[serde(rename = "ApiUseKeyConnector", alias = "apiUseKeyConnector")]
+    pub api_use_key_connector: Option<bool>,
 
     /// The user's decryption options for their vault.
-    #[serde(rename = "userDecryptionOptions", alias = "UserDecryptionOptions")]
-    pub(crate) user_decryption_options: Option<UserDecryptionOptionsApiResponse>,
-    // TODO: add MasterPasswordPolicy
+    #[serde(rename = "UserDecryptionOptions", alias = "userDecryptionOptions")]
+    pub user_decryption_options: Option<UserDecryptionOptionsApiResponse>,
+
+    /// If the user is subject to an organization master password policy,
+    /// this field contains the requirements of that policy.
+    #[serde(rename = "MasterPasswordPolicy", alias = "masterPasswordPolicy")]
+    pub master_password_policy: Option<MasterPasswordPolicyResponseModel>,
 }
