@@ -409,7 +409,7 @@ impl CiphersClient {
                 .collect(),
         };
 
-        let api_config = self.get_api_configurations().await;
+        let api_config = self.client.internal.get_api_configurations().await;
         let api = api_config.api_client.ciphers_api();
         let cipher = if is_admin {
             api.put_collections_admin(&cipher_id.to_string(), Some(req))

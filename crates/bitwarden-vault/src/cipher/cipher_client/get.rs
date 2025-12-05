@@ -70,7 +70,7 @@ impl CiphersClient {
         org_id: OrganizationId,
         include_member_items: bool,
     ) -> Result<DecryptCipherListResult, GetCipherError> {
-        let configs = self.get_api_configurations().await;
+        let configs = self.client.internal.get_api_configurations().await;
         let api = configs.api_client.ciphers_api();
         let response: CipherMiniDetailsResponseModelListResponseModel = api
             .get_organization_ciphers(Some(org_id.into()), Some(include_member_items))

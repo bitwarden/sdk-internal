@@ -98,7 +98,7 @@ async fn process_soft_delete(
 impl CiphersClient {
     /// Deletes the [Cipher] with the matching [CipherId] from the server.
     pub async fn delete(&self, cipher_id: CipherId) -> Result<(), DeleteCipherError> {
-        let configs = self.get_api_configurations().await;
+        let configs = self.client.internal.get_api_configurations().await;
         delete_cipher(cipher_id, &configs.api_client, &*self.get_repository()?).await
     }
 
@@ -108,7 +108,7 @@ impl CiphersClient {
         cipher_ids: Vec<CipherId>,
         organization_id: Option<OrganizationId>,
     ) -> Result<(), DeleteCipherError> {
-        let configs = self.get_api_configurations().await;
+        let configs = self.client.internal.get_api_configurations().await;
         delete_ciphers(
             cipher_ids,
             organization_id,
@@ -120,7 +120,7 @@ impl CiphersClient {
 
     /// Soft-deletes the [Cipher] with the matching [CipherId] from the server.
     pub async fn soft_delete(&self, cipher_id: CipherId) -> Result<(), DeleteCipherError> {
-        let configs = self.get_api_configurations().await;
+        let configs = self.client.internal.get_api_configurations().await;
         soft_delete(cipher_id, &configs.api_client, &*self.get_repository()?).await
     }
 
@@ -133,7 +133,12 @@ impl CiphersClient {
         soft_delete_many(
             cipher_ids,
             organization_id,
-            &self.get_api_configurations().await.api_client,
+            &self
+                .client
+                .internal
+                .get_api_configurations()
+                .await
+                .api_client,
             &*self.get_repository()?,
         )
         .await

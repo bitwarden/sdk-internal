@@ -12,7 +12,7 @@ async fn delete_cipher(
     Ok(())
 }
 
-async fn delete_ciphers(
+async fn delete_ciphers_many(
     cipher_ids: Vec<CipherId>,
     organization_id: Option<OrganizationId>,
     api_client: &bitwarden_api_api::apis::ApiClient,
@@ -90,7 +90,7 @@ impl CipherAdminClient {
         cipher_ids: Vec<CipherId>,
         organization_id: Option<OrganizationId>,
     ) -> Result<(), ApiError> {
-        delete_ciphers(
+        delete_ciphers_many(
             cipher_ids,
             organization_id,
             &self
@@ -166,7 +166,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_many_as_admin() {
-        delete_ciphers(
+        delete_ciphers_many(
             vec![
                 TEST_CIPHER_ID.parse().unwrap(),
                 TEST_CIPHER_ID_2.parse().unwrap(),
