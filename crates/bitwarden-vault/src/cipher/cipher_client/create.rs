@@ -67,8 +67,8 @@ pub struct CipherCreateRequest {
 /// Used as an intermediary between the public-facing [CipherCreateRequest], and the encrypted
 /// value. This allows us to manage the cipher key creation internally.
 #[derive(Clone, Debug)]
-struct CipherCreateRequestInternal {
-    create_request: CipherCreateRequest,
+pub(super) struct CipherCreateRequestInternal {
+    pub create_request: CipherCreateRequest,
     key: Option<EncString>,
 }
 
@@ -226,22 +226,12 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     encrypted_for: UserId,
     request: CipherCreateRequestInternal,
     collection_ids: Vec<CollectionId>,
-    as_admin: bool,
 ) -> Result<CipherView, CreateCipherError> {
     let mut cipher_request = key_store.encrypt(request)?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
     let cipher: Cipher;
-    if as_admin && cipher_request.organization_id.is_some() {
-        cipher = api_client
-            .ciphers_api()
-            .post_admin(Some(CipherCreateRequestModel {
-                collection_ids: Some(collection_ids.into_iter().map(Into::into).collect()),
-                cipher: Box::new(cipher_request),
-            }))
-            .await?
-            .try_into()?;
-    } else if !collection_ids.is_empty() {
+    if !collection_ids.is_empty() {
         cipher = api_client
             .ciphers_api()
             .post_create(Some(CipherCreateRequestModel {
@@ -271,11 +261,10 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
-    pub(super) async fn create_cipher(
+    async fn create_cipher(
         &self,
         request: CipherCreateRequest,
         collection_ids: Vec<CollectionId>,
-        as_admin: bool,
     ) -> Result<CipherView, CreateCipherError> {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations().await;
@@ -307,7 +296,6 @@ impl CiphersClient {
             user_id,
             internal_request,
             collection_ids,
-            as_admin,
         )
         .await
     }
@@ -317,7 +305,7 @@ impl CiphersClient {
         &self,
         request: CipherCreateRequest,
     ) -> Result<CipherView, CreateCipherError> {
-        self.create_cipher(request, vec![], false).await
+        self.create_cipher(request, vec![]).await
     }
 
     /// Creates a new [Cipher] for an organization, and saves it to the server.
@@ -326,7 +314,7 @@ impl CiphersClient {
         request: CipherCreateRequest,
         collection_ids: Vec<CollectionId>,
     ) -> Result<CipherView, CreateCipherError> {
-        self.create_cipher(request, collection_ids, false).await
+        self.create_cipher(request, collection_ids).await
     }
 }
 
@@ -500,7 +488,6 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             request.into(),
             vec![],
-            false,
         )
         .await
         .unwrap();
@@ -565,7 +552,6 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             request.into(),
             vec![],
-            false,
         )
         .await;
 

@@ -1,7 +1,7 @@
 use bitwarden_core::Client;
 use wasm_bindgen::prelude::*;
 
-// mod create;
+mod create;
 mod delete;
 mod restore;
 // mod edit;
