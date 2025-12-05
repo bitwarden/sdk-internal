@@ -32,12 +32,12 @@ pub async fn list_org_ciphers(
     let response: CipherMiniDetailsResponseModelListResponseModel = api
         .get_organization_ciphers(Some(org_id.into()), Some(include_member_items))
         .await
-        .map_err(Into::<ApiError>::into)?;
+        .map_err(ApiError::from)?;
     let ciphers = response
         .data
         .into_iter()
         .flatten()
-        .map(TryInto::<Cipher>::try_into)
+        .map(Cipher::try_from)
         .collect::<Result<Vec<_>, _>>()?;
 
     let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
