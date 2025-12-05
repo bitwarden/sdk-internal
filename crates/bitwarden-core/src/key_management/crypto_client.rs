@@ -5,12 +5,13 @@ use bitwarden_api_api::models::AccountKeysRequestModel;
 use bitwarden_crypto::safe::PasswordProtectedKeyEnvelope;
 use bitwarden_crypto::{
     AsymmetricPublicCryptoKey, CryptoError, Decryptable, DeviceKey, Kdf, KeyStore,
-    SpkiPublicKeyBytes, TrustDeviceResponse,
+    SpkiPublicKeyBytes, SymmetricCryptoKey, TrustDeviceResponse,
 };
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
+use tracing::info;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -213,6 +214,7 @@ impl CryptoClient {
     ) -> Result<
         (
             WrappedAccountCryptographicState,
+            SymmetricCryptoKey,
             AccountKeysRequestModel,
             TrustDeviceResponse,
             UnsignedSharedKey,
@@ -231,18 +233,17 @@ impl CryptoClient {
 
         // Account recovery enrollment
         let public_key =
-            AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))?;
-        let admin_reset = UnsignedSharedKey::encapsulate_key_unsigned(&user_key, &public_key)?;
+            AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))
+                .unwrap();
+        let admin_reset =
+            UnsignedSharedKey::encapsulate_key_unsigned(&user_key, &public_key).unwrap();
 
         let store = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let user_key_id = ctx.add_local_symmetric_key(user_key.to_owned());
         let security_state = RwLock::new(None);
         wrapped_state
-            .set_to_context(
-                &security_state,
-                SymmetricKeyId::User,
-                &store,
-                store.context_mut(),
-            )
+            .set_to_context(&security_state, user_key_id, &store, ctx)
             .map_err(|e| MakeKeysError::AccountCryptographyInitialization(e.into()))?;
 
         let cryptography_state_request_model = wrapped_state
@@ -251,6 +252,7 @@ impl CryptoClient {
 
         Ok((
             wrapped_state,
+            user_key.to_owned(),
             cryptography_state_request_model,
             device_key,
             admin_reset,
