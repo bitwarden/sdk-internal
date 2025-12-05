@@ -107,7 +107,7 @@ impl CipherAdminClient {
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::models::CipherMiniResponseModel;
-    use bitwarden_core::key_management::SymmetricKeyId;
+    use bitwarden_core::{OrganizationId, key_management::SymmetricKeyId};
     use bitwarden_crypto::SymmetricCryptoKey;
     use chrono::Utc;
 
@@ -146,6 +146,11 @@ mod tests {
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
             SymmetricKeyId::User,
+            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+        );
+        #[allow(deprecated)]
+        let _ = store.context_mut().set_symmetric_key(
+            SymmetricKeyId::Organization(TEST_ORG_ID.parse::<OrganizationId>().unwrap().into()),
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
 
