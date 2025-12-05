@@ -54,6 +54,7 @@ async fn soft_delete_many(
 
 impl CipherAdminClient {
     /// Deletes the [Cipher] with the matching [CipherId] from the server, using the admin endpoint.
+    /// Affects server data only, does not modify local state.
     pub async fn delete(&self, cipher_id: CipherId) -> Result<(), ApiError> {
         delete_cipher(
             cipher_id,
@@ -68,7 +69,7 @@ impl CipherAdminClient {
     }
 
     /// Soft-deletes the [Cipher] with the matching [CipherId] from the server, using the admin
-    /// endpoint.
+    /// endpoint. Affects server data only, does not modify local state.
     pub async fn soft_delete(&self, cipher_id: CipherId) -> Result<(), ApiError> {
         soft_delete(
             cipher_id,
@@ -83,7 +84,7 @@ impl CipherAdminClient {
     }
 
     /// Deletes all [Cipher] objects with a matching [CipherId] from the server, using the admin
-    /// endpoint.
+    /// endpoint. Affects server data only, does not modify local state.
     pub async fn delete_many(
         &self,
         cipher_ids: Vec<CipherId>,
@@ -103,7 +104,7 @@ impl CipherAdminClient {
     }
 
     /// Soft-deletes all [Cipher] objects for the given [CipherId]s from the server, using the admin
-    /// endpoint.
+    /// endpoint. Affects server data only, does not modify local state.
     pub async fn soft_delete_many(
         &self,
         cipher_ids: Vec<CipherId>,
