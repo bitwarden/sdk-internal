@@ -1,5 +1,4 @@
-use bitwarden_api_api::models::CipherMiniDetailsResponseModelListResponseModel;
-use bitwarden_core::{ApiError, MissingFieldError, OrganizationId, key_management::KeyIds};
+use bitwarden_core::{ApiError, key_management::KeyIds};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -20,8 +19,6 @@ pub enum GetCipherError {
     Crypto(#[from] CryptoError),
     #[error(transparent)]
     VaultParse(#[from] VaultParseError),
-    #[error(transparent)]
-    MissingField(#[from] MissingFieldError),
     #[error(transparent)]
     RepositoryError(#[from] RepositoryError),
     #[error(transparent)]
@@ -62,28 +59,6 @@ impl CiphersClient {
         let repository = self.get_repository()?;
 
         list_ciphers(key_store, repository.as_ref()).await
-    }
-
-    /// Get all ciphers for an organization.
-    pub async fn list_org_ciphers(
-        &self,
-        org_id: OrganizationId,
-        include_member_items: bool,
-    ) -> Result<DecryptCipherListResult, GetCipherError> {
-        let configs = self.client.internal.get_api_configurations().await;
-        let api = configs.api_client.ciphers_api();
-        let response: CipherMiniDetailsResponseModelListResponseModel = api
-            .get_organization_ciphers(Some(org_id.into()), Some(include_member_items))
-            .await
-            .map_err(Into::<ApiError>::into)?;
-        let ciphers = response
-            .data
-            .into_iter()
-            .flatten()
-            .map(TryInto::<Cipher>::try_into)
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(self.decrypt_list_with_failures(ciphers))
     }
 
     /// Get [Cipher] by ID from state and decrypt it to a [CipherView].

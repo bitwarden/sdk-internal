@@ -4,6 +4,7 @@ use wasm_bindgen::prelude::*;
 mod create;
 mod delete;
 mod edit;
+mod get;
 mod restore;
 
 #[allow(missing_docs)]
