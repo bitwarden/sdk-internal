@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use bitwarden_api_identity::models::KdfType;
 use std::num::NonZeroU32;
 
-use crate::identity::api::response::{LoginSuccessApiResponse, UserDecryptionOptionsResponse};
+use crate::identity::api::response::{LoginSuccessApiResponse, UserDecryptionOptionsApiResponse};
 
 /// SDK response model for a successful login.
 /// This is the model that will be exposed to consuming applications.
@@ -50,7 +50,7 @@ pub struct LoginSuccessResponse {
     /// The URL for the Key Connector service.
     pub key_connector_url: Option<String>,
     /// User decryption options for the account.
-    pub user_decryption_options: Option<UserDecryptionOptionsResponse>,
+    // pub user_decryption_options: UserDecryptionOptionsResponse,
 }
 
 impl From<LoginSuccessApiResponse> for LoginSuccessResponse {

@@ -2,7 +2,7 @@ use bitwarden_api_identity::models::KdfType;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroU32;
 
-use crate::identity::api::response::UserDecryptionOptionsResponse;
+use crate::identity::api::response::UserDecryptionOptionsApiResponse;
 
 /// API response model for a successful login via the Identity API.
 /// OAuth 2.0 Successful Response RFC reference: <https://datatracker.ietf.org/doc/html/rfc6749#section-5.1>
@@ -42,36 +42,35 @@ pub(crate) struct LoginSuccessApiResponse {
     /// Master key derivation function type
     #[serde(alias = "Kdf")]
     kdf: KdfType,
-    #[serde(
-        rename = "kdfIterations",
-        alias = "KdfIterations",
-        default = "bitwarden_crypto::default_pbkdf2_iterations"
-    )]
+
+    // TODO: ensure we convert to NonZeroU32 for the SDK model
+    // for any Some values
+    #[serde(rename = "kdfIterations", alias = "KdfIterations")]
     /// Master key derivation function iterations
-    kdf_iterations: NonZeroU32,
+    kdf_iterations: Option<i32>,
 
-    // TODO: can we just not include this as it should be deprecated
-    #[serde(rename = "resetMasterPassword", alias = "ResetMasterPassword")]
-    pub reset_master_password: bool,
+    /// Master key derivation function memory
+    #[serde(rename = "kdfMemory", alias = "KdfMemory")]
+    kdf_memory: Option<i32>,
 
-    // TODO: do we want to pass this along unchanged or should we convert to
-    // an enum for ForceSetPasswordReason like we have in clients?
-    /// If an admin has forced a password reset for the user, this will be true.
+    /// Master key derivation function parallelism
+    #[serde(rename = "kdfParallelism", alias = "KdfParallelism")]
+    kdf_parallelism: Option<i32>,
+
+    /// Indicates whether an admin has reset the user's master password,
+    /// requiring them to set a new password upon next login.
     #[serde(rename = "forcePasswordReset", alias = "ForcePasswordReset")]
-    pub force_password_reset: bool,
+    pub force_password_reset: Option<bool>,
 
-    /// Optional
-    // TODO: rename this to be clear that it's only for user API key logins
-    // for users who have key connector enabled on their account.
-    // They have to have their key connector url configured locally in their
-    // CLI environment to decrypt.
-    // TODO: Ask Oscar why we allow users to configure a local
-    // key connector URL when we always send the URL from server?
+    /// Indicates whether the user uses Key Connector and if the client should have a locally
+    /// configured Key Connector URL in their environment.
+    /// Note: This is currently only applicable for client_credential grant type logins and
+    /// is only expected to be relevant for the CLI
     #[serde(rename = "apiUseKeyConnector", alias = "ApiUseKeyConnector")]
     api_use_key_connector: Option<bool>,
 
-    // #[serde(rename = "keyConnectorUrl", alias = "KeyConnectorUrl")]
-    // key_connector_url: Option<String>,
+    /// The user's decryption options for their vault.
     #[serde(rename = "userDecryptionOptions", alias = "UserDecryptionOptions")]
-    pub(crate) user_decryption_options: Option<UserDecryptionOptionsResponse>,
+    pub(crate) user_decryption_options: Option<UserDecryptionOptionsApiResponse>,
+    // TODO: add MasterPasswordPolicy
 }
