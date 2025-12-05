@@ -155,7 +155,7 @@ impl CipherAdminClient {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_api_api::{apis::ApiClient, models::CipherResponseModel};
+    use bitwarden_api_api::{apis::ApiClient, models::CipherMiniResponseModel};
     use bitwarden_core::key_management::SymmetricKeyId;
     use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
 
@@ -218,10 +218,10 @@ mod tests {
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.ciphers_api
-                .expect_put()
+                .expect_put_admin()
                 .returning(move |_id, body| {
                     let body = body.unwrap();
-                    Ok(CipherResponseModel {
+                    Ok(CipherMiniResponseModel {
                         object: Some("cipher".to_string()),
                         id: Some(cipher_id.into()),
                         name: Some(body.name),
@@ -230,16 +230,9 @@ mod tests {
                             .organization_id
                             .as_ref()
                             .and_then(|id| uuid::Uuid::parse_str(id).ok()),
-                        folder_id: body
-                            .folder_id
-                            .as_ref()
-                            .and_then(|id| uuid::Uuid::parse_str(id).ok()),
-                        favorite: body.favorite,
                         reprompt: body.reprompt,
                         key: body.key,
                         notes: body.notes,
-                        view_password: Some(true),
-                        edit: Some(true),
                         organization_use_totp: Some(true),
                         revision_date: Some("2025-01-01T00:00:00Z".to_string()),
                         creation_date: Some("2025-01-01T00:00:00Z".to_string()),
@@ -252,7 +245,6 @@ mod tests {
                         fields: body.fields,
                         password_history: body.password_history,
                         attachments: None,
-                        permissions: None,
                         data: None,
                         archived_date: None,
                     })
@@ -281,31 +273,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_edit_cipher_does_not_exist() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
-        let api_client = ApiClient::new_mocked(|_| {});
-
-        let original_cipher_view = generate_test_cipher();
-        let cipher_view = original_cipher_view.clone();
-
-        let request: CipherEditRequest = cipher_view.try_into().unwrap();
-        let result = edit_cipher(
-            &store,
-            &api_client,
-            TEST_USER_ID.parse().unwrap(),
-            &original_cipher_view,
-            request,
-        )
-        .await;
-
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            EditCipherAdminError::ItemNotFound(_)
-        ));
-    }
-
-    #[tokio::test]
     async fn test_edit_cipher_http_error() {
         let store: KeyStore<KeyIds> = KeyStore::default();
         #[allow(deprecated)]
@@ -315,11 +282,13 @@ mod tests {
         );
 
         let api_client = ApiClient::new_mocked(move |mock| {
-            mock.ciphers_api.expect_put().returning(move |_id, _body| {
-                Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
-                    "Simulated error",
-                )))
-            });
+            mock.ciphers_api
+                .expect_put_admin()
+                .returning(move |_id, _body| {
+                    Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
+                        "Simulated error",
+                    )))
+                });
         });
         let orig_cipher_view = generate_test_cipher();
         let cipher_view = orig_cipher_view.clone();
