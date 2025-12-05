@@ -23,7 +23,7 @@ use {tsify::Tsify, wasm_bindgen::prelude::*};
 use crate::{
     Client, NotAuthenticatedError, OrganizationId, UserId, WrongPasswordError,
     client::{LoginMethod, UserLoginMethod, encryption_settings::EncryptionSettingsError},
-    error::StatefulCryptoError,
+    error::{StatefulCryptoError, UserIdAlreadySetError},
     key_management::{
         AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
         account_cryptographic_state::WrappedAccountCryptographicState,

@@ -213,10 +213,12 @@ impl WrappedAccountCryptographicState {
         store: &KeyStore<KeyIds>,
         mut ctx: KeyStoreContext<KeyIds>,
     ) -> Result<(), AccountCryptographyInitializationError> {
+        info!("aa");
         if ctx.has_symmetric_key(SymmetricKeyId::User)
             || ctx.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey)
             || ctx.has_signing_key(SigningKeyId::UserSigningKey)
         {
+            info!("test");
             return Err(AccountCryptographyInitializationError::KeyStoreAlreadyInitialized);
         }
 
@@ -226,6 +228,7 @@ impl WrappedAccountCryptographicState {
                 if ctx.get_symmetric_key_algorithm(user_key)?
                     != SymmetricKeyAlgorithm::Aes256CbcHmac
                 {
+                    info!("abc");
                     return Err(AccountCryptographyInitializationError::WrongUserKeyType);
                 }
 
