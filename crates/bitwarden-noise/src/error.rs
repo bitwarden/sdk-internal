@@ -13,6 +13,16 @@ pub enum NoiseProtocolError {
     StaticSecretKeyLength,
     #[error("PSK must be 32 bytes")]
     BadPskLength,
+    #[error("Salt must be 32 bytes")]
+    BadSaltLength,
+    #[error("Failed to generate salt")]
+    SaltGeneration,
+    #[error("Failed to derive PSK")]
+    PskDerivation,
+    #[error("Invalid pairing code format. Expected: password:metadata")]
+    InvalidPairingCodeFormat,
+    #[error("Invalid pairing code metadata")]
+    InvalidPairingCodeMetadata,
     #[error("Failed to build initiator")]
     Initiator,
     #[error("Failed to build responder")]

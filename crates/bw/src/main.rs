@@ -15,6 +15,7 @@ mod admin_console;
 mod auth;
 mod command;
 mod platform;
+mod remote_client;
 mod render;
 mod tools;
 mod vault;
@@ -130,5 +131,8 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         Commands::Share => todo!(),
         Commands::Send => todo!(),
         Commands::Receive => todo!(),
+
+        // Remote client command
+        Commands::RemoteClient(args) => args.run().await,
     }
 }

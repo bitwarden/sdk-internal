@@ -5,6 +5,7 @@ use crate::{
     admin_console::ConfirmCommand,
     auth::{LoginArgs, RegisterArgs},
     platform::ConfigCommand,
+    remote_client::RemoteClientArgs,
     render::Output,
     tools::GenerateArgs,
     vault::{ItemCommands, TemplateCommands},
@@ -195,6 +196,12 @@ Examples:
     Send,
     #[command(long_about = "Access a Bitwarden Send from a url.")]
     Receive,
+
+    // Remote client command
+    #[command(
+        long_about = "Connect to a user-client through a proxy to request credentials over a secure channel."
+    )]
+    RemoteClient(RemoteClientArgs),
 }
 
 #[derive(Args, Clone)]

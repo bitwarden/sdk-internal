@@ -1,0 +1,35 @@
+[package]
+name = "bitwarden-noise-client"
+description = """
+Internal crate for Bitwarden NOISE protocol remote client. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+readme.workspace = true
+keywords.workspace = true
+
+[dependencies]
+base64 = "0.22"
+bitwarden-error = { workspace = true }
+bitwarden-noise = { workspace = true }
+dirs = "5.0"
+futures-util = "0.3"
+getrandom = "0.2"
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync", "time", "rt"] }
+tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+[lints]
+workspace = true

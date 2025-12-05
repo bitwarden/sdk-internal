@@ -1,7 +1,8 @@
+#![allow(missing_docs)]
 use bitwarden_noise::{
-    create_noise_protocol, destroy_noise_protocol, generate_keypair,
-    noise_decrypt_message, noise_encrypt_message, noise_is_handshake_complete,
-    noise_read_message, noise_split, noise_write_message,
+    create_noise_protocol, destroy_noise_protocol, generate_keypair, noise_decrypt_message,
+    noise_encrypt_message, noise_is_handshake_complete, noise_read_message, noise_split,
+    noise_write_message,
 };
 
 #[test]
@@ -47,18 +48,24 @@ fn test_noise_handshake_and_encryption() {
     let plaintext = b"Hello, Noise Protocol!";
 
     // Initiator sends to responder
-    let ciphertext = noise_encrypt_message(initiator, plaintext.to_vec())
-        .expect("Failed to encrypt message");
-    let decrypted = noise_decrypt_message(responder, ciphertext)
-        .expect("Failed to decrypt message");
-    assert_eq!(decrypted, plaintext, "Decrypted message should match plaintext");
+    let ciphertext =
+        noise_encrypt_message(initiator, plaintext.to_vec()).expect("Failed to encrypt message");
+    let decrypted =
+        noise_decrypt_message(responder, ciphertext).expect("Failed to decrypt message");
+    assert_eq!(
+        decrypted, plaintext,
+        "Decrypted message should match plaintext"
+    );
 
     // Responder sends to initiator
-    let ciphertext2 = noise_encrypt_message(responder, plaintext.to_vec())
-        .expect("Failed to encrypt message");
-    let decrypted2 = noise_decrypt_message(initiator, ciphertext2)
-        .expect("Failed to decrypt message");
-    assert_eq!(decrypted2, plaintext, "Decrypted message should match plaintext");
+    let ciphertext2 =
+        noise_encrypt_message(responder, plaintext.to_vec()).expect("Failed to encrypt message");
+    let decrypted2 =
+        noise_decrypt_message(initiator, ciphertext2).expect("Failed to decrypt message");
+    assert_eq!(
+        decrypted2, plaintext,
+        "Decrypted message should match plaintext"
+    );
 
     // Clean up
     destroy_noise_protocol(initiator).expect("Failed to destroy initiator");
@@ -72,8 +79,8 @@ fn test_noise_with_psk() {
     // Create initiator and responder with PSK
     let initiator = create_noise_protocol(true, None, Some(psk.clone()))
         .expect("Failed to create initiator with PSK");
-    let responder = create_noise_protocol(false, None, Some(psk))
-        .expect("Failed to create responder with PSK");
+    let responder =
+        create_noise_protocol(false, None, Some(psk)).expect("Failed to create responder with PSK");
 
     // Perform handshake
     let msg1 = noise_write_message(initiator, None).expect("Failed to write message 1");
