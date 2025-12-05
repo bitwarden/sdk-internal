@@ -1,95 +1,35 @@
-use bitwarden_api_api::models::CipherBulkDeleteRequestModel;
-use bitwarden_collections::collection::CollectionId;
-use bitwarden_core::{ApiError, OrganizationId};
+use bitwarden_core::Client;
 use wasm_bindgen::prelude::*;
 
-use crate::{
-    CipherId, CipherView, CiphersClient,
-    cipher_client::{
-        create::{CipherCreateRequest, CreateCipherError},
-        delete::DeleteCipherError,
-        edit::{CipherEditRequest, EditCipherError},
-    },
-};
+// mod create;
+mod delete;
+mod restore;
+// mod edit;
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CipherAdminClient {
-    pub(crate) client: CiphersClient,
+    pub(crate) client: Client,
 }
 
 impl CipherAdminClient {
-    /// Creates a new [Cipher] for an organization, using the admin server endpoints endpoints.
-    pub async fn create_as_admin(
-        &self,
-        request: CipherCreateRequest,
-        collection_ids: Vec<CollectionId>,
-    ) -> Result<CipherView, CreateCipherError> {
-        self.client
-            .create_cipher(request, collection_ids, true)
-            .await
-    }
+    // /// Creates a new [Cipher] for an organization, using the admin server endpoints endpoints.
+    // pub async fn create(
+    //     &self,
+    //     request: CipherCreateRequest,
+    //     collection_ids: Vec<CollectionId>,
+    // ) -> Result<CipherView, CreateCipherError> {
+    //     self.client
+    //         .create_cipher(request, collection_ids, true)
+    //         .await
+    // }
 
     // putCipherAdmin(id, request: CipherRequest)
     // ciphers_id_admin_put
-    #[allow(missing_docs)] // 
-    pub async fn edit_as_admin(
-        &self,
-        request: CipherEditRequest,
-    ) -> Result<CipherView, EditCipherError> {
-        self.client.edit_internal(request, true).await
-    }
-
-    /// Deletes the [Cipher] with the matching [CipherId] from the server, using the admin endpoint.
-    pub async fn delete_as_admin(&self, cipher_id: CipherId) -> Result<(), ApiError> {
-        let configs = self.client.get_api_configurations().await;
-        let api = configs.api_client.ciphers_api();
-        api.delete_admin(cipher_id.into()).await?;
-        Ok(())
-    }
-
-    /// Soft-deletes the [Cipher] with the matching [CipherId] from the server, using the admin
-    /// endpoint.
-    pub async fn soft_delete_as_admin(&self, cipher_id: CipherId) -> Result<(), DeleteCipherError> {
-        let configs = self.client.get_api_configurations().await;
-        let api = configs.api_client.ciphers_api();
-        api.put_delete_admin(cipher_id.into()).await?;
-        Ok(())
-    }
-
-    /// Deletes all [Cipher] objects with a matching [CipherId] from the server, using the admin
-    /// endpoint.
-    pub async fn delete_many_as_admin(
-        &self,
-        cipher_ids: Vec<CipherId>,
-        organization_id: Option<OrganizationId>,
-    ) -> Result<(), DeleteCipherError> {
-        let configs = self.client.get_api_configurations().await;
-        let api = configs.api_client.ciphers_api();
-        api.delete_many_admin(Some(CipherBulkDeleteRequestModel {
-            ids: cipher_ids.into_iter().map(|id| id.to_string()).collect(),
-            organization_id: organization_id.map(|id| id.to_string()),
-        }))
-        .await?;
-        Ok(())
-    }
-
-    /// Soft-deletes all [Cipher] objects for the given [CipherId]s from the server, using the admin
-    /// endpoint.
-    pub async fn soft_delete_many_as_admin(
-        &self,
-        cipher_ids: Vec<CipherId>,
-        organization_id: Option<OrganizationId>,
-    ) -> Result<(), DeleteCipherError> {
-        let configs = self.client.get_api_configurations().await;
-        let api = configs.api_client.ciphers_api();
-        api.put_delete_many_admin(Some(CipherBulkDeleteRequestModel {
-            ids: cipher_ids.into_iter().map(|id| id.to_string()).collect(),
-            organization_id: organization_id.map(|id| id.to_string()),
-        }))
-        .await?;
-        Ok(())
-    }
+    // #[allow(missing_docs)] //
+    // pub async fn edit(&self, request: CipherEditRequest) -> Result<CipherView, EditCipherError> {
+    //     self.client.edit_internal(request, true).await
+    // }
 }
 
 // #[cfg(test)]
@@ -179,7 +119,7 @@ impl CipherAdminClient {
 //     let response = client
 //         .create_as_admin(
 //             CipherCreateRequest {
-//                 organization_id: Some(TEST_ORG_ID.parse().unwrap()),
+//                 organization_id: SomeTEST_ORG_ID.parse().unwrap()),
 //                 folder_id: None,
 //                 name: "Test Cipher".into(),
 //                 notes: None,
@@ -209,3 +149,4 @@ impl CipherAdminClient {
 //     assert_eq!(response.id, Some(TEST_CIPHER_ID.parse().unwrap()));
 //     assert_eq!(response.organization_id, Some(TEST_ORG_ID.parse().unwrap()));
 // }
+//

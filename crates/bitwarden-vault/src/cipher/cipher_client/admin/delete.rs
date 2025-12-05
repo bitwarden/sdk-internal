@@ -1,0 +1,225 @@
+use bitwarden_api_api::models::CipherBulkDeleteRequestModel;
+use bitwarden_core::{ApiError, OrganizationId};
+
+use crate::{CipherId, cipher_client::admin::CipherAdminClient};
+
+async fn delete_cipher(
+    cipher_id: CipherId,
+    api_client: &bitwarden_api_api::apis::ApiClient,
+) -> Result<(), ApiError> {
+    let api = api_client.ciphers_api();
+    api.delete_admin(cipher_id.into()).await?;
+    Ok(())
+}
+
+async fn delete_ciphers(
+    cipher_ids: Vec<CipherId>,
+    organization_id: Option<OrganizationId>,
+    api_client: &bitwarden_api_api::apis::ApiClient,
+) -> Result<(), ApiError> {
+    let api = api_client.ciphers_api();
+
+    api.delete_many_admin(Some(CipherBulkDeleteRequestModel {
+        ids: cipher_ids.iter().map(|id| id.to_string()).collect(),
+        organization_id: organization_id.map(|id| id.to_string()),
+    }))
+    .await?;
+
+    Ok(())
+}
+
+async fn soft_delete(
+    cipher_id: CipherId,
+    api_client: &bitwarden_api_api::apis::ApiClient,
+) -> Result<(), ApiError> {
+    let api = api_client.ciphers_api();
+    api.put_delete_admin(cipher_id.into()).await?;
+    Ok(())
+}
+
+async fn soft_delete_many(
+    cipher_ids: Vec<CipherId>,
+    organization_id: Option<OrganizationId>,
+    api_client: &bitwarden_api_api::apis::ApiClient,
+) -> Result<(), ApiError> {
+    let api = api_client.ciphers_api();
+
+    api.put_delete_many_admin(Some(CipherBulkDeleteRequestModel {
+        ids: cipher_ids.iter().map(|id| id.to_string()).collect(),
+        organization_id: organization_id.map(|id| id.to_string()),
+    }))
+    .await?;
+    Ok(())
+}
+
+impl CipherAdminClient {
+    /// Deletes the [Cipher] with the matching [CipherId] from the server, using the admin endpoint.
+    pub async fn delete(&self, cipher_id: CipherId) -> Result<(), ApiError> {
+        delete_cipher(
+            cipher_id,
+            &self
+                .client
+                .internal
+                .get_api_configurations()
+                .await
+                .api_client,
+        )
+        .await
+    }
+
+    /// Soft-deletes the [Cipher] with the matching [CipherId] from the server, using the admin
+    /// endpoint.
+    pub async fn soft_delete(&self, cipher_id: CipherId) -> Result<(), ApiError> {
+        soft_delete(
+            cipher_id,
+            &self
+                .client
+                .internal
+                .get_api_configurations()
+                .await
+                .api_client,
+        )
+        .await
+    }
+
+    /// Deletes all [Cipher] objects with a matching [CipherId] from the server, using the admin
+    /// endpoint.
+    pub async fn delete_many(
+        &self,
+        cipher_ids: Vec<CipherId>,
+        organization_id: Option<OrganizationId>,
+    ) -> Result<(), ApiError> {
+        delete_ciphers(
+            cipher_ids,
+            organization_id,
+            &self
+                .client
+                .internal
+                .get_api_configurations()
+                .await
+                .api_client,
+        )
+        .await
+    }
+
+    /// Soft-deletes all [Cipher] objects for the given [CipherId]s from the server, using the admin
+    /// endpoint.
+    pub async fn soft_delete_many(
+        &self,
+        cipher_ids: Vec<CipherId>,
+        organization_id: Option<OrganizationId>,
+    ) -> Result<(), ApiError> {
+        soft_delete_many(
+            cipher_ids,
+            organization_id,
+            &self
+                .client
+                .internal
+                .get_api_configurations()
+                .await
+                .api_client,
+        )
+        .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
+    const TEST_CIPHER_ID_2: &str = "6faa9684-c793-4a2d-8a12-b33900187098";
+    const TEST_ORG_ID: &str = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8";
+
+    #[tokio::test]
+    async fn test_delete_as_admin() {
+        delete_cipher(
+            TEST_CIPHER_ID.parse().unwrap(),
+            &bitwarden_api_api::apis::ApiClient::new_mocked(|mock| {
+                mock.ciphers_api.expect_delete_admin().returning(move |id| {
+                    assert_eq!(&id.to_string(), TEST_CIPHER_ID);
+                    Ok(())
+                });
+            }),
+        )
+        .await
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_soft_delete_as_admin() {
+        soft_delete(
+            TEST_CIPHER_ID.parse().unwrap(),
+            &bitwarden_api_api::apis::ApiClient::new_mocked(|mock| {
+                mock.ciphers_api
+                    .expect_put_delete_admin()
+                    .returning(move |id| {
+                        assert_eq!(&id.to_string(), TEST_CIPHER_ID);
+                        Ok(())
+                    });
+            }),
+        )
+        .await
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_delete_many_as_admin() {
+        delete_ciphers(
+            vec![
+                TEST_CIPHER_ID.parse().unwrap(),
+                TEST_CIPHER_ID_2.parse().unwrap(),
+            ],
+            TEST_ORG_ID.parse().ok(),
+            &bitwarden_api_api::apis::ApiClient::new_mocked(|mock| {
+                mock.ciphers_api
+                    .expect_delete_many_admin()
+                    .returning(move |request| {
+                        let CipherBulkDeleteRequestModel {
+                            ids,
+                            organization_id,
+                        } = request.unwrap();
+
+                        assert_eq!(
+                            ids,
+                            vec![TEST_CIPHER_ID.to_string(), TEST_CIPHER_ID_2.to_string(),],
+                        );
+                        assert_eq!(organization_id, Some(TEST_ORG_ID.to_string()));
+                        Ok(())
+                    });
+            }),
+        )
+        .await
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_soft_delete_many_as_admin() {
+        soft_delete_many(
+            vec![
+                TEST_CIPHER_ID.parse().unwrap(),
+                TEST_CIPHER_ID_2.parse().unwrap(),
+            ],
+            TEST_ORG_ID.parse().ok(),
+            &bitwarden_api_api::apis::ApiClient::new_mocked(|mock| {
+                mock.ciphers_api
+                    .expect_put_delete_many_admin()
+                    .returning(move |request| {
+                        let CipherBulkDeleteRequestModel {
+                            ids,
+                            organization_id,
+                        } = request.unwrap();
+
+                        assert_eq!(
+                            ids,
+                            vec![TEST_CIPHER_ID.to_string(), TEST_CIPHER_ID_2.to_string()],
+                        );
+                        assert_eq!(organization_id, Some(TEST_ORG_ID.to_string()));
+                        Ok(())
+                    });
+            }),
+        )
+        .await
+        .unwrap()
+    }
+}
