@@ -3,8 +3,8 @@ use wasm_bindgen::prelude::*;
 
 mod create;
 mod delete;
+mod edit;
 mod restore;
-// mod edit;
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
