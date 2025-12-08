@@ -169,7 +169,6 @@ pub(super) async fn initialize_user_crypto(
     let _span_guard = tracing::info_span!(
         "User Crypto Initialization",
         user_id = ?client.internal.get_user_id(),
-        method = ?req.method
     )
     .entered();
 
