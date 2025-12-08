@@ -165,7 +165,7 @@ pub(super) async fn initialize_user_crypto(
         client.internal.init_user_id(user_id)?;
     }
 
-    let account_crypto_state = (&req).account_cryptographic_state.to_owned();
+    let account_crypto_state = req.account_cryptographic_state.to_owned();
     let _span_guard = tracing::info_span!(
         "User Crypto Initialization",
         user_id = ?client.internal.get_user_id(),
