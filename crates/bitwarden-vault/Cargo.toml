@@ -25,6 +25,7 @@ wasm = [
     "bitwarden-collections/wasm",
     "bitwarden-core/wasm",
     "bitwarden-encoding/wasm",
+    "bitwarden-state/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures"
