@@ -1,6 +1,7 @@
 use bitwarden_vault::SshKeyView;
+use rand::CryptoRng;
 use serde::{Deserialize, Serialize};
-use ssh_key::{Algorithm, rand_core::CryptoRngCore};
+use ssh_key::Algorithm;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
@@ -26,29 +27,29 @@ pub enum KeyAlgorithm {
 pub fn generate_sshkey(
     key_algorithm: KeyAlgorithm,
 ) -> Result<SshKeyView, error::KeyGenerationError> {
-    let rng = rand::thread_rng();
-    generate_sshkey_internal(key_algorithm, rng)
+    let mut rng = rand::rng();
+    generate_sshkey_internal(key_algorithm, &mut rng)
 }
 
-fn generate_sshkey_internal(
+fn generate_sshkey_internal<R: CryptoRng + ?Sized>(
     key_algorithm: KeyAlgorithm,
-    mut rng: impl CryptoRngCore,
+    rng: &mut R,
 ) -> Result<SshKeyView, error::KeyGenerationError> {
     let private_key = match key_algorithm {
-        KeyAlgorithm::Ed25519 => ssh_key::PrivateKey::random(&mut rng, Algorithm::Ed25519)
+        KeyAlgorithm::Ed25519 => ssh_key::PrivateKey::random(rng, Algorithm::Ed25519)
             .map_err(KeyGenerationError::KeyGeneration),
-        KeyAlgorithm::Rsa3072 => create_rsa_key(&mut rng, 3072),
-        KeyAlgorithm::Rsa4096 => create_rsa_key(&mut rng, 4096),
+        KeyAlgorithm::Rsa3072 => create_rsa_key(rng, 3072),
+        KeyAlgorithm::Rsa4096 => create_rsa_key(rng, 4096),
     }?;
 
     ssh_private_key_to_view(private_key).map_err(|_| KeyGenerationError::KeyConversion)
 }
 
-fn create_rsa_key(
-    mut rng: impl CryptoRngCore,
+fn create_rsa_key<R: CryptoRng + ?Sized>(
+    rng: &mut R,
     bits: usize,
 ) -> Result<ssh_key::PrivateKey, error::KeyGenerationError> {
-    let rsa_keypair = ssh_key::private::RsaKeypair::random(&mut rng, bits)
+    let rsa_keypair = ssh_key::private::RsaKeypair::random(rng, bits)
         .map_err(KeyGenerationError::KeyGeneration)?;
     let private_key =
         ssh_key::PrivateKey::new(ssh_key::private::KeypairData::from(rsa_keypair), "")
@@ -65,27 +66,27 @@ mod tests {
 
     #[test]
     fn generate_ssh_key_ed25519() {
-        let rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
+        let mut rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
         let key_algorithm = KeyAlgorithm::Ed25519;
-        let result = generate_sshkey_internal(key_algorithm, rng);
+        let result = generate_sshkey_internal(key_algorithm, &mut rng);
         let target = include_str!("../resources/generator/ed25519_key").replace("\r\n", "\n");
         assert_eq!(result.unwrap().private_key, target);
     }
 
     #[test]
     fn generate_ssh_key_rsa3072() {
-        let rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
+        let mut rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
         let key_algorithm = KeyAlgorithm::Rsa3072;
-        let result = generate_sshkey_internal(key_algorithm, rng);
+        let result = generate_sshkey_internal(key_algorithm, &mut rng);
         let target = include_str!("../resources/generator/rsa3072_key").replace("\r\n", "\n");
         assert_eq!(result.unwrap().private_key, target);
     }
 
     #[test]
     fn generate_ssh_key_rsa4096() {
-        let rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
+        let mut rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
         let key_algorithm = KeyAlgorithm::Rsa4096;
-        let result = generate_sshkey_internal(key_algorithm, rng);
+        let result = generate_sshkey_internal(key_algorithm, &mut rng);
         let target = include_str!("../resources/generator/rsa4096_key").replace("\r\n", "\n");
         assert_eq!(result.unwrap().private_key, target);
     }
