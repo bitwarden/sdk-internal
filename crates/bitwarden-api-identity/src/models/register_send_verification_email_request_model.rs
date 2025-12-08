@@ -28,6 +28,12 @@ pub struct RegisterSendVerificationEmailRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub receive_marketing_emails: Option<bool>,
+    #[serde(
+        rename = "fromMarketing",
+        alias = "FromMarketing",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub from_marketing: Option<String>,
 }
 
 impl RegisterSendVerificationEmailRequestModel {
@@ -36,6 +42,7 @@ impl RegisterSendVerificationEmailRequestModel {
             name: None,
             email,
             receive_marketing_emails: None,
+            from_marketing: None,
         }
     }
 }
