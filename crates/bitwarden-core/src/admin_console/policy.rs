@@ -49,8 +49,9 @@ pub enum PolicyType {
     RemoveUnlockWithPin = 14,
     RestrictedItemTypesPolicy = 15,
     UriMatchDefaults = 16,
-    AutomaticUserConfirmation = 18,
     AutotypeDefaultSetting = 17,
+    AutomaticUserConfirmation = 18,
+    BlockClaimedDomainAccountCreation = 19,
 }
 
 impl TryFrom<PolicyResponseModel> for Policy {
@@ -110,6 +111,9 @@ impl From<bitwarden_api_api::models::PolicyType> for PolicyType {
             }
             bitwarden_api_api::models::PolicyType::AutomaticUserConfirmation => {
                 PolicyType::AutomaticUserConfirmation
+            }
+            bitwarden_api_api::models::PolicyType::BlockClaimedDomainAccountCreation => {
+                PolicyType::BlockClaimedDomainAccountCreation
             }
         }
     }
