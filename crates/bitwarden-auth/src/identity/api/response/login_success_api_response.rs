@@ -28,11 +28,11 @@ pub(crate) struct LoginSuccessApiResponse {
     // Custom Bitwarden connect/token response fields:
     // We send down uppercase fields today so we have to map them accordingly +
     // we add aliases for deserialization flexibility.
-    /// The user's user key encrypted private key
+    /// The user key wrapped user private key
     #[serde(rename = "PrivateKey", alias = "privateKey")]
     pub private_key: Option<String>,
 
-    /// The user's master key encrypted user key.
+    /// The master key wrapped user key.
     #[serde(rename = "Key", alias = "key")]
     pub key: Option<String>,
 

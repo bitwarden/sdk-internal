@@ -43,15 +43,13 @@ pub struct LoginSuccessResponse {
     /// This token can be used to obtain new access tokens when the current one expires.
     pub refresh_token: Option<String>,
 
-    // TODO: port over docs from API response
-    // but also RENAME things to be more clear.
-    /// The user key encrypted private key.
+    /// The user key wrapped user private key.
     /// Note: previously known as "private_key".
-    pub user_key_encrypted_user_private_key: Option<String>,
+    pub user_key_wrapped_user_private_key: Option<String>,
 
-    /// The master key encrypted user key.
+    /// The master key wrapped user key.
     /// Note: previously known as "key".
-    pub master_key_encrypted_user_key: Option<String>,
+    pub master_key_wrapped_user_key: Option<String>,
 
     /// Two-factor authentication token for future requests.
     pub two_factor_token: Option<String>,
