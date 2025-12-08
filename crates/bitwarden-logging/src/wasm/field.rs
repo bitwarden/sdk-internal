@@ -2,8 +2,10 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct FieldValue {
-    pub(crate) name: String,
-    pub(crate) value: String,
+    #[wasm_bindgen(getter_with_clone)]
+    pub name: String,
+    #[wasm_bindgen(getter_with_clone)]
+    pub value: String,
 }
 
 #[wasm_bindgen]

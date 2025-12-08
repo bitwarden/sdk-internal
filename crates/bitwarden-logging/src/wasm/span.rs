@@ -14,10 +14,26 @@ pub struct SpanDefinition {
 #[wasm_bindgen]
 impl SpanDefinition {
     #[wasm_bindgen(constructor)]
-    pub fn new(name: String, target: String, level: TracingLevel, fields: Vec<String>) -> Self {
+    pub fn new(
+        name: String,
+        target: String,
+        level: TracingLevel,
+        fields: Vec<String>,
+        file: Option<String>,
+        line: Option<u32>,
+        module_path: Option<String>,
+    ) -> Self {
         let fields_slice: &[&str] = &fields.iter().map(String::as_str).collect::<Vec<&str>>();
         Self {
-            factory: SpanFactory::new(&name, &target, level.into(), None, None, None, fields_slice),
+            factory: SpanFactory::new(
+                &name,
+                &target,
+                level.into(),
+                file.as_ref().map(|x| x.as_str()),
+                line,
+                module_path.as_ref().map(|x| x.as_str()),
+                fields_slice,
+            ),
         }
     }
     pub fn enter(&self, fields: Vec<FieldValue>) -> Span {

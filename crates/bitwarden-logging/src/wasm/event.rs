@@ -11,7 +11,15 @@ pub struct EventDefinition {
 #[wasm_bindgen]
 impl EventDefinition {
     #[wasm_bindgen(constructor)]
-    pub fn new(name: String, target: String, level: TracingLevel, fields: Vec<String>) -> Self {
+    pub fn new(
+        name: String,
+        target: String,
+        level: TracingLevel,
+        fields: Vec<String>,
+        file: Option<String>,
+        line: Option<u32>,
+        module_path: Option<String>,
+    ) -> Self {
         let mut fields_slice = fields.iter().map(String::as_str).collect::<Vec<&str>>();
         fields_slice.push("message");
         Self {
@@ -19,9 +27,9 @@ impl EventDefinition {
                 &name,
                 &target,
                 level.into(),
-                None,
-                None,
-                None,
+                file.as_ref().map(|x| x.as_str()),
+                line,
+                module_path.as_ref().map(|x| x.as_str()),
                 &fields_slice,
             ),
         }
