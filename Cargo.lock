@@ -511,6 +511,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-policies",
  "bitwarden-test",
  "chrono",
  "reqwest",
@@ -521,6 +522,7 @@ dependencies = [
  "thiserror 2.0.12",
  "tokio",
  "tsify",
+ "uniffi",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wiremock",
@@ -814,7 +816,11 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_repr",
+ "tsify",
+ "uniffi",
  "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]

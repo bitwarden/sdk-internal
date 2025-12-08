@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
-use bitwarden_api_api::models::MasterPasswordPolicyResponseModel;
 use bitwarden_api_identity::models::KdfType;
+use bitwarden_policies::MasterPasswordPolicyResponse;
 use std::num::NonZeroU32;
 
 use crate::identity::{
@@ -13,6 +13,7 @@ use crate::identity::{
 /// This is the model that will be exposed to consuming applications.
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(
     feature = "wasm",
     derive(tsify::Tsify),
@@ -73,10 +74,9 @@ pub struct LoginSuccessResponse {
     /// The user's decryption options for unlocking their vault.
     pub user_decryption_options: UserDecryptionOptionsResponse,
 
-    // TODO: there isn't a top level domain model for this. Create one? or keep as is?
     /// If the user is subject to an organization master password policy,
     /// this field contains the requirements of that policy.
-    pub master_password_policy: Option<MasterPasswordPolicyResponseModel>,
+    pub master_password_policy: Option<MasterPasswordPolicyResponse>,
 }
 
 impl From<LoginSuccessApiResponse> for LoginSuccessResponse {
@@ -95,14 +95,18 @@ impl From<LoginSuccessApiResponse> for LoginSuccessResponse {
             scope: response.scope,
             token_type: response.token_type,
             refresh_token: response.refresh_token,
-            user_key_encrypted_user_private_key: response.private_key,
-            master_key_encrypted_user_key: response.key,
+            user_key_wrapped_user_private_key: response.private_key,
+            master_key_wrapped_user_key: response.key,
             two_factor_token: response.two_factor_token,
             kdf: response.kdf,
             kdf_iterations: response.kdf_iterations,
             force_password_reset: response.force_password_reset,
             api_use_key_connector: response.api_use_key_connector,
             user_decryption_options: response.user_decryption_options,
+            master_password_policy: match response.master_password_policy {
+                Some(policy) => Some(policy.into()),
+                None => None,
+            },
         }
     }
 }
