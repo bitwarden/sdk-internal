@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UpdatePaymentMethodRequestBody {
-    #[serde(rename = "paymentSource")]
+    #[serde(rename = "paymentSource", alias = "PaymentSource")]
     pub payment_source: Box<models::TokenizedPaymentSourceRequestBody>,
-    #[serde(rename = "taxInformation")]
+    #[serde(rename = "taxInformation", alias = "TaxInformation")]
     pub tax_information: Box<models::TaxInformationRequestBody>,
 }
 

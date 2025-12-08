@@ -14,7 +14,7 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct VerifyBankAccountRequestBody {
-    #[serde(rename = "descriptorCode")]
+    #[serde(rename = "descriptorCode", alias = "DescriptorCode")]
     pub descriptor_code: String,
 }
 

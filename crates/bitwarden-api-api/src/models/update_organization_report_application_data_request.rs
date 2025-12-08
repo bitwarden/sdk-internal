@@ -14,11 +14,19 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UpdateOrganizationReportApplicationDataRequest {
-    #[serde(rename = "id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<uuid::Uuid>,
-    #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationId",
+        alias = "OrganizationId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_id: Option<uuid::Uuid>,
-    #[serde(rename = "applicationData", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "applicationData",
+        alias = "ApplicationData",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub application_data: Option<String>,
 }
 

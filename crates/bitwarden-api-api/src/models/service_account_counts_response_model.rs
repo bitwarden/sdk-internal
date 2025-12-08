@@ -14,13 +14,29 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ServiceAccountCountsResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "projects", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "projects",
+        alias = "Projects",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub projects: Option<i32>,
-    #[serde(rename = "people", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "people",
+        alias = "People",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub people: Option<i32>,
-    #[serde(rename = "accessTokens", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "accessTokens",
+        alias = "AccessTokens",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub access_tokens: Option<i32>,
 }
 

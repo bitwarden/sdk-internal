@@ -5,8 +5,7 @@ use bitwarden_crypto::KeyStore;
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{
-    CryptoError, EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey,
-    safe::PasswordProtectedKeyEnvelope,
+    EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey, safe::PasswordProtectedKeyEnvelope,
 };
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
@@ -23,33 +22,14 @@ use crate::{
 #[cfg(feature = "internal")]
 use crate::{
     client::{
-        encryption_settings::{AccountEncryptionKeys, EncryptionSettingsError},
-        flags::Flags,
-        login_method::UserLoginMethod,
+        encryption_settings::EncryptionSettingsError, flags::Flags, login_method::UserLoginMethod,
     },
     error::NotAuthenticatedError,
     key_management::{
-        MasterPasswordUnlockData, SecurityState, SignedSecurityState, crypto::InitUserCryptoRequest,
+        MasterPasswordUnlockData, SecurityState,
+        account_cryptographic_state::WrappedAccountCryptographicState,
     },
 };
-
-/// Represents the user's keys, that are encrypted by the user key, and the signed security state.
-#[cfg(feature = "internal")]
-pub(crate) struct UserKeyState {
-    pub(crate) private_key: EncString,
-    pub(crate) signing_key: Option<EncString>,
-    pub(crate) security_state: Option<SignedSecurityState>,
-}
-#[cfg(feature = "internal")]
-impl From<&InitUserCryptoRequest> for UserKeyState {
-    fn from(req: &InitUserCryptoRequest) -> Self {
-        UserKeyState {
-            private_key: req.private_key.clone(),
-            signing_key: req.signing_key.clone(),
-            security_state: req.security_state.clone(),
-        }
-    }
-}
 
 #[allow(missing_docs)]
 pub struct ApiConfigurations {
@@ -194,9 +174,9 @@ impl InternalClient {
 
     #[cfg(any(feature = "internal", feature = "secrets"))]
     pub(crate) fn set_login_method(&self, login_method: LoginMethod) {
-        use log::debug;
+        use tracing::debug;
 
-        debug! {"setting login method: {login_method:#?}"}
+        debug!(?login_method, "setting login method.");
         *self.login_method.write().expect("RwLock is not poisoned") = Some(Arc::new(login_method));
     }
 
@@ -292,51 +272,23 @@ impl InternalClient {
         &self,
         master_key: MasterKey,
         user_key: EncString,
-        key_state: UserKeyState,
+        account_crypto_state: WrappedAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
         let user_key = master_key.decrypt_user_key(user_key)?;
-        self.initialize_user_crypto_decrypted_key(user_key, key_state)
+        self.initialize_user_crypto_decrypted_key(user_key, account_crypto_state)
     }
 
     #[cfg(feature = "internal")]
     pub(crate) fn initialize_user_crypto_decrypted_key(
         &self,
         user_key: SymmetricCryptoKey,
-        key_state: UserKeyState,
+        account_crypto_state: WrappedAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
-        match user_key {
-            SymmetricCryptoKey::Aes256CbcHmacKey(ref user_key) => {
-                EncryptionSettings::new_decrypted_key(
-                    AccountEncryptionKeys::V1 {
-                        user_key: user_key.clone(),
-                        private_key: key_state.private_key,
-                    },
-                    &self.key_store,
-                    &self.security_state,
-                )?;
-            }
-            SymmetricCryptoKey::XChaCha20Poly1305Key(ref user_key) => {
-                EncryptionSettings::new_decrypted_key(
-                    AccountEncryptionKeys::V2 {
-                        user_key: user_key.clone(),
-                        private_key: key_state.private_key,
-                        signing_key: key_state
-                            .signing_key
-                            .ok_or(EncryptionSettingsError::InvalidSigningKey)?,
-                        security_state: key_state
-                            .security_state
-                            .ok_or(EncryptionSettingsError::InvalidSecurityState)?,
-                    },
-                    &self.key_store,
-                    &self.security_state,
-                )?;
-            }
-            _ => {
-                return Err(CryptoError::InvalidKey.into());
-            }
-        }
-
-        Ok(())
+        let mut ctx = self.key_store.context_mut();
+        let user_key = ctx.add_local_symmetric_key(user_key);
+        account_crypto_state
+            .set_to_context(&self.security_state, user_key, &self.key_store, ctx)
+            .map_err(|_| EncryptionSettingsError::CryptoInitialization)
     }
 
     #[cfg(feature = "internal")]
@@ -344,10 +296,10 @@ impl InternalClient {
         &self,
         pin_key: PinKey,
         pin_protected_user_key: EncString,
-        key_state: UserKeyState,
+        account_crypto_state: WrappedAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
         let decrypted_user_key = pin_key.decrypt_user_key(pin_protected_user_key)?;
-        self.initialize_user_crypto_decrypted_key(decrypted_user_key, key_state)
+        self.initialize_user_crypto_decrypted_key(decrypted_user_key, account_crypto_state)
     }
 
     #[cfg(feature = "internal")]
@@ -355,7 +307,7 @@ impl InternalClient {
         &self,
         pin: String,
         pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
-        key_state: UserKeyState,
+        account_crypto_state: WrappedAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
         let decrypted_user_key = {
             // Note: This block ensures ctx is dropped. Otherwise it would cause a deadlock when
@@ -371,7 +323,7 @@ impl InternalClient {
             ctx.dangerous_get_symmetric_key(decrypted_user_key_id)?
                 .clone()
         };
-        self.initialize_user_crypto_decrypted_key(decrypted_user_key, key_state)
+        self.initialize_user_crypto_decrypted_key(decrypted_user_key, account_crypto_state)
     }
 
     #[cfg(feature = "secrets")]
@@ -397,7 +349,7 @@ impl InternalClient {
         &self,
         password: String,
         master_password_unlock: MasterPasswordUnlockData,
-        key_state: UserKeyState,
+        account_crypto_state: WrappedAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
         let master_key = MasterKey::derive(
             &password,
@@ -406,7 +358,7 @@ impl InternalClient {
         )?;
         let user_key =
             master_key.decrypt_user_key(master_password_unlock.master_key_wrapped_user_key)?;
-        self.initialize_user_crypto_decrypted_key(user_key, key_state)
+        self.initialize_user_crypto_decrypted_key(user_key, account_crypto_state)
     }
 
     /// Sets the local KDF state for the master password unlock login method.

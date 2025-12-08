@@ -8,7 +8,7 @@ use bitwarden_api_api::{
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     MissingFieldError, OrganizationId, UserId,
-    key_management::{KeyIds, SymmetricKeyId},
+    key_management::{KeyIds, MINIMUM_ENFORCE_ICON_URI_HASH_VERSION, SymmetricKeyId},
     require,
 };
 use bitwarden_crypto::{
@@ -554,7 +554,10 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
         };
 
         // For compatibility we only remove URLs with invalid checksums if the cipher has a key
-        if cipher.key.is_some() {
+        // or the user is on Crypto V2
+        if cipher.key.is_some()
+            || ctx.get_security_state_version() >= MINIMUM_ENFORCE_ICON_URI_HASH_VERSION
+        {
             cipher.remove_invalid_checksums();
         }
 

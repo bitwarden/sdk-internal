@@ -34,5 +34,6 @@
     "Zeroizing",
     "zxcvbn"
   ],
-  "rust-analyzer.cargo.targetDir": true
+  "rust-analyzer.cargo.targetDir": true,
+  "rust-analyzer.cargo.features": "all"
 }

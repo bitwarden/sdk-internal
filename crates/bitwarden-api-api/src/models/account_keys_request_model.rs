@@ -14,10 +14,31 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AccountKeysRequestModel {
-    #[serde(rename = "userKeyEncryptedAccountPrivateKey")]
+    #[serde(
+        rename = "userKeyEncryptedAccountPrivateKey",
+        alias = "UserKeyEncryptedAccountPrivateKey"
+    )]
     pub user_key_encrypted_account_private_key: Option<String>,
-    #[serde(rename = "accountPublicKey")]
+    #[serde(rename = "accountPublicKey", alias = "AccountPublicKey")]
     pub account_public_key: Option<String>,
+    #[serde(
+        rename = "publicKeyEncryptionKeyPair",
+        alias = "PublicKeyEncryptionKeyPair",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub public_key_encryption_key_pair: Option<Box<models::PublicKeyEncryptionKeyPairRequestModel>>,
+    #[serde(
+        rename = "signatureKeyPair",
+        alias = "SignatureKeyPair",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub signature_key_pair: Option<Box<models::SignatureKeyPairRequestModel>>,
+    #[serde(
+        rename = "securityState",
+        alias = "SecurityState",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub security_state: Option<Box<models::SecurityStateModel>>,
 }
 
 impl AccountKeysRequestModel {
@@ -28,6 +49,9 @@ impl AccountKeysRequestModel {
         AccountKeysRequestModel {
             user_key_encrypted_account_private_key,
             account_public_key,
+            public_key_encryption_key_pair: None,
+            signature_key_pair: None,
+            security_state: None,
         }
     }
 }

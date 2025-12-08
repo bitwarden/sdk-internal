@@ -14,17 +14,27 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SecretAccessPoliciesResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "userAccessPolicies", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "userAccessPolicies",
+        alias = "UserAccessPolicies",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub user_access_policies: Option<Vec<models::UserAccessPolicyResponseModel>>,
     #[serde(
         rename = "groupAccessPolicies",
+        alias = "GroupAccessPolicies",
         skip_serializing_if = "Option::is_none"
     )]
     pub group_access_policies: Option<Vec<models::GroupAccessPolicyResponseModel>>,
     #[serde(
         rename = "serviceAccountAccessPolicies",
+        alias = "ServiceAccountAccessPolicies",
         skip_serializing_if = "Option::is_none"
     )]
     pub service_account_access_policies:

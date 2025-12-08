@@ -63,7 +63,7 @@ pub(super) async fn edit_folder<R: Repository<Folder> + ?Sized>(
 mod tests {
     use bitwarden_api_api::{apis::ApiClient, models::FolderResponseModel};
     use bitwarden_core::key_management::SymmetricKeyId;
-    use bitwarden_crypto::{PrimitiveEncryptable, SymmetricCryptoKey};
+    use bitwarden_crypto::{PrimitiveEncryptable, SymmetricKeyAlgorithm};
     use bitwarden_test::MemoryRepository;
     use uuid::uuid;
 
@@ -76,29 +76,25 @@ mod tests {
         folder_id: FolderId,
         name: &str,
     ) {
-        repository
-            .set(
-                folder_id.to_string(),
-                Folder {
-                    id: Some(folder_id),
-                    name: name
-                        .encrypt(&mut store.context(), SymmetricKeyId::User)
-                        .unwrap(),
-                    revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
-                },
-            )
-            .await
-            .unwrap();
+        let folder = Folder {
+            id: Some(folder_id),
+            name: name
+                .encrypt(&mut store.context(), SymmetricKeyId::User)
+                .unwrap(),
+            revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
+        };
+        repository.set(folder_id.to_string(), folder).await.unwrap();
     }
 
     #[tokio::test]
     async fn test_edit_folder() {
         let store: KeyStore<KeyIds> = KeyStore::default();
-        #[allow(deprecated)]
-        let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-        );
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+                .unwrap();
+        }
 
         let folder_id: FolderId = "25afb11c-9c95-4db5-8bac-c21cb204a3f1".parse().unwrap();
 
@@ -172,11 +168,12 @@ mod tests {
     #[tokio::test]
     async fn test_edit_folder_http_error() {
         let store: KeyStore<KeyIds> = KeyStore::default();
-        #[allow(deprecated)]
-        let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-        );
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+                .unwrap();
+        }
 
         let folder_id: FolderId = "25afb11c-9c95-4db5-8bac-c21cb204a3f1".parse().unwrap();
 

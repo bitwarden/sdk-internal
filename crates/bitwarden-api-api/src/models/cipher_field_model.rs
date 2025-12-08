@@ -14,13 +14,29 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CipherFieldModel {
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "type",
+        alias = "R#type",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub r#type: Option<models::FieldType>,
-    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub name: Option<String>,
-    #[serde(rename = "value", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "value",
+        alias = "Value",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub value: Option<String>,
-    #[serde(rename = "linkedId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "linkedId",
+        alias = "LinkedId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub linked_id: Option<i32>,
 }
 

@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RegisterVerificationEmailClickedRequestModel {
-    #[serde(rename = "email")]
+    #[serde(rename = "email", alias = "Email")]
     pub email: Option<String>,
-    #[serde(rename = "emailVerificationToken")]
+    #[serde(rename = "emailVerificationToken", alias = "EmailVerificationToken")]
     pub email_verification_token: Option<String>,
 }
 

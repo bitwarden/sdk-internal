@@ -13,13 +13,13 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PreloginRequestModel {
-    #[serde(rename = "email")]
+pub struct PasswordPreloginRequestModel {
+    #[serde(rename = "email", alias = "Email")]
     pub email: String,
 }
 
-impl PreloginRequestModel {
-    pub fn new(email: String) -> PreloginRequestModel {
-        PreloginRequestModel { email }
+impl PasswordPreloginRequestModel {
+    pub fn new(email: String) -> PasswordPreloginRequestModel {
+        PasswordPreloginRequestModel { email }
     }
 }

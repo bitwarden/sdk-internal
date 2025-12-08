@@ -1,11 +1,10 @@
 use std::collections::HashMap;
 
 use bitwarden_api_api::models::PolicyResponseModel;
+use bitwarden_core::{MissingFieldError, require};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use uuid::Uuid;
-
-use crate::{MissingFieldError, require};
 
 /// Represents a policy that can be applied to an organization.
 #[derive(Serialize, Deserialize, Debug)]
@@ -49,8 +48,9 @@ pub enum PolicyType {
     RemoveUnlockWithPin = 14,
     RestrictedItemTypesPolicy = 15,
     UriMatchDefaults = 16,
-    AutomaticUserConfirmation = 18,
     AutotypeDefaultSetting = 17,
+    AutomaticUserConfirmation = 18,
+    BlockClaimedDomainAccountCreation = 19,
 }
 
 impl TryFrom<PolicyResponseModel> for Policy {
@@ -110,6 +110,9 @@ impl From<bitwarden_api_api::models::PolicyType> for PolicyType {
             }
             bitwarden_api_api::models::PolicyType::AutomaticUserConfirmation => {
                 PolicyType::AutomaticUserConfirmation
+            }
+            bitwarden_api_api::models::PolicyType::BlockClaimedDomainAccountCreation => {
+                PolicyType::BlockClaimedDomainAccountCreation
             }
         }
     }

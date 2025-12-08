@@ -14,81 +14,145 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationCreateRequestModel {
-    #[serde(rename = "name")]
+    #[serde(rename = "name", alias = "Name")]
     pub name: String,
-    #[serde(rename = "businessName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "businessName",
+        alias = "BusinessName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub business_name: Option<String>,
-    #[serde(rename = "billingEmail")]
+    #[serde(rename = "billingEmail", alias = "BillingEmail")]
     pub billing_email: String,
-    #[serde(rename = "planType", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "planType",
+        alias = "PlanType",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub plan_type: Option<models::PlanType>,
-    #[serde(rename = "key")]
+    #[serde(rename = "key", alias = "Key")]
     pub key: String,
-    #[serde(rename = "keys", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "keys",
+        alias = "Keys",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub keys: Option<Box<models::OrganizationKeysRequestModel>>,
-    #[serde(rename = "paymentMethodType", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "paymentMethodType",
+        alias = "PaymentMethodType",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub payment_method_type: Option<models::PaymentMethodType>,
-    #[serde(rename = "paymentToken", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "paymentToken",
+        alias = "PaymentToken",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub payment_token: Option<String>,
-    #[serde(rename = "additionalSeats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "additionalSeats",
+        alias = "AdditionalSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub additional_seats: Option<i32>,
     #[serde(
         rename = "additionalStorageGb",
+        alias = "AdditionalStorageGb",
         skip_serializing_if = "Option::is_none"
     )]
     pub additional_storage_gb: Option<i32>,
-    #[serde(rename = "premiumAccessAddon", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "premiumAccessAddon",
+        alias = "PremiumAccessAddon",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub premium_access_addon: Option<bool>,
-    #[serde(rename = "collectionName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "collectionName",
+        alias = "CollectionName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub collection_name: Option<String>,
-    #[serde(rename = "taxIdNumber", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "taxIdNumber",
+        alias = "TaxIdNumber",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub tax_id_number: Option<String>,
     #[serde(
         rename = "billingAddressLine1",
+        alias = "BillingAddressLine1",
         skip_serializing_if = "Option::is_none"
     )]
     pub billing_address_line1: Option<String>,
     #[serde(
         rename = "billingAddressLine2",
+        alias = "BillingAddressLine2",
         skip_serializing_if = "Option::is_none"
     )]
     pub billing_address_line2: Option<String>,
-    #[serde(rename = "billingAddressCity", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "billingAddressCity",
+        alias = "BillingAddressCity",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub billing_address_city: Option<String>,
     #[serde(
         rename = "billingAddressState",
+        alias = "BillingAddressState",
         skip_serializing_if = "Option::is_none"
     )]
     pub billing_address_state: Option<String>,
     #[serde(
         rename = "billingAddressPostalCode",
+        alias = "BillingAddressPostalCode",
         skip_serializing_if = "Option::is_none"
     )]
     pub billing_address_postal_code: Option<String>,
     #[serde(
         rename = "billingAddressCountry",
+        alias = "BillingAddressCountry",
         skip_serializing_if = "Option::is_none"
     )]
     pub billing_address_country: Option<String>,
-    #[serde(rename = "maxAutoscaleSeats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "maxAutoscaleSeats",
+        alias = "MaxAutoscaleSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub max_autoscale_seats: Option<i32>,
-    #[serde(rename = "additionalSmSeats", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "additionalSmSeats",
+        alias = "AdditionalSmSeats",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub additional_sm_seats: Option<i32>,
     #[serde(
         rename = "additionalServiceAccounts",
+        alias = "AdditionalServiceAccounts",
         skip_serializing_if = "Option::is_none"
     )]
     pub additional_service_accounts: Option<i32>,
-    #[serde(rename = "useSecretsManager")]
+    #[serde(rename = "useSecretsManager", alias = "UseSecretsManager")]
     pub use_secrets_manager: bool,
     #[serde(
         rename = "isFromSecretsManagerTrial",
+        alias = "IsFromSecretsManagerTrial",
         skip_serializing_if = "Option::is_none"
     )]
     pub is_from_secrets_manager_trial: Option<bool>,
-    #[serde(rename = "initiationPath", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "initiationPath",
+        alias = "InitiationPath",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub initiation_path: Option<String>,
-    #[serde(rename = "skipTrial", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "skipTrial",
+        alias = "SkipTrial",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub skip_trial: Option<bool>,
 }
 

@@ -12,7 +12,7 @@ client.
 - API version: v1
 - Package version: 1.0.0
 - Server Git commit:
-  [`fedc6b865b359aa68598df68b928a4c06246cfc0`](https://github.com/bitwarden/server/commit/fedc6b865b359aa68598df68b928a4c06246cfc0)
+  [`8a67aafbe5e01a738b479ebb82185fbc947866f8`](https://github.com/bitwarden/server/commit/8a67aafbe5e01a738b479ebb82185fbc947866f8)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -32,7 +32,7 @@ All URIs are relative to *https://identity.bitwarden.com*
 | Class         | Method                                                                                                                          | HTTP request                                           | Description |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ----------- |
 | _AccountsApi_ | [**get_web_authn_login_assertion_options**](docs/AccountsApi.md#accounts_get_web_authn_login_assertion_options)                 | **GET** /accounts/webauthn/assertion-options           |
-| _AccountsApi_ | [**post_prelogin**](docs/AccountsApi.md#accounts_post_prelogin)                                                                 | **POST** /accounts/prelogin                            |
+| _AccountsApi_ | [**post_password_prelogin**](docs/AccountsApi.md#accounts_post_password_prelogin)                                               | **POST** /accounts/prelogin/password                   |
 | _AccountsApi_ | [**post_register_finish**](docs/AccountsApi.md#accounts_post_register_finish)                                                   | **POST** /accounts/register/finish                     |
 | _AccountsApi_ | [**post_register_send_verification_email**](docs/AccountsApi.md#accounts_post_register_send_verification_email)                 | **POST** /accounts/register/send-verification-email    |
 | _AccountsApi_ | [**post_register_verification_email_clicked**](docs/AccountsApi.md#accounts_post_register_verification_email_clicked)           | **POST** /accounts/register/verification-email-clicked |
@@ -49,10 +49,11 @@ All URIs are relative to *https://identity.bitwarden.com*
 - [AssertionOptions](docs/AssertionOptions.md)
 - [AuthenticationExtensionsClientInputs](docs/AuthenticationExtensionsClientInputs.md)
 - [AuthenticatorTransport](docs/AuthenticatorTransport.md)
+- [KdfSettings](docs/KdfSettings.md)
 - [KdfType](docs/KdfType.md)
 - [KeysRequestModel](docs/KeysRequestModel.md)
-- [PreloginRequestModel](docs/PreloginRequestModel.md)
-- [PreloginResponseModel](docs/PreloginResponseModel.md)
+- [PasswordPreloginRequestModel](docs/PasswordPreloginRequestModel.md)
+- [PasswordPreloginResponseModel](docs/PasswordPreloginResponseModel.md)
 - [ProductTierType](docs/ProductTierType.md)
 - [ProductType](docs/ProductType.md)
 - [PublicKeyCredentialDescriptor](docs/PublicKeyCredentialDescriptor.md)

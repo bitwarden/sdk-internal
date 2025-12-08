@@ -30,6 +30,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
 
       - name: Set Rust Toolchain
         id: toolchain
@@ -50,4 +52,6 @@ jobs:
           key: msrv-${{ matrix.settings.target }}-cargo-${{ matrix.settings.os }}
 
       - name: Cargo check MSRV
-        run: cargo +"${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}" check --all-features
+        env:
+          RUST_TOOLCHAIN: ${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}
+        run: cargo +"${RUST_TOOLCHAIN}" check --all-features
