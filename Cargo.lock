@@ -626,7 +626,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "rayon",
- "rsa 0.9.8",
+ "rsa 0.9.9",
  "schemars 1.0.0",
  "serde",
  "serde_bytes",
@@ -798,6 +798,18 @@ dependencies = [
  "uniffi",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "bitwarden-policies"
+version = "1.0.0"
+dependencies = [
+ "bitwarden-api-api",
+ "bitwarden-core",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "uuid",
 ]
 
 [[package]]
@@ -1022,7 +1034,7 @@ dependencies = [
  "bitwarden-vault",
  "console_error_panic_hook",
  "rand 0.8.5",
- "rsa",
+ "rsa 0.9.9",
  "serde",
  "sha1",
  "tracing",
