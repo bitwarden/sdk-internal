@@ -36,6 +36,9 @@ pub fn init_sdk(log_level: Option<LogLevel>) {
         .from_env_lossy();
 
     let fmt = tracing_subscriber::fmt::layer()
+        .with_file(true)
+        .with_line_number(true)
+        .with_target(true)
         .with_ansi(false) // only partially supported across browsers
         .without_time() // time is not supported in wasm
         .with_writer(MakeWebConsoleWriter::new()); // write events to the console
