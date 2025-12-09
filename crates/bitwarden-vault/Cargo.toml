@@ -19,7 +19,7 @@ uniffi = [
     "bitwarden-collections/uniffi",
     "bitwarden-core/uniffi",
     "bitwarden-crypto/uniffi",
-    "dep:uniffi"
+    "dep:uniffi",
 ] # Uniffi bindings
 wasm = [
     "bitwarden-collections/wasm",
@@ -28,7 +28,7 @@ wasm = [
     "bitwarden-state/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
-    "dep:wasm-bindgen-futures"
+    "dep:wasm-bindgen-futures",
 ] # WASM support
 
 [dependencies]
