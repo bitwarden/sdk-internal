@@ -41,6 +41,7 @@ bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=1.0.0" }
 bitwarden-noise = { path = "crates/bitwarden-noise", version = "=1.0.0" }
 bitwarden-noise-client = { path = "crates/bitwarden-noise-client", version = "=1.0.0" }
 bitwarden-pm = { path = "crates/bitwarden-pm", version = "=1.0.0" }
+bitwarden-policies = { path = "crates/bitwarden-policies", version = "=1.0.0" }
 bitwarden-send = { path = "crates/bitwarden-send", version = "=1.0.0" }
 bitwarden-sm = { path = "bitwarden_license/bitwarden-sm", version = "=1.0.0" }
 bitwarden-ssh = { path = "crates/bitwarden-ssh", version = "=1.0.0" }

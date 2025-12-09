@@ -851,6 +851,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-policies"
+version = "1.0.0"
+dependencies = [
+ "bitwarden-api-api",
+ "bitwarden-core",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "uuid",
+]
+
+[[package]]
 name = "bitwarden-send"
 version = "1.0.0"
 dependencies = [
