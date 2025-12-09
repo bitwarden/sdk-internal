@@ -1,12 +1,10 @@
 use std::fmt::Debug;
 
-use bitwarden_api_identity::models::KdfType;
+use bitwarden_core::{key_management::MasterPasswordError, require};
 use bitwarden_policies::MasterPasswordPolicyResponse;
-use std::num::NonZeroU32;
 
 use crate::identity::{
-    api::response::{LoginSuccessApiResponse, UserDecryptionOptionsApiResponse},
-    models::UserDecryptionOptionsResponse,
+    api::response::LoginSuccessApiResponse, models::UserDecryptionOptionsResponse,
 };
 
 /// SDK response model for a successful login.
@@ -48,22 +46,12 @@ pub struct LoginSuccessResponse {
     /// Note: previously known as "private_key".
     pub user_key_wrapped_user_private_key: Option<String>,
 
-    /// The master key wrapped user key.
-    /// Note: previously known as "key".
-    pub master_key_wrapped_user_key: Option<String>,
-
     /// Two-factor authentication token for future requests.
     pub two_factor_token: Option<String>,
 
-    /// The key derivation function type.
-    pub kdf: KdfType,
-
-    /// Master key derivation function iterations
-    pub kdf_iterations: NonZeroU32,
-
     /// Indicates whether an admin has reset the user's master password,
     /// requiring them to set a new password upon next login.
-    pub force_password_reset: bool,
+    pub force_password_reset: Option<bool>,
 
     /// Indicates whether the user uses Key Connector and if the client should have a locally
     /// configured Key Connector URL in their environment.
@@ -79,8 +67,9 @@ pub struct LoginSuccessResponse {
     pub master_password_policy: Option<MasterPasswordPolicyResponse>,
 }
 
-impl From<LoginSuccessApiResponse> for LoginSuccessResponse {
-    fn from(response: LoginSuccessApiResponse) -> Self {
+impl TryFrom<LoginSuccessApiResponse> for LoginSuccessResponse {
+    type Error = MasterPasswordError;
+    fn try_from(response: LoginSuccessApiResponse) -> Result<Self, Self::Error> {
         // We want to convert the expires_in from seconds to a millisecond timestamp to have a
         // concrete time the token will expire. This makes it easier to build logic around a
         // concrete time rather than a duration. We keep expires_in as well for backward
@@ -88,7 +77,7 @@ impl From<LoginSuccessApiResponse> for LoginSuccessResponse {
         let expires_at =
             chrono::Utc::now().timestamp_millis() + (response.expires_in * 1000) as i64;
 
-        LoginSuccessResponse {
+        Ok(LoginSuccessResponse {
             access_token: response.access_token,
             expires_in: response.expires_in,
             expires_at,
@@ -96,17 +85,15 @@ impl From<LoginSuccessApiResponse> for LoginSuccessResponse {
             token_type: response.token_type,
             refresh_token: response.refresh_token,
             user_key_wrapped_user_private_key: response.private_key,
-            master_key_wrapped_user_key: response.key,
             two_factor_token: response.two_factor_token,
-            kdf: response.kdf,
-            kdf_iterations: response.kdf_iterations,
             force_password_reset: response.force_password_reset,
             api_use_key_connector: response.api_use_key_connector,
-            user_decryption_options: response.user_decryption_options,
+            // User decryption options are required on successful login responses
+            user_decryption_options: require!(response.user_decryption_options).try_into()?,
             master_password_policy: match response.master_password_policy {
                 Some(policy) => Some(policy.into()),
                 None => None,
             },
-        }
+        })
     }
 }

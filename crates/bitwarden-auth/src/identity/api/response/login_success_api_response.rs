@@ -33,6 +33,7 @@ pub(crate) struct LoginSuccessApiResponse {
     pub private_key: Option<String>,
 
     /// The master key wrapped user key.
+    #[deprecated(note = "Use `user_decryption_options.master_password_unlock` instead")]
     #[serde(rename = "Key", alias = "key")]
     pub key: Option<String>,
 
@@ -42,20 +43,22 @@ pub(crate) struct LoginSuccessApiResponse {
     pub two_factor_token: Option<String>,
 
     /// Master key derivation function type
+    #[deprecated(note = "Use `user_decryption_options.master_password_unlock` instead")]
     #[serde(rename = "Kdf", alias = "kdf")]
     pub kdf: KdfType,
 
-    // TODO: ensure we convert to NonZeroU32 for the SDK model
-    // for any Some values
     /// Master key derivation function iterations
+    #[deprecated(note = "Use `user_decryption_options.master_password_unlock` instead")]
     #[serde(rename = "KdfIterations", alias = "kdfIterations")]
     pub kdf_iterations: Option<i32>,
 
     /// Master key derivation function memory
+    #[deprecated(note = "Use `user_decryption_options.master_password_unlock` instead")]
     #[serde(rename = "KdfMemory", alias = "kdfMemory")]
     pub kdf_memory: Option<i32>,
 
     /// Master key derivation function parallelism
+    #[deprecated(note = "Use `user_decryption_options.master_password_unlock` instead")]
     #[serde(rename = "KdfParallelism", alias = "kdfParallelism")]
     pub kdf_parallelism: Option<i32>,
 
