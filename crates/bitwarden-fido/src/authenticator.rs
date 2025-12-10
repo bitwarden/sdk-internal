@@ -163,7 +163,7 @@ impl<'a> Fido2Authenticator<'a> {
                 options: passkey::types::ctap2::make_credential::Options {
                     rk: request.options.rk,
                     up: true,
-                    uv: self.convert_requested_uv(request.options.uv).await,
+                    uv: self.convert_requested_uv(request.options.uv),
                 },
                 pin_auth: None,
                 pin_protocol: None,
@@ -222,7 +222,7 @@ impl<'a> Fido2Authenticator<'a> {
                 options: passkey::types::ctap2::make_credential::Options {
                     rk: request.options.rk,
                     up: true,
-                    uv: self.convert_requested_uv(request.options.uv).await,
+                    uv: self.convert_requested_uv(request.options.uv),
                 },
                 pin_auth: None,
                 pin_protocol: None,
@@ -305,8 +305,8 @@ impl<'a> Fido2Authenticator<'a> {
         )
     }
 
-    async fn convert_requested_uv(&self, uv: UV) -> bool {
-        let verification_enabled = self.user_interface.is_verification_enabled().await;
+    fn convert_requested_uv(&self, uv: UV) -> bool {
+        let verification_enabled = self.user_interface.is_verification_enabled();
         match (uv, verification_enabled) {
             (UV::Preferred, true) => true,
             (UV::Preferred, false) => false,
@@ -656,17 +656,12 @@ impl passkey::authenticator::UserValidationMethod for UserValidationMethodImpl<'
         })
     }
 
-    async fn is_presence_enabled(&self) -> bool {
+    fn is_presence_enabled(&self) -> bool {
         true
     }
 
-    async fn is_verification_enabled(&self) -> Option<bool> {
-        Some(
-            self.authenticator
-                .user_interface
-                .is_verification_enabled()
-                .await,
-        )
+    fn is_verification_enabled(&self) -> Option<bool> {
+        Some(self.authenticator.user_interface.is_verification_enabled())
     }
 }
 

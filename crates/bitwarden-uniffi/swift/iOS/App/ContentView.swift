@@ -408,7 +408,7 @@ class Fido2UserInterfaceImpl: Fido2UserInterface {
         return CheckUserResult(userPresent: true, userVerified: true)
     }
 
-    func isVerificationEnabled() async  -> Bool {
+    func isVerificationEnabled() -> Bool {
         true
     }
 }

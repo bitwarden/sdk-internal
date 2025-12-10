@@ -32,7 +32,7 @@ pub trait Fido2UserInterface: Send + Sync {
         options: CheckUserOptions,
         new_credential: Fido2CredentialNewView,
     ) -> Result<(CipherView, CheckUserResult), Fido2CallbackError>;
-    async fn is_verification_enabled(&self) -> bool;
+    fn is_verification_enabled(&self) -> bool;
 }
 
 #[allow(missing_docs)]

@@ -231,7 +231,7 @@ pub trait Fido2UserInterface: Send + Sync {
         options: CheckUserOptions,
         new_credential: Fido2CredentialNewView,
     ) -> Result<CheckUserAndPickCredentialForCreationResult, Fido2CallbackError>;
-    async fn is_verification_enabled(&self) -> bool;
+    fn is_verification_enabled(&self) -> bool;
 }
 
 #[uniffi::export(with_foreign)]
@@ -353,7 +353,7 @@ impl bitwarden_fido::Fido2UserInterface for UniffiTraitBridge<&dyn Fido2UserInte
             .map(|v| (v.cipher.cipher, v.check_user_result.into()))
             .map_err(Into::into)
     }
-    async fn is_verification_enabled(&self) -> bool {
-        self.0.is_verification_enabled().await
+    fn is_verification_enabled(&self) -> bool {
+        self.0.is_verification_enabled()
     }
 }
