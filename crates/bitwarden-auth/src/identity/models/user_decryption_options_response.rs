@@ -47,18 +47,9 @@ impl TryFrom<UserDecryptionOptionsApiResponse> for UserDecryptionOptionsResponse
                 Some(ref mp) => Some(MasterPasswordUnlockData::try_from(mp)?),
                 None => None,
             },
-            trusted_device_option: match api.trusted_device_option {
-                Some(tde) => Some(tde.into()),
-                None => None,
-            },
-            key_connector_option: match api.key_connector_option {
-                Some(kc) => Some(kc.into()),
-                None => None,
-            },
-            webauthn_prf_option: match api.webauthn_prf_option {
-                Some(wa) => Some(wa.into()),
-                None => None,
-            },
+            trusted_device_option: api.trusted_device_option.map(|tde| tde.into()),
+            key_connector_option: api.key_connector_option.map(|kc| kc.into()),
+            webauthn_prf_option: api.webauthn_prf_option.map(|wa| wa.into()),
         })
     }
 }

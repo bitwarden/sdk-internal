@@ -90,10 +90,7 @@ impl TryFrom<LoginSuccessApiResponse> for LoginSuccessResponse {
             api_use_key_connector: response.api_use_key_connector,
             // User decryption options are required on successful login responses
             user_decryption_options: require!(response.user_decryption_options).try_into()?,
-            master_password_policy: match response.master_password_policy {
-                Some(policy) => Some(policy.into()),
-                None => None,
-            },
+            master_password_policy: response.master_password_policy.map(|policy| policy.into()),
         })
     }
 }
