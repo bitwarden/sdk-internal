@@ -5,4 +5,7 @@ mod password_prelogin;
 
 pub(crate) use password_login_api_request::PasswordLoginApiRequest;
 pub use password_login_request::PasswordLoginRequest;
-pub use password_prelogin::{PasswordPreloginData, PasswordPreloginError};
+pub use password_prelogin::PasswordPreloginError;
+
+mod password_prelogin_response;
+pub use password_prelogin_response::PasswordPreloginResponse;

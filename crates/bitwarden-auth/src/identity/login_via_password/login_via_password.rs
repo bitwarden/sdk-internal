@@ -19,7 +19,7 @@ impl IdentityClient {
             bitwarden_core::key_management::MasterPasswordError,
         > = MasterPasswordAuthenticationData::derive(
             &request.password,
-            &request.prelogin_data.kdf,
+            &request.prelogin_response.kdf,
             &request.email,
         );
 
