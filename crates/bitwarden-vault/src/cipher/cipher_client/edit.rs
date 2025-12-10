@@ -1,4 +1,5 @@
-use bitwarden_api_api::models::CipherRequestModel;
+use bitwarden_api_api::models::{CipherCollectionsRequestModel, CipherRequestModel};
+use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
     key_management::{KeyIds, SymmetricKeyId},
@@ -20,8 +21,8 @@ use wasm_bindgen::prelude::*;
 
 use super::CiphersClient;
 use crate::{
-    AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldView,
-    FolderId, ItemNotFoundError, PasswordHistoryView, VaultParseError,
+    AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, DecryptError,
+    FieldView, FolderId, ItemNotFoundError, PasswordHistoryView, VaultParseError,
     cipher_view_type::CipherViewType, password_history::MAX_PASSWORD_HISTORY_ENTRIES,
 };
 
@@ -45,6 +46,14 @@ pub enum EditCipherError {
     Repository(#[from] RepositoryError),
     #[error(transparent)]
     Uuid(#[from] uuid::Error),
+    #[error(transparent)]
+    Decrypt(#[from] DecryptError),
+}
+
+impl<T> From<bitwarden_api_api::apis::Error<T>> for EditCipherError {
+    fn from(val: bitwarden_api_api::apis::Error<T>) -> Self {
+        Self::Api(val.into())
+    }
 }
 
 /// Request to edit a cipher.
@@ -99,7 +108,7 @@ impl TryFrom<CipherView> for CipherEditRequest {
 }
 
 impl CipherEditRequest {
-    fn generate_cipher_key(
+    pub(super) fn generate_cipher_key(
         &mut self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
@@ -121,14 +130,13 @@ impl CipherEditRequest {
 /// Used as an intermediary between the public-facing [CipherEditRequest], and the encrypted
 /// value. This allows us to calculate password history safely, without risking misuse.
 #[derive(Clone, Debug)]
-
-struct CipherEditRequestInternal {
-    edit_request: CipherEditRequest,
-    password_history: Vec<PasswordHistoryView>,
+pub(super) struct CipherEditRequestInternal {
+    pub(super) edit_request: CipherEditRequest,
+    pub(super) password_history: Vec<PasswordHistoryView>,
 }
 
 impl CipherEditRequestInternal {
-    fn new(edit_request: CipherEditRequest, orig_cipher: &CipherView) -> Self {
+    pub(super) fn new(edit_request: CipherEditRequest, orig_cipher: &CipherView) -> Self {
         let mut internal_req = Self {
             edit_request,
             password_history: vec![],
@@ -333,16 +341,13 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     let mut cipher_request = key_store.encrypt(request)?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
-    let response = api_client
+    let cipher: Cipher = api_client
         .ciphers_api()
         .put(cipher_id.into(), Some(cipher_request))
         .await
-        .map_err(ApiError::from)?;
-
-    let cipher: Cipher = response.try_into()?;
-
+        .map_err(ApiError::from)?
+        .try_into()?;
     debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
-
     repository
         .set(cipher_id.to_string(), cipher.clone())
         .await?;
@@ -388,6 +393,40 @@ impl CiphersClient {
             request,
         )
         .await
+    }
+
+    /// Adds the cipher matched by [CipherId] to any number of collections on the server.
+    pub async fn update_collection(
+        &self,
+        cipher_id: CipherId,
+        collection_ids: Vec<CollectionId>,
+        is_admin: bool,
+    ) -> Result<CipherView, EditCipherError> {
+        let req = CipherCollectionsRequestModel {
+            collection_ids: collection_ids
+                .into_iter()
+                .map(|id| id.to_string())
+                .collect(),
+        };
+
+        let api_config = self.client.internal.get_api_configurations().await;
+        let api = api_config.api_client.ciphers_api();
+        let cipher = if is_admin {
+            api.put_collections_admin(&cipher_id.to_string(), Some(req))
+                .await?
+                .try_into()?
+        } else {
+            let response: Cipher = api
+                .put_collections(cipher_id.into(), Some(req))
+                .await?
+                .try_into()?;
+            self.get_repository()?
+                .set(cipher_id.to_string(), response.clone())
+                .await?;
+            response
+        };
+
+        Ok(self.decrypt(cipher)?)
     }
 }
 

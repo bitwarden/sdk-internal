@@ -1,11 +1,13 @@
-use bitwarden_core::key_management::KeyIds;
+use bitwarden_core::{ApiError, key_management::KeyIds};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
 
 use super::CiphersClient;
-use crate::{Cipher, CipherView, ItemNotFoundError, cipher::cipher::DecryptCipherListResult};
+use crate::{
+    Cipher, CipherView, ItemNotFoundError, VaultParseError, cipher::cipher::DecryptCipherListResult,
+};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -16,7 +18,11 @@ pub enum GetCipherError {
     #[error(transparent)]
     Crypto(#[from] CryptoError),
     #[error(transparent)]
+    VaultParse(#[from] VaultParseError),
+    #[error(transparent)]
     RepositoryError(#[from] RepositoryError),
+    #[error(transparent)]
+    Api(#[from] ApiError),
 }
 
 async fn get_cipher(
