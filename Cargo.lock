@@ -406,7 +406,7 @@ dependencies = [
  "globset",
  "home",
  "indexmap 2.9.0",
- "itertools 0.13.0",
+ "itertools",
  "nu-ansi-term",
  "once_cell",
  "path_abs",
@@ -474,7 +474,7 @@ checksum = "1b8e56985ec62d17e9c1001dc89c88ecd7dc08e47eba5ec7c29c7b5eeecde967"
 
 [[package]]
 name = "bitwarden-api-api"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "mockall",
@@ -489,7 +489,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-api-identity"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "mockall",
@@ -504,7 +504,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-auth"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-core",
  "bitwarden-error",
@@ -513,7 +513,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tokio",
  "tsify",
  "wasm-bindgen",
@@ -523,7 +523,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-cli"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "clap",
  "color-eyre",
@@ -533,7 +533,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-collections"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
@@ -542,7 +542,7 @@ dependencies = [
  "bitwarden-uuid",
  "serde",
  "serde_repr",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tsify",
  "uniffi",
  "uuid",
@@ -551,7 +551,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-commercial-vault"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-core",
  "serde",
@@ -566,7 +566,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-core"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
@@ -590,7 +590,7 @@ dependencies = [
  "serde_json",
  "serde_qs",
  "serde_repr",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "tsify",
@@ -604,7 +604,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-crypto"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "aes 0.8.4",
  "argon2",
@@ -635,7 +635,7 @@ dependencies = [
  "sha1",
  "sha2 0.10.9",
  "subtle",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tsify",
  "typenum",
  "uniffi",
@@ -647,7 +647,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-encoding"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-uniffi-error",
  "data-encoding",
@@ -655,7 +655,7 @@ dependencies = [
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tsify",
  "uniffi",
  "wasm-bindgen",
@@ -664,7 +664,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-error"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-error-macro",
  "js-sys",
@@ -677,7 +677,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-error-macro"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-error",
  "darling",
@@ -686,14 +686,14 @@ dependencies = [
  "quote",
  "serde",
  "syn",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tsify",
  "wasm-bindgen",
 ]
 
 [[package]]
 name = "bitwarden-exporters"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-collections",
  "bitwarden-core",
@@ -709,7 +709,7 @@ dependencies = [
  "num-traits",
  "serde",
  "serde_json",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tsify",
  "uniffi",
  "uuid",
@@ -718,7 +718,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-fido"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-core",
@@ -727,14 +727,14 @@ dependencies = [
  "bitwarden-vault",
  "chrono",
  "coset",
- "itertools 0.14.0",
+ "itertools",
  "p256",
  "passkey",
  "passkey-client",
  "reqwest",
  "serde",
  "serde_json",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tracing",
  "uniffi",
  "uuid",
@@ -742,7 +742,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-generators"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
@@ -753,7 +753,7 @@ dependencies = [
  "schemars 1.0.0",
  "serde",
  "serde_json",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tokio",
  "tsify",
  "uniffi",
@@ -763,7 +763,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-ipc"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
@@ -772,7 +772,7 @@ dependencies = [
  "js-sys",
  "serde",
  "serde_json",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "tsify",
@@ -783,7 +783,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-pm"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-auth",
  "bitwarden-commercial-vault",
@@ -802,7 +802,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-policies"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
@@ -814,7 +814,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-send"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
@@ -823,7 +823,7 @@ dependencies = [
  "chrono",
  "serde",
  "serde_repr",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "uniffi",
  "uuid",
  "zeroize",
@@ -831,7 +831,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-sm"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
@@ -840,7 +840,7 @@ dependencies = [
  "schemars 1.0.0",
  "serde",
  "serde_json",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "uuid",
@@ -850,7 +850,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-ssh"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-error",
  "bitwarden-vault",
@@ -867,7 +867,7 @@ dependencies = [
  "serde",
  "ssh-cipher",
  "ssh-key",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tsify",
  "uniffi",
  "wasm-bindgen",
@@ -875,7 +875,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-state"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
@@ -885,7 +885,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tokio",
  "tsify",
  "uniffi",
@@ -893,7 +893,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-test"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
@@ -904,7 +904,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-threading"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
@@ -912,7 +912,7 @@ dependencies = [
  "gloo-timers",
  "js-sys",
  "serde",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tokio",
  "tokio-test",
  "tokio-util",
@@ -956,14 +956,14 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-uniffi-error"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "anyhow",
 ]
 
 [[package]]
 name = "bitwarden-uuid"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-uuid-macro",
  "serde",
@@ -975,7 +975,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-uuid-macro"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "quote",
  "syn",
@@ -983,7 +983,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-vault"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-collections",
@@ -1006,7 +1006,7 @@ dependencies = [
  "sha1",
  "sha2 0.10.9",
  "subtle",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tokio",
  "tsify",
  "uniffi",
@@ -1616,7 +1616,7 @@ dependencies = [
  "ciborium",
  "clap",
  "criterion-plot",
- "itertools 0.13.0",
+ "itertools",
  "num-traits",
  "oorandom",
  "plotters",
@@ -1635,7 +1635,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b1bcc0dc7dfae599d84ad0b1a55f80cde8af3725da8313b528da95ef783e338"
 dependencies = [
  "cast",
- "itertools 0.13.0",
+ "itertools",
 ]
 
 [[package]]
@@ -3108,15 +3108,6 @@ name = "itertools"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
 dependencies = [
  "either",
 ]
@@ -6969,7 +6960,7 @@ dependencies = [
  "chrono",
  "derive_builder",
  "fancy-regex 0.13.0",
- "itertools 0.13.0",
+ "itertools",
  "lazy_static",
  "regex",
  "time",
