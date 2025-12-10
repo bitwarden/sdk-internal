@@ -19,7 +19,7 @@ wasm = [
     "bitwarden-error-macro/wasm",
     "dep:js-sys",
     "dep:tsify",
-    "dep:wasm-bindgen"
+    "dep:wasm-bindgen",
 ]
 
 [dependencies]
@@ -28,10 +28,10 @@ js-sys = { workspace = true, optional = true }
 tsify = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 
-[lints]
-workspace = true
-
 [dev-dependencies]
 serde.workspace = true
 trybuild = "1.0.101"
 wasm-bindgen-test = { workspace = true }
+
+[lints]
+workspace = true
