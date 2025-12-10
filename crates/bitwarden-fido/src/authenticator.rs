@@ -5,7 +5,7 @@ use bitwarden_crypto::CryptoError;
 use bitwarden_vault::{CipherError, CipherView, EncryptionContext};
 use itertools::Itertools;
 use passkey::{
-    authenticator::{Authenticator, DiscoverabilitySupport, StoreInfo, UIHint, UserCheck},
+    authenticator::{Authenticator, DiscoverabilitySupport, StoreInfo, UiHint, UserCheck},
     types::{
         Passkey,
         ctap2::{self, Ctap2Error, StatusCode, VendorError},
@@ -175,7 +175,7 @@ impl<'a> Fido2Authenticator<'a> {
             Err(e) => return Err(MakeCredentialError::Other(format!("{e:?}"))),
         };
 
-        let attestation_object = response.as_bytes().to_vec();
+        let attestation_object = response.as_webauthn_bytes().to_vec();
         let authenticator_data = response.auth_data.to_vec();
         let attested_credential_data = response
             .auth_data
@@ -353,6 +353,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
         &self,
         ids: Option<&[passkey::types::webauthn::PublicKeyCredentialDescriptor]>,
         rp_id: &str,
+        _user_handle: Option<&[u8]>,
     ) -> Result<Vec<Self::PasskeyItem>, StatusCode> {
         #[derive(Debug, Error)]
         enum InnerError {
@@ -600,7 +601,7 @@ impl passkey::authenticator::UserValidationMethod for UserValidationMethodImpl<'
 
     async fn check_user<'a>(
         &self,
-        hint: UIHint<'a, Self::PasskeyItem>,
+        hint: UiHint<'a, Self::PasskeyItem>,
         presence: bool,
         _verification: bool,
     ) -> Result<UserCheck, Ctap2Error> {
@@ -617,7 +618,7 @@ impl passkey::authenticator::UserValidationMethod for UserValidationMethodImpl<'
         };
 
         let result = match hint {
-            UIHint::RequestNewCredential(user, rp) => {
+            UiHint::RequestNewCredential(user, rp) => {
                 let new_credential = try_from_credential_new_view(user, rp)
                     .map_err(|_| Ctap2Error::InvalidCredential)?;
 
@@ -669,8 +670,8 @@ impl passkey::authenticator::UserValidationMethod for UserValidationMethodImpl<'
     }
 }
 
-fn map_ui_hint(hint: UIHint<'_, CipherViewContainer>) -> UIHint<'_, CipherView> {
-    use UIHint::*;
+fn map_ui_hint(hint: UiHint<'_, CipherViewContainer>) -> UiHint<'_, CipherView> {
+    use UiHint::*;
     match hint {
         InformExcludedCredentialFound(c) => InformExcludedCredentialFound(&c.cipher),
         InformNoCredentialsFound => InformNoCredentialsFound,

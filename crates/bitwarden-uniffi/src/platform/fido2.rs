@@ -293,9 +293,9 @@ pub enum UIHint {
     RequestExistingCredential(CipherView),
 }
 
-impl From<bitwarden_fido::UIHint<'_, CipherView>> for UIHint {
-    fn from(hint: bitwarden_fido::UIHint<'_, CipherView>) -> Self {
-        use bitwarden_fido::UIHint as BWUIHint;
+impl From<bitwarden_fido::UiHint<'_, CipherView>> for UIHint {
+    fn from(hint: bitwarden_fido::UiHint<'_, CipherView>) -> Self {
+        use bitwarden_fido::UiHint as BWUIHint;
         match hint {
             BWUIHint::InformExcludedCredentialFound(cipher) => {
                 UIHint::InformExcludedCredentialFound(cipher.clone())
@@ -324,7 +324,7 @@ impl bitwarden_fido::Fido2UserInterface for UniffiTraitBridge<&dyn Fido2UserInte
     async fn check_user<'a>(
         &self,
         options: CheckUserOptions,
-        hint: bitwarden_fido::UIHint<'a, CipherView>,
+        hint: bitwarden_fido::UiHint<'a, CipherView>,
     ) -> Result<bitwarden_fido::CheckUserResult, BitFido2CallbackError> {
         self.0
             .check_user(options.clone(), hint.into())
