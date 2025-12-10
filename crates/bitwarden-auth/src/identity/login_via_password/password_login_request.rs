@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::identity::{login_via_password::PreloginPasswordData, models::LoginRequest};
+use crate::identity::{login_via_password::PasswordPreloginData, models::LoginRequest};
 
 /// Public SDK request model for logging in via password
 #[derive(Serialize, Deserialize, JsonSchema)]
@@ -23,5 +23,5 @@ pub struct PasswordLoginRequest {
 
     /// Prelogin data required for password authentication
     /// (e.g., KDF configuration for deriving the master key)
-    pub prelogin_data: PreloginPasswordData,
+    pub prelogin_data: PasswordPreloginData,
 }
