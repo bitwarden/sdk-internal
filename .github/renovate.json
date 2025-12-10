@@ -22,6 +22,11 @@
     },
     {
       "matchManagers": ["cargo"],
+      "groupName": "passkey-rs crates",
+      "matchPackageNames": ["passkey", "passkey-client"]
+    },
+    {
+      "matchManagers": ["cargo"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "pyo3 non-major",
       "matchPackageNames": ["/pyo3*/"]
