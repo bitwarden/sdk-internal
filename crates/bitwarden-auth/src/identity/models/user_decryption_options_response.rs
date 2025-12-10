@@ -70,12 +70,11 @@ mod tests {
     };
     use bitwarden_crypto::Kdf;
 
+    use super::*;
     use crate::identity::api::response::{
         KeyConnectorUserDecryptionOptionApiResponse, TrustedDeviceUserDecryptionOptionApiResponse,
         WebAuthnPrfUserDecryptionOptionApiResponse,
     };
-
-    use super::*;
 
     #[test]
     fn test_user_decryption_options_conversion_with_master_password() {

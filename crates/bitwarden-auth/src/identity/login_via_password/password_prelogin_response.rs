@@ -157,8 +157,8 @@ mod tests {
     fn test_try_from_argon2id_default_params() {
         let kdf_settings = KdfSettings {
             kdf_type: KdfType::Argon2id,
-            iterations: 0, // Zero will trigger default
-            memory: None,  // None will trigger default
+            iterations: 0,     // Zero will trigger default
+            memory: None,      // None will trigger default
             parallelism: None, // None will trigger default
         };
 
@@ -260,8 +260,8 @@ mod tests {
         // Test that zero values fall back to defaults for Argon2id
         let kdf_settings = KdfSettings {
             kdf_type: KdfType::Argon2id,
-            iterations: 0,    // Zero will trigger default
-            memory: Some(0),  // Zero will trigger default
+            iterations: 0,   // Zero will trigger default
+            memory: Some(0), // Zero will trigger default
             parallelism: Some(4),
         };
 

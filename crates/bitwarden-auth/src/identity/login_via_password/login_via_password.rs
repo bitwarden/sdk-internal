@@ -32,8 +32,8 @@ impl IdentityClient {
 
         let response = send_login_request(&api_configs, &api_request).await;
 
-        // if success, we must validate that user decryption options are present as if they are missing
-        // we cannot proceed with unlocking the user's vault.
+        // if success, we must validate that user decryption options are present as if they are
+        // missing we cannot proceed with unlocking the user's vault.
 
         // TODO: figure out how to handle errors.
     }
