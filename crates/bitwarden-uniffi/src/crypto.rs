@@ -2,7 +2,7 @@ use bitwarden_core::key_management::crypto::{
     DeriveKeyConnectorRequest, DerivePinKeyResponse, EnrollPinResponse, InitOrgCryptoRequest,
     InitUserCryptoRequest, UpdateKdfResponse, UpdatePasswordResponse,
 };
-use bitwarden_crypto::{EncString, Kdf, UnsignedSharedKey};
+use bitwarden_crypto::{EncString, Kdf, RotateableKeySet, UnsignedSharedKey};
 use bitwarden_encoding::B64;
 
 use crate::error::Result;
@@ -77,6 +77,12 @@ impl CryptoClient {
     /// Derive the master key for migrating to the key connector
     pub fn derive_key_connector(&self, request: DeriveKeyConnectorRequest) -> Result<B64> {
         Ok(self.0.derive_key_connector(request)?)
+    }
+
+    /// Creates the a new rotateable key set for the current user key protected
+    /// by a key derived from the given PRF.
+    pub fn make_prf_user_key_set(&self, prf: B64) -> Result<RotateableKeySet> {
+        Ok(self.0.make_prf_user_key_set(prf)?)
     }
 
     /// Create the data necessary to update the user's kdf settings. The user's encryption key is
