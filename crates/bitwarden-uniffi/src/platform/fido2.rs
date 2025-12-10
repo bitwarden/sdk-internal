@@ -92,13 +92,14 @@ impl ClientFido2Authenticator {
     pub async fn silently_discover_credentials(
         &self,
         rp_id: String,
+        user_handle: Option<Vec<u8>>,
     ) -> Result<Vec<Fido2CredentialAutofillView>> {
         let ui = UniffiTraitBridge(self.1.as_ref());
         let cs = UniffiTraitBridge(self.2.as_ref());
         let mut auth = self.0.create_authenticator(&ui, &cs);
 
         let result = auth
-            .silently_discover_credentials(rp_id)
+            .silently_discover_credentials(rp_id, user_handle)
             .await
             .map_err(Error::SilentlyDiscoverCredentials)?;
         Ok(result)
@@ -241,6 +242,7 @@ pub trait Fido2CredentialStore: Send + Sync {
         &self,
         ids: Option<Vec<Vec<u8>>>,
         rip_id: String,
+        user_handle: Option<Vec<u8>>,
     ) -> Result<Vec<CipherView>, Fido2CallbackError>;
 
     async fn all_credentials(&self) -> Result<Vec<CipherListView>, Fido2CallbackError>;
@@ -260,9 +262,10 @@ impl bitwarden_fido::Fido2CredentialStore for UniffiTraitBridge<&dyn Fido2Creden
         &self,
         ids: Option<Vec<Vec<u8>>>,
         rip_id: String,
+        user_handle: Option<Vec<u8>>,
     ) -> Result<Vec<CipherView>, BitFido2CallbackError> {
         self.0
-            .find_credentials(ids, rip_id)
+            .find_credentials(ids, rip_id, user_handle)
             .await
             .map_err(Into::into)
     }

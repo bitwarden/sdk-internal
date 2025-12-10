@@ -42,7 +42,7 @@ pub trait Fido2CredentialStore: Send + Sync {
         &self,
         ids: Option<Vec<Vec<u8>>>,
         rip_id: String,
-        // TODO: Add user_handle
+        user_handle: Option<Vec<u8>>,
     ) -> Result<Vec<CipherView>, Fido2CallbackError>;
 
     async fn all_credentials(&self) -> Result<Vec<CipherListView>, Fido2CallbackError>;

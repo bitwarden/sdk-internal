@@ -255,9 +255,13 @@ impl<'a> Fido2Authenticator<'a> {
     pub async fn silently_discover_credentials(
         &mut self,
         rp_id: String,
+        user_handle: Option<Vec<u8>>,
     ) -> Result<Vec<Fido2CredentialAutofillView>, SilentlyDiscoverCredentialsError> {
         let key_store = self.client.internal.get_key_store();
-        let result = self.credential_store.find_credentials(None, rp_id).await?;
+        let result = self
+            .credential_store
+            .find_credentials(None, rp_id, user_handle)
+            .await?;
 
         let mut ctx = key_store.context();
         result
@@ -353,7 +357,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
         &self,
         ids: Option<&[passkey::types::webauthn::PublicKeyCredentialDescriptor]>,
         rp_id: &str,
-        _user_handle: Option<&[u8]>,
+        user_handle: Option<&[u8]>,
     ) -> Result<Vec<Self::PasskeyItem>, StatusCode> {
         #[derive(Debug, Error)]
         enum InnerError {
@@ -370,6 +374,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             this: &CredentialStoreImpl<'_>,
             ids: Option<&[passkey::types::webauthn::PublicKeyCredentialDescriptor]>,
             rp_id: &str,
+            user_handle: Option<&[u8]>,
         ) -> Result<Vec<CipherViewContainer>, InnerError> {
             let ids: Option<Vec<Vec<u8>>> =
                 ids.map(|ids| ids.iter().map(|id| id.id.clone().into()).collect());
@@ -377,7 +382,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             let ciphers = this
                 .authenticator
                 .credential_store
-                .find_credentials(ids, rp_id.to_string())
+                .find_credentials(ids, rp_id.to_string(), user_handle.map(|h| h.to_vec()))
                 .await?;
 
             // Remove any that don't have Fido2 credentials
@@ -420,7 +425,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             }
         }
 
-        inner(self, ids, rp_id).await.map_err(|error| {
+        inner(self, ids, rp_id, user_handle).await.map_err(|error| {
             error!(%error, "Error finding credentials.");
             VendorError::try_from(0xF0)
                 .expect("Valid vendor error code")

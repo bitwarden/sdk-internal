@@ -363,7 +363,7 @@ struct ContentView: View {
             extensions: nil
         ))
 
-        let _ = try await authenticator.silentlyDiscoverCredentials(rpId: "")
+        let _ = try await authenticator.silentlyDiscoverCredentials(rpId: "", userHandle: nil)
     }
 
 }
@@ -418,7 +418,7 @@ class Fido2CredentialStoreImpl: Fido2CredentialStore {
         abort()
     }
 
-    func findCredentials(ids: [Data]?, ripId: String) async throws -> [BitwardenSdk.CipherView] {
+    func findCredentials(ids: [Data]?, ripId: String, userHandle: Data?) async throws -> [BitwardenSdk.CipherView] {
         abort()
     }
 
