@@ -11,6 +11,17 @@
     "nuget",
     "custom.regex"
   ],
+  "regexManagers": [
+    {
+      "fileMatch": ["^\\.github/workflows/.*\\.ya?ml$"],
+      "matchStrings": [
+        "cargo install (?<depName>cargo-dylint) (?:[\\w-]+ )?--version (?<currentValue>\\d+\\.\\d+\\.\\d+) --locked",
+        "cargo install (?<depName>dylint-link) (?:[\\w-]+ )?--version (?<currentValue>\\d+\\.\\d+\\.\\d+) --locked"
+      ],
+      "datasourceTemplate": "cargo",
+      "versioningTemplate": "cargo"
+    }
+  ],
   "constraints": {
     "go": "1.21"
   },
@@ -24,6 +35,11 @@
       "matchManagers": ["cargo"],
       "groupName": "passkey-rs crates",
       "matchPackageNames": ["passkey", "passkey-client"]
+    },
+    {
+      "groupName": "dylint (crates + actions)",
+      "matchManagers": ["cargo", "custom.regex"],
+      "matchPackageNames": ["dylint_linting", "dylint_testing", "cargo-dylint", "dylint-link"]
     },
     {
       "matchManagers": ["cargo"],

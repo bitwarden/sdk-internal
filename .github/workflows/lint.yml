@@ -101,7 +101,7 @@ jobs:
         run: cargo +"${RUST_NIGHTLY_TOOLCHAIN}" udeps --workspace --all-features
 
       - name: Install cargo-dylint
-        run: cargo install cargo-dylint dylint-link --version 4.1.0 --locked
+        run: cargo install cargo-dylint dylint-link --version 5.0.0 --locked
 
       - name: Cargo dylint
         run: cargo dylint --all -- --all-features --all-targets
