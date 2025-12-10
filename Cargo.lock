@@ -506,16 +506,23 @@ dependencies = [
 name = "bitwarden-auth"
 version = "1.0.0"
 dependencies = [
+ "bitwarden-api-api",
+ "bitwarden-api-identity",
  "bitwarden-core",
+ "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-policies",
  "bitwarden-test",
  "chrono",
  "reqwest",
+ "schemars 1.0.0",
  "serde",
  "serde_json",
+ "serde_repr",
  "thiserror 2.0.12",
  "tokio",
  "tsify",
+ "uniffi",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wiremock",
@@ -809,7 +816,11 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_repr",
+ "tsify",
+ "uniffi",
  "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]

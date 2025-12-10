@@ -10,6 +10,7 @@ use crate::send_access::api::{SendAccessTokenApiErrorResponse, SendAccessTokenAp
     derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(Debug)]
 pub struct SendAccessTokenResponse {
     /// The actual token string.
@@ -73,3 +74,7 @@ impl From<reqwest::Error> for SendAccessTokenError {
     tsify(into_wasm_abi, from_wasm_abi)
 )]
 pub struct UnexpectedIdentityError(pub String);
+
+// Newtype wrapper for unexpected identity errors for uniffi compatibility.
+#[cfg(feature = "uniffi")] // only compile this when uniffi feature is enabled
+uniffi::custom_newtype!(UnexpectedIdentityError, String);
