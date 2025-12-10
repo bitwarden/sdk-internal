@@ -199,12 +199,12 @@ pub trait OrganizationsApi: Send + Sync {
         organization_upgrade_request_model: Option<models::OrganizationUpgradeRequestModel>,
     ) -> Result<models::PaymentResponseModel, Error<PostUpgradeError>>;
 
-    /// PUT /organizations/{id}
+    /// PUT /organizations/{organizationId}
     async fn put<'a>(
         &self,
-        id: &'a str,
+        organization_id: uuid::Uuid,
         organization_update_request_model: Option<models::OrganizationUpdateRequestModel>,
-    ) -> Result<models::OrganizationResponseModel, Error<PutError>>;
+    ) -> Result<(), Error<PutError>>;
 
     /// PUT /organizations/{id}/collection-management
     async fn put_collection_management<'a>(
@@ -1796,17 +1796,17 @@ impl OrganizationsApi for OrganizationsApiClient {
 
     async fn put<'a>(
         &self,
-        id: &'a str,
+        organization_id: uuid::Uuid,
         organization_update_request_model: Option<models::OrganizationUpdateRequestModel>,
-    ) -> Result<models::OrganizationResponseModel, Error<PutError>> {
+    ) -> Result<(), Error<PutError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
 
         let local_var_uri_str = format!(
-            "{}/organizations/{id}",
+            "{}/organizations/{organizationId}",
             local_var_configuration.base_path,
-            id = crate::apis::urlencode(id)
+            organizationId = organization_id
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
@@ -1824,28 +1824,10 @@ impl OrganizationsApi for OrganizationsApiClient {
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
         let local_var_content = local_var_resp.text().await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationResponseModel`"
-                    ))));
-                }
-            }
+            Ok(())
         } else {
             let local_var_entity: Option<PutError> = serde_json::from_str(&local_var_content).ok();
             let local_var_error = ResponseContent {

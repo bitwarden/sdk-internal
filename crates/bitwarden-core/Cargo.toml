@@ -31,6 +31,7 @@ wasm = [
     "bitwarden-crypto/wasm",
     "bitwarden-encoding/wasm",
     "bitwarden-error/wasm",
+    "bitwarden-state/wasm",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
     "dep:tsify",
