@@ -21,7 +21,7 @@ wasm = [
     "bitwarden-crypto/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
-    "dep:wasm-bindgen-futures",
+    "dep:wasm-bindgen-futures"
 ] # WASM support
 
 # Note: dependencies must be alphabetized to pass the cargo sort check in the CI pipeline.
