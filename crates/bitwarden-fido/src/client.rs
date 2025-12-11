@@ -130,10 +130,7 @@ impl Fido2Client<'_> {
                 cred_props: result
                     .client_extension_results
                     .cred_props
-                    .map(|c| CredPropsResult {
-                        rk: c.discoverable,
-                        authenticator_display_name: c.authenticator_display_name,
-                    }),
+                    .map(|c| CredPropsResult { rk: c.discoverable }),
             },
             response: AuthenticatorAssertionResponse {
                 client_data_json: result.response.client_data_json.into(),
