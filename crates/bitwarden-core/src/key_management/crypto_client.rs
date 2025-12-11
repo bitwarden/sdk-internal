@@ -1,9 +1,16 @@
+use std::sync::RwLock;
+
+use bitwarden_api_api::models::AccountKeysRequestModel;
 #[cfg(feature = "wasm")]
 use bitwarden_crypto::safe::PasswordProtectedKeyEnvelope;
-use bitwarden_crypto::{CryptoError, Decryptable, Kdf, RotateableKeySet};
+use bitwarden_crypto::{
+    AsymmetricPublicCryptoKey, CryptoError, Decryptable, DeviceKey, Kdf, KeyStore,
+    RotateableKeySet, SpkiPublicKeyBytes, SymmetricCryptoKey, TrustDeviceResponse,
+};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use bitwarden_encoding::B64;
+use bitwarden_error::bitwarden_error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -22,13 +29,18 @@ use crate::key_management::{
     },
 };
 use crate::{
-    Client,
+    Client, UserId,
     client::encryption_settings::EncryptionSettingsError,
     error::StatefulCryptoError,
-    key_management::crypto::{
-        CryptoClientError, EnrollPinResponse, UpdateKdfResponse, UserCryptoV2KeysResponse,
-        enroll_pin, get_v2_rotated_account_keys, make_update_kdf, make_update_password,
-        make_v2_keys_for_v1_user,
+    key_management::{
+        account_cryptographic_state::{
+            AccountCryptographyInitializationError, WrappedAccountCryptographicState,
+        },
+        crypto::{
+            CryptoClientError, EnrollPinResponse, UpdateKdfResponse, UserCryptoV2KeysResponse,
+            enroll_pin, get_v2_rotated_account_keys, make_update_kdf, make_update_password,
+            make_v2_keys_for_v1_user,
+        },
     },
 };
 
@@ -193,6 +205,77 @@ impl CryptoClient {
     ) -> Result<B64, DeriveKeyConnectorError> {
         derive_key_connector(request)
     }
+
+    /// Creates a new V2 account cryptographic state for TDE registration.
+    /// This generates fresh cryptographic keys (private key, signing key, signed public key,
+    /// and security state) wrapped with a new user key.
+    ///
+    /// Returns the wrapped account cryptographic state that can be used for registration.
+    /// The user key is not returned but is set in the client's key store.
+    pub fn make_user_tde_registration(
+        &self,
+        user_id: UserId,
+        org_public_key: B64,
+    ) -> Result<
+        (
+            WrappedAccountCryptographicState,
+            SymmetricCryptoKey,
+            AccountKeysRequestModel,
+            TrustDeviceResponse,
+            UnsignedSharedKey,
+        ),
+        MakeKeysError,
+    > {
+        let mut ctx = self.client.internal.get_key_store().context_mut();
+        let (user_key, wrapped_state) =
+            WrappedAccountCryptographicState::make(&mut ctx, user_id)
+                .map_err(MakeKeysError::AccountCryptographyInitialization)?;
+        #[expect(deprecated)]
+        let user_key = ctx.dangerous_get_symmetric_key(user_key)?;
+
+        // TDE unlock method
+        let device_key = DeviceKey::trust_device(user_key)?;
+
+        // Account recovery enrollment
+        let public_key =
+            AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))
+                .map_err(MakeKeysError::Crypto)?;
+        let admin_reset = UnsignedSharedKey::encapsulate_key_unsigned(user_key, &public_key)
+            .map_err(MakeKeysError::Crypto)?;
+
+        let store = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let user_key_id = ctx.add_local_symmetric_key(user_key.to_owned());
+        let security_state = RwLock::new(None);
+        wrapped_state
+            .set_to_context(&security_state, user_key_id, &store, ctx)
+            .map_err(MakeKeysError::AccountCryptographyInitialization)?;
+
+        let cryptography_state_request_model = wrapped_state
+            .to_request_model(&store)
+            .map_err(|_| MakeKeysError::RequestModelCreation)?;
+
+        Ok((
+            wrapped_state,
+            user_key.to_owned(),
+            cryptography_state_request_model,
+            device_key,
+            admin_reset,
+        ))
+    }
+}
+
+#[bitwarden_error(flat)]
+#[derive(Debug, thiserror::Error)]
+pub enum MakeKeysError {
+    /// Failed to initialize account cryptography
+    #[error("Failed to initialize account cryptography")]
+    AccountCryptographyInitialization(AccountCryptographyInitializationError),
+    #[error("Failed to make a request model")]
+    RequestModelCreation,
+    /// Generic crypto error
+    #[error("Cryptography error: {0}")]
+    Crypto(#[from] CryptoError),
 }
 
 impl Client {

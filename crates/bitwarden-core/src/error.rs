@@ -52,7 +52,12 @@ impl_bitwarden_error!(IdentityError, ApiError);
 pub struct NotAuthenticatedError;
 
 /// Client's user ID is already set.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, serde::Serialize, serde::Deserialize, Clone)]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
 #[error("The client user ID is already set")]
 pub struct UserIdAlreadySetError;
 
