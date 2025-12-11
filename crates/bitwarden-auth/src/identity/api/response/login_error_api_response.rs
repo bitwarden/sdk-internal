@@ -67,8 +67,6 @@ pub enum OAuth2ErrorApiResponse {
     },
 
     /// Unsupported grant type error, typically due to an unsupported credential flow.
-    /// Note: during initial feature rollout, this will be used to indicate that the
-    /// feature flag is disabled.
     UnsupportedGrantType {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         #[cfg_attr(feature = "wasm", tsify(optional))]

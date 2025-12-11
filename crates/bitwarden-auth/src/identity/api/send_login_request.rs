@@ -1,20 +1,23 @@
 // Cleanest idea for allowing access to data needed for sending login requests
 // Make this function accept the commmon model and flatten the specific
 
-use bitwarden_core::client::ApiConfigurations;
+use bitwarden_core::{auth::login, client::ApiConfigurations};
 use serde::{Serialize, de::DeserializeOwned};
 
-use crate::identity::api::{
-    login_request_header::LoginRequestHeader,
-    request::LoginApiRequest,
-    response::{LoginErrorApiResponse, LoginSuccessApiResponse},
+use crate::identity::{
+    api::{
+        login_request_header::LoginRequestHeader,
+        request::LoginApiRequest,
+        response::{LoginErrorApiResponse, LoginSuccessApiResponse},
+    },
+    models::{LoginError, LoginResponse, LoginSuccessResponse},
 };
 
 /// A common function to send login requests to the Identity connect/token endpoint.
 pub(crate) async fn send_login_request(
     api_configs: &ApiConfigurations,
     api_request: &LoginApiRequest<impl Serialize + DeserializeOwned + std::fmt::Debug>,
-) -> Result<LoginSuccessApiResponse, LoginErrorApiResponse> {
+) -> Result<LoginResponse, LoginError> {
     let identity_config = &api_configs.identity_config;
 
     let url: String = format!("{}/connect/token", &identity_config.base_path);
@@ -47,11 +50,17 @@ pub(crate) async fn send_login_request(
         // TODO: define LoginSuccessResponse model in SDK layer and add into trait from
         // LoginSuccessApiResponse to convert between API model and SDK model
 
-        return Ok(login_success_api_response);
+        let login_success_response: LoginSuccessResponse = login_success_api_response.try_into()?;
+
+        let login_response = LoginResponse::Authenticated (login_success_response);
+
+        return Ok(login_response);
     }
 
     // Handle error response
     let login_error_api_response: LoginErrorApiResponse = response.json().await?;
 
     Err(login_error_api_response)
+
+    todo!()
 }

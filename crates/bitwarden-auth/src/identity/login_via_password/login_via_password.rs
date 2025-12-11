@@ -4,6 +4,7 @@ use crate::identity::{
     IdentityClient,
     api::{request::LoginApiRequest, send_login_request},
     login_via_password::{PasswordLoginApiRequest, PasswordLoginRequest},
+    models::{LoginError, LoginResponse},
 };
 
 impl IdentityClient {
@@ -12,7 +13,10 @@ impl IdentityClient {
     /// This function derives the necessary master password authentication data
     /// using the provided prelogin data, constructs the appropriate API request,
     /// and sends the request to the Identity connect/token endpoint to log the user in.
-    pub async fn login_via_password(&self, request: PasswordLoginRequest) {
+    pub async fn login_via_password(
+        &self,
+        request: PasswordLoginRequest,
+    ) -> Result<LoginResponse, LoginError> {
         // use request password prelogin data to derive master password authentication data:
         let master_password_authentication: Result<
             MasterPasswordAuthenticationData,
@@ -36,5 +40,6 @@ impl IdentityClient {
         // missing we cannot proceed with unlocking the user's vault.
 
         // TODO: figure out how to handle errors.
+        todo!()
     }
 }
