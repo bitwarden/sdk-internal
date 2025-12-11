@@ -22,6 +22,7 @@ When reviewing subsequent commits:
 - Track status of previously identified issues (fixed/unfixed/reopened)
 - Identify NEW problems introduced since last review
 - Note if fixes introduced new issues
+- Do not repeat existing comments
 
 IMPORTANT: Be comprehensive about issues and improvements. For good practices, be brief - just note
 what was done well without explaining why or praising excessively.
