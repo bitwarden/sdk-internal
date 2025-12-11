@@ -59,7 +59,6 @@ impl RegistrationClient {
         trust_device: bool,
     ) -> Result<TdeRegistrationResult, UserRegistrationError> {
         let client = &self.client.internal;
-        #[allow(unused_variables)]
         let api_client = &client.get_api_configurations().await.api_client;
         let user_id =
             UserId::from_str(user_id.as_str()).map_err(|_| UserRegistrationError::Serialization)?;
