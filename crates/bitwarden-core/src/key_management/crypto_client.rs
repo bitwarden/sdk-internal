@@ -289,10 +289,18 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_crypto::{BitwardenLegacyKeyBytes, SymmetricCryptoKey};
+    use std::num::NonZeroU32;
+
+    use bitwarden_crypto::{
+        AsymmetricCryptoKey, BitwardenLegacyKeyBytes, PublicKeyEncryptionAlgorithm,
+        SymmetricCryptoKey,
+    };
 
     use super::*;
-    use crate::client::test_accounts::test_bitwarden_com_account;
+    use crate::{
+        client::test_accounts::test_bitwarden_com_account,
+        key_management::crypto::{InitUserCryptoMethod, InitUserCryptoRequest},
+    };
 
     #[tokio::test]
     async fn test_enroll_pin_envelope() {
@@ -319,7 +327,71 @@ mod tests {
                 )
                 .unwrap(),
         );
-        let user_key_final = SymmetricCryptoKey::try_from(&secret).unwrap();
+        let user_key_final = SymmetricCryptoKey::try_from(&secret).expect("valid user key");
         assert_eq!(user_key_initial, user_key_final);
+    }
+
+    #[tokio::test]
+    async fn test_make_user_tde_registration() {
+        let user_id = UserId::new_v4();
+        let email = "test@bitwarden.com";
+        let kdf = Kdf::PBKDF2 {
+            iterations: NonZeroU32::new(600_000).expect("valid iteration count"),
+        };
+
+        // Generate a mock organization public key for TDE enrollment
+        let org_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let org_public_key_der = org_key
+            .to_public_key()
+            .to_der()
+            .expect("valid public key DER");
+        let org_public_key = B64::from(org_public_key_der.as_ref().to_vec());
+
+        // Create a client and generate TDE registration keys
+        let registration_client = Client::new(None);
+        let (wrapped_state, _user_key, _account_keys_request, device_key, admin_reset) =
+            registration_client
+                .crypto()
+                .make_user_tde_registration(user_id, org_public_key)
+                .expect("TDE registration should succeed");
+
+        // Initialize a new client using the TDE device key
+        let unlock_client = Client::new(None);
+        unlock_client
+            .crypto()
+            .initialize_user_crypto(InitUserCryptoRequest {
+                user_id: Some(user_id),
+                kdf_params: kdf,
+                email: email.to_owned(),
+                account_cryptographic_state: wrapped_state,
+                method: InitUserCryptoMethod::DeviceKey {
+                    device_key: device_key.device_key.to_string(),
+                    protected_device_private_key: device_key.protected_device_private_key,
+                    device_protected_user_key: device_key.protected_user_key,
+                },
+            })
+            .await
+            .expect("initializing user crypto with TDE device key should succeed");
+
+        // Verify we can retrieve the user encryption key
+        let retrieved_key = unlock_client
+            .crypto()
+            .get_user_encryption_key()
+            .await
+            .expect("should be able to get user encryption key");
+
+        // The retrieved key should be a valid symmetric key
+        let retrieved_symmetric_key = SymmetricCryptoKey::try_from(retrieved_key)
+            .expect("retrieved key should be valid symmetric key");
+
+        // Verify that the org key can decrypt the admin_reset UnsignedSharedKey
+        // and that the decrypted key matches the user's encryption key
+        let decrypted_user_key = admin_reset
+            .decapsulate_key_unsigned(&org_key)
+            .expect("org key should be able to decrypt admin reset key");
+        assert_eq!(
+            retrieved_symmetric_key, decrypted_user_key,
+            "decrypted admin reset key should match the user's encryption key"
+        );
     }
 }
