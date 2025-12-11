@@ -34,4 +34,6 @@ pub use kdf::{
     default_pbkdf2_iterations,
 };
 pub(crate) use key_id::{KEY_ID_SIZE, KeyId};
+mod key_connector_key;
 pub(crate) mod utils;
+pub use key_connector_key::KeyConnectorKey;
