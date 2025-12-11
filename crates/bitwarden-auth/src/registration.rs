@@ -59,7 +59,7 @@ impl RegistrationClient {
         user_id: String,
         device_id: String,
         trust_device: bool,
-    ) -> Result<TdeRegistrationResult, UserRegistrationError> {
+    ) -> Result<TdeRegistrationResponse, UserRegistrationError> {
         let client = &self.client.internal;
         let api_client = &client.get_api_configurations().await.api_client;
         let user_id =
@@ -134,7 +134,7 @@ impl RegistrationClient {
         info!("User initialized!");
         // Note: This passing out of state and keys is temporary. Once SDK state management is more
         // mature, the account cryptographic state and keys should be set directly here.
-        Ok(TdeRegistrationResult {
+        Ok(TdeRegistrationResponse {
             account_cryptographic_state: cryptography_state,
             device_key: device_key_set.device_key.to_string(),
             user_key: user_key.to_encoded().to_vec().into(),
@@ -150,7 +150,7 @@ impl RegistrationClient {
 )]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub struct TdeRegistrationResult {
+pub struct TdeRegistrationResponse {
     /// The account cryptographic state of the user
     pub account_cryptographic_state: WrappedAccountCryptographicState,
     /// The device key
