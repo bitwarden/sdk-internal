@@ -15,7 +15,6 @@ use bitwarden_core::{
 };
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
-use serde_bytes::ByteBuf;
 use thiserror::Error;
 use tracing::info;
 #[cfg(feature = "wasm")]
@@ -23,6 +22,7 @@ use wasm_bindgen::prelude::*;
 
 /// Client for initializing a user account.
 #[derive(Clone)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct RegistrationClient {
     #[allow(dead_code)]
@@ -34,6 +34,8 @@ impl RegistrationClient {
         Self { client }
     }
 }
+
+#[cfg_attr(feature = "uniffi", uniffi::export)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl RegistrationClient {
     /// Example method to demonstrate usage of the client.
@@ -146,6 +148,7 @@ impl RegistrationClient {
     derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct TdeRegistrationResult {
     /// The account cryptographic state of the user
@@ -153,7 +156,7 @@ pub struct TdeRegistrationResult {
     /// The device key
     pub device_key: String,
     /// The decrypted user key. This can be used to get the consuming client to an unlocked state.
-    pub user_key: ByteBuf,
+    pub user_key: B64,
 }
 
 /// Errors that can occur during user registration.

@@ -521,6 +521,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tsify",
+ "uniffi",
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
