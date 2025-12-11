@@ -1,4 +1,4 @@
-use bitwarden_api_identity::models::{PreloginRequestModel, PreloginResponseModel};
+use bitwarden_api_identity::models::{PasswordPreloginRequestModel, PasswordPreloginResponseModel};
 use bitwarden_crypto::Kdf;
 use thiserror::Error;
 
@@ -14,19 +14,19 @@ pub enum PreloginError {
 }
 
 pub(crate) async fn prelogin(client: &Client, email: String) -> Result<Kdf, PreloginError> {
-    let request_model = PreloginRequestModel::new(email);
+    let request_model = PasswordPreloginRequestModel::new(email);
     let config = client.internal.get_api_configurations().await;
     let result = config
         .identity_client
         .accounts_api()
-        .post_prelogin(Some(request_model))
+        .post_password_prelogin(Some(request_model))
         .await
         .map_err(ApiError::from)?;
 
     Ok(parse_prelogin(result)?)
 }
 
-fn parse_prelogin(response: PreloginResponseModel) -> Result<Kdf, MissingFieldError> {
+fn parse_prelogin(response: PasswordPreloginResponseModel) -> Result<Kdf, MissingFieldError> {
     use std::num::NonZeroU32;
 
     use bitwarden_api_identity::models::KdfType;

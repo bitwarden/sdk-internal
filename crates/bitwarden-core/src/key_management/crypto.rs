@@ -8,9 +8,10 @@ use std::collections::HashMap;
 
 use bitwarden_crypto::{
     AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
-    KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, SignatureAlgorithm,
-    SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey,
-    UserKey, dangerous_get_v2_rotated_account_keys,
+    KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, RotateableKeySet,
+    SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
+    UnsignedSharedKey, UserKey, dangerous_get_v2_rotated_account_keys,
+    derive_symmetric_key_from_prf,
     safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError},
 };
 use bitwarden_encoding::B64;
@@ -518,6 +519,16 @@ fn derive_pin_protected_user_key(
     };
 
     Ok(derived_key.encrypt_user_key(user_key)?)
+}
+
+pub(super) fn make_prf_user_key_set(
+    client: &Client,
+    prf: B64,
+) -> Result<RotateableKeySet, CryptoClientError> {
+    let prf_key = derive_symmetric_key_from_prf(prf.as_bytes())?;
+    let ctx = client.internal.get_key_store().context();
+    let key_set = RotateableKeySet::new(&ctx, &prf_key, SymmetricKeyId::User)?;
+    Ok(key_set)
 }
 
 #[allow(missing_docs)]
