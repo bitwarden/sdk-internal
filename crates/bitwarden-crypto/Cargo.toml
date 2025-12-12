@@ -21,7 +21,7 @@ uniffi = [
     "argon2/parallel",
     "bitwarden-encoding/uniffi",
     "dep:bitwarden-uniffi-error",
-    "dep:uniffi"
+    "dep:uniffi",
 ] # Uniffi bindings
 wasm = ["dep:tsify", "dep:wasm-bindgen"] # WASM support
 

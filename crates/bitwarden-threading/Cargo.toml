@@ -20,7 +20,7 @@ wasm = [
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
     "dep:js-sys",
-    "dep:gloo-timers"
+    "dep:gloo-timers",
 ]
 
 [dependencies]
