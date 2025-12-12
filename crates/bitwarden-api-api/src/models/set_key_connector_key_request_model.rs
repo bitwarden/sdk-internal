@@ -14,14 +14,22 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SetKeyConnectorKeyRequestModel {
-    #[serde(rename = "key", alias = "Key")]
-    pub key: String,
-    #[serde(rename = "keys", alias = "Keys")]
-    pub keys: Box<models::KeysRequestModel>,
-    #[serde(rename = "kdf", alias = "Kdf")]
-    pub kdf: models::KdfType,
-    #[serde(rename = "kdfIterations", alias = "KdfIterations")]
-    pub kdf_iterations: i32,
+    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
+    #[serde(
+        rename = "keys",
+        alias = "Keys",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub keys: Option<Box<models::KeysRequestModel>>,
+    #[serde(rename = "kdf", alias = "Kdf", skip_serializing_if = "Option::is_none")]
+    pub kdf: Option<models::KdfType>,
+    #[serde(
+        rename = "kdfIterations",
+        alias = "KdfIterations",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub kdf_iterations: Option<i32>,
     #[serde(
         rename = "kdfMemory",
         alias = "KdfMemory",
@@ -34,25 +42,33 @@ pub struct SetKeyConnectorKeyRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub kdf_parallelism: Option<i32>,
+    #[serde(
+        rename = "keyConnectorKeyWrappedUserKey",
+        alias = "KeyConnectorKeyWrappedUserKey",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub key_connector_key_wrapped_user_key: Option<String>,
+    #[serde(
+        rename = "accountKeys",
+        alias = "AccountKeys",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub account_keys: Option<Box<models::AccountKeysRequestModel>>,
     #[serde(rename = "orgIdentifier", alias = "OrgIdentifier")]
     pub org_identifier: String,
 }
 
 impl SetKeyConnectorKeyRequestModel {
-    pub fn new(
-        key: String,
-        keys: models::KeysRequestModel,
-        kdf: models::KdfType,
-        kdf_iterations: i32,
-        org_identifier: String,
-    ) -> SetKeyConnectorKeyRequestModel {
+    pub fn new(org_identifier: String) -> SetKeyConnectorKeyRequestModel {
         SetKeyConnectorKeyRequestModel {
-            key,
-            keys: Box::new(keys),
-            kdf,
-            kdf_iterations,
+            key: None,
+            keys: None,
+            kdf: None,
+            kdf_iterations: None,
             kdf_memory: None,
             kdf_parallelism: None,
+            key_connector_key_wrapped_user_key: None,
+            account_keys: None,
             org_identifier,
         }
     }

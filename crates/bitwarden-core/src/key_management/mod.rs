@@ -19,7 +19,7 @@ pub mod crypto;
 #[cfg(feature = "internal")]
 mod crypto_client;
 #[cfg(feature = "internal")]
-pub use crypto_client::CryptoClient;
+pub use crypto_client::{AccountCryptographyMakeKeysError, CryptoClient};
 
 #[cfg(feature = "internal")]
 mod master_password;
@@ -37,6 +37,11 @@ pub use security_state::{
 mod user_decryption;
 #[cfg(feature = "internal")]
 pub use user_decryption::UserDecryptionData;
+
+#[cfg(feature = "internal")]
+mod key_connector;
+#[cfg(feature = "internal")]
+pub use key_connector::{KeyConnectorApiError, key_connector_api_post_or_put_key_connector_key};
 
 use crate::OrganizationId;
 
