@@ -11,7 +11,7 @@ rust-version.workspace = true
 readme.workspace = true
 homepage.workspace = true
 repository.workspace = true
-license-file = "../../LICENSE_BITWARDEN.txt"
+license-file = "../../LICENSE_SDK.txt"
 keywords.workspace = true
 
 [features]

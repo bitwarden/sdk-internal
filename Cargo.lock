@@ -406,7 +406,7 @@ dependencies = [
  "globset",
  "home",
  "indexmap 2.9.0",
- "itertools 0.13.0",
+ "itertools",
  "nu-ansi-term",
  "once_cell",
  "path_abs",
@@ -474,7 +474,7 @@ checksum = "1b8e56985ec62d17e9c1001dc89c88ecd7dc08e47eba5ec7c29c7b5eeecde967"
 
 [[package]]
 name = "bitwarden-api-api"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "mockall",
@@ -489,7 +489,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-api-identity"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "mockall",
@@ -504,7 +504,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-auth"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-core",
  "bitwarden-error",
@@ -513,7 +513,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tokio",
  "tsify",
  "wasm-bindgen",
@@ -523,7 +523,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-cli"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "clap",
  "color-eyre",
@@ -533,7 +533,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-collections"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
@@ -542,7 +542,7 @@ dependencies = [
  "bitwarden-uuid",
  "serde",
  "serde_repr",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tsify",
  "uniffi",
  "uuid",
@@ -551,7 +551,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-commercial-vault"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-core",
  "serde",
@@ -566,7 +566,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-core"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
@@ -590,7 +590,7 @@ dependencies = [
  "serde_json",
  "serde_qs",
  "serde_repr",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "tsify",
@@ -604,7 +604,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-crypto"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "aes 0.8.4",
  "argon2",
@@ -636,6 +636,7 @@ dependencies = [
  "sha2 0.10.9",
  "subtle",
  "thiserror 2.0.12",
+ "tracing",
  "tsify",
  "typenum",
  "uniffi",
@@ -647,7 +648,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-encoding"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-uniffi-error",
  "data-encoding",
@@ -655,7 +656,7 @@ dependencies = [
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tsify",
  "uniffi",
  "wasm-bindgen",
@@ -664,7 +665,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-error"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-error-macro",
  "js-sys",
@@ -677,7 +678,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-error-macro"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-error",
  "darling",
@@ -686,14 +687,14 @@ dependencies = [
  "quote",
  "serde",
  "syn",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tsify",
  "wasm-bindgen",
 ]
 
 [[package]]
 name = "bitwarden-exporters"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-collections",
  "bitwarden-core",
@@ -709,7 +710,7 @@ dependencies = [
  "num-traits",
  "serde",
  "serde_json",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tsify",
  "uniffi",
  "uuid",
@@ -718,7 +719,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-fido"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-core",
@@ -727,14 +728,14 @@ dependencies = [
  "bitwarden-vault",
  "chrono",
  "coset",
- "itertools 0.14.0",
+ "itertools",
  "p256",
  "passkey",
  "passkey-client",
  "reqwest",
  "serde",
  "serde_json",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tracing",
  "uniffi",
  "uuid",
@@ -742,7 +743,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-generators"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
@@ -753,7 +754,7 @@ dependencies = [
  "schemars 1.0.0",
  "serde",
  "serde_json",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tokio",
  "tsify",
  "uniffi",
@@ -763,7 +764,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-ipc"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
@@ -772,7 +773,7 @@ dependencies = [
  "js-sys",
  "serde",
  "serde_json",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "tsify",
@@ -783,7 +784,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-pm"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-auth",
  "bitwarden-commercial-vault",
@@ -802,7 +803,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-policies"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
@@ -814,7 +815,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-send"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
@@ -823,7 +824,7 @@ dependencies = [
  "chrono",
  "serde",
  "serde_repr",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "uniffi",
  "uuid",
  "zeroize",
@@ -831,7 +832,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-sm"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
@@ -840,7 +841,7 @@ dependencies = [
  "schemars 1.0.0",
  "serde",
  "serde_json",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "uuid",
@@ -850,7 +851,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-ssh"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-error",
  "bitwarden-vault",
@@ -867,7 +868,7 @@ dependencies = [
  "serde",
  "ssh-cipher",
  "ssh-key",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tsify",
  "uniffi",
  "wasm-bindgen",
@@ -875,7 +876,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-state"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
@@ -885,7 +886,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tokio",
  "tsify",
  "uniffi",
@@ -893,7 +894,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-test"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
@@ -904,7 +905,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-threading"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-error",
@@ -912,7 +913,7 @@ dependencies = [
  "gloo-timers",
  "js-sys",
  "serde",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tokio",
  "tokio-test",
  "tokio-util",
@@ -956,14 +957,14 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-uniffi-error"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "anyhow",
 ]
 
 [[package]]
 name = "bitwarden-uuid"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-uuid-macro",
  "serde",
@@ -975,7 +976,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-uuid-macro"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "quote",
  "syn",
@@ -983,7 +984,7 @@ dependencies = [
 
 [[package]]
 name = "bitwarden-vault"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-collections",
@@ -1006,8 +1007,9 @@ dependencies = [
  "sha1",
  "sha2 0.10.9",
  "subtle",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tokio",
+ "tracing",
  "tsify",
  "uniffi",
  "uuid",
@@ -1324,7 +1326,7 @@ dependencies = [
  "num-traits",
  "serde",
  "wasm-bindgen",
- "windows-link",
+ "windows-link 0.1.3",
 ]
 
 [[package]]
@@ -1487,11 +1489,11 @@ dependencies = [
 
 [[package]]
 name = "comfy-table"
-version = "7.1.4"
+version = "7.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a65ebfec4fb190b6f90e944a817d60499ee0744e582530e2c9900a22e591d9a"
+checksum = "b03b7db8e0b4b2fdad6c551e634134e99ec000e5c8c3b6856c65e8bbaded7a3b"
 dependencies = [
- "crossterm 0.28.1",
+ "crossterm 0.29.0",
  "unicode-segmentation",
  "unicode-width 0.2.1",
 ]
@@ -1616,7 +1618,7 @@ dependencies = [
  "ciborium",
  "clap",
  "criterion-plot",
- "itertools 0.13.0",
+ "itertools",
  "num-traits",
  "oorandom",
  "plotters",
@@ -1635,7 +1637,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b1bcc0dc7dfae599d84ad0b1a55f80cde8af3725da8313b528da95ef783e338"
 dependencies = [
  "cast",
- "itertools 0.13.0",
+ "itertools",
 ]
 
 [[package]]
@@ -1681,19 +1683,6 @@ dependencies = [
 
 [[package]]
 name = "crossterm"
-version = "0.28.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "829d955a0bb380ef178a640b91779e3987da38c9aea133b20614cfed8cdea9c6"
-dependencies = [
- "bitflags 2.9.1",
- "crossterm_winapi",
- "parking_lot",
- "rustix 0.38.44",
- "winapi",
-]
-
-[[package]]
-name = "crossterm"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b9f2e4c67f833b660cdb0a3523065869fb35570177239812ed4c905aeff87b"
@@ -1704,7 +1693,7 @@ dependencies = [
  "document-features",
  "mio 1.0.4",
  "parking_lot",
- "rustix 1.0.8",
+ "rustix",
  "signal-hook",
  "signal-hook-mio",
  "winapi",
@@ -2236,7 +2225,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "778e2ac28f6c47af28e4907f13ffd1e1ddbd400980a9abd7c8df189bf578a5ad"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2966,16 +2955,6 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
 name = "idna"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "634d9b1461af396cad843f47fdba5597a4f9e6ddd4bfb6ff5d85028c25cb12f6"
-dependencies = [
- "unicode-bidi",
- "unicode-normalization",
-]
-
-[[package]]
-name = "idna"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "686f825264d630750a544639377bae737628043f20d38bbc029e8f29ea968a7e"
@@ -3089,17 +3068,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "io-uring"
-version = "0.7.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "046fa2d4d00aea763528b4950358d0ead425372445dc8ff86312b3c69ff7727b"
-dependencies = [
- "bitflags 2.9.1",
- "cfg-if",
- "libc",
-]
-
-[[package]]
 name = "ipnet"
 version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3132,15 +3100,6 @@ name = "itertools"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
 dependencies = [
  "either",
 ]
@@ -3241,7 +3200,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07033963ba89ebaf1584d767badaa2e8fcec21aedea6b8c0346d487d49c28667"
 dependencies = [
  "cfg-if",
- "windows-targets 0.53.2",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -3271,12 +3230,6 @@ dependencies = [
  "pkg-config",
  "vcpkg",
 ]
-
-[[package]]
-name = "linux-raw-sys"
-version = "0.4.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d26c52dbd32dccf2d10cac7725f8eae5296885fb5703b261f7d0a0739ec807ab"
 
 [[package]]
 name = "linux-raw-sys"
@@ -3412,9 +3365,9 @@ dependencies = [
 
 [[package]]
 name = "mockall"
-version = "0.13.1"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39a6bfcc6c8c7eed5ee98b9c3e33adc726054389233e201c95dab2d41a3839d2"
+checksum = "f58d964098a5f9c6b63d0798e5372fd04708193510a7af313c22e9f29b7b620b"
 dependencies = [
  "cfg-if",
  "downcast",
@@ -3426,9 +3379,9 @@ dependencies = [
 
 [[package]]
 name = "mockall_derive"
-version = "0.13.1"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25ca3004c2efe9011bd4e461bd8256445052b9615405b4f7ea43fc8ca5c20898"
+checksum = "ca41ce716dda6a9be188b385aa78ee5260fc25cd3802cb2a8afdc6afbe6b6dbf"
 dependencies = [
  "cfg-if",
  "proc-macro2",
@@ -3646,8 +3599,8 @@ dependencies = [
 
 [[package]]
 name = "passkey"
-version = "0.2.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633ebc6576c07bdd12ee14d8e5c87b494ed"
+version = "0.5.0"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=357cc9672340f6ff1f22a0b210a74de64799fa73#357cc9672340f6ff1f22a0b210a74de64799fa73"
 dependencies = [
  "passkey-authenticator",
  "passkey-client",
@@ -3657,8 +3610,8 @@ dependencies = [
 
 [[package]]
 name = "passkey-authenticator"
-version = "0.2.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633ebc6576c07bdd12ee14d8e5c87b494ed"
+version = "0.5.0"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=357cc9672340f6ff1f22a0b210a74de64799fa73#357cc9672340f6ff1f22a0b210a74de64799fa73"
 dependencies = [
  "async-trait",
  "coset",
@@ -3670,12 +3623,13 @@ dependencies = [
 
 [[package]]
 name = "passkey-client"
-version = "0.2.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633ebc6576c07bdd12ee14d8e5c87b494ed"
+version = "0.5.0"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=357cc9672340f6ff1f22a0b210a74de64799fa73#357cc9672340f6ff1f22a0b210a74de64799fa73"
 dependencies = [
  "ciborium",
  "coset",
- "idna 0.5.0",
+ "idna",
+ "itertools 0.14.0",
  "nom",
  "passkey-authenticator",
  "passkey-types",
@@ -3688,24 +3642,27 @@ dependencies = [
 [[package]]
 name = "passkey-transports"
 version = "0.1.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633ebc6576c07bdd12ee14d8e5c87b494ed"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=357cc9672340f6ff1f22a0b210a74de64799fa73#357cc9672340f6ff1f22a0b210a74de64799fa73"
 
 [[package]]
 name = "passkey-types"
-version = "0.2.1"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633ebc6576c07bdd12ee14d8e5c87b494ed"
+version = "0.5.0"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=357cc9672340f6ff1f22a0b210a74de64799fa73#357cc9672340f6ff1f22a0b210a74de64799fa73"
 dependencies = [
  "bitflags 2.9.1",
  "ciborium",
  "coset",
  "data-encoding",
  "getrandom 0.2.16",
+ "hmac 0.12.1",
  "indexmap 2.9.0",
  "rand 0.8.5",
  "serde",
  "serde_json",
  "sha2 0.10.9",
  "strum",
+ "url",
+ "zeroize",
 ]
 
 [[package]]
@@ -4036,8 +3993,8 @@ dependencies = [
 
 [[package]]
 name = "public-suffix"
-version = "0.1.1"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=3b764633ebc6576c07bdd12ee14d8e5c87b494ed#3b764633ebc6576c07bdd12ee14d8e5c87b494ed"
+version = "0.1.3"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=357cc9672340f6ff1f22a0b210a74de64799fa73#357cc9672340f6ff1f22a0b210a74de64799fa73"
 
 [[package]]
 name = "quick-error"
@@ -4106,7 +4063,7 @@ dependencies = [
  "once_cell",
  "socket2 0.5.10",
  "tracing",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4460,19 +4417,6 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.38.44"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fdb5bc1ae2baa591800df16c9ca78619bf65c0488b41b96ccec5d11220d8c154"
-dependencies = [
- "bitflags 2.9.1",
- "errno",
- "libc",
- "linux-raw-sys 0.4.15",
- "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "rustix"
 version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "11181fbabf243db407ef8df94a6ce0b2f9a733bd8be4ad02b4eda9602296cac8"
@@ -4480,8 +4424,8 @@ dependencies = [
  "bitflags 2.9.1",
  "errno",
  "libc",
- "linux-raw-sys 0.9.4",
- "windows-sys 0.60.2",
+ "linux-raw-sys",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4539,7 +4483,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5259,8 +5203,8 @@ dependencies = [
  "fastrand",
  "getrandom 0.3.3",
  "once_cell",
- "rustix 1.0.8",
- "windows-sys 0.60.2",
+ "rustix",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5453,27 +5397,24 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.47.1"
+version = "1.48.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89e49afdadebb872d3145a5638b59eb0691ea23e46ca484037cfab3b76b95038"
+checksum = "ff360e02eab121e0bc37a2d3b4d4dc622e6eda3a8e5253d5435ecf5bd4c68408"
 dependencies = [
- "backtrace",
  "bytes",
- "io-uring",
  "libc",
  "mio 1.0.4",
  "pin-project-lite",
- "slab",
  "socket2 0.6.0",
  "tokio-macros",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
 name = "tokio-macros"
-version = "2.5.0"
+version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e06d43f1345a3bcd39f6a56dbb7dcab2ba47e68e8ac134855e7e2bdbaf8cab8"
+checksum = "af407857209536a95c8e56f8231ef2c2e2aff839b22e07a1ffcbc617e9db9fa5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5794,25 +5735,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75b844d17643ee918803943289730bec8aac480150456169e647ed0b576ba539"
 
 [[package]]
-name = "unicode-bidi"
-version = "0.3.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c1cb5db39152898a79168971543b1cb5020dff7fe43c8dc468b0885f5e29df5"
-
-[[package]]
 name = "unicode-ident"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a5f39404a5da50712a4c1eecf25e90dd62b613502b7e925fd4e4d19b5c96512"
-
-[[package]]
-name = "unicode-normalization"
-version = "0.1.24"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5033c97c4262335cded6d6fc3e5c18ab755e1a3dc96376350f3d8e9f009ad956"
-dependencies = [
- "tinyvec",
-]
 
 [[package]]
 name = "unicode-segmentation"
@@ -6020,8 +5946,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32f8b686cadd1473f4bd0117a5d28d36b1ade384ea9b5069a1c40aefed7fda60"
 dependencies = [
  "form_urlencoded",
- "idna 1.0.3",
+ "idna",
  "percent-encoding",
+ "serde",
 ]
 
 [[package]]
@@ -6054,7 +5981,7 @@ version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43fb22e1a008ece370ce08a3e9e4447a910e92621bb49b85d6e48a45397e7cfa"
 dependencies = [
- "idna 1.0.3",
+ "idna",
  "once_cell",
  "regex",
  "serde",
@@ -6404,7 +6331,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -6443,7 +6370,7 @@ checksum = "c0fdd3ddb90610c7638aa2b3a3ab2904fb9e5cdbecc643ddb3647212781c4ae3"
 dependencies = [
  "windows-implement 0.60.0",
  "windows-interface 0.59.1",
- "windows-link",
+ "windows-link 0.1.3",
  "windows-result 0.3.4",
  "windows-strings",
 ]
@@ -6499,6 +6426,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e6ad25900d524eaabdbbb96d20b4311e1e7ae1699af4fb28c17ae66c80d798a"
 
 [[package]]
+name = "windows-link"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0805222e57f7521d6a62e36fa9163bc891acd422f971defe97d64e70d0a4fe5"
+
+[[package]]
 name = "windows-result"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6513,7 +6446,7 @@ version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56f42bd332cc6c8eac5af113fc0c1fd6a8fd2aa08a0119358686e5160d0586c6"
 dependencies = [
- "windows-link",
+ "windows-link 0.1.3",
 ]
 
 [[package]]
@@ -6522,7 +6455,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56e6c93f3a0c3b36176cb1327a4958a0353d5d166c2a35cb268ace15e91d3b57"
 dependencies = [
- "windows-link",
+ "windows-link 0.1.3",
 ]
 
 [[package]]
@@ -6568,6 +6501,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2f500e4d28234f72040990ec9d39e3a6b950f9f22d3dba18416c35882612bcb"
 dependencies = [
  "windows-targets 0.53.2",
+]
+
+[[package]]
+name = "windows-sys"
+version = "0.61.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae137229bcbd6cdf0f7b80a31df61766145077ddf49416a728b02cb3921ff3fc"
+dependencies = [
+ "windows-link 0.2.1",
 ]
 
 [[package]]
@@ -7000,7 +6942,7 @@ dependencies = [
  "chrono",
  "derive_builder",
  "fancy-regex 0.13.0",
- "itertools 0.13.0",
+ "itertools",
  "lazy_static",
  "regex",
  "time",

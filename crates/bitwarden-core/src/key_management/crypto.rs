@@ -8,15 +8,17 @@ use std::collections::HashMap;
 
 use bitwarden_crypto::{
     AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
-    KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, SignatureAlgorithm,
-    SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey,
-    UserKey, dangerous_get_v2_rotated_account_keys,
+    KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, RotateableKeySet,
+    SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
+    UnsignedSharedKey, UserKey, dangerous_get_v2_rotated_account_keys,
+    derive_symmetric_key_from_prf,
     safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError},
 };
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use tracing::info;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
@@ -164,14 +166,21 @@ pub(super) async fn initialize_user_crypto(
         client.internal.init_user_id(user_id)?;
     }
 
-    let key_state = req.account_cryptographic_state;
+    let account_crypto_state = req.account_cryptographic_state.to_owned();
+    let _span_guard = tracing::info_span!(
+        "User Crypto Initialization",
+        user_id = ?client.internal.get_user_id(),
+    )
+    .entered();
 
     match req.method {
         InitUserCryptoMethod::Password { password, user_key } => {
             let master_key = MasterKey::derive(&password, &req.email, &req.kdf_params)?;
-            client
-                .internal
-                .initialize_user_crypto_master_key(master_key, user_key, key_state)?;
+            client.internal.initialize_user_crypto_master_key(
+                master_key,
+                user_key,
+                account_crypto_state,
+            )?;
         }
         InitUserCryptoMethod::MasterPasswordUnlock {
             password,
@@ -182,14 +191,14 @@ pub(super) async fn initialize_user_crypto(
                 .initialize_user_crypto_master_password_unlock(
                     password,
                     master_password_unlock,
-                    key_state,
+                    account_crypto_state,
                 )?;
         }
         InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
             let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
             client
                 .internal
-                .initialize_user_crypto_decrypted_key(user_key, key_state)?;
+                .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
         }
         InitUserCryptoMethod::Pin {
             pin,
@@ -199,7 +208,7 @@ pub(super) async fn initialize_user_crypto(
             client.internal.initialize_user_crypto_pin(
                 pin_key,
                 pin_protected_user_key,
-                key_state,
+                account_crypto_state,
             )?;
         }
         InitUserCryptoMethod::PinEnvelope {
@@ -209,7 +218,7 @@ pub(super) async fn initialize_user_crypto(
             client.internal.initialize_user_crypto_pin_envelope(
                 pin,
                 pin_protected_user_key_envelope,
-                key_state,
+                account_crypto_state,
             )?;
         }
         InitUserCryptoMethod::AuthRequest {
@@ -231,7 +240,7 @@ pub(super) async fn initialize_user_crypto(
             };
             client
                 .internal
-                .initialize_user_crypto_decrypted_key(user_key, key_state)?;
+                .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
         }
         InitUserCryptoMethod::DeviceKey {
             device_key,
@@ -244,7 +253,7 @@ pub(super) async fn initialize_user_crypto(
 
             client
                 .internal
-                .initialize_user_crypto_decrypted_key(user_key, key_state)?;
+                .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
         }
         InitUserCryptoMethod::KeyConnector {
             master_key,
@@ -253,11 +262,15 @@ pub(super) async fn initialize_user_crypto(
             let mut bytes = master_key.into_bytes();
             let master_key = MasterKey::try_from(bytes.as_mut_slice())?;
 
-            client
-                .internal
-                .initialize_user_crypto_master_key(master_key, user_key, key_state)?;
+            client.internal.initialize_user_crypto_master_key(
+                master_key,
+                user_key,
+                account_crypto_state,
+            )?;
         }
     }
+
+    info!("User crypto initialized successfully");
 
     client
         .internal
@@ -506,6 +519,16 @@ fn derive_pin_protected_user_key(
     };
 
     Ok(derived_key.encrypt_user_key(user_key)?)
+}
+
+pub(super) fn make_prf_user_key_set(
+    client: &Client,
+    prf: B64,
+) -> Result<RotateableKeySet, CryptoClientError> {
+    let prf_key = derive_symmetric_key_from_prf(prf.as_bytes())?;
+    let ctx = client.internal.get_key_store().context();
+    let key_set = RotateableKeySet::new(&ctx, &prf_key, SymmetricKeyId::User)?;
+    Ok(key_set)
 }
 
 #[allow(missing_docs)]
