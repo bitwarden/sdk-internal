@@ -7,7 +7,7 @@ use typenum::U32;
 
 use crate::{EncString, SymmetricCryptoKey, keys::utils::stretch_key};
 
-/// Key connector key, used to protect the [UserKey].
+/// Key connector key, used to protect the user key.
 #[derive(Clone, Debug)]
 pub struct KeyConnectorKey(pub(super) Pin<Box<GenericArray<u8, U32>>>);
 
