@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PreloginResponseModel {
+pub struct PasswordPreloginResponseModel {
     #[serde(rename = "kdf", alias = "Kdf", skip_serializing_if = "Option::is_none")]
     pub kdf: Option<models::KdfType>,
     #[serde(
@@ -34,15 +34,29 @@ pub struct PreloginResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub kdf_parallelism: Option<i32>,
+    #[serde(
+        rename = "kdfSettings",
+        alias = "KdfSettings",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub kdf_settings: Option<Box<models::KdfSettings>>,
+    #[serde(
+        rename = "salt",
+        alias = "Salt",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub salt: Option<String>,
 }
 
-impl PreloginResponseModel {
-    pub fn new() -> PreloginResponseModel {
-        PreloginResponseModel {
+impl PasswordPreloginResponseModel {
+    pub fn new() -> PasswordPreloginResponseModel {
+        PasswordPreloginResponseModel {
             kdf: None,
             kdf_iterations: None,
             kdf_memory: None,
             kdf_parallelism: None,
+            kdf_settings: None,
+            salt: None,
         }
     }
 }

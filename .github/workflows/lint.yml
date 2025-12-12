@@ -42,7 +42,7 @@ jobs:
           echo "RUST_NIGHTLY_TOOLCHAIN=${RUST_NIGHTLY_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
 
       - name: Install rust
-        uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # stable
+        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e # stable
         with:
           toolchain: "${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}"
           components: clippy, rustfmt
@@ -87,10 +87,10 @@ jobs:
           RUSTFLAGS: "-D warnings"
 
       - name: Install cargo-sort
-        run: cargo install cargo-sort --locked --git https://github.com/DevinR528/cargo-sort.git --rev f5047967021cbb1f822faddc355b3b07674305a1
+        run: cargo install cargo-sort --version 2.0.2 --locked
 
       - name: Cargo sort
-        run: cargo sort --workspace --check
+        run: cargo sort --workspace --grouped --check
 
       - name: Install cargo-udeps
         run: cargo install cargo-udeps --version 0.1.57 --locked
@@ -101,7 +101,7 @@ jobs:
         run: cargo +"${RUST_NIGHTLY_TOOLCHAIN}" udeps --workspace --all-features
 
       - name: Install cargo-dylint
-        run: cargo install cargo-dylint dylint-link --version 4.1.0 --locked
+        run: cargo install cargo-dylint dylint-link --version 5.0.0 --locked
 
       - name: Cargo dylint
         run: cargo dylint --all -- --all-features --all-targets

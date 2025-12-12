@@ -34,6 +34,11 @@ pub use kdf::{
     default_pbkdf2_iterations,
 };
 pub(crate) use key_id::{KEY_ID_SIZE, KeyId};
-mod key_connector_key;
+mod prf;
+mod rotateable_key_set;
+pub use rotateable_key_set::RotateableKeySet;
 pub(crate) mod utils;
+pub use prf::derive_symmetric_key_from_prf;
+
+mod key_connector_key;
 pub use key_connector_key::KeyConnectorKey;

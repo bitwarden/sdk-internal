@@ -4,7 +4,7 @@ use bitwarden_api_api::models::AccountKeysRequestModel;
 #[cfg(feature = "wasm")]
 use bitwarden_crypto::safe::PasswordProtectedKeyEnvelope;
 use bitwarden_crypto::{
-    CryptoError, Decryptable, Kdf, KeyConnectorKey, KeyStore, SymmetricCryptoKey,
+    CryptoError, Decryptable, Kdf, KeyConnectorKey, KeyStore, RotateableKeySet, SymmetricCryptoKey,
 };
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
@@ -28,7 +28,7 @@ use crate::key_management::{
     crypto::{
         DerivePinKeyResponse, InitOrgCryptoRequest, InitUserCryptoRequest, UpdatePasswordResponse,
         derive_pin_key, derive_pin_user_key, enroll_admin_password_reset, get_user_encryption_key,
-        initialize_org_crypto, initialize_user_crypto,
+        initialize_org_crypto, initialize_user_crypto, make_prf_user_key_set,
     },
 };
 use crate::{
@@ -179,6 +179,12 @@ impl CryptoClient {
         encrypted_pin: EncString,
     ) -> Result<EncString, CryptoClientError> {
         derive_pin_user_key(&self.client, encrypted_pin)
+    }
+
+    /// Creates a new rotateable key set for the current user key protected
+    /// by a key derived from the given PRF.
+    pub fn make_prf_user_key_set(&self, prf: B64) -> Result<RotateableKeySet, CryptoClientError> {
+        make_prf_user_key_set(&self.client, prf)
     }
 
     /// Prepares the account for being enrolled in the admin password reset feature. This encrypts
