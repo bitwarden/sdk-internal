@@ -20,7 +20,7 @@ wasm = [
     "bitwarden-error/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
-    "getrandom/wasm_js"
+    "getrandom/wasm_js",
 ] # WASM support
 uniffi = ["dep:uniffi"] # Uniffi bindings
 

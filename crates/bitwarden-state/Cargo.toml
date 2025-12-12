@@ -1,5 +1,8 @@
 [package]
 name = "bitwarden-state"
+description = """
+Internal crate for the bitwarden crate. Do not use.
+"""
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -22,14 +25,14 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 
+[target.'cfg(not(target_arch="wasm32"))'.dependencies]
+rusqlite = { version = ">=0.37.0, <0.38", features = ["bundled"] }
+uniffi = { workspace = true, optional = true }
+
 [target.'cfg(target_arch="wasm32")'.dependencies]
 indexed-db = ">=0.4.2, <0.5"
 js-sys = { workspace = true }
 tsify = { workspace = true }
-
-[target.'cfg(not(target_arch="wasm32"))'.dependencies]
-rusqlite = { version = ">=0.37.0, <0.38", features = ["bundled"] }
-uniffi = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt"] }
