@@ -9,3 +9,6 @@ pub use password_prelogin::PasswordPreloginError;
 
 mod password_prelogin_response;
 pub use password_prelogin_response::PasswordPreloginResponse;
+
+mod password_login_error;
+pub use password_login_error::PasswordLoginError;

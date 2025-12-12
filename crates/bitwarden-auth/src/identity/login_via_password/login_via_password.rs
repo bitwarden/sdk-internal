@@ -3,8 +3,8 @@ use bitwarden_core::key_management::MasterPasswordAuthenticationData;
 use crate::identity::{
     IdentityClient,
     api::{request::LoginApiRequest, send_login_request},
-    login_via_password::{PasswordLoginApiRequest, PasswordLoginRequest},
-    models::{LoginError, LoginResponse},
+    login_via_password::{PasswordLoginApiRequest, PasswordLoginError, PasswordLoginRequest},
+    models::LoginResponse,
 };
 
 impl IdentityClient {
@@ -16,7 +16,7 @@ impl IdentityClient {
     pub async fn login_via_password(
         &self,
         request: PasswordLoginRequest,
-    ) -> Result<LoginResponse, LoginError> {
+    ) -> Result<LoginResponse, PasswordLoginError> {
         // use request password prelogin data to derive master password authentication data:
         let master_password_authentication: Result<
             MasterPasswordAuthenticationData,
@@ -36,10 +36,6 @@ impl IdentityClient {
 
         let response = send_login_request(&api_configs, &api_request).await;
 
-        // if success, we must validate that user decryption options are present as if they are
-        // missing we cannot proceed with unlocking the user's vault.
-
-        // TODO: figure out how to handle errors.
-        todo!()
+        response.map_err(Into::into)
     }
 }

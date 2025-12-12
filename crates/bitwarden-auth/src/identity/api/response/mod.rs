@@ -19,4 +19,6 @@ mod webauthn_prf_user_decryption_option_api_response;
 pub(crate) use webauthn_prf_user_decryption_option_api_response::WebAuthnPrfUserDecryptionOptionApiResponse;
 
 mod login_error_api_response;
-pub(crate) use login_error_api_response::LoginErrorApiResponse;
+pub(crate) use login_error_api_response::{
+    InvalidGrantError, LoginErrorApiResponse, OAuth2ErrorApiResponse, PasswordInvalidGrantError,
+};

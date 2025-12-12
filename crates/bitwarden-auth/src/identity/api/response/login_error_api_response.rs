@@ -1,3 +1,4 @@
+use bitwarden_core::key_management::MasterPasswordError;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
@@ -13,12 +14,54 @@ pub enum PasswordInvalidGrantError {
     Unknown,
 }
 
+// Actual 2fa rejection response for future use in TwoFactorInvalidGrantError
+// {
+//     "error": "invalid_grant",
+//     "error_description": "Two factor required.",
+//     "TwoFactorProviders": [
+//         "1",
+//         "3"
+//     ],
+//     "TwoFactorProviders2": {
+//         "1": {
+//             "Email": "test*****@bitwarden.com"
+//         },
+//         "3": {
+//             "Nfc": true
+//         }
+//     },
+//     "SsoEmail2faSessionToken": "BwSsoEmail2FaSessionToken_stuff",
+//     "Email": "test*****@bitwarden.com",
+//     "MasterPasswordPolicy": {
+//         "MinComplexity": 4,
+//         "RequireLower": false,
+//         "RequireUpper": false,
+//         "RequireNumbers": false,
+//         "RequireSpecial": false,
+//         "EnforceOnLogin": true,
+//         "Object": "masterPasswordPolicy"
+//     }
+// }
+
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "snake_case")]
 pub enum InvalidGrantError {
+    // TODO: how does the error get mapped into this variant?
+
+    //     {
+    //     "error": "invalid_grant",
+    //     "error_description": "invalid_username_or_password",
+    //     "ErrorModel": {
+    //         "Message": "Username or password is incorrect. Try again.",
+    //         "Object": "error"
+    //     }
+    // }
+
     // Password grant specific errors
     Password(PasswordInvalidGrantError),
+
+    // TwoFactorRequired(TwoFactorInvalidGrantError)
 
     // TODO: other grant specific errors can go here
     /// Fallback for unknown variants for forward compatibility
@@ -102,6 +145,12 @@ pub enum LoginErrorApiResponse {
 // This is just a utility function so that the ? operator works correctly without manual mapping
 impl From<reqwest::Error> for LoginErrorApiResponse {
     fn from(value: reqwest::Error) -> Self {
+        Self::UnexpectedError(format!("{value:?}"))
+    }
+}
+
+impl From<MasterPasswordError> for LoginErrorApiResponse {
+    fn from(value: MasterPasswordError) -> Self {
         Self::UnexpectedError(format!("{value:?}"))
     }
 }

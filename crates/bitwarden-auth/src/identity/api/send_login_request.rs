@@ -1,7 +1,7 @@
 // Cleanest idea for allowing access to data needed for sending login requests
 // Make this function accept the commmon model and flatten the specific
 
-use bitwarden_core::{auth::login, client::ApiConfigurations};
+use bitwarden_core::client::ApiConfigurations;
 use serde::{Serialize, de::DeserializeOwned};
 
 use crate::identity::{
@@ -10,14 +10,17 @@ use crate::identity::{
         request::LoginApiRequest,
         response::{LoginErrorApiResponse, LoginSuccessApiResponse},
     },
-    models::{LoginError, LoginResponse, LoginSuccessResponse},
+    models::{LoginResponse, LoginSuccessResponse},
 };
 
 /// A common function to send login requests to the Identity connect/token endpoint.
+/// Returns a common success model which has already been converted from the API response,
+/// or a common error model representing the login error which allows for conversion to specific error types
+/// based on the login method used.
 pub(crate) async fn send_login_request(
     api_configs: &ApiConfigurations,
     api_request: &LoginApiRequest<impl Serialize + DeserializeOwned + std::fmt::Debug>,
-) -> Result<LoginResponse, LoginError> {
+) -> Result<LoginResponse, LoginErrorApiResponse> {
     let identity_config = &api_configs.identity_config;
 
     let url: String = format!("{}/connect/token", &identity_config.base_path);
@@ -34,9 +37,15 @@ pub(crate) async fn send_login_request(
             device_type_header.header_name(),
             device_type_header.header_value(),
         )
+        // TODO: investigate if this is only needed for GET requests
         // per OAuth2 spec recommendation for token requests (https://www.rfc-editor.org/rfc/rfc6749.html#section-5.1)
         // we must include "no-store" cache control
         .header(reqwest::header::CACHE_CONTROL, "no-store")
+        // TODO: investigate missing headers from api.service implementation like:
+        // Bitwarden-Client-Name
+        // Bitwarden-Client-Version
+        // Bitwarden-Package-Type
+        // TODO: investigate if I have to worry about credentials here
         // use form to encode as application/x-www-form-urlencoded
         .form(&api_request);
 
@@ -47,20 +56,14 @@ pub(crate) async fn send_login_request(
     if response_status.is_success() {
         let login_success_api_response: LoginSuccessApiResponse = response.json().await?;
 
-        // TODO: define LoginSuccessResponse model in SDK layer and add into trait from
-        // LoginSuccessApiResponse to convert between API model and SDK model
-
         let login_success_response: LoginSuccessResponse = login_success_api_response.try_into()?;
 
-        let login_response = LoginResponse::Authenticated (login_success_response);
+        let login_response = LoginResponse::Authenticated(login_success_response);
 
         return Ok(login_response);
     }
 
-    // Handle error response
     let login_error_api_response: LoginErrorApiResponse = response.json().await?;
 
     Err(login_error_api_response)
-
-    todo!()
 }
