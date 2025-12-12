@@ -2,6 +2,9 @@ use std::fmt::Debug;
 
 use crate::send_access::api::{SendAccessTokenApiErrorResponse, SendAccessTokenApiSuccessResponse};
 
+#[cfg(feature = "uniffi")]
+uniffi::custom_newtype!(UnexpectedIdentityError, String);
+
 /// A send access token which can be used to access a send.
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
