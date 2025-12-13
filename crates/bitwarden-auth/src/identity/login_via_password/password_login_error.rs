@@ -9,6 +9,7 @@ use crate::identity::api::response::{
 #[bitwarden_error(basic)]
 #[derive(Debug, Error)]
 pub enum PasswordLoginError {
+    /// The username or password provided was invalid.
     #[error("Invalid username or password provided.")]
     InvalidUsernameOrPassword,
 
