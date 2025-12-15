@@ -87,10 +87,10 @@ jobs:
           RUSTFLAGS: "-D warnings"
 
       - name: Install cargo-sort
-        run: cargo install cargo-sort --locked --git https://github.com/DevinR528/cargo-sort.git --rev f5047967021cbb1f822faddc355b3b07674305a1
+        run: cargo install cargo-sort --version 2.0.2 --locked
 
       - name: Cargo sort
-        run: cargo sort --workspace --check
+        run: cargo sort --workspace --grouped --check
 
       - name: Install cargo-udeps
         run: cargo install cargo-udeps --version 0.1.57 --locked
