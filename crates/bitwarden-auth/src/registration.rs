@@ -36,7 +36,7 @@ pub struct TdeRegistrationRequest {
     /// User ID for the account being initialized
     pub user_id: UserId,
     /// Device ID for TDE enrollment
-    pub device_id: String,
+    pub device_identifier: String,
     /// Whether to trust this device for TDE
     pub trust_device: bool,
 }
@@ -137,7 +137,7 @@ async fn internal_post_keys_for_tde_registration(
         api_client
             .devices_api()
             .put_keys(
-                request.device_id.as_str(),
+                request.device_identifier.as_str(),
                 Some(DeviceKeysRequestModel::new(
                     device_key_set.protected_user_key.to_string(),
                     device_key_set.protected_device_private_key.to_string(),
@@ -265,7 +265,7 @@ mod tests {
             org_id: TEST_ORG_ID.parse().unwrap(),
             org_public_key: TEST_ORG_PUBLIC_KEY.into(),
             user_id: TEST_USER_ID.parse().unwrap(),
-            device_id: TEST_DEVICE_ID.to_string(),
+            device_identifier: TEST_DEVICE_ID.to_string(),
             trust_device: true,
         };
 
@@ -311,7 +311,7 @@ mod tests {
             org_id: TEST_ORG_ID.parse().unwrap(),
             org_public_key: TEST_ORG_PUBLIC_KEY.into(),
             user_id: TEST_USER_ID.parse().unwrap(),
-            device_id: TEST_DEVICE_ID.to_string(),
+            device_identifier: TEST_DEVICE_ID.to_string(),
             trust_device: false, // trust_device is false
         };
 
@@ -353,7 +353,7 @@ mod tests {
             org_id: TEST_ORG_ID.parse().unwrap(),
             org_public_key: TEST_ORG_PUBLIC_KEY.into(),
             user_id: TEST_USER_ID.parse().unwrap(),
-            device_id: TEST_DEVICE_ID.to_string(),
+            device_identifier: TEST_DEVICE_ID.to_string(),
             trust_device: true,
         };
 
@@ -405,7 +405,7 @@ mod tests {
             org_id: TEST_ORG_ID.parse().unwrap(),
             org_public_key: TEST_ORG_PUBLIC_KEY.into(),
             user_id: TEST_USER_ID.parse().unwrap(),
-            device_id: TEST_DEVICE_ID.to_string(),
+            device_identifier: TEST_DEVICE_ID.to_string(),
             trust_device: true,
         };
 
@@ -459,7 +459,7 @@ mod tests {
             org_id: TEST_ORG_ID.parse().unwrap(),
             org_public_key: TEST_ORG_PUBLIC_KEY.into(),
             user_id: TEST_USER_ID.parse().unwrap(),
-            device_id: TEST_DEVICE_ID.to_string(),
+            device_identifier: TEST_DEVICE_ID.to_string(),
             trust_device: true, // trust_device is true, so device enrollment should be attempted
         };
 
