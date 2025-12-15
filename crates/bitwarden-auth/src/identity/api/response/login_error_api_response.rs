@@ -2,13 +2,10 @@ use bitwarden_core::key_management::MasterPasswordError;
 use serde::Deserialize;
 
 #[derive(Deserialize, PartialEq, Eq, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum PasswordInvalidGrantError {
     /// The username or password provided was invalid.
     InvalidUsernameOrPassword,
-
-    /// Fallback for unknown variants for forward compatibility
-    #[serde(other)]
-    Unknown,
 }
 
 // Actual 2fa rejection response for future use in TwoFactorInvalidGrantError
@@ -40,38 +37,21 @@ pub enum PasswordInvalidGrantError {
 //     }
 // }
 
-#[derive(PartialEq, Eq, Debug)]
+// Use untagged so serde tries to deserialize into each variant in order.
+// For "invalid_username_or_password", it tries Password(PasswordInvalidGrantError) first,
+// which succeeds via the #[serde(rename_all = "snake_case")] on PasswordInvalidGrantError.
+// For unknown values like "new_error_code", Password variant fails, so it falls back to Unknown(String).
+#[derive(Deserialize, PartialEq, Eq, Debug)]
+#[serde(untagged)]
 pub enum InvalidGrantError {
     // Password grant specific errors
     Password(PasswordInvalidGrantError),
 
     // TODO: other grant specific errors can go here
     // TwoFactorRequired(TwoFactorInvalidGrantError)
-    /// Fallback for unknown variants for forward compatibility
-    Unknown,
-}
-
-// Custom deserializer to parse error_description string into InvalidGrantError enum
-impl<'de> Deserialize<'de> for InvalidGrantError {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-
-        // Parse the error_description string and map to appropriate variant
-        match s.as_str() {
-            // Password-related errors
-            "invalid_username_or_password" => Ok(InvalidGrantError::Password(
-                PasswordInvalidGrantError::InvalidUsernameOrPassword,
-            )),
-
-            // Other grant-specific errors can be added here
-
-            // Unknown/fallback for forward compatibility
-            _ => Ok(InvalidGrantError::Unknown),
-        }
-    }
+    /// Fallback for unknown variants for forward compatibility.
+    /// Must be last in the enum due to untagged deserialization trying variants in order.
+    Unknown(String),
 }
 
 /// Per RFC 6749 Section 5.2, these are the standard error responses for OAuth 2.0 token requests.
@@ -184,7 +164,10 @@ mod tests {
         fn unknown_error_description_maps_to_unknown() {
             let json = r#""some_new_error_code""#;
             let error: InvalidGrantError = from_str(json).unwrap();
-            assert_eq!(error, InvalidGrantError::Unknown);
+            assert_eq!(
+                error,
+                InvalidGrantError::Unknown("some_new_error_code".to_string())
+            );
         }
 
         #[test]
@@ -249,7 +232,12 @@ mod tests {
             let parsed: OAuth2ErrorApiResponse = from_str(&payload).unwrap();
             match parsed {
                 OAuth2ErrorApiResponse::InvalidGrant { error_description } => {
-                    assert_eq!(error_description, Some(InvalidGrantError::Unknown));
+                    assert_eq!(
+                        error_description,
+                        Some(InvalidGrantError::Unknown(
+                            "brand_new_error_type".to_string()
+                        ))
+                    );
                 }
                 _ => panic!("expected invalid_grant"),
             }
@@ -467,7 +455,12 @@ mod tests {
                 LoginErrorApiResponse::OAuth2Error(OAuth2ErrorApiResponse::InvalidGrant {
                     error_description,
                 }) => {
-                    assert_eq!(error_description, Some(InvalidGrantError::Unknown));
+                    assert_eq!(
+                        error_description,
+                        Some(InvalidGrantError::Unknown(
+                            "some_future_error_code".to_string()
+                        ))
+                    );
                 }
                 _ => panic!("expected OAuth2Error(InvalidGrant)"),
             }

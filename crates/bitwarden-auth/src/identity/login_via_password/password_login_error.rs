@@ -31,11 +31,8 @@ impl From<LoginErrorApiResponse> for PasswordLoginError {
                         Some(InvalidGrantError::Password(
                             PasswordInvalidGrantError::InvalidUsernameOrPassword,
                         )) => Self::InvalidUsernameOrPassword,
-                        Some(InvalidGrantError::Password(PasswordInvalidGrantError::Unknown)) => {
-                            Self::Unknown("Invalid grant - password unknown error".to_string())
-                        }
-                        Some(InvalidGrantError::Unknown) => {
-                            Self::Unknown("Invalid grant - unknown error".to_string())
+                        Some(InvalidGrantError::Unknown(error_code)) => {
+                            Self::Unknown(format!("Invalid grant - unknown error: {}", error_code))
                         }
                         None => {
                             Self::Unknown("Invalid grant with no error description".to_string())
