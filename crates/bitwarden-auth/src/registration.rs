@@ -11,7 +11,8 @@ use bitwarden_api_api::models::{
     DeviceKeysRequestModel, KeysRequestModel, OrganizationUserResetPasswordEnrollmentRequestModel,
 };
 use bitwarden_core::{
-    Client, UserId, key_management::account_cryptographic_state::WrappedAccountCryptographicState,
+    Client, OrganizationId, UserId,
+    key_management::account_cryptographic_state::WrappedAccountCryptographicState,
 };
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
@@ -52,18 +53,16 @@ impl RegistrationClient {
     /// admin password reset and finally enrolls the user to TDE unlock.
     pub async fn post_keys_for_tde_registration(
         &self,
-        org_id: String,
+        org_id: OrganizationId,
         org_public_key: B64,
         // Note: Ideally these would be set for the register client, however no such functionality
         // exists at the moment
-        user_id: String,
+        user_id: UserId,
         device_id: String,
         trust_device: bool,
     ) -> Result<TdeRegistrationResponse, UserRegistrationError> {
         let client = &self.client.internal;
         let api_client = &client.get_api_configurations().await.api_client;
-        let user_id =
-            UserId::from_str(user_id.as_str()).map_err(|_| UserRegistrationError::Serialization)?;
 
         // First call crypto API to get all keys
         info!("Initializing account cryptography");
@@ -104,7 +103,7 @@ impl RegistrationClient {
         api_client
             .organization_users_api()
             .put_reset_password_enrollment(
-                uuid::Uuid::parse_str(&org_id).map_err(|_| UserRegistrationError::Serialization)?,
+                org_id.into(),
                 user_id.into(),
                 Some(OrganizationUserResetPasswordEnrollmentRequestModel {
                     reset_password_key: Some(reset_password_key.to_string()),
@@ -169,7 +168,4 @@ pub enum UserRegistrationError {
     /// Cryptography initialization failed.
     #[error("Cryptography initialization failed")]
     Crypto,
-    /// Serialization or deserialization error
-    #[error("Serialization error")]
-    Serialization,
 }
