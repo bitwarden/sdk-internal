@@ -57,12 +57,6 @@ pub async fn restore_many(
     key_store: &KeyStore<KeyIds>,
 ) -> Result<DecryptCipherListResult, RestoreCipherError> {
     let api = api_client.ciphers_api();
-    let store: KeyStore<KeyIds> = KeyStore::default();
-    #[allow(deprecated)]
-    let _ = store.context_mut().set_symmetric_key(
-        SymmetricKeyId::User,
-        SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-    );
 
     let ciphers: Vec<Cipher> = api
         .put_restore_many(Some(CipherBulkRestoreRequestModel {
