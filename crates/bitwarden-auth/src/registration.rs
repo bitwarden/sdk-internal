@@ -15,7 +15,6 @@ use bitwarden_core::{
 };
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
-use serde_bytes::ByteBuf;
 use thiserror::Error;
 use tracing::info;
 #[cfg(feature = "wasm")]
@@ -23,6 +22,7 @@ use wasm_bindgen::prelude::*;
 
 /// Client for initializing a user account.
 #[derive(Clone)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct RegistrationClient {
     #[allow(dead_code)]
@@ -34,6 +34,8 @@ impl RegistrationClient {
         Self { client }
     }
 }
+
+#[cfg_attr(feature = "uniffi", uniffi::export)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl RegistrationClient {
     /// Example method to demonstrate usage of the client.
@@ -57,7 +59,7 @@ impl RegistrationClient {
         user_id: String,
         device_id: String,
         trust_device: bool,
-    ) -> Result<TdeRegistrationResult, UserRegistrationError> {
+    ) -> Result<TdeRegistrationResponse, UserRegistrationError> {
         let client = &self.client.internal;
         let api_client = &client.get_api_configurations().await.api_client;
         let user_id =
@@ -132,7 +134,7 @@ impl RegistrationClient {
         info!("User initialized!");
         // Note: This passing out of state and keys is temporary. Once SDK state management is more
         // mature, the account cryptographic state and keys should be set directly here.
-        Ok(TdeRegistrationResult {
+        Ok(TdeRegistrationResponse {
             account_cryptographic_state: cryptography_state,
             device_key: device_key_set.device_key.to_string(),
             user_key: user_key.to_encoded().to_vec().into(),
@@ -146,14 +148,15 @@ impl RegistrationClient {
     derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub struct TdeRegistrationResult {
+pub struct TdeRegistrationResponse {
     /// The account cryptographic state of the user
     pub account_cryptographic_state: WrappedAccountCryptographicState,
     /// The device key
     pub device_key: String,
     /// The decrypted user key. This can be used to get the consuming client to an unlocked state.
-    pub user_key: ByteBuf,
+    pub user_key: B64,
 }
 
 /// Errors that can occur during user registration.
