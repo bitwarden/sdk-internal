@@ -6,7 +6,7 @@ use crate::identity::api::response::{
 };
 
 /// Represents errors that can occur when attempting to log in.
-#[bitwarden_error(basic)]
+#[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum PasswordLoginError {
     /// The username or password provided was invalid.
