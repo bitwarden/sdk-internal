@@ -67,7 +67,7 @@ impl RegistrationClient {
     ) -> Result<TdeRegistrationResponse, UserRegistrationError> {
         let client = &self.client.internal;
         let api_client = &client.get_api_configurations().await.api_client;
-        internal_post_keys_for_tde_registration(&self, api_client, request).await
+        internal_post_keys_for_tde_registration(self, api_client, request).await
     }
 }
 
@@ -339,8 +339,7 @@ mod tests {
                 .once()
                 .returning(move |_body| {
                     Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::new(
-                            std::io::ErrorKind::Other,
+                        serde_json::Error::io(std::io::Error::other(
                             "API error",
                         )),
                     ))
@@ -397,8 +396,7 @@ mod tests {
                 .once()
                 .returning(move |_org_id, _user_id, _body| {
                     Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::new(
-                            std::io::ErrorKind::Other,
+                        serde_json::Error::io(std::io::Error::other(
                             "API error",
                         )),
                     ))
@@ -458,8 +456,7 @@ mod tests {
                 .once()
                 .returning(move |_device_id, _body| {
                     Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::new(
-                            std::io::ErrorKind::Other,
+                        serde_json::Error::io(std::io::Error::other(
                             "API error",
                         )),
                     ))
