@@ -339,9 +339,7 @@ mod tests {
                 .once()
                 .returning(move |_body| {
                     Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other(
-                            "API error",
-                        )),
+                        serde_json::Error::io(std::io::Error::other("API error")),
                     ))
                 });
             // Subsequent API calls should not be made if post_keys fails
@@ -396,13 +394,11 @@ mod tests {
                 .once()
                 .returning(move |_org_id, _user_id, _body| {
                     Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other(
-                            "API error",
-                        )),
+                        serde_json::Error::io(std::io::Error::other("API error")),
                     ))
                 });
             // Device key enrollment should not be made if reset password enrollment fails
-            mock.devices_api.expect_put_keys().times(0).never();
+            mock.devices_api.expect_put_keys().never();
         });
 
         let request = TdeRegistrationRequest {
@@ -447,18 +443,14 @@ mod tests {
                 });
             mock.organization_users_api
                 .expect_put_reset_password_enrollment()
-                .times(1)
                 .once()
                 .returning(move |_org_id, _user_id, _body| Ok(()));
             mock.devices_api
                 .expect_put_keys()
-                .times(1)
                 .once()
                 .returning(move |_device_id, _body| {
                     Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other(
-                            "API error",
-                        )),
+                        serde_json::Error::io(std::io::Error::other("API error")),
                     ))
                 });
         });
