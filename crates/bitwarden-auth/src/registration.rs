@@ -108,7 +108,10 @@ async fn internal_post_keys_for_tde_registration(
         .accounts_api()
         .post_keys(Some(keys_request))
         .await
-        .map_err(|_| UserRegistrationError::Api)?;
+        .map_err(|e| {
+            tracing::error!("Failed to post account keys: {e:?}");
+            UserRegistrationError::Api
+        })?;
 
     // Next, enroll the user for reset password using the reset password key generated above.
     info!("Enrolling into admin account recovery");
@@ -123,7 +126,10 @@ async fn internal_post_keys_for_tde_registration(
             }),
         )
         .await
-        .map_err(|_| UserRegistrationError::Api)?;
+        .map_err(|e| {
+            tracing::error!("Failed to enroll for reset password: {e:?}");
+            UserRegistrationError::Api
+        })?;
 
     if request.trust_device {
         // Next, enroll the user for TDE unlock
@@ -139,7 +145,10 @@ async fn internal_post_keys_for_tde_registration(
                 )),
             )
             .await
-            .map_err(|_| UserRegistrationError::Api)?;
+            .map_err(|e| {
+                tracing::error!("Failed to enroll device for TDE: {e:?}");
+                UserRegistrationError::Api
+            })?;
     }
 
     info!("User initialized!");
