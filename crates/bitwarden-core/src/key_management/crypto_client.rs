@@ -1,11 +1,9 @@
-use std::sync::RwLock;
-
 use bitwarden_api_api::models::AccountKeysRequestModel;
 #[cfg(feature = "wasm")]
 use bitwarden_crypto::safe::PasswordProtectedKeyEnvelope;
 use bitwarden_crypto::{
-    AsymmetricPublicCryptoKey, CryptoError, Decryptable, DeviceKey, Kdf, KeyStore,
-    RotateableKeySet, SpkiPublicKeyBytes, SymmetricCryptoKey, TrustDeviceResponse,
+    AsymmetricPublicCryptoKey, CryptoError, Decryptable, DeviceKey, Kdf, RotateableKeySet,
+    SpkiPublicKeyBytes, SymmetricCryptoKey, TrustDeviceResponse,
 };
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
@@ -227,37 +225,32 @@ impl CryptoClient {
         MakeKeysError,
     > {
         let mut ctx = self.client.internal.get_key_store().context_mut();
-        let (user_key, wrapped_state) =
+        let (user_key_id, wrapped_state) =
             WrappedAccountCryptographicState::make(&mut ctx, user_id)
                 .map_err(MakeKeysError::AccountCryptographyInitialization)?;
-        #[expect(deprecated)]
-        let user_key = ctx.dangerous_get_symmetric_key(user_key)?;
-
         // TDE unlock method
-        let device_key = DeviceKey::trust_device(user_key)?;
+        #[expect(deprecated)]
+        let device_key = DeviceKey::trust_device(ctx.dangerous_get_symmetric_key(user_key_id)?)?;
 
         // Account recovery enrollment
         let public_key =
             AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))
                 .map_err(MakeKeysError::Crypto)?;
-        let admin_reset = UnsignedSharedKey::encapsulate_key_unsigned(user_key, &public_key)
-            .map_err(MakeKeysError::Crypto)?;
-
-        let store = KeyStore::default();
-        let mut ctx = store.context_mut();
-        let user_key_id = ctx.add_local_symmetric_key(user_key.to_owned());
-        let security_state = RwLock::new(None);
-        wrapped_state
-            .set_to_context(&security_state, user_key_id, &store, ctx)
-            .map_err(MakeKeysError::AccountCryptographyInitialization)?;
+        #[expect(deprecated)]
+        let admin_reset = UnsignedSharedKey::encapsulate_key_unsigned(
+            ctx.dangerous_get_symmetric_key(user_key_id)?,
+            &public_key,
+        )
+        .map_err(MakeKeysError::Crypto)?;
 
         let cryptography_state_request_model = wrapped_state
-            .to_request_model(&store)
+            .to_request_model(&user_key_id, &mut ctx)
             .map_err(|_| MakeKeysError::RequestModelCreation)?;
 
+        #[expect(deprecated)]
         Ok((
             wrapped_state,
-            user_key.to_owned(),
+            ctx.dangerous_get_symmetric_key(user_key_id)?.to_owned(),
             cryptography_state_request_model,
             device_key,
             admin_reset,

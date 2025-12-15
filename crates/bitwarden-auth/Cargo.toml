@@ -44,6 +44,7 @@ wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
 
 [dev-dependencies]
+bitwarden-api-api = { workspace = true, features = ["mockall"] }
 bitwarden-test = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
