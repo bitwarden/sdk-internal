@@ -19,7 +19,7 @@ pub enum PasswordLoginError {
 }
 
 // TODO: talk with Dani about trying to avoid having every login mechanism have to implement a conversion for 2FA errors as that is common
-// TODO: investigate adding a display property for each error variant that maps to unknown so we don't have to
+// TODO: per discussion with Dani, investigate adding a display property for each error variant that maps to unknown so we don't have to
 // manually build the string each time here and in each login mechanism error file.
 
 impl From<LoginErrorApiResponse> for PasswordLoginError {
