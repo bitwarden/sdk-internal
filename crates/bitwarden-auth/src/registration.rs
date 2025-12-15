@@ -35,7 +35,7 @@ pub struct TdeRegistrationRequest {
     pub org_public_key: B64,
     /// User ID for the account being initialized
     pub user_id: UserId,
-    /// Device ID for TDE enrollment
+    /// Device identifier for TDE enrollment
     pub device_identifier: String,
     /// Whether to trust this device for TDE
     pub trust_device: bool,
