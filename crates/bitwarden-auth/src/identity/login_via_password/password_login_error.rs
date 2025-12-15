@@ -82,3 +82,302 @@ impl From<LoginErrorApiResponse> for PasswordLoginError {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Test constants for strings used multiple times
+    const ERROR_DESC_NO_DESCRIPTION: &str = "no error description";
+    const TEST_ERROR_DESC: &str = "Test error description";
+
+    mod from_login_error_api_response {
+        use super::*;
+
+        #[test]
+        fn invalid_grant_with_invalid_username_or_password() {
+            let api_error =
+                LoginErrorApiResponse::OAuth2Error(OAuth2ErrorApiResponse::InvalidGrant {
+                    error_description: Some(InvalidGrantError::Password(
+                        PasswordInvalidGrantError::InvalidUsernameOrPassword,
+                    )),
+                });
+
+            let result: PasswordLoginError = api_error.into();
+
+            assert!(matches!(
+                result,
+                PasswordLoginError::InvalidUsernameOrPassword
+            ));
+        }
+
+        #[test]
+        fn invalid_grant_with_unknown_error() {
+            let api_error =
+                LoginErrorApiResponse::OAuth2Error(OAuth2ErrorApiResponse::InvalidGrant {
+                    error_description: Some(InvalidGrantError::Unknown(
+                        "unknown_error_code".to_string(),
+                    )),
+                });
+
+            let result: PasswordLoginError = api_error.into();
+
+            match result {
+                PasswordLoginError::Unknown(msg) => {
+                    assert_eq!(msg, "Invalid grant - unknown error: unknown_error_code");
+                }
+                _ => panic!("Expected Unknown variant"),
+            }
+        }
+
+        #[test]
+        fn invalid_grant_with_no_error_description() {
+            let api_error =
+                LoginErrorApiResponse::OAuth2Error(OAuth2ErrorApiResponse::InvalidGrant {
+                    error_description: None,
+                });
+
+            let result: PasswordLoginError = api_error.into();
+
+            match result {
+                PasswordLoginError::Unknown(msg) => {
+                    assert_eq!(msg, "Invalid grant with no error description");
+                }
+                _ => panic!("Expected Unknown variant"),
+            }
+        }
+
+        #[test]
+        fn invalid_request_with_error_description() {
+            let api_error =
+                LoginErrorApiResponse::OAuth2Error(OAuth2ErrorApiResponse::InvalidRequest {
+                    error_description: Some(TEST_ERROR_DESC.to_string()),
+                });
+
+            let result: PasswordLoginError = api_error.into();
+
+            match result {
+                PasswordLoginError::Unknown(msg) => {
+                    assert_eq!(msg, format!("Invalid request: {}", TEST_ERROR_DESC));
+                }
+                _ => panic!("Expected Unknown variant"),
+            }
+        }
+
+        #[test]
+        fn invalid_request_without_error_description() {
+            let api_error =
+                LoginErrorApiResponse::OAuth2Error(OAuth2ErrorApiResponse::InvalidRequest {
+                    error_description: None,
+                });
+
+            let result: PasswordLoginError = api_error.into();
+
+            match result {
+                PasswordLoginError::Unknown(msg) => {
+                    assert_eq!(
+                        msg,
+                        format!("Invalid request: {}", ERROR_DESC_NO_DESCRIPTION)
+                    );
+                }
+                _ => panic!("Expected Unknown variant"),
+            }
+        }
+
+        #[test]
+        fn invalid_client_with_error_description() {
+            let api_error =
+                LoginErrorApiResponse::OAuth2Error(OAuth2ErrorApiResponse::InvalidClient {
+                    error_description: Some(TEST_ERROR_DESC.to_string()),
+                });
+
+            let result: PasswordLoginError = api_error.into();
+
+            match result {
+                PasswordLoginError::Unknown(msg) => {
+                    assert_eq!(msg, format!("Invalid client: {}", TEST_ERROR_DESC));
+                }
+                _ => panic!("Expected Unknown variant"),
+            }
+        }
+
+        #[test]
+        fn invalid_client_without_error_description() {
+            let api_error =
+                LoginErrorApiResponse::OAuth2Error(OAuth2ErrorApiResponse::InvalidClient {
+                    error_description: None,
+                });
+
+            let result: PasswordLoginError = api_error.into();
+
+            match result {
+                PasswordLoginError::Unknown(msg) => {
+                    assert_eq!(
+                        msg,
+                        format!("Invalid client: {}", ERROR_DESC_NO_DESCRIPTION)
+                    );
+                }
+                _ => panic!("Expected Unknown variant"),
+            }
+        }
+
+        #[test]
+        fn unauthorized_client_with_error_description() {
+            let api_error =
+                LoginErrorApiResponse::OAuth2Error(OAuth2ErrorApiResponse::UnauthorizedClient {
+                    error_description: Some(TEST_ERROR_DESC.to_string()),
+                });
+
+            let result: PasswordLoginError = api_error.into();
+
+            match result {
+                PasswordLoginError::Unknown(msg) => {
+                    assert_eq!(msg, format!("Unauthorized client: {}", TEST_ERROR_DESC));
+                }
+                _ => panic!("Expected Unknown variant"),
+            }
+        }
+
+        #[test]
+        fn unauthorized_client_without_error_description() {
+            let api_error =
+                LoginErrorApiResponse::OAuth2Error(OAuth2ErrorApiResponse::UnauthorizedClient {
+                    error_description: None,
+                });
+
+            let result: PasswordLoginError = api_error.into();
+
+            match result {
+                PasswordLoginError::Unknown(msg) => {
+                    assert_eq!(
+                        msg,
+                        format!("Unauthorized client: {}", ERROR_DESC_NO_DESCRIPTION)
+                    );
+                }
+                _ => panic!("Expected Unknown variant"),
+            }
+        }
+
+        #[test]
+        fn unsupported_grant_type_with_error_description() {
+            let api_error =
+                LoginErrorApiResponse::OAuth2Error(OAuth2ErrorApiResponse::UnsupportedGrantType {
+                    error_description: Some(TEST_ERROR_DESC.to_string()),
+                });
+
+            let result: PasswordLoginError = api_error.into();
+
+            match result {
+                PasswordLoginError::Unknown(msg) => {
+                    assert_eq!(msg, format!("Unsupported grant type: {}", TEST_ERROR_DESC));
+                }
+                _ => panic!("Expected Unknown variant"),
+            }
+        }
+
+        #[test]
+        fn unsupported_grant_type_without_error_description() {
+            let api_error =
+                LoginErrorApiResponse::OAuth2Error(OAuth2ErrorApiResponse::UnsupportedGrantType {
+                    error_description: None,
+                });
+
+            let result: PasswordLoginError = api_error.into();
+
+            match result {
+                PasswordLoginError::Unknown(msg) => {
+                    assert_eq!(
+                        msg,
+                        format!("Unsupported grant type: {}", ERROR_DESC_NO_DESCRIPTION)
+                    );
+                }
+                _ => panic!("Expected Unknown variant"),
+            }
+        }
+
+        #[test]
+        fn invalid_scope_with_error_description() {
+            let api_error =
+                LoginErrorApiResponse::OAuth2Error(OAuth2ErrorApiResponse::InvalidScope {
+                    error_description: Some(TEST_ERROR_DESC.to_string()),
+                });
+
+            let result: PasswordLoginError = api_error.into();
+
+            match result {
+                PasswordLoginError::Unknown(msg) => {
+                    assert_eq!(msg, format!("Invalid scope: {}", TEST_ERROR_DESC));
+                }
+                _ => panic!("Expected Unknown variant"),
+            }
+        }
+
+        #[test]
+        fn invalid_scope_without_error_description() {
+            let api_error =
+                LoginErrorApiResponse::OAuth2Error(OAuth2ErrorApiResponse::InvalidScope {
+                    error_description: None,
+                });
+
+            let result: PasswordLoginError = api_error.into();
+
+            match result {
+                PasswordLoginError::Unknown(msg) => {
+                    assert_eq!(msg, format!("Invalid scope: {}", ERROR_DESC_NO_DESCRIPTION));
+                }
+                _ => panic!("Expected Unknown variant"),
+            }
+        }
+
+        #[test]
+        fn invalid_target_with_error_description() {
+            let api_error =
+                LoginErrorApiResponse::OAuth2Error(OAuth2ErrorApiResponse::InvalidTarget {
+                    error_description: Some(TEST_ERROR_DESC.to_string()),
+                });
+
+            let result: PasswordLoginError = api_error.into();
+
+            match result {
+                PasswordLoginError::Unknown(msg) => {
+                    assert_eq!(msg, format!("Invalid target: {}", TEST_ERROR_DESC));
+                }
+                _ => panic!("Expected Unknown variant"),
+            }
+        }
+
+        #[test]
+        fn invalid_target_without_error_description() {
+            let api_error =
+                LoginErrorApiResponse::OAuth2Error(OAuth2ErrorApiResponse::InvalidTarget {
+                    error_description: None,
+                });
+
+            let result: PasswordLoginError = api_error.into();
+
+            match result {
+                PasswordLoginError::Unknown(msg) => {
+                    assert_eq!(
+                        msg,
+                        format!("Invalid target: {}", ERROR_DESC_NO_DESCRIPTION)
+                    );
+                }
+                _ => panic!("Expected Unknown variant"),
+            }
+        }
+
+        #[test]
+        fn unexpected_error() {
+            let api_error = LoginErrorApiResponse::UnexpectedError("Network timeout".to_string());
+
+            let result: PasswordLoginError = api_error.into();
+
+            match result {
+                PasswordLoginError::Unknown(msg) => {
+                    assert_eq!(msg, "Unexpected error: Network timeout");
+                }
+                _ => panic!("Expected Unknown variant"),
+            }
+        }
+    }
+}
