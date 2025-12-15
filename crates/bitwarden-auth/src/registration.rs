@@ -136,7 +136,7 @@ impl RegistrationClient {
         // mature, the account cryptographic state and keys should be set directly here.
         Ok(TdeRegistrationResponse {
             account_cryptographic_state: cryptography_state,
-            device_key: device_key_set.device_key.to_string(),
+            device_key: device_key_set.device_key,
             user_key: user_key.to_encoded().to_vec().into(),
         })
     }
@@ -154,7 +154,7 @@ pub struct TdeRegistrationResponse {
     /// The account cryptographic state of the user
     pub account_cryptographic_state: WrappedAccountCryptographicState,
     /// The device key
-    pub device_key: String,
+    pub device_key: B64,
     /// The decrypted user key. This can be used to get the consuming client to an unlocked state.
     pub user_key: B64,
 }
