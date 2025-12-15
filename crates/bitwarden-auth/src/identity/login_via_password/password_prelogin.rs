@@ -4,6 +4,7 @@ use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
 use crate::identity::{IdentityClient, login_via_password::PasswordPreloginResponse};
+use wasm_bindgen::prelude::wasm_bindgen;
 
 /// Error type for password prelogin operations
 #[allow(missing_docs)]
@@ -16,6 +17,8 @@ pub enum PasswordPreloginError {
     MissingField(#[from] MissingFieldError),
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "uniffi", uniffi::export)]
 impl IdentityClient {
     /// Retrieves the data required before authenticating with a password.
     /// This includes the user's KDF configuration needed to properly derive the master key.

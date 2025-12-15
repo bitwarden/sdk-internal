@@ -5,6 +5,7 @@ use wasm_bindgen::prelude::*;
 /// The IdentityClient is used to obtain identity / access tokens from the Bitwarden Identity API.
 #[derive(Clone)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
 pub struct IdentityClient {
     pub(crate) client: Client,
 }

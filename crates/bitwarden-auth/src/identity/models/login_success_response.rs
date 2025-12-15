@@ -9,7 +9,7 @@ use crate::identity::{
 
 /// SDK response model for a successful login.
 /// This is the model that will be exposed to consuming applications.
-#[derive(serde::Serialize, serde::Deserialize, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(
@@ -17,7 +17,6 @@ use crate::identity::{
     derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
-#[derive(Debug)]
 pub struct LoginSuccessResponse {
     /// The access token string.
     pub access_token: String,

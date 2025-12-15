@@ -1,4 +1,5 @@
 use bitwarden_core::key_management::MasterPasswordAuthenticationData;
+use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::identity::{
     IdentityClient,
@@ -7,6 +8,8 @@ use crate::identity::{
     models::LoginResponse,
 };
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "uniffi", uniffi::export)]
 impl IdentityClient {
     /// Logs in a user via their email and master password.
     ///
