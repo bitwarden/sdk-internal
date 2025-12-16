@@ -64,7 +64,7 @@ impl RegistrationClient {
     pub async fn post_keys_for_tde_registration(
         &self,
         request: TdeRegistrationRequest,
-    ) -> Result<TdeRegistrationResponse, UserRegistrationError> {
+    ) -> Result<TdeRegistrationResponse, RegistrationError> {
         let client = &self.client.internal;
         let api_client = &client.get_api_configurations().await.api_client;
         internal_post_keys_for_tde_registration(self, api_client, request).await
@@ -75,14 +75,14 @@ async fn internal_post_keys_for_tde_registration(
     registration_client: &RegistrationClient,
     api_client: &bitwarden_api_api::apis::ApiClient,
     request: TdeRegistrationRequest,
-) -> Result<TdeRegistrationResponse, UserRegistrationError> {
+) -> Result<TdeRegistrationResponse, RegistrationError> {
     // First call crypto API to get all keys
     info!("Initializing account cryptography");
     let tde_registration_crypto_result = registration_client
         .client
         .crypto()
         .make_user_tde_registration(request.user_id, request.org_public_key.clone())
-        .map_err(|_| UserRegistrationError::Crypto)?;
+        .map_err(|_| RegistrationError::Crypto)?;
 
     // Post the generated keys to the API here. The user now has keys and is "registered", but
     // has no unlock method.
@@ -94,12 +94,12 @@ async fn internal_post_keys_for_tde_registration(
         public_key: tde_registration_crypto_result
             .account_keys_request
             .account_public_key
-            .ok_or(UserRegistrationError::Crypto)?,
+            .ok_or(RegistrationError::Crypto)?,
         // Note: This property is deprecated and will be removed
         encrypted_private_key: tde_registration_crypto_result
             .account_keys_request
             .user_key_encrypted_account_private_key
-            .ok_or(UserRegistrationError::Crypto)?,
+            .ok_or(RegistrationError::Crypto)?,
     };
     info!("Posting user account cryptographic state to server");
     api_client
@@ -108,7 +108,7 @@ async fn internal_post_keys_for_tde_registration(
         .await
         .map_err(|e| {
             tracing::error!("Failed to post account keys: {e:?}");
-            UserRegistrationError::Api
+            RegistrationError::Api
         })?;
 
     // Next, enroll the user for reset password using the reset password key generated above.
@@ -130,7 +130,7 @@ async fn internal_post_keys_for_tde_registration(
         .await
         .map_err(|e| {
             tracing::error!("Failed to enroll for reset password: {e:?}");
-            UserRegistrationError::Api
+            RegistrationError::Api
         })?;
 
     if request.trust_device {
@@ -158,7 +158,7 @@ async fn internal_post_keys_for_tde_registration(
             .await
             .map_err(|e| {
                 tracing::error!("Failed to enroll device for TDE: {e:?}");
-                UserRegistrationError::Api
+                RegistrationError::Api
             })?;
     }
 
@@ -198,7 +198,7 @@ pub struct TdeRegistrationResponse {
 /// Errors that can occur during user registration.
 #[derive(Debug, Error)]
 #[bitwarden_error(flat)]
-pub enum UserRegistrationError {
+pub enum RegistrationError {
     /// API call failed.
     #[error("Api call failed")]
     Api,
@@ -379,7 +379,7 @@ mod tests {
                 .await;
 
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), UserRegistrationError::Api));
+        assert!(matches!(result.unwrap_err(), RegistrationError::Api));
 
         // Assert that the mock expectations were met
         if let ApiClient::Mock(mut mock) = api_client {
@@ -431,7 +431,7 @@ mod tests {
                 .await;
 
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), UserRegistrationError::Api));
+        assert!(matches!(result.unwrap_err(), RegistrationError::Api));
 
         // Assert that the mock expectations were met
         if let ApiClient::Mock(mut mock) = api_client {
@@ -485,7 +485,7 @@ mod tests {
                 .await;
 
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), UserRegistrationError::Api));
+        assert!(matches!(result.unwrap_err(), RegistrationError::Api));
 
         // Assert that the mock expectations were met
         if let ApiClient::Mock(mut mock) = api_client {
