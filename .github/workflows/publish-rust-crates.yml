@@ -131,7 +131,12 @@ jobs:
           # Convert space-separated string to array
           IFS=' ' read -ra PACKAGES <<< "$PACKAGES_INPUT"
           PACKAGE_FLAGS=$(printf -- '-p %s ' "${PACKAGES[@]}")
-          cargo-release release publish $PACKAGE_FLAGS --execute --no-confirm
+
+          # no-verify avoids cargo-release complaining about Cargo.lock
+          # modifications that naturally happen during the pre-publishing
+          # validation for many of our crates that don't have commit lock
+          # files
+          cargo-release release publish $PACKAGE_FLAGS --execute --no-confirm --no-verify
 
       - name: Update deployment status to Success
         if: ${{ inputs.release_type != 'Dry Run' && success() }}
