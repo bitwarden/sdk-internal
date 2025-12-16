@@ -123,15 +123,17 @@ impl WrappedAccountCryptographicState {
             user_key_encrypted_account_private_key: Some(private_key.to_string()),
             // Note: This property is deprecated and should be removed after a transition period.
             account_public_key: Some(B64::from(public_key.to_der()?).to_string()),
-            signature_key_pair: signature_keypair.as_ref().map(|(signing_key, verifying_key)| Box::new(
-                    bitwarden_api_api::models::SignatureKeyPairRequestModel {
+            signature_key_pair: signature_keypair
+                .as_ref()
+                .map(|(signing_key, verifying_key)| {
+                    Box::new(bitwarden_api_api::models::SignatureKeyPairRequestModel {
                         wrapped_signing_key: Some(signing_key.to_string()),
                         verifying_key: Some(B64::from(verifying_key.to_cose()).to_string()),
                         signature_algorithm: Some(match verifying_key.algorithm() {
                             SignatureAlgorithm::Ed25519 => "ed25519".to_string(),
                         }),
-                    },
-                )),
+                    })
+                }),
             public_key_encryption_key_pair: Some(Box::new(
                 bitwarden_api_api::models::PublicKeyEncryptionKeyPairRequestModel {
                     wrapped_private_key: match self {
