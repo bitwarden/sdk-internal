@@ -78,13 +78,7 @@ async fn internal_post_keys_for_tde_registration(
 ) -> Result<TdeRegistrationResponse, UserRegistrationError> {
     // First call crypto API to get all keys
     info!("Initializing account cryptography");
-    let (
-        cryptography_state,
-        user_key,
-        account_cryptographic_state_request,
-        device_key_set,
-        reset_password_key,
-    ) = registration_client
+    let tde_registration_crypto_result = registration_client
         .client
         .crypto()
         .make_user_tde_registration(request.user_id, request.org_public_key.clone())
@@ -93,13 +87,17 @@ async fn internal_post_keys_for_tde_registration(
     // Post the generated keys to the API here. The user now has keys and is "registered", but
     // has no unlock method.
     let keys_request = KeysRequestModel {
-        account_keys: Some(Box::new(account_cryptographic_state_request.clone())),
+        account_keys: Some(Box::new(
+            tde_registration_crypto_result.account_keys_request.clone(),
+        )),
         // Note: This property is deprecated and will be removed
-        public_key: account_cryptographic_state_request
+        public_key: tde_registration_crypto_result
+            .account_keys_request
             .account_public_key
             .ok_or(UserRegistrationError::Crypto)?,
         // Note: This property is deprecated and will be removed
-        encrypted_private_key: account_cryptographic_state_request
+        encrypted_private_key: tde_registration_crypto_result
+            .account_keys_request
             .user_key_encrypted_account_private_key
             .ok_or(UserRegistrationError::Crypto)?,
     };
@@ -121,7 +119,11 @@ async fn internal_post_keys_for_tde_registration(
             request.org_id.into(),
             request.user_id.into(),
             Some(OrganizationUserResetPasswordEnrollmentRequestModel {
-                reset_password_key: Some(reset_password_key.to_string()),
+                reset_password_key: Some(
+                    tde_registration_crypto_result
+                        .reset_password_key
+                        .to_string(),
+                ),
                 master_password_hash: None,
             }),
         )
@@ -139,9 +141,18 @@ async fn internal_post_keys_for_tde_registration(
             .put_keys(
                 request.device_identifier.as_str(),
                 Some(DeviceKeysRequestModel::new(
-                    device_key_set.protected_user_key.to_string(),
-                    device_key_set.protected_device_private_key.to_string(),
-                    device_key_set.protected_device_public_key.to_string(),
+                    tde_registration_crypto_result
+                        .trusted_device_keys
+                        .protected_user_key
+                        .to_string(),
+                    tde_registration_crypto_result
+                        .trusted_device_keys
+                        .protected_device_private_key
+                        .to_string(),
+                    tde_registration_crypto_result
+                        .trusted_device_keys
+                        .protected_device_public_key
+                        .to_string(),
                 )),
             )
             .await
@@ -155,9 +166,15 @@ async fn internal_post_keys_for_tde_registration(
     // Note: This passing out of state and keys is temporary. Once SDK state management is more
     // mature, the account cryptographic state and keys should be set directly here.
     Ok(TdeRegistrationResponse {
-        account_cryptographic_state: cryptography_state,
-        device_key: device_key_set.device_key,
-        user_key: user_key.to_encoded().to_vec().into(),
+        account_cryptographic_state: tde_registration_crypto_result.account_cryptographic_state,
+        device_key: tde_registration_crypto_result
+            .trusted_device_keys
+            .device_key,
+        user_key: tde_registration_crypto_result
+            .user_key
+            .to_encoded()
+            .to_vec()
+            .into(),
     })
 }
 
