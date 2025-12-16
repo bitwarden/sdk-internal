@@ -1,8 +1,7 @@
-use bitwarden_api_api::models::AccountKeysRequestModel;
 #[cfg(feature = "wasm")]
 use bitwarden_crypto::safe::PasswordProtectedKeyEnvelope;
 use bitwarden_crypto::{
-    CryptoError, Decryptable, Kdf, RotateableKeySet, SymmetricCryptoKey, TrustDeviceResponse,
+    CryptoError, Decryptable, Kdf, RotateableKeySet,
 };
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
@@ -28,17 +27,12 @@ use crate::{
     Client, UserId,
     client::encryption_settings::EncryptionSettingsError,
     error::StatefulCryptoError,
-    key_management::{
-        account_cryptographic_state::{
-            AccountCryptographyInitializationError, WrappedAccountCryptographicState,
-        },
-        crypto::{
+    key_management::crypto::{
             CryptoClientError, EnrollPinResponse, MakeKeysError, MakeTdeRegistrationResponse,
             UpdateKdfResponse, UserCryptoV2KeysResponse, enroll_pin, get_v2_rotated_account_keys,
             make_update_kdf, make_update_password, make_user_tde_registration,
             make_v2_keys_for_v1_user,
         },
-    },
 };
 
 /// A client for the crypto operations.
