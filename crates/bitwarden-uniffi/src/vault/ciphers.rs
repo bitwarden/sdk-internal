@@ -1,3 +1,4 @@
+use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::OrganizationId;
 use bitwarden_vault::{
     Cipher, CipherListView, CipherView, DecryptCipherListResult, EncryptionContext,
@@ -52,5 +53,18 @@ impl CiphersClient {
         organization_id: OrganizationId,
     ) -> Result<CipherView> {
         Ok(self.0.move_to_organization(cipher, organization_id)?)
+    }
+
+    /// Prepare ciphers for bulk share to an organization
+    pub async fn prepare_ciphers_for_bulk_share(
+        &self,
+        ciphers: Vec<CipherView>,
+        organization_id: OrganizationId,
+        collection_ids: Vec<CollectionId>,
+    ) -> Result<Vec<EncryptionContext>> {
+        Ok(self
+            .0
+            .prepare_ciphers_for_bulk_share(ciphers, organization_id, collection_ids)
+            .await?)
     }
 }
