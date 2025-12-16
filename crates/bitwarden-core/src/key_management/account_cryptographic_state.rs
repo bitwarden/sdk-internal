@@ -20,7 +20,7 @@ use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tracing::info;
+use tracing::{info, trace};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
@@ -229,11 +229,15 @@ impl WrappedAccountCryptographicState {
                     return Err(AccountCryptographyInitializationError::WrongUserKeyType);
                 }
 
-                let private_key_id = ctx
-                    .unwrap_private_key(user_key, private_key)
-                    .map_err(|_| AccountCryptographyInitializationError::WrongUserKey)?;
+                // Some users have unreadable V1 private keys. In this case, we set no keys to state.
+                if let Ok(private_key_id) = ctx.unwrap_private_key(user_key, private_key) {
+                    ctx.persist_asymmetric_key(private_key_id, AsymmetricKeyId::UserPrivateKey)?;
+                } else {
+                    tracing::warn!(
+                        "V1 private key could not be unwrapped, skipping setting private key"
+                    );
+                }
 
-                ctx.persist_asymmetric_key(private_key_id, AsymmetricKeyId::UserPrivateKey)?;
                 ctx.persist_symmetric_key(user_key, SymmetricKeyId::User)?;
             }
             WrappedAccountCryptographicState::V2 {
