@@ -128,15 +128,8 @@ impl WrappedAccountCryptographicState {
                 Some((signing_key, verifying_key)) => Some(Box::new(
                     bitwarden_api_api::models::SignatureKeyPairRequestModel {
                         wrapped_signing_key: Some(signing_key.to_string()),
-                        verifying_key: Some(
-                            B64::from(
-                                Some(verifying_key)
-                                    .map(|vk| vk.to_cose())
-                                    .ok_or(AccountCryptographyInitializationError::CorruptData)?,
-                            )
-                            .to_string(),
-                        ),
-                        signature_algorithm: Some(verifying_key).map(|vk| match vk.algorithm() {
+                        verifying_key: Some(B64::from(verifying_key.to_cose()).to_string()),
+                        signature_algorithm: Some(match verifying_key.algorithm() {
                             SignatureAlgorithm::Ed25519 => "ed25519".to_string(),
                         }),
                     },
