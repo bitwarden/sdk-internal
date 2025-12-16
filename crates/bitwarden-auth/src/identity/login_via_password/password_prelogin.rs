@@ -3,7 +3,7 @@ use bitwarden_core::{ApiError, MissingFieldError};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
-use crate::identity::{IdentityClient, login_via_password::PasswordPreloginResponse};
+use crate::identity::{LoginClient, login_via_password::PasswordPreloginResponse};
 use wasm_bindgen::prelude::wasm_bindgen;
 
 /// Error type for password prelogin operations
@@ -19,7 +19,7 @@ pub enum PasswordPreloginError {
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[cfg_attr(feature = "uniffi", uniffi::export)]
-impl IdentityClient {
+impl LoginClient {
     /// Retrieves the data required before authenticating with a password.
     /// This includes the user's KDF configuration needed to properly derive the master key.
     ///
@@ -33,9 +33,8 @@ impl IdentityClient {
         email: String,
     ) -> Result<PasswordPreloginResponse, PasswordPreloginError> {
         let request_model = PasswordPreloginRequestModel::new(email);
-        let config = self.client.internal.get_api_configurations().await;
-        let response = config
-            .identity_client
+        let response = self
+            .identity_api_client
             .accounts_api()
             .post_password_prelogin(Some(request_model))
             .await
@@ -48,7 +47,7 @@ impl IdentityClient {
 #[cfg(test)]
 mod tests {
     use bitwarden_api_identity::models::KdfType;
-    use bitwarden_core::{Client as CoreClient, ClientSettings, DeviceType};
+    use bitwarden_core::{ClientSettings, DeviceType};
     use bitwarden_crypto::Kdf;
     use bitwarden_test::start_api_mock;
     use wiremock::{Mock, ResponseTemplate, matchers};
@@ -63,7 +62,7 @@ mod tests {
     const ARGON2_MEMORY: u32 = 64;
     const ARGON2_PARALLELISM: u32 = 4;
 
-    fn make_identity_client(mock_server: &wiremock::MockServer) -> IdentityClient {
+    fn make_login_client(mock_server: &wiremock::MockServer) -> LoginClient {
         let settings = ClientSettings {
             identity_url: format!("http://{}/identity", mock_server.address()),
             api_url: format!("http://{}/api", mock_server.address()),
@@ -71,8 +70,7 @@ mod tests {
             device_type: DeviceType::SDK,
             bitwarden_client_version: None,
         };
-        let core_client = CoreClient::new(Some(settings));
-        IdentityClient::new(core_client)
+        LoginClient::new(settings)
     }
 
     #[tokio::test]
@@ -95,7 +93,7 @@ mod tests {
             .respond_with(ResponseTemplate::new(200).set_body_json(raw_success));
 
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_identity_client(&mock_server);
+        let identity_client = make_login_client(&mock_server);
 
         let result = identity_client
             .get_password_prelogin(TEST_EMAIL.to_string())
@@ -133,7 +131,7 @@ mod tests {
             .respond_with(ResponseTemplate::new(200).set_body_json(raw_success));
 
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_identity_client(&mock_server);
+        let identity_client = make_login_client(&mock_server);
 
         let result = identity_client
             .get_password_prelogin(TEST_EMAIL.to_string())
@@ -167,7 +165,7 @@ mod tests {
             .respond_with(ResponseTemplate::new(200).set_body_json(raw_response));
 
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_identity_client(&mock_server);
+        let identity_client = make_login_client(&mock_server);
 
         let result = identity_client
             .get_password_prelogin(TEST_EMAIL.to_string())
@@ -197,7 +195,7 @@ mod tests {
             .respond_with(ResponseTemplate::new(200).set_body_json(raw_response));
 
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_identity_client(&mock_server);
+        let identity_client = make_login_client(&mock_server);
 
         let result = identity_client
             .get_password_prelogin(TEST_EMAIL.to_string())
@@ -220,7 +218,7 @@ mod tests {
             .respond_with(ResponseTemplate::new(500));
 
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_identity_client(&mock_server);
+        let identity_client = make_login_client(&mock_server);
 
         let result = identity_client
             .get_password_prelogin(TEST_EMAIL.to_string())

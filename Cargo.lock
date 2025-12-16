@@ -515,6 +515,8 @@ dependencies = [
  "bitwarden-test",
  "chrono",
  "reqwest",
+ "rustls",
+ "rustls-platform-verifier",
  "schemars 1.0.0",
  "serde",
  "serde_json",

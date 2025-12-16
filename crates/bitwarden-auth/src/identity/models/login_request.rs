@@ -18,8 +18,8 @@ pub struct LoginRequest {
     pub client_id: String,
 
     /// Device information for this login request
-    pub device: LoginDeviceRequest,
-    // TODO: add two factor support
-    // Two-factor authentication
-    // pub two_factor: Option<TwoFactorRequest>,
+    pub device: LoginDeviceRequest, // TODO: move this to identity client
+                                    // TODO: add two factor support
+                                    // Two-factor authentication
+                                    // pub two_factor: Option<TwoFactorRequest>,
 }

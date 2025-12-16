@@ -2,7 +2,7 @@ use bitwarden_core::key_management::MasterPasswordAuthenticationData;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::identity::{
-    IdentityClient,
+    LoginClient,
     api::{request::LoginApiRequest, send_login_request},
     login_via_password::{PasswordLoginApiRequest, PasswordLoginError, PasswordLoginRequest},
     models::LoginResponse,
@@ -10,7 +10,7 @@ use crate::identity::{
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[cfg_attr(feature = "uniffi", uniffi::export)]
-impl IdentityClient {
+impl LoginClient {
     /// Logs in a user via their email and master password.
     ///
     /// This function derives the necessary master password authentication data
@@ -35,9 +35,7 @@ impl IdentityClient {
             (request, master_password_authentication.unwrap()).into();
 
         // make API call to login endpoint with api_request
-        let api_configs = self.client.internal.get_api_configurations().await;
-
-        let response = send_login_request(&api_configs, &api_request).await;
+        let response = send_login_request(&self.identity_config, &api_request).await;
 
         response.map_err(Into::into)
     }
@@ -48,7 +46,7 @@ impl IdentityClient {
 mod tests {
     use std::num::NonZeroU32;
 
-    use bitwarden_core::{Client as CoreClient, ClientSettings, DeviceType};
+    use bitwarden_core::{ClientSettings, DeviceType};
     use bitwarden_crypto::Kdf;
     use bitwarden_test::start_api_mock;
     use wiremock::{Mock, ResponseTemplate, matchers};
@@ -67,7 +65,7 @@ mod tests {
     const TEST_DEVICE_NAME: &str = "Test Device";
     const PBKDF2_ITERATIONS: u32 = 600000;
 
-    fn make_identity_client(mock_server: &wiremock::MockServer) -> IdentityClient {
+    fn make_identity_client(mock_server: &wiremock::MockServer) -> LoginClient {
         let settings = ClientSettings {
             identity_url: format!("http://{}/identity", mock_server.address()),
             api_url: format!("http://{}/api", mock_server.address()),
@@ -75,8 +73,7 @@ mod tests {
             device_type: DeviceType::SDK,
             bitwarden_client_version: None,
         };
-        let core_client = CoreClient::new(Some(settings));
-        IdentityClient::new(core_client)
+        LoginClient::new(settings)
     }
 
     fn make_password_login_request() -> PasswordLoginRequest {

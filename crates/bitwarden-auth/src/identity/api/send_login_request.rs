@@ -1,7 +1,3 @@
-// Cleanest idea for allowing access to data needed for sending login requests
-// Make this function accept the commmon model and flatten the specific
-
-use bitwarden_core::client::ApiConfigurations;
 use serde::{Serialize, de::DeserializeOwned};
 
 use crate::identity::{
@@ -13,16 +9,15 @@ use crate::identity::{
     models::{LoginResponse, LoginSuccessResponse},
 };
 
+// TODO: should this be on the LoginClient struct instead of being a standalone function?
 /// A common function to send login requests to the Identity connect/token endpoint.
 /// Returns a common success model which has already been converted from the API response,
 /// or a common error model representing the login error which allows for conversion to specific error types
 /// based on the login method used.
 pub(crate) async fn send_login_request(
-    api_configs: &ApiConfigurations,
+    identity_config: &bitwarden_api_identity::apis::configuration::Configuration,
     api_request: &LoginApiRequest<impl Serialize + DeserializeOwned + std::fmt::Debug>,
 ) -> Result<LoginResponse, LoginErrorApiResponse> {
-    let identity_config = &api_configs.identity_config;
-
     let url: String = format!("{}/connect/token", &identity_config.base_path);
 
     let device_type_header: LoginRequestHeader =
@@ -37,14 +32,16 @@ pub(crate) async fn send_login_request(
             device_type_header.header_name(),
             device_type_header.header_value(),
         )
-        // TODO: investigate if this is only needed for GET requests
         // per OAuth2 spec recommendation for token requests (https://www.rfc-editor.org/rfc/rfc6749.html#section-5.1)
-        // we must include "no-store" cache control
+        // we include no-cache headers to prevent browser caching sensistive token requests / responses.
         .header(reqwest::header::CACHE_CONTROL, "no-store")
+        .header(reqwest::header::PRAGMA, "no-cache")
         // TODO: investigate missing headers from api.service implementation like:
+        // .header("Bitwarden-Client-Name")
         // Bitwarden-Client-Name
         // Bitwarden-Client-Version
         // Bitwarden-Package-Type
+        // User-Agent
         // TODO: investigate if I have to worry about credentials here
         // use form to encode as application/x-www-form-urlencoded
         .form(&api_request);

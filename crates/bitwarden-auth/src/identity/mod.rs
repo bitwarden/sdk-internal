@@ -1,10 +1,10 @@
-//! Identity client module
-//! The IdentityClient is used to authenticate a Bitwarden User.
+//! Login client module
+//! The LoginClient is used to authenticate a Bitwarden User.
 //! This involves logging in via various mechanisms (password, SSO, etc.) to obtain
 //! OAuth2 tokens from the BW Identity API.
-mod identity_client;
+mod login_client;
 
-pub use identity_client::IdentityClient;
+pub use login_client::LoginClient;
 
 /// Models used by the identity module
 pub mod models;
