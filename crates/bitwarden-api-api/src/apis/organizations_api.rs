@@ -96,12 +96,6 @@ pub trait OrganizationsApi: Send + Sync {
         id: uuid::Uuid,
     ) -> Result<models::OrganizationSubscriptionResponseModel, Error<GetSubscriptionError>>;
 
-    /// GET /organizations/{id}/tax
-    async fn get_tax_info<'a>(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<models::TaxInfoResponseModel, Error<GetTaxInfoError>>;
-
     /// GET /organizations
     async fn get_user(
         &self,
@@ -214,13 +208,6 @@ pub trait OrganizationsApi: Send + Sync {
             models::OrganizationCollectionManagementUpdateRequestModel,
         >,
     ) -> Result<models::OrganizationResponseModel, Error<PutCollectionManagementError>>;
-
-    /// PUT /organizations/{id}/tax
-    async fn put_tax_info<'a>(
-        &self,
-        id: uuid::Uuid,
-        expanded_tax_info_update_request_model: Option<models::ExpandedTaxInfoUpdateRequestModel>,
-    ) -> Result<(), Error<PutTaxInfoError>>;
 
     /// POST /organizations/{id}/rotate-api-key
     async fn rotate_api_key<'a>(
@@ -904,68 +891,6 @@ impl OrganizationsApi for OrganizationsApiClient {
             }
         } else {
             let local_var_entity: Option<GetSubscriptionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
-    }
-
-    async fn get_tax_info<'a>(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<models::TaxInfoResponseModel, Error<GetTaxInfoError>> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/organizations/{id}/tax",
-            local_var_configuration.base_path,
-            id = id
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
-
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
-
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::TaxInfoResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::TaxInfoResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetTaxInfoError> =
                 serde_json::from_str(&local_var_content).ok();
             let local_var_error = ResponseContent {
                 status: local_var_status,
@@ -1906,52 +1831,6 @@ impl OrganizationsApi for OrganizationsApiClient {
         }
     }
 
-    async fn put_tax_info<'a>(
-        &self,
-        id: uuid::Uuid,
-        expanded_tax_info_update_request_model: Option<models::ExpandedTaxInfoUpdateRequestModel>,
-    ) -> Result<(), Error<PutTaxInfoError>> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/organizations/{id}/tax",
-            local_var_configuration.base_path,
-            id = id
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
-
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
-        local_var_req_builder = local_var_req_builder.json(&expanded_tax_info_update_request_model);
-
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PutTaxInfoError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
-    }
-
     async fn rotate_api_key<'a>(
         &self,
         id: &'a str,
@@ -2083,12 +1962,6 @@ pub enum GetSsoError {
 pub enum GetSubscriptionError {
     UnknownValue(serde_json::Value),
 }
-/// struct for typed errors of method [`OrganizationsApi::get_tax_info`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetTaxInfoError {
-    UnknownValue(serde_json::Value),
-}
 /// struct for typed errors of method [`OrganizationsApi::get_user`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -2183,12 +2056,6 @@ pub enum PutError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum PutCollectionManagementError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationsApi::put_tax_info`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutTaxInfoError {
     UnknownValue(serde_json::Value),
 }
 /// struct for typed errors of method [`OrganizationsApi::rotate_api_key`]

@@ -50,6 +50,7 @@ pub(crate) async fn update_secret(
                 .to_string(),
             project_ids: input.project_ids.clone(),
             access_policies_requests: None,
+            value_changed: None,
         })
     };
 

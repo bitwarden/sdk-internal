@@ -25,7 +25,7 @@ use crate::{
 #[cfg_attr(feature = "mockall", automock)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-pub trait SelfHostedAccountBillingApi: Send + Sync {
+pub trait SelfHostedAccountBillingVNextApi: Send + Sync {
     /// POST /account/billing/vnext/self-host/license
     async fn upload_license<'a>(
         &self,
@@ -79,11 +79,11 @@ pub trait SelfHostedAccountBillingApi: Send + Sync {
     ) -> Result<(), Error<UploadLicenseError>>;
 }
 
-pub struct SelfHostedAccountBillingApiClient {
+pub struct SelfHostedAccountBillingVNextApiClient {
     configuration: Arc<configuration::Configuration>,
 }
 
-impl SelfHostedAccountBillingApiClient {
+impl SelfHostedAccountBillingVNextApiClient {
     pub fn new(configuration: Arc<configuration::Configuration>) -> Self {
         Self { configuration }
     }
@@ -91,7 +91,7 @@ impl SelfHostedAccountBillingApiClient {
 
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl SelfHostedAccountBillingApi for SelfHostedAccountBillingApiClient {
+impl SelfHostedAccountBillingVNextApi for SelfHostedAccountBillingVNextApiClient {
     async fn upload_license<'a>(
         &self,
         email: &'a str,
@@ -361,7 +361,7 @@ impl SelfHostedAccountBillingApi for SelfHostedAccountBillingApiClient {
     }
 }
 
-/// struct for typed errors of method [`SelfHostedAccountBillingApi::upload_license`]
+/// struct for typed errors of method [`SelfHostedAccountBillingVNextApi::upload_license`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum UploadLicenseError {

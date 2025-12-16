@@ -227,6 +227,12 @@ pub struct OrganizationLicense {
     )]
     pub use_risk_insights: Option<bool>,
     #[serde(
+        rename = "usePhishingBlocker",
+        alias = "UsePhishingBlocker",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_phishing_blocker: Option<bool>,
+    #[serde(
         rename = "limitCollectionCreationDeletion",
         alias = "LimitCollectionCreationDeletion",
         skip_serializing_if = "Option::is_none"
@@ -327,6 +333,7 @@ impl OrganizationLicense {
             sm_seats: None,
             sm_service_accounts: None,
             use_risk_insights: None,
+            use_phishing_blocker: None,
             limit_collection_creation_deletion: None,
             allow_admin_access_to_all_collection_items: None,
             trial: None,
