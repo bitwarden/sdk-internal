@@ -45,7 +45,7 @@ pub(crate) struct LoginSuccessApiResponse {
     /// Master key derivation function type
     #[deprecated(note = "Use `user_decryption_options.master_password_unlock` instead")]
     #[serde(rename = "Kdf", alias = "kdf")]
-    pub kdf: KdfType,
+    pub kdf: Option<KdfType>,
 
     /// Master key derivation function iterations
     #[deprecated(note = "Use `user_decryption_options.master_password_unlock` instead")]
