@@ -294,7 +294,12 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
                 .transpose()?
                 .map(|c| Box::new(c.into())),
 
-            last_known_revision_date: Some(cipher_data.edit_request.revision_date.to_rfc3339()),
+            last_known_revision_date: Some(
+                cipher_data
+                    .edit_request
+                    .revision_date
+                    .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+            ),
             archived_date: cipher_data
                 .edit_request
                 .archived_date

@@ -175,7 +175,10 @@ mod tests {
                             name: Some(cipher.name.to_string()),
                             r#type: Some(cipher.r#type.into()),
                             creation_date: Some(cipher.creation_date.to_string()),
-                            revision_date: Some(Utc::now().to_string()),
+                            revision_date: Some(
+                                Utc::now()
+                                    .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                            ),
                             login: cipher.login.clone().map(|l| Box::new(l.into())),
                             ..Default::default()
                         })
@@ -224,7 +227,10 @@ mod tests {
                                 login: cipher_1.login.clone().map(|l| Box::new(l.into())),
                                 creation_date: cipher_1.creation_date.to_string().into(),
                                 deleted_date: None,
-                                revision_date: Some(Utc::now().to_string()),
+                                revision_date: Some(
+                                Utc::now()
+                                    .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                            ),
                                 ..Default::default()
                             },
                             CipherMiniResponseModel {
@@ -234,7 +240,10 @@ mod tests {
                                 login: cipher_2.login.clone().map(|l| Box::new(l.into())),
                                 creation_date: cipher_2.creation_date.to_string().into(),
                                 deleted_date: None,
-                                revision_date: Some(Utc::now().to_string()),
+                                revision_date: Some(
+                                Utc::now()
+                                    .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                            ),
                                 ..Default::default()
                             },
                         ]),

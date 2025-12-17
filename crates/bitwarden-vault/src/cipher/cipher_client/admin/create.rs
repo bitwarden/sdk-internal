@@ -135,8 +135,14 @@ mod tests {
                             .and_then(|id| id.parse().ok()),
                         name: Some(request.cipher.name.clone()),
                         r#type: request.cipher.r#type,
-                        creation_date: Some(Utc::now().to_string()),
-                        revision_date: Some(Utc::now().to_string()),
+                        creation_date: Some(
+                            Utc::now()
+                                .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                        ),
+                        revision_date: Some(
+                            Utc::now()
+                                .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                        ),
                         ..Default::default()
                     })
                 });
