@@ -39,8 +39,12 @@ Feature crates extend `Client` via extension traits in feature crates. This allo
 > [!IMPORTANT]
 > Do not add feature functionality to `Client` itself.
 
-```rust
-/// Generator extension for the Client struct
+```rust,ignore
+use bitwarden_core::Client;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
+
+/// Generator extension client that wraps the base Client
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct GeneratorClient {
     client: Client,
@@ -52,20 +56,24 @@ impl GeneratorClient {
         Self { client }
     }
 
-    /// Generates a password based on the provided request.
+    /// Example method that uses the underlying Client
     pub fn password(&self, input: PasswordGeneratorRequest) -> Result<String, PasswordError> {
+        // Implementation details...
         password(input)
     }
 }
 
-/// Extension which exposes `generator` method on the `Client` struct.
-pub trait GeneratorClientExt {
-    fn generator(&self) -> GeneratorClient;
+/// Extension trait which exposes `generator()` method on the `Client` struct
+pub trait GeneratorClientsExt {
+    fn generators(&self) -> GeneratorClient;
 }
 
-impl GeneratorClientExt for Client {
-    fn generator(&self) -> GeneratorClient {
+impl GeneratorClientsExt for Client {
+    fn generators(&self) -> GeneratorClient {
         GeneratorClient::new(self.clone())
     }
 }
+
+// Usage:
+// let password = client.generators().password(request)?;
 ```
