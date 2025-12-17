@@ -5,7 +5,8 @@ and shared infrastructure that feature crates extend via extension traits. For a
 SDK architecture, see the [SDK Architecture](https://contributing.bitwarden.com/architecture/sdk/)
 documentation.
 
-> **Warning**: Do not add business logic or feature-specific functionality to this crate. Use feature crates instead.
+> [!WARNING]
+> Do not add business logic or feature-specific functionality to this crate. Use feature crates instead.
 
 ## Architecture
 
@@ -35,6 +36,38 @@ migration - they will be moved to repositories over time.
 
 ### Extension Pattern
 
-Feature crates extend `Client` via traits (e.g., `PasswordManagerClient` wraps `Client` and exposes `vault()`, `generators()` sub-clients).
+Feature crates extend `Client` via extension traits in feature crates. This allows the underlying implementation to be internal to the crate with only the public API exposed through the `Client` struct. Below is an example of a generator extension for the `Client` struct.
 
-**Do not add feature functionality to `Client` itself.**
+> [!IMPORTANT]
+> Do not add feature functionality to `Client` itself.
+
+```rust
+/// Generator extension for the Client struct
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub struct GeneratorClient {
+    client: Client,
+}
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl GeneratorClient {
+    fn new(client: Client) -> Self {
+        Self { client }
+    }
+
+    /// Generates a password based on the provided request.
+    pub fn password(&self, input: PasswordGeneratorRequest) -> Result<String, PasswordError> {
+        password(input)
+    }
+}
+
+/// Extension which exposes `generator` method on the `Client` struct.
+pub trait GeneratorClientExt {
+    fn generator(&self) -> GeneratorClient;
+}
+
+impl GeneratorClientExt for Client {
+    fn generator(&self) -> GeneratorClient {
+        GeneratorClient::new(self.clone())
+    }
+}
+```
