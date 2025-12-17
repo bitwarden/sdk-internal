@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct BillingPaymentResponseModel {
+pub struct SecretVersionResponseModelListResponseModel {
     #[serde(
         rename = "object",
         alias = "Object",
@@ -21,25 +21,25 @@ pub struct BillingPaymentResponseModel {
     )]
     pub object: Option<String>,
     #[serde(
-        rename = "balance",
-        alias = "Balance",
+        rename = "data",
+        alias = "Data",
         skip_serializing_if = "Option::is_none"
     )]
-    pub balance: Option<f64>,
+    pub data: Option<Vec<models::SecretVersionResponseModel>>,
     #[serde(
-        rename = "paymentSource",
-        alias = "PaymentSource",
+        rename = "continuationToken",
+        alias = "ContinuationToken",
         skip_serializing_if = "Option::is_none"
     )]
-    pub payment_source: Option<Box<models::BillingSource>>,
+    pub continuation_token: Option<String>,
 }
 
-impl BillingPaymentResponseModel {
-    pub fn new() -> BillingPaymentResponseModel {
-        BillingPaymentResponseModel {
+impl SecretVersionResponseModelListResponseModel {
+    pub fn new() -> SecretVersionResponseModelListResponseModel {
+        SecretVersionResponseModelListResponseModel {
             object: None,
-            balance: None,
-            payment_source: None,
+            data: None,
+            continuation_token: None,
         }
     }
 }

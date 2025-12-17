@@ -25,7 +25,7 @@ use crate::{
 #[cfg_attr(feature = "mockall", automock)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-pub trait SelfHostedBillingApi: Send + Sync {
+pub trait SelfHostedOrganizationBillingVNextApi: Send + Sync {
     /// GET /organizations/{organizationId}/billing/vnext/self-host/metadata
     async fn get_metadata<'a>(
         &self,
@@ -90,14 +90,15 @@ pub trait SelfHostedBillingApi: Send + Sync {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
     ) -> Result<(), Error<GetMetadataError>>;
 }
 
-pub struct SelfHostedBillingApiClient {
+pub struct SelfHostedOrganizationBillingVNextApiClient {
     configuration: Arc<configuration::Configuration>,
 }
 
-impl SelfHostedBillingApiClient {
+impl SelfHostedOrganizationBillingVNextApiClient {
     pub fn new(configuration: Arc<configuration::Configuration>) -> Self {
         Self { configuration }
     }
@@ -105,7 +106,7 @@ impl SelfHostedBillingApiClient {
 
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl SelfHostedBillingApi for SelfHostedBillingApiClient {
+impl SelfHostedOrganizationBillingVNextApi for SelfHostedOrganizationBillingVNextApiClient {
     async fn get_metadata<'a>(
         &self,
         organization_id: &'a str,
@@ -169,6 +170,7 @@ impl SelfHostedBillingApi for SelfHostedBillingApiClient {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
     ) -> Result<(), Error<GetMetadataError>> {
         let local_var_configuration = &self.configuration;
 
@@ -424,6 +426,10 @@ impl SelfHostedBillingApi for SelfHostedBillingApiClient {
             local_var_req_builder = local_var_req_builder
                 .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_phishing_blocker {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
+        }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
@@ -453,7 +459,7 @@ impl SelfHostedBillingApi for SelfHostedBillingApiClient {
     }
 }
 
-/// struct for typed errors of method [`SelfHostedBillingApi::get_metadata`]
+/// struct for typed errors of method [`SelfHostedOrganizationBillingVNextApi::get_metadata`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum GetMetadataError {

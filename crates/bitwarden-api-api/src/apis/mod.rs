@@ -131,8 +131,6 @@ pub mod hibp_api;
 pub mod import_ciphers_api;
 pub mod info_api;
 pub mod installations_api;
-pub mod invoices_api;
-pub mod licenses_api;
 pub mod notifications_api;
 pub mod organization_auth_requests_api;
 pub mod organization_billing_api;
@@ -159,12 +157,13 @@ pub mod providers_api;
 pub mod push_api;
 pub mod reports_api;
 pub mod request_sm_access_api;
+pub mod secret_versions_api;
 pub mod secrets_api;
 pub mod secrets_manager_events_api;
 pub mod secrets_manager_porting_api;
 pub mod security_task_api;
-pub mod self_hosted_account_billing_api;
-pub mod self_hosted_billing_api;
+pub mod self_hosted_account_billing_v_next_api;
+pub mod self_hosted_organization_billing_v_next_api;
 pub mod self_hosted_organization_licenses_api;
 pub mod self_hosted_organization_sponsorships_api;
 pub mod sends_api;
@@ -211,8 +210,6 @@ struct ApiClientReal {
     import_ciphers_api: import_ciphers_api::ImportCiphersApiClient,
     info_api: info_api::InfoApiClient,
     installations_api: installations_api::InstallationsApiClient,
-    invoices_api: invoices_api::InvoicesApiClient,
-    licenses_api: licenses_api::LicensesApiClient,
     notifications_api: notifications_api::NotificationsApiClient,
     organization_auth_requests_api:
         organization_auth_requests_api::OrganizationAuthRequestsApiClient,
@@ -242,13 +239,15 @@ struct ApiClientReal {
     push_api: push_api::PushApiClient,
     reports_api: reports_api::ReportsApiClient,
     request_sm_access_api: request_sm_access_api::RequestSmAccessApiClient,
+    secret_versions_api: secret_versions_api::SecretVersionsApiClient,
     secrets_api: secrets_api::SecretsApiClient,
     secrets_manager_events_api: secrets_manager_events_api::SecretsManagerEventsApiClient,
     secrets_manager_porting_api: secrets_manager_porting_api::SecretsManagerPortingApiClient,
     security_task_api: security_task_api::SecurityTaskApiClient,
-    self_hosted_account_billing_api:
-        self_hosted_account_billing_api::SelfHostedAccountBillingApiClient,
-    self_hosted_billing_api: self_hosted_billing_api::SelfHostedBillingApiClient,
+    self_hosted_account_billing_v_next_api:
+        self_hosted_account_billing_v_next_api::SelfHostedAccountBillingVNextApiClient,
+    self_hosted_organization_billing_v_next_api:
+        self_hosted_organization_billing_v_next_api::SelfHostedOrganizationBillingVNextApiClient,
     self_hosted_organization_licenses_api:
         self_hosted_organization_licenses_api::SelfHostedOrganizationLicensesApiClient,
     self_hosted_organization_sponsorships_api:
@@ -288,8 +287,6 @@ pub struct ApiClientMock {
     pub import_ciphers_api: import_ciphers_api::MockImportCiphersApi,
     pub info_api: info_api::MockInfoApi,
     pub installations_api: installations_api::MockInstallationsApi,
-    pub invoices_api: invoices_api::MockInvoicesApi,
-    pub licenses_api: licenses_api::MockLicensesApi,
     pub notifications_api: notifications_api::MockNotificationsApi,
     pub organization_auth_requests_api:
         organization_auth_requests_api::MockOrganizationAuthRequestsApi,
@@ -320,13 +317,15 @@ pub struct ApiClientMock {
     pub push_api: push_api::MockPushApi,
     pub reports_api: reports_api::MockReportsApi,
     pub request_sm_access_api: request_sm_access_api::MockRequestSmAccessApi,
+    pub secret_versions_api: secret_versions_api::MockSecretVersionsApi,
     pub secrets_api: secrets_api::MockSecretsApi,
     pub secrets_manager_events_api: secrets_manager_events_api::MockSecretsManagerEventsApi,
     pub secrets_manager_porting_api: secrets_manager_porting_api::MockSecretsManagerPortingApi,
     pub security_task_api: security_task_api::MockSecurityTaskApi,
-    pub self_hosted_account_billing_api:
-        self_hosted_account_billing_api::MockSelfHostedAccountBillingApi,
-    pub self_hosted_billing_api: self_hosted_billing_api::MockSelfHostedBillingApi,
+    pub self_hosted_account_billing_v_next_api:
+        self_hosted_account_billing_v_next_api::MockSelfHostedAccountBillingVNextApi,
+    pub self_hosted_organization_billing_v_next_api:
+        self_hosted_organization_billing_v_next_api::MockSelfHostedOrganizationBillingVNextApi,
     pub self_hosted_organization_licenses_api:
         self_hosted_organization_licenses_api::MockSelfHostedOrganizationLicensesApi,
     pub self_hosted_organization_sponsorships_api:
@@ -367,8 +366,6 @@ impl ApiClient {
             import_ciphers_api: import_ciphers_api::ImportCiphersApiClient::new(configuration.clone()),
             info_api: info_api::InfoApiClient::new(configuration.clone()),
             installations_api: installations_api::InstallationsApiClient::new(configuration.clone()),
-            invoices_api: invoices_api::InvoicesApiClient::new(configuration.clone()),
-            licenses_api: licenses_api::LicensesApiClient::new(configuration.clone()),
             notifications_api: notifications_api::NotificationsApiClient::new(configuration.clone()),
             organization_auth_requests_api: organization_auth_requests_api::OrganizationAuthRequestsApiClient::new(configuration.clone()),
             organization_billing_api: organization_billing_api::OrganizationBillingApiClient::new(configuration.clone()),
@@ -395,12 +392,13 @@ impl ApiClient {
             push_api: push_api::PushApiClient::new(configuration.clone()),
             reports_api: reports_api::ReportsApiClient::new(configuration.clone()),
             request_sm_access_api: request_sm_access_api::RequestSmAccessApiClient::new(configuration.clone()),
+            secret_versions_api: secret_versions_api::SecretVersionsApiClient::new(configuration.clone()),
             secrets_api: secrets_api::SecretsApiClient::new(configuration.clone()),
             secrets_manager_events_api: secrets_manager_events_api::SecretsManagerEventsApiClient::new(configuration.clone()),
             secrets_manager_porting_api: secrets_manager_porting_api::SecretsManagerPortingApiClient::new(configuration.clone()),
             security_task_api: security_task_api::SecurityTaskApiClient::new(configuration.clone()),
-            self_hosted_account_billing_api: self_hosted_account_billing_api::SelfHostedAccountBillingApiClient::new(configuration.clone()),
-            self_hosted_billing_api: self_hosted_billing_api::SelfHostedBillingApiClient::new(configuration.clone()),
+            self_hosted_account_billing_v_next_api: self_hosted_account_billing_v_next_api::SelfHostedAccountBillingVNextApiClient::new(configuration.clone()),
+            self_hosted_organization_billing_v_next_api: self_hosted_organization_billing_v_next_api::SelfHostedOrganizationBillingVNextApiClient::new(configuration.clone()),
             self_hosted_organization_licenses_api: self_hosted_organization_licenses_api::SelfHostedOrganizationLicensesApiClient::new(configuration.clone()),
             self_hosted_organization_sponsorships_api: self_hosted_organization_sponsorships_api::SelfHostedOrganizationSponsorshipsApiClient::new(configuration.clone()),
             sends_api: sends_api::SendsApiClient::new(configuration.clone()),
@@ -440,8 +438,6 @@ impl ApiClient {
             import_ciphers_api: import_ciphers_api::MockImportCiphersApi::new(),
             info_api: info_api::MockInfoApi::new(),
             installations_api: installations_api::MockInstallationsApi::new(),
-            invoices_api: invoices_api::MockInvoicesApi::new(),
-            licenses_api: licenses_api::MockLicensesApi::new(),
             notifications_api: notifications_api::MockNotificationsApi::new(),
             organization_auth_requests_api: organization_auth_requests_api::MockOrganizationAuthRequestsApi::new(),
             organization_billing_api: organization_billing_api::MockOrganizationBillingApi::new(),
@@ -468,12 +464,13 @@ impl ApiClient {
             push_api: push_api::MockPushApi::new(),
             reports_api: reports_api::MockReportsApi::new(),
             request_sm_access_api: request_sm_access_api::MockRequestSmAccessApi::new(),
+            secret_versions_api: secret_versions_api::MockSecretVersionsApi::new(),
             secrets_api: secrets_api::MockSecretsApi::new(),
             secrets_manager_events_api: secrets_manager_events_api::MockSecretsManagerEventsApi::new(),
             secrets_manager_porting_api: secrets_manager_porting_api::MockSecretsManagerPortingApi::new(),
             security_task_api: security_task_api::MockSecurityTaskApi::new(),
-            self_hosted_account_billing_api: self_hosted_account_billing_api::MockSelfHostedAccountBillingApi::new(),
-            self_hosted_billing_api: self_hosted_billing_api::MockSelfHostedBillingApi::new(),
+            self_hosted_account_billing_v_next_api: self_hosted_account_billing_v_next_api::MockSelfHostedAccountBillingVNextApi::new(),
+            self_hosted_organization_billing_v_next_api: self_hosted_organization_billing_v_next_api::MockSelfHostedOrganizationBillingVNextApi::new(),
             self_hosted_organization_licenses_api: self_hosted_organization_licenses_api::MockSelfHostedOrganizationLicensesApi::new(),
             self_hosted_organization_sponsorships_api: self_hosted_organization_sponsorships_api::MockSelfHostedOrganizationSponsorshipsApi::new(),
             sends_api: sends_api::MockSendsApi::new(),
@@ -630,20 +627,6 @@ impl ApiClient {
             ApiClient::Real(real) => &real.installations_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.installations_api,
-        }
-    }
-    pub fn invoices_api(&self) -> &dyn invoices_api::InvoicesApi {
-        match self {
-            ApiClient::Real(real) => &real.invoices_api,
-            #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.invoices_api,
-        }
-    }
-    pub fn licenses_api(&self) -> &dyn licenses_api::LicensesApi {
-        match self {
-            ApiClient::Real(real) => &real.licenses_api,
-            #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.licenses_api,
         }
     }
     pub fn notifications_api(&self) -> &dyn notifications_api::NotificationsApi {
@@ -849,6 +832,13 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.request_sm_access_api,
         }
     }
+    pub fn secret_versions_api(&self) -> &dyn secret_versions_api::SecretVersionsApi {
+        match self {
+            ApiClient::Real(real) => &real.secret_versions_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.secret_versions_api,
+        }
+    }
     pub fn secrets_api(&self) -> &dyn secrets_api::SecretsApi {
         match self {
             ApiClient::Real(real) => &real.secrets_api,
@@ -881,20 +871,23 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.security_task_api,
         }
     }
-    pub fn self_hosted_account_billing_api(
+    pub fn self_hosted_account_billing_v_next_api(
         &self,
-    ) -> &dyn self_hosted_account_billing_api::SelfHostedAccountBillingApi {
+    ) -> &dyn self_hosted_account_billing_v_next_api::SelfHostedAccountBillingVNextApi {
         match self {
-            ApiClient::Real(real) => &real.self_hosted_account_billing_api,
+            ApiClient::Real(real) => &real.self_hosted_account_billing_v_next_api,
             #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.self_hosted_account_billing_api,
+            ApiClient::Mock(mock) => &mock.self_hosted_account_billing_v_next_api,
         }
     }
-    pub fn self_hosted_billing_api(&self) -> &dyn self_hosted_billing_api::SelfHostedBillingApi {
+    pub fn self_hosted_organization_billing_v_next_api(
+        &self,
+    ) -> &dyn self_hosted_organization_billing_v_next_api::SelfHostedOrganizationBillingVNextApi
+    {
         match self {
-            ApiClient::Real(real) => &real.self_hosted_billing_api,
+            ApiClient::Real(real) => &real.self_hosted_organization_billing_v_next_api,
             #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.self_hosted_billing_api,
+            ApiClient::Mock(mock) => &mock.self_hosted_organization_billing_v_next_api,
         }
     }
     pub fn self_hosted_organization_licenses_api(
