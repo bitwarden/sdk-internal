@@ -8,9 +8,7 @@ documentation.
 > [!WARNING]
 > Do not add business logic or feature-specific functionality to this crate. Use feature crates instead.
 
-## Architecture
-
-### Client Structure
+## `Client` Structure
 
 The `Client` type serves as a **container for runtime persistent data**, which is intended to persist for the lifetime of the SDK instance. Think of this as "dependency injection" for the SDK instance. It should only contain:
 
@@ -28,13 +26,13 @@ The `Client` type serves as a **container for runtime persistent data**, which i
 implementations, not stored directly in `Client`. Historical fields exist due to incremental
 migration - they will be moved to repositories over time.
 
-### Client vs InternalClient
+### `Client` vs `InternalClient`
 
 - `Client` is a lightweight wrapper around `Arc<InternalClient>`
 - `Arc` enables cheap cloning for FFI bindings (owned copies point to same underlying instance)
 - `InternalClient` originally hid internal APIs from Secrets Manager, but this separation becomes less important as functionality moves to feature crates
 
-### Extension Pattern
+## Extension Pattern
 
 Feature crates extend `Client` via extension traits in feature crates. This allows the underlying implementation to be internal to the crate with only the public API exposed through the `Client` struct. Below is an example of a generator extension for the `Client` struct.
 
