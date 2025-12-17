@@ -18,7 +18,7 @@ The `Client` type serves as a **container for runtime persistent data**, which i
    - `KeyStore` - Secure in-memory key management
 3. **Network state**:
    - `ApiClient`/`ApiConfigurations` - HTTP client initialized once and reused
-   - `Tokens` enum - Includes `ClientManagedTokens` and `SdkManagedTokens` traits for access token management
+   - `Tokens` enum - Includes `ClientManagedTokens` trait and `SdkManagedTokens` struct for access token management
 4. **Storage state**:
    - Database/state repository registration
 
@@ -34,7 +34,7 @@ migration - they will be moved to repositories over time.
 
 ## Extension Pattern
 
-Feature crates extend `Client` via extension traits in feature crates. This allows the underlying implementation to be internal to the crate with only the public API exposed through the `Client` struct. Below is an example of a generator extension for the `Client` struct.
+Feature crates extend `Client` via extension traits. This allows the underlying implementation to be internal to the crate with only the public API exposed through the `Client` struct. Below is an example of a generator extension for the `Client` struct.
 
 > [!IMPORTANT]
 > Do not add feature functionality to `Client` itself.
