@@ -18,7 +18,7 @@ The `Client` type serves as a **container for runtime persistent data**, which i
    - `KeyStore` - Secure in-memory key management
 3. **Network state**:
    - `ApiClient`/`ApiConfigurations` - HTTP client initialized once and reused
-   - `TokenRenew` trait - Implemented by `bitwarden-auth` crate for API client token renewal
+   - `Tokens` enum - Includes `ClientManagedTokens` and `SdkManagedTokens` traits for access token management
 4. **Storage state**:
    - Database/state repository registration
 
