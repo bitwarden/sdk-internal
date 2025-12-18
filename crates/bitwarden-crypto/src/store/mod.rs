@@ -57,8 +57,8 @@ pub use key_rotation::*;
 ///         #[local]
 ///         Local(LocalId),
 ///     }
-///     #[asymmetric]
-///     pub enum AsymmKeyId {
+///     #[private]
+///     pub enum PrivateKeyId {
 ///         UserPrivate,
 ///         #[local]
 ///         Local(LocalId),
@@ -69,7 +69,7 @@ pub use key_rotation::*;
 ///        #[local]
 ///        Local(LocalId),
 ///     }
-///     pub Ids => SymmKeyId, AsymmKeyId, SigningKeyId;
+///     pub Ids => SymmKeyId, PrivateKeyId, SigningKeyId;
 /// }
 ///
 /// // Initialize the store and insert a test key
