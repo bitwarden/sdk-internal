@@ -33,7 +33,6 @@ bitwarden-error = { workspace = true }
 chrono = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
-serde_bytes = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tsify = { workspace = true, optional = true }

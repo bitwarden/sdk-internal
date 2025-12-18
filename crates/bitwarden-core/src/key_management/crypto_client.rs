@@ -1,16 +1,13 @@
-use std::sync::RwLock;
-
 use bitwarden_api_api::models::AccountKeysRequestModel;
 #[cfg(feature = "wasm")]
 use bitwarden_crypto::safe::PasswordProtectedKeyEnvelope;
 use bitwarden_crypto::{
-    CryptoError, Decryptable, Kdf, KeyConnectorKey, KeyStore, RotateableKeySet, SymmetricCryptoKey,
+    CryptoError, Decryptable, Kdf, KeyConnectorKey, RotateableKeySet, SymmetricCryptoKey,
 };
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
-use rand_chacha::{ChaCha8Rng, rand_core::SeedableRng};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -213,51 +210,47 @@ impl CryptoClient {
     pub fn make_user_key_connector_registration(
         &self,
         user_id: UserId,
-    ) -> Result<
-        (
-            WrappedAccountCryptographicState,
-            EncString,
-            SymmetricCryptoKey,
-            AccountKeysRequestModel,
-            KeyConnectorKey,
-        ),
-        AccountCryptographyMakeKeysError,
-    > {
+    ) -> Result<MakeKeyConnectorRegistrationResponse, AccountCryptographyMakeKeysError> {
         let mut ctx = self.client.internal.get_key_store().context_mut();
-        let (user_key, wrapped_state) =
+        let (user_key_id, wrapped_state) =
             WrappedAccountCryptographicState::make(&mut ctx, user_id)
                 .map_err(AccountCryptographyMakeKeysError::AccountCryptographyInitialization)?;
         #[expect(deprecated)]
-        let user_key = ctx.dangerous_get_symmetric_key(user_key)?;
+        let user_key = ctx.dangerous_get_symmetric_key(user_key_id)?.to_owned();
 
         // Key Connector unlock method
-        let mut rng = ChaCha8Rng::from_seed([0u8; 32]);
-        let key_connector_key = KeyConnectorKey::generate(&mut rng);
+        let key_connector_key = KeyConnectorKey::make();
 
         let wrapped_user_key = key_connector_key
-            .encrypt_user_key(user_key)
+            .encrypt_user_key(&user_key)
             .map_err(AccountCryptographyMakeKeysError::Crypto)?;
 
-        let store = KeyStore::default();
-        let mut ctx = store.context_mut();
-        let user_key_id = ctx.add_local_symmetric_key(user_key.to_owned());
-        let security_state = RwLock::new(None);
-        wrapped_state
-            .set_to_context(&security_state, user_key_id, &store, ctx)
-            .map_err(AccountCryptographyMakeKeysError::AccountCryptographyInitialization)?;
-
         let cryptography_state_request_model = wrapped_state
-            .to_request_model(&store)
+            .to_request_model(&user_key_id, &mut ctx)
             .map_err(AccountCryptographyMakeKeysError::AccountCryptographyInitialization)?;
 
-        Ok((
-            wrapped_state,
-            wrapped_user_key,
-            user_key.to_owned(),
-            cryptography_state_request_model,
+        Ok(MakeKeyConnectorRegistrationResponse {
+            account_cryptographic_state: wrapped_state,
+            key_connector_key_wrapped_user_key: wrapped_user_key,
+            user_key,
+            account_keys_request: cryptography_state_request_model,
             key_connector_key,
-        ))
+        })
     }
+}
+
+/// The response from `make_user_key_connector_registration`.
+pub struct MakeKeyConnectorRegistrationResponse {
+    /// The account cryptographic state
+    pub account_cryptographic_state: WrappedAccountCryptographicState,
+    /// Encrypted user's user key, wrapped with the key connector key
+    pub key_connector_key_wrapped_user_key: EncString,
+    /// The user's user key
+    pub user_key: SymmetricCryptoKey,
+    /// The request model for the account cryptographic state (also called Account Keys)
+    pub account_keys_request: AccountKeysRequestModel,
+    /// The key connector key used for unlocking
+    pub key_connector_key: KeyConnectorKey,
 }
 
 /// Errors that can occur during account cryptography key generation.

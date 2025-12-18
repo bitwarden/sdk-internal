@@ -5,13 +5,11 @@
 //! authentication method such as SSO or master password, and a decryption method such as
 //! key-connector, TDE, or master password.
 
-use std::str::FromStr;
-
 use bitwarden_api_api::models::SetKeyConnectorKeyRequestModel;
 use bitwarden_core::{
-    Client, UserId,
+    Client, OrganizationId, UserId,
     key_management::{
-        AccountCryptographyMakeKeysError, KeyConnectorApiError,
+        AccountCryptographyMakeKeysError,
         account_cryptographic_state::WrappedAccountCryptographicState,
         key_connector_api_post_or_put_key_connector_key,
     },
@@ -19,9 +17,8 @@ use bitwarden_core::{
 use bitwarden_crypto::EncString;
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
-use serde_bytes::ByteBuf;
 use thiserror::Error;
-use tracing::info;
+use tracing::{error, info};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -55,23 +52,15 @@ impl RegistrationClient {
     pub async fn post_keys_for_key_connector_registration(
         &self,
         key_connector_url: String,
-        org_id: String,
-        user_id: String,
+        org_id: OrganizationId,
+        user_id: UserId,
     ) -> Result<KeyConnectorRegistrationResult, UserRegistrationError> {
         let client = &self.client.internal;
         let api_client = &client.get_api_configurations().await.api_client;
-        let user_id =
-            UserId::from_str(user_id.as_str()).map_err(|_| UserRegistrationError::Serialization)?;
 
         // First call crypto API to get all keys
         info!("Initializing account cryptography");
-        let (
-            cryptography_state,
-            wrapped_user_key,
-            user_key,
-            account_cryptographic_state_request,
-            key_connector_key,
-        ) = self
+        let registration_crypto_result = self
             .client
             .crypto()
             .make_user_key_connector_registration(user_id)
@@ -81,31 +70,42 @@ impl RegistrationClient {
         key_connector_api_post_or_put_key_connector_key(
             &self.client,
             key_connector_url.as_str(),
-            &key_connector_key,
+            &registration_crypto_result.key_connector_key,
         )
         .await
-        .map_err(UserRegistrationError::KeyConnectorApi)?;
+        .map_err(|e| {
+            error!("Failed to post key connector key to key connector server: {e:?}");
+            UserRegistrationError::KeyConnectorApi
+        })?;
 
         info!("Posting user account cryptographic state to server");
         let request = SetKeyConnectorKeyRequestModel {
-            key_connector_key_wrapped_user_key: Some(wrapped_user_key.to_string()),
-            account_keys: Some(Box::new(account_cryptographic_state_request)),
-            ..SetKeyConnectorKeyRequestModel::new(org_id)
+            key_connector_key_wrapped_user_key: Some(
+                registration_crypto_result
+                    .key_connector_key_wrapped_user_key
+                    .to_string(),
+            ),
+            account_keys: Some(Box::new(registration_crypto_result.account_keys_request)),
+            ..SetKeyConnectorKeyRequestModel::new(org_id.to_string())
         };
         api_client
             .accounts_key_management_api()
             .post_set_key_connector_key(Some(request))
             .await
-            .map_err(|e| UserRegistrationError::Api(e.into()))?;
+            .map_err(|e| {
+                error!("Failed to post account cryptographic state to server: {e:?}");
+                UserRegistrationError::Api
+            })?;
 
         info!("User initialized!");
         // Note: This passing out of state and keys is temporary. Once SDK state management is more
         // mature, the account cryptographic state and keys should be set directly here.
         Ok(KeyConnectorRegistrationResult {
-            account_cryptographic_state: cryptography_state,
-            key_connector_key: key_connector_key.to_base64(),
-            key_connector_key_wrapped_user_key: wrapped_user_key,
-            user_key: user_key.to_encoded().to_vec().into(),
+            account_cryptographic_state: registration_crypto_result.account_cryptographic_state,
+            key_connector_key: registration_crypto_result.key_connector_key.to_base64(),
+            key_connector_key_wrapped_user_key: registration_crypto_result
+                .key_connector_key_wrapped_user_key,
+            user_key: registration_crypto_result.user_key.to_encoded().into(),
         })
     }
 }
@@ -116,6 +116,7 @@ impl RegistrationClient {
     derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct KeyConnectorRegistrationResult {
     /// The account cryptographic state of the user.
@@ -125,7 +126,7 @@ pub struct KeyConnectorRegistrationResult {
     /// The encrypted user key, wrapped with the key connector key.
     pub key_connector_key_wrapped_user_key: EncString,
     /// The decrypted user key. This can be used to get the consuming client to an unlocked state.
-    pub user_key: ByteBuf,
+    pub user_key: B64,
 }
 
 /// Errors that can occur during user registration.
@@ -133,15 +134,12 @@ pub struct KeyConnectorRegistrationResult {
 #[bitwarden_error(flat)]
 pub enum UserRegistrationError {
     /// Key Connector API call failed.
-    #[error(transparent)]
-    KeyConnectorApi(#[from] KeyConnectorApiError),
+    #[error("Key Connector Api call failed")]
+    KeyConnectorApi,
     /// API call failed.
-    #[error(transparent)]
-    Api(#[from] bitwarden_core::ApiError),
+    #[error("Api call failed")]
+    Api,
     /// Account cryptography initialization failed.
     #[error(transparent)]
     AccountCryptographyMakeKeys(#[from] AccountCryptographyMakeKeysError),
-    /// Serialization or deserialization error
-    #[error("Serialization error")]
-    Serialization,
 }

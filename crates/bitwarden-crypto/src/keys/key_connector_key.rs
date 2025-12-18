@@ -8,12 +8,13 @@ use typenum::U32;
 use crate::{EncString, SymmetricCryptoKey, keys::utils::stretch_key};
 
 /// Key connector key, used to protect the user key.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct KeyConnectorKey(pub(super) Pin<Box<GenericArray<u8, U32>>>);
 
 impl KeyConnectorKey {
-    /// Generate a new random for KeyConnector.
-    pub fn generate(mut rng: impl rand::RngCore) -> Self {
+    /// Make a new random key for KeyConnector.
+    pub fn make() -> Self {
+        let mut rng = rand::thread_rng();
         let mut key = Box::pin(GenericArray::<u8, U32>::default());
 
         rng.fill(key.as_mut_slice());
@@ -33,5 +34,11 @@ impl KeyConnectorKey {
         let stretched_master_key = stretch_key(&self.0)?;
         let user_key_bytes = user_key.to_encoded();
         EncString::encrypt_aes256_hmac(user_key_bytes.as_ref(), &stretched_master_key)
+    }
+}
+
+impl std::fmt::Debug for KeyConnectorKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KeyConnectorKey").finish()
     }
 }
