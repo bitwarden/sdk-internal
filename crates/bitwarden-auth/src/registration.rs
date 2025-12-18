@@ -254,6 +254,7 @@ mod tests {
                         key: None,
                         public_key: None,
                         private_key: None,
+                        account_keys: None,
                     })
                 });
             mock.organization_users_api
@@ -314,6 +315,7 @@ mod tests {
                         key: None,
                         public_key: None,
                         private_key: None,
+                        account_keys: None,
                     })
                 });
             mock.organization_users_api
@@ -404,6 +406,7 @@ mod tests {
                         key: None,
                         public_key: None,
                         private_key: None,
+                        account_keys: None,
                     })
                 });
             mock.organization_users_api
@@ -456,6 +459,7 @@ mod tests {
                         key: None,
                         public_key: None,
                         private_key: None,
+                        account_keys: None,
                     })
                 });
             mock.organization_users_api
