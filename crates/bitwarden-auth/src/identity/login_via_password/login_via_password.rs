@@ -34,8 +34,10 @@ impl LoginClient {
         let api_request: LoginApiRequest<PasswordLoginApiRequest> =
             (request, master_password_authentication.unwrap()).into();
 
+        let api_configs = self.client.internal.get_api_configurations().await;
+
         // make API call to login endpoint with api_request
-        let response = send_login_request(&self.identity_config, &api_request).await;
+        let response = send_login_request(&api_configs.identity_config, &api_request).await;
 
         response.map_err(Into::into)
     }

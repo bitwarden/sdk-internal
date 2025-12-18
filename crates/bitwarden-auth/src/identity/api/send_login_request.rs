@@ -27,6 +27,8 @@ pub(crate) async fn send_login_request(
         .client
         .post(url)
         .header(reqwest::header::ACCEPT, "application/json")
+        // TODO: this will be a default header with latest work in core client
+        // so it can be removed.
         // Add custom device type header
         .header(
             device_type_header.header_name(),
@@ -36,13 +38,8 @@ pub(crate) async fn send_login_request(
         // we include no-cache headers to prevent browser caching sensistive token requests / responses.
         .header(reqwest::header::CACHE_CONTROL, "no-store")
         .header(reqwest::header::PRAGMA, "no-cache")
-        // TODO: investigate missing headers from api.service implementation like:
-        // .header("Bitwarden-Client-Name")
-        // Bitwarden-Client-Name
-        // Bitwarden-Client-Version
-        // Bitwarden-Package-Type
-        // User-Agent
         // TODO: investigate if I have to worry about credentials here
+        // Nope: need to solve in core client.
         // use form to encode as application/x-www-form-urlencoded
         .form(&api_request);
 
