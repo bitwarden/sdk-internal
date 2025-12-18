@@ -106,6 +106,15 @@ jobs:
       - name: Cargo dylint
         run: cargo dylint --all -- --all-features --all-targets
 
+      - name: Check Cargo.lock unchanged
+        run: |
+          if git diff --exit-code Cargo.lock; then
+            echo "Cargo.lock is unchanged"
+          else
+            echo "Error: Cargo.lock has been modified. Please run `cargo check` and commit the changes to Cargo.lock."
+            exit 1
+          fi
+
       - name: Set up Node
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
         with:
