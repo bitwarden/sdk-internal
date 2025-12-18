@@ -701,7 +701,6 @@ dependencies = [
 name = "bitwarden-error-macro"
 version = "2.0.0"
 dependencies = [
- "bitwarden-error",
  "darling",
  "js-sys",
  "proc-macro2",
