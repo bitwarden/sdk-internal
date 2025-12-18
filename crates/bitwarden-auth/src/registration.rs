@@ -9,9 +9,8 @@ use bitwarden_api_api::models::SetKeyConnectorKeyRequestModel;
 use bitwarden_core::{
     Client, OrganizationId, UserId,
     key_management::{
-        AccountCryptographyMakeKeysError,
+        AccountCryptographyMakeKeysError, KeyConnectorApiClient,
         account_cryptographic_state::WrappedAccountCryptographicState,
-        key_connector_api_post_or_put_key_connector_key,
     },
 };
 use bitwarden_crypto::EncString;
@@ -57,57 +56,73 @@ impl RegistrationClient {
     ) -> Result<KeyConnectorRegistrationResult, UserRegistrationError> {
         let client = &self.client.internal;
         let api_client = &client.get_api_configurations().await.api_client;
+        let key_connector_api_client =
+            KeyConnectorApiClient::new(client, key_connector_url.as_str());
 
-        // First call crypto API to get all keys
-        info!("Initializing account cryptography");
-        let registration_crypto_result = self
-            .client
-            .crypto()
-            .make_user_key_connector_registration(user_id)
-            .map_err(UserRegistrationError::AccountCryptographyMakeKeys)?;
-
-        info!("Posting key connector key to key connector server");
-        key_connector_api_post_or_put_key_connector_key(
-            &self.client,
-            key_connector_url.as_str(),
-            &registration_crypto_result.key_connector_key,
+        internal_post_keys_for_key_connector_registration(
+            self,
+            api_client,
+            &key_connector_api_client,
+            org_id,
+            user_id,
         )
+        .await
+    }
+}
+
+async fn internal_post_keys_for_key_connector_registration(
+    registration_client: &RegistrationClient,
+    api_client: &bitwarden_api_api::apis::ApiClient,
+    key_connector_api_client: &KeyConnectorApiClient,
+    org_id: OrganizationId,
+    user_id: UserId,
+) -> Result<KeyConnectorRegistrationResult, UserRegistrationError> {
+    // First call crypto API to get all keys
+    info!("Initializing account cryptography");
+    let registration_crypto_result = registration_client
+        .client
+        .crypto()
+        .make_user_key_connector_registration(user_id)
+        .map_err(UserRegistrationError::AccountCryptographyMakeKeys)?;
+
+    info!("Posting key connector key to key connector server");
+    key_connector_api_client
+        .post_or_put_key_connector_key(&registration_crypto_result.key_connector_key)
         .await
         .map_err(|e| {
             error!("Failed to post key connector key to key connector server: {e:?}");
             UserRegistrationError::KeyConnectorApi
         })?;
 
-        info!("Posting user account cryptographic state to server");
-        let request = SetKeyConnectorKeyRequestModel {
-            key_connector_key_wrapped_user_key: Some(
-                registration_crypto_result
-                    .key_connector_key_wrapped_user_key
-                    .to_string(),
-            ),
-            account_keys: Some(Box::new(registration_crypto_result.account_keys_request)),
-            ..SetKeyConnectorKeyRequestModel::new(org_id.to_string())
-        };
-        api_client
-            .accounts_key_management_api()
-            .post_set_key_connector_key(Some(request))
-            .await
-            .map_err(|e| {
-                error!("Failed to post account cryptographic state to server: {e:?}");
-                UserRegistrationError::Api
-            })?;
+    info!("Posting user account cryptographic state to server");
+    let request = SetKeyConnectorKeyRequestModel {
+        key_connector_key_wrapped_user_key: Some(
+            registration_crypto_result
+                .key_connector_key_wrapped_user_key
+                .to_string(),
+        ),
+        account_keys: Some(Box::new(registration_crypto_result.account_keys_request)),
+        ..SetKeyConnectorKeyRequestModel::new(org_id.to_string())
+    };
+    api_client
+        .accounts_key_management_api()
+        .post_set_key_connector_key(Some(request))
+        .await
+        .map_err(|e| {
+            error!("Failed to post account cryptographic state to server: {e:?}");
+            UserRegistrationError::Api
+        })?;
 
-        info!("User initialized!");
-        // Note: This passing out of state and keys is temporary. Once SDK state management is more
-        // mature, the account cryptographic state and keys should be set directly here.
-        Ok(KeyConnectorRegistrationResult {
-            account_cryptographic_state: registration_crypto_result.account_cryptographic_state,
-            key_connector_key: registration_crypto_result.key_connector_key.to_base64(),
-            key_connector_key_wrapped_user_key: registration_crypto_result
-                .key_connector_key_wrapped_user_key,
-            user_key: registration_crypto_result.user_key.to_encoded().into(),
-        })
-    }
+    info!("User initialized!");
+    // Note: This passing out of state and keys is temporary. Once SDK state management is more
+    // mature, the account cryptographic state and keys should be set directly here.
+    Ok(KeyConnectorRegistrationResult {
+        account_cryptographic_state: registration_crypto_result.account_cryptographic_state,
+        key_connector_key: registration_crypto_result.key_connector_key.to_base64(),
+        key_connector_key_wrapped_user_key: registration_crypto_result
+            .key_connector_key_wrapped_user_key,
+        user_key: registration_crypto_result.user_key.to_encoded().into(),
+    })
 }
 
 /// Result of Key Connector registration process.

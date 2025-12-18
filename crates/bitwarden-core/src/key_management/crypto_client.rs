@@ -279,7 +279,10 @@ mod tests {
     use bitwarden_crypto::{BitwardenLegacyKeyBytes, SymmetricCryptoKey};
 
     use super::*;
-    use crate::client::test_accounts::test_bitwarden_com_account;
+    use crate::{
+        client::test_accounts::test_bitwarden_com_account,
+        key_management::crypto::InitUserCryptoMethod,
+    };
 
     #[tokio::test]
     async fn test_enroll_pin_envelope() {
@@ -308,5 +311,47 @@ mod tests {
         );
         let user_key_final = SymmetricCryptoKey::try_from(&secret).unwrap();
         assert_eq!(user_key_initial, user_key_final);
+    }
+
+    #[tokio::test]
+    async fn test_make_user_key_connector_registration_success() {
+        let user_id = UserId::new_v4();
+        let email = "test@bitwarden.com";
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let make_keys_response = client
+            .crypto()
+            .make_user_key_connector_registration(user_id)
+            .unwrap();
+
+        // Initialize a new client using the key connector key
+        let unlock_client = Client::new(None);
+        unlock_client
+            .crypto()
+            .initialize_user_crypto(InitUserCryptoRequest {
+                user_id: Some(user_id),
+                kdf_params: Kdf::default(),
+                email: email.to_owned(),
+                account_cryptographic_state: make_keys_response.account_cryptographic_state,
+                method: InitUserCryptoMethod::KeyConnector {
+                    user_key: make_keys_response.key_connector_key_wrapped_user_key,
+                    master_key: make_keys_response.key_connector_key.to_base64(),
+                },
+            })
+            .await
+            .expect("initializing user crypto with key connector key should succeed");
+
+        // Verify we can retrieve the user encryption key
+        let retrieved_key = unlock_client
+            .crypto()
+            .get_user_encryption_key()
+            .await
+            .expect("should be able to get user encryption key");
+
+        // The retrieved key should be a valid symmetric key
+        let retrieved_symmetric_key = SymmetricCryptoKey::try_from(retrieved_key)
+            .expect("retrieved key should be valid symmetric key");
+
+        assert_eq!(retrieved_symmetric_key, make_keys_response.user_key);
     }
 }

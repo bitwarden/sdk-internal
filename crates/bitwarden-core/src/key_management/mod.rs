@@ -40,8 +40,10 @@ pub use user_decryption::UserDecryptionData;
 
 #[cfg(feature = "internal")]
 mod key_connector;
+#[cfg(test)]
+pub use key_connector::MockKeyConnectorApiClient;
 #[cfg(feature = "internal")]
-pub use key_connector::{KeyConnectorApiError, key_connector_api_post_or_put_key_connector_key};
+pub use key_connector::{KeyConnectorApiClient, KeyConnectorApiError};
 
 use crate::OrganizationId;
 
