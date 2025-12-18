@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
@@ -105,6 +105,15 @@ jobs:
 
       - name: Cargo dylint
         run: cargo dylint --all -- --all-features --all-targets
+
+      - name: Check Cargo.lock unchanged
+        run: |
+          if git diff --exit-code Cargo.lock; then
+            echo "Cargo.lock is unchanged"
+          else
+            echo "Error: Cargo.lock has been modified. Please run `cargo check` and commit the changes to Cargo.lock."
+            exit 1
+          fi
 
       - name: Set up Node
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
