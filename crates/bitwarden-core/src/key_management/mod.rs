@@ -50,8 +50,8 @@ key_ids! {
         Local(LocalId),
     }
 
-    #[asymmetric]
-    pub enum AsymmetricKeyId {
+    #[private]
+    pub enum PrivateKeyId {
         UserPrivateKey,
         #[local]
         Local(LocalId),
@@ -64,7 +64,7 @@ key_ids! {
         Local(LocalId),
     }
 
-    pub KeyIds => SymmetricKeyId, AsymmetricKeyId, SigningKeyId;
+    pub KeyIds => SymmetricKeyId, PrivateKeyId, SigningKeyId;
 }
 
 /// This is a helper function to create a test KeyStore with a single user key.

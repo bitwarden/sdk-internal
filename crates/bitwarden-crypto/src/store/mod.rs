@@ -111,7 +111,7 @@ impl<Ids: KeyIds> std::fmt::Debug for KeyStore<Ids> {
 
 struct KeyStoreInner<Ids: KeyIds> {
     symmetric_keys: Box<dyn StoreBackend<Ids::Symmetric>>,
-    asymmetric_keys: Box<dyn StoreBackend<Ids::Asymmetric>>,
+    private_keys: Box<dyn StoreBackend<Ids::Private>>,
     signing_keys: Box<dyn StoreBackend<Ids::Signing>>,
     security_state_version: u64,
 }
@@ -122,7 +122,7 @@ impl<Ids: KeyIds> Default for KeyStore<Ids> {
         Self {
             inner: Arc::new(RwLock::new(KeyStoreInner {
                 symmetric_keys: create_store(),
-                asymmetric_keys: create_store(),
+                private_keys: create_store(),
                 signing_keys: create_store(),
                 security_state_version: 1,
             })),
@@ -136,7 +136,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     pub fn clear(&self) {
         let mut keys = self.inner.write().expect("RwLock is poisoned");
         keys.symmetric_keys.clear();
-        keys.asymmetric_keys.clear();
+        keys.private_keys.clear();
         keys.signing_keys.clear();
     }
 
@@ -183,7 +183,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         KeyStoreContext {
             global_keys: GlobalKeys::ReadOnly(data),
             local_symmetric_keys: create_store(),
-            local_asymmetric_keys: create_store(),
+            local_private_keys: create_store(),
             local_signing_keys: create_store(),
             security_state_version,
             _phantom: std::marker::PhantomData,
@@ -216,7 +216,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         KeyStoreContext {
             global_keys: GlobalKeys::ReadWrite(inner),
             local_symmetric_keys: create_store(),
-            local_asymmetric_keys: create_store(),
+            local_private_keys: create_store(),
             local_signing_keys: create_store(),
             security_state_version,
             _phantom: std::marker::PhantomData,

@@ -22,13 +22,13 @@ pub struct RotatedUserKeys {
 
 /// Generates a new user key and re-encrypts the current private and signing keys with it.
 pub fn dangerous_get_v2_rotated_account_keys<Ids: KeyIds>(
-    current_user_private_key_id: Ids::Asymmetric,
+    current_user_private_key_id: Ids::Private,
     current_user_signing_key_id: Ids::Signing,
     ctx: &KeyStoreContext<Ids>,
 ) -> Result<RotatedUserKeys, CryptoError> {
     let user_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
 
-    let current_private_key = ctx.get_asymmetric_key(current_user_private_key_id)?;
+    let current_private_key = ctx.get_private_key(current_user_private_key_id)?;
     let current_signing_key = ctx.get_signing_key(current_user_signing_key_id)?;
 
     let current_public_key = &current_private_key.to_public_key();
@@ -49,8 +49,8 @@ pub fn dangerous_get_v2_rotated_account_keys<Ids: KeyIds>(
 mod tests {
     use super::*;
     use crate::{
-        AsymmetricCryptoKey, KeyDecryptable, KeyStore, Pkcs8PrivateKeyBytes, SignatureAlgorithm,
-        SigningKey, traits::tests::TestIds,
+        KeyDecryptable, KeyStore, Pkcs8PrivateKeyBytes, PrivateKey, SignatureAlgorithm, SigningKey,
+        traits::tests::TestIds,
     };
 
     #[test]
@@ -85,8 +85,7 @@ mod tests {
             .decrypt_with_key(&rotated_keys.user_key)
             .unwrap();
         let private_key =
-            AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(decrypted_private_key))
-                .unwrap();
+            PrivateKey::from_der(&Pkcs8PrivateKeyBytes::from(decrypted_private_key)).unwrap();
         assert_eq!(
             private_key.to_der().unwrap(),
             ctx.get_asymmetric_key(current_user_private_key_id)

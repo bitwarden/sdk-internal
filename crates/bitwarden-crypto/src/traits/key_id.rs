@@ -2,7 +2,7 @@ use std::{fmt::Debug, hash::Hash};
 
 use zeroize::ZeroizeOnDrop;
 
-use crate::{AsymmetricCryptoKey, CryptoKey, SigningKey, SymmetricCryptoKey};
+use crate::{CryptoKey, PrivateKey, SigningKey, SymmetricCryptoKey};
 
 /// Represents a key identifier that can be used to identify cryptographic keys in the
 /// key store. It is used to avoid exposing the key material directly in the public API.
@@ -35,7 +35,7 @@ pub trait KeyIds {
     #[allow(missing_docs)]
     type Symmetric: KeyId<KeyValue = SymmetricCryptoKey>;
     #[allow(missing_docs)]
-    type Asymmetric: KeyId<KeyValue = AsymmetricCryptoKey>;
+    type Private: KeyId<KeyValue = PrivateKey>;
     /// Signing keys are used to create detached signatures and to sign objects.
     type Signing: KeyId<KeyValue = SigningKey>;
 }
@@ -64,8 +64,8 @@ impl LocalId {
 ///         Local(LocalId),
 ///     }
 ///
-///     #[asymmetric]
-///     pub enum AsymmKeyId {
+///     #[private]
+///     pub enum PrivateKeyId {
 ///         PrivateKey,
 ///         #[local]
 ///         Local(LocalId),
@@ -78,7 +78,7 @@ impl LocalId {
 ///        Local(LocalId),
 ///     }
 ///
-///     pub Ids => SymmKeyId, AsymmKeyId, SigningKeyId;
+///     pub Ids => SymmKeyId, PrivateKeyId, SigningKeyId;
 /// }
 #[macro_export]
 macro_rules! key_ids {
@@ -92,7 +92,7 @@ macro_rules! key_ids {
             $(,)?
         }
     )+
-    $ids_vis:vis $ids_name:ident => $symm_name:ident, $asymm_name:ident, $signing_name:ident;
+    $ids_vis:vis $ids_name:ident => $symm_name:ident, $private_name:ident, $signing_name:ident;
     ) => {
 
         use $crate::LocalId;
@@ -127,13 +127,13 @@ macro_rules! key_ids {
         $ids_vis struct $ids_name;
         impl $crate::KeyIds for $ids_name {
             type Symmetric = $symm_name;
-            type Asymmetric = $asymm_name;
+            type Private = $private_name;
             type Signing = $signing_name;
         }
     };
 
     ( @key_type symmetric ) => { $crate::SymmetricCryptoKey };
-    ( @key_type asymmetric ) => { $crate::AsymmetricCryptoKey };
+    ( @key_type private ) => { $crate::PrivateKey };
     ( @key_type signing ) => { $crate::SigningKey };
 
     ( @variant_match $variant:ident ( $inner:ty ) ) => { $variant (_) };
@@ -162,9 +162,9 @@ pub(crate) mod tests {
         assert!(!TestSymmKey::B((4, 10)).is_local());
         assert!(TestSymmKey::C(local).is_local());
 
-        assert!(!TestAsymmKey::A(0).is_local());
-        assert!(!TestAsymmKey::B.is_local());
-        assert!(TestAsymmKey::C(local).is_local());
+        assert!(!TestPrivateKey::A(0).is_local());
+        assert!(!TestPrivateKey::B.is_local());
+        assert!(TestPrivateKey::C(local).is_local());
 
         assert!(!TestSigningKey::A(0).is_local());
         assert!(!TestSigningKey::B.is_local());
