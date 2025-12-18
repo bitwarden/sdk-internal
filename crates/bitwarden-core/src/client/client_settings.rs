@@ -44,7 +44,8 @@ pub struct ClientSettings {
     pub device_identifier: Option<String>,
     /// Bitwarden Client Version to send to Bitwarden. Optional for now in transition period.
     pub bitwarden_client_version: Option<String>,
-    /// Bitwarden Package Type to send to Bitwarden. Optional for now in transition period.
+    /// Bitwarden Package Type to send to Bitwarden. We should evaluate this field to see if it
+    /// should be optional later.
     pub bitwarden_package_type: Option<String>,
 }
 
