@@ -33,7 +33,6 @@ src/apis/organization_reports_api.rs
 src/apis/organization_sponsorships_api.rs
 src/apis/organization_users_api.rs
 src/apis/organizations_api.rs
-src/apis/phishing_domains_api.rs
 src/apis/plans_api.rs
 src/apis/policies_api.rs
 src/apis/projects_api.rs
