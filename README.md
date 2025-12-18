@@ -65,7 +65,8 @@ are:
 
 We autogenerate the server bindings using
 [openapi-generator](https://github.com/OpenAPITools/openapi-generator). To do this, we first need to
-build the internal swagger documentation.
+build the internal swagger documentation. This code should not be directly modified, instead see the
+instructions below to generate Swagger documents and use these to generate the OpenApi bindings.
 
 ### Swagger generation
 
