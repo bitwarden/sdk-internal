@@ -90,10 +90,13 @@ One of the responsibilities of the `Client` is managing and exposing the `ApiCli
 These `ApiClient`s should be accessed through the `ApiConfigurations` struct that is returned from the `get_api_configurations()` function. `get_api_configurations()` also refreshes the authentication token if required.
 
 ```rust
+# use bitwarden_core::Client;
+# async fn example(client: &Client) -> Result<(), Box<dyn std::error::Error>> {
 // Example API call
-let api_config: &ApiConfigurations = client.get_api_configurations().await;
-let api_client: &bitwarden_api_api::apis::ApiClient = api_config.ApiClient;
-let response = api_client.ciphers_api.get_all().await;
+let api_config = client.internal.get_api_configurations().await;
+let response = api_config.api_client.ciphers_api.get_all().await?;
+# Ok(())
+# }
 ``` 
 
 ### Server API bindings
@@ -111,14 +114,41 @@ You should not expose the request and response models of the auto-generated bind
 We recommend using either the `From` or `TryFrom` conversion traits depending on if the conversion requires error handling or not. Below are two examples of how this can be done:
 
 ```rust
+# use bitwarden_crypto::EncString;
+# use serde::{Serialize, Deserialize};
+# use serde_repr::{Serialize_repr, Deserialize_repr};
+#
+# #[derive(Serialize, Deserialize, Debug, Clone)]
+# struct LoginUri {
+#     pub uri: Option<EncString>,
+#     pub r#match: Option<UriMatchType>,
+#     pub uri_checksum: Option<EncString>,
+# }
+#
+# #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
+# #[repr(u8)]
+# pub enum UriMatchType {
+#     Domain = 0,
+#     Host = 1,
+#     StartsWith = 2,
+#     Exact = 3,
+#     RegularExpression = 4,
+#     Never = 5,
+# }
+#
+# #[derive(Debug)]
+# struct VaultParseError;
+#
 impl TryFrom<bitwarden_api_api::models::CipherLoginUriModel> for LoginUri {
-    type Error = Error;
+    type Error = VaultParseError;
 
-    fn try_from(uri: bitwarden_api_api::models::CipherLoginUriModel) -> Result<Self> {
+    fn try_from(uri: bitwarden_api_api::models::CipherLoginUriModel) -> Result<Self, Self::Error> {
         Ok(Self {
-            uri: EncString::try_from_optional(uri.uri)?,
+            uri: EncString::try_from_optional(uri.uri)
+                .map_err(|_| VaultParseError)?,
             r#match: uri.r#match.map(|m| m.into()),
-            uri_checksum: EncString::try_from_optional(uri.uri_checksum)?,
+            uri_checksum: EncString::try_from_optional(uri.uri_checksum)
+                .map_err(|_| VaultParseError)?,
         })
     }
 }
