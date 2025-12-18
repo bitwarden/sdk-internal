@@ -795,7 +795,9 @@ mod tests {
             api_url: format!("http://{}", mock_server.address()),
             user_agent: "Bitwarden Test".into(),
             device_type: DeviceType::SDK,
+            device_identifier: None,
             bitwarden_client_version: None,
+            bitwarden_package_type: None,
         };
 
         let client = Client::new(Some(settings));

@@ -256,7 +256,9 @@ mod tests {
             api_url: api_config.base_path,
             user_agent: api_config.user_agent.unwrap(),
             device_type: DeviceType::SDK,
+            device_identifier: None,
             bitwarden_client_version: None,
+            bitwarden_package_type: None,
         }));
 
         client
