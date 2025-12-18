@@ -1,6 +1,6 @@
 use bitwarden_api_api::apis::Error as ApiApisError;
-use log::debug;
 use thiserror::Error;
+use tracing::debug;
 use validator::ValidationErrors;
 
 #[derive(Debug, thiserror::Error)]
@@ -45,7 +45,7 @@ pub fn validate_only_whitespaces(value: &str) -> Result<(), validator::Validatio
 
 impl From<ValidationErrors> for ValidationError {
     fn from(e: ValidationErrors) -> Self {
-        debug!("Validation errors: {e:#?}");
+        debug!(?e, "Validation errors");
         for (field_name, errors) in e.field_errors() {
             for error in errors {
                 match error.code.as_ref() {

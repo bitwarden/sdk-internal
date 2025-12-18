@@ -19,6 +19,7 @@
 .github/workflows/review-code.yml @bitwarden/dept-bre
 
 # Team-owned crates
+bitwarden_license/bitwarden-sm/** @bitwarden/team-secrets-manager-dev @bitwarden/team-platform-dev
 crates/bitwarden-auth/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
 crates/bitwarden-crypto/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
 crates/bitwarden-vault/** @bitwarden/team-vault-dev @bitwarden/team-sdk-sme

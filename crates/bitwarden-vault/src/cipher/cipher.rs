@@ -8,7 +8,7 @@ use bitwarden_api_api::{
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     MissingFieldError, OrganizationId, UserId,
-    key_management::{KeyIds, SymmetricKeyId},
+    key_management::{KeyIds, MINIMUM_ENFORCE_ICON_URI_HASH_VERSION, SymmetricKeyId},
     require,
 };
 use bitwarden_crypto::{
@@ -22,6 +22,7 @@ use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use thiserror::Error;
+use tracing::instrument;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 #[cfg(feature = "wasm")]
@@ -512,6 +513,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
 }
 
 impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
+    #[instrument(err, skip_all, fields(cipher_id = ?self.id, org_id = ?self.organization_id, kind = ?self.r#type))]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -554,7 +556,10 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
         };
 
         // For compatibility we only remove URLs with invalid checksums if the cipher has a key
-        if cipher.key.is_some() {
+        // or the user is on Crypto V2
+        if cipher.key.is_some()
+            || ctx.get_security_state_version() >= MINIMUM_ENFORCE_ICON_URI_HASH_VERSION
+        {
             cipher.remove_invalid_checksums();
         }
 
@@ -573,6 +578,7 @@ impl Cipher {
     /// * `key` - The key to use to decrypt the cipher key, this should be the user or organization
     ///   key
     /// * `ciphers_key` - The encrypted cipher key
+    #[instrument(err, skip_all)]
     pub(super) fn decrypt_cipher_key(
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,

@@ -23,7 +23,9 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
 
       - name: Set Rust Toolchain
         id: toolchain
@@ -40,21 +42,25 @@ jobs:
           echo "RUST_NIGHTLY_TOOLCHAIN=${RUST_NIGHTLY_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
 
       - name: Install rust
-        uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # stable
+        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e # stable
         with:
           toolchain: "${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}"
           components: clippy, rustfmt
 
       - name: Install rust nightly
+        env:
+          RUST_NIGHTLY_TOOLCHAIN: ${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}
         run: |
-          rustup toolchain install "${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}"
-          rustup component add rustfmt --toolchain "${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}"-x86_64-unknown-linux-gnu
+          rustup toolchain install "${RUST_NIGHTLY_TOOLCHAIN}"
+          rustup component add rustfmt --toolchain "${RUST_NIGHTLY_TOOLCHAIN}"-x86_64-unknown-linux-gnu
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
 
       - name: Cargo fmt
-        run: cargo +"${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}" fmt --check
+        env:
+          RUST_NIGHTLY_TOOLCHAIN: ${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}
+        run: cargo +"${RUST_NIGHTLY_TOOLCHAIN}" fmt --check
 
       - name: Install clippy-sarif and sarif-fmt
         run: cargo install clippy-sarif sarif-fmt --locked --git https://github.com/psastras/sarif-rs.git --rev 11c33a53f6ffeaed736856b86fb6b7b09fabdfd8
@@ -66,7 +72,7 @@ jobs:
           RUSTFLAGS: "-D warnings"
 
       - name: Upload Clippy results to GitHub
-        uses: github/codeql-action/upload-sarif@dd746615b3b9d728a6a37ca2045b68ca76d4841a # v3.28.8
+        uses: github/codeql-action/upload-sarif@0499de31b99561a6d14a36a5f662c2a54f91beee # v4.31.2
         with:
           sarif_file: clippy_result.sarif
           sha: ${{ contains(github.event_name, 'pull_request') && github.event.pull_request.head.sha || github.sha }}
@@ -81,22 +87,33 @@ jobs:
           RUSTFLAGS: "-D warnings"
 
       - name: Install cargo-sort
-        run: cargo install cargo-sort --locked --git https://github.com/DevinR528/cargo-sort.git --rev f5047967021cbb1f822faddc355b3b07674305a1
+        run: cargo install cargo-sort --version 2.0.2 --locked
 
       - name: Cargo sort
-        run: cargo sort --workspace --check
+        run: cargo sort --workspace --grouped --check
 
       - name: Install cargo-udeps
         run: cargo install cargo-udeps --version 0.1.57 --locked
 
       - name: Cargo udeps
-        run: cargo +"${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}" udeps --workspace --all-features
+        env:
+          RUST_NIGHTLY_TOOLCHAIN: ${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}
+        run: cargo +"${RUST_NIGHTLY_TOOLCHAIN}" udeps --workspace --all-features
 
       - name: Install cargo-dylint
-        run: cargo install cargo-dylint dylint-link --version 4.1.0 --locked
+        run: cargo install cargo-dylint dylint-link --version 5.0.0 --locked
 
       - name: Cargo dylint
         run: cargo dylint --all -- --all-features --all-targets
+
+      - name: Check Cargo.lock unchanged
+        run: |
+          if git diff --exit-code Cargo.lock; then
+            echo "Cargo.lock is unchanged"
+          else
+            echo "Error: Cargo.lock has been modified. Please run `cargo check` and commit the changes to Cargo.lock."
+            exit 1
+          fi
 
       - name: Set up Node
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0

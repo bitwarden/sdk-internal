@@ -7,7 +7,7 @@ use bitwarden_vault::{
     CipherError, CipherView, Fido2CredentialFullView, Fido2CredentialNewView, Fido2CredentialView,
 };
 use crypto::{CoseKeyToPkcs8Error, PrivateKeyFromSecretKeyError};
-use passkey::types::{Passkey, ctap2::Aaguid};
+use passkey::types::{CredentialExtensions, Passkey, ctap2::Aaguid};
 
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
@@ -26,7 +26,7 @@ pub use authenticator::{
 };
 pub use client::{Fido2Client, Fido2ClientError};
 pub use client_fido::{ClientFido2, ClientFido2Ext, DecryptFido2AutofillCredentialsError};
-pub use passkey::authenticator::UIHint;
+pub use passkey::authenticator::UiHint;
 use thiserror::Error;
 pub use traits::{
     CheckUserOptions, CheckUserResult, Fido2CallbackError, Fido2CredentialStore,
@@ -126,6 +126,7 @@ fn try_from_credential_full_view(value: Fido2CredentialFullView) -> Result<Passk
         rp_id: value.rp_id.clone(),
         user_handle: user_handle.map(|u| u.into_bytes().into()),
         counter,
+        extensions: CredentialExtensions { hmac_secret: None },
     })
 }
 

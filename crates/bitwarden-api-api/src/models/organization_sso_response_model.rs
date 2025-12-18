@@ -14,15 +14,35 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationSsoResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "enabled", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "enabled",
+        alias = "Enabled",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub enabled: Option<bool>,
-    #[serde(rename = "identifier", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "identifier",
+        alias = "Identifier",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub identifier: Option<String>,
-    #[serde(rename = "data", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "data",
+        alias = "Data",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub data: Option<Box<models::SsoConfigurationData>>,
-    #[serde(rename = "urls", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "urls",
+        alias = "Urls",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub urls: Option<Box<models::SsoUrls>>,
 }
 

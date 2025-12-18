@@ -4,15 +4,15 @@ use bitwarden_core::Client;
 use bitwarden_crypto::CryptoError;
 use bitwarden_vault::{CipherError, CipherView, EncryptionContext};
 use itertools::Itertools;
-use log::error;
 use passkey::{
-    authenticator::{Authenticator, DiscoverabilitySupport, StoreInfo, UIHint, UserCheck},
+    authenticator::{Authenticator, DiscoverabilitySupport, StoreInfo, UiHint, UserCheck},
     types::{
         Passkey,
         ctap2::{self, Ctap2Error, StatusCode, VendorError},
     },
 };
 use thiserror::Error;
+use tracing::error;
 
 use super::{
     AAGUID, CheckUserOptions, CipherViewContainer, Fido2CredentialStore, Fido2UserInterface,
@@ -163,7 +163,7 @@ impl<'a> Fido2Authenticator<'a> {
                 options: passkey::types::ctap2::make_credential::Options {
                     rk: request.options.rk,
                     up: true,
-                    uv: self.convert_requested_uv(request.options.uv).await,
+                    uv: self.convert_requested_uv(request.options.uv),
                 },
                 pin_auth: None,
                 pin_protocol: None,
@@ -175,7 +175,7 @@ impl<'a> Fido2Authenticator<'a> {
             Err(e) => return Err(MakeCredentialError::Other(format!("{e:?}"))),
         };
 
-        let attestation_object = response.as_bytes().to_vec();
+        let attestation_object = response.as_webauthn_bytes().to_vec();
         let authenticator_data = response.auth_data.to_vec();
         let attested_credential_data = response
             .auth_data
@@ -222,7 +222,7 @@ impl<'a> Fido2Authenticator<'a> {
                 options: passkey::types::ctap2::make_credential::Options {
                     rk: request.options.rk,
                     up: true,
-                    uv: self.convert_requested_uv(request.options.uv).await,
+                    uv: self.convert_requested_uv(request.options.uv),
                 },
                 pin_auth: None,
                 pin_protocol: None,
@@ -255,9 +255,13 @@ impl<'a> Fido2Authenticator<'a> {
     pub async fn silently_discover_credentials(
         &mut self,
         rp_id: String,
+        user_handle: Option<Vec<u8>>,
     ) -> Result<Vec<Fido2CredentialAutofillView>, SilentlyDiscoverCredentialsError> {
         let key_store = self.client.internal.get_key_store();
-        let result = self.credential_store.find_credentials(None, rp_id).await?;
+        let result = self
+            .credential_store
+            .find_credentials(None, rp_id, user_handle)
+            .await?;
 
         let mut ctx = key_store.context();
         result
@@ -305,8 +309,8 @@ impl<'a> Fido2Authenticator<'a> {
         )
     }
 
-    async fn convert_requested_uv(&self, uv: UV) -> bool {
-        let verification_enabled = self.user_interface.is_verification_enabled().await;
+    fn convert_requested_uv(&self, uv: UV) -> bool {
+        let verification_enabled = self.user_interface.is_verification_enabled();
         match (uv, verification_enabled) {
             (UV::Preferred, true) => true,
             (UV::Preferred, false) => false,
@@ -353,6 +357,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
         &self,
         ids: Option<&[passkey::types::webauthn::PublicKeyCredentialDescriptor]>,
         rp_id: &str,
+        user_handle: Option<&[u8]>,
     ) -> Result<Vec<Self::PasskeyItem>, StatusCode> {
         #[derive(Debug, Error)]
         enum InnerError {
@@ -369,6 +374,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             this: &CredentialStoreImpl<'_>,
             ids: Option<&[passkey::types::webauthn::PublicKeyCredentialDescriptor]>,
             rp_id: &str,
+            user_handle: Option<&[u8]>,
         ) -> Result<Vec<CipherViewContainer>, InnerError> {
             let ids: Option<Vec<Vec<u8>>> =
                 ids.map(|ids| ids.iter().map(|id| id.id.clone().into()).collect());
@@ -376,7 +382,7 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             let ciphers = this
                 .authenticator
                 .credential_store
-                .find_credentials(ids, rp_id.to_string())
+                .find_credentials(ids, rp_id.to_string(), user_handle.map(|h| h.to_vec()))
                 .await?;
 
             // Remove any that don't have Fido2 credentials
@@ -419,8 +425,8 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             }
         }
 
-        inner(self, ids, rp_id).await.map_err(|e| {
-            error!("Error finding credentials: {e:?}");
+        inner(self, ids, rp_id, user_handle).await.map_err(|error| {
+            error!(%error, "Error finding credentials.");
             VendorError::try_from(0xF0)
                 .expect("Valid vendor error code")
                 .into()
@@ -501,8 +507,8 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             Ok(())
         }
 
-        inner(self, cred, user, rp, options).await.map_err(|e| {
-            error!("Error saving credential: {e:?}");
+        inner(self, cred, user, rp, options).await.map_err(|error| {
+            error!(%error, "Error saving credential.");
             VendorError::try_from(0xF1)
                 .expect("Valid vendor error code")
                 .into()
@@ -579,8 +585,8 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             Ok(())
         }
 
-        inner(self, cred).await.map_err(|e| {
-            error!("Error updating credential: {e:?}");
+        inner(self, cred).await.map_err(|error| {
+            error!(%error, "Error updating credential.");
             VendorError::try_from(0xF2)
                 .expect("Valid vendor error code")
                 .into()
@@ -600,7 +606,7 @@ impl passkey::authenticator::UserValidationMethod for UserValidationMethodImpl<'
 
     async fn check_user<'a>(
         &self,
-        hint: UIHint<'a, Self::PasskeyItem>,
+        hint: UiHint<'a, Self::PasskeyItem>,
         presence: bool,
         _verification: bool,
     ) -> Result<UserCheck, Ctap2Error> {
@@ -617,7 +623,7 @@ impl passkey::authenticator::UserValidationMethod for UserValidationMethodImpl<'
         };
 
         let result = match hint {
-            UIHint::RequestNewCredential(user, rp) => {
+            UiHint::RequestNewCredential(user, rp) => {
                 let new_credential = try_from_credential_new_view(user, rp)
                     .map_err(|_| Ctap2Error::InvalidCredential)?;
 
@@ -644,8 +650,8 @@ impl passkey::authenticator::UserValidationMethod for UserValidationMethodImpl<'
             }
         };
 
-        let result = result.map_err(|e| {
-            error!("Error checking user: {e:?}");
+        let result = result.map_err(|error| {
+            error!(%error, "Error checking user.");
             Ctap2Error::UserVerificationInvalid
         })?;
 
@@ -655,22 +661,17 @@ impl passkey::authenticator::UserValidationMethod for UserValidationMethodImpl<'
         })
     }
 
-    async fn is_presence_enabled(&self) -> bool {
+    fn is_presence_enabled(&self) -> bool {
         true
     }
 
-    async fn is_verification_enabled(&self) -> Option<bool> {
-        Some(
-            self.authenticator
-                .user_interface
-                .is_verification_enabled()
-                .await,
-        )
+    fn is_verification_enabled(&self) -> Option<bool> {
+        Some(self.authenticator.user_interface.is_verification_enabled())
     }
 }
 
-fn map_ui_hint(hint: UIHint<'_, CipherViewContainer>) -> UIHint<'_, CipherView> {
-    use UIHint::*;
+fn map_ui_hint(hint: UiHint<'_, CipherViewContainer>) -> UiHint<'_, CipherView> {
+    use UiHint::*;
     match hint {
         InformExcludedCredentialFound(c) => InformExcludedCredentialFound(&c.cipher),
         InformNoCredentialsFound => InformNoCredentialsFound,

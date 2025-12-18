@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BitPayCreditRequest {
-    #[serde(rename = "amount")]
+    #[serde(rename = "amount", alias = "Amount")]
     pub amount: f64,
-    #[serde(rename = "redirectUrl")]
+    #[serde(rename = "redirectUrl", alias = "RedirectUrl")]
     pub redirect_url: String,
 }
 

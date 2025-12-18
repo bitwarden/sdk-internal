@@ -8,6 +8,6 @@ export default {
   "Cargo.toml": (stagedFiles) => [
     "cargo +nightly fmt",
     "cargo +nightly udeps --workspace --all-features",
-    "cargo sort --workspace",
+    "cargo sort --workspace --grouped",
   ],
 };

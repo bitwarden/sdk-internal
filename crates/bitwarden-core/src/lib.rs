@@ -5,8 +5,6 @@ uniffi::setup_scaffolding!();
 #[cfg(feature = "uniffi")]
 mod uniffi_support;
 
-#[cfg(feature = "internal")]
-pub mod admin_console;
 pub mod auth;
 pub mod client;
 mod error;

@@ -59,18 +59,6 @@ pub trait OrganizationBillingApi: Send + Sync {
         organization_id: uuid::Uuid,
     ) -> Result<(), Error<GetMetadataError>>;
 
-    /// GET /organizations/{organizationId}/billing/payment-method
-    async fn get_payment_method<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-    ) -> Result<(), Error<GetPaymentMethodError>>;
-
-    /// GET /organizations/{organizationId}/billing/tax-information
-    async fn get_tax_information<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-    ) -> Result<(), Error<GetTaxInformationError>>;
-
     /// GET /organizations/{organizationId}/billing/transactions
     async fn get_transactions<'a>(
         &self,
@@ -84,27 +72,6 @@ pub trait OrganizationBillingApi: Send + Sync {
         organization_id: uuid::Uuid,
         setup_business_unit_request_body: Option<models::SetupBusinessUnitRequestBody>,
     ) -> Result<(), Error<SetupBusinessUnitError>>;
-
-    /// PUT /organizations/{organizationId}/billing/payment-method
-    async fn update_payment_method<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-        update_payment_method_request_body: Option<models::UpdatePaymentMethodRequestBody>,
-    ) -> Result<(), Error<UpdatePaymentMethodError>>;
-
-    /// PUT /organizations/{organizationId}/billing/tax-information
-    async fn update_tax_information<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-        tax_information_request_body: Option<models::TaxInformationRequestBody>,
-    ) -> Result<(), Error<UpdateTaxInformationError>>;
-
-    /// POST /organizations/{organizationId}/billing/payment-method/verify-bank-account
-    async fn verify_bank_account<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-        verify_bank_account_request_body: Option<models::VerifyBankAccountRequestBody>,
-    ) -> Result<(), Error<VerifyBankAccountError>>;
 }
 
 pub struct OrganizationBillingApiClient {
@@ -352,94 +319,6 @@ impl OrganizationBillingApi for OrganizationBillingApiClient {
         }
     }
 
-    async fn get_payment_method<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-    ) -> Result<(), Error<GetPaymentMethodError>> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/organizations/{organizationId}/billing/payment-method",
-            local_var_configuration.base_path,
-            organizationId = organization_id
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
-
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
-
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<GetPaymentMethodError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
-    }
-
-    async fn get_tax_information<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-    ) -> Result<(), Error<GetTaxInformationError>> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/organizations/{organizationId}/billing/tax-information",
-            local_var_configuration.base_path,
-            organizationId = organization_id
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
-
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
-
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<GetTaxInformationError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
-    }
-
     async fn get_transactions<'a>(
         &self,
         organization_id: uuid::Uuid,
@@ -534,144 +413,6 @@ impl OrganizationBillingApi for OrganizationBillingApiClient {
             Err(Error::ResponseError(local_var_error))
         }
     }
-
-    async fn update_payment_method<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-        update_payment_method_request_body: Option<models::UpdatePaymentMethodRequestBody>,
-    ) -> Result<(), Error<UpdatePaymentMethodError>> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/organizations/{organizationId}/billing/payment-method",
-            local_var_configuration.base_path,
-            organizationId = organization_id
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
-
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
-        local_var_req_builder = local_var_req_builder.json(&update_payment_method_request_body);
-
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<UpdatePaymentMethodError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
-    }
-
-    async fn update_tax_information<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-        tax_information_request_body: Option<models::TaxInformationRequestBody>,
-    ) -> Result<(), Error<UpdateTaxInformationError>> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/organizations/{organizationId}/billing/tax-information",
-            local_var_configuration.base_path,
-            organizationId = organization_id
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
-
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
-        local_var_req_builder = local_var_req_builder.json(&tax_information_request_body);
-
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<UpdateTaxInformationError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
-    }
-
-    async fn verify_bank_account<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-        verify_bank_account_request_body: Option<models::VerifyBankAccountRequestBody>,
-    ) -> Result<(), Error<VerifyBankAccountError>> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/organizations/{organizationId}/billing/payment-method/verify-bank-account",
-            local_var_configuration.base_path,
-            organizationId = organization_id
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
-
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
-        local_var_req_builder = local_var_req_builder.json(&verify_bank_account_request_body);
-
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<VerifyBankAccountError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
-    }
 }
 
 /// struct for typed errors of method [`OrganizationBillingApi::change_plan_subscription_frequency`]
@@ -704,18 +445,6 @@ pub enum GetInvoicesError {
 pub enum GetMetadataError {
     UnknownValue(serde_json::Value),
 }
-/// struct for typed errors of method [`OrganizationBillingApi::get_payment_method`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetPaymentMethodError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingApi::get_tax_information`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetTaxInformationError {
-    UnknownValue(serde_json::Value),
-}
 /// struct for typed errors of method [`OrganizationBillingApi::get_transactions`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -726,23 +455,5 @@ pub enum GetTransactionsError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum SetupBusinessUnitError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingApi::update_payment_method`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdatePaymentMethodError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingApi::update_tax_information`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateTaxInformationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingApi::verify_bank_account`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum VerifyBankAccountError {
     UnknownValue(serde_json::Value),
 }

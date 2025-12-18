@@ -9,6 +9,8 @@ on:
       - "hotfix-rc"
   workflow_dispatch:
 
+permissions: {}
+
 defaults:
   run:
     shell: bash
@@ -34,14 +36,16 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
 
       - name: Set version (PR)
         if: ${{ github.event_name == 'pull_request' }}
         env:
           PR_HEAD_REF: "${{ github.event.pull_request.head.ref }}"
         run: |
-          echo REF_NAME="$PR_HEAD_REF" >> $GITHUB_ENV
+          echo REF_NAME="${PR_HEAD_REF}" >> $GITHUB_ENV
           echo SHA="${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
 
       - name: Set env variables (Branch/Tag)
@@ -78,7 +82,7 @@ jobs:
         working-directory: crates/bitwarden-wasm-internal/${{ matrix.license_type.npm_folder }}
 
       - name: Install rust
-        uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # stable
+        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e # stable
         with:
           toolchain: "${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}"
           targets: wasm32-unknown-unknown
@@ -89,14 +93,11 @@ jobs:
         with:
           key: wasm-cargo-cache
 
-      - name: Install wasm-bindgen-cli
-        run: cargo install wasm-bindgen-cli --version 0.2.105 --locked
-
       - name: Build
         run: ./build.sh -r ${{ matrix.license_type.build_flags }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ matrix.license_type.artifact_name }}
           path: ${{ github.workspace }}/crates/bitwarden-wasm-internal/${{ matrix.license_type.npm_folder }}/*
@@ -117,12 +118,22 @@ jobs:
           tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           client_id: ${{ secrets.AZURE_CLIENT_ID }}
 
-      - name: Retrieve github PAT secrets
-        id: retrieve-secret-pat
+      - name: Get Azure Key Vault secrets
+        id: get-kv-secrets
         uses: bitwarden/gh-actions/get-keyvault-secrets@main
         with:
-          keyvault: "bitwarden-ci"
-          secrets: "github-pat-bitwarden-devops-bot-repo-scope"
+          keyvault: gh-org-bitwarden
+          secrets: "BW-GHAPP-ID,BW-GHAPP-KEY"
+
+      - name: Generate GH App token
+        uses: actions/create-github-app-token@30bf6253fa41bdc8d1501d202ad15287582246b4 # v2.0.3
+        id: app-token
+        with:
+          app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
+          private-key: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-KEY }}
+          owner: bitwarden
+          repositories: sdk-internal
+          permission-actions: write
 
       - name: Log out from Azure
         uses: bitwarden/gh-actions/azure-logout@main
@@ -130,7 +141,7 @@ jobs:
       - name: Trigger WASM publish
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
-          github-token: ${{ steps.retrieve-secret-pat.outputs.github-pat-bitwarden-devops-bot-repo-scope }}
+          github-token: ${{ steps.app-token.outputs.token }}
           script: |
             await github.rest.actions.createWorkflowDispatch({
               owner: 'bitwarden',
@@ -138,3 +149,22 @@ jobs:
               workflow_id: 'publish-wasm-internal.yml',
               ref: 'main',
             })
+
+  trigger-breaking-change-check:
+    name: Trigger client breaking change checks
+    if: github.event_name == 'pull_request'
+    needs: build
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    uses: ./.github/workflows/detect-breaking-changes.yml
+    secrets: inherit
+    with:
+      pr_number: ${{ github.event.number }}
+      pr_head_sha: ${{ github.event.pull_request.head.sha }}
+      pr_head_ref: ${{ github.event.pull_request.head.ref }}
+      build_run_id: ${{ github.run_id }}
+      client_repo: "bitwarden/clients"
+      client_label: "typescript"
+      client_workflow: "sdk-breaking-change-check.yml"

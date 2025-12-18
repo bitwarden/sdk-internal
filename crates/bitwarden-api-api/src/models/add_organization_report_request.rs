@@ -14,19 +14,42 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AddOrganizationReportRequest {
-    #[serde(rename = "organizationId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationId",
+        alias = "OrganizationId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_id: Option<uuid::Uuid>,
-    #[serde(rename = "reportData", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "reportData",
+        alias = "ReportData",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub report_data: Option<String>,
     #[serde(
         rename = "contentEncryptionKey",
+        alias = "ContentEncryptionKey",
         skip_serializing_if = "Option::is_none"
     )]
     pub content_encryption_key: Option<String>,
-    #[serde(rename = "summaryData", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "summaryData",
+        alias = "SummaryData",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub summary_data: Option<String>,
-    #[serde(rename = "applicationData", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "applicationData",
+        alias = "ApplicationData",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub application_data: Option<String>,
+    #[serde(
+        rename = "metrics",
+        alias = "Metrics",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub metrics: Option<Box<models::OrganizationReportMetricsRequest>>,
 }
 
 impl AddOrganizationReportRequest {
@@ -37,6 +60,7 @@ impl AddOrganizationReportRequest {
             content_encryption_key: None,
             summary_data: None,
             application_data: None,
+            metrics: None,
         }
     }
 }

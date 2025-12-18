@@ -14,17 +14,41 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GroupAccessPolicyResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "read", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "read",
+        alias = "Read",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub read: Option<bool>,
-    #[serde(rename = "write", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "write",
+        alias = "Write",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub write: Option<bool>,
-    #[serde(rename = "groupId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "groupId",
+        alias = "GroupId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub group_id: Option<uuid::Uuid>,
-    #[serde(rename = "groupName", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "groupName",
+        alias = "GroupName",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub group_name: Option<String>,
-    #[serde(rename = "currentUserInGroup", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "currentUserInGroup",
+        alias = "CurrentUserInGroup",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub current_user_in_group: Option<bool>,
 }
 

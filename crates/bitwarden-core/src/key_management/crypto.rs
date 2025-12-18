@@ -8,15 +8,17 @@ use std::collections::HashMap;
 
 use bitwarden_crypto::{
     AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
-    KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, SignatureAlgorithm,
-    SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey,
-    UserKey, dangerous_get_v2_rotated_account_keys,
+    KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, RotateableKeySet,
+    SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
+    UnsignedSharedKey, UserKey, dangerous_get_v2_rotated_account_keys,
+    derive_symmetric_key_from_prf,
     safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError},
 };
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use tracing::info;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
@@ -26,6 +28,7 @@ use crate::{
     error::StatefulCryptoError,
     key_management::{
         AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
+        account_cryptographic_state::WrappedAccountCryptographicState,
         master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData},
     },
 };
@@ -57,13 +60,10 @@ pub struct InitUserCryptoRequest {
     pub kdf_params: Kdf,
     /// The user's email address
     pub email: String,
-    /// The user's encrypted private key
-    pub private_key: EncString,
-    /// The user's signing key
-    pub signing_key: Option<EncString>,
-    /// The user's security state
-    pub security_state: Option<SignedSecurityState>,
-    /// The initialization method to use
+    /// The user's account cryptographic state, containing their signature and
+    /// public-key-encryption keys, along with the signed security state, protected by the user key
+    pub account_cryptographic_state: WrappedAccountCryptographicState,
+    /// The method to decrypt the user's account symmetric key (user key)
     pub method: InitUserCryptoMethod,
 }
 
@@ -166,14 +166,21 @@ pub(super) async fn initialize_user_crypto(
         client.internal.init_user_id(user_id)?;
     }
 
-    let key_state = (&req).into();
+    let account_crypto_state = req.account_cryptographic_state.to_owned();
+    let _span_guard = tracing::info_span!(
+        "User Crypto Initialization",
+        user_id = ?client.internal.get_user_id(),
+    )
+    .entered();
 
     match req.method {
         InitUserCryptoMethod::Password { password, user_key } => {
             let master_key = MasterKey::derive(&password, &req.email, &req.kdf_params)?;
-            client
-                .internal
-                .initialize_user_crypto_master_key(master_key, user_key, key_state)?;
+            client.internal.initialize_user_crypto_master_key(
+                master_key,
+                user_key,
+                account_crypto_state,
+            )?;
         }
         InitUserCryptoMethod::MasterPasswordUnlock {
             password,
@@ -184,14 +191,14 @@ pub(super) async fn initialize_user_crypto(
                 .initialize_user_crypto_master_password_unlock(
                     password,
                     master_password_unlock,
-                    key_state,
+                    account_crypto_state,
                 )?;
         }
         InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
             let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
             client
                 .internal
-                .initialize_user_crypto_decrypted_key(user_key, key_state)?;
+                .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
         }
         InitUserCryptoMethod::Pin {
             pin,
@@ -201,7 +208,7 @@ pub(super) async fn initialize_user_crypto(
             client.internal.initialize_user_crypto_pin(
                 pin_key,
                 pin_protected_user_key,
-                key_state,
+                account_crypto_state,
             )?;
         }
         InitUserCryptoMethod::PinEnvelope {
@@ -211,7 +218,7 @@ pub(super) async fn initialize_user_crypto(
             client.internal.initialize_user_crypto_pin_envelope(
                 pin,
                 pin_protected_user_key_envelope,
-                key_state,
+                account_crypto_state,
             )?;
         }
         InitUserCryptoMethod::AuthRequest {
@@ -233,7 +240,7 @@ pub(super) async fn initialize_user_crypto(
             };
             client
                 .internal
-                .initialize_user_crypto_decrypted_key(user_key, key_state)?;
+                .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
         }
         InitUserCryptoMethod::DeviceKey {
             device_key,
@@ -246,7 +253,7 @@ pub(super) async fn initialize_user_crypto(
 
             client
                 .internal
-                .initialize_user_crypto_decrypted_key(user_key, key_state)?;
+                .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
         }
         InitUserCryptoMethod::KeyConnector {
             master_key,
@@ -255,11 +262,15 @@ pub(super) async fn initialize_user_crypto(
             let mut bytes = master_key.into_bytes();
             let master_key = MasterKey::try_from(bytes.as_mut_slice())?;
 
-            client
-                .internal
-                .initialize_user_crypto_master_key(master_key, user_key, key_state)?;
+            client.internal.initialize_user_crypto_master_key(
+                master_key,
+                user_key,
+                account_crypto_state,
+            )?;
         }
     }
+
+    info!("User crypto initialized successfully");
 
     client
         .internal
@@ -360,7 +371,7 @@ pub(super) fn make_update_kdf(
     })
 }
 
-/// Response from the `update_password` function
+/// Response from the `make_update_password` function
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -508,6 +519,16 @@ fn derive_pin_protected_user_key(
     };
 
     Ok(derived_key.encrypt_user_key(user_key)?)
+}
+
+pub(super) fn make_prf_user_key_set(
+    client: &Client,
+    prf: B64,
+) -> Result<RotateableKeySet, CryptoClientError> {
+    let prf_key = derive_symmetric_key_from_prf(prf.as_bytes())?;
+    let ctx = client.internal.get_key_store().context();
+    let key_set = RotateableKeySet::new(&ctx, &prf_key, SymmetricKeyId::User)?;
+    Ok(key_set)
 }
 
 #[allow(missing_docs)]
@@ -672,11 +693,11 @@ pub(super) fn verify_asymmetric_keys(
             private_key_decryptable: true,
             valid_private_key: true,
         },
-        Err(e) => {
-            log::debug!("User asymmetric keys verification: {e}");
+        Err(error) => {
+            tracing::debug!(%error, "User asymmetric keys verification");
 
             VerifyAsymmetricKeysResponse {
-                private_key_decryptable: !matches!(e, VerifyError::DecryptFailed(_)),
+                private_key_decryptable: !matches!(error, VerifyError::DecryptFailed(_)),
                 valid_private_key: false,
             }
         }
@@ -831,10 +852,10 @@ pub(crate) fn get_v2_rotated_account_keys(
 mod tests {
     use std::num::NonZeroU32;
 
-    use bitwarden_crypto::RsaKeyPair;
+    use bitwarden_crypto::{RsaKeyPair, SymmetricKeyAlgorithm};
 
     use super::*;
-    use crate::{Client, client::internal::UserKeyState};
+    use crate::Client;
     const TEST_VECTOR_USER_KEY_V2_B64: &str = "pQEEAlACHUUoybNAuJoZzqNMxz2bAzoAARFvBIQDBAUGIFggAvGl4ifaUAomQdCdUPpXLHtypiQxHjZwRHeI83caZM4B";
     const TEST_VECTOR_PRIVATE_KEY_V2: &str = "7.g1gdowE6AAERbwMZARwEUAIdRSjJs0C4mhnOo0zHPZuhBVgYthGLGqVLPeidY8mNMxpLJn3fyeSxyaWsWQTR6pxmRV2DyGZXly/0l9KK+Rsfetl9wvYIz0O4/RW3R6wf7eGxo5XmicV3WnFsoAmIQObxkKWShxFyjzg+ocKItQDzG7Gp6+MW4biTrAlfK51ML/ZS+PCjLmgI1QQr4eMHjiwA2TBKtKkxfjoTJkMXECpRVLEXOo8/mbIGYkuabbSA7oU+TJ0yXlfKDtD25gnyO7tjW/0JMFUaoEKRJOuKoXTN4n/ks4Hbxk0X5/DzfG05rxWad2UNBjNg7ehW99WrQ+33ckdQFKMQOri/rt8JzzrF1k11/jMJ+Y2TADKNHr91NalnUX+yqZAAe3sRt5Pv5ZhLIwRMKQi/1NrLcsQPRuUnogVSPOoMnE/eD6F70iU60Z6pvm1iBw2IvELZcrs/oxpO2SeCue08fIZW/jNZokbLnm90tQ7QeZTUpiPALhUgfGOa3J9VOJ7jQGCqDjd9CzV2DCVfhKCapeTbldm+RwEWBz5VvorH5vMx1AzbPRJxdIQuxcg3NqRrXrYC7fyZljWaPB9qP1tztiPtd1PpGEgxLByIfR6fqyZMCvOBsWbd0H6NhF8mNVdDw60+skFRdbRBTSCjCtKZeLVuVFb8ioH45PR5oXjtx4atIDzu6DKm6TTMCbR6DjZuZZ8GbwHxuUD2mDD3pAFhaof9kR3lQdjy7Zb4EzUUYskQxzcLPcqzp9ZgB3Rg91SStBCCMhdQ6AnhTy+VTGt/mY5AbBXNRSL6fI0r+P9K8CcEI4bNZCDkwwQr5v4O4ykSUzIvmVU0zKzDngy9bteIZuhkvGUoZlQ9UATNGPhoLfqq2eSvqEXkCbxTVZ5D+Ww9pHmWeVcvoBhcl5MvicfeQt++dY3tPjIfZq87nlugG4HiNbcv9nbVpgwe3v8cFetWXQgnO4uhx8JHSwGoSuxHFZtl2sdahjTHavRHnYjSABEFrViUKgb12UDD5ow1GAL62wVdSJKRf9HlLbJhN3PBxuh5L/E0wy1wGA9ecXtw/R1ktvXZ7RklGAt1TmNzZv6vI2J/CMXvndOX9rEpjKMbwbIDAjQ9PxiWdcnmc5SowT9f6yfIjbjXnRMWWidPAua7sgrtej4HP4Qjz1fpgLMLCRyF97tbMTmsAI5Cuj98Buh9PwcdyXj5SbVuHdJS1ehv9b5SWPsD4pwOm3+otVNK6FTazhoUl47AZoAoQzXfsXxrzqYzvF0yJkCnk9S1dcij1L569gQ43CJO6o6jIZFJvA4EmZDl95ELu+BC+x37Ip8dq4JLPsANDVSqvXO9tfDUIXEx25AaOYhW2KAUoDve/fbsU8d0UZR1o/w+ZrOQwawCIPeVPtbh7KFRVQi/rPI+Abl6XR6qMJbKPegliYGUuGF2oEMEc6QLTsMRCEPuw0S3kxbNfVPqml8nGhB2r8zUHBY1diJEmipVghnwH74gIKnyJ2C9nKjV8noUfKzqyV8vxUX2G5yXgodx8Jn0cWs3XhWuApFla9z4R28W/4jA1jK2WQMlx+b6xKUWgRk8+fYsc0HSt2fDrQ9pLpnjb8ME59RCxSPV++PThpnR2JtastZBZur2hBIJsGILCAmufUU4VC4gBKPhNfu/OK4Ktgz+uQlUa9fEC/FnkpTRQPxHuQjSQSNrIIyW1bIRBtnwjvvvNoui9FZJ";
     #[allow(unused)]
@@ -868,9 +889,7 @@ mod tests {
                 user_id: Some(UserId::new_v4()),
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
-                private_key: priv_key.to_owned(),
-                signing_key: None,
-                security_state: None,
+                account_cryptographic_state: WrappedAccountCryptographicState::V1 { private_key: priv_key.to_owned() },
                 method: InitUserCryptoMethod::Password {
                     password: "asdfasdfasdf".into(),
                     user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
@@ -893,9 +912,9 @@ mod tests {
                 user_id: Some(UserId::new_v4()),
                 kdf_params: new_kdf.clone(),
                 email: "test@bitwarden.com".into(),
-                private_key: priv_key.to_owned(),
-                signing_key: None,
-                security_state: None,
+                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
+                    private_key: priv_key.to_owned(),
+                },
                 method: InitUserCryptoMethod::Password {
                     password: "123412341234".into(),
                     user_key: new_kdf_response
@@ -962,9 +981,7 @@ mod tests {
                 user_id: Some(UserId::new_v4()),
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
-                private_key: priv_key.to_owned(),
-                signing_key: None,
-                security_state: None,
+                account_cryptographic_state: WrappedAccountCryptographicState::V1 { private_key: priv_key.to_owned() },
                 method: InitUserCryptoMethod::Password {
                     password: "asdfasdfasdf".into(),
                     user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
@@ -984,9 +1001,9 @@ mod tests {
                 user_id: Some(UserId::new_v4()),
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
-                private_key: priv_key.to_owned(),
-                signing_key: None,
-                security_state: None,
+                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
+                    private_key: priv_key.to_owned(),
+                },
                 method: InitUserCryptoMethod::Password {
                     password: "123412341234".into(),
                     user_key: new_password_response.new_key,
@@ -1044,9 +1061,7 @@ mod tests {
                     iterations: 100_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                private_key: priv_key.to_owned(),
-                signing_key: None,
-                security_state: None,
+                account_cryptographic_state: WrappedAccountCryptographicState::V1 { private_key: priv_key.to_owned() },
                 method: InitUserCryptoMethod::Password {
                     password: "asdfasdfasdf".into(),
                     user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
@@ -1068,9 +1083,9 @@ mod tests {
                     iterations: 100_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                private_key: priv_key.to_owned(),
-                signing_key: None,
-                security_state: None,
+                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
+                    private_key: priv_key.to_owned(),
+                },
                 method: InitUserCryptoMethod::Pin {
                     pin: "1234".into(),
                     pin_protected_user_key: pin_key.pin_protected_user_key,
@@ -1113,9 +1128,9 @@ mod tests {
                     iterations: 100_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                private_key: priv_key.to_owned(),
-                signing_key: None,
-                security_state: None,
+                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
+                    private_key: priv_key.to_owned(),
+                },
                 method: InitUserCryptoMethod::Pin {
                     pin: "1234".into(),
                     pin_protected_user_key,
@@ -1160,11 +1175,11 @@ mod tests {
                     iterations: 100_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                private_key: make_key_pair(user_key.try_into().unwrap())
-                    .unwrap()
-                    .user_key_encrypted_private_key,
-                signing_key: None,
-                security_state: None,
+                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
+                    private_key: make_key_pair(user_key.try_into().unwrap())
+                        .unwrap()
+                        .user_key_encrypted_private_key,
+                },
                 method: InitUserCryptoMethod::DecryptedKey {
                     decrypted_user_key: user_key.to_string(),
                 },
@@ -1186,11 +1201,11 @@ mod tests {
                     iterations: 600_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                private_key: make_key_pair(user_key.try_into().unwrap())
-                    .unwrap()
-                    .user_key_encrypted_private_key,
-                signing_key: None,
-                security_state: None,
+                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
+                    private_key: make_key_pair(user_key.try_into().unwrap())
+                        .unwrap()
+                        .user_key_encrypted_private_key,
+                },
                 method: InitUserCryptoMethod::PinEnvelope {
                     pin: test_pin.to_string(),
                     pin_protected_user_key_envelope: enroll_response
@@ -1222,11 +1237,7 @@ mod tests {
             .initialize_user_crypto_master_key(
                 master_key,
                 user_key,
-                UserKeyState {
-                    private_key,
-                    signing_key: None,
-                    security_state: None,
-                },
+                WrappedAccountCryptographicState::V1 { private_key },
             )
             .unwrap();
 
@@ -1376,9 +1387,9 @@ mod tests {
                     iterations: 100_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                private_key: priv_key,
-                signing_key: None,
-                security_state: None,
+                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
+                    private_key: priv_key.to_owned(),
+                },
                 method: InitUserCryptoMethod::Password {
                     password: "asdfasdfasdf".into(),
                     user_key: encrypted_userkey.clone(),
@@ -1412,9 +1423,12 @@ mod tests {
                     iterations: 100_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                private_key: enrollment_response.private_key,
-                signing_key: Some(enrollment_response.signing_key),
-                security_state: Some(enrollment_response.security_state),
+                account_cryptographic_state: WrappedAccountCryptographicState::V2 {
+                    private_key: enrollment_response.private_key,
+                    signing_key: enrollment_response.signing_key,
+                    security_state: enrollment_response.security_state,
+                    signed_public_key: Some(enrollment_response.signed_public_key),
+                },
                 method: InitUserCryptoMethod::Password {
                     password: "asdfasdfasdf".into(),
                     user_key: encrypted_userkey_v2,
@@ -1428,16 +1442,6 @@ mod tests {
     #[tokio::test]
     async fn test_make_v2_keys_for_v1_user_with_v2_user_fails() {
         let client = Client::new(None);
-        #[allow(deprecated)]
-        client
-            .internal
-            .get_key_store()
-            .context_mut()
-            .set_symmetric_key(
-                SymmetricKeyId::User,
-                SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-            )
-            .unwrap();
         initialize_user_crypto(
             &client,
             InitUserCryptoRequest {
@@ -1446,9 +1450,12 @@ mod tests {
                     iterations: 100_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                private_key: TEST_VECTOR_PRIVATE_KEY_V2.parse().unwrap(),
-                signing_key: Some(TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap()),
-                security_state: Some(TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap()),
+                account_cryptographic_state: WrappedAccountCryptographicState::V2 {
+                    private_key: TEST_VECTOR_PRIVATE_KEY_V2.parse().unwrap(),
+                    signing_key: TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap(),
+                    security_state: TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap(),
+                    signed_public_key: Some(TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap()),
+                },
                 method: InitUserCryptoMethod::DecryptedKey {
                     decrypted_user_key: TEST_VECTOR_USER_KEY_V2_B64.to_string(),
                 },
@@ -1470,16 +1477,11 @@ mod tests {
     #[test]
     fn test_get_v2_rotated_account_keys_non_v2_user() {
         let client = Client::new(None);
-        #[allow(deprecated)]
-        client
-            .internal
-            .get_key_store()
-            .context_mut()
-            .set_symmetric_key(
-                SymmetricKeyId::User,
-                SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-            )
+        let mut ctx = client.internal.get_key_store().context_mut();
+        let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
             .unwrap();
+        drop(ctx);
 
         let result = get_v2_rotated_account_keys(&client);
         assert!(matches!(
@@ -1494,16 +1496,6 @@ mod tests {
     #[tokio::test]
     async fn test_get_v2_rotated_account_keys() {
         let client = Client::new(None);
-        #[allow(deprecated)]
-        client
-            .internal
-            .get_key_store()
-            .context_mut()
-            .set_symmetric_key(
-                SymmetricKeyId::User,
-                SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-            )
-            .unwrap();
         initialize_user_crypto(
             &client,
             InitUserCryptoRequest {
@@ -1512,9 +1504,12 @@ mod tests {
                     iterations: 100_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                private_key: TEST_VECTOR_PRIVATE_KEY_V2.parse().unwrap(),
-                signing_key: Some(TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap()),
-                security_state: Some(TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap()),
+                account_cryptographic_state: WrappedAccountCryptographicState::V2 {
+                    private_key: TEST_VECTOR_PRIVATE_KEY_V2.parse().unwrap(),
+                    signing_key: TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap(),
+                    security_state: TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap(),
+                    signed_public_key: Some(TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap()),
+                },
                 method: InitUserCryptoMethod::DecryptedKey {
                     decrypted_user_key: TEST_VECTOR_USER_KEY_V2_B64.to_string(),
                 },
@@ -1538,9 +1533,9 @@ mod tests {
                     iterations: 600_000.try_into().unwrap(),
                 },
                 email: TEST_USER_EMAIL.to_string(),
-                private_key: TEST_ACCOUNT_PRIVATE_KEY.parse().unwrap(),
-                signing_key: None,
-                security_state: None,
+                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
+                    private_key: TEST_ACCOUNT_PRIVATE_KEY.parse().unwrap(),
+                },
                 method: InitUserCryptoMethod::MasterPasswordUnlock {
                     password: TEST_USER_PASSWORD.to_string(),
                     master_password_unlock: MasterPasswordUnlockData {

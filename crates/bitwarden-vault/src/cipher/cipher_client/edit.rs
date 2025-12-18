@@ -395,7 +395,7 @@ impl CiphersClient {
 mod tests {
     use bitwarden_api_api::{apis::ApiClient, models::CipherResponseModel};
     use bitwarden_core::key_management::SymmetricKeyId;
-    use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricCryptoKey};
+    use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricKeyAlgorithm};
     use bitwarden_test::MemoryRepository;
     use chrono::TimeZone;
 
@@ -462,68 +462,67 @@ mod tests {
         cipher_id: CipherId,
         name: &str,
     ) {
-        let mut ctx = store.context();
+        let cipher = {
+            let mut ctx = store.context();
 
-        repository
-            .set(
-                cipher_id.to_string(),
-                Cipher {
-                    id: Some(cipher_id),
-                    organization_id: None,
-                    folder_id: None,
-                    collection_ids: vec![],
-                    key: None,
-                    name: name.encrypt(&mut ctx, SymmetricKeyId::User).unwrap(),
-                    notes: None,
-                    r#type: CipherType::Login,
-                    login: Some(Login {
-                        username: Some("test@example.com")
-                            .map(|u| u.encrypt(&mut ctx, SymmetricKeyId::User))
-                            .transpose()
-                            .unwrap(),
-                        password: Some("password123")
-                            .map(|p| p.encrypt(&mut ctx, SymmetricKeyId::User))
-                            .transpose()
-                            .unwrap(),
-                        password_revision_date: None,
-                        uris: None,
-                        totp: None,
-                        autofill_on_page_load: None,
-                        fido2_credentials: None,
-                    }),
-                    identity: None,
-                    card: None,
-                    secure_note: None,
-                    ssh_key: None,
-                    favorite: false,
-                    reprompt: CipherRepromptType::None,
-                    organization_use_totp: true,
-                    edit: true,
-                    permissions: None,
-                    view_password: true,
-                    local_data: None,
-                    attachments: None,
-                    fields: None,
-                    password_history: None,
-                    creation_date: "2024-01-01T00:00:00Z".parse().unwrap(),
-                    deleted_date: None,
-                    revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
-                    archived_date: None,
-                    data: None,
-                },
-            )
-            .await
-            .unwrap();
+            Cipher {
+                id: Some(cipher_id),
+                organization_id: None,
+                folder_id: None,
+                collection_ids: vec![],
+                key: None,
+                name: name.encrypt(&mut ctx, SymmetricKeyId::User).unwrap(),
+                notes: None,
+                r#type: CipherType::Login,
+                login: Some(Login {
+                    username: Some("test@example.com")
+                        .map(|u| u.encrypt(&mut ctx, SymmetricKeyId::User))
+                        .transpose()
+                        .unwrap(),
+                    password: Some("password123")
+                        .map(|p| p.encrypt(&mut ctx, SymmetricKeyId::User))
+                        .transpose()
+                        .unwrap(),
+                    password_revision_date: None,
+                    uris: None,
+                    totp: None,
+                    autofill_on_page_load: None,
+                    fido2_credentials: None,
+                }),
+                identity: None,
+                card: None,
+                secure_note: None,
+                ssh_key: None,
+                favorite: false,
+                reprompt: CipherRepromptType::None,
+                organization_use_totp: true,
+                edit: true,
+                permissions: None,
+                view_password: true,
+                local_data: None,
+                attachments: None,
+                fields: None,
+                password_history: None,
+                creation_date: "2024-01-01T00:00:00Z".parse().unwrap(),
+                deleted_date: None,
+                revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
+                archived_date: None,
+                data: None,
+            }
+        };
+
+        repository.set(cipher_id.to_string(), cipher).await.unwrap();
     }
 
     #[tokio::test]
     async fn test_edit_cipher() {
         let store: KeyStore<KeyIds> = KeyStore::default();
-        #[allow(deprecated)]
-        let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-        );
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+                .unwrap();
+        }
 
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
 
@@ -621,11 +620,12 @@ mod tests {
     #[tokio::test]
     async fn test_edit_cipher_http_error() {
         let store: KeyStore<KeyIds> = KeyStore::default();
-        #[allow(deprecated)]
-        let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-        );
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+                .unwrap();
+        }
 
         let cipher_id: CipherId = "5faa9684-c793-4a2d-8a12-b33900187097".parse().unwrap();
 

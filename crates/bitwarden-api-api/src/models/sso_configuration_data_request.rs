@@ -14,123 +14,197 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SsoConfigurationDataRequest {
-    #[serde(rename = "configType")]
+    #[serde(rename = "configType", alias = "ConfigType")]
     pub config_type: models::SsoType,
     #[serde(
         rename = "memberDecryptionType",
+        alias = "MemberDecryptionType",
         skip_serializing_if = "Option::is_none"
     )]
     pub member_decryption_type: Option<models::MemberDecryptionType>,
     #[serde(
         rename = "keyConnectorEnabled",
+        alias = "KeyConnectorEnabled",
         skip_serializing_if = "Option::is_none"
     )]
     pub key_connector_enabled: Option<bool>,
-    #[serde(rename = "keyConnectorUrl", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "keyConnectorUrl",
+        alias = "KeyConnectorUrl",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub key_connector_url: Option<String>,
-    #[serde(rename = "authority", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "authority",
+        alias = "Authority",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub authority: Option<String>,
-    #[serde(rename = "clientId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "clientId",
+        alias = "ClientId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub client_id: Option<String>,
-    #[serde(rename = "clientSecret", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "clientSecret",
+        alias = "ClientSecret",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub client_secret: Option<String>,
-    #[serde(rename = "metadataAddress", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "metadataAddress",
+        alias = "MetadataAddress",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub metadata_address: Option<String>,
-    #[serde(rename = "redirectBehavior", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "redirectBehavior",
+        alias = "RedirectBehavior",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub redirect_behavior: Option<models::OpenIdConnectRedirectBehavior>,
     #[serde(
         rename = "getClaimsFromUserInfoEndpoint",
+        alias = "GetClaimsFromUserInfoEndpoint",
         skip_serializing_if = "Option::is_none"
     )]
     pub get_claims_from_user_info_endpoint: Option<bool>,
-    #[serde(rename = "additionalScopes", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "additionalScopes",
+        alias = "AdditionalScopes",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub additional_scopes: Option<String>,
     #[serde(
         rename = "additionalUserIdClaimTypes",
+        alias = "AdditionalUserIdClaimTypes",
         skip_serializing_if = "Option::is_none"
     )]
     pub additional_user_id_claim_types: Option<String>,
     #[serde(
         rename = "additionalEmailClaimTypes",
+        alias = "AdditionalEmailClaimTypes",
         skip_serializing_if = "Option::is_none"
     )]
     pub additional_email_claim_types: Option<String>,
     #[serde(
         rename = "additionalNameClaimTypes",
+        alias = "AdditionalNameClaimTypes",
         skip_serializing_if = "Option::is_none"
     )]
     pub additional_name_claim_types: Option<String>,
-    #[serde(rename = "acrValues", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "acrValues",
+        alias = "AcrValues",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub acr_values: Option<String>,
     #[serde(
         rename = "expectedReturnAcrValue",
+        alias = "ExpectedReturnAcrValue",
         skip_serializing_if = "Option::is_none"
     )]
     pub expected_return_acr_value: Option<String>,
-    #[serde(rename = "spUniqueEntityId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "spUniqueEntityId",
+        alias = "SpUniqueEntityId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub sp_unique_entity_id: Option<bool>,
-    #[serde(rename = "spNameIdFormat", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "spNameIdFormat",
+        alias = "SpNameIdFormat",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub sp_name_id_format: Option<models::Saml2NameIdFormat>,
     #[serde(
         rename = "spOutboundSigningAlgorithm",
+        alias = "SpOutboundSigningAlgorithm",
         skip_serializing_if = "Option::is_none"
     )]
     pub sp_outbound_signing_algorithm: Option<String>,
-    #[serde(rename = "spSigningBehavior", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "spSigningBehavior",
+        alias = "SpSigningBehavior",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub sp_signing_behavior: Option<models::Saml2SigningBehavior>,
     #[serde(
         rename = "spWantAssertionsSigned",
+        alias = "SpWantAssertionsSigned",
         skip_serializing_if = "Option::is_none"
     )]
     pub sp_want_assertions_signed: Option<bool>,
     #[serde(
         rename = "spValidateCertificates",
+        alias = "SpValidateCertificates",
         skip_serializing_if = "Option::is_none"
     )]
     pub sp_validate_certificates: Option<bool>,
     #[serde(
         rename = "spMinIncomingSigningAlgorithm",
+        alias = "SpMinIncomingSigningAlgorithm",
         skip_serializing_if = "Option::is_none"
     )]
     pub sp_min_incoming_signing_algorithm: Option<String>,
-    #[serde(rename = "idpEntityId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "idpEntityId",
+        alias = "IdpEntityId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub idp_entity_id: Option<String>,
-    #[serde(rename = "idpBindingType", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "idpBindingType",
+        alias = "IdpBindingType",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub idp_binding_type: Option<models::Saml2BindingType>,
     #[serde(
         rename = "idpSingleSignOnServiceUrl",
+        alias = "IdpSingleSignOnServiceUrl",
         skip_serializing_if = "Option::is_none"
     )]
     pub idp_single_sign_on_service_url: Option<String>,
     #[serde(
         rename = "idpSingleLogoutServiceUrl",
+        alias = "IdpSingleLogoutServiceUrl",
         skip_serializing_if = "Option::is_none"
     )]
     pub idp_single_logout_service_url: Option<String>,
     #[serde(
         rename = "idpArtifactResolutionServiceUrl",
+        alias = "IdpArtifactResolutionServiceUrl",
         skip_serializing_if = "Option::is_none"
     )]
     pub idp_artifact_resolution_service_url: Option<String>,
-    #[serde(rename = "idpX509PublicCert", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "idpX509PublicCert",
+        alias = "IdpX509PublicCert",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub idp_x509_public_cert: Option<String>,
     #[serde(
         rename = "idpOutboundSigningAlgorithm",
+        alias = "IdpOutboundSigningAlgorithm",
         skip_serializing_if = "Option::is_none"
     )]
     pub idp_outbound_signing_algorithm: Option<String>,
     #[serde(
         rename = "idpAllowUnsolicitedAuthnResponse",
+        alias = "IdpAllowUnsolicitedAuthnResponse",
         skip_serializing_if = "Option::is_none"
     )]
     pub idp_allow_unsolicited_authn_response: Option<bool>,
     #[serde(
         rename = "idpDisableOutboundLogoutRequests",
+        alias = "IdpDisableOutboundLogoutRequests",
         skip_serializing_if = "Option::is_none"
     )]
     pub idp_disable_outbound_logout_requests: Option<bool>,
     #[serde(
         rename = "idpWantAuthnRequestsSigned",
+        alias = "IdpWantAuthnRequestsSigned",
         skip_serializing_if = "Option::is_none"
     )]
     pub idp_want_authn_requests_signed: Option<bool>,

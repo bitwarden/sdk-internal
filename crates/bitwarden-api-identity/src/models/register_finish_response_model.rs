@@ -14,9 +14,17 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RegisterFinishResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "captchaBypassToken", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "captchaBypassToken",
+        alias = "CaptchaBypassToken",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub captcha_bypass_token: Option<String>,
 }
 

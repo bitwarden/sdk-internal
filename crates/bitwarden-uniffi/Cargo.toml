@@ -12,11 +12,11 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
-[features]
-
 [lib]
 crate-type = ["lib", "staticlib", "cdylib"]
 bench = false
+
+[features]
 
 [dependencies]
 async-trait = { workspace = true }
@@ -34,22 +34,21 @@ bitwarden-state = { workspace = true, features = ["uniffi"] }
 bitwarden-uniffi-error = { workspace = true }
 bitwarden-vault = { workspace = true, features = ["uniffi"] }
 chrono = { workspace = true, features = ["std"] }
-env_logger = "0.11.1"
-log = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 uniffi = { workspace = true }
 uuid = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
-android_logger = "0.15"
-
 # The use of rustls-platform-verifier requires some extra support to communicate with the Android platform
 jni = ">=0.21, <0.22"
 libloading = ">=0.8.1, <0.9"
 rustls-platform-verifier = "0.6.0"
+tracing-android = "0.2.0"
 
 [target.'cfg(target_os = "ios")'.dependencies]
-oslog = "0.2.0"
+tracing-oslog = "0.3.0"
 
 [build-dependencies]
 uniffi = { workspace = true, features = ["build"] }
