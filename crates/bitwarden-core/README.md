@@ -97,7 +97,7 @@ authentication token if required.
 # async fn example(client: &Client) -> Result<(), Box<dyn std::error::Error>> {
 // Example API call
 let api_config = client.internal.get_api_configurations().await;
-let response = api_config.api_client.ciphers_api.get_all().await?;
+let response = api_config.api_client.ciphers_api().get_all().await?;
 # Ok(())
 # }
 ```
