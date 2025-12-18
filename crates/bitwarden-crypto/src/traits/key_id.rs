@@ -13,7 +13,7 @@ use crate::{CryptoKey, PrivateKey, SigningKey, SymmetricCryptoKey};
 ///
 /// To implement it manually, note that you need a few types:
 /// - One implementing [KeyId<KeyValue = SymmetricCryptoKey>]
-/// - One implementing [KeyId<KeyValue = AsymmetricCryptoKey>]
+/// - One implementing [KeyId<KeyValue = PrivateKey>]
 /// - One implementing [KeyIds]
 pub trait KeyId:
     Debug + Clone + Copy + Hash + Eq + PartialEq + Ord + PartialOrd + Send + Sync + 'static

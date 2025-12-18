@@ -84,7 +84,7 @@ impl zeroize::ZeroizeOnDrop for PrivateKey {}
 impl CryptoKey for PrivateKey {}
 
 impl PrivateKey {
-    /// Generate a random AsymmetricCryptoKey (RSA-2048).
+    /// Generate a random PrivateKey (RSA-2048).
     pub fn make(algorithm: PublicKeyEncryptionAlgorithm) -> Self {
         Self::make_internal(algorithm, &mut rand::thread_rng())
     }
@@ -155,7 +155,7 @@ impl PrivateKey {
 // We manually implement these to make sure we don't print any sensitive data
 impl std::fmt::Debug for PrivateKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AsymmetricCryptoKey").finish()
+        f.debug_struct("PrivateKey").finish()
     }
 }
 

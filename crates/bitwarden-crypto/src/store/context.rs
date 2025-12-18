@@ -578,7 +578,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// Return a reference to an asymmetric (private) key stored in the context.
     ///
     /// Deprecated: intended only for internal use and tests. This exposes the underlying
-    /// `AsymmetricCryptoKey` reference directly and should not be used by external code. Prefer
+    /// `PrivateKey` reference directly and should not be used by external code. Prefer
     /// using the public key via `get_public_key` or other higher-level APIs instead.
     ///
     /// # Errors

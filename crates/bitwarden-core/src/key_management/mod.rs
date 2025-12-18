@@ -2,8 +2,8 @@
 //! Any code that needs to interact with the [KeyStore] should use these types.
 //!
 //! - [SymmetricKeyId] is used to identify symmetric keys.
-//! - [AsymmetricKeyId] is used to identify asymmetric keys.
-//! - [KeyIds] is a helper type that combines both symmetric and asymmetric key identifiers. This is
+//! - [PrivateKeyId] is used to identify private keys.
+//! - [KeyIds] is a helper type that combines both symmetric and private key identifiers. This is
 //!   usually used in the type bounds of [KeyStore],
 //!   [KeyStoreContext](bitwarden_crypto::KeyStoreContext),
 //!   [PrimitiveEncryptable](bitwarden_crypto::PrimitiveEncryptable),
