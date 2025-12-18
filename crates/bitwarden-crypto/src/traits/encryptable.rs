@@ -184,7 +184,7 @@ mod tests {
         ctx.persist_symmetric_key(local_key_id, TestSymmKey::A(0))
             .unwrap();
         #[allow(deprecated)]
-        ctx.set_asymmetric_key(TestAsymmKey::A(0), asymm_key.clone())
+        ctx.set_private_key(TestPrivateKey::A(0), asymm_key.clone())
             .unwrap();
         drop(ctx);
 

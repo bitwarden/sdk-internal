@@ -825,8 +825,9 @@ mod tests {
 
     use crate::{
         CompositeEncryptable, CoseKeyBytes, CoseSerializable, CryptoError, Decryptable,
-        KeyDecryptable, Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, SignatureAlgorithm,
-        SigningKey, SigningNamespace, SymmetricCryptoKey, SymmetricKeyAlgorithm,
+        KeyDecryptable, Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm,
+        SignatureAlgorithm, SigningKey, SigningNamespace, SymmetricCryptoKey,
+        SymmetricKeyAlgorithm,
         store::{
             KeyStore,
             tests::{Data, DataView},
@@ -1011,7 +1012,9 @@ mod tests {
         // Make the keys
         let current_user_signing_key_id =
             ctx.make_signing_key(SignatureAlgorithm::Ed25519).unwrap();
-        let current_user_private_key_id = ctx.make_asymmetric_key().unwrap();
+        let current_user_private_key_id = ctx
+            .make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1)
+            .unwrap();
 
         // Get the rotated account keys
         let rotated_keys = ctx
@@ -1027,7 +1030,7 @@ mod tests {
                 .unwrap()
                 .to_der()
                 .unwrap(),
-            ctx.get_asymmetric_key(current_user_private_key_id)
+            ctx.get_private_key(current_user_private_key_id)
                 .unwrap()
                 .to_public_key()
                 .to_der()
@@ -1041,7 +1044,7 @@ mod tests {
             PrivateKey::from_der(&Pkcs8PrivateKeyBytes::from(decrypted_private_key)).unwrap();
         assert_eq!(
             private_key.to_der().unwrap(),
-            ctx.get_asymmetric_key(current_user_private_key_id)
+            ctx.get_private_key(current_user_private_key_id)
                 .unwrap()
                 .to_der()
                 .unwrap()
@@ -1072,7 +1075,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             unwrapped_key.to_der().unwrap(),
-            ctx.get_asymmetric_key(current_user_private_key_id)
+            ctx.get_private_key(current_user_private_key_id)
                 .unwrap()
                 .to_public_key()
                 .to_der()

@@ -151,7 +151,7 @@ pub(crate) mod tests {
 
     use crate::{
         KeyId, LocalId,
-        traits::tests::{TestAsymmKey, TestSigningKey, TestSymmKey},
+        traits::tests::{TestPrivateKey, TestSigningKey, TestSymmKey},
     };
 
     #[test]
