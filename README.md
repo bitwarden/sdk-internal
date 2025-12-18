@@ -69,7 +69,9 @@ build the internal swagger documentation.
 
 ### Swagger generation
 
-The first step is to generate the swagger documents from the root of the [server repository](https://github.com/bitwarden/server), and then copy the resulting `api.json` and `api.public.json` to the root of the SDK repository.
+The first step is to generate the swagger documents from the root of the
+[server repository](https://github.com/bitwarden/server), and then copy the resulting `api.json` and
+`api.public.json` to the root of the SDK repository.
 
 ```bash
 pwsh ./dev/generate_openapi_files.ps1
