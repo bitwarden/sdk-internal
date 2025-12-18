@@ -85,9 +85,12 @@ impl GeneratorClientsExt for Client {
 
 ## API requests
 
-One of the responsibilities of the `Client` is managing and exposing the `ApiClient` instances for our API and Identity back-end services, which should be used to make HTTP requests.
+One of the responsibilities of the `Client` is managing and exposing the `ApiClient` instances for
+our API and Identity back-end services, which should be used to make HTTP requests.
 
-These `ApiClient`s should be accessed through the `ApiConfigurations` struct that is returned from the `get_api_configurations()` function. `get_api_configurations()` also refreshes the authentication token if required.
+These `ApiClient`s should be accessed through the `ApiConfigurations` struct that is returned from
+the `get_api_configurations()` function. `get_api_configurations()` also refreshes the
+authentication token if required.
 
 ```rust
 # use bitwarden_core::Client;
@@ -97,21 +100,33 @@ let api_config = client.internal.get_api_configurations().await;
 let response = api_config.api_client.ciphers_api.get_all().await?;
 # Ok(())
 # }
-``` 
+```
 
 ### Server API bindings
 
-To make the requests, we use auto-generated bindings whenever possible. We use `openapi-generator` to generate the Rust bindings from the server OpenAPI specifications. These bindings are regularly updated to ensure they stay in sync with the server.
+To make the requests, we use auto-generated bindings whenever possible. We use `openapi-generator`
+to generate the Rust bindings from the server OpenAPI specifications. These bindings are regularly
+updated to ensure they stay in sync with the server.
 
 The bindings are exposed as multiple crates, one for each backend service:
-- [`bitwarden-api-api`](../bitwarden-api-api/README.md): For the `Api` service that contains most of the server side functionality.
-- [`bitwarden-api-identity`](../bitwarden-api-identity/README.md): For the `Identity` service that is used for authentication.
 
-When performing any API calls the goal is to use the generated bindings as much as possible. This ensures any changes to the server are accurately reflected in the SDK. The generated bindings are stateless, and always expects to be provided a Configuration instance. The SDK exposes these under the get_api_configurations function on the Client struct. 
+- [`bitwarden-api-api`](../bitwarden-api-api/README.md): For the `Api` service that contains most of
+  the server side functionality.
+- [`bitwarden-api-identity`](../bitwarden-api-identity/README.md): For the `Identity` service that
+  is used for authentication.
 
-You should not expose the request and response models of the auto-generated bindings and should instead define and use your own models. This ensures the server request / response models are decoupled from the SDK models and allows for easier changes in the future without breaking backwards compatibility.
+When performing any API calls the goal is to use the generated bindings as much as possible. This
+ensures any changes to the server are accurately reflected in the SDK. The generated bindings are
+stateless, and always expects to be provided a Configuration instance. The SDK exposes these under
+the get_api_configurations function on the Client struct.
 
-We recommend using either the `From` or `TryFrom` conversion traits depending on if the conversion requires error handling or not. Below are two examples of how this can be done:
+You should not expose the request and response models of the auto-generated bindings and should
+instead define and use your own models. This ensures the server request / response models are
+decoupled from the SDK models and allows for easier changes in the future without breaking backwards
+compatibility.
+
+We recommend using either the `From` or `TryFrom` conversion traits depending on if the conversion
+requires error handling or not. Below are two examples of how this can be done:
 
 ```rust
 # use bitwarden_crypto::EncString;
@@ -169,13 +184,18 @@ impl From<bitwarden_api_api::models::UriMatchType> for UriMatchType {
 
 ### Updating bindings after a server API change
 
-When the API exposed by the server changes, new bindings will need to be generated to reflect this change for consumption in the SDK. This includes adding new fields to server request / response models, removing fields from models, or changing types of models.
+When the API exposed by the server changes, new bindings will need to be generated to reflect this
+change for consumption in the SDK. This includes adding new fields to server request / response
+models, removing fields from models, or changing types of models.
 
 This can be done the following ways:
+
 1. Run the `Update API Bindings` workflow in the `sdk-internal` repo.
 2. Wait for an automatic binding update to run, which is scheduled every 2 weeks.
 
-Both of these will generate a PR that will require approval from any teams whose owned code is affected by the binding updates.
+Both of these will generate a PR that will require approval from any teams whose owned code is
+affected by the binding updates.
 
-> [!IMPORTANT]
-> Bindings should **not** be updated manually as part of the changes to consume the new server API in the SDK. Doing so manually risks causing conflicts with the auto-generated bindings and causing more work in the future to address it.
+> [!IMPORTANT] Bindings should **not** be updated manually as part of the changes to consume the new
+> server API in the SDK. Doing so manually risks causing conflicts with the auto-generated bindings
+> and causing more work in the future to address it.
