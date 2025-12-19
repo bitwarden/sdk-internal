@@ -21,8 +21,8 @@ use wasm_bindgen::prelude::*;
 
 use super::CiphersClient;
 use crate::{
-    AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, DecryptError,
-    FieldView, FolderId, ItemNotFoundError, PasswordHistoryView, VaultParseError,
+    AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldView,
+    FolderId, ItemNotFoundError, PasswordHistoryView, VaultParseError,
     cipher::cipher::PartialCipher, cipher_view_type::CipherViewType,
     password_history::MAX_PASSWORD_HISTORY_ENTRIES,
 };
@@ -47,8 +47,6 @@ pub enum EditCipherError {
     Repository(#[from] RepositoryError),
     #[error(transparent)]
     Uuid(#[from] uuid::Error),
-    #[error(transparent)]
-    Decrypt(#[from] DecryptError),
 }
 
 impl<T> From<bitwarden_api_api::apis::Error<T>> for EditCipherError {
@@ -434,7 +432,7 @@ impl CiphersClient {
             response
         };
 
-        Ok(self.decrypt(cipher)?)
+        Ok(self.decrypt(cipher).map_err(|_| CryptoError::KeyDecrypt)?)
     }
 }
 
