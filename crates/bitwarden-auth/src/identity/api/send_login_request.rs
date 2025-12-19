@@ -2,7 +2,6 @@ use serde::{Serialize, de::DeserializeOwned};
 
 use crate::identity::{
     api::{
-        login_request_header::LoginRequestHeader,
         request::LoginApiRequest,
         response::{LoginErrorApiResponse, LoginSuccessApiResponse},
     },
@@ -20,26 +19,18 @@ pub(crate) async fn send_login_request(
 ) -> Result<LoginResponse, LoginErrorApiResponse> {
     let url: String = format!("{}/connect/token", &identity_config.base_path);
 
-    let device_type_header: LoginRequestHeader =
-        LoginRequestHeader::DeviceType(api_request.device_type);
-
     let request: reqwest::RequestBuilder = identity_config
         .client
         .post(url)
         .header(reqwest::header::ACCEPT, "application/json")
-        // TODO: this will be a default header with latest work in core client
-        // so it can be removed.
-        // Add custom device type header
-        .header(
-            device_type_header.header_name(),
-            device_type_header.header_value(),
-        )
         // per OAuth2 spec recommendation for token requests (https://www.rfc-editor.org/rfc/rfc6749.html#section-5.1)
         // we include no-cache headers to prevent browser caching sensistive token requests / responses.
         .header(reqwest::header::CACHE_CONTROL, "no-store")
         .header(reqwest::header::PRAGMA, "no-cache")
-        // TODO: investigate if I have to worry about credentials here
-        // Nope: need to solve in core client.
+        // If we run into authN issues, it could be due to https://bitwarden.atlassian.net/browse/PM-29974
+        // not being done yet. In the clients repo, we add credentials: "include" for all
+        // non web clients or any self hosted deployments. However, we want to solve that at the core
+        // client layer and not here.
         // use form to encode as application/x-www-form-urlencoded
         .form(&api_request);
 
