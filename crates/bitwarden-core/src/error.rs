@@ -52,7 +52,7 @@ impl_bitwarden_error!(IdentityError, ApiError);
 pub struct NotAuthenticatedError;
 
 /// Client's user ID is already set.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, serde::Serialize, serde::Deserialize, Clone)]
 #[error("The client user ID is already set")]
 pub struct UserIdAlreadySetError;
 

@@ -526,17 +526,23 @@ dependencies = [
 name = "bitwarden-auth"
 version = "2.0.0"
 dependencies = [
+ "bitwarden-api-api",
  "bitwarden-core",
+ "bitwarden-crypto",
+ "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-test",
  "chrono",
  "reqwest",
  "serde",
+ "serde_bytes",
  "serde_json",
  "thiserror 2.0.12",
  "tokio",
+ "tracing",
  "tsify",
  "uniffi",
+ "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wiremock",
