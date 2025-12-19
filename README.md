@@ -142,7 +142,7 @@ cargo +nightly fmt --check
 cargo +nightly udeps --workspace --all-features
 cargo clippy --all-features --all-targets
 cargo dylint --all -- --all-features --all-targets
-cargo sort --workspace --check
+cargo sort --workspace --grouped --check
 npm run lint
 ```
 

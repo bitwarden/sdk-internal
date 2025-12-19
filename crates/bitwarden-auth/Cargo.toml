@@ -17,9 +17,10 @@ keywords.workspace = true
 [features]
 wasm = [
     "bitwarden-core/wasm",
+    "bitwarden-crypto/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
-    "dep:wasm-bindgen-futures"
+    "dep:wasm-bindgen-futures",
 ] # WASM support
 uniffi = [
     "bitwarden-core/uniffi",
@@ -33,6 +34,7 @@ bitwarden-api-api = { workspace = true }
 bitwarden-api-identity = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
+bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-policies = { workspace = true }
 chrono = { workspace = true }
@@ -41,9 +43,12 @@ schemars = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_repr = { workspace = true }
+serde_bytes = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
+uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
 
@@ -53,6 +58,7 @@ rustls = { version = "0.23.19", default-features = false }
 rustls-platform-verifier = "0.6.0"
 
 [dev-dependencies]
+bitwarden-api-api = { workspace = true, features = ["mockall"] }
 bitwarden-test = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
 wiremock = "0.6.0"

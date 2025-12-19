@@ -92,13 +92,14 @@ impl ClientFido2Authenticator {
     pub async fn silently_discover_credentials(
         &self,
         rp_id: String,
+        user_handle: Option<Vec<u8>>,
     ) -> Result<Vec<Fido2CredentialAutofillView>> {
         let ui = UniffiTraitBridge(self.1.as_ref());
         let cs = UniffiTraitBridge(self.2.as_ref());
         let mut auth = self.0.create_authenticator(&ui, &cs);
 
         let result = auth
-            .silently_discover_credentials(rp_id)
+            .silently_discover_credentials(rp_id, user_handle)
             .await
             .map_err(Error::SilentlyDiscoverCredentials)?;
         Ok(result)
@@ -231,7 +232,7 @@ pub trait Fido2UserInterface: Send + Sync {
         options: CheckUserOptions,
         new_credential: Fido2CredentialNewView,
     ) -> Result<CheckUserAndPickCredentialForCreationResult, Fido2CallbackError>;
-    async fn is_verification_enabled(&self) -> bool;
+    fn is_verification_enabled(&self) -> bool;
 }
 
 #[uniffi::export(with_foreign)]
@@ -241,6 +242,7 @@ pub trait Fido2CredentialStore: Send + Sync {
         &self,
         ids: Option<Vec<Vec<u8>>>,
         rip_id: String,
+        user_handle: Option<Vec<u8>>,
     ) -> Result<Vec<CipherView>, Fido2CallbackError>;
 
     async fn all_credentials(&self) -> Result<Vec<CipherListView>, Fido2CallbackError>;
@@ -260,9 +262,10 @@ impl bitwarden_fido::Fido2CredentialStore for UniffiTraitBridge<&dyn Fido2Creden
         &self,
         ids: Option<Vec<Vec<u8>>>,
         rip_id: String,
+        user_handle: Option<Vec<u8>>,
     ) -> Result<Vec<CipherView>, BitFido2CallbackError> {
         self.0
-            .find_credentials(ids, rip_id)
+            .find_credentials(ids, rip_id, user_handle)
             .await
             .map_err(Into::into)
     }
@@ -293,9 +296,9 @@ pub enum UIHint {
     RequestExistingCredential(CipherView),
 }
 
-impl From<bitwarden_fido::UIHint<'_, CipherView>> for UIHint {
-    fn from(hint: bitwarden_fido::UIHint<'_, CipherView>) -> Self {
-        use bitwarden_fido::UIHint as BWUIHint;
+impl From<bitwarden_fido::UiHint<'_, CipherView>> for UIHint {
+    fn from(hint: bitwarden_fido::UiHint<'_, CipherView>) -> Self {
+        use bitwarden_fido::UiHint as BWUIHint;
         match hint {
             BWUIHint::InformExcludedCredentialFound(cipher) => {
                 UIHint::InformExcludedCredentialFound(cipher.clone())
@@ -324,7 +327,7 @@ impl bitwarden_fido::Fido2UserInterface for UniffiTraitBridge<&dyn Fido2UserInte
     async fn check_user<'a>(
         &self,
         options: CheckUserOptions,
-        hint: bitwarden_fido::UIHint<'a, CipherView>,
+        hint: bitwarden_fido::UiHint<'a, CipherView>,
     ) -> Result<bitwarden_fido::CheckUserResult, BitFido2CallbackError> {
         self.0
             .check_user(options.clone(), hint.into())
@@ -353,7 +356,7 @@ impl bitwarden_fido::Fido2UserInterface for UniffiTraitBridge<&dyn Fido2UserInte
             .map(|v| (v.cipher.cipher, v.check_user_result.into()))
             .map_err(Into::into)
     }
-    async fn is_verification_enabled(&self) -> bool {
-        self.0.is_verification_enabled().await
+    fn is_verification_enabled(&self) -> bool {
+        self.0.is_verification_enabled()
     }
 }

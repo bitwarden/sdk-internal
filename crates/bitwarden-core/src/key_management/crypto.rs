@@ -6,17 +6,20 @@
 
 use std::collections::HashMap;
 
+use bitwarden_api_api::models::AccountKeysRequestModel;
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
-    KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, SignatureAlgorithm,
-    SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey,
-    UserKey, dangerous_get_v2_rotated_account_keys,
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CoseSerializable, CryptoError, DeviceKey,
+    EncString, Kdf, KeyDecryptable, KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes,
+    PrimitiveEncryptable, RotateableKeySet, SignatureAlgorithm, SignedPublicKey, SigningKey,
+    SpkiPublicKeyBytes, SymmetricCryptoKey, TrustDeviceResponse, UnsignedSharedKey, UserKey,
+    dangerous_get_v2_rotated_account_keys, derive_symmetric_key_from_prf,
     safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError},
 };
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use tracing::info;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
@@ -26,7 +29,9 @@ use crate::{
     error::StatefulCryptoError,
     key_management::{
         AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
-        account_cryptographic_state::WrappedAccountCryptographicState,
+        account_cryptographic_state::{
+            AccountCryptographyInitializationError, WrappedAccountCryptographicState,
+        },
         master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData},
     },
 };
@@ -164,14 +169,21 @@ pub(super) async fn initialize_user_crypto(
         client.internal.init_user_id(user_id)?;
     }
 
-    let key_state = req.account_cryptographic_state;
+    let account_crypto_state = req.account_cryptographic_state.to_owned();
+    let _span_guard = tracing::info_span!(
+        "User Crypto Initialization",
+        user_id = ?client.internal.get_user_id(),
+    )
+    .entered();
 
     match req.method {
         InitUserCryptoMethod::Password { password, user_key } => {
             let master_key = MasterKey::derive(&password, &req.email, &req.kdf_params)?;
-            client
-                .internal
-                .initialize_user_crypto_master_key(master_key, user_key, key_state)?;
+            client.internal.initialize_user_crypto_master_key(
+                master_key,
+                user_key,
+                account_crypto_state,
+            )?;
         }
         InitUserCryptoMethod::MasterPasswordUnlock {
             password,
@@ -182,14 +194,14 @@ pub(super) async fn initialize_user_crypto(
                 .initialize_user_crypto_master_password_unlock(
                     password,
                     master_password_unlock,
-                    key_state,
+                    account_crypto_state,
                 )?;
         }
         InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
             let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
             client
                 .internal
-                .initialize_user_crypto_decrypted_key(user_key, key_state)?;
+                .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
         }
         InitUserCryptoMethod::Pin {
             pin,
@@ -199,7 +211,7 @@ pub(super) async fn initialize_user_crypto(
             client.internal.initialize_user_crypto_pin(
                 pin_key,
                 pin_protected_user_key,
-                key_state,
+                account_crypto_state,
             )?;
         }
         InitUserCryptoMethod::PinEnvelope {
@@ -209,7 +221,7 @@ pub(super) async fn initialize_user_crypto(
             client.internal.initialize_user_crypto_pin_envelope(
                 pin,
                 pin_protected_user_key_envelope,
-                key_state,
+                account_crypto_state,
             )?;
         }
         InitUserCryptoMethod::AuthRequest {
@@ -231,7 +243,7 @@ pub(super) async fn initialize_user_crypto(
             };
             client
                 .internal
-                .initialize_user_crypto_decrypted_key(user_key, key_state)?;
+                .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
         }
         InitUserCryptoMethod::DeviceKey {
             device_key,
@@ -244,7 +256,7 @@ pub(super) async fn initialize_user_crypto(
 
             client
                 .internal
-                .initialize_user_crypto_decrypted_key(user_key, key_state)?;
+                .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
         }
         InitUserCryptoMethod::KeyConnector {
             master_key,
@@ -253,11 +265,15 @@ pub(super) async fn initialize_user_crypto(
             let mut bytes = master_key.into_bytes();
             let master_key = MasterKey::try_from(bytes.as_mut_slice())?;
 
-            client
-                .internal
-                .initialize_user_crypto_master_key(master_key, user_key, key_state)?;
+            client.internal.initialize_user_crypto_master_key(
+                master_key,
+                user_key,
+                account_crypto_state,
+            )?;
         }
     }
+
+    info!("User crypto initialized successfully");
 
     client
         .internal
@@ -506,6 +522,16 @@ fn derive_pin_protected_user_key(
     };
 
     Ok(derived_key.encrypt_user_key(user_key)?)
+}
+
+pub(super) fn make_prf_user_key_set(
+    client: &Client,
+    prf: B64,
+) -> Result<RotateableKeySet, CryptoClientError> {
+    let prf_key = derive_symmetric_key_from_prf(prf.as_bytes())?;
+    let ctx = client.internal.get_key_store().context();
+    let key_set = RotateableKeySet::new(&ctx, &prf_key, SymmetricKeyId::User)?;
+    Ok(key_set)
 }
 
 #[allow(missing_docs)]
@@ -825,11 +851,78 @@ pub(crate) fn get_v2_rotated_account_keys(
     })
 }
 
+/// The response from `make_user_tde_registration`.
+pub struct MakeTdeRegistrationResponse {
+    /// The account cryptographic state
+    pub account_cryptographic_state: WrappedAccountCryptographicState,
+    /// The user's user key
+    pub user_key: SymmetricCryptoKey,
+    /// The request model for the account cryptographic state (also called Account Keys)
+    pub account_keys_request: AccountKeysRequestModel,
+    /// The keys needed to set up TDE decryption
+    pub trusted_device_keys: TrustDeviceResponse,
+    /// The key needed for admin password reset
+    pub reset_password_key: UnsignedSharedKey,
+}
+
+/// Errors that can occur when making keys for TDE registration.
+#[bitwarden_error(flat)]
+#[derive(Debug, thiserror::Error)]
+pub enum MakeKeysError {
+    /// Failed to initialize account cryptography
+    #[error("Failed to initialize account cryptography")]
+    AccountCryptographyInitialization(AccountCryptographyInitializationError),
+    /// Failed to create request model
+    #[error("Failed to make a request model")]
+    RequestModelCreation,
+    /// Generic crypto error
+    #[error("Cryptography error: {0}")]
+    Crypto(#[from] CryptoError),
+}
+
+/// Create the data needed to register for TDE (Trusted Device Enrollment)
+pub(crate) fn make_user_tde_registration(
+    client: &Client,
+    user_id: UserId,
+    org_public_key: B64,
+) -> Result<MakeTdeRegistrationResponse, MakeKeysError> {
+    let mut ctx = client.internal.get_key_store().context_mut();
+    let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx, user_id)
+        .map_err(MakeKeysError::AccountCryptographyInitialization)?;
+    // TDE unlock method
+    #[expect(deprecated)]
+    let device_key = DeviceKey::trust_device(ctx.dangerous_get_symmetric_key(user_key_id)?)?;
+
+    // Account recovery enrollment
+    let public_key =
+        AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))
+            .map_err(MakeKeysError::Crypto)?;
+    #[expect(deprecated)]
+    let admin_reset = UnsignedSharedKey::encapsulate_key_unsigned(
+        ctx.dangerous_get_symmetric_key(user_key_id)?,
+        &public_key,
+    )
+    .map_err(MakeKeysError::Crypto)?;
+
+    let cryptography_state_request_model = wrapped_state
+        .to_request_model(&user_key_id, &mut ctx)
+        .map_err(|_| MakeKeysError::RequestModelCreation)?;
+
+    #[expect(deprecated)]
+    Ok(MakeTdeRegistrationResponse {
+        account_cryptographic_state: wrapped_state,
+        user_key: ctx.dangerous_get_symmetric_key(user_key_id)?.to_owned(),
+        account_keys_request: cryptography_state_request_model,
+        trusted_device_keys: device_key,
+        reset_password_key: admin_reset,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use std::num::NonZeroU32;
 
-    use bitwarden_crypto::{RsaKeyPair, SymmetricKeyAlgorithm};
+    use bitwarden_crypto::{PublicKeyEncryptionAlgorithm, RsaKeyPair, SymmetricKeyAlgorithm};
 
     use super::*;
     use crate::Client;
@@ -1551,5 +1644,76 @@ mod tests {
         } else {
             panic!("Expected username login method");
         }
+    }
+
+    #[tokio::test]
+    async fn test_make_user_tde_registration() {
+        let user_id = UserId::new_v4();
+        let email = "test@bitwarden.com";
+        let kdf = Kdf::PBKDF2 {
+            iterations: NonZeroU32::new(600_000).expect("valid iteration count"),
+        };
+
+        // Generate a mock organization public key for TDE enrollment
+        let org_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let org_public_key_der = org_key
+            .to_public_key()
+            .to_der()
+            .expect("valid public key DER");
+        let org_public_key = B64::from(org_public_key_der.as_ref().to_vec());
+
+        // Create a client and generate TDE registration keys
+        let registration_client = Client::new(None);
+        let make_keys_response = registration_client
+            .crypto()
+            .make_user_tde_registration(user_id, org_public_key)
+            .expect("TDE registration should succeed");
+
+        // Initialize a new client using the TDE device key
+        let unlock_client = Client::new(None);
+        unlock_client
+            .crypto()
+            .initialize_user_crypto(InitUserCryptoRequest {
+                user_id: Some(user_id),
+                kdf_params: kdf,
+                email: email.to_owned(),
+                account_cryptographic_state: make_keys_response.account_cryptographic_state,
+                method: InitUserCryptoMethod::DeviceKey {
+                    device_key: make_keys_response
+                        .trusted_device_keys
+                        .device_key
+                        .to_string(),
+                    protected_device_private_key: make_keys_response
+                        .trusted_device_keys
+                        .protected_device_private_key,
+                    device_protected_user_key: make_keys_response
+                        .trusted_device_keys
+                        .protected_user_key,
+                },
+            })
+            .await
+            .expect("initializing user crypto with TDE device key should succeed");
+
+        // Verify we can retrieve the user encryption key
+        let retrieved_key = unlock_client
+            .crypto()
+            .get_user_encryption_key()
+            .await
+            .expect("should be able to get user encryption key");
+
+        // The retrieved key should be a valid symmetric key
+        let retrieved_symmetric_key = SymmetricCryptoKey::try_from(retrieved_key)
+            .expect("retrieved key should be valid symmetric key");
+
+        // Verify that the org key can decrypt the admin_reset_key UnsignedSharedKey
+        // and that the decrypted key matches the user's encryption key
+        let decrypted_user_key = make_keys_response
+            .reset_password_key
+            .decapsulate_key_unsigned(&org_key)
+            .expect("org key should be able to decrypt admin reset key");
+        assert_eq!(
+            retrieved_symmetric_key, decrypted_user_key,
+            "decrypted admin reset key should match the user's encryption key"
+        );
     }
 }

@@ -90,6 +90,7 @@ pub trait TaxApi: Send + Sync {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
         preview_organization_subscription_plan_change_tax_request: Option<
             models::PreviewOrganizationSubscriptionPlanChangeTaxRequest,
         >,
@@ -167,6 +168,7 @@ pub trait TaxApi: Send + Sync {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
         preview_organization_subscription_update_tax_request: Option<
             models::PreviewOrganizationSubscriptionUpdateTaxRequest,
         >,
@@ -257,6 +259,7 @@ impl TaxApi for TaxApiClient {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
         preview_organization_subscription_plan_change_tax_request: Option<
             models::PreviewOrganizationSubscriptionPlanChangeTaxRequest,
         >,
@@ -515,6 +518,10 @@ impl TaxApi for TaxApiClient {
             local_var_req_builder = local_var_req_builder
                 .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_phishing_blocker {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
+        }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
@@ -655,6 +662,7 @@ impl TaxApi for TaxApiClient {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
         preview_organization_subscription_update_tax_request: Option<
             models::PreviewOrganizationSubscriptionUpdateTaxRequest,
         >,
@@ -912,6 +920,10 @@ impl TaxApi for TaxApiClient {
         if let Some(ref param_value) = use_automatic_user_confirmation {
             local_var_req_builder = local_var_req_builder
                 .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_phishing_blocker {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder

@@ -16,6 +16,8 @@ use serde::{Deserialize, Serialize};
 ///     user_agent: "Bitwarden Rust-SDK".to_string(),
 ///     device_type: DeviceType::SDK,
 ///     bitwarden_client_version: None,
+///     bitwarden_package_type: None,
+///     device_identifier: None,
 /// };
 /// let default = ClientSettings::default();
 /// ```
@@ -36,8 +38,15 @@ pub struct ClientSettings {
     pub user_agent: String,
     /// Device type to send to Bitwarden. Defaults to SDK
     pub device_type: DeviceType,
-    /// Bitwarden Client Version to send to Bitwarden.
+
+    // TODO: PM-29939 - Remove optionality when all clients pass these values
+    /// Device identifier to send to Bitwarden. Optional for now in transition period.
+    pub device_identifier: Option<String>,
+    /// Bitwarden Client Version to send to Bitwarden. Optional for now in transition period.
     pub bitwarden_client_version: Option<String>,
+    /// Bitwarden Package Type to send to Bitwarden. We should evaluate this field to see if it
+    /// should be optional later.
+    pub bitwarden_package_type: Option<String>,
 }
 
 impl Default for ClientSettings {
@@ -47,7 +56,9 @@ impl Default for ClientSettings {
             api_url: "https://api.bitwarden.com".into(),
             user_agent: "Bitwarden Rust-SDK".into(),
             device_type: DeviceType::SDK,
+            device_identifier: None,
             bitwarden_client_version: None,
+            bitwarden_package_type: None,
         }
     }
 }

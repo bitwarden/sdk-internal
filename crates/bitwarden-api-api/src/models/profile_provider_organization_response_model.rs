@@ -170,6 +170,12 @@ pub struct ProfileProviderOrganizationResponseModel {
     )]
     pub use_automatic_user_confirmation: Option<bool>,
     #[serde(
+        rename = "usePhishingBlocker",
+        alias = "UsePhishingBlocker",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_phishing_blocker: Option<bool>,
+    #[serde(
         rename = "selfHost",
         alias = "SelfHost",
         skip_serializing_if = "Option::is_none"
@@ -343,6 +349,7 @@ impl ProfileProviderOrganizationResponseModel {
             use_organization_domains: None,
             use_admin_sponsored_families: None,
             use_automatic_user_confirmation: None,
+            use_phishing_blocker: None,
             self_host: None,
             seats: None,
             max_collections: None,
