@@ -69,7 +69,7 @@ pub struct CipherCreateRequest {
 /// value. This allows us to manage the cipher key creation internally.
 #[derive(Clone, Debug)]
 pub(super) struct CipherCreateRequestInternal {
-    pub create_request: CipherCreateRequest,
+    pub(super) create_request: CipherCreateRequest,
     key: Option<EncString>,
 }
 
