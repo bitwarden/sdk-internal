@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-use super::AsymmetricPublicCryptoKey;
+use super::PublicKey;
 use crate::{
     CoseSign1Bytes, CryptoError, PublicKeyEncryptionAlgorithm, RawPublicKey, SignedObject,
     SigningKey, SigningNamespace, SpkiPublicKeyBytes, VerifyingKey, cose::CoseSerializable,
@@ -52,7 +52,7 @@ pub struct SignedPublicKeyMessage {
 impl SignedPublicKeyMessage {
     /// Creates a new `SignedPublicKeyMessage` from an `AsymmetricPublicCryptoKey`. This message
     /// can then be signed using a `SigningKey` to create a `SignedPublicKey`.
-    pub fn from_public_key(public_key: &AsymmetricPublicCryptoKey) -> Result<Self, CryptoError> {
+    pub fn from_public_key(public_key: &PublicKey) -> Result<Self, CryptoError> {
         match public_key.inner() {
             RawPublicKey::RsaOaepSha1(_) => Ok(SignedPublicKeyMessage {
                 algorithm: PublicKeyEncryptionAlgorithm::RsaOaepSha1,
@@ -100,10 +100,7 @@ impl From<SignedPublicKey> for String {
 impl SignedPublicKey {
     /// Verifies the signature of the public key against the provided `VerifyingKey`, and returns
     /// the `AsymmetricPublicCryptoKey` if the verification is successful.
-    pub fn verify_and_unwrap(
-        self,
-        verifying_key: &VerifyingKey,
-    ) -> Result<AsymmetricPublicCryptoKey, CryptoError> {
+    pub fn verify_and_unwrap(self, verifying_key: &VerifyingKey) -> Result<PublicKey, CryptoError> {
         let public_key_message: SignedPublicKeyMessage = self
             .0
             .verify_and_unwrap(verifying_key, &SigningNamespace::SignedPublicKey)?;
@@ -111,12 +108,12 @@ impl SignedPublicKey {
             public_key_message.algorithm,
             public_key_message.content_format,
         ) {
-            (PublicKeyEncryptionAlgorithm::RsaOaepSha1, PublicKeyFormat::Spki) => Ok(
-                AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(
+            (PublicKeyEncryptionAlgorithm::RsaOaepSha1, PublicKeyFormat::Spki) => {
+                Ok(PublicKey::from_der(&SpkiPublicKeyBytes::from(
                     public_key_message.public_key.into_vec(),
                 ))
-                .map_err(|_| EncodingError::InvalidValue("public key"))?,
-            ),
+                .map_err(|_| EncodingError::InvalidValue("public key"))?)
+            }
         }
     }
 }
@@ -162,12 +159,12 @@ impl schemars::JsonSchema for SignedPublicKey {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{AsymmetricCryptoKey, PublicKeyEncryptionAlgorithm, SignatureAlgorithm};
+    use crate::{PrivateKey, PublicKeyEncryptionAlgorithm, SignatureAlgorithm};
 
     #[test]
     fn test_signed_asymmetric_public_key() {
         let public_key =
-            AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1).to_public_key();
+            PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1).to_public_key();
         let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
         let message = SignedPublicKeyMessage::from_public_key(&public_key).unwrap();
         let signed_public_key = message.sign(&signing_key).unwrap();
