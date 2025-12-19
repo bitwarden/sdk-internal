@@ -23,7 +23,8 @@ use super::CiphersClient;
 use crate::{
     AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, DecryptError,
     FieldView, FolderId, ItemNotFoundError, PasswordHistoryView, VaultParseError,
-    cipher_view_type::CipherViewType, password_history::MAX_PASSWORD_HISTORY_ENTRIES,
+    cipher::cipher::PartialCipher, cipher_view_type::CipherViewType,
+    password_history::MAX_PASSWORD_HISTORY_ENTRIES,
 };
 
 #[allow(missing_docs)]
@@ -413,19 +414,21 @@ impl CiphersClient {
                 .map(|id| id.to_string())
                 .collect(),
         };
+        let repository = self.get_repository()?;
 
         let api_config = self.client.internal.get_api_configurations().await;
         let api = api_config.api_client.ciphers_api();
+        let orig_cipher = repository.get(cipher_id.to_string()).await?;
         let cipher = if is_admin {
             api.put_collections_admin(&cipher_id.to_string(), Some(req))
                 .await?
-                .try_into()?
+                .merge_with_cipher(orig_cipher)?
         } else {
             let response: Cipher = api
                 .put_collections(cipher_id.into(), Some(req))
                 .await?
-                .try_into()?;
-            self.get_repository()?
+                .merge_with_cipher(orig_cipher)?;
+            repository
                 .set(cipher_id.to_string(), response.clone())
                 .await?;
             response

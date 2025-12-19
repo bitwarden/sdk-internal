@@ -1,15 +1,13 @@
 use bitwarden_api_api::{apis::ApiClient, models::CipherBulkRestoreRequestModel};
-use bitwarden_core::{
-    ApiError,
-    key_management::{KeyIds, SymmetricKeyId},
-};
-use bitwarden_crypto::{CryptoError, KeyStore, SymmetricCryptoKey};
+use bitwarden_core::{ApiError, key_management::KeyIds};
+use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
 
 use crate::{
     Cipher, CipherId, CipherView, CiphersClient, DecryptCipherListResult, VaultParseError,
+    cipher::cipher::PartialCipher,
 };
 
 #[allow(missing_docs)]
@@ -67,7 +65,7 @@ pub async fn restore_many(
         .data
         .into_iter()
         .flatten()
-        .map(|c| c.try_into())
+        .map(|c| c.merge_with_cipher(None))
         .collect::<Result<Vec<Cipher>, _>>()?;
 
     for cipher in &ciphers {

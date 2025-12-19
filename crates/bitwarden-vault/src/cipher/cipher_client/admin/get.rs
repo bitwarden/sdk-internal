@@ -5,7 +5,8 @@ use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
 use crate::{
-    Cipher, VaultParseError, cipher::cipher::DecryptCipherListResult,
+    VaultParseError,
+    cipher::cipher::{DecryptCipherListResult, PartialCipher},
     cipher_client::admin::CipherAdminClient,
 };
 
@@ -37,7 +38,7 @@ pub async fn list_org_ciphers(
         .data
         .into_iter()
         .flatten()
-        .map(Cipher::try_from)
+        .map(|model| model.merge_with_cipher(None))
         .collect::<Result<Vec<_>, _>>()?;
 
     let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
@@ -62,7 +63,7 @@ impl CipherAdminClient {
                 .get_api_configurations()
                 .await
                 .api_client,
-            &self.client.internal.get_key_store(),
+            self.client.internal.get_key_store(),
         )
         .await
     }

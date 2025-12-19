@@ -11,6 +11,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     Cipher, CipherView, VaultParseError,
+    cipher::cipher::PartialCipher,
     cipher_client::{
         admin::CipherAdminClient,
         create::{CipherCreateRequest, CipherCreateRequestInternal, CreateCipherError},
@@ -57,7 +58,7 @@ async fn create_cipher(
             cipher: Box::new(cipher_request),
         }))
         .await?
-        .try_into()?;
+        .merge_with_cipher(None)?;
 
     Ok(key_store.decrypt(&cipher)?)
 }
@@ -136,12 +137,10 @@ mod tests {
                         name: Some(request.cipher.name.clone()),
                         r#type: request.cipher.r#type,
                         creation_date: Some(
-                            Utc::now()
-                                .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                            Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
                         ),
                         revision_date: Some(
-                            Utc::now()
-                                .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                            Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
                         ),
                         ..Default::default()
                     })
@@ -156,7 +155,7 @@ mod tests {
         );
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::Organization(TEST_ORG_ID.parse::<OrganizationId>().unwrap().into()),
+            SymmetricKeyId::Organization(TEST_ORG_ID.parse::<OrganizationId>().unwrap()),
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
 

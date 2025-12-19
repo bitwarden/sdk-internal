@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use crate::{
     Cipher, CipherId, CipherView, DecryptCipherListResult, VaultParseError,
-    cipher_client::admin::CipherAdminClient,
+    cipher::cipher::PartialCipher, cipher_client::admin::CipherAdminClient,
 };
 
 #[allow(missing_docs)]
@@ -35,7 +35,10 @@ pub async fn restore_as_admin(
 ) -> Result<CipherView, RestoreCipherAdminError> {
     let api = api_client.ciphers_api();
 
-    let cipher: Cipher = api.put_restore_admin(cipher_id.into()).await?.try_into()?;
+    let cipher: Cipher = api
+        .put_restore_admin(cipher_id.into())
+        .await?
+        .merge_with_cipher(None)?;
 
     Ok(key_store.decrypt(&cipher)?)
 }
@@ -58,7 +61,7 @@ pub async fn restore_many_as_admin(
         .data
         .into_iter()
         .flatten()
-        .map(|c| c.try_into())
+        .map(|c| c.merge_with_cipher(None))
         .collect::<Result<Vec<_>, _>>()?;
 
     let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
@@ -175,10 +178,7 @@ mod tests {
                             name: Some(cipher.name.to_string()),
                             r#type: Some(cipher.r#type.into()),
                             creation_date: Some(cipher.creation_date.to_string()),
-                            revision_date: Some(
-                                Utc::now()
-                                    .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
-                            ),
+                            revision_date: Some(Utc::now().to_rfc3339()),
                             login: cipher.login.clone().map(|l| Box::new(l.into())),
                             ..Default::default()
                         })
@@ -227,10 +227,7 @@ mod tests {
                                 login: cipher_1.login.clone().map(|l| Box::new(l.into())),
                                 creation_date: cipher_1.creation_date.to_string().into(),
                                 deleted_date: None,
-                                revision_date: Some(
-                                Utc::now()
-                                    .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
-                            ),
+                                revision_date: Some(Utc::now().to_rfc3339()),
                                 ..Default::default()
                             },
                             CipherMiniResponseModel {
@@ -240,10 +237,7 @@ mod tests {
                                 login: cipher_2.login.clone().map(|l| Box::new(l.into())),
                                 creation_date: cipher_2.creation_date.to_string().into(),
                                 deleted_date: None,
-                                revision_date: Some(
-                                Utc::now()
-                                    .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
-                            ),
+                                revision_date: Some(Utc::now().to_rfc3339()),
                                 ..Default::default()
                             },
                         ]),

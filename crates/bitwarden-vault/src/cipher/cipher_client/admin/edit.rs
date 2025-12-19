@@ -13,6 +13,7 @@ use wasm_bindgen::prelude::*;
 use super::CipherAdminClient;
 use crate::{
     Cipher, CipherId, CipherView, DecryptError, ItemNotFoundError, VaultParseError,
+    cipher::cipher::PartialCipher,
     cipher_client::edit::{CipherEditRequest, CipherEditRequestInternal},
 };
 
@@ -50,21 +51,23 @@ async fn edit_cipher(
     key_store: &KeyStore<KeyIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     encrypted_for: UserId,
-    original_cipher_view: &CipherView,
+    original_cipher_view: CipherView,
     request: CipherEditRequest,
 ) -> Result<CipherView, EditCipherAdminError> {
     let cipher_id = request.id;
-    let request = CipherEditRequestInternal::new(request, original_cipher_view);
+    let request = CipherEditRequestInternal::new(request, &original_cipher_view);
 
     let mut cipher_request = key_store.encrypt(request)?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
+
+    let orig_cipher = key_store.encrypt(original_cipher_view)?;
 
     let cipher: Cipher = api_client
         .ciphers_api()
         .put_admin(cipher_id.into(), Some(cipher_request))
         .await
         .map_err(ApiError::from)?
-        .try_into()?;
+        .merge_with_cipher(Some(orig_cipher))?;
 
     Ok(key_store.decrypt(&cipher)?)
 }
@@ -87,7 +90,7 @@ pub async fn add_to_collections(
     let cipher: Cipher = api
         .put_collections_admin(&cipher_id.to_string(), Some(req))
         .await?
-        .try_into()?;
+        .merge_with_cipher(None)?;
 
     Ok(key_store.decrypt(&cipher)?)
 }
@@ -126,7 +129,7 @@ impl CipherAdminClient {
             key_store,
             &config.api_client,
             user_id,
-            &original_cipher_view,
+            original_cipher_view,
             request,
         )
         .await
@@ -262,7 +265,7 @@ mod tests {
             &store,
             &api_client,
             TEST_USER_ID.parse().unwrap(),
-            &original_cipher_view,
+            original_cipher_view,
             request,
         )
         .await
@@ -297,7 +300,7 @@ mod tests {
             &store,
             &api_client,
             TEST_USER_ID.parse().unwrap(),
-            &orig_cipher_view,
+            orig_cipher_view,
             request,
         )
         .await;
