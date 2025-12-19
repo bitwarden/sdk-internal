@@ -31,10 +31,10 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for RestoreCipherError {
 }
 
 /// Restores a soft-deleted cipher on the server.
-pub async fn restore(
+pub async fn restore<R: Repository<Cipher> + ?Sized>(
     cipher_id: CipherId,
     api_client: &ApiClient,
-    repository: &(impl Repository<Cipher> + ?Sized),
+    repository: &R,
     key_store: &KeyStore<KeyIds>,
 ) -> Result<CipherView, RestoreCipherError> {
     let api = api_client.ciphers_api();
@@ -48,10 +48,10 @@ pub async fn restore(
 }
 
 /// Restores multiple soft-deleted ciphers on the server.
-pub async fn restore_many(
+pub async fn restore_many<R: Repository<Cipher> + ?Sized>(
     cipher_ids: Vec<CipherId>,
     api_client: &ApiClient,
-    repository: &(impl Repository<Cipher> + ?Sized),
+    repository: &R,
     key_store: &KeyStore<KeyIds>,
 ) -> Result<DecryptCipherListResult, RestoreCipherError> {
     let api = api_client.ciphers_api();

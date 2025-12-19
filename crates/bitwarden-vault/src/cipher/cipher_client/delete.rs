@@ -22,10 +22,10 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for DeleteCipherError {
     }
 }
 
-async fn delete_cipher(
+async fn delete_cipher<R: Repository<Cipher> + ?Sized>(
     cipher_id: CipherId,
     api_client: &bitwarden_api_api::apis::ApiClient,
-    repository: &(impl Repository<Cipher> + ?Sized),
+    repository: &R,
 ) -> Result<(), DeleteCipherError> {
     let api = api_client.ciphers_api();
     api.delete(cipher_id.into()).await?;
@@ -33,11 +33,11 @@ async fn delete_cipher(
     Ok(())
 }
 
-async fn delete_ciphers(
+async fn delete_ciphers<R: Repository<Cipher> + ?Sized>(
     cipher_ids: Vec<CipherId>,
     organization_id: Option<OrganizationId>,
     api_client: &bitwarden_api_api::apis::ApiClient,
-    repository: &(impl Repository<Cipher> + ?Sized),
+    repository: &R,
 ) -> Result<(), DeleteCipherError> {
     let api = api_client.ciphers_api();
 
@@ -53,10 +53,10 @@ async fn delete_ciphers(
     Ok(())
 }
 
-async fn soft_delete(
+async fn soft_delete<R: Repository<Cipher> + ?Sized>(
     cipher_id: CipherId,
     api_client: &bitwarden_api_api::apis::ApiClient,
-    repository: &(impl Repository<Cipher> + ?Sized),
+    repository: &R,
 ) -> Result<(), DeleteCipherError> {
     let api = api_client.ciphers_api();
     api.put_delete(cipher_id.into()).await?;
@@ -64,11 +64,11 @@ async fn soft_delete(
     Ok(())
 }
 
-async fn soft_delete_many(
+async fn soft_delete_many<R: Repository<Cipher> + ?Sized>(
     cipher_ids: Vec<CipherId>,
     organization_id: Option<OrganizationId>,
     api_client: &bitwarden_api_api::apis::ApiClient,
-    repository: &(impl Repository<Cipher> + ?Sized),
+    repository: &R,
 ) -> Result<(), DeleteCipherError> {
     let api = api_client.ciphers_api();
 
@@ -83,8 +83,8 @@ async fn soft_delete_many(
     Ok(())
 }
 
-async fn process_soft_delete(
-    repository: &(impl Repository<Cipher> + ?Sized),
+async fn process_soft_delete<R: Repository<Cipher> + ?Sized>(
+    repository: &R,
     cipher_id: CipherId,
 ) -> Result<(), RepositoryError> {
     let cipher: Option<Cipher> = repository.get(cipher_id.to_string()).await?;
