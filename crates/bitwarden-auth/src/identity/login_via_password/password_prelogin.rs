@@ -70,6 +70,7 @@ mod tests {
             user_agent: "Bitwarden Rust-SDK [TEST]".into(),
             device_type: DeviceType::SDK,
             bitwarden_client_version: None,
+            bitwarden_package_type: None,
         };
         LoginClient::new(settings)
     }
