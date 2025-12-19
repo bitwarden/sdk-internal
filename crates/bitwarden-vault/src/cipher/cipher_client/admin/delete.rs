@@ -14,14 +14,14 @@ async fn delete_cipher(
 
 async fn delete_ciphers_many(
     cipher_ids: Vec<CipherId>,
-    organization_id: Option<OrganizationId>,
+    organization_id: OrganizationId,
     api_client: &bitwarden_api_api::apis::ApiClient,
 ) -> Result<(), ApiError> {
     let api = api_client.ciphers_api();
 
     api.delete_many_admin(Some(CipherBulkDeleteRequestModel {
         ids: cipher_ids.iter().map(|id| id.to_string()).collect(),
-        organization_id: organization_id.map(|id| id.to_string()),
+        organization_id: Some(organization_id.to_string()),
     }))
     .await?;
 
@@ -39,14 +39,14 @@ async fn soft_delete(
 
 async fn soft_delete_many(
     cipher_ids: Vec<CipherId>,
-    organization_id: Option<OrganizationId>,
+    organization_id: OrganizationId,
     api_client: &bitwarden_api_api::apis::ApiClient,
 ) -> Result<(), ApiError> {
     let api = api_client.ciphers_api();
 
     api.put_delete_many_admin(Some(CipherBulkDeleteRequestModel {
         ids: cipher_ids.iter().map(|id| id.to_string()).collect(),
-        organization_id: organization_id.map(|id| id.to_string()),
+        organization_id: Some(organization_id.to_string()),
     }))
     .await?;
     Ok(())
@@ -88,7 +88,7 @@ impl CipherAdminClient {
     pub async fn delete_many(
         &self,
         cipher_ids: Vec<CipherId>,
-        organization_id: Option<OrganizationId>,
+        organization_id: OrganizationId,
     ) -> Result<(), ApiError> {
         delete_ciphers_many(
             cipher_ids,
@@ -108,7 +108,7 @@ impl CipherAdminClient {
     pub async fn soft_delete_many(
         &self,
         cipher_ids: Vec<CipherId>,
-        organization_id: Option<OrganizationId>,
+        organization_id: OrganizationId,
     ) -> Result<(), ApiError> {
         soft_delete_many(
             cipher_ids,
@@ -171,7 +171,7 @@ mod tests {
                 TEST_CIPHER_ID.parse().unwrap(),
                 TEST_CIPHER_ID_2.parse().unwrap(),
             ],
-            TEST_ORG_ID.parse().ok(),
+            TEST_ORG_ID.parse().unwrap(),
             &bitwarden_api_api::apis::ApiClient::new_mocked(|mock| {
                 mock.ciphers_api
                     .expect_delete_many_admin()
@@ -201,7 +201,7 @@ mod tests {
                 TEST_CIPHER_ID.parse().unwrap(),
                 TEST_CIPHER_ID_2.parse().unwrap(),
             ],
-            TEST_ORG_ID.parse().ok(),
+            TEST_ORG_ID.parse().unwrap(),
             &bitwarden_api_api::apis::ApiClient::new_mocked(|mock| {
                 mock.ciphers_api
                     .expect_put_delete_many_admin()
