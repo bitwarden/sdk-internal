@@ -73,7 +73,9 @@ mod tests {
             api_url: format!("http://{}/api", mock_server.address()),
             user_agent: "Bitwarden Rust-SDK [TEST]".into(),
             device_type: DeviceType::SDK,
+            device_identifier: None,
             bitwarden_client_version: None,
+            bitwarden_package_type: None,
         };
         LoginClient::new(settings)
     }
