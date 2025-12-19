@@ -1,5 +1,4 @@
 use bitwarden_api_api::models::CipherCreateRequestModel;
-use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, UserId, key_management::KeyIds,
 };
@@ -43,11 +42,11 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for CreateCipherAdminError {
 /// Wraps the API call to create a cipher using the admin endpoint, for easier testing.
 async fn create_cipher(
     request: CipherCreateRequestInternal,
-    collection_ids: Vec<CollectionId>,
     encrypted_for: UserId,
     api_client: &bitwarden_api_api::apis::ApiClient,
     key_store: &KeyStore<KeyIds>,
 ) -> Result<CipherView, CreateCipherError> {
+    let collection_ids = request.create_request.collection_ids.clone();
     let mut cipher_request = key_store.encrypt(request)?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
@@ -70,7 +69,6 @@ impl CipherAdminClient {
     pub async fn create(
         &self,
         request: CipherCreateRequest,
-        collection_ids: Vec<CollectionId>,
     ) -> Result<CipherView, CreateCipherError> {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations().await;
@@ -94,14 +92,7 @@ impl CipherAdminClient {
             internal_request.generate_cipher_key(&mut key_store.context(), key)?;
         }
 
-        create_cipher(
-            internal_request,
-            collection_ids,
-            user_id,
-            &config.api_client,
-            key_store,
-        )
-        .await
+        create_cipher(internal_request, user_id, &config.api_client, key_store).await
     }
 }
 
@@ -161,6 +152,7 @@ mod tests {
 
         let cipher_request: CipherCreateRequestInternal = CipherCreateRequest {
             organization_id: Some(TEST_ORG_ID.parse().unwrap()),
+            collection_ids: vec![TEST_COLLECTION_ID.parse().unwrap()],
             folder_id: None,
             name: "Test Cipher".into(),
             notes: None,
@@ -181,7 +173,6 @@ mod tests {
 
         let response = create_cipher(
             cipher_request.clone(),
-            vec![TEST_COLLECTION_ID.parse().unwrap()],
             TEST_USER_ID.parse().unwrap(),
             &api_client,
             &store,

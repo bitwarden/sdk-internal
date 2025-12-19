@@ -55,6 +55,7 @@ impl<T> From<bitwarden_api_api::apis::Error<T>> for CreateCipherError {
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CipherCreateRequest {
     pub organization_id: Option<OrganizationId>,
+    pub collection_ids: Vec<CollectionId>,
     pub folder_id: Option<FolderId>,
     pub name: String,
     pub notes: Option<String>,
@@ -225,8 +226,8 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     repository: &R,
     encrypted_for: UserId,
     request: CipherCreateRequestInternal,
-    collection_ids: Vec<CollectionId>,
 ) -> Result<CipherView, CreateCipherError> {
+    let collection_ids = request.create_request.collection_ids.clone();
     let mut cipher_request = key_store.encrypt(request)?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
@@ -264,7 +265,6 @@ impl CiphersClient {
     async fn create_cipher(
         &self,
         request: CipherCreateRequest,
-        collection_ids: Vec<CollectionId>,
     ) -> Result<CipherView, CreateCipherError> {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations().await;
@@ -295,7 +295,6 @@ impl CiphersClient {
             repository.as_ref(),
             user_id,
             internal_request,
-            collection_ids,
         )
         .await
     }
@@ -305,16 +304,7 @@ impl CiphersClient {
         &self,
         request: CipherCreateRequest,
     ) -> Result<CipherView, CreateCipherError> {
-        self.create_cipher(request, vec![]).await
-    }
-
-    /// Creates a new [Cipher] for an organization, and saves it to the server.
-    pub async fn create_org_cipher(
-        &self,
-        request: CipherCreateRequest,
-        collection_ids: Vec<CollectionId>,
-    ) -> Result<CipherView, CreateCipherError> {
-        self.create_cipher(request, collection_ids).await
+        self.create_cipher(request).await
     }
 }
 
@@ -362,6 +352,7 @@ mod tests {
             favorite: Default::default(),
             reprompt: Default::default(),
             fields: Default::default(),
+            collection_ids: vec![],
         }
     }
 
@@ -489,7 +480,6 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request.into(),
-            vec![],
         )
         .await
         .unwrap();
@@ -554,7 +544,6 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request.into(),
-            vec![],
         )
         .await;
 
@@ -592,27 +581,25 @@ mod tests {
 
         let client = create_client_with_wiremock(&mock_server).await;
         let response = client
-            .create_org_cipher(
-                CipherCreateRequest {
-                    organization_id: Some(TEST_ORG_ID.parse().unwrap()),
-                    folder_id: None,
-                    name: "Test Cipher".into(),
-                    notes: None,
-                    favorite: false,
-                    reprompt: CipherRepromptType::None,
-                    r#type: CipherViewType::Login(LoginView {
-                        username: None,
-                        password: None,
-                        password_revision_date: None,
-                        uris: None,
-                        totp: None,
-                        autofill_on_page_load: None,
-                        fido2_credentials: None,
-                    }),
-                    fields: vec![],
-                },
-                vec![TEST_COLLECTION_ID.parse().unwrap()],
-            )
+            .create_cipher(CipherCreateRequest {
+                organization_id: Some(TEST_ORG_ID.parse().unwrap()),
+                collection_ids: vec![TEST_COLLECTION_ID.parse().unwrap()],
+                folder_id: None,
+                name: "Test Cipher".into(),
+                notes: None,
+                favorite: false,
+                reprompt: CipherRepromptType::None,
+                r#type: CipherViewType::Login(LoginView {
+                    username: None,
+                    password: None,
+                    password_revision_date: None,
+                    uris: None,
+                    totp: None,
+                    autofill_on_page_load: None,
+                    fido2_credentials: None,
+                }),
+                fields: vec![],
+            })
             .await
             .unwrap();
 
