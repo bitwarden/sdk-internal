@@ -98,6 +98,12 @@ towards modifying the templates as little as possible to ease future upgrades.
 - This process also changes the `Cargo.toml` file. When creating a PR updating the bindings, please
   revert (do not include) the updates to the `Cargo.toml` file.
 
+> [!IMPORTANT] A GitHub workflow exists to
+> [update the API bindings](https://github.com/bitwarden/sdk-internal/actions/workflows/update-api-bindings.yml).
+> Running the scripts above can be helpful during local development, but please ensure that any
+> changes to the bindings in `bitwarden-api-api` and `bitwarden-api-identity` are **not** checked
+> into any pull request.
+
 ## Developer tools
 
 This project recommends the use of certain developer tools and includes configurations for them to
