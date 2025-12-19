@@ -13,26 +13,26 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SelfHostedOrganizationLicenseRequestModel {
+pub struct KeyConnectorConfirmationDetailsResponseModel {
     #[serde(
-        rename = "licenseKey",
-        alias = "LicenseKey",
+        rename = "object",
+        alias = "Object",
         skip_serializing_if = "Option::is_none"
     )]
-    pub license_key: Option<String>,
+    pub object: Option<String>,
     #[serde(
-        rename = "billingSyncKey",
-        alias = "BillingSyncKey",
+        rename = "organizationName",
+        alias = "OrganizationName",
         skip_serializing_if = "Option::is_none"
     )]
-    pub billing_sync_key: Option<String>,
+    pub organization_name: Option<String>,
 }
 
-impl SelfHostedOrganizationLicenseRequestModel {
-    pub fn new() -> SelfHostedOrganizationLicenseRequestModel {
-        SelfHostedOrganizationLicenseRequestModel {
-            license_key: None,
-            billing_sync_key: None,
+impl KeyConnectorConfirmationDetailsResponseModel {
+    pub fn new() -> KeyConnectorConfirmationDetailsResponseModel {
+        KeyConnectorConfirmationDetailsResponseModel {
+            object: None,
+            organization_name: None,
         }
     }
 }

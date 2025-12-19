@@ -20,7 +20,7 @@ pub enum GetCipherError {
     #[error(transparent)]
     VaultParse(#[from] VaultParseError),
     #[error(transparent)]
-    RepositoryError(#[from] RepositoryError),
+    Repository(#[from] RepositoryError),
     #[error(transparent)]
     Api(#[from] ApiError),
 }

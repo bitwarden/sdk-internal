@@ -41,61 +41,21 @@ impl Client {
     fn new_internal(settings_input: Option<ClientSettings>, tokens: Tokens) -> Self {
         let settings = settings_input.unwrap_or_default();
 
-        fn new_client_builder() -> reqwest::ClientBuilder {
-            #[allow(unused_mut)]
-            let mut client_builder = reqwest::Client::builder();
+        let external_http_client = new_http_client_builder()
+            .build()
+            .expect("External HTTP Client build should not fail");
 
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                use rustls::ClientConfig;
-                use rustls_platform_verifier::ConfigVerifierExt;
-                client_builder = client_builder.use_preconfigured_tls(
-                    ClientConfig::with_platform_verifier()
-                        .expect("Failed to create platform verifier"),
-                );
+        let headers = build_default_headers(&settings);
 
-                // Enforce HTTPS for all requests in non-debug builds
-                #[cfg(not(debug_assertions))]
-                {
-                    client_builder = client_builder.https_only(true);
-                }
-            }
-
-            client_builder
-        }
-
-        let external_client = new_client_builder().build().expect("Build should not fail");
-
-        let mut headers = header::HeaderMap::new();
-        headers.append(
-            "Device-Type",
-            HeaderValue::from_str(&(settings.device_type as u8).to_string())
-                .expect("All numbers are valid ASCII"),
-        );
-
-        if let Some(client_type) = Into::<Option<ClientName>>::into(settings.device_type) {
-            headers.append(
-                "Bitwarden-Client-Name",
-                HeaderValue::from_str(&client_type.to_string())
-                    .expect("All ASCII strings are valid header values"),
-            );
-        }
-
-        if let Some(version) = &settings.bitwarden_client_version {
-            headers.append(
-                "Bitwarden-Client-Version",
-                HeaderValue::from_str(version).expect("Version should be a valid header value"),
-            );
-        }
-
-        let client_builder = new_client_builder().default_headers(headers);
-
-        let client = client_builder.build().expect("Build should not fail");
+        let bw_http_client = new_http_client_builder()
+            .default_headers(headers)
+            .build()
+            .expect("Bw HTTP Client build should not fail");
 
         let identity = bitwarden_api_identity::apis::configuration::Configuration {
             base_path: settings.identity_url,
             user_agent: Some(settings.user_agent.clone()),
-            client: client.clone(),
+            client: bw_http_client.clone(),
             basic_auth: None,
             oauth_access_token: None,
             bearer_access_token: None,
@@ -105,7 +65,7 @@ impl Client {
         let api = bitwarden_api_api::apis::configuration::Configuration {
             base_path: settings.api_url,
             user_agent: Some(settings.user_agent),
-            client,
+            client: bw_http_client,
             basic_auth: None,
             oauth_access_token: None,
             bearer_access_token: None,
@@ -124,7 +84,7 @@ impl Client {
                     api,
                     settings.device_type,
                 )),
-                external_client,
+                external_http_client,
                 key_store: KeyStore::default(),
                 #[cfg(feature = "internal")]
                 security_state: RwLock::new(None),
@@ -133,4 +93,82 @@ impl Client {
             }),
         }
     }
+}
+
+fn new_http_client_builder() -> reqwest::ClientBuilder {
+    #[allow(unused_mut)]
+    let mut client_builder = reqwest::Client::builder();
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        use rustls::ClientConfig;
+        use rustls_platform_verifier::ConfigVerifierExt;
+        client_builder = client_builder.use_preconfigured_tls(
+            ClientConfig::with_platform_verifier().expect("Failed to create platform verifier"),
+        );
+
+        // Enforce HTTPS for all requests in non-debug builds
+        #[cfg(not(debug_assertions))]
+        {
+            client_builder = client_builder.https_only(true);
+        }
+    }
+
+    client_builder
+}
+
+/// Build default headers for Bitwarden HttpClient
+fn build_default_headers(settings: &ClientSettings) -> header::HeaderMap {
+    let mut headers = header::HeaderMap::new();
+
+    // Handle optional headers
+
+    if let Some(device_identifier) = &settings.device_identifier {
+        headers.append(
+            "Device-Identifier",
+            HeaderValue::from_str(device_identifier)
+                .expect("Device identifier should be a valid header value"),
+        );
+    }
+
+    if let Some(client_type) = Into::<Option<ClientName>>::into(settings.device_type) {
+        headers.append(
+            "Bitwarden-Client-Name",
+            HeaderValue::from_str(&client_type.to_string())
+                .expect("All ASCII strings are valid header values"),
+        );
+    }
+
+    if let Some(version) = &settings.bitwarden_client_version {
+        headers.append(
+            "Bitwarden-Client-Version",
+            HeaderValue::from_str(version).expect("Version should be a valid header value"),
+        );
+    }
+
+    if let Some(package_type) = &settings.bitwarden_package_type {
+        headers.append(
+            "Bitwarden-Package-Type",
+            HeaderValue::from_str(package_type)
+                .expect("Package type should be a valid header value"),
+        );
+    }
+
+    // Handle required headers
+
+    headers.append(
+        "Device-Type",
+        HeaderValue::from_str(&(settings.device_type as u8).to_string())
+            .expect("All numbers are valid ASCII"),
+    );
+
+    // TODO: PM-29938 - Since we now add this header always, we need to remove this from the
+    // auto-generated code
+    headers.append(
+        reqwest::header::USER_AGENT,
+        HeaderValue::from_str(&settings.user_agent)
+            .expect("User agent should be a valid header value"),
+    );
+
+    headers
 }

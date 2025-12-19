@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
@@ -42,7 +42,7 @@ jobs:
           echo "RUST_NIGHTLY_TOOLCHAIN=${RUST_NIGHTLY_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
 
       - name: Install rust
-        uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # stable
+        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e # stable
         with:
           toolchain: "${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}"
           components: clippy, rustfmt
@@ -87,10 +87,10 @@ jobs:
           RUSTFLAGS: "-D warnings"
 
       - name: Install cargo-sort
-        run: cargo install cargo-sort --locked --git https://github.com/DevinR528/cargo-sort.git --rev f5047967021cbb1f822faddc355b3b07674305a1
+        run: cargo install cargo-sort --version 2.0.2 --locked
 
       - name: Cargo sort
-        run: cargo sort --workspace --check
+        run: cargo sort --workspace --grouped --check
 
       - name: Install cargo-udeps
         run: cargo install cargo-udeps --version 0.1.57 --locked
@@ -101,10 +101,19 @@ jobs:
         run: cargo +"${RUST_NIGHTLY_TOOLCHAIN}" udeps --workspace --all-features
 
       - name: Install cargo-dylint
-        run: cargo install cargo-dylint dylint-link --version 4.1.0 --locked
+        run: cargo install cargo-dylint dylint-link --version 5.0.0 --locked
 
       - name: Cargo dylint
         run: cargo dylint --all -- --all-features --all-targets
+
+      - name: Check Cargo.lock unchanged
+        run: |
+          if git diff --exit-code Cargo.lock; then
+            echo "Cargo.lock is unchanged"
+          else
+            echo "Error: Cargo.lock has been modified. Please run `cargo check` and commit the changes to Cargo.lock."
+            exit 1
+          fi
 
       - name: Set up Node
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0

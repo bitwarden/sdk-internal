@@ -16,7 +16,7 @@ wasm = [
     "dep:wasm-bindgen-futures",
     "dep:js-sys",
     "bitwarden-error/wasm",
-    "bitwarden-threading/wasm"
+    "bitwarden-threading/wasm",
 ] # WASM support
 
 [dependencies]

@@ -1,11 +1,10 @@
 use std::collections::HashMap;
 
 use bitwarden_api_api::models::PolicyResponseModel;
+use bitwarden_core::{MissingFieldError, require};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use uuid::Uuid;
-
-use crate::{MissingFieldError, require};
 
 /// Represents a policy that can be applied to an organization.
 #[derive(Serialize, Deserialize, Debug)]

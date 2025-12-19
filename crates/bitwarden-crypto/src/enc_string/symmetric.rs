@@ -3,6 +3,7 @@ use std::{borrow::Cow, str::FromStr};
 use bitwarden_encoding::{B64, FromStrVisitor};
 use coset::{CborSerializable, iana::KeyOperation};
 use serde::Deserialize;
+use tracing::instrument;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::convert::FromWasmAbi;
 
@@ -367,6 +368,7 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &str {
 }
 
 impl KeyDecryptable<SymmetricCryptoKey, String> for EncString {
+    #[instrument(err, skip_all)]
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<String> {
         let dec: Vec<u8> = self.decrypt_with_key(key)?;
         String::from_utf8(dec).map_err(|_| CryptoError::InvalidUtf8String)
