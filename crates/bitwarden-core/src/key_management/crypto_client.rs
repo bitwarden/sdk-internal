@@ -33,8 +33,9 @@ use crate::{
     client::encryption_settings::EncryptionSettingsError,
     error::StatefulCryptoError,
     key_management::crypto::{
-        CryptoClientError, EnrollPinResponse, UpdateKdfResponse, UserCryptoV2KeysResponse,
-        enroll_pin, get_v2_rotated_account_keys, make_update_kdf, make_update_password,
+        CryptoClientError, EnrollPinResponse, MakeKeysError, MakeTdeRegistrationResponse,
+        UpdateKdfResponse, UserCryptoV2KeysResponse, enroll_pin, get_v2_rotated_account_keys,
+        make_update_kdf, make_update_password, make_user_tde_registration,
         make_v2_keys_for_v1_user,
     },
 };
@@ -201,6 +202,17 @@ impl CryptoClient {
         derive_key_connector(request)
     }
 
+    /// Creates a new V2 account cryptographic state for TDE registration.
+    /// This generates fresh cryptographic keys (private key, signing key, signed public key,
+    /// and security state) wrapped with a new user key.
+    pub fn make_user_tde_registration(
+        &self,
+        user_id: UserId,
+        org_public_key: B64,
+    ) -> Result<MakeTdeRegistrationResponse, MakeKeysError> {
+        make_user_tde_registration(&self.client, user_id, org_public_key)
+    }
+
     /// Creates a new V2 account cryptographic state for Key Connector registration.
     /// This generates fresh cryptographic keys (private key, signing key, signed public key,
     /// and security state) wrapped with a new user key.
@@ -253,6 +265,7 @@ pub struct MakeKeyConnectorRegistrationResponse {
     pub key_connector_key: KeyConnectorKey,
 }
 
+// TODO move to crypto.rs
 /// Errors that can occur during account cryptography key generation.
 #[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
@@ -309,7 +322,7 @@ mod tests {
                 )
                 .unwrap(),
         );
-        let user_key_final = SymmetricCryptoKey::try_from(&secret).unwrap();
+        let user_key_final = SymmetricCryptoKey::try_from(&secret).expect("valid user key");
         assert_eq!(user_key_initial, user_key_final);
     }
 

@@ -523,24 +523,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "bitwarden-api-key-connector"
-version = "2.0.0"
-dependencies = [
- "async-trait",
- "mockall",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
- "wiremock",
-]
-
-[[package]]
 name = "bitwarden-auth"
 version = "2.0.0"
 dependencies = [
  "bitwarden-api-api",
- "bitwarden-api-key-connector",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-encoding",
@@ -549,6 +535,7 @@ dependencies = [
  "chrono",
  "reqwest",
  "serde",
+ "serde_bytes",
  "serde_json",
  "thiserror 2.0.12",
  "tokio",
@@ -611,7 +598,6 @@ dependencies = [
  "async-trait",
  "bitwarden-api-api",
  "bitwarden-api-identity",
- "bitwarden-api-key-connector",
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
@@ -721,7 +707,6 @@ dependencies = [
 name = "bitwarden-error-macro"
 version = "2.0.0"
 dependencies = [
- "bitwarden-error",
  "darling",
  "js-sys",
  "proc-macro2",
@@ -1947,12 +1932,12 @@ dependencies = [
 
 [[package]]
 name = "deadpool"
-version = "0.12.3"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0be2b1d1d6ec8d846f05e137292d0b89133caf95ef33695424c09568bdd39b1b"
+checksum = "fb84100978c1c7b37f09ed3ce3e5f843af02c2a2c431bae5b19230dad2c1b490"
 dependencies = [
+ "async-trait",
  "deadpool-runtime",
- "lazy_static",
  "num_cpus",
  "tokio",
 ]
@@ -2817,14 +2802,13 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "1.8.1"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ab2d4f250c3d7b1c9fcdff1cece94ea4e2dfbec68614f7b87cb205f24ca9d11"
+checksum = "cc2b571658e38e0c01b1fdca3bbbe93c00d3d71693ff2770043f8c29bc7d6f80"
 dependencies = [
- "atomic-waker",
  "bytes",
  "futures-channel",
- "futures-core",
+ "futures-util",
  "h2",
  "http",
  "http-body",
@@ -2832,7 +2816,6 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "pin-utils",
  "smallvec",
  "tokio",
  "want",
@@ -5924,7 +5907,7 @@ dependencies = [
  "serde",
  "tempfile",
  "textwrap",
- "toml 0.9.9+spec-1.0.0",
+ "toml 0.8.23",
  "uniffi_internal_macros",
  "uniffi_meta",
  "uniffi_pipeline",
@@ -5977,7 +5960,7 @@ dependencies = [
  "quote",
  "serde",
  "syn",
- "toml 0.9.9+spec-1.0.0",
+ "toml 0.8.23",
  "uniffi_meta",
 ]
 
@@ -6890,11 +6873,12 @@ dependencies = [
 
 [[package]]
 name = "wiremock"
-version = "0.6.5"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08db1edfb05d9b3c1542e521aea074442088292f00b5f28e435c714a98f85031"
+checksum = "a2b8b99d4cdbf36b239a9532e31fe4fb8acc38d1897c1761e161550a7dc78e6a"
 dependencies = [
  "assert-json-diff",
+ "async-trait",
  "base64 0.22.1",
  "deadpool",
  "futures",
