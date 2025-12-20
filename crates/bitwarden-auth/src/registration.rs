@@ -7,7 +7,7 @@
 
 use bitwarden_api_api::models::SetKeyConnectorKeyRequestModel;
 use bitwarden_core::{
-    Client, OrganizationId, UserId,
+    Client, UserId,
     key_management::{
         AccountCryptographyMakeKeysError,
         account_cryptographic_state::WrappedAccountCryptographicState,
@@ -51,7 +51,7 @@ impl RegistrationClient {
     pub async fn post_keys_for_key_connector_registration(
         &self,
         key_connector_url: String,
-        org_id: OrganizationId,
+        sso_org_identifier: String,
         user_id: UserId,
     ) -> Result<KeyConnectorRegistrationResult, UserRegistrationError> {
         let client = &self.client.internal;
@@ -62,7 +62,7 @@ impl RegistrationClient {
             self,
             &configuration.api_client,
             &key_connector_client,
-            org_id,
+            sso_org_identifier,
             user_id,
         )
         .await
@@ -73,7 +73,7 @@ async fn internal_post_keys_for_key_connector_registration(
     registration_client: &RegistrationClient,
     api_client: &bitwarden_api_api::apis::ApiClient,
     key_connector_api_client: &bitwarden_api_key_connector::apis::ApiClient,
-    org_id: OrganizationId,
+    sso_org_identifier: String,
     user_id: UserId,
 ) -> Result<KeyConnectorRegistrationResult, UserRegistrationError> {
     // First call crypto API to get all keys
@@ -123,7 +123,7 @@ async fn internal_post_keys_for_key_connector_registration(
                 .to_string(),
         ),
         account_keys: Some(Box::new(registration_crypto_result.account_keys_request)),
-        ..SetKeyConnectorKeyRequestModel::new(org_id.to_string())
+        ..SetKeyConnectorKeyRequestModel::new(sso_org_identifier.to_string())
     };
     api_client
         .accounts_key_management_api()
@@ -182,16 +182,14 @@ pub enum UserRegistrationError {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::{
-        Client, OrganizationId, UserId, client::test_accounts::test_bitwarden_com_account,
-    };
+    use bitwarden_core::{Client, UserId, client::test_accounts::test_bitwarden_com_account};
 
     use crate::registration::{
         RegistrationClient, internal_post_keys_for_key_connector_registration,
     };
 
     const TEST_USER_ID: &str = "060000fb-0922-4dd3-b170-6e15cb5df8c8";
-    const TEST_ORG_ID: &str = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8";
+    const TEST_SSO_ORG_IDENTIFIER: &str = "test-org";
 
     #[tokio::test]
     async fn test_post_keys_for_key_connector_registration_success() {
@@ -228,7 +226,7 @@ mod tests {
             &registration_client,
             &api_client,
             &key_connector_api_client,
-            OrganizationId::new(uuid::uuid!(TEST_ORG_ID)),
+            TEST_SSO_ORG_IDENTIFIER.to_string(),
             UserId::new(uuid::uuid!(TEST_USER_ID)),
         )
         .await;
