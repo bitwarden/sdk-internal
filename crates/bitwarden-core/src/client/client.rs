@@ -104,8 +104,8 @@ impl Client {
 
         let api = bitwarden_api_api::apis::configuration::Configuration {
             base_path: settings.api_url,
-            user_agent: Some(settings.user_agent),
-            client,
+            user_agent: Some(settings.user_agent.clone()),
+            client: client.clone(),
             basic_auth: None,
             oauth_access_token: None,
             bearer_access_token: None,

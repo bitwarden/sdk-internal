@@ -41,6 +41,7 @@ wasm = [
 async-trait = { workspace = true }
 bitwarden-api-api = { workspace = true }
 bitwarden-api-identity = { workspace = true }
+bitwarden-api-key-connector = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
@@ -76,10 +77,8 @@ rustls = { version = "0.23.19", default-features = false }
 rustls-platform-verifier = "0.6.0"
 
 [dev-dependencies]
-mockall = { version = ">=0.13.1, <0.15" }
 rand_chacha = ">=0.3.1, <0.4.0"
 tokio = { workspace = true, features = ["rt"] }
-wiremock = { workspace = true }
 zeroize = { version = ">=1.7.0, <2.0", features = ["derive", "aarch64"] }
 
 [lints]

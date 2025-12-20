@@ -74,9 +74,25 @@ impl ApiConfigurations {
         let mut api = self.api_config.clone();
 
         identity.oauth_access_token = Some(token.clone());
-        api.oauth_access_token = Some(token);
+        api.oauth_access_token = Some(token.clone());
 
         *self = ApiConfigurations::new(identity, api, self.device_type);
+    }
+
+    pub(crate) fn get_key_connector_client(
+        self: &Arc<Self>,
+        key_connector_url: String,
+    ) -> bitwarden_api_key_connector::apis::ApiClient {
+        let api = self.api_config.clone();
+
+        let key_connector = bitwarden_api_key_connector::apis::configuration::Configuration {
+            base_path: key_connector_url,
+            user_agent: api.user_agent,
+            client: api.client,
+            oauth_access_token: api.oauth_access_token,
+        };
+
+        bitwarden_api_key_connector::apis::ApiClient::new(&Arc::new(key_connector))
     }
 }
 
@@ -214,6 +230,16 @@ impl InternalClient {
             )) => Ok(kdf.clone()),
             _ => Err(NotAuthenticatedError),
         }
+    }
+
+    pub fn get_key_connector_client(
+        &self,
+        key_connector_url: String,
+    ) -> bitwarden_api_key_connector::apis::ApiClient {
+        self.__api_configurations
+            .read()
+            .expect("RwLock is not poisoned")
+            .get_key_connector_client(key_connector_url)
     }
 
     #[allow(missing_docs)]
