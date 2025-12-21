@@ -1,6 +1,7 @@
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{
     CryptoError, DeviceKey, EncString, Kdf, TrustDeviceResponse, UnsignedSharedKey,
+    safe::PasswordProtectedKeyEnvelope,
 };
 #[cfg(feature = "internal")]
 use bitwarden_encoding::B64;
@@ -26,7 +27,7 @@ use crate::{
             MasterPasswordPolicyOptions, password_strength, satisfies_policy, validate_password,
             validate_password_user_key,
         },
-        pin::validate_pin,
+        pin::{validate_pin, validate_pin_protected_user_key_envelope},
         register::make_register_keys,
         tde::{RegisterTdeKeyResponse, make_register_tde_keys},
     },
@@ -158,6 +159,18 @@ impl AuthClient {
         pin_protected_user_key: EncString,
     ) -> Result<bool, AuthValidateError> {
         validate_pin(&self.client, pin, pin_protected_user_key)
+    }
+
+    /// Validates a PIN against a PIN-protected user key envelope.
+    /// Returns `false` if the PIN fails to decrypt the envelope.
+    /// Requires the user key to be present in the client, otherwise returns
+    /// [`AuthValidateError::NotAuthenticated`].
+    pub fn validate_pin_protected_user_key_envelope(
+        &self,
+        pin: String,
+        pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
+    ) -> Result<bool, AuthValidateError> {
+        validate_pin_protected_user_key_envelope(&self.client, pin, pin_protected_user_key_envelope)
     }
 
     #[allow(missing_docs)]

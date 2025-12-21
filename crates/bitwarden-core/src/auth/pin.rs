@@ -1,4 +1,4 @@
-use bitwarden_crypto::{EncString, PinKey};
+use bitwarden_crypto::{EncString, PinKey, safe::PasswordProtectedKeyEnvelope};
 
 use crate::{
     Client, NotAuthenticatedError,
@@ -39,6 +39,31 @@ pub(crate) fn validate_pin(
 
             Ok(*user_key == decrypted_key)
         }
+    }
+}
+
+pub(crate) fn validate_pin_protected_user_key_envelope(
+    client: &Client,
+    pin: String,
+    pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
+) -> Result<bool, AuthValidateError> {
+    let key_store = client.internal.get_key_store();
+    let mut ctx = key_store.context();
+
+    if let Ok(decrypted_key_id) = pin_protected_user_key_envelope.unseal(pin.as_str(), &mut ctx) {
+        #[allow(deprecated)]
+        let Ok(decrypted_user_key) = ctx.dangerous_get_symmetric_key(decrypted_key_id) else {
+            return Ok(false);
+        };
+
+        #[allow(deprecated)]
+        let user_key = ctx
+            .dangerous_get_symmetric_key(SymmetricKeyId::User)
+            .map_err(|_| NotAuthenticatedError)?;
+
+        Ok(*user_key == *decrypted_user_key)
+    } else {
+        Ok(false)
     }
 }
 
@@ -108,5 +133,61 @@ mod tests {
 
         let client = init_client();
         assert!(!validate_pin(&client, pin.clone(), pin_protected_user_key).unwrap());
+    }
+
+    #[test]
+    fn test_validate_pin_protected_user_key_envelope_valid() {
+        let pin = "1234";
+        let client = init_client();
+
+        // Create a PIN-protected envelope from the user key
+        let key_store = client.internal.get_key_store();
+        let ctx = key_store.context();
+        let envelope = PasswordProtectedKeyEnvelope::seal(SymmetricKeyId::User, pin, &ctx).unwrap();
+
+        // Validate with the correct PIN
+        let result = validate_pin_protected_user_key_envelope(&client, pin.to_string(), envelope);
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[test]
+    fn test_validate_pin_protected_user_key_envelope_invalid_pin() {
+        let correct_pin = "1234";
+        let wrong_pin = "5678";
+        let client = init_client();
+
+        // Create a PIN-protected envelope with the correct PIN
+        let key_store = client.internal.get_key_store();
+        let ctx = key_store.context();
+        let envelope =
+            PasswordProtectedKeyEnvelope::seal(SymmetricKeyId::User, correct_pin, &ctx).unwrap();
+
+        // Validate with the wrong PIN
+        let result =
+            validate_pin_protected_user_key_envelope(&client, wrong_pin.to_string(), envelope);
+        assert!(result.is_ok());
+        assert!(!result.unwrap());
+    }
+
+    #[test]
+    fn test_validate_pin_protected_user_key_envelope_not_authenticated() {
+        let pin = "1234";
+
+        // Create an envelope from a properly initialized client
+        let initialized_client = init_client();
+        let key_store = initialized_client.internal.get_key_store();
+        let ctx = key_store.context();
+        let envelope = PasswordProtectedKeyEnvelope::seal(SymmetricKeyId::User, pin, &ctx).unwrap();
+
+        let client = Client::new(None);
+
+        // Validate should fail because no user key is present in this client
+        let result = validate_pin_protected_user_key_envelope(&client, pin.to_string(), envelope);
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            AuthValidateError::NotAuthenticated(_)
+        ));
     }
 }
