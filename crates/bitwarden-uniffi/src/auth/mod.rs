@@ -2,8 +2,10 @@ use bitwarden_core::auth::{
     AuthRequestResponse, KeyConnectorResponse, RegisterKeyResponse, RegisterTdeKeyResponse,
     password::MasterPasswordPolicyOptions,
 };
-use bitwarden_crypto::safe::PasswordProtectedKeyEnvelope;
-use bitwarden_crypto::{EncString, HashPurpose, Kdf, TrustDeviceResponse, UnsignedSharedKey};
+use bitwarden_crypto::{
+    EncString, HashPurpose, Kdf, TrustDeviceResponse, UnsignedSharedKey,
+    safe::PasswordProtectedKeyEnvelope,
+};
 use bitwarden_encoding::B64;
 
 use crate::error::Result;
