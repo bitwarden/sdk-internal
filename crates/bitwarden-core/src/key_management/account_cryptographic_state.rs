@@ -221,11 +221,16 @@ impl WrappedAccountCryptographicState {
                     return Err(AccountCryptographyInitializationError::WrongUserKeyType);
                 }
 
-                let private_key_id = ctx
-                    .unwrap_private_key(user_key, private_key)
-                    .map_err(|_| AccountCryptographyInitializationError::WrongUserKey)?;
+                // Some users have unreadable V1 private keys. In this case, we set no keys to
+                // state.
+                if let Ok(private_key_id) = ctx.unwrap_private_key(user_key, private_key) {
+                    ctx.persist_asymmetric_key(private_key_id, AsymmetricKeyId::UserPrivateKey)?;
+                } else {
+                    tracing::warn!(
+                        "V1 private key could not be unwrapped, skipping setting private key"
+                    );
+                }
 
-                ctx.persist_asymmetric_key(private_key_id, AsymmetricKeyId::UserPrivateKey)?;
                 ctx.persist_symmetric_key(user_key, SymmetricKeyId::User)?;
             }
             WrappedAccountCryptographicState::V2 {
@@ -290,7 +295,7 @@ impl WrappedAccountCryptographicState {
 mod tests {
     use std::{str::FromStr, sync::RwLock};
 
-    use bitwarden_crypto::KeyStore;
+    use bitwarden_crypto::{KeyStore, PrimitiveEncryptable};
 
     use super::*;
     use crate::key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId};
@@ -466,5 +471,48 @@ mod tests {
             security_state.version(),
             model.security_state.unwrap().security_version as u64
         );
+    }
+
+    #[test]
+    fn test_set_to_context_v1_corrupt_private_key() {
+        // Test that a V1 account with a corrupt private key (valid EncString but invalid key data)
+        // can still initialize, but skips setting the private key
+        let temp_store: KeyStore<KeyIds> = KeyStore::default();
+        let mut temp_ctx = temp_store.context_mut();
+
+        let user_key = temp_ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let corrupt_private_key = "not a private key"
+            .encrypt(&mut temp_ctx, user_key)
+            .unwrap();
+
+        // Construct the V1 wrapped state with corrupt private key
+        let wrapped = WrappedAccountCryptographicState::V1 {
+            private_key: corrupt_private_key,
+        };
+
+        #[expect(deprecated)]
+        let user_key_material = temp_ctx
+            .dangerous_get_symmetric_key(user_key)
+            .unwrap()
+            .to_owned();
+        drop(temp_ctx);
+        drop(temp_store);
+
+        // Now attempt to set this wrapped state into a fresh store
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let user_key = ctx.add_local_symmetric_key(user_key_material);
+        let security_state = RwLock::new(None);
+
+        wrapped
+            .set_to_context(&security_state, user_key, &store, ctx)
+            .unwrap();
+
+        let ctx = store.context();
+
+        // The user symmetric key should be set
+        assert!(ctx.has_symmetric_key(SymmetricKeyId::User));
+        // But the private key should NOT be set (due to corruption)
+        assert!(!ctx.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey));
     }
 }

@@ -74,7 +74,7 @@ impl ApiConfigurations {
         let mut api = self.api_config.clone();
 
         identity.oauth_access_token = Some(token.clone());
-        api.oauth_access_token = Some(token.clone());
+        api.oauth_access_token = Some(token);
 
         *self = ApiConfigurations::new(identity, api, self.device_type);
     }

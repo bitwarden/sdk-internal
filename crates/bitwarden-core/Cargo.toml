@@ -77,7 +77,7 @@ rustls = { version = "0.23.19", default-features = false }
 rustls-platform-verifier = "0.6.0"
 
 [dev-dependencies]
-rand_chacha = ">=0.3.1, <0.4.0"
+rand_chacha = "0.3.1"
 tokio = { workspace = true, features = ["rt"] }
 zeroize = { version = ">=1.7.0, <2.0", features = ["derive", "aarch64"] }
 
