@@ -16,9 +16,9 @@ keywords.workspace = true
 async-trait = { workspace = true }
 mockall = { version = ">=0.13.1, <0.15" }
 reqwest = { workspace = true }
-tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+tokio = { workspace = true }
 
 [dev-dependencies]
 wiremock = { workspace = true }
