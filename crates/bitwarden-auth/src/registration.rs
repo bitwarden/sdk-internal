@@ -7,14 +7,11 @@
 
 use bitwarden_api_api::models::{
     DeviceKeysRequestModel, KeysRequestModel, OrganizationUserResetPasswordEnrollmentRequestModel,
-    SetKeyConnectorKeyRequestModel
+    SetKeyConnectorKeyRequestModel,
 };
 use bitwarden_core::{
     Client, OrganizationId, UserId,
-    key_management::{
-        AccountCryptographyMakeKeysError,
-        account_cryptographic_state::WrappedAccountCryptographicState,
-    },
+    key_management::account_cryptographic_state::WrappedAccountCryptographicState,
 };
 use bitwarden_crypto::EncString;
 use bitwarden_encoding::B64;
@@ -82,7 +79,7 @@ impl RegistrationClient {
         key_connector_url: String,
         sso_org_identifier: String,
         user_id: UserId,
-    ) -> Result<KeyConnectorRegistrationResult, UserRegistrationError> {
+    ) -> Result<KeyConnectorRegistrationResult, RegistrationError> {
         let client = &self.client.internal;
         let configuration = &client.get_api_configurations().await;
         let key_connector_client = client.get_key_connector_client(key_connector_url);
@@ -94,7 +91,7 @@ impl RegistrationClient {
             sso_org_identifier,
             user_id,
         )
-            .await
+        .await
     }
 }
 
@@ -222,21 +219,20 @@ pub struct TdeRegistrationResponse {
     pub user_key: B64,
 }
 
-
 async fn internal_post_keys_for_key_connector_registration(
     registration_client: &RegistrationClient,
     api_client: &bitwarden_api_api::apis::ApiClient,
     key_connector_api_client: &bitwarden_api_key_connector::apis::ApiClient,
     sso_org_identifier: String,
     user_id: UserId,
-) -> Result<KeyConnectorRegistrationResult, UserRegistrationError> {
+) -> Result<KeyConnectorRegistrationResult, RegistrationError> {
     // First call crypto API to get all keys
     info!("Initializing account cryptography");
     let registration_crypto_result = registration_client
         .client
         .crypto()
         .make_user_key_connector_registration(user_id)
-        .map_err(UserRegistrationError::AccountCryptographyMakeKeys)?;
+        .map_err(|_| RegistrationError::Crypto)?;
 
     info!("Posting key connector key to key connector server");
     let request =
@@ -264,10 +260,10 @@ async fn internal_post_keys_for_key_connector_registration(
             .post_user_key(request)
             .await
     })
-        .map_err(|e| {
-            error!("Failed to post key connector key to key connector server: {e:?}");
-            UserRegistrationError::KeyConnectorApi
-        })?;
+    .map_err(|e| {
+        error!("Failed to post key connector key to key connector server: {e:?}");
+        RegistrationError::KeyConnectorApi
+    })?;
 
     info!("Posting user account cryptographic state to server");
     let request = SetKeyConnectorKeyRequestModel {
@@ -285,7 +281,7 @@ async fn internal_post_keys_for_key_connector_registration(
         .await
         .map_err(|e| {
             error!("Failed to post account cryptographic state to server: {e:?}");
-            UserRegistrationError::Api
+            RegistrationError::Api
         })?;
 
     info!("User initialized!");
@@ -347,6 +343,7 @@ mod tests {
     const TEST_USER_ID: &str = "060000fb-0922-4dd3-b170-6e15cb5df8c8";
     const TEST_ORG_ID: &str = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8";
     const TEST_DEVICE_ID: &str = "test-device-id";
+    const TEST_SSO_ORG_IDENTIFIER: &str = "test-org";
 
     const TEST_ORG_PUBLIC_KEY: &[u8] = &[
         48, 130, 1, 34, 48, 13, 6, 9, 42, 134, 72, 134, 247, 13, 1, 1, 1, 5, 0, 3, 130, 1, 15, 0,
@@ -626,15 +623,12 @@ mod tests {
         }
     }
 
-    const TEST_USER_ID: &str = "060000fb-0922-4dd3-b170-6e15cb5df8c8";
-    const TEST_SSO_ORG_IDENTIFIER: &str = "test-org";
-
     #[tokio::test]
     async fn test_post_keys_for_key_connector_registration_success() {
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let client = Client::new(None);
         let registration_client = RegistrationClient::new(client);
 
-        let api_client = bitwarden_api_api::apis::ApiClient::new_mocked(|mock| {
+        let api_client = ApiClient::new_mocked(|mock| {
             mock.accounts_key_management_api
                 .expect_post_set_key_connector_key()
                 .once()
@@ -671,7 +665,126 @@ mod tests {
         assert!(result.is_ok());
 
         // Assert that the mock expectations were met
-        if let bitwarden_api_api::apis::ApiClient::Mock(mut mock) = api_client {
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.accounts_key_management_api.checkpoint();
+        }
+        if let bitwarden_api_key_connector::apis::ApiClient::Mock(mut mock) =
+            key_connector_api_client
+        {
+            mock.user_keys_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_post_keys_for_key_connector_registration_key_connector_api_failure() {
+        let client = Client::new(None);
+        let registration_client = RegistrationClient::new(client);
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            // Should not be called if Key Connector API fails
+            mock.accounts_key_management_api
+                .expect_post_set_key_connector_key()
+                .never();
+        });
+
+        let key_connector_api_client =
+            bitwarden_api_key_connector::apis::ApiClient::new_mocked(|mock| {
+                mock.user_keys_api
+                    .expect_get_user_key()
+                    .once()
+                    .returning(move || {
+                        Err(bitwarden_api_key_connector::apis::Error::ResponseError(
+                            bitwarden_api_key_connector::apis::ResponseContent {
+                                status: reqwest::StatusCode::NOT_FOUND,
+                                content: "Not Found".to_string(),
+                            },
+                        ))
+                    });
+                mock.user_keys_api
+                    .expect_post_user_key()
+                    .once()
+                    .returning(move |_body| {
+                        Err(bitwarden_api_key_connector::apis::Error::Serde(
+                            serde_json::Error::io(std::io::Error::other("API error")),
+                        ))
+                    });
+            });
+
+        let result = internal_post_keys_for_key_connector_registration(
+            &registration_client,
+            &api_client,
+            &key_connector_api_client,
+            TEST_SSO_ORG_IDENTIFIER.to_string(),
+            UserId::new(uuid::uuid!(TEST_USER_ID)),
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            RegistrationError::KeyConnectorApi
+        ));
+
+        // Assert that the mock expectations were met
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.accounts_key_management_api.checkpoint();
+        }
+        if let bitwarden_api_key_connector::apis::ApiClient::Mock(mut mock) =
+            key_connector_api_client
+        {
+            mock.user_keys_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_post_keys_for_key_connector_registration_api_failure() {
+        let client = Client::new(None);
+        let registration_client = RegistrationClient::new(client);
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.accounts_key_management_api
+                .expect_post_set_key_connector_key()
+                .once()
+                .returning(move |_body| {
+                    Err(bitwarden_api_api::apis::Error::Serde(
+                        serde_json::Error::io(std::io::Error::other("API error")),
+                    ))
+                });
+        });
+
+        let key_connector_api_client =
+            bitwarden_api_key_connector::apis::ApiClient::new_mocked(|mock| {
+                mock.user_keys_api
+                    .expect_get_user_key()
+                    .once()
+                    .returning(move || {
+                        Err(bitwarden_api_key_connector::apis::Error::ResponseError(
+                            bitwarden_api_key_connector::apis::ResponseContent {
+                                status: reqwest::StatusCode::NOT_FOUND,
+                                content: "Not Found".to_string(),
+                            },
+                        ))
+                    });
+                mock.user_keys_api
+                    .expect_post_user_key()
+                    .once()
+                    .returning(move |_body| Ok(()));
+            });
+
+        let result = internal_post_keys_for_key_connector_registration(
+            &registration_client,
+            &api_client,
+            &key_connector_api_client,
+            TEST_SSO_ORG_IDENTIFIER.to_string(),
+            UserId::new(uuid::uuid!(TEST_USER_ID)),
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), RegistrationError::Api));
+
+        // Assert that the mock expectations were met
+        if let ApiClient::Mock(mut mock) = api_client {
             mock.accounts_key_management_api.checkpoint();
         }
         if let bitwarden_api_key_connector::apis::ApiClient::Mock(mut mock) =

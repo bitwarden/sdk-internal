@@ -1,27 +1,21 @@
-use bitwarden_api_api::models::AccountKeysRequestModel;
 #[cfg(feature = "wasm")]
 use bitwarden_crypto::safe::PasswordProtectedKeyEnvelope;
-use bitwarden_crypto::{
-    CryptoError, Decryptable, Kdf, KeyConnectorKey, RotateableKeySet, SymmetricCryptoKey,
-};
+use bitwarden_crypto::{CryptoError, Decryptable, Kdf, RotateableKeySet};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use bitwarden_encoding::B64;
-use bitwarden_error::bitwarden_error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use super::crypto::{
     DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError,
-    MakeKeyPairResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
-    derive_key_connector, make_key_pair, verify_asymmetric_keys,
+    MakeKeyConnectorRegistrationResponse, MakeKeyPairResponse, VerifyAsymmetricKeysRequest,
+    VerifyAsymmetricKeysResponse, derive_key_connector, make_key_pair,
+    make_user_key_connector_registration, verify_asymmetric_keys,
 };
 #[cfg(feature = "internal")]
 use crate::key_management::{
     SymmetricKeyId,
-    account_cryptographic_state::{
-        AccountCryptographyInitializationError, WrappedAccountCryptographicState,
-    },
     crypto::{
         DerivePinKeyResponse, InitOrgCryptoRequest, InitUserCryptoRequest, UpdatePasswordResponse,
         derive_pin_key, derive_pin_user_key, enroll_admin_password_reset, get_user_encryption_key,
@@ -216,66 +210,12 @@ impl CryptoClient {
     /// Creates a new V2 account cryptographic state for Key Connector registration.
     /// This generates fresh cryptographic keys (private key, signing key, signed public key,
     /// and security state) wrapped with a new user key.
-    ///
-    /// Returns the wrapped account cryptographic state that can be used for registration,
-    /// key connector key wrapped user key, key connector key and decrypted user key.
     pub fn make_user_key_connector_registration(
         &self,
         user_id: UserId,
-    ) -> Result<MakeKeyConnectorRegistrationResponse, AccountCryptographyMakeKeysError> {
-        let mut ctx = self.client.internal.get_key_store().context_mut();
-        let (user_key_id, wrapped_state) =
-            WrappedAccountCryptographicState::make(&mut ctx, user_id)
-                .map_err(AccountCryptographyMakeKeysError::AccountCryptographyInitialization)?;
-        #[expect(deprecated)]
-        let user_key = ctx.dangerous_get_symmetric_key(user_key_id)?.to_owned();
-
-        // Key Connector unlock method
-        let key_connector_key = KeyConnectorKey::make();
-
-        let wrapped_user_key = key_connector_key
-            .encrypt_user_key(&user_key)
-            .map_err(AccountCryptographyMakeKeysError::Crypto)?;
-
-        let cryptography_state_request_model = wrapped_state
-            .to_request_model(&user_key_id, &mut ctx)
-            .map_err(AccountCryptographyMakeKeysError::AccountCryptographyInitialization)?;
-
-        Ok(MakeKeyConnectorRegistrationResponse {
-            account_cryptographic_state: wrapped_state,
-            key_connector_key_wrapped_user_key: wrapped_user_key,
-            user_key,
-            account_keys_request: cryptography_state_request_model,
-            key_connector_key,
-        })
+    ) -> Result<MakeKeyConnectorRegistrationResponse, MakeKeysError> {
+        make_user_key_connector_registration(&self.client, user_id)
     }
-}
-
-/// The response from `make_user_key_connector_registration`.
-pub struct MakeKeyConnectorRegistrationResponse {
-    /// The account cryptographic state
-    pub account_cryptographic_state: WrappedAccountCryptographicState,
-    /// Encrypted user's user key, wrapped with the key connector key
-    pub key_connector_key_wrapped_user_key: EncString,
-    /// The user's user key
-    pub user_key: SymmetricCryptoKey,
-    /// The request model for the account cryptographic state (also called Account Keys)
-    pub account_keys_request: AccountKeysRequestModel,
-    /// The key connector key used for unlocking
-    pub key_connector_key: KeyConnectorKey,
-}
-
-// TODO move to crypto.rs
-/// Errors that can occur during account cryptography key generation.
-#[bitwarden_error(flat)]
-#[derive(Debug, thiserror::Error)]
-pub enum AccountCryptographyMakeKeysError {
-    /// Failed to initialize account cryptography
-    #[error("Failed to initialize account cryptography: {0}")]
-    AccountCryptographyInitialization(#[from] AccountCryptographyInitializationError),
-    /// Generic crypto error
-    #[error("Cryptography error: {0}")]
-    Crypto(#[from] CryptoError),
 }
 
 impl Client {
@@ -292,10 +232,7 @@ mod tests {
     use bitwarden_crypto::{BitwardenLegacyKeyBytes, SymmetricCryptoKey};
 
     use super::*;
-    use crate::{
-        client::test_accounts::test_bitwarden_com_account,
-        key_management::crypto::InitUserCryptoMethod,
-    };
+    use crate::client::test_accounts::test_bitwarden_com_account;
 
     #[tokio::test]
     async fn test_enroll_pin_envelope() {
@@ -324,47 +261,5 @@ mod tests {
         );
         let user_key_final = SymmetricCryptoKey::try_from(&secret).expect("valid user key");
         assert_eq!(user_key_initial, user_key_final);
-    }
-
-    #[tokio::test]
-    async fn test_make_user_key_connector_registration_success() {
-        let user_id = UserId::new_v4();
-        let email = "test@bitwarden.com";
-        let client = Client::init_test_account(test_bitwarden_com_account()).await;
-
-        let make_keys_response = client
-            .crypto()
-            .make_user_key_connector_registration(user_id)
-            .unwrap();
-
-        // Initialize a new client using the key connector key
-        let unlock_client = Client::new(None);
-        unlock_client
-            .crypto()
-            .initialize_user_crypto(InitUserCryptoRequest {
-                user_id: Some(user_id),
-                kdf_params: Kdf::default(),
-                email: email.to_owned(),
-                account_cryptographic_state: make_keys_response.account_cryptographic_state,
-                method: InitUserCryptoMethod::KeyConnector {
-                    user_key: make_keys_response.key_connector_key_wrapped_user_key,
-                    master_key: make_keys_response.key_connector_key.to_base64(),
-                },
-            })
-            .await
-            .expect("initializing user crypto with key connector key should succeed");
-
-        // Verify we can retrieve the user encryption key
-        let retrieved_key = unlock_client
-            .crypto()
-            .get_user_encryption_key()
-            .await
-            .expect("should be able to get user encryption key");
-
-        // The retrieved key should be a valid symmetric key
-        let retrieved_symmetric_key = SymmetricCryptoKey::try_from(retrieved_key)
-            .expect("retrieved key should be valid symmetric key");
-
-        assert_eq!(retrieved_symmetric_key, make_keys_response.user_key);
     }
 }

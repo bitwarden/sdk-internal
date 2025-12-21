@@ -19,7 +19,7 @@ pub mod crypto;
 #[cfg(feature = "internal")]
 mod crypto_client;
 #[cfg(feature = "internal")]
-pub use crypto_client::{AccountCryptographyMakeKeysError, CryptoClient};
+pub use crypto_client::CryptoClient;
 
 #[cfg(feature = "internal")]
 mod master_password;
