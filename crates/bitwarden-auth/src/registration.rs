@@ -236,32 +236,7 @@ async fn internal_post_keys_for_key_connector_registration(
 
     info!("Posting key connector key to key connector server");
     let key_connector_key: B64 = registration_crypto_result.key_connector_key.into();
-    let request =
-        bitwarden_api_key_connector::models::user_key_request_model::UserKeyKeyRequestModel {
-            key: key_connector_key.to_string(),
-        };
-    (if key_connector_api_client
-        .user_keys_api()
-        .get_user_key()
-        .await
-        .is_ok()
-    {
-        info!("User's key connector key exists, updating");
-        key_connector_api_client
-            .user_keys_api()
-            .put_user_key(request)
-            .await
-    } else {
-        info!("User's key connector key does not exist, creating");
-        key_connector_api_client
-            .user_keys_api()
-            .post_user_key(request)
-            .await
-    })
-    .map_err(|e| {
-        error!("Failed to post key connector key to key connector server: {e:?}");
-        RegistrationError::KeyConnectorApi
-    })?;
+    post_key_to_key_connector(key_connector_api_client, &key_connector_key).await?;
 
     info!("Posting user account cryptographic state to server");
     let request = SetKeyConnectorKeyRequestModel {
@@ -291,6 +266,40 @@ async fn internal_post_keys_for_key_connector_registration(
         key_connector_key_wrapped_user_key: registration_crypto_result
             .key_connector_key_wrapped_user_key,
         user_key: registration_crypto_result.user_key.to_encoded().into(),
+    })
+}
+
+async fn post_key_to_key_connector(
+    key_connector_api_client: &bitwarden_api_key_connector::apis::ApiClient,
+    key_connector_key: &B64,
+) -> Result<(), RegistrationError> {
+    let request =
+        bitwarden_api_key_connector::models::user_key_request_model::UserKeyKeyRequestModel {
+            key: key_connector_key.to_string(),
+        };
+
+    let result = if key_connector_api_client
+        .user_keys_api()
+        .get_user_key()
+        .await
+        .is_ok()
+    {
+        info!("User's key connector key exists, updating");
+        key_connector_api_client
+            .user_keys_api()
+            .put_user_key(request)
+            .await
+    } else {
+        info!("User's key connector key does not exist, creating");
+        key_connector_api_client
+            .user_keys_api()
+            .post_user_key(request)
+            .await
+    };
+
+    result.map_err(|e| {
+        error!("Failed to post key connector key to key connector server: {e:?}");
+        RegistrationError::KeyConnectorApi
     })
 }
 
