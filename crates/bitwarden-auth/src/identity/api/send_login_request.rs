@@ -8,7 +8,6 @@ use crate::identity::{
     models::{LoginResponse, LoginSuccessResponse},
 };
 
-// TODO: should this be on the LoginClient struct instead of being a standalone function?
 /// A common function to send login requests to the Identity connect/token endpoint.
 /// Returns a common success model which has already been converted from the API response,
 /// or a common error model representing the login error which allows for conversion to specific error types
