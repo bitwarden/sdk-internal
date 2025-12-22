@@ -162,14 +162,15 @@ impl AuthClient {
     }
 
     /// Validates a PIN against a PIN-protected user key envelope.
-    /// Returns `false` if the PIN fails to decrypt the envelope.
-    /// Requires the user key to be present in the client, otherwise returns
-    /// [`AuthValidateError::NotAuthenticated`].
+    ///
+    /// Returns `false` if validation fails for any reason:
+    /// - The PIN is incorrect
+    /// - The envelope is corrupted or malformed
     pub fn validate_pin_protected_user_key_envelope(
         &self,
         pin: String,
         pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
-    ) -> Result<bool, AuthValidateError> {
+    ) -> bool {
         validate_pin_protected_user_key_envelope(&self.client, pin, pin_protected_user_key_envelope)
     }
 

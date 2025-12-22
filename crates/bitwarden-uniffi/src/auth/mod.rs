@@ -117,22 +117,22 @@ impl AuthClient {
         Ok(self.0.auth().validate_pin(pin, pin_protected_user_key)?)
     }
 
-    /// Validate the user PIN
+    /// Validates a PIN against a PIN-protected user key envelope.
     ///
-    /// To validate the user PIN, you need to have the user's `pin_protected_user_key_envelope`.
-    /// This key is obtained when enabling PIN unlock on the account with the `enroll_pin` method.
+    /// The `pin_protected_user_key_envelope` key is obtained when enabling PIN unlock on the
+    /// account with the [bitwarden_core::key_management::CryptoClient::enroll_pin] method.
     ///
-    /// This works by comparing the decrypted user key with the current user key, so the client must
-    /// be unlocked.
+    /// Returns `false` if validation fails for any reason:
+    /// - The PIN is incorrect
+    /// - The envelope is corrupted or malformed
     pub fn validate_pin_protected_user_key_envelope(
         &self,
         pin: String,
         pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
-    ) -> Result<bool> {
-        Ok(self
-            .0
+    ) -> bool {
+        self.0
             .auth()
-            .validate_pin_protected_user_key_envelope(pin, pin_protected_user_key_envelope)?)
+            .validate_pin_protected_user_key_envelope(pin, pin_protected_user_key_envelope)
     }
 
     /// Initialize a new auth request
