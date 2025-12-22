@@ -1789,7 +1789,7 @@ mod tests {
                     user_key: make_keys_response
                         .key_connector_key_wrapped_user_key
                         .clone(),
-                    master_key: make_keys_response.key_connector_key.to_base64(),
+                    master_key: make_keys_response.key_connector_key.clone().into(),
                 },
             })
             .await

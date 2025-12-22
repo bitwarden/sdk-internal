@@ -24,11 +24,6 @@ impl KeyConnectorKey {
         KeyConnectorKey(key)
     }
 
-    #[allow(missing_docs)]
-    pub fn to_base64(&self) -> B64 {
-        B64::from(self.0.as_slice())
-    }
-
     /// Wraps the user key with this key connector key.
     pub fn encrypt_user_key(
         &self,
@@ -48,11 +43,9 @@ impl KeyConnectorKey {
             // Legacy. user_keys were encrypted using `Aes256Cbc_B64` a long time ago. We've since
             // moved to using `Aes256Cbc_HmacSha256_B64`. However, we still need to support
             // decrypting these old keys.
-            EncString::Aes256Cbc_B64 { .. } => {
-                let legacy_key = SymmetricCryptoKey::Aes256CbcKey(super::Aes256CbcKey {
-                    enc_key: Box::pin(GenericArray::clone_from_slice(&self.0)),
-                });
-                user_key.decrypt_with_key(&legacy_key)?
+            EncString::Aes256Cbc_B64 { iv, ref data } => {
+                let legacy_key = Box::pin(GenericArray::clone_from_slice(&self.0));
+                crate::aes::decrypt_aes256(&iv, data.clone(), &legacy_key)?
             }
             EncString::Aes256Cbc_HmacSha256_B64 { .. } => {
                 let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(&self.0)?);
@@ -75,6 +68,12 @@ impl std::fmt::Debug for KeyConnectorKey {
     }
 }
 
+impl From<KeyConnectorKey> for B64 {
+    fn from(key: KeyConnectorKey) -> Self {
+        B64::from(key.0.as_slice())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bitwarden_encoding::B64;
@@ -82,7 +81,7 @@ mod tests {
     use rand_chacha::rand_core::SeedableRng;
 
     use super::KeyConnectorKey;
-    use crate::{BitwardenLegacyKeyBytes, SymmetricCryptoKey, UserKey};
+    use crate::{BitwardenLegacyKeyBytes, EncString, SymmetricCryptoKey, UserKey};
 
     const KEY_CONNECTOR_KEY_BYTES: [u8; 32] = [
         31, 79, 104, 226, 150, 71, 177, 90, 194, 80, 172, 209, 17, 129, 132, 81, 138, 167, 69, 167,
@@ -97,12 +96,45 @@ mod tests {
     }
 
     #[test]
-    fn test_to_base64() {
-        let key = KeyConnectorKey(Box::pin(KEY_CONNECTOR_KEY_BYTES.into()));
+    fn test_into_base64() {
+        let key: B64 = KeyConnectorKey(Box::pin(KEY_CONNECTOR_KEY_BYTES.into())).into();
 
         assert_eq!(
             "H09o4pZHsVrCUKzREYGEUYqnRaf+lQIbJ8VAKhbDVks=",
-            key.to_base64().to_string()
+            key.to_string()
+        );
+    }
+
+    #[test]
+    fn test_decrypt_user_key_aes256_cbc() {
+        let key_connector_key = "hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe08=".to_string();
+        let key_connector_key = SymmetricCryptoKey::try_from(key_connector_key).unwrap();
+        let SymmetricCryptoKey::Aes256CbcKey(key_connector_key) = &key_connector_key else {
+            panic!("Key Connector key is not an Aes256CbcKey");
+        };
+
+        let key_connector_key = KeyConnectorKey(key_connector_key.enc_key.clone());
+
+        let user_key: EncString = "0.tn/heK4HLbbEe+yEkC+kvw==|8QM94f7aVTtjm/bmvRdVxOxiLiiZtHYYO7+oBdjFCkilncesx0iVrXPl+tMKqW+Jo7+FtZdPNsTrL6RdoG7i5QbCRVwK+9010+xm7MTQY8s=".parse().unwrap();
+
+        let decrypted_user_key = key_connector_key.decrypt_user_key(user_key).unwrap();
+        let SymmetricCryptoKey::Aes256CbcHmacKey(user_key_unwrapped) = &decrypted_user_key else {
+            panic!("User key is not an Aes256CbcHmacKey");
+        };
+
+        assert_eq!(
+            user_key_unwrapped.enc_key.as_slice(),
+            [
+                116, 170, 187, 43, 80, 212, 193, 202, 234, 181, 57, 66, 151, 249, 59, 47, 70, 16,
+                57, 4, 170, 78, 85, 241, 152, 232, 91, 57, 9, 87, 209, 245,
+            ]
+        );
+        assert_eq!(
+            user_key_unwrapped.mac_key.as_slice(),
+            [
+                40, 245, 106, 140, 2, 225, 138, 213, 98, 223, 92, 168, 135, 208, 22, 194, 31, 21,
+                178, 252, 203, 198, 35, 174, 53, 218, 254, 151, 235, 57, 7, 98,
+            ]
         );
     }
 

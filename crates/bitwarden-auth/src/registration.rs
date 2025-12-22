@@ -235,12 +235,10 @@ async fn internal_post_keys_for_key_connector_registration(
         .map_err(|_| RegistrationError::Crypto)?;
 
     info!("Posting key connector key to key connector server");
+    let key_connector_key: B64 = registration_crypto_result.key_connector_key.into();
     let request =
         bitwarden_api_key_connector::models::user_key_request_model::UserKeyKeyRequestModel {
-            key: registration_crypto_result
-                .key_connector_key
-                .to_base64()
-                .to_string(),
+            key: key_connector_key.to_string(),
         };
     (if key_connector_api_client
         .user_keys_api()
@@ -289,7 +287,7 @@ async fn internal_post_keys_for_key_connector_registration(
     // mature, the account cryptographic state and keys should be set directly here.
     Ok(KeyConnectorRegistrationResult {
         account_cryptographic_state: registration_crypto_result.account_cryptographic_state,
-        key_connector_key: registration_crypto_result.key_connector_key.to_base64(),
+        key_connector_key,
         key_connector_key_wrapped_user_key: registration_crypto_result
             .key_connector_key_wrapped_user_key,
         user_key: registration_crypto_result.user_key.to_encoded().into(),
