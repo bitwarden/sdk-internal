@@ -8,7 +8,7 @@ mod edit;
 mod get;
 mod restore;
 
-/// Client for performing admin operations on ciphers. Unlike the regular [CiphersClient],
+/// Client for performing admin operations on ciphers. Unlike the regular CiphersClient,
 /// this client uses the admin server API endpoints, and does not modify local state.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct CipherAdminClient {
