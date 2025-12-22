@@ -1,4 +1,4 @@
-use bitwarden_api_api::models::MasterPasswordPolicyResponseModel;
+use bitwarden_api_api::models::{MasterPasswordPolicyResponseModel, PrivateKeysResponseModel};
 use bitwarden_api_identity::models::KdfType;
 use serde::{Deserialize, Serialize};
 
@@ -29,8 +29,15 @@ pub(crate) struct LoginSuccessApiResponse {
     // We send down uppercase fields today so we have to map them accordingly +
     // we add aliases for deserialization flexibility.
     /// The user key wrapped user private key
+    /// Deprecated in favor of the `AccountKeys` field but still present for backward compatibility.
+    /// and we can't expose AccountKeys in our LoginSuccessResponse until we get an SDK
+    /// response model with WASM / uniffi support.
     #[serde(rename = "PrivateKey", alias = "privateKey")]
     pub private_key: Option<String>,
+
+    /// The user's asymmetric encryption keys and signature keys
+    #[serde(rename = "AccountKeys", alias = "accountKeys")]
+    pub account_keys: Option<PrivateKeysResponseModel>,
 
     /// The master key wrapped user key.
     #[deprecated(note = "Use `user_decryption_options.master_password_unlock` instead")]
