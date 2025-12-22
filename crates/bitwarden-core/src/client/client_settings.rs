@@ -64,7 +64,7 @@ impl Default for ClientSettings {
 }
 
 #[allow(non_camel_case_types, missing_docs)]
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, JsonSchema, PartialEq)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(
     feature = "wasm",
