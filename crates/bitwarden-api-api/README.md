@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`e6c97bd8505d3a454763e41ebfdb05c92691ad1a`](https://github.com/bitwarden/server/commit/e6c97bd8505d3a454763e41ebfdb05c92691ad1a)
+  [`69d72c2ad3a209b06bce301897fe124fe0c0794a`](https://github.com/bitwarden/server/commit/69d72c2ad3a209b06bce301897fe124fe0c0794a)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
