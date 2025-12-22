@@ -79,8 +79,8 @@ pwsh ./dev/generate_openapi_files.ps1
 
 ### OpenApi Generator
 
-To generate a new version of the bindings, run the following script from the root of the SDK
-project. This requires a Java Runtime Environment, and also assumes the repositories `server` and
+To generate a new version of the bindings, run the following script from the root of the SDKproject.
+This requires a Java Runtime Environment, and also assumes the repositories `server` and
 `sdk-internal` have the same parent directory.
 
 ```bash
