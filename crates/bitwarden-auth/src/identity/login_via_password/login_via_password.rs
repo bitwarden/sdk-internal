@@ -1,6 +1,6 @@
 use bitwarden_core::key_management::MasterPasswordAuthenticationData;
 #[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::prelude::*;
 
 use crate::identity::{
     LoginClient,
@@ -22,19 +22,16 @@ impl LoginClient {
         request: PasswordLoginRequest,
     ) -> Result<LoginResponse, PasswordLoginError> {
         // use request password prelogin data to derive master password authentication data:
-        let master_password_authentication: Result<
-            MasterPasswordAuthenticationData,
-            bitwarden_core::key_management::MasterPasswordError,
-        > = MasterPasswordAuthenticationData::derive(
+        let master_password_authentication = MasterPasswordAuthenticationData::derive(
             &request.password,
             &request.prelogin_response.kdf,
             &request.email,
-        );
+        )?;
 
         // construct API request from PasswordLoginRequest and derived master password authentication data
         // This conversion handles setting up the correct grant type and other common fields.
         let api_request: LoginApiRequest<PasswordLoginApiRequest> =
-            (request, master_password_authentication.unwrap()).into();
+            (request, master_password_authentication).into();
 
         let api_configs = self.client.internal.get_api_configurations().await;
 
@@ -359,5 +356,49 @@ mod tests {
             }
             _ => panic!("Expected Unknown error variant"),
         }
+    }
+
+    #[tokio::test]
+    async fn test_login_via_password_invalid_kdf_configuration() {
+        // No mock server needed - error occurs during KDF derivation before API call
+        let (mock_server, _api_config) = start_api_mock(vec![]).await;
+        let identity_client = make_identity_client(&mock_server);
+
+        // Create a request with PBKDF2 iterations below the minimum (5000)
+        // This will cause derive() to fail with InsufficientKdfParameters
+        let request = PasswordLoginRequest {
+            login_request: LoginRequest {
+                client_id: TEST_CLIENT_ID.to_string(),
+                device: LoginDeviceRequest {
+                    device_type: DeviceType::SDK,
+                    device_identifier: TEST_DEVICE_IDENTIFIER.to_string(),
+                    device_name: TEST_DEVICE_NAME.to_string(),
+                    device_push_token: Some(TEST_PUSH_TOKEN.to_string()),
+                },
+            },
+            email: TEST_EMAIL.to_string(),
+            password: TEST_PASSWORD.to_string(),
+            prelogin_response: PasswordPreloginResponse {
+                kdf: Kdf::PBKDF2 {
+                    iterations: std::num::NonZeroU32::new(100).unwrap(), // Below minimum of 5000
+                },
+                salt: TEST_SALT.to_string(),
+            },
+        };
+
+        let result = identity_client.login_via_password(request).await;
+
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+
+        // Verify it's the PasswordAuthenticationDataDerivation error variant
+        assert!(
+            matches!(
+                error,
+                PasswordLoginError::PasswordAuthenticationDataDerivation(_)
+            ),
+            "Expected PasswordAuthenticationDataDerivation error, got: {:?}",
+            error
+        );
     }
 }

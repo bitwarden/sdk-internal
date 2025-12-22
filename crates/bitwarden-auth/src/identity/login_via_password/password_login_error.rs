@@ -1,3 +1,4 @@
+use bitwarden_core::key_management::MasterPasswordError;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
@@ -12,6 +13,11 @@ pub enum PasswordLoginError {
     /// The username or password provided was invalid.
     #[error("Invalid username or password provided.")]
     InvalidUsernameOrPassword,
+
+    /// Error deriving password authentication data.
+    /// This can occur if the KDF configuration is invalid or corrupted.
+    #[error(transparent)]
+    PasswordAuthenticationDataDerivation(#[from] MasterPasswordError),
 
     /// Fallback for unknown variants for forward compatibility
     #[error("Unknown password login error: {0}")]
