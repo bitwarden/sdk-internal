@@ -150,7 +150,7 @@ impl CipherAdminClient {
                 .get_api_configurations()
                 .await
                 .api_client,
-            &self.client.internal.get_key_store(),
+            self.client.internal.get_key_store(),
         )
         .await
     }
