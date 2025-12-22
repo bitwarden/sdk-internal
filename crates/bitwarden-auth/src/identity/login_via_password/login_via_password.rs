@@ -1,4 +1,5 @@
 use bitwarden_core::key_management::MasterPasswordAuthenticationData;
+#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::identity::{

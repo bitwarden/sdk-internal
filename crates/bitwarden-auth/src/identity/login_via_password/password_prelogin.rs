@@ -4,6 +4,7 @@ use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
 use crate::identity::{LoginClient, login_via_password::PasswordPreloginResponse};
+#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 /// Error type for password prelogin operations
