@@ -28,8 +28,9 @@ impl LoginClient {
             &request.email,
         )?;
 
-        // construct API request from PasswordLoginRequest and derived master password authentication data
-        // This conversion handles setting up the correct grant type and other common fields.
+        // construct API request from PasswordLoginRequest and derived master password
+        // authentication data This conversion handles setting up the correct grant type and
+        // other common fields.
         let api_request: LoginApiRequest<PasswordLoginApiRequest> =
             (request, master_password_authentication).into();
 

@@ -53,15 +53,13 @@ impl From<(PasswordLoginRequest, MasterPasswordAuthenticationData)>
 #[cfg(test)]
 mod tests {
     use bitwarden_core::DeviceType;
-
     use bitwarden_crypto::{Kdf, default_pbkdf2_iterations};
 
+    use super::*;
     use crate::identity::{
         login_via_password::PasswordPreloginResponse,
         models::{LoginDeviceRequest, LoginRequest},
     };
-
-    use super::*;
 
     const TEST_EMAIL: &str = "test@example.com";
     const TEST_PASSWORD: &str = "test-password-123";

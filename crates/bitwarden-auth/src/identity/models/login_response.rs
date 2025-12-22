@@ -1,5 +1,6 @@
-use crate::identity::models::LoginSuccessResponse;
 use serde::{Deserialize, Serialize};
+
+use crate::identity::models::LoginSuccessResponse;
 
 /// Common login response model used across different login methods.
 #[derive(Debug, Serialize, Deserialize)]

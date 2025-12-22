@@ -40,7 +40,8 @@ pub enum PasswordInvalidGrantError {
 // Use untagged so serde tries to deserialize into each variant in order.
 // For "invalid_username_or_password", it tries Password(PasswordInvalidGrantError) first,
 // which succeeds via the #[serde(rename_all = "snake_case")] on PasswordInvalidGrantError.
-// For unknown values like "new_error_code", Password variant fails, so it falls back to Unknown(String).
+// For unknown values like "new_error_code", Password variant fails, so it falls back to
+// Unknown(String).
 #[derive(Deserialize, PartialEq, Eq, Debug)]
 #[serde(untagged)]
 pub enum InvalidGrantError {
@@ -63,8 +64,8 @@ pub enum OAuth2ErrorApiResponse {
     /// Invalid request error, typically due to missing parameters for a specific
     /// credential flow. Ex. `password` is required.
     InvalidRequest {
-        // we need default b/c we don't want deserialization to fail if error_description is missing.
-        // we want it to be None in that case.
+        // we need default b/c we don't want deserialization to fail if error_description is
+        // missing. we want it to be None in that case.
         #[serde(default)]
         /// The optional error description for invalid request errors.
         error_description: Option<String>,

@@ -24,9 +24,10 @@ pub enum PasswordLoginError {
     Unknown(String),
 }
 
-// TODO: When adding 2FA support, consider how we can avoid having each login mechanism have to implement a conversion for 2FA errors
-// TODO: per discussion with Dani, investigate adding a display property for each error variant that maps to unknown so we don't have to
-// manually build the string each time here and in each login mechanism error file.
+// TODO: When adding 2FA support, consider how we can avoid having each login mechanism have to
+// implement a conversion for 2FA errors TODO: per discussion with Dani, investigate adding a
+// display property for each error variant that maps to unknown so we don't have to manually build
+// the string each time here and in each login mechanism error file.
 
 impl From<LoginErrorApiResponse> for PasswordLoginError {
     fn from(error: LoginErrorApiResponse) -> Self {
