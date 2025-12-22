@@ -9,9 +9,6 @@ use crate::{
 /// Internal API request model for logging in via password.
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct PasswordLoginApiRequest {
-    // // Common user token request payload
-    // #[serde(flatten)]
-    // user_login_api_request: UserLoginApiRequest,
     /// Bitwarden user email address
     #[serde(rename = "username")]
     pub email: String,

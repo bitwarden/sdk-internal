@@ -5,7 +5,7 @@ use thiserror::Error;
 
 use crate::identity::{LoginClient, login_via_password::PasswordPreloginResponse};
 #[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::prelude::*;
 
 /// Error type for password prelogin operations
 #[allow(missing_docs)]
