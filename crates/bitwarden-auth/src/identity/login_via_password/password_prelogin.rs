@@ -2,10 +2,10 @@ use bitwarden_api_identity::models::PasswordPreloginRequestModel;
 use bitwarden_core::{ApiError, MissingFieldError};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
-
-use crate::identity::{LoginClient, login_via_password::PasswordPreloginResponse};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
+
+use crate::identity::{LoginClient, login_via_password::PasswordPreloginResponse};
 
 /// Error type for password prelogin operations
 #[allow(missing_docs)]
