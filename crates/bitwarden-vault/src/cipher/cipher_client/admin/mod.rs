@@ -1,4 +1,5 @@
 use bitwarden_core::Client;
+#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 mod create;
