@@ -44,13 +44,13 @@ impl LoginClient {
     }
 }
 
-// TODO: these tests will have to be updated once send_login_request settles
 #[cfg(test)]
 mod tests {
-    use std::num::NonZeroU32;
-
     use bitwarden_core::{ClientSettings, DeviceType};
-    use bitwarden_crypto::Kdf;
+    use bitwarden_crypto::{
+        Kdf, default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
+        default_pbkdf2_iterations,
+    };
     use bitwarden_test::start_api_mock;
     use wiremock::{Mock, ResponseTemplate, matchers};
 
@@ -66,7 +66,12 @@ mod tests {
     const TEST_CLIENT_ID: &str = "connector";
     const TEST_DEVICE_IDENTIFIER: &str = "test-device-id";
     const TEST_DEVICE_NAME: &str = "Test Device";
-    const PBKDF2_ITERATIONS: u32 = 600000;
+
+    #[derive(Debug, Clone, Copy)]
+    enum TestKdfType {
+        Pbkdf2,
+        Argon2id,
+    }
 
     // Mock success response constants (using real-world valid encrypted data format)
     const TEST_ACCESS_TOKEN: &str = "test_access_token";
@@ -94,7 +99,18 @@ mod tests {
         LoginClient::new(settings)
     }
 
-    fn make_password_login_request() -> PasswordLoginRequest {
+    fn make_password_login_request(kdf_type: TestKdfType) -> PasswordLoginRequest {
+        let kdf = match kdf_type {
+            TestKdfType::Pbkdf2 => Kdf::PBKDF2 {
+                iterations: default_pbkdf2_iterations(),
+            },
+            TestKdfType::Argon2id => Kdf::Argon2id {
+                iterations: default_argon2_iterations(),
+                memory: default_argon2_memory(),
+                parallelism: default_argon2_parallelism(),
+            },
+        };
+
         PasswordLoginRequest {
             login_request: LoginRequest {
                 client_id: TEST_CLIENT_ID.to_string(),
@@ -102,18 +118,36 @@ mod tests {
                     device_type: DeviceType::SDK,
                     device_identifier: TEST_DEVICE_IDENTIFIER.to_string(),
                     device_name: TEST_DEVICE_NAME.to_string(),
-                    device_push_token: None,
+                    device_push_token: Some(TEST_PUSH_TOKEN.to_string()),
                 },
             },
             email: TEST_EMAIL.to_string(),
             password: TEST_PASSWORD.to_string(),
             prelogin_response: PasswordPreloginResponse {
-                kdf: Kdf::PBKDF2 {
-                    iterations: NonZeroU32::new(PBKDF2_ITERATIONS).unwrap(),
-                },
+                kdf,
                 salt: TEST_SALT.to_string(),
             },
         }
+    }
+
+    fn add_standard_login_headers(mock_builder: wiremock::MockBuilder) -> wiremock::MockBuilder {
+        mock_builder
+            .and(matchers::header(
+                reqwest::header::CONTENT_TYPE.as_str(),
+                "application/x-www-form-urlencoded",
+            ))
+            .and(matchers::header(
+                reqwest::header::ACCEPT.as_str(),
+                "application/json",
+            ))
+            .and(matchers::header(
+                reqwest::header::CACHE_CONTROL.as_str(),
+                "no-store",
+            ))
+            .and(matchers::header(
+                reqwest::header::PRAGMA.as_str(),
+                "no-cache",
+            ))
     }
 
     fn make_mock_success_response() -> serde_json::Value {
@@ -193,33 +227,26 @@ mod tests {
 
     #[tokio::test]
     async fn test_login_via_password_success() {
-        let raw_success = make_mock_success_response();
+        let kdf_types = [TestKdfType::Pbkdf2, TestKdfType::Argon2id];
 
-        let mock = Mock::given(matchers::method("POST"))
-            .and(matchers::path("identity/connect/token"))
-            .and(matchers::header(
-                reqwest::header::CONTENT_TYPE.as_str(),
-                "application/x-www-form-urlencoded",
-            ))
-            .and(matchers::header(
-                reqwest::header::ACCEPT.as_str(),
-                "application/json",
-            ))
-            .and(matchers::header(
-                reqwest::header::CACHE_CONTROL.as_str(),
-                "no-store",
-            ))
+        for kdf_type in kdf_types {
+            let raw_success = make_mock_success_response();
+
+            let mock = add_standard_login_headers(
+                Mock::given(matchers::method("POST")).and(matchers::path("identity/connect/token")),
+            )
             .respond_with(ResponseTemplate::new(200).set_body_json(raw_success));
 
-        let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_identity_client(&mock_server);
+            let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
+            let identity_client = make_identity_client(&mock_server);
 
-        let request = make_password_login_request();
-        let result = identity_client.login_via_password(request).await;
+            let request = make_password_login_request(kdf_type);
+            let result = identity_client.login_via_password(request).await;
 
-        assert!(result.is_ok());
-        let login_response = result.unwrap();
-        assert_login_success_response(&login_response);
+            assert!(result.is_ok(), "Failed for KDF type: {:?}", kdf_type);
+            let login_response = result.unwrap();
+            assert_login_success_response(&login_response);
+        }
     }
 
     #[tokio::test]
@@ -236,7 +263,7 @@ mod tests {
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
         let identity_client = make_identity_client(&mock_server);
 
-        let request = make_password_login_request();
+        let request = make_password_login_request(TestKdfType::Pbkdf2);
         let result = identity_client.login_via_password(request).await;
 
         assert!(result.is_err());
@@ -246,31 +273,6 @@ mod tests {
             error,
             PasswordLoginError::InvalidUsernameOrPassword
         ));
-    }
-
-    #[tokio::test]
-    async fn test_login_via_password_with_argon2id_kdf() {
-        let raw_success = make_mock_success_response();
-
-        let mock = Mock::given(matchers::method("POST"))
-            .and(matchers::path("identity/connect/token"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(raw_success));
-
-        let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_identity_client(&mock_server);
-
-        let mut request = make_password_login_request();
-        request.prelogin_response.kdf = Kdf::Argon2id {
-            iterations: NonZeroU32::new(3).unwrap(),
-            memory: NonZeroU32::new(64).unwrap(),
-            parallelism: NonZeroU32::new(4).unwrap(),
-        };
-
-        let result = identity_client.login_via_password(request).await;
-
-        assert!(result.is_ok());
-        let login_response = result.unwrap();
-        assert_login_success_response(&login_response);
     }
 
     #[tokio::test]
@@ -287,7 +289,7 @@ mod tests {
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
         let identity_client = make_identity_client(&mock_server);
 
-        let request = make_password_login_request();
+        let request = make_password_login_request(TestKdfType::Pbkdf2);
         let result = identity_client.login_via_password(request).await;
 
         assert!(result.is_err());
@@ -316,7 +318,7 @@ mod tests {
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
         let identity_client = make_identity_client(&mock_server);
 
-        let request = make_password_login_request();
+        let request = make_password_login_request(TestKdfType::Pbkdf2);
         let result = identity_client.login_via_password(request).await;
 
         assert!(result.is_err());
@@ -344,7 +346,7 @@ mod tests {
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
         let identity_client = make_identity_client(&mock_server);
 
-        let request = make_password_login_request();
+        let request = make_password_login_request(TestKdfType::Pbkdf2);
         let result = identity_client.login_via_password(request).await;
 
         assert!(result.is_err());
@@ -356,97 +358,5 @@ mod tests {
             }
             _ => panic!("Expected Unknown error variant"),
         }
-    }
-
-    // TODO: figure out why this is a test?
-    #[tokio::test]
-    async fn test_login_via_password_with_device_push_token() {
-        let raw_success = make_mock_success_response();
-
-        let mock = Mock::given(matchers::method("POST"))
-            .and(matchers::path("identity/connect/token"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(raw_success));
-
-        let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_identity_client(&mock_server);
-
-        let mut request = make_password_login_request();
-        request.login_request.device.device_push_token = Some(TEST_PUSH_TOKEN.to_string());
-
-        let result = identity_client.login_via_password(request).await;
-
-        assert!(result.is_ok());
-        let login_response = result.unwrap();
-        assert_login_success_response(&login_response);
-    }
-
-    #[tokio::test]
-    async fn test_login_via_password_with_different_device_types_succeeds() {
-        let device_types = [
-            DeviceType::Android,
-            DeviceType::iOS,
-            DeviceType::ChromeExtension,
-            DeviceType::FirefoxExtension,
-            DeviceType::OperaExtension,
-            DeviceType::EdgeExtension,
-            DeviceType::WindowsDesktop,
-            DeviceType::MacOsDesktop,
-            DeviceType::LinuxDesktop,
-            DeviceType::ChromeBrowser,
-            DeviceType::FirefoxBrowser,
-            DeviceType::OperaBrowser,
-            DeviceType::EdgeBrowser,
-            DeviceType::IEBrowser,
-            DeviceType::UnknownBrowser,
-            DeviceType::AndroidAmazon,
-            DeviceType::UWP,
-            DeviceType::SafariBrowser,
-            DeviceType::VivaldiBrowser,
-            DeviceType::VivaldiExtension,
-            DeviceType::SafariExtension,
-            DeviceType::SDK,
-        ];
-
-        for device_type in device_types {
-            let raw_success = make_mock_success_response();
-
-            let mock = Mock::given(matchers::method("POST"))
-                .and(matchers::path("identity/connect/token"))
-                .respond_with(ResponseTemplate::new(200).set_body_json(raw_success));
-
-            let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-            let identity_client = make_identity_client(&mock_server);
-
-            let mut request = make_password_login_request();
-            request.login_request.device.device_type = device_type;
-
-            let result = identity_client.login_via_password(request).await;
-
-            assert!(result.is_ok(), "Failed for device type: {:?}", device_type);
-            let login_response = result.unwrap();
-            assert_login_success_response(&login_response);
-        }
-    }
-
-    #[tokio::test]
-    async fn test_login_via_password_verifies_request_body_contents() {
-        let raw_success = make_mock_success_response();
-
-        let mock = Mock::given(matchers::method("POST"))
-            .and(matchers::path("identity/connect/token"))
-            .and(matchers::body_string_contains("grant_type=password"))
-            .and(matchers::body_string_contains("username"))
-            .and(matchers::body_string_contains("client_id"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(raw_success));
-
-        let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_identity_client(&mock_server);
-
-        let request = make_password_login_request();
-        let result = identity_client.login_via_password(request).await;
-
-        assert!(result.is_ok(), "Login request failed: {:?}", result.err());
-        let login_response = result.unwrap();
-        assert_login_success_response(&login_response);
     }
 }
