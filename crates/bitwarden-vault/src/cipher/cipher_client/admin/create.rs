@@ -64,7 +64,7 @@ async fn create_cipher(
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CipherAdminClient {
-    /// Creates a new [Cipher] for an organization, using the admin server endpoints endpoints.
+    /// Creates a new [Cipher] for an organization, using the admin server endpoints.
     /// Creates the Cipher on the server only, does not store it to local state.
     pub async fn create(
         &self,
