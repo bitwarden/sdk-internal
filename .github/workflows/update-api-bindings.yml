@@ -202,7 +202,8 @@ jobs:
             echo "🔄 Updating existing PR #$EXISTING_PR..."
             echo -e "$PR_BODY" | gh pr edit $EXISTING_PR \
               --title "Update API to $_HASH" \
-              --body-file -
+              --body-file - \
+              --add-label "binding-update"
             PR_URL="https://github.com/${{ github.repository }}/pull/$EXISTING_PR"
             echo "## ✅ Updated PR: $PR_URL" >> $GITHUB_STEP_SUMMARY
           else
@@ -211,6 +212,7 @@ jobs:
               --title "Update API to $_HASH" \
               --body-file - \
               --base main \
-              --head $_BRANCH_NAME)
+              --head $_BRANCH_NAME \
+              --label "binding-update")
             echo "## 🚀 Created PR: $PR_URL" >> $GITHUB_STEP_SUMMARY
           fi
