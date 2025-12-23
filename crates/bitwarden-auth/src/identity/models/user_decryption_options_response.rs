@@ -67,6 +67,8 @@ mod tests {
         WebAuthnPrfUserDecryptionOptionApiResponse,
     };
 
+    const MASTER_KEY_ENCRYPTED_USER_KEY: &str = "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=";
+
     #[test]
     fn test_user_decryption_options_conversion_with_master_password() {
         let api = UserDecryptionOptionsApiResponse {
@@ -77,9 +79,7 @@ mod tests {
                     memory: None,
                     parallelism: None,
                 }),
-                master_key_encrypted_user_key: Some(
-                    "2.q/2tw0ANVGbyBaS+RxLdNw==|mIreJLpxs/pkCCWEn/L/CA==".to_string(),
-                ),
+                master_key_encrypted_user_key: Some(MASTER_KEY_ENCRYPTED_USER_KEY.to_string()),
                 salt: Some("test@example.com".to_string()),
             }),
             trusted_device_option: None,
@@ -108,11 +108,11 @@ mod tests {
         // Test data constants
         const SALT: &str = "test@example.com";
         const KDF_ITERATIONS: u32 = 600000;
-        const TDE_ENCRYPTED_PRIVATE_KEY: &str = "2.test|encrypted";
-        const TDE_ENCRYPTED_USER_KEY: &str = "2.test|encrypted2";
+        const TDE_ENCRYPTED_PRIVATE_KEY: &str = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
+        const TDE_ENCRYPTED_USER_KEY: &str = "2.kTtIypq9OLzd5iMMbU11pQ==|J4i3hTtGVdg7EZ+AQv/ujg==|QJpSpotQVpIW8j8dR/8l015WJzAIxBaOmrz4Uj/V1JA=";
         const KEY_CONNECTOR_URL: &str = "https://key-connector.bitwarden.com";
-        const WEBAUTHN_ENCRYPTED_PRIVATE_KEY: &str = "2.test|encrypted3";
-        const WEBAUTHN_ENCRYPTED_USER_KEY: &str = "2.test|encrypted4";
+        const WEBAUTHN_ENCRYPTED_PRIVATE_KEY: &str = "2.fkvl0+sL1lwtiOn1eewsvQ==|dT0TynLl8YERZ8x7dxC+DQ==|cWhiRSYHOi/AA2LiV/JBJWbO9C7pbUpOM6TMAcV47hE=";
+        const WEBAUTHN_ENCRYPTED_USER_KEY: &str = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
 
         let api = UserDecryptionOptionsApiResponse {
             master_password_unlock: Some(MasterPasswordUnlockResponseModel {
@@ -122,9 +122,7 @@ mod tests {
                     memory: None,
                     parallelism: None,
                 }),
-                master_key_encrypted_user_key: Some(
-                    "2.q/2tw0ANVGbyBaS+RxLdNw==|mIreJLpxs/pkCCWEn/L/CA==".to_string(),
-                ),
+                master_key_encrypted_user_key: Some(MASTER_KEY_ENCRYPTED_USER_KEY.to_string()),
                 salt: Some(SALT.to_string()),
             }),
             trusted_device_option: Some(TrustedDeviceUserDecryptionOptionApiResponse {

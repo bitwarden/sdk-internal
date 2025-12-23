@@ -58,8 +58,8 @@ mod tests {
             has_login_approving_device: false,
             has_manage_reset_password_permission: true,
             is_tde_offboarding: false,
-            encrypted_private_key: Some("2.test|encrypted".parse().unwrap()),
-            encrypted_user_key: Some("2.test|encrypted2".parse().unwrap()),
+            encrypted_private_key: Some("2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=".parse().unwrap()),
+            encrypted_user_key: Some("2.kTtIypq9OLzd5iMMbU11pQ==|J4i3hTtGVdg7EZ+AQv/ujg==|QJpSpotQVpIW8j8dR/8l015WJzAIxBaOmrz4Uj/V1JA=".parse().unwrap()),
         };
 
         let domain: TrustedDeviceUserDecryptionOption = api.clone().into();
