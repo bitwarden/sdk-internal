@@ -6,20 +6,53 @@ use crate::identity::api::response::{
     InvalidGrantError, LoginErrorApiResponse, OAuth2ErrorApiResponse, PasswordInvalidGrantError,
 };
 
-/// Represents errors that can occur when attempting to log in.
+/// Errors that can occur during password-based login.
+///
+/// This enum covers errors specific to the password authentication flow, including
+/// credential validation, KDF processing, and API communication errors.
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum PasswordLoginError {
-    /// The username or password provided was invalid.
+    /// The username (email) or password provided was invalid.
+    ///
+    /// This error is returned by the server when:
+    /// - The email address doesn't exist in the system
+    /// - The master password hash doesn't match the stored hash
+    ///
+    /// # Note
+    /// For security reasons, the server doesn't distinguish between "user not found"
+    /// and "wrong password" to prevent user enumeration attacks.
     #[error("Invalid username or password provided.")]
     InvalidUsernameOrPassword,
 
-    /// Error deriving password authentication data.
-    /// This can occur if the KDF configuration is invalid or corrupted.
+    /// Failed to derive master password authentication data from the provided password and KDF
+    /// settings.
+    ///
+    /// This error occurs during local cryptographic processing before the API call, typically when:
+    /// - The KDF parameters are invalid (e.g., iterations below minimum threshold)
+    /// - The KDF algorithm is unsupported or corrupted
+    /// - Memory allocation fails during Argon2id processing
+    ///
+    /// # Common Causes
+    /// - KDF iterations below the minimum security threshold (5000 for PBKDF2)
+    /// - Corrupted prelogin data
+    /// - System resource constraints (especially for Argon2id)
     #[error(transparent)]
     PasswordAuthenticationDataDerivation(#[from] MasterPasswordError),
 
-    /// Fallback for unknown variants for forward compatibility
+    /// An unknown or unexpected error occurred during login.
+    ///
+    /// This variant captures errors that don't fit other categories, including:
+    /// - Unexpected OAuth2 error codes from the server
+    /// - Network errors (timeouts, connection refused, DNS failures)
+    /// - Malformed server responses
+    /// - Future error types not yet handled by this SDK version
+    ///
+    /// The contained string provides details about what went wrong.
+    ///
+    /// # Forward Compatibility
+    /// This variant ensures the SDK can handle new error types introduced by the server
+    /// without breaking existing client code.
     #[error("Unknown password login error: {0}")]
     Unknown(String),
 }
