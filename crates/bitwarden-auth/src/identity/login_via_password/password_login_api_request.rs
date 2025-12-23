@@ -187,7 +187,7 @@ mod tests {
         // Verify OAuth2 standard fields use snake_case
         // Serialize GrantType::Password to get the actual string value
         let expected_grant_type =
-            serde_urlencoded::to_string(&[("grant_type", &GrantType::Password)])
+            serde_urlencoded::to_string([("grant_type", &GrantType::Password)])
                 .expect("Failed to serialize GrantType");
         assert!(
             serialized.contains(&expected_grant_type),
