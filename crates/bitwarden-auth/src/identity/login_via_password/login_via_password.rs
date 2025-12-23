@@ -12,31 +12,36 @@ use crate::identity::{
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[cfg_attr(feature = "uniffi", uniffi::export)]
 impl LoginClient {
-    /// Logs in a user via their email and master password.
+    /// Authenticates a user via email and master password.
     ///
-    /// This function derives the necessary master password authentication data
-    /// using the provided prelogin data, constructs the appropriate API request,
-    /// and sends the request to the Identity connect/token endpoint to log the user in.
+    /// Derives the master password hash using KDF settings from prelogin, then sends
+    /// the authentication request to obtain access tokens and vault keys.
+    ///
+    /// # Errors
+    ///
+    /// - [`PasswordLoginError::InvalidUsernameOrPassword`] - Invalid credentials
+    /// - [`PasswordLoginError::PasswordAuthenticationDataDerivation`] - KDF processing failed
+    /// - [`PasswordLoginError::Unknown`] - Network error or unexpected server response
+    ///
+    /// # Example
+    ///
+    /// See the [`login_via_password`](crate::identity::login_via_password) module for
+    /// complete usage examples and security details.
     pub async fn login_via_password(
         &self,
         request: PasswordLoginRequest,
     ) -> Result<LoginResponse, PasswordLoginError> {
-        // use request password prelogin data to derive master password authentication data:
         let master_password_authentication = MasterPasswordAuthenticationData::derive(
             &request.password,
             &request.prelogin_response.kdf,
             &request.email,
         )?;
 
-        // construct API request from PasswordLoginRequest and derived master password
-        // authentication data This conversion handles setting up the correct grant type and
-        // other common fields.
         let api_request: LoginApiRequest<PasswordLoginApiRequest> =
             (request, master_password_authentication).into();
 
         let api_configs = self.client.internal.get_api_configurations().await;
 
-        // make API call to login endpoint with api_request
         let response = send_login_request(&api_configs.identity_config, &api_request).await;
 
         response.map_err(Into::into)
