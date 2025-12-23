@@ -16,7 +16,7 @@ wasm = [
     "bitwarden-core/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
-    "dep:wasm-bindgen-futures"
+    "dep:wasm-bindgen-futures",
 ] # WASM support
 
 [dependencies]
