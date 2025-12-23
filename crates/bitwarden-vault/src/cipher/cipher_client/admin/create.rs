@@ -13,7 +13,7 @@ use crate::{
     cipher::cipher::PartialCipher,
     cipher_client::{
         admin::CipherAdminClient,
-        create::{CipherCreateRequest, CipherCreateRequestInternal, CreateCipherError},
+        create::{CipherCreateRequest, CipherCreateRequestInternal},
     },
 };
 
@@ -45,7 +45,7 @@ async fn create_cipher(
     encrypted_for: UserId,
     api_client: &bitwarden_api_api::apis::ApiClient,
     key_store: &KeyStore<KeyIds>,
-) -> Result<CipherView, CreateCipherError> {
+) -> Result<CipherView, CreateCipherAdminError> {
     let collection_ids = request.create_request.collection_ids.clone();
     let mut cipher_request = key_store.encrypt(request)?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
@@ -69,7 +69,7 @@ impl CipherAdminClient {
     pub async fn create(
         &self,
         request: CipherCreateRequest,
-    ) -> Result<CipherView, CreateCipherError> {
+    ) -> Result<CipherView, CreateCipherAdminError> {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations().await;
         let mut internal_request: CipherCreateRequestInternal = request.into();
