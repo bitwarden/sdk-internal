@@ -188,4 +188,215 @@ mod tests {
             WEBAUTHN_ENCRYPTED_USER_KEY.parse().unwrap()
         );
     }
+
+    #[test]
+    fn test_user_decryption_options_with_trusted_device_only() {
+        const TDE_ENCRYPTED_PRIVATE_KEY: &str = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
+        const TDE_ENCRYPTED_USER_KEY: &str = "2.kTtIypq9OLzd5iMMbU11pQ==|J4i3hTtGVdg7EZ+AQv/ujg==|QJpSpotQVpIW8j8dR/8l015WJzAIxBaOmrz4Uj/V1JA=";
+
+        let api = UserDecryptionOptionsApiResponse {
+            master_password_unlock: None,
+            trusted_device_option: Some(TrustedDeviceUserDecryptionOptionApiResponse {
+                has_admin_approval: false,
+                has_login_approving_device: true,
+                has_manage_reset_password_permission: false,
+                is_tde_offboarding: false,
+                encrypted_private_key: Some(TDE_ENCRYPTED_PRIVATE_KEY.parse().unwrap()),
+                encrypted_user_key: Some(TDE_ENCRYPTED_USER_KEY.parse().unwrap()),
+            }),
+            key_connector_option: None,
+            webauthn_prf_option: None,
+        };
+
+        let domain: UserDecryptionOptionsResponse = api.try_into().unwrap();
+
+        assert!(domain.master_password_unlock.is_none());
+        assert!(domain.trusted_device_option.is_some());
+        assert!(domain.key_connector_option.is_none());
+        assert!(domain.webauthn_prf_option.is_none());
+
+        let tde = domain.trusted_device_option.unwrap();
+        assert!(!tde.has_admin_approval);
+        assert!(tde.has_login_approving_device);
+        assert_eq!(
+            tde.encrypted_private_key,
+            Some(TDE_ENCRYPTED_PRIVATE_KEY.parse().unwrap())
+        );
+        assert_eq!(
+            tde.encrypted_user_key,
+            Some(TDE_ENCRYPTED_USER_KEY.parse().unwrap())
+        );
+    }
+
+    #[test]
+    fn test_user_decryption_options_with_key_connector_only() {
+        const KEY_CONNECTOR_URL: &str = "https://key-connector.example.com";
+
+        let api = UserDecryptionOptionsApiResponse {
+            master_password_unlock: None,
+            trusted_device_option: None,
+            key_connector_option: Some(KeyConnectorUserDecryptionOptionApiResponse {
+                key_connector_url: KEY_CONNECTOR_URL.to_string(),
+            }),
+            webauthn_prf_option: None,
+        };
+
+        let domain: UserDecryptionOptionsResponse = api.try_into().unwrap();
+
+        assert!(domain.master_password_unlock.is_none());
+        assert!(domain.trusted_device_option.is_none());
+        assert!(domain.key_connector_option.is_some());
+        assert!(domain.webauthn_prf_option.is_none());
+
+        let kc = domain.key_connector_option.unwrap();
+        assert_eq!(kc.key_connector_url, KEY_CONNECTOR_URL);
+    }
+
+    #[test]
+    fn test_user_decryption_options_with_webauthn_prf_only() {
+        const WEBAUTHN_ENCRYPTED_PRIVATE_KEY: &str = "2.fkvl0+sL1lwtiOn1eewsvQ==|dT0TynLl8YERZ8x7dxC+DQ==|cWhiRSYHOi/AA2LiV/JBJWbO9C7pbUpOM6TMAcV47hE=";
+        const WEBAUTHN_ENCRYPTED_USER_KEY: &str = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
+
+        let api = UserDecryptionOptionsApiResponse {
+            master_password_unlock: None,
+            trusted_device_option: None,
+            key_connector_option: None,
+            webauthn_prf_option: Some(WebAuthnPrfUserDecryptionOptionApiResponse {
+                encrypted_private_key: WEBAUTHN_ENCRYPTED_PRIVATE_KEY.parse().unwrap(),
+                encrypted_user_key: WEBAUTHN_ENCRYPTED_USER_KEY.parse().unwrap(),
+            }),
+        };
+
+        let domain: UserDecryptionOptionsResponse = api.try_into().unwrap();
+
+        assert!(domain.master_password_unlock.is_none());
+        assert!(domain.trusted_device_option.is_none());
+        assert!(domain.key_connector_option.is_none());
+        assert!(domain.webauthn_prf_option.is_some());
+
+        let webauthn = domain.webauthn_prf_option.unwrap();
+        assert_eq!(
+            webauthn.encrypted_private_key,
+            WEBAUTHN_ENCRYPTED_PRIVATE_KEY.parse().unwrap()
+        );
+        assert_eq!(
+            webauthn.encrypted_user_key,
+            WEBAUTHN_ENCRYPTED_USER_KEY.parse().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_user_decryption_options_with_no_options() {
+        let api = UserDecryptionOptionsApiResponse {
+            master_password_unlock: None,
+            trusted_device_option: None,
+            key_connector_option: None,
+            webauthn_prf_option: None,
+        };
+
+        let domain: UserDecryptionOptionsResponse = api.try_into().unwrap();
+
+        assert!(domain.master_password_unlock.is_none());
+        assert!(domain.trusted_device_option.is_none());
+        assert!(domain.key_connector_option.is_none());
+        assert!(domain.webauthn_prf_option.is_none());
+    }
+
+    #[test]
+    fn test_user_decryption_options_with_master_password_and_trusted_device() {
+        const TDE_ENCRYPTED_PRIVATE_KEY: &str = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
+        const TDE_ENCRYPTED_USER_KEY: &str = "2.kTtIypq9OLzd5iMMbU11pQ==|J4i3hTtGVdg7EZ+AQv/ujg==|QJpSpotQVpIW8j8dR/8l015WJzAIxBaOmrz4Uj/V1JA=";
+
+        let api = UserDecryptionOptionsApiResponse {
+            master_password_unlock: Some(MasterPasswordUnlockResponseModel {
+                kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
+                    kdf_type: KdfType::PBKDF2_SHA256,
+                    iterations: 600000,
+                    memory: None,
+                    parallelism: None,
+                }),
+                master_key_encrypted_user_key: Some(MASTER_KEY_ENCRYPTED_USER_KEY.to_string()),
+                salt: Some("test@example.com".to_string()),
+            }),
+            trusted_device_option: Some(TrustedDeviceUserDecryptionOptionApiResponse {
+                has_admin_approval: true,
+                has_login_approving_device: false,
+                has_manage_reset_password_permission: true,
+                is_tde_offboarding: false,
+                encrypted_private_key: Some(TDE_ENCRYPTED_PRIVATE_KEY.parse().unwrap()),
+                encrypted_user_key: Some(TDE_ENCRYPTED_USER_KEY.parse().unwrap()),
+            }),
+            key_connector_option: None,
+            webauthn_prf_option: None,
+        };
+
+        let domain: UserDecryptionOptionsResponse = api.try_into().unwrap();
+
+        assert!(domain.master_password_unlock.is_some());
+        assert!(domain.trusted_device_option.is_some());
+        assert!(domain.key_connector_option.is_none());
+        assert!(domain.webauthn_prf_option.is_none());
+    }
+
+    #[test]
+    fn test_user_decryption_options_with_master_password_and_key_connector() {
+        const KEY_CONNECTOR_URL: &str = "https://key-connector.example.com";
+
+        let api = UserDecryptionOptionsApiResponse {
+            master_password_unlock: Some(MasterPasswordUnlockResponseModel {
+                kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
+                    kdf_type: KdfType::PBKDF2_SHA256,
+                    iterations: 600000,
+                    memory: None,
+                    parallelism: None,
+                }),
+                master_key_encrypted_user_key: Some(MASTER_KEY_ENCRYPTED_USER_KEY.to_string()),
+                salt: Some("test@example.com".to_string()),
+            }),
+            trusted_device_option: None,
+            key_connector_option: Some(KeyConnectorUserDecryptionOptionApiResponse {
+                key_connector_url: KEY_CONNECTOR_URL.to_string(),
+            }),
+            webauthn_prf_option: None,
+        };
+
+        let domain: UserDecryptionOptionsResponse = api.try_into().unwrap();
+
+        assert!(domain.master_password_unlock.is_some());
+        assert!(domain.trusted_device_option.is_none());
+        assert!(domain.key_connector_option.is_some());
+        assert!(domain.webauthn_prf_option.is_none());
+    }
+
+    #[test]
+    fn test_user_decryption_options_with_master_password_and_webauthn_prf() {
+        const WEBAUTHN_ENCRYPTED_PRIVATE_KEY: &str = "2.fkvl0+sL1lwtiOn1eewsvQ==|dT0TynLl8YERZ8x7dxC+DQ==|cWhiRSYHOi/AA2LiV/JBJWbO9C7pbUpOM6TMAcV47hE=";
+        const WEBAUTHN_ENCRYPTED_USER_KEY: &str = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
+
+        let api = UserDecryptionOptionsApiResponse {
+            master_password_unlock: Some(MasterPasswordUnlockResponseModel {
+                kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
+                    kdf_type: KdfType::PBKDF2_SHA256,
+                    iterations: 600000,
+                    memory: None,
+                    parallelism: None,
+                }),
+                master_key_encrypted_user_key: Some(MASTER_KEY_ENCRYPTED_USER_KEY.to_string()),
+                salt: Some("test@example.com".to_string()),
+            }),
+            trusted_device_option: None,
+            key_connector_option: None,
+            webauthn_prf_option: Some(WebAuthnPrfUserDecryptionOptionApiResponse {
+                encrypted_private_key: WEBAUTHN_ENCRYPTED_PRIVATE_KEY.parse().unwrap(),
+                encrypted_user_key: WEBAUTHN_ENCRYPTED_USER_KEY.parse().unwrap(),
+            }),
+        };
+
+        let domain: UserDecryptionOptionsResponse = api.try_into().unwrap();
+
+        assert!(domain.master_password_unlock.is_some());
+        assert!(domain.trusted_device_option.is_none());
+        assert!(domain.key_connector_option.is_none());
+        assert!(domain.webauthn_prf_option.is_some());
+    }
 }
