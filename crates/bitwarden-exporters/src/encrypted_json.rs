@@ -251,7 +251,8 @@ mod tests {
         let parsed_export = serde_json::from_str::<EncryptedJsonExport>(&export).unwrap();
 
         // First, derive a PIN key from the password and salt
-        // Next, validate the decrypted validation parses, and is a valid uuidv4. This indicates that at least the pin key is correct
+        // Next, validate the decrypted validation parses, and is a valid uuidv4. This indicates
+        // that at least the pin key is correct
         let key = PinKey::derive(
             "password".as_bytes(),
             parsed_export.salt.as_bytes(),
