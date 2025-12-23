@@ -1,0 +1,47 @@
+name: Free Disk Space
+description: Remove unused toolchains and packages to free disk space on ubuntu runners
+runs:
+  using: "composite"
+  steps:
+    - name: Free Disk Space
+      shell: bash
+      run: |
+        # Function to measure and remove a directory
+        remove_and_log() {
+          local path=$1
+          local name=$2
+          if [ -e "$path" ]; then
+            local size_kb=$(du -sk "$path" 2>/dev/null | cut -f1)
+            local size_mb=$((size_kb / 1024))
+            sudo rm -rf "$path"
+            echo "Removed $name, freeing ${size_mb}MB"
+          fi
+        }
+
+        # Capture initial disk space
+        initial_avail=$(df / | awk 'NR==2 {print $4}')
+        echo "=== Disk Cleanup Starting ==="
+        echo "Available space before cleanup: $(df -h / | awk 'NR==2 {print $4}')"
+        echo ""
+
+        # Remove directories and track space freed
+        remove_and_log "/usr/share/dotnet" ".NET SDKs"
+        remove_and_log "/usr/share/swift" "Swift toolchain"
+        remove_and_log "/usr/local/.ghcup" "Haskell (ghcup)"
+        remove_and_log "/usr/share/miniconda" "Miniconda"
+        remove_and_log "/usr/local/aws-cli" "AWS CLI v1"
+        remove_and_log "/usr/local/aws-sam-cli" "AWS SAM CLI"
+        remove_and_log "/usr/local/lib/android" "Android SDK"
+        remove_and_log "/usr/lib/google-cloud-sdk" "Google Cloud SDK"
+        remove_and_log "/usr/lib/jvm" "Java JDKs"
+        remove_and_log "/usr/local/share/powershell" "PowerShell"
+        remove_and_log "/opt/hostedtoolcache" "Hosted tool cache"
+
+        # Calculate and display results
+        final_avail=$(df / | awk 'NR==2 {print $4}')
+        space_freed=$((final_avail - initial_avail))
+        space_freed_mb=$((space_freed / 1024))
+        echo ""
+        echo "=== Cleanup Complete ==="
+        echo "Available space after cleanup: $(df -h / | awk 'NR==2 {print $4}')"
+        echo "Total space freed: ${space_freed_mb}MB"

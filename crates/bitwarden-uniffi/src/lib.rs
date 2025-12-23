@@ -11,7 +11,9 @@ use bitwarden_core::{ClientSettings, client::internal::ClientManagedTokens};
 pub mod auth;
 #[allow(missing_docs)]
 pub mod crypto;
-mod error;
+#[allow(missing_docs)]
+pub mod error;
+mod log_callback;
 #[allow(missing_docs)]
 pub mod platform;
 #[allow(missing_docs)]
@@ -25,6 +27,7 @@ mod android_support;
 
 use crypto::CryptoClient;
 use error::{Error, Result};
+pub use log_callback::LogCallback;
 use platform::PlatformClient;
 use tool::{ExporterClient, GeneratorClients, SendClient, SshClient};
 use vault::VaultClient;
@@ -36,12 +39,13 @@ pub struct Client(pub(crate) bitwarden_pm::PasswordManagerClient);
 #[uniffi::export(async_runtime = "tokio")]
 impl Client {
     /// Initialize a new instance of the SDK client
-    #[uniffi::constructor]
+    #[uniffi::constructor(default(log_callback))]
     pub fn new(
         token_provider: Arc<dyn ClientManagedTokens>,
         settings: Option<ClientSettings>,
+        log_callback: Option<Arc<dyn LogCallback>>,
     ) -> Self {
-        init_logger();
+        init_logger(log_callback);
         setup_error_converter();
 
         #[cfg(target_os = "android")]
@@ -113,7 +117,7 @@ impl Client {
 
 static INIT: Once = Once::new();
 
-fn init_logger() {
+fn init_logger(callback: Option<Arc<dyn LogCallback>>) {
     use tracing_subscriber::{EnvFilter, layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
     INIT.call_once(|| {
@@ -137,13 +141,17 @@ fn init_logger() {
             .with_target(true)
             .pretty();
 
+        // Build base registry once instead of duplicating per-platform
+        let registry = tracing_subscriber::registry().with(fmtlayer).with(filter);
+
+        // Conditionally add callback layer if provided
+        // Use Option to avoid type incompatibility between Some/None branches
+        let callback_layer = callback.map(log_callback::CallbackLayer::new);
+        let registry = registry.with(callback_layer);
         #[cfg(target_os = "ios")]
         {
             const TAG: &str = "com.8bit.bitwarden";
-
-            tracing_subscriber::registry()
-                .with(fmtlayer)
-                .with(filter)
+            registry
                 .with(tracing_oslog::OsLogger::new(TAG, "default"))
                 .init();
         }
@@ -151,10 +159,7 @@ fn init_logger() {
         #[cfg(target_os = "android")]
         {
             const TAG: &str = "com.bitwarden.sdk";
-
-            tracing_subscriber::registry()
-                .with(fmtlayer)
-                .with(filter)
+            registry
                 .with(
                     tracing_android::layer(TAG)
                         .expect("initialization of android logcat tracing layer"),
@@ -164,10 +169,7 @@ fn init_logger() {
 
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         {
-            tracing_subscriber::registry()
-                .with(fmtlayer)
-                .with(filter)
-                .init();
+            registry.init();
         }
     });
 }
@@ -178,4 +180,55 @@ fn setup_error_converter() {
     bitwarden_uniffi_error::set_error_to_uniffi_error(|e| {
         crate::error::BitwardenError::Conversion(e.to_string()).into()
     });
+}
+#[cfg(test)]
+mod tests {
+    use std::sync::Mutex;
+
+    use super::*;
+    // Mock token provider for testing
+    #[derive(Debug)]
+    struct MockTokenProvider;
+
+    #[async_trait::async_trait]
+    impl ClientManagedTokens for MockTokenProvider {
+        async fn get_access_token(&self) -> Option<String> {
+            Some("mock_token".to_string())
+        }
+    }
+    /// Mock LogCallback implementation for testing
+    struct TestLogCallback {
+        logs: Arc<Mutex<Vec<(String, String, String)>>>,
+    }
+    impl LogCallback for TestLogCallback {
+        fn on_log(&self, level: String, target: String, message: String) -> Result<()> {
+            self.logs
+                .lock()
+                .expect("Failed to lock logs mutex")
+                .push((level, target, message));
+            Ok(())
+        }
+    }
+
+    // Log callback unit tests only test happy path because running this with
+    // Once means we get one registered callback per test run. There are
+    // other tests written as integration tests in the /tests/ folder that
+    // assert more specific details.
+    #[test]
+    fn test_callback_receives_logs() {
+        let logs = Arc::new(Mutex::new(Vec::new()));
+        let callback = Arc::new(TestLogCallback { logs: logs.clone() });
+
+        // Create client with callback
+        let _client = Client::new(Arc::new(MockTokenProvider), None, Some(callback));
+
+        // Trigger a log
+        tracing::info!("test message from SDK");
+
+        // Verify callback received it
+        let captured = logs.lock().expect("Failed to lock logs mutex");
+        assert!(!captured.is_empty(), "Callback should receive logs");
+        assert_eq!(captured[0].0, "INFO");
+        assert!(captured[0].2.contains("test message"));
+    }
 }
