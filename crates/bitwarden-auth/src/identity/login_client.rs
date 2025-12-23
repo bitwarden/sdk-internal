@@ -15,8 +15,8 @@ use wasm_bindgen::prelude::*;
 ///
 /// # Lifecycle
 ///
-/// 1. Create `LoginClient` → 2. Call login method → 3. Use returned tokens with authenticated core
-///    client
+/// 1. Create `LoginClient` via `AuthClient` → 2. Call login method → 3. Use returned tokens with
+///    authenticated core client
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
 pub struct LoginClient {

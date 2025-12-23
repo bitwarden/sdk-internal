@@ -8,12 +8,13 @@ use wasm_bindgen::prelude::*;
 use crate::identity::{LoginClient, login_via_password::PasswordPreloginResponse};
 
 /// Error type for password prelogin operations
-#[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum PasswordPreloginError {
+    /// API error occurred during the prelogin request
     #[error(transparent)]
     Api(#[from] ApiError),
+    /// A required field was missing in the response
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
 }
