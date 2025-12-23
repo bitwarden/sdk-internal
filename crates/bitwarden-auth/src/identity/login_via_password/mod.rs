@@ -22,11 +22,16 @@
 //! # Complete Example
 //!
 //! ```rust,no_run
-//! # use bitwarden_auth::identity::LoginClient;
+//! # use bitwarden_auth::{AuthClient, AuthClientExt};
 //! # use bitwarden_auth::identity::login_via_password::PasswordLoginRequest;
-//! # use bitwarden_auth::identity::models::{LoginRequest, LoginDeviceRequest};
-//! # use bitwarden_core::{ClientSettings, DeviceType};
+//! # use bitwarden_auth::identity::models::{LoginRequest, LoginDeviceRequest, LoginResponse};
+//! # use bitwarden_core::{Client, ClientSettings, DeviceType};
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! // Create the core client
+//! let client = Client::new(None);
+//! let auth_client = AuthClient::new(client);
+//!
+//! // Create login client with settings
 //! let settings = ClientSettings {
 //!     identity_url: "https://identity.bitwarden.com".to_string(),
 //!     api_url: "https://api.bitwarden.com".to_string(),
@@ -36,7 +41,7 @@
 //!     bitwarden_client_version: None,
 //!     bitwarden_package_type: None,
 //! };
-//! let login_client = LoginClient::new(settings);
+//! let login_client = auth_client.login(settings);
 //!
 //! // Step 1: Get user's KDF configuration
 //! let prelogin = login_client
@@ -60,7 +65,12 @@
 //! }).await?;
 //!
 //! // Step 3: Use tokens from response for authenticated requests
-//! let access_token = response.access_token;
+//! match response {
+//!     LoginResponse::Authenticated(success) => {
+//!         let access_token = success.access_token;
+//!         // Use access_token for authenticated requests
+//!     }
+//! }
 //! # Ok(())
 //! # }
 //! ```
