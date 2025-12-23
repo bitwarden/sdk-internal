@@ -25,6 +25,9 @@ impl AuthClient {
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl AuthClient {
+    // TODO: in a future PR, we need to figure out a consistent mechanism for CoreClient
+    // vs ClientSettings instantiation across all subclients.
+
     /// Client for identity functionality
     pub fn login(&self, client_settings: bitwarden_core::ClientSettings) -> LoginClient {
         LoginClient::new(client_settings)
