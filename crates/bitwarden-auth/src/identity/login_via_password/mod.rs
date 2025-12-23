@@ -68,7 +68,7 @@
 //! [`LoginClient::get_password_prelogin`]: crate::identity::LoginClient::get_password_prelogin
 //! [`LoginClient::login_via_password`]: crate::identity::LoginClient::login_via_password
 
-mod login_via_password;
+mod login_via_password_impl;
 mod password_login_api_request;
 mod password_login_request;
 mod password_prelogin;
