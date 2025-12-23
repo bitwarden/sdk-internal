@@ -1,6 +1,6 @@
 use bitwarden_crypto::{Kdf, KeyEncryptable, PinKey, generate_random_bytes};
 use bitwarden_encoding::B64;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -65,7 +65,7 @@ pub(crate) fn export_encrypted_json(
     Ok(serde_json::to_string_pretty(&encrypted_export)?)
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct EncryptedJsonExport {
     encrypted: bool,
@@ -84,6 +84,8 @@ pub(crate) struct EncryptedJsonExport {
 mod tests {
     use std::num::NonZeroU32;
 
+    use bitwarden_crypto::KeyDecryptable;
+
     use super::*;
     use crate::{
         Card, Cipher, CipherType, Field, Identity, Login, LoginUri, SecureNote, SecureNoteType,
@@ -91,7 +93,7 @@ mod tests {
 
     #[test]
     pub fn test_export() {
-        let _export = export_encrypted_json(
+        let export = export_encrypted_json(
             vec![Folder {
                 id: "942e2984-1b9a-453b-b039-b107012713b9".parse().unwrap(),
                 name: "Important".to_string(),
@@ -244,5 +246,27 @@ mod tests {
             },
         )
         .unwrap();
+
+        // Validate that the export is valid JSON
+        let parsed_export = serde_json::from_str::<EncryptedJsonExport>(&export).unwrap();
+
+        // First, derive a PIN key from the password and salt
+        // Next, validate the decrypted validation parses, and is a valid uuidv4. This indicates that at least the pin key is correct
+        let key = PinKey::derive(
+            "password".as_bytes(),
+            parsed_export.salt.as_bytes(),
+            &Kdf::PBKDF2 {
+                iterations: NonZeroU32::new(600_000).unwrap(),
+            },
+        )
+        .unwrap();
+        let decrypted_validation = parsed_export
+            .enc_key_validation
+            .parse::<bitwarden_crypto::EncString>()
+            .unwrap()
+            .decrypt_with_key(&key)
+            .unwrap();
+        let uuid = Uuid::parse_str(&decrypted_validation).unwrap();
+        assert_eq!(uuid.get_version_num(), 4);
     }
 }
