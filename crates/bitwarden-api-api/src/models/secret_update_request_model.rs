@@ -32,6 +32,12 @@ pub struct SecretUpdateRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub access_policies_requests: Option<Box<models::SecretAccessPoliciesRequestsModel>>,
+    #[serde(
+        rename = "valueChanged",
+        alias = "ValueChanged",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub value_changed: Option<bool>,
 }
 
 impl SecretUpdateRequestModel {
@@ -42,6 +48,7 @@ impl SecretUpdateRequestModel {
             note,
             project_ids: None,
             access_policies_requests: None,
+            value_changed: None,
         }
     }
 }

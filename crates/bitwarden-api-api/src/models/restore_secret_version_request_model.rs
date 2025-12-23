@@ -13,13 +13,13 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct VerifyBankAccountRequestBody {
-    #[serde(rename = "descriptorCode", alias = "DescriptorCode")]
-    pub descriptor_code: String,
+pub struct RestoreSecretVersionRequestModel {
+    #[serde(rename = "versionId", alias = "VersionId")]
+    pub version_id: uuid::Uuid,
 }
 
-impl VerifyBankAccountRequestBody {
-    pub fn new(descriptor_code: String) -> VerifyBankAccountRequestBody {
-        VerifyBankAccountRequestBody { descriptor_code }
+impl RestoreSecretVersionRequestModel {
+    pub fn new(version_id: uuid::Uuid) -> RestoreSecretVersionRequestModel {
+        RestoreSecretVersionRequestModel { version_id }
     }
 }

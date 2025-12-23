@@ -25,47 +25,47 @@ use crate::{
 #[cfg_attr(feature = "mockall", automock)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-pub trait AccountsKeyManagementApi: Send + Sync {
-    /// GET /accounts/key-connector/confirmation-details/{orgSsoIdentifier}
-    async fn get_key_connector_confirmation_details<'a>(
+pub trait SecretVersionsApi: Send + Sync {
+    /// POST /secret-versions/delete
+    async fn bulk_delete<'a>(
         &self,
-        org_sso_identifier: &'a str,
+        uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
+    ) -> Result<(), Error<BulkDeleteError>>;
+
+    /// GET /secret-versions/{id}
+    async fn get_by_id<'a>(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<models::SecretVersionResponseModel, Error<GetByIdError>>;
+
+    /// POST /secret-versions/get-by-ids
+    async fn get_many_by_ids<'a>(
+        &self,
+        uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
+    ) -> Result<models::SecretVersionResponseModelListResponseModel, Error<GetManyByIdsError>>;
+
+    /// GET /secrets/{secretId}/versions
+    async fn get_versions_by_secret_id<'a>(
+        &self,
+        secret_id: uuid::Uuid,
     ) -> Result<
-        models::KeyConnectorConfirmationDetailsResponseModel,
-        Error<GetKeyConnectorConfirmationDetailsError>,
+        models::SecretVersionResponseModelListResponseModel,
+        Error<GetVersionsBySecretIdError>,
     >;
 
-    /// POST /accounts/convert-to-key-connector
-    async fn post_convert_to_key_connector(
+    /// PUT /secrets/{secretId}/versions/restore
+    async fn restore_version<'a>(
         &self,
-    ) -> Result<(), Error<PostConvertToKeyConnectorError>>;
-
-    /// POST /accounts/set-key-connector-key
-    async fn post_set_key_connector_key<'a>(
-        &self,
-        set_key_connector_key_request_model: Option<models::SetKeyConnectorKeyRequestModel>,
-    ) -> Result<(), Error<PostSetKeyConnectorKeyError>>;
-
-    /// POST /accounts/key-management/regenerate-keys
-    async fn regenerate_keys<'a>(
-        &self,
-        key_regeneration_request_model: Option<models::KeyRegenerationRequestModel>,
-    ) -> Result<(), Error<RegenerateKeysError>>;
-
-    /// POST /accounts/key-management/rotate-user-account-keys
-    async fn rotate_user_account_keys<'a>(
-        &self,
-        rotate_user_account_keys_and_data_request_model: Option<
-            models::RotateUserAccountKeysAndDataRequestModel,
-        >,
-    ) -> Result<(), Error<RotateUserAccountKeysError>>;
+        secret_id: uuid::Uuid,
+        restore_secret_version_request_model: Option<models::RestoreSecretVersionRequestModel>,
+    ) -> Result<models::SecretResponseModel, Error<RestoreVersionError>>;
 }
 
-pub struct AccountsKeyManagementApiClient {
+pub struct SecretVersionsApiClient {
     configuration: Arc<configuration::Configuration>,
 }
 
-impl AccountsKeyManagementApiClient {
+impl SecretVersionsApiClient {
     pub fn new(configuration: Arc<configuration::Configuration>) -> Self {
         Self { configuration }
     }
@@ -73,22 +73,63 @@ impl AccountsKeyManagementApiClient {
 
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
-    async fn get_key_connector_confirmation_details<'a>(
+impl SecretVersionsApi for SecretVersionsApiClient {
+    async fn bulk_delete<'a>(
         &self,
-        org_sso_identifier: &'a str,
-    ) -> Result<
-        models::KeyConnectorConfirmationDetailsResponseModel,
-        Error<GetKeyConnectorConfirmationDetailsError>,
-    > {
+        uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
+    ) -> Result<(), Error<BulkDeleteError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
 
         let local_var_uri_str = format!(
-            "{}/accounts/key-connector/confirmation-details/{orgSsoIdentifier}",
+            "{}/secret-versions/delete",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+            local_var_req_builder = local_var_req_builder
+                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+        }
+        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+        };
+        local_var_req_builder = local_var_req_builder.json(&uuid_colon_colon_uuid);
+
+        let local_var_req = local_var_req_builder.build()?;
+        let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<BulkDeleteError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
+    }
+
+    async fn get_by_id<'a>(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<models::SecretVersionResponseModel, Error<GetByIdError>> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/secret-versions/{id}",
             local_var_configuration.base_path,
-            orgSsoIdentifier = crate::apis::urlencode(org_sso_identifier)
+            id = id
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
@@ -118,17 +159,17 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
                 ContentType::Text => {
                     return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::KeyConnectorConfirmationDetailsResponseModel`",
+                        "Received `text/plain` content type response that cannot be converted to `models::SecretVersionResponseModel`",
                     )));
                 }
                 ContentType::Unsupported(local_var_unknown_type) => {
                     return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::KeyConnectorConfirmationDetailsResponseModel`"
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SecretVersionResponseModel`"
                     ))));
                 }
             }
         } else {
-            let local_var_entity: Option<GetKeyConnectorConfirmationDetailsError> =
+            let local_var_entity: Option<GetByIdError> =
                 serde_json::from_str(&local_var_content).ok();
             let local_var_error = ResponseContent {
                 status: local_var_status,
@@ -139,19 +180,86 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
         }
     }
 
-    async fn post_convert_to_key_connector(
+    async fn get_many_by_ids<'a>(
         &self,
-    ) -> Result<(), Error<PostConvertToKeyConnectorError>> {
+        uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
+    ) -> Result<models::SecretVersionResponseModelListResponseModel, Error<GetManyByIdsError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
 
         let local_var_uri_str = format!(
-            "{}/accounts/convert-to-key-connector",
+            "{}/secret-versions/get-by-ids",
             local_var_configuration.base_path
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+            local_var_req_builder = local_var_req_builder
+                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+        }
+        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+        };
+        local_var_req_builder = local_var_req_builder.json(&uuid_colon_colon_uuid);
+
+        let local_var_req = local_var_req_builder.build()?;
+        let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::SecretVersionResponseModelListResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SecretVersionResponseModelListResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<GetManyByIdsError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
+    }
+
+    async fn get_versions_by_secret_id<'a>(
+        &self,
+        secret_id: uuid::Uuid,
+    ) -> Result<
+        models::SecretVersionResponseModelListResponseModel,
+        Error<GetVersionsBySecretIdError>,
+    > {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/secrets/{secretId}/versions",
+            local_var_configuration.base_path,
+            secretId = secret_id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
@@ -165,12 +273,30 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
         let local_var_content = local_var_resp.text().await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::SecretVersionResponseModelListResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SecretVersionResponseModelListResponseModel`"
+                    ))));
+                }
+            }
         } else {
-            let local_var_entity: Option<PostConvertToKeyConnectorError> =
+            let local_var_entity: Option<GetVersionsBySecretIdError> =
                 serde_json::from_str(&local_var_content).ok();
             let local_var_error = ResponseContent {
                 status: local_var_status,
@@ -181,20 +307,22 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
         }
     }
 
-    async fn post_set_key_connector_key<'a>(
+    async fn restore_version<'a>(
         &self,
-        set_key_connector_key_request_model: Option<models::SetKeyConnectorKeyRequestModel>,
-    ) -> Result<(), Error<PostSetKeyConnectorKeyError>> {
+        secret_id: uuid::Uuid,
+        restore_secret_version_request_model: Option<models::RestoreSecretVersionRequestModel>,
+    ) -> Result<models::SecretResponseModel, Error<RestoreVersionError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
 
         let local_var_uri_str = format!(
-            "{}/accounts/set-key-connector-key",
-            local_var_configuration.base_path
+            "{}/secrets/{secretId}/versions/restore",
+            local_var_configuration.base_path,
+            secretId = secret_id
         );
         let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
@@ -203,109 +331,36 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
         if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
             local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
         };
-        local_var_req_builder = local_var_req_builder.json(&set_key_connector_key_request_model);
+        local_var_req_builder = local_var_req_builder.json(&restore_secret_version_request_model);
 
         let local_var_req = local_var_req_builder.build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
         let local_var_content = local_var_resp.text().await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::SecretResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SecretResponseModel`"
+                    ))));
+                }
+            }
         } else {
-            let local_var_entity: Option<PostSetKeyConnectorKeyError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
-    }
-
-    async fn regenerate_keys<'a>(
-        &self,
-        key_regeneration_request_model: Option<models::KeyRegenerationRequestModel>,
-    ) -> Result<(), Error<RegenerateKeysError>> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/accounts/key-management/regenerate-keys",
-            local_var_configuration.base_path
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
-
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
-        local_var_req_builder = local_var_req_builder.json(&key_regeneration_request_model);
-
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<RegenerateKeysError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
-    }
-
-    async fn rotate_user_account_keys<'a>(
-        &self,
-        rotate_user_account_keys_and_data_request_model: Option<
-            models::RotateUserAccountKeysAndDataRequestModel,
-        >,
-    ) -> Result<(), Error<RotateUserAccountKeysError>> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/accounts/key-management/rotate-user-account-keys",
-            local_var_configuration.base_path
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
-
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
-        local_var_req_builder =
-            local_var_req_builder.json(&rotate_user_account_keys_and_data_request_model);
-
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<RotateUserAccountKeysError> =
+            let local_var_entity: Option<RestoreVersionError> =
                 serde_json::from_str(&local_var_content).ok();
             let local_var_error = ResponseContent {
                 status: local_var_status,
@@ -317,34 +372,33 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
     }
 }
 
-/// struct for typed errors of method
-/// [`AccountsKeyManagementApi::get_key_connector_confirmation_details`]
+/// struct for typed errors of method [`SecretVersionsApi::bulk_delete`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum GetKeyConnectorConfirmationDetailsError {
+pub enum BulkDeleteError {
     UnknownValue(serde_json::Value),
 }
-/// struct for typed errors of method [`AccountsKeyManagementApi::post_convert_to_key_connector`]
+/// struct for typed errors of method [`SecretVersionsApi::get_by_id`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum PostConvertToKeyConnectorError {
+pub enum GetByIdError {
     UnknownValue(serde_json::Value),
 }
-/// struct for typed errors of method [`AccountsKeyManagementApi::post_set_key_connector_key`]
+/// struct for typed errors of method [`SecretVersionsApi::get_many_by_ids`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum PostSetKeyConnectorKeyError {
+pub enum GetManyByIdsError {
     UnknownValue(serde_json::Value),
 }
-/// struct for typed errors of method [`AccountsKeyManagementApi::regenerate_keys`]
+/// struct for typed errors of method [`SecretVersionsApi::get_versions_by_secret_id`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum RegenerateKeysError {
+pub enum GetVersionsBySecretIdError {
     UnknownValue(serde_json::Value),
 }
-/// struct for typed errors of method [`AccountsKeyManagementApi::rotate_user_account_keys`]
+/// struct for typed errors of method [`SecretVersionsApi::restore_version`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum RotateUserAccountKeysError {
+pub enum RestoreVersionError {
     UnknownValue(serde_json::Value),
 }
