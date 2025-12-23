@@ -189,6 +189,7 @@ impl CiphersClient {
     }
 
     /// Returns a new client for performing admin operations.
+    /// Uses the admin server API endpoints and does not modify local state.
     pub fn admin(&self) -> CipherAdminClient {
         CipherAdminClient {
             client: self.client.clone(),
