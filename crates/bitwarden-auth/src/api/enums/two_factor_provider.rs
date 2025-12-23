@@ -1,12 +1,10 @@
-use schemars::JsonSchema;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-// TODO: this isn't likely to be only limited to API usage... so maybe move to a more general
-// location?
+// TODO: This likely won't be limited to just API usage so consider moving to a more general
+// location when implementing 2FA support
 
 /// Represents the two-factor authentication providers supported by Bitwarden.
-#[allow(missing_docs)]
-#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, JsonSchema, Clone)]
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone)]
 #[repr(u8)]
 pub enum TwoFactorProvider {
     Authenticator = 0,

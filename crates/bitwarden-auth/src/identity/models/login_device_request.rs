@@ -1,11 +1,10 @@
 use bitwarden_core::DeviceType;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Device information for login requests.
 /// This is common across all login mechanisms and describes the device
 /// making the authentication request.
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))] // add mobile support
 #[cfg_attr(

@@ -538,7 +538,6 @@ dependencies = [
  "reqwest",
  "rustls",
  "rustls-platform-verifier",
- "schemars 1.0.0",
  "serde",
  "serde_bytes",
  "serde_json",

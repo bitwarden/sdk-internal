@@ -25,7 +25,7 @@ wasm = [
 uniffi = [
     "bitwarden-core/uniffi",
     "bitwarden-policies/uniffi",
-    "dep:uniffi"
+    "dep:uniffi",
 ] # Uniffi bindings
 
 # Note: dependencies must be alphabetized to pass the cargo sort check in the CI pipeline.
@@ -39,11 +39,10 @@ bitwarden-error = { workspace = true }
 bitwarden-policies = { workspace = true }
 chrono = { workspace = true }
 reqwest = { workspace = true }
-schemars = { workspace = true }
 serde = { workspace = true }
+serde_bytes = { workspace = true }
 serde_json = { workspace = true }
 serde_repr = { workspace = true }
-serde_bytes = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tsify = { workspace = true, optional = true }

@@ -6,11 +6,10 @@ use bitwarden_crypto::{
     Kdf, default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
     default_pbkdf2_iterations,
 };
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Response containing the data required before password-based authentication
-#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))] // add mobile support
 #[cfg_attr(

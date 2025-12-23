@@ -1,11 +1,10 @@
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::LoginDeviceRequest;
 
 /// The common bucket of login fields to be re-used across all login mechanisms
 /// (e.g., password, SSO, etc.). This will include handling client_id and 2FA.
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))] // add mobile support
 #[cfg_attr(

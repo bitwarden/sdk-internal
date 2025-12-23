@@ -1,10 +1,9 @@
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::identity::{login_via_password::PasswordPreloginResponse, models::LoginRequest};
 
 /// Public SDK request model for logging in via password
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))] // add mobile support
 #[cfg_attr(
