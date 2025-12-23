@@ -542,6 +542,7 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "serde_repr",
+ "serde_urlencoded",
  "thiserror 2.0.12",
  "tokio",
  "tracing",

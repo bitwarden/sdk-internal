@@ -4,4 +4,4 @@
 //!
 //! For standard controller endpoints, use the `bitwarden-api-identity` crate.
 mod login_api_request;
-pub(crate) use login_api_request::LoginApiRequest;
+pub(crate) use login_api_request::{LoginApiRequest, STANDARD_USER_SCOPES};
