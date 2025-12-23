@@ -51,7 +51,10 @@ impl LoginClient {
 mod tests {
     use bitwarden_api_identity::models::KdfType;
     use bitwarden_core::{ClientSettings, DeviceType};
-    use bitwarden_crypto::Kdf;
+    use bitwarden_crypto::{
+        Kdf, default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
+        default_pbkdf2_iterations,
+    };
     use bitwarden_test::start_api_mock;
     use wiremock::{Mock, ResponseTemplate, matchers};
 
@@ -60,10 +63,6 @@ mod tests {
     const TEST_EMAIL: &str = "test@example.com";
     const TEST_SALT_PBKDF2: &str = "test-salt-value";
     const TEST_SALT_ARGON2: &str = "argon2-salt-value";
-    const PBKDF2_ITERATIONS: u32 = 600000;
-    const ARGON2_ITERATIONS: u32 = 3;
-    const ARGON2_MEMORY: u32 = 64;
-    const ARGON2_PARALLELISM: u32 = 4;
 
     fn make_login_client(mock_server: &wiremock::MockServer) -> LoginClient {
         let settings = ClientSettings {
@@ -84,7 +83,7 @@ mod tests {
         let raw_success = serde_json::json!({
             "kdfSettings": {
                 "kdfType": KdfType::PBKDF2_SHA256 as i32,
-                "iterations": PBKDF2_ITERATIONS
+                "iterations": default_pbkdf2_iterations().get()
             },
             "salt": TEST_SALT_PBKDF2
         });
@@ -108,7 +107,7 @@ mod tests {
         assert_eq!(result.salt, TEST_SALT_PBKDF2);
         match result.kdf {
             Kdf::PBKDF2 { iterations } => {
-                assert_eq!(iterations.get(), PBKDF2_ITERATIONS);
+                assert_eq!(iterations, default_pbkdf2_iterations());
             }
             _ => panic!("Expected PBKDF2 KDF type"),
         }
@@ -120,9 +119,9 @@ mod tests {
         let raw_success = serde_json::json!({
             "kdfSettings": {
                 "kdfType": KdfType::Argon2id as i32,
-                "iterations": ARGON2_ITERATIONS,
-                "memory": ARGON2_MEMORY,
-                "parallelism": ARGON2_PARALLELISM
+                "iterations": default_argon2_iterations().get(),
+                "memory": default_argon2_memory().get(),
+                "parallelism": default_argon2_parallelism().get()
             },
             "salt": TEST_SALT_ARGON2
         });
@@ -150,9 +149,9 @@ mod tests {
                 memory,
                 parallelism,
             } => {
-                assert_eq!(iterations.get(), ARGON2_ITERATIONS);
-                assert_eq!(memory.get(), ARGON2_MEMORY);
-                assert_eq!(parallelism.get(), ARGON2_PARALLELISM);
+                assert_eq!(iterations, default_argon2_iterations());
+                assert_eq!(memory, default_argon2_memory());
+                assert_eq!(parallelism, default_argon2_parallelism());
             }
             _ => panic!("Expected Argon2id KDF type"),
         }
@@ -191,7 +190,7 @@ mod tests {
         let raw_response = serde_json::json!({
             "kdfSettings": {
                 "kdfType": KdfType::PBKDF2_SHA256 as i32,
-                "iterations": PBKDF2_ITERATIONS
+                "iterations": default_pbkdf2_iterations().get()
             }
         });
 
