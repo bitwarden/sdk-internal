@@ -27,7 +27,7 @@ chrono = { workspace = true }
 coset = ">=0.3.7, <0.4"
 itertools = ">=0.13.0, <0.15"
 p256 = ">=0.13.2, <0.14"
-passkey = { git = "https://github.com/bitwarden/passkey-rs", rev = "357cc9672340f6ff1f22a0b210a74de64799fa73" }
+passkey = { git = "https://github.com/bitwarden/passkey-rs", rev = "043279e92e2eb5f509bf87eb7fa50987fd377e32" }
 passkey-client = { git = "https://github.com/bitwarden/passkey-rs", rev = "357cc9672340f6ff1f22a0b210a74de64799fa73", features = [
     "android-asset-validation",
 ] }

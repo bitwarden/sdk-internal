@@ -757,7 +757,7 @@ dependencies = [
  "itertools 0.14.0",
  "p256",
  "passkey",
- "passkey-client",
+ "passkey-client 0.5.0 (git+https://github.com/bitwarden/passkey-rs?rev=357cc9672340f6ff1f22a0b210a74de64799fa73)",
  "reqwest",
  "serde",
  "serde_json",
@@ -3643,12 +3643,25 @@ dependencies = [
 [[package]]
 name = "passkey"
 version = "0.5.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=357cc9672340f6ff1f22a0b210a74de64799fa73#357cc9672340f6ff1f22a0b210a74de64799fa73"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32#043279e92e2eb5f509bf87eb7fa50987fd377e32"
 dependencies = [
- "passkey-authenticator",
- "passkey-client",
+ "passkey-authenticator 0.5.0 (git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32)",
+ "passkey-client 0.5.0 (git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32)",
  "passkey-transports",
- "passkey-types",
+ "passkey-types 0.5.0 (git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32)",
+]
+
+[[package]]
+name = "passkey-authenticator"
+version = "0.5.0"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32#043279e92e2eb5f509bf87eb7fa50987fd377e32"
+dependencies = [
+ "async-trait",
+ "coset",
+ "log",
+ "p256",
+ "passkey-types 0.5.0 (git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32)",
+ "rand 0.8.5",
 ]
 
 [[package]]
@@ -3660,8 +3673,25 @@ dependencies = [
  "coset",
  "log",
  "p256",
- "passkey-types",
+ "passkey-types 0.5.0 (git+https://github.com/bitwarden/passkey-rs?rev=357cc9672340f6ff1f22a0b210a74de64799fa73)",
  "rand 0.8.5",
+]
+
+[[package]]
+name = "passkey-client"
+version = "0.5.0"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32#043279e92e2eb5f509bf87eb7fa50987fd377e32"
+dependencies = [
+ "ciborium",
+ "coset",
+ "idna",
+ "itertools 0.14.0",
+ "passkey-authenticator 0.5.0 (git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32)",
+ "passkey-types 0.5.0 (git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32)",
+ "public-suffix 0.1.3 (git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32)",
+ "serde",
+ "serde_json",
+ "url",
 ]
 
 [[package]]
@@ -3674,9 +3704,9 @@ dependencies = [
  "idna",
  "itertools 0.14.0",
  "nom",
- "passkey-authenticator",
- "passkey-types",
- "public-suffix",
+ "passkey-authenticator 0.5.0 (git+https://github.com/bitwarden/passkey-rs?rev=357cc9672340f6ff1f22a0b210a74de64799fa73)",
+ "passkey-types 0.5.0 (git+https://github.com/bitwarden/passkey-rs?rev=357cc9672340f6ff1f22a0b210a74de64799fa73)",
+ "public-suffix 0.1.3 (git+https://github.com/bitwarden/passkey-rs?rev=357cc9672340f6ff1f22a0b210a74de64799fa73)",
  "serde",
  "serde_json",
  "url",
@@ -3685,7 +3715,28 @@ dependencies = [
 [[package]]
 name = "passkey-transports"
 version = "0.1.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=357cc9672340f6ff1f22a0b210a74de64799fa73#357cc9672340f6ff1f22a0b210a74de64799fa73"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32#043279e92e2eb5f509bf87eb7fa50987fd377e32"
+
+[[package]]
+name = "passkey-types"
+version = "0.5.0"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32#043279e92e2eb5f509bf87eb7fa50987fd377e32"
+dependencies = [
+ "bitflags 2.9.1",
+ "ciborium",
+ "coset",
+ "data-encoding",
+ "getrandom 0.2.16",
+ "hmac 0.12.1",
+ "indexmap 2.12.1",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "strum 0.27.2",
+ "url",
+ "zeroize",
+]
 
 [[package]]
 name = "passkey-types"
@@ -3703,7 +3754,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
- "strum",
+ "strum 0.25.0",
  "url",
  "zeroize",
 ]
@@ -4043,6 +4094,11 @@ checksum = "02b3e5e68a3a1a02aad3ec490a98007cbc13c37cbe84a3cd7b8e406d76e7f778"
 dependencies = [
  "unicode-ident",
 ]
+
+[[package]]
+name = "public-suffix"
+version = "0.1.3"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32#043279e92e2eb5f509bf87eb7fa50987fd377e32"
 
 [[package]]
 name = "public-suffix"
@@ -5178,7 +5234,16 @@ version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
 dependencies = [
- "strum_macros",
+ "strum_macros 0.25.3",
+]
+
+[[package]]
+name = "strum"
+version = "0.27.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
+dependencies = [
+ "strum_macros 0.27.2",
 ]
 
 [[package]]
@@ -5191,6 +5256,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustversion",
+ "syn",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.27.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7695ce3845ea4b33927c055a39dc438a45b059f7c1b3d91d38d10355fb8cbca7"
+dependencies = [
+ "heck 0.5.0",
+ "proc-macro2",
+ "quote",
  "syn",
 ]
 
