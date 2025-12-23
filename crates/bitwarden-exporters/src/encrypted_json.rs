@@ -45,7 +45,8 @@ pub(crate) fn export_encrypted_json(
 
     let salt = generate_random_bytes::<[u8; 16]>();
     let salt = B64::from(salt.as_slice());
-    let key = PinKey::derive(password.as_bytes(), salt.as_bytes(), &kdf)?;
+    // The export key uses the undecoded base64 string as a salt. Do not pass the raw bytes here
+    let key = PinKey::derive(password.as_bytes(), salt.to_string().as_bytes(), &kdf)?;
 
     let enc_key_validation = Uuid::new_v4().to_string();
 
