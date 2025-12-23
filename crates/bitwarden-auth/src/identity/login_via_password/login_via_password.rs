@@ -407,4 +407,186 @@ mod tests {
             error
         );
     }
+
+    // ==================== Network Error Tests ====================
+
+    #[tokio::test]
+    async fn test_login_via_password_connection_refused() {
+        // Use an invalid port that will refuse connections
+        let settings = ClientSettings {
+            identity_url: "http://127.0.0.1:1".to_string(), // Port 1 will be refused
+            api_url: "http://127.0.0.1:1".to_string(),
+            user_agent: "Bitwarden Rust-SDK [TEST]".into(),
+            device_type: DeviceType::SDK,
+            device_identifier: None,
+            bitwarden_client_version: None,
+            bitwarden_package_type: None,
+        };
+        let identity_client = LoginClient::new(settings);
+
+        let request = make_password_login_request(TestKdfType::Pbkdf2);
+        let result = identity_client.login_via_password(request).await;
+
+        // Should fail with Unknown error due to connection refused
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(
+            matches!(error, PasswordLoginError::Unknown(_)),
+            "Expected Unknown error for connection refused, got: {:?}",
+            error
+        );
+    }
+
+    #[tokio::test]
+    async fn test_login_via_password_dns_failure() {
+        // Use a domain that doesn't exist
+        let settings = ClientSettings {
+            identity_url: "http://this-domain-definitely-does-not-exist-12345.invalid".to_string(),
+            api_url: "http://this-domain-definitely-does-not-exist-12345.invalid".to_string(),
+            user_agent: "Bitwarden Rust-SDK [TEST]".into(),
+            device_type: DeviceType::SDK,
+            device_identifier: None,
+            bitwarden_client_version: None,
+            bitwarden_package_type: None,
+        };
+        let identity_client = LoginClient::new(settings);
+
+        let request = make_password_login_request(TestKdfType::Pbkdf2);
+        let result = identity_client.login_via_password(request).await;
+
+        // Should fail with Unknown error due to DNS failure
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(
+            matches!(error, PasswordLoginError::Unknown(_)),
+            "Expected Unknown error for DNS failure, got: {:?}",
+            error
+        );
+    }
+
+    // ==================== Malformed Response Tests ====================
+
+    #[tokio::test]
+    async fn test_login_via_password_empty_response_body() {
+        // Server returns 200 but with empty body
+        let mock = Mock::given(matchers::method("POST"))
+            .and(matchers::path("identity/connect/token"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(""));
+
+        let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
+        let identity_client = make_identity_client(&mock_server);
+
+        let request = make_password_login_request(TestKdfType::Pbkdf2);
+        let result = identity_client.login_via_password(request).await;
+
+        // Should fail with Unknown error due to empty body
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(
+            matches!(error, PasswordLoginError::Unknown(_)),
+            "Expected Unknown error for empty response, got: {:?}",
+            error
+        );
+    }
+
+    #[tokio::test]
+    async fn test_login_via_password_malformed_json() {
+        // Server returns 200 but with invalid JSON
+        let mock = Mock::given(matchers::method("POST"))
+            .and(matchers::path("identity/connect/token"))
+            .respond_with(ResponseTemplate::new(200).set_body_string("{invalid json"));
+
+        let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
+        let identity_client = make_identity_client(&mock_server);
+
+        let request = make_password_login_request(TestKdfType::Pbkdf2);
+        let result = identity_client.login_via_password(request).await;
+
+        // Should fail with Unknown error due to malformed JSON
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(
+            matches!(error, PasswordLoginError::Unknown(_)),
+            "Expected Unknown error for malformed JSON, got: {:?}",
+            error
+        );
+    }
+
+    #[tokio::test]
+    async fn test_login_via_password_incomplete_success_response() {
+        // Server returns 200 with valid JSON but missing required fields
+        let incomplete_response = serde_json::json!({
+            "access_token": TEST_ACCESS_TOKEN,
+            // Missing expires_in, token_type, and other required fields
+        });
+
+        let mock = Mock::given(matchers::method("POST"))
+            .and(matchers::path("identity/connect/token"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(incomplete_response));
+
+        let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
+        let identity_client = make_identity_client(&mock_server);
+
+        let request = make_password_login_request(TestKdfType::Pbkdf2);
+        let result = identity_client.login_via_password(request).await;
+
+        // Should fail with Unknown error due to missing required fields
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(
+            matches!(error, PasswordLoginError::Unknown(_)),
+            "Expected Unknown error for incomplete response, got: {:?}",
+            error
+        );
+    }
+
+    #[tokio::test]
+    async fn test_login_via_password_wrong_content_type() {
+        // Server returns HTML instead of JSON
+        let mock = Mock::given(matchers::method("POST"))
+            .and(matchers::path("identity/connect/token"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string("<html><body>Error</body></html>")
+                    .insert_header("content-type", "text/html"),
+            );
+
+        let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
+        let identity_client = make_identity_client(&mock_server);
+
+        let request = make_password_login_request(TestKdfType::Pbkdf2);
+        let result = identity_client.login_via_password(request).await;
+
+        // Should fail with Unknown error due to wrong content type
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(
+            matches!(error, PasswordLoginError::Unknown(_)),
+            "Expected Unknown error for wrong content type, got: {:?}",
+            error
+        );
+    }
+
+    #[tokio::test]
+    async fn test_login_via_password_unexpected_status_code() {
+        // Server returns 418 I'm a teapot (unexpected status code)
+        let mock = Mock::given(matchers::method("POST"))
+            .and(matchers::path("identity/connect/token"))
+            .respond_with(ResponseTemplate::new(418).set_body_string("I'm a teapot"));
+
+        let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
+        let identity_client = make_identity_client(&mock_server);
+
+        let request = make_password_login_request(TestKdfType::Pbkdf2);
+        let result = identity_client.login_via_password(request).await;
+
+        // Should fail with Unknown error due to unexpected status code
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(
+            matches!(error, PasswordLoginError::Unknown(_)),
+            "Expected Unknown error for unexpected status code, got: {:?}",
+            error
+        );
+    }
 }
