@@ -56,7 +56,7 @@ pub enum InvalidGrantError {
 }
 
 /// Per RFC 6749 Section 5.2, these are the standard error responses for OAuth 2.0 token requests.
-/// https://datatracker.ietf.org/doc/html/rfc6749#section-5.2
+/// <https://datatracker.ietf.org/doc/html/rfc6749#section-5.2>
 #[derive(Deserialize, PartialEq, Eq, Debug)]
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "error")]
