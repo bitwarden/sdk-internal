@@ -644,7 +644,6 @@ impl Cipher {
     /// Marks the cipher as soft deleted by setting `deletion_date` to now.
     pub(crate) fn soft_delete(&mut self) {
         self.deleted_date = Some(Utc::now());
-        self.archived_date = None;
     }
 }
 impl CipherView {
