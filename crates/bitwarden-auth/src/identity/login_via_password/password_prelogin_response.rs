@@ -1,6 +1,6 @@
 use std::num::NonZeroU32;
 
-use bitwarden_api_identity::models::{KdfSettings, KdfType, PasswordPreloginResponseModel};
+use bitwarden_api_identity::models::{KdfType, PasswordPreloginResponseModel};
 use bitwarden_core::{MissingFieldError, require};
 use bitwarden_crypto::{
     Kdf, default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
@@ -60,6 +60,8 @@ impl TryFrom<PasswordPreloginResponseModel> for PasswordPreloginResponse {
 
 #[cfg(test)]
 mod tests {
+    use bitwarden_api_identity::models::KdfSettings;
+
     use super::*;
 
     const TEST_SALT: &str = "test-salt";
