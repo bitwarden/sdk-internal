@@ -13,7 +13,7 @@ use crate::{
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
-pub enum GetOrganizationCiphersError {
+pub enum GetOrganizationCiphersAdminError {
     #[error(transparent)]
     Crypto(#[from] CryptoError),
     #[error(transparent)]
@@ -28,7 +28,7 @@ pub async fn list_org_ciphers(
     include_member_items: bool,
     api_client: &bitwarden_api_api::apis::ApiClient,
     key_store: &KeyStore<KeyIds>,
-) -> Result<DecryptCipherListResult, GetOrganizationCiphersError> {
+) -> Result<DecryptCipherListResult, GetOrganizationCiphersAdminError> {
     let api = api_client.ciphers_api();
     let response: CipherMiniDetailsResponseModelListResponseModel = api
         .get_organization_ciphers(Some(org_id.into()), Some(include_member_items))
@@ -53,7 +53,7 @@ impl CipherAdminClient {
         &self,
         org_id: OrganizationId,
         include_member_items: bool,
-    ) -> Result<DecryptCipherListResult, GetOrganizationCiphersError> {
+    ) -> Result<DecryptCipherListResult, GetOrganizationCiphersAdminError> {
         list_org_ciphers(
             org_id,
             include_member_items,
