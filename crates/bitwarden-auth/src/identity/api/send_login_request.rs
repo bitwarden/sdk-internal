@@ -23,7 +23,7 @@ pub(crate) async fn send_login_request(
         .post(url)
         .header(reqwest::header::ACCEPT, "application/json")
         // per OAuth2 spec recommendation for token requests (https://www.rfc-editor.org/rfc/rfc6749.html#section-5.1)
-        // we include no-cache headers to prevent browser caching sensistive token requests /
+        // we include no-cache headers to prevent browser caching sensitive token requests /
         // responses.
         .header(reqwest::header::CACHE_CONTROL, "no-store")
         .header(reqwest::header::PRAGMA, "no-cache")
