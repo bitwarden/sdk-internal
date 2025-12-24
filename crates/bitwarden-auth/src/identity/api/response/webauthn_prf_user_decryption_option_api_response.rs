@@ -1,4 +1,4 @@
-use bitwarden_crypto::EncString;
+use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use serde::{Deserialize, Serialize};
 
 /// WebAuthn PRF User Decryption Option API response.
@@ -9,7 +9,7 @@ pub(crate) struct WebAuthnPrfUserDecryptionOptionApiResponse {
     #[serde(rename = "EncryptedPrivateKey")]
     pub encrypted_private_key: EncString,
 
-    /// Private Key encrypted user key
+    /// Public Key encrypted user key
     #[serde(rename = "EncryptedUserKey")]
-    pub encrypted_user_key: EncString,
+    pub encrypted_user_key: UnsignedSharedKey,
 }

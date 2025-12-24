@@ -53,7 +53,7 @@ mod internal {
     /// - `[type]`: is a digit number representing the variant.
     /// - `[data]`: is the encrypted data.
     #[allow(missing_docs)]
-    #[derive(Clone, zeroize::ZeroizeOnDrop)]
+    #[derive(Clone, zeroize::ZeroizeOnDrop, PartialEq)]
     #[allow(unused, non_camel_case_types)]
     pub enum UnsignedSharedKey {
         /// 3
