@@ -18,23 +18,31 @@ keywords.workspace = true
 wasm = [
     "bitwarden-core/wasm",
     "bitwarden-crypto/wasm",
+    "bitwarden-policies/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
 ] # WASM support
-uniffi = ["bitwarden-core/uniffi", "dep:uniffi"] # Uniffi bindings
+uniffi = [
+    "bitwarden-core/uniffi",
+    "bitwarden-policies/uniffi",
+    "dep:uniffi",
+] # Uniffi bindings
 
 # Note: dependencies must be alphabetized to pass the cargo sort check in the CI pipeline.
 [dependencies]
 bitwarden-api-api = { workspace = true }
+bitwarden-api-identity = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-policies = { workspace = true }
 chrono = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_bytes = { workspace = true }
+serde_repr = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tsify = { workspace = true, optional = true }
@@ -43,10 +51,16 @@ uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
 
+[target.'cfg(not(target_arch="wasm32"))'.dependencies]
+# TLS stack for HTTP client - WASM uses browser's fetch API instead
+rustls = { version = "0.23.19", default-features = false }
+rustls-platform-verifier = "0.6.0"
+
 [dev-dependencies]
 bitwarden-api-api = { workspace = true, features = ["mockall"] }
 bitwarden-test = { workspace = true }
 serde_json = { workspace = true }
+serde_urlencoded = ">=0.7.1, <0.8"
 tokio = { workspace = true, features = ["rt"] }
 wiremock = "0.6.0"
 

@@ -35,7 +35,7 @@ pub enum MasterPasswordError {
 }
 
 /// Represents the data required to unlock with the master password.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(
@@ -126,11 +126,9 @@ pub struct MasterPasswordAuthenticationData {
 }
 
 impl MasterPasswordAuthenticationData {
-    pub(crate) fn derive(
-        password: &str,
-        kdf: &Kdf,
-        salt: &str,
-    ) -> Result<Self, MasterPasswordError> {
+    /// Derives the authentication data for registration or unlock for an account, given the
+    /// password, kdf settings and salt of the user.
+    pub fn derive(password: &str, kdf: &Kdf, salt: &str) -> Result<Self, MasterPasswordError> {
         let master_key = MasterKey::derive(password, salt, kdf)
             .map_err(|_| MasterPasswordError::InvalidKdfConfiguration)?;
         let hash = master_key.derive_master_key_hash(
