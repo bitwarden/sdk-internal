@@ -65,11 +65,13 @@ are:
 
 We autogenerate the server bindings using
 [openapi-generator](https://github.com/OpenAPITools/openapi-generator). To do this, we first need to
-build the internal swagger documentation.
+build the internal swagger documentation. This code should not be directly modified, instead see the
+instructions below to generate Swagger documents and use these to generate the OpenApi bindings.
 
 ### Swagger generation
 
-The first step is to generate the swagger documents from the root of the server repository.
+The first step is to generate the swagger documents from the root of the
+[server repository](https://github.com/bitwarden/server).
 
 ```bash
 pwsh ./dev/generate_openapi_files.ps1
@@ -77,8 +79,9 @@ pwsh ./dev/generate_openapi_files.ps1
 
 ### OpenApi Generator
 
-To generate a new version of the bindings, run the following script from the root of the SDK
-project.
+To generate a new version of the bindings, run the following script from the root of the SDKproject.
+This requires a Java Runtime Environment, and also assumes the repositories `server` and
+`sdk-internal` have the same parent directory.
 
 ```bash
 ./support/build-api.sh
@@ -94,6 +97,12 @@ towards modifying the templates as little as possible to ease future upgrades.
   you.
 - This process also changes the `Cargo.toml` file. When creating a PR updating the bindings, please
   revert (do not include) the updates to the `Cargo.toml` file.
+
+> [!IMPORTANT] A GitHub workflow exists to
+> [update the API bindings](https://github.com/bitwarden/sdk-internal/actions/workflows/update-api-bindings.yml).
+> Running the scripts above can be helpful during local development, but please ensure that any
+> changes to the bindings in `bitwarden-api-api` and `bitwarden-api-identity` are **not** checked
+> into any pull request.
 
 ## Developer tools
 
