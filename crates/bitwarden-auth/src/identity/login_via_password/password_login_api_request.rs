@@ -17,12 +17,6 @@ use crate::{
 /// - `email` → `"username"` - The user's email address (OAuth2 uses "username")
 /// - `master_password_hash` → `"password"` - The derived master password hash (not the raw
 ///   password)
-///
-/// # Security Note
-///
-/// The `master_password_hash` field contains a cryptographically derived hash of the master
-/// password, never the plaintext password. This hash is computed using the user's KDF
-/// configuration.
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct PasswordLoginApiRequest {
     /// Bitwarden user email address.
@@ -31,11 +25,7 @@ pub(crate) struct PasswordLoginApiRequest {
     #[serde(rename = "username")]
     pub email: String,
 
-    /// Derived master password authentication hash.
-    ///
-    /// This is the result of applying the user's KDF (PBKDF2 or Argon2id) to their master
-    /// password. The plaintext password is never sent to the server.
-    ///
+    /// Derived master password server authentication hash.
     /// Serialized as `"password"` to match OAuth2 conventions expected by the Identity API.
     #[serde(rename = "password")]
     pub master_password_hash: String,
