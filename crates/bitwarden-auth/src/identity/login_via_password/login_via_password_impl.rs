@@ -16,17 +16,6 @@ impl LoginClient {
     ///
     /// Derives the master password hash using KDF settings from prelogin, then sends
     /// the authentication request to obtain access tokens and vault keys.
-    ///
-    /// # Errors
-    ///
-    /// - [`PasswordLoginError::InvalidUsernameOrPassword`] - Invalid credentials
-    /// - [`PasswordLoginError::PasswordAuthenticationDataDerivation`] - KDF processing failed
-    /// - [`PasswordLoginError::Unknown`] - Network error or unexpected server response
-    ///
-    /// # Example
-    ///
-    /// See the [`login_via_password`](crate::identity::login_via_password) module for
-    /// complete usage examples and security details.
     pub async fn login_via_password(
         &self,
         request: PasswordLoginRequest,

@@ -7,12 +7,6 @@ use wasm_bindgen::prelude::*;
 /// Handles unauthenticated operations to obtain access tokens from the Identity API.
 /// After successful authentication, use the returned tokens to create an authenticated core client.
 ///
-/// # Available Methods
-///
-/// - **Password login**: [`login_via_password`](Self::login_via_password) - See the
-///   [`login_via_password`](crate::identity::login_via_password) module for examples
-/// - **Future**: SSO, device-based authentication, etc.
-///
 /// # Lifecycle
 ///
 /// 1. Create `LoginClient` via `AuthClient` → 2. Call login method → 3. Use returned tokens with
