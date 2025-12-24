@@ -10,8 +10,11 @@
 //!
 //! The master password is **never sent to the server**. Instead:
 //! - User's KDF settings (PBKDF2 or Argon2id) are fetched during prelogin
-//! - Master password is hashed locally using these settings
-//! - Only the derived hash is transmitted for authentication
+//! - Master password is stretched with KDF to derive the master key
+//! - Master key is stretched again into an AES256-CBC-HMAC key to unwrap the user key
+//! - Master key is hashed with single-round PBKDF2 (using password as salt) to create the server
+//!   authentication hash
+//! - Only the authentication hash is transmitted to the server
 //! - All requests include no-cache headers to prevent sensitive data caching
 //!
 //! # Current Limitations
