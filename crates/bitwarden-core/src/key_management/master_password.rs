@@ -126,7 +126,8 @@ pub struct MasterPasswordAuthenticationData {
 }
 
 impl MasterPasswordAuthenticationData {
-/// Derives the authentication data for registration or unlock for an account, given the password, kdf settings and salt of the user.
+    /// Derives the authentication data for registration or unlock for an account, given the
+    /// password, kdf settings and salt of the user.
     pub fn derive(password: &str, kdf: &Kdf, salt: &str) -> Result<Self, MasterPasswordError> {
         let master_key = MasterKey::derive(password, salt, kdf)
             .map_err(|_| MasterPasswordError::InvalidKdfConfiguration)?;
