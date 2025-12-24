@@ -22,6 +22,7 @@ pub struct PasswordPreloginResponse {
     pub kdf: Kdf,
 
     /// The salt used in the KDF process
+    // TODO: PM-30183 - make this a type for safety
     pub salt: String,
 }
 
