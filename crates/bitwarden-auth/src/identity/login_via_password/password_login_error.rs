@@ -28,15 +28,10 @@ pub enum PasswordLoginError {
     /// Failed to derive master password authentication data from the provided password and KDF
     /// settings.
     ///
-    /// This error occurs during local cryptographic processing before the API call, typically when:
+    /// This error can occur during local cryptographic processing before the API call when:
     /// - The KDF parameters are invalid (e.g., iterations below minimum threshold)
     /// - The KDF algorithm is unsupported or corrupted
     /// - Memory allocation fails during Argon2id processing
-    ///
-    /// # Common Causes
-    /// - KDF iterations below the minimum security threshold (5000 for PBKDF2)
-    /// - Corrupted prelogin data
-    /// - System resource constraints (especially for Argon2id)
     #[error(transparent)]
     PasswordAuthenticationDataDerivation(#[from] MasterPasswordError),
 
