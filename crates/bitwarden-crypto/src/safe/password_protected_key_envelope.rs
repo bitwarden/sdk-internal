@@ -26,7 +26,7 @@ use thiserror::Error;
 use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
-    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KeyIds,
+    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KEY_ID_SIZE, KeyIds,
     KeyStoreContext, SymmetricCryptoKey,
     cose::{
         ALG_ARGON2ID13, ARGON2_ITERATIONS, ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
@@ -239,7 +239,7 @@ impl PasswordProtectedKeyEnvelope {
         );
 
         if let Ok(bytes) = key_id_bytes {
-            let key_id_array: [u8; 16] = bytes.as_slice().try_into().map_err(|_| {
+            let key_id_array: [u8; KEY_ID_SIZE] = bytes.as_slice().try_into().map_err(|_| {
                 PasswordProtectedKeyEnvelopeError::Parsing("Invalid key id".to_string())
             })?;
             Ok(Some(KeyId::from(key_id_array)))
