@@ -25,7 +25,7 @@ pub(crate) const DATA_ENVELOPE_PADDING_SIZE: usize = 64;
 /// Do not manually implement this! Use the generate_versioned_sealable! macro instead.
 pub trait SealableVersionedData: Serialize + DeserializeOwned {
     /// The namespace to use when sealing this type of data. This must be unique per struct.
-    const NAMESPACE: DataEnvelopeNamespace;
+    const NAMESPACE: WrappedSecretKeyNamespace;
 }
 
 /// Marker trait for data that can be sealed in a `DataEnvelope`.
@@ -98,7 +98,7 @@ impl DataEnvelope {
     /// content-encryption-key.
     fn seal_ref<T>(
         data: &T,
-        namespace: &DataEnvelopeNamespace,
+        namespace: &WrappedSecretKeyNamespace,
     ) -> Result<(DataEnvelope, XChaCha20Poly1305Key), DataEnvelopeError>
     where
         T: Serialize + SealableVersionedData,
@@ -192,7 +192,7 @@ impl DataEnvelope {
     /// Unseals the data from the encrypted blob using the provided content-encryption-key.
     fn unseal_ref<T>(
         &self,
-        namespace: &DataEnvelopeNamespace,
+        namespace: &WrappedSecretKeyNamespace,
         cek: &XChaCha20Poly1305Key,
     ) -> Result<T, DataEnvelopeError>
     where
@@ -255,7 +255,9 @@ impl DataEnvelope {
 
 /// Helper function to extract the namespace from a `ProtectedHeader`. The namespace is stored
 /// as a custom header value using the DATA_ENVELOPE_NAMESPACE label.
-fn extract_namespace(header: &coset::Header) -> Result<DataEnvelopeNamespace, DataEnvelopeError> {
+fn extract_namespace(
+    header: &coset::Header,
+) -> Result<WrappedSecretKeyNamespace, DataEnvelopeError> {
     let namespace_value = header
         .rest
         .iter()
@@ -277,7 +279,8 @@ fn extract_namespace(header: &coset::Header) -> Result<DataEnvelopeNamespace, Da
         _ => return Err(DataEnvelopeError::InvalidNamespace),
     };
 
-    DataEnvelopeNamespace::try_from(namespace_int).map_err(|_| DataEnvelopeError::InvalidNamespace)
+    WrappedSecretKeyNamespace::try_from(namespace_int)
+        .map_err(|_| DataEnvelopeError::InvalidNamespace)
 }
 
 /// Helper function to extract the content type from a `ProtectedHeader`. The content type is a
@@ -520,7 +523,7 @@ mod tests {
 
     generate_versioned_sealable!(
         TestData,
-        DataEnvelopeNamespace::ExampleNamespace,
+        WrappedSecretKeyNamespace::ExampleNamespace,
         [
             TestDataV1 => "1",
         ]
@@ -535,9 +538,9 @@ mod tests {
     fn generate_test_vectors() {
         let data: TestData = TestDataV1 { field: 123 }.into();
         let (envelope, cek) =
-            DataEnvelope::seal_ref(&data, &DataEnvelopeNamespace::ExampleNamespace).unwrap();
+            DataEnvelope::seal_ref(&data, &WrappedSecretKeyNamespace::ExampleNamespace).unwrap();
         let unsealed_data: TestData = envelope
-            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace, &cek)
+            .unseal_ref(&WrappedSecretKeyNamespace::ExampleNamespace, &cek)
             .unwrap();
         assert_eq!(unsealed_data, data);
         println!(
@@ -557,7 +560,7 @@ mod tests {
 
         let envelope: DataEnvelope = TEST_VECTOR_ENVELOPE.parse().unwrap();
         let unsealed_data: TestData = envelope
-            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace, &cek)
+            .unseal_ref(&WrappedSecretKeyNamespace::ExampleNamespace, &cek)
             .unwrap();
         assert_eq!(unsealed_data, TestDataV1 { field: 123 }.into());
     }
@@ -569,9 +572,9 @@ mod tests {
 
         // Seal the data
         let (envelope, cek) =
-            DataEnvelope::seal_ref(&data, &DataEnvelopeNamespace::ExampleNamespace).unwrap();
+            DataEnvelope::seal_ref(&data, &WrappedSecretKeyNamespace::ExampleNamespace).unwrap();
         let unsealed_data: TestData = envelope
-            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace, &cek)
+            .unseal_ref(&WrappedSecretKeyNamespace::ExampleNamespace, &cek)
             .unwrap();
 
         // Verify that the unsealed data matches the original data
@@ -584,17 +587,17 @@ mod tests {
 
         // Test with ExampleNamespace
         let (envelope1, cek1) =
-            DataEnvelope::seal_ref(&data, &DataEnvelopeNamespace::ExampleNamespace).unwrap();
+            DataEnvelope::seal_ref(&data, &WrappedSecretKeyNamespace::ExampleNamespace).unwrap();
         let unsealed_data1: TestData = envelope1
-            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace, &cek1)
+            .unseal_ref(&WrappedSecretKeyNamespace::ExampleNamespace, &cek1)
             .unwrap();
         assert_eq!(unsealed_data1, data);
 
         // Test with ExampleNamespace2
         let (envelope2, cek2) =
-            DataEnvelope::seal_ref(&data, &DataEnvelopeNamespace::ExampleNamespace2).unwrap();
+            DataEnvelope::seal_ref(&data, &WrappedSecretKeyNamespace::ExampleNamespace2).unwrap();
         let unsealed_data2: TestData = envelope2
-            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace2, &cek2)
+            .unseal_ref(&WrappedSecretKeyNamespace::ExampleNamespace2, &cek2)
             .unwrap();
         assert_eq!(unsealed_data2, data);
     }
@@ -605,16 +608,16 @@ mod tests {
 
         // Seal with ExampleNamespace
         let (envelope, cek) =
-            DataEnvelope::seal_ref(&data, &DataEnvelopeNamespace::ExampleNamespace).unwrap();
+            DataEnvelope::seal_ref(&data, &WrappedSecretKeyNamespace::ExampleNamespace).unwrap();
 
         // Try to unseal with wrong namespace - should fail
         let result: Result<TestData, DataEnvelopeError> =
-            envelope.unseal_ref(&DataEnvelopeNamespace::ExampleNamespace2, &cek);
+            envelope.unseal_ref(&WrappedSecretKeyNamespace::ExampleNamespace2, &cek);
         assert!(matches!(result, Err(DataEnvelopeError::InvalidNamespace)));
 
         // Verify correct namespace still works
         let unsealed_data: TestData = envelope
-            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace, &cek)
+            .unseal_ref(&WrappedSecretKeyNamespace::ExampleNamespace, &cek)
             .unwrap();
         assert_eq!(unsealed_data, data);
     }
@@ -627,7 +630,7 @@ mod tests {
 
         // Seal with keystore using ExampleNamespace2
         let (envelope, cek) =
-            DataEnvelope::seal_ref(&data, &DataEnvelopeNamespace::ExampleNamespace2).unwrap();
+            DataEnvelope::seal_ref(&data, &WrappedSecretKeyNamespace::ExampleNamespace2).unwrap();
         ctx.set_symmetric_key_internal(
             crate::traits::tests::TestSymmKey::A(0),
             SymmetricCryptoKey::XChaCha20Poly1305Key(cek),
@@ -647,28 +650,28 @@ mod tests {
 
         // Seal two different pieces of data with different namespaces
         let (envelope1, cek1) =
-            DataEnvelope::seal_ref(&data1, &DataEnvelopeNamespace::ExampleNamespace).unwrap();
+            DataEnvelope::seal_ref(&data1, &WrappedSecretKeyNamespace::ExampleNamespace).unwrap();
         let (envelope2, cek2) =
-            DataEnvelope::seal_ref(&data2, &DataEnvelopeNamespace::ExampleNamespace2).unwrap();
+            DataEnvelope::seal_ref(&data2, &WrappedSecretKeyNamespace::ExampleNamespace2).unwrap();
 
         // Verify each envelope only opens with its correct namespace
         let unsealed1: TestData = envelope1
-            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace, &cek1)
+            .unseal_ref(&WrappedSecretKeyNamespace::ExampleNamespace, &cek1)
             .unwrap();
         assert_eq!(unsealed1, data1);
 
         let unsealed2: TestData = envelope2
-            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace2, &cek2)
+            .unseal_ref(&WrappedSecretKeyNamespace::ExampleNamespace2, &cek2)
             .unwrap();
         assert_eq!(unsealed2, data2);
 
         // Cross-unsealing should fail
         assert!(matches!(
-            envelope1.unseal_ref::<TestData>(&DataEnvelopeNamespace::ExampleNamespace2, &cek1),
+            envelope1.unseal_ref::<TestData>(&WrappedSecretKeyNamespace::ExampleNamespace2, &cek1),
             Err(DataEnvelopeError::InvalidNamespace)
         ));
         assert!(matches!(
-            envelope2.unseal_ref::<TestData>(&DataEnvelopeNamespace::ExampleNamespace, &cek2),
+            envelope2.unseal_ref::<TestData>(&WrappedSecretKeyNamespace::ExampleNamespace, &cek2),
             Err(DataEnvelopeError::InvalidNamespace)
         ));
     }

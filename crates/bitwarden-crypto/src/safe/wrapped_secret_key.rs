@@ -1,21 +1,3 @@
-//! Key protected key envelope is a cryptographic building block that allows sealing a
-//! cryptographic key with another symmetric key from the key store.
-//!
-//! Unlike the password-protected variant, this uses direct encryption with a symmetric key without
-//! any Key Derivation Function (KDF). This is suitable for scenarios where the wrapping key is
-//! already a strong cryptographic key.
-//!
-//! The envelope supports three types of keys:
-//! - Symmetric keys (XChaCha20Poly1305, AES-256-CBC-HMAC)
-//! - Private keys (RSA-2048 in PKCS8 DER format)
-//! - Signing keys (Ed25519 in COSE format)
-//!
-//! For the consumer, the output is an opaque blob that can be later unsealed with the same
-//! wrapping key.
-//!
-//! Internally, the envelope is a CoseEncrypt0 object. The content format in the protected header
-//! indicates which type of key is sealed.
-
 use std::str::FromStr;
 
 use bitwarden_encoding::{B64, FromStrVisitor};
@@ -27,29 +9,25 @@ use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
     AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError,
-    EncodedSymmetricKey, KeyIds, KeyStoreContext, Pkcs8PrivateKeyBytes, SigningKey,
-    SymmetricCryptoKey,
-    cose::CoseSerializable,
-    xchacha20,
+    EncString, EncodedSymmetricKey, KeyIds, KeyStoreContext, Pkcs8PrivateKeyBytes, SigningKey,
+    SymmetricCryptoKey, cose::CoseSerializable, xchacha20,
 };
 
-/// A key-protected key envelope can seal a cryptographic key and protect it with a symmetric key
-/// from the key store. This does not use a Key Derivation Function (KDF), and is suitable for
-/// scenarios where the wrapping key is already a strong cryptographic key.
-///
-/// The envelope supports three types of keys: symmetric keys, private keys, and signing keys.
-/// Each type has its own seal/unseal methods.
-///
-/// Internally, XChaCha20-Poly1305 is used to encrypt the key.
-pub struct KeyProtectedKeyEnvelope {
-    cose_encrypt0: coset::CoseEncrypt0,
+/// A wrapped symmetric key is a symmetric key, encrypted with another symmetric key.
+pub enum WrappedSymmetricKey {
+    /// For legacy compatibility, EncStrings can be read as wrapped symmetric keys.
+    /// A legacy wrapped symmetric key is simply the raw encrypted bytes. No matter what the wrapping
+    /// and wrapped key type is, the contained key id is not stored. The wrapping key id is stored for
+    /// COSE EncStrings
+    EncString(EncString),
+    CoseEncrypt0(coset::CoseEncrypt0),
 }
 
-impl KeyProtectedKeyEnvelope {
+impl WrappedSymmetricKey {
     /// Seals a symmetric key with another symmetric key from the key store.
     ///
     /// This should never fail, except for memory allocation errors.
-    pub fn seal_symmetric<Ids: KeyIds>(
+    pub fn wrap<Ids: KeyIds>(
         key_to_seal: Ids::Symmetric,
         wrapping_key: Ids::Symmetric,
         ctx: &KeyStoreContext<Ids>,
@@ -83,7 +61,7 @@ impl KeyProtectedKeyEnvelope {
 
     /// Unseals a symmetric key from the key-protected envelope and stores it in the key store
     /// context.
-    pub fn unseal_symmetric<Ids: KeyIds>(
+    pub fn unwrap<Ids: KeyIds>(
         &self,
         wrapping_key: Ids::Symmetric,
         ctx: &mut KeyStoreContext<Ids>,
@@ -113,141 +91,12 @@ impl KeyProtectedKeyEnvelope {
             }
         };
 
-        SymmetricCryptoKey::try_from(encoded_key).map_err(|_| {
-            KeyProtectedKeyEnvelopeError::WrongKeyType
-        })
+        SymmetricCryptoKey::try_from(encoded_key)
+            .map_err(|_| KeyProtectedKeyEnvelopeError::WrongKeyType)
     }
+}
 
-    /// Seals a private key with a symmetric key from the key store.
-    ///
-    /// This should never fail, except for memory allocation errors.
-    pub fn seal_private<Ids: KeyIds>(
-        key_to_seal: Ids::Asymmetric,
-        wrapping_key: Ids::Symmetric,
-        ctx: &KeyStoreContext<Ids>,
-    ) -> Result<Self, KeyProtectedKeyEnvelopeError> {
-        #[allow(deprecated)]
-        let key_to_seal_ref = ctx
-            .dangerous_get_asymmetric_key(key_to_seal)
-            .map_err(|_| KeyProtectedKeyEnvelopeError::KeyMissing)?;
-
-        #[allow(deprecated)]
-        let wrapping_key_ref = ctx
-            .dangerous_get_symmetric_key(wrapping_key)
-            .map_err(|_| KeyProtectedKeyEnvelopeError::KeyMissing)?;
-
-        Self::seal_private_ref(key_to_seal_ref, wrapping_key_ref)
-    }
-
-    fn seal_private_ref(
-        key_to_seal: &AsymmetricCryptoKey,
-        wrapping_key: &SymmetricCryptoKey,
-    ) -> Result<Self, KeyProtectedKeyEnvelopeError> {
-        let key_to_seal_bytes = key_to_seal
-            .to_der()
-            .map_err(|_| KeyProtectedKeyEnvelopeError::Parsing("Failed to encode private key".to_string()))?;
-
-        Self::seal_ref_internal(
-            key_to_seal_bytes.as_ref(),
-            ContentFormat::Pkcs8PrivateKey,
-            wrapping_key,
-        )
-    }
-
-    /// Unseals a private key from the key-protected envelope and stores it in the key store
-    /// context.
-    pub fn unseal_private<Ids: KeyIds>(
-        &self,
-        wrapping_key: Ids::Symmetric,
-        ctx: &mut KeyStoreContext<Ids>,
-    ) -> Result<Ids::Asymmetric, KeyProtectedKeyEnvelopeError> {
-        #[allow(deprecated)]
-        let wrapping_key_ref = ctx
-            .dangerous_get_symmetric_key(wrapping_key)
-            .map_err(|_| KeyProtectedKeyEnvelopeError::KeyMissing)?;
-
-        let key = self.unseal_private_ref(wrapping_key_ref)?;
-        ctx.add_local_asymmetric_key(key)
-            .map_err(|_| KeyProtectedKeyEnvelopeError::KeyStore)
-    }
-
-    fn unseal_private_ref(
-        &self,
-        wrapping_key: &SymmetricCryptoKey,
-    ) -> Result<AsymmetricCryptoKey, KeyProtectedKeyEnvelopeError> {
-        let (key_bytes, content_format) = self.unseal_ref_internal(wrapping_key)?;
-
-        if content_format != ContentFormat::Pkcs8PrivateKey {
-            return Err(KeyProtectedKeyEnvelopeError::WrongKeyType);
-        }
-
-        AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(key_bytes)).map_err(|_| {
-            KeyProtectedKeyEnvelopeError::Parsing("Failed to decode private key".to_string())
-        })
-    }
-
-    /// Seals a signing key with a symmetric key from the key store.
-    ///
-    /// This should never fail, except for memory allocation errors.
-    pub fn seal_signing<Ids: KeyIds>(
-        key_to_seal: Ids::Signing,
-        wrapping_key: Ids::Symmetric,
-        ctx: &KeyStoreContext<Ids>,
-    ) -> Result<Self, KeyProtectedKeyEnvelopeError> {
-        #[allow(deprecated)]
-        let key_to_seal_ref = ctx
-            .dangerous_get_signing_key(key_to_seal)
-            .map_err(|_| KeyProtectedKeyEnvelopeError::KeyMissing)?;
-
-        #[allow(deprecated)]
-        let wrapping_key_ref = ctx
-            .dangerous_get_symmetric_key(wrapping_key)
-            .map_err(|_| KeyProtectedKeyEnvelopeError::KeyMissing)?;
-
-        Self::seal_signing_ref(key_to_seal_ref, wrapping_key_ref)
-    }
-
-    fn seal_signing_ref(
-        key_to_seal: &SigningKey,
-        wrapping_key: &SymmetricCryptoKey,
-    ) -> Result<Self, KeyProtectedKeyEnvelopeError> {
-        let key_to_seal_bytes = key_to_seal.to_cose();
-
-        Self::seal_ref_internal(key_to_seal_bytes.as_ref(), ContentFormat::CoseKey, wrapping_key)
-    }
-
-    /// Unseals a signing key from the key-protected envelope and stores it in the key store
-    /// context.
-    pub fn unseal_signing<Ids: KeyIds>(
-        &self,
-        wrapping_key: Ids::Symmetric,
-        ctx: &mut KeyStoreContext<Ids>,
-    ) -> Result<Ids::Signing, KeyProtectedKeyEnvelopeError> {
-        #[allow(deprecated)]
-        let wrapping_key_ref = ctx
-            .dangerous_get_symmetric_key(wrapping_key)
-            .map_err(|_| KeyProtectedKeyEnvelopeError::KeyMissing)?;
-
-        let key = self.unseal_signing_ref(wrapping_key_ref)?;
-        ctx.add_local_signing_key(key)
-            .map_err(|_| KeyProtectedKeyEnvelopeError::KeyStore)
-    }
-
-    fn unseal_signing_ref(
-        &self,
-        wrapping_key: &SymmetricCryptoKey,
-    ) -> Result<SigningKey, KeyProtectedKeyEnvelopeError> {
-        let (key_bytes, content_format) = self.unseal_ref_internal(wrapping_key)?;
-
-        if content_format != ContentFormat::CoseKey {
-            return Err(KeyProtectedKeyEnvelopeError::WrongKeyType);
-        }
-
-        SigningKey::from_cose(&CoseKeyBytes::from(key_bytes)).map_err(|_| {
-            KeyProtectedKeyEnvelopeError::Parsing("Failed to decode signing key".to_string())
-        })
-    }
-
+impl<T> WrappedSymmetricKey<T> {
     /// Internal helper to seal a key with a wrapping key.
     fn seal_ref_internal(
         key_to_seal_bytes: &[u8],
@@ -260,7 +109,7 @@ impl KeyProtectedKeyEnvelope {
             _ => {
                 return Err(KeyProtectedKeyEnvelopeError::Parsing(
                     "Wrapping key must be XChaCha20Poly1305".to_string(),
-                ))
+                ));
             }
         };
 
@@ -282,7 +131,7 @@ impl KeyProtectedKeyEnvelope {
             .unprotected(HeaderBuilder::new().iv(nonce.to_vec()).build())
             .build();
 
-        Ok(KeyProtectedKeyEnvelope { cose_encrypt0 })
+        Ok(WrappedSymmetricKey { cose_encrypt0 })
     }
 
     /// Internal helper to unseal a key with a wrapping key.
@@ -296,7 +145,7 @@ impl KeyProtectedKeyEnvelope {
             _ => {
                 return Err(KeyProtectedKeyEnvelopeError::Parsing(
                     "Wrapping key must be XChaCha20Poly1305".to_string(),
-                ))
+                ));
             }
         };
 
@@ -333,8 +182,8 @@ impl KeyProtectedKeyEnvelope {
     }
 }
 
-impl From<&KeyProtectedKeyEnvelope> for Vec<u8> {
-    fn from(val: &KeyProtectedKeyEnvelope) -> Self {
+impl From<&WrappedSymmetricKey> for Vec<u8> {
+    fn from(val: &WrappedSymmetricKey) -> Self {
         val.cose_encrypt0
             .clone()
             .to_vec()
@@ -342,16 +191,16 @@ impl From<&KeyProtectedKeyEnvelope> for Vec<u8> {
     }
 }
 
-impl TryFrom<&Vec<u8>> for KeyProtectedKeyEnvelope {
+impl TryFrom<&Vec<u8>> for WrappedSymmetricKey {
     type Error = CoseError;
 
     fn try_from(value: &Vec<u8>) -> Result<Self, Self::Error> {
         let cose_encrypt0 = coset::CoseEncrypt0::from_slice(value)?;
-        Ok(KeyProtectedKeyEnvelope { cose_encrypt0 })
+        Ok(WrappedSymmetricKey { cose_encrypt0 })
     }
 }
 
-impl std::fmt::Debug for KeyProtectedKeyEnvelope {
+impl std::fmt::Debug for WrappedSymmetricKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("KeyProtectedKeyEnvelope")
             .field("cose_encrypt0", &self.cose_encrypt0)
@@ -359,7 +208,7 @@ impl std::fmt::Debug for KeyProtectedKeyEnvelope {
     }
 }
 
-impl FromStr for KeyProtectedKeyEnvelope {
+impl FromStr for WrappedSymmetricKey {
     type Err = KeyProtectedKeyEnvelopeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -376,14 +225,14 @@ impl FromStr for KeyProtectedKeyEnvelope {
     }
 }
 
-impl From<KeyProtectedKeyEnvelope> for String {
-    fn from(val: KeyProtectedKeyEnvelope) -> Self {
+impl From<WrappedSymmetricKey> for String {
+    fn from(val: WrappedSymmetricKey) -> Self {
         let serialized: Vec<u8> = (&val).into();
         B64::from(serialized).to_string()
     }
 }
 
-impl<'de> Deserialize<'de> for KeyProtectedKeyEnvelope {
+impl<'de> Deserialize<'de> for WrappedSymmetricKey {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -392,7 +241,7 @@ impl<'de> Deserialize<'de> for KeyProtectedKeyEnvelope {
     }
 }
 
-impl Serialize for KeyProtectedKeyEnvelope {
+impl Serialize for WrappedSymmetricKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -429,30 +278,27 @@ export type KeyProtectedKeyEnvelope = Tagged<string, "KeyProtectedKeyEnvelope">;
 "#;
 
 #[cfg(feature = "wasm")]
-impl wasm_bindgen::describe::WasmDescribe for KeyProtectedKeyEnvelope {
+impl wasm_bindgen::describe::WasmDescribe for WrappedSymmetricKey {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();
     }
 }
 
 #[cfg(feature = "wasm")]
-impl FromWasmAbi for KeyProtectedKeyEnvelope {
+impl FromWasmAbi for WrappedSymmetricKey {
     type Abi = <String as FromWasmAbi>::Abi;
 
     unsafe fn from_abi(abi: Self::Abi) -> Self {
         use wasm_bindgen::UnwrapThrowExt;
         let string = unsafe { String::from_abi(abi) };
-        KeyProtectedKeyEnvelope::from_str(&string).unwrap_throw()
+        WrappedSymmetricKey::from_str(&string).unwrap_throw()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        KeyStore, SignatureAlgorithm, SymmetricKeyAlgorithm,
-        traits::tests::TestIds,
-    };
+    use crate::{KeyStore, SignatureAlgorithm, SymmetricKeyAlgorithm, traits::tests::TestIds};
 
     #[test]
     fn test_seal_unseal_symmetric_cosekey() {
@@ -463,12 +309,11 @@ mod tests {
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         // Seal the key
-        let envelope =
-            KeyProtectedKeyEnvelope::seal_symmetric(key_to_seal, wrapping_key, &ctx).unwrap();
+        let envelope = WrappedSymmetricKey::wrap(key_to_seal, wrapping_key, &ctx).unwrap();
 
         // Serialize and deserialize
         let serialized: Vec<u8> = (&envelope).into();
-        let deserialized = KeyProtectedKeyEnvelope::try_from(&serialized).unwrap();
+        let deserialized = WrappedSymmetricKey::try_from(&serialized).unwrap();
 
         // Unseal the key
         let unsealed_key = deserialized
@@ -498,8 +343,7 @@ mod tests {
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         // Seal the key
-        let envelope =
-            KeyProtectedKeyEnvelope::seal_symmetric(key_to_seal, wrapping_key, &ctx).unwrap();
+        let envelope = WrappedSymmetricKey::wrap(key_to_seal, wrapping_key, &ctx).unwrap();
 
         // Unseal the key
         let unsealed_key = envelope.unseal_symmetric(wrapping_key, &mut ctx).unwrap();
@@ -527,8 +371,7 @@ mod tests {
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         // Seal the key
-        let envelope =
-            KeyProtectedKeyEnvelope::seal_private(key_to_seal, wrapping_key, &ctx).unwrap();
+        let envelope = WrappedSymmetricKey::seal_private(key_to_seal, wrapping_key, &ctx).unwrap();
 
         // Unseal the key
         let unsealed_key = envelope.unseal_private(wrapping_key, &mut ctx).unwrap();
@@ -559,8 +402,7 @@ mod tests {
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         // Seal the key
-        let envelope =
-            KeyProtectedKeyEnvelope::seal_signing(key_to_seal, wrapping_key, &ctx).unwrap();
+        let envelope = WrappedSymmetricKey::seal_signing(key_to_seal, wrapping_key, &ctx).unwrap();
 
         // Unseal the key
         let unsealed_key = envelope.unseal_signing(wrapping_key, &mut ctx).unwrap();
@@ -589,8 +431,7 @@ mod tests {
         let wrong_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         // Seal the key
-        let envelope =
-            KeyProtectedKeyEnvelope::seal_symmetric(key_to_seal, wrapping_key, &ctx).unwrap();
+        let envelope = WrappedSymmetricKey::wrap(key_to_seal, wrapping_key, &ctx).unwrap();
 
         // Attempt to unseal with the wrong key
         assert!(matches!(
@@ -608,8 +449,7 @@ mod tests {
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         // Seal a symmetric key
-        let envelope =
-            KeyProtectedKeyEnvelope::seal_symmetric(key_to_seal, wrapping_key, &ctx).unwrap();
+        let envelope = WrappedSymmetricKey::wrap(key_to_seal, wrapping_key, &ctx).unwrap();
 
         // Attempt to unseal as private key
         assert!(matches!(
@@ -627,8 +467,7 @@ mod tests {
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         // Seal a private key
-        let envelope =
-            KeyProtectedKeyEnvelope::seal_private(key_to_seal, wrapping_key, &ctx).unwrap();
+        let envelope = WrappedSymmetricKey::seal_private(key_to_seal, wrapping_key, &ctx).unwrap();
 
         // Attempt to unseal as symmetric key
         assert!(matches!(
@@ -646,8 +485,7 @@ mod tests {
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         // Seal a signing key
-        let envelope =
-            KeyProtectedKeyEnvelope::seal_signing(key_to_seal, wrapping_key, &ctx).unwrap();
+        let envelope = WrappedSymmetricKey::seal_signing(key_to_seal, wrapping_key, &ctx).unwrap();
 
         // Attempt to unseal as symmetric key
         assert!(matches!(
@@ -665,14 +503,13 @@ mod tests {
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         // Seal the key
-        let envelope =
-            KeyProtectedKeyEnvelope::seal_symmetric(key_to_seal, wrapping_key, &ctx).unwrap();
+        let envelope = WrappedSymmetricKey::wrap(key_to_seal, wrapping_key, &ctx).unwrap();
 
         // Serialize to string
         let serialized: String = envelope.into();
 
         // Deserialize from string
-        let deserialized = KeyProtectedKeyEnvelope::from_str(&serialized).unwrap();
+        let deserialized = WrappedSymmetricKey::from_str(&serialized).unwrap();
 
         // Unseal and verify
         let unsealed_key = deserialized
