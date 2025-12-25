@@ -41,6 +41,7 @@ wasm = [
 async-trait = { workspace = true }
 bitwarden-api-api = { workspace = true }
 bitwarden-api-identity = { workspace = true }
+bitwarden-api-key-connector = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
