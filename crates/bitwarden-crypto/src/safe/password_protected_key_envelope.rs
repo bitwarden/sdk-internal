@@ -26,9 +26,8 @@ use thiserror::Error;
 use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
-    BitwardenLegacyKeyBytes, BitwardenLegacyKeyBytes, ContentFormat, ContentFormat, CoseKeyBytes,
-    CoseKeyBytes, CryptoError, EncodedSymmetricKey, EncodedSymmetricKey, KEY_ID_SIZE, KeyIds,
-    KeyIds, KeyStoreContext, SymmetricCryptoKey,
+    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, EncodedSymmetricKey,
+    KEY_ID_SIZE, KeyIds, KeyStoreContext, SymmetricCryptoKey,
     cose::{
         ALG_ARGON2ID13, ARGON2_ITERATIONS, ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
         CONTAINED_KEY_ID, CoseExtractError, extract_bytes, extract_integer,
