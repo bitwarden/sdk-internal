@@ -687,8 +687,7 @@ mod tests {
             .dangerous_get_symmetric_key(test_key)
             .unwrap()
             .key_id()
-            .unwrap()
-            .clone();
+            .unwrap();
 
         let password = "test_password";
 
