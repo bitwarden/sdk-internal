@@ -28,6 +28,7 @@ pub struct KeyFingerprint(pub(crate) [u8; FINGERPRINT_LENGTH]);
 /// public-key algorithm is not supported. A new public key algorithm may choose a new
 /// implementation, with different canonical representation and/or hash function.
 pub trait DeriveFingerprint {
+    /// Derives the fingerprint for the key
     fn fingerprint(&self) -> KeyFingerprint;
 }
 

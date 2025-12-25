@@ -31,9 +31,9 @@ use tracing::instrument;
 use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
-    AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError,
-    EncodedSymmetricKey, RawPrivateKey, RawPublicKey, SignedPublicKey, SigningKey,
-    SigningNamespace, SymmetricCryptoKey, VerifyingKey,
+    AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey,
+    RawPrivateKey, RawPublicKey, SignedPublicKey, SigningKey, SigningNamespace, SymmetricCryptoKey,
+    VerifyingKey,
     cose::{
         CONTENT_TYPE_BITWARDEN_LEGACY_KEY, IDENTITY_SEALED_ENVELOPE_RECIPIENT_FINGERPRINT,
         IDENTITY_SEALED_ENVELOPE_SENDER_FINGERPRINT, XCHACHA20_POLY1305,
@@ -53,8 +53,7 @@ pub struct IdentitySealedKeyEnvelope {
 /// as consumers cannot handle them in a meaningful way. Instead, these are meant for adding debug information via the instrument macro.
 #[derive(Debug, Error)]
 #[bitwarden_error(flat)]
-#[expect(unused)]
-enum IdentitySealedKeyEnvelopeError {
+pub enum IdentitySealedKeyEnvelopeError {
     #[error("Signature verification failed")]
     SignatureVerificationFailed,
     #[error("Recipient public key verification failed")]
@@ -73,6 +72,12 @@ enum IdentitySealedKeyEnvelopeError {
     MissingPayload,
     #[error("Fingerprint mismatch")]
     FingerprintMismatch,
+    #[error("Unsupported content format")]
+    UnsupportedContentFormat,
+    #[error("Unsupported recipient key encryption algorithm")]
+    UnsupportedRecipientKeyEncryptionAlgorithm,
+    #[error("Invalid nonce size")]
+    InvalidNonceSize,
 }
 
 impl IdentitySealedKeyEnvelope {
@@ -80,7 +85,8 @@ impl IdentitySealedKeyEnvelope {
     /// signature key pair, and the recipients identity verifying key, and a corresponding signed
     /// public key for encryption.
     #[instrument(level = "error", skip_all, err)]
-    fn seal_ref(
+    #[allow(unused)]
+    pub fn seal_ref(
         sender_signing_key: &SigningKey,
         recipient_verifying_key: &VerifyingKey,
         recipient_public_key: &SignedPublicKey,
@@ -141,9 +147,7 @@ impl IdentitySealedKeyEnvelope {
                     ContentFormat::CoseKey => {
                         hdr = hdr.content_format(CoapContentFormat::CoseKey);
                     }
-                    _ => unreachable!(
-                        "Only BitwardenLegacyKey and CoseKey are supported content formats"
-                    ),
+                    _ => return Err(IdentitySealedKeyEnvelopeError::UnsupportedContentFormat),
                 }
                 let mut hdr = hdr.build();
                 hdr.alg = Some(cek_alg.clone());
@@ -165,14 +169,15 @@ impl IdentitySealedKeyEnvelope {
                 |data, aad| -> Result<Vec<u8>, IdentitySealedKeyEnvelopeError> {
                     match cek_alg {
                         coset::Algorithm::PrivateUse(XCHACHA20_POLY1305) => {
-                            let cek: [u8; xchacha20::KEY_SIZE] =
-                                cek.try_into().expect("CEK must be 32 bytes");
+                            let cek: [u8; xchacha20::KEY_SIZE] = cek
+                                .try_into()
+                                .map_err(|_| IdentitySealedKeyEnvelopeError::InvalidKeyData)?;
                             let ciphertext =
                                 crate::xchacha20::encrypt_xchacha20_poly1305(&cek, data, aad);
                             nonce = ciphertext.nonce().to_vec();
                             Ok(ciphertext.encrypted_bytes().to_vec())
                         }
-                        _ => unreachable!("CEK algorithm is always XChaCha20Poly1305"),
+                        _ => Err(IdentitySealedKeyEnvelopeError::UnsupportedContentFormat),
                     }
                 },
             )?
@@ -207,7 +212,8 @@ impl IdentitySealedKeyEnvelope {
     /// To unseal correctly, this requires the sender's verifying key, the recipient's verifying key to match the key pairs used during sealing, and the
     /// private key to be the private key corresponding to the signed public key used during sealing.
     #[instrument(level = "error", skip_all, err)]
-    fn unseal_ref(
+    #[allow(unused)]
+    pub fn unseal_ref(
         &self,
         sender_verifying_key: &VerifyingKey,
         recipient_verifying_key: &VerifyingKey,
@@ -287,7 +293,11 @@ impl IdentitySealedKeyEnvelope {
                         .map_err(|_| IdentitySealedKeyEnvelopeError::RsaOperationFailed)?,
                 }
             }
-            _ => panic!("Unsupported recipient key encryption algorithm"),
+            _ => {
+                return Err(
+                    IdentitySealedKeyEnvelopeError::UnsupportedRecipientKeyEncryptionAlgorithm,
+                );
+            }
         };
 
         // Get the nonce from the unprotected header
@@ -295,21 +305,26 @@ impl IdentitySealedKeyEnvelope {
 
         // Get the ciphertext
         let decrypted = cose_encrypt
-            .decrypt(&[], |data, aad| {
-                let cek = {
-                    let mut cek_arr = [0u8; xchacha20::KEY_SIZE];
-                    cek_arr.copy_from_slice(&cek);
-                    cek_arr
-                };
-                let nonce: [u8; xchacha20::NONCE_SIZE] = nonce
-                    .try_into()
-                    .expect("Nonce must be exactly NONCE_SIZE bytes");
-
-                crate::xchacha20::decrypt_xchacha20_poly1305(&nonce, &cek, data, aad)
+            .decrypt(&[], |data, aad| match cek_alg {
+                coset::Algorithm::PrivateUse(XCHACHA20_POLY1305) => {
+                    let cek = {
+                        let mut cek_arr = [0u8; xchacha20::KEY_SIZE];
+                        cek_arr.copy_from_slice(&cek);
+                        cek_arr
+                    };
+                    let nonce: [u8; xchacha20::NONCE_SIZE] = match nonce.try_into() {
+                        Ok(n) => n,
+                        Err(_) => return Err(IdentitySealedKeyEnvelopeError::InvalidNonceSize),
+                    };
+                    crate::xchacha20::decrypt_xchacha20_poly1305(&nonce, &cek, data, aad)
+                        .map_err(|_| IdentitySealedKeyEnvelopeError::DecryptionFailed)
+                }
+                _ => return Err(IdentitySealedKeyEnvelopeError::UnsupportedContentFormat),
             })
             .map_err(|_| IdentitySealedKeyEnvelopeError::DecryptionFailed)?;
 
-        let content_format = ContentFormat::try_from(&cose_encrypt.protected.header).unwrap();
+        let content_format = ContentFormat::try_from(&cose_encrypt.protected.header)
+            .map_err(|_| IdentitySealedKeyEnvelopeError::UnsupportedContentFormat)?;
         let symmetric_key = match content_format {
             ContentFormat::BitwardenLegacyKey => EncodedSymmetricKey::BitwardenLegacyKey(
                 BitwardenLegacyKeyBytes::try_from(decrypted)
@@ -656,7 +671,7 @@ mod tests {
 
         // Verify roundtrip works
         let unsealed_key = envelope
-            .unseal(
+            .unseal_ref(
                 &sender_verifying_key,
                 &recipient_verifying_key,
                 &recipient_private_key,
