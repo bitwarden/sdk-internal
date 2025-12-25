@@ -5,7 +5,10 @@
 //! authentication.
 
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, DeriveFingerprint, PublicKeyEncryptionAlgorithm, SerializedMessage, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey, SignedPublicKeyMessage, SigningKey, SigningNamespace, SymmetricCryptoKey, VerifyingKey, safe::IdentitySealedKeyEnvelope
+    AsymmetricCryptoKey, DeriveFingerprint, PublicKeyEncryptionAlgorithm, SerializedMessage,
+    Signature, SignatureAlgorithm, SignedObject, SignedPublicKey, SignedPublicKeyMessage,
+    SigningKey, SigningNamespace, SymmetricCryptoKey, VerifyingKey,
+    safe::IdentitySealedKeyEnvelope,
 };
 use serde::{Deserialize, Serialize};
 
@@ -74,16 +77,12 @@ fn setup_organization() -> OrganizationIdentity {
 }
 
 // placeholder for out-of-band fingerprint verification
-fn prompt_user_to_verify_fingerprint(
-    _org: &OrganizationIdentity,
-) -> bool {
+fn prompt_user_to_verify_fingerprint(_org: &OrganizationIdentity) -> bool {
     return true;
 }
 
 // placeholder for out-of-band fingerprint verification
-fn prompt_organization_to_verify_fingerprint(
-    _member: &UserIdentity,
-) -> bool {
+fn prompt_organization_to_verify_fingerprint(_member: &UserIdentity) -> bool {
     return true;
 }
 
@@ -111,7 +110,10 @@ fn user_accepts_invite(
 
     let (signature, serialized_message) = member
         .signing_key
-        .sign_detached(&membership_agreement, &SigningNamespace::MembershipAgreement)
+        .sign_detached(
+            &membership_agreement,
+            &SigningNamespace::MembershipAgreement,
+        )
         .expect("Failed to sign membership agreement");
     (signature, serialized_message, signed_claim)
 }
@@ -152,7 +154,7 @@ fn admin_confirms_join(
             &SigningNamespace::MembershipAgreement,
         )
         .expect("Failed to counter-sign membership agreement");
-    let envelope = IdentitySealedKeyEnvelope::seal(
+    let envelope = IdentitySealedKeyEnvelope::seal_ref(
         &org.signing_key,
         &member.verifying_key,
         &member.signed_public_key,
@@ -191,7 +193,7 @@ fn load_shared_vault_key(
 
     // Unseal the organization key
     let key = envelope
-        .unseal(
+        .unseal_ref(
             &org.verifying_key,
             &member.verifying_key,
             &member.private_key,
@@ -209,14 +211,16 @@ fn main() {
     if !prompt_user_to_verify_fingerprint(&org) {
         panic!("User did not verify organization fingerprint");
     }
-    let (alice_signature, serialized_message, _signed_org_claim) = user_accepts_invite(&org, &alice);
+    let (alice_signature, serialized_message, _signed_org_claim) =
+        user_accepts_invite(&org, &alice);
     // upload: alice_signature, serialized_message, _signed_org_claim
 
     // Step 3: Admin confirms alice
     if !prompt_organization_to_verify_fingerprint(&alice) {
         panic!("Organization did not verify member fingerprint");
     }
-    let (admin_signature, envelope, _signed_member_claim) = admin_confirms_join(&alice, &org, &alice_signature, &serialized_message);
+    let (admin_signature, envelope, _signed_member_claim) =
+        admin_confirms_join(&alice, &org, &alice_signature, &serialized_message);
     // upload: admin_signature, envelope, _signed_member_claim
 
     // Alice loads her vault, including the organization key
@@ -229,8 +233,7 @@ fn main() {
         &envelope,
     );
     assert_eq!(
-        org.symmetric_key,
-        loaded_vault_key,
+        org.symmetric_key, loaded_vault_key,
         "Loaded key does not match original organization key"
     );
 }

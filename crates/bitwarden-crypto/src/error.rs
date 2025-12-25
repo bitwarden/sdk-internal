@@ -75,6 +75,12 @@ pub enum CryptoError {
     Encoding(#[from] EncodingError),
 }
 
+impl From<CryptoError> for () {
+    fn from(_: CryptoError) -> Self {
+        ()
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum UnsupportedOperationError {
     #[error("Encryption is not implemented for key")]
