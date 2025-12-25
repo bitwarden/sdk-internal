@@ -231,10 +231,7 @@ impl PasswordProtectedKeyEnvelope {
 
     /// Get the key ID of the contained key, if the key ID is stored on the envelope headers.
     /// Only COSE keys have a key ID, legacy keys do not.
-    #[allow(dead_code)]
-    pub(crate) fn contained_key_id(
-        &self,
-    ) -> Result<Option<KeyId>, PasswordProtectedKeyEnvelopeError> {
+    pub fn contained_key_id(&self) -> Result<Option<KeyId>, PasswordProtectedKeyEnvelopeError> {
         let key_id_bytes = extract_bytes(
             &self.cose_encrypt.protected.header,
             CONTAINED_KEY_ID,
