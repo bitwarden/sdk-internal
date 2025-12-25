@@ -26,8 +26,9 @@ use thiserror::Error;
 use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
-    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KEY_ID_SIZE, KeyIds,
-    KeyStoreContext, SymmetricCryptoKey,
+    BitwardenLegacyKeyBytes, BitwardenLegacyKeyBytes, ContentFormat, ContentFormat, CoseKeyBytes,
+    CoseKeyBytes, CryptoError, EncodedSymmetricKey, EncodedSymmetricKey, KEY_ID_SIZE, KeyIds,
+    KeyIds, KeyStoreContext, SymmetricCryptoKey,
     cose::{
         ALG_ARGON2ID13, ARGON2_ITERATIONS, ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
         CONTAINED_KEY_ID, CoseExtractError, extract_bytes, extract_integer,
@@ -192,9 +193,11 @@ impl PasswordProtectedKeyEnvelope {
 
         let key_bytes = self
             .cose_encrypt
-            .decrypt(&[], |data, aad| {
-                xchacha20::decrypt_xchacha20_poly1305(&nonce, &envelope_key, data, aad)
-            })
+            .decrypt_ciphertext(
+                &[],
+                || CryptoError::MissingField("ciphertext"),
+                |data, aad| xchacha20::decrypt_xchacha20_poly1305(&nonce, &envelope_key, data, aad),
+            )
             // If decryption fails, the envelope-key is incorrect and thus the password is incorrect
             // since the KDF parameters & salt are guaranteed to be correct
             .map_err(|_| PasswordProtectedKeyEnvelopeError::WrongPassword)?;
