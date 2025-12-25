@@ -241,7 +241,7 @@ impl PasswordProtectedKeyEnvelope {
             "key id",
         );
 
-        if let Some(bytes) = key_id_bytes.ok() {
+        if let Ok(bytes) = key_id_bytes {
             let key_id_array: [u8; 16] = bytes.as_slice().try_into().map_err(|_| {
                 PasswordProtectedKeyEnvelopeError::Parsing("Invalid key id".to_string())
             })?;
@@ -684,7 +684,7 @@ mod tests {
     fn test_key_id() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
-        let test_key = ctx.make_cose_symmetric_key(TestSymmKey::A(0)).unwrap();
+        let test_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         #[allow(deprecated)]
         let key_id = ctx
             .dangerous_get_symmetric_key(test_key)
