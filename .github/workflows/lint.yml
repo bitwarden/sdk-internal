@@ -116,6 +116,9 @@ jobs:
       - name: NPM setup
         run: npm ci
 
+      - name: Lint unowned dependencies
+        run: npm run lint:dep-ownership
+
       - name: Node Lint
         run: npm run lint
 

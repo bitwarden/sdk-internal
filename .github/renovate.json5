@@ -129,7 +129,8 @@
         "husky",
         "json5",
         "lint-staged",
-        "prettier"
+        "prettier",
+        "tsx"
       ],
       "commitMessagePrefix": "[deps] Platform (npm):",
       "reviewers": ["team:team-platform-dev"]
