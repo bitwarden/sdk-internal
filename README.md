@@ -64,15 +64,17 @@ are:
 ## Server API Bindings
 
 We auto-generate the server bindings using
-[openapi-generator](https://github.com/OpenAPITools/openapi-generator), which creates Rust bindings from the server OpenAPI specifications. These bindings are [regularly
-updated](https://github.com/bitwarden/sdk-internal/actions/workflows/update-api-bindings.yml) to ensure they stay in sync with the server.
+[openapi-generator](https://github.com/OpenAPITools/openapi-generator), which creates Rust bindings
+from the server OpenAPI specifications. These bindings are
+[regularly updated](https://github.com/bitwarden/sdk-internal/actions/workflows/update-api-bindings.yml)
+to ensure they stay in sync with the server.
 
 The bindings are exposed as multiple crates, one for each backend service:
 
-- [`bitwarden-api-api`](./crates//bitwarden-api-api/README.md): For the `Api` service that contains most of
-  the server side functionality.
-- [`bitwarden-api-identity`](./crates/bitwarden-api-identity/README.md): For the `Identity` service that
-  is used for authentication.
+- [`bitwarden-api-api`](./crates//bitwarden-api-api/README.md): For the `Api` service that contains
+  most of the server side functionality.
+- [`bitwarden-api-identity`](./crates/bitwarden-api-identity/README.md): For the `Identity` service
+  that is used for authentication.
 
 When performing any API calls the goal is to use the generated bindings as much as possible. This
 ensures any changes to the server are accurately reflected in the SDK. The generated bindings are
@@ -147,11 +149,17 @@ When the API exposed by the server changes, new bindings will need to be generat
 change for consumption in the SDK. This includes adding new fields to server request / response
 models, removing fields from models, or changing types of models.
 
-A GitHub workflow exists to [update the API bindings](https://github.com/bitwarden/sdk-internal/actions/workflows/update-api-bindings.yml). This workflow should always be used to merge any binding changes to `main`, to ensure that there are not conflicts with the auto-generated bindings in the future. Binding changes should **not** be included as a part of the PR to consume them.
+A GitHub workflow exists to
+[update the API bindings](https://github.com/bitwarden/sdk-internal/actions/workflows/update-api-bindings.yml).
+This workflow should always be used to merge any binding changes to `main`, to ensure that there are
+not conflicts with the auto-generated bindings in the future. Binding changes should **not** be
+included as a part of the PR to consume them.
 
 There are two ways to run the workflow:
 
-1. Manually run the `Update API Bindings` [workflow](https://github.com/bitwarden/sdk-internal/actions/workflows/update-api-bindings.yml) in the `sdk-internal` repo.
+1. Manually run the `Update API Bindings`
+   [workflow](https://github.com/bitwarden/sdk-internal/actions/workflows/update-api-bindings.yml)
+   in the `sdk-internal` repo.
 2. Wait for an automatic binding update to run, which is scheduled every 2 weeks.
 
 Both of these will generate a PR that will require approval from any teams whose owned code is
@@ -159,13 +167,14 @@ affected by the binding updates.
 
 #### Local binding updates
 
-> [!IMPORTANT] Use the [workflow](#updating-bindings-after-a-server-api-change) to make any merged binding changes.
-> Running the scripts below can be helpful during local development, but please ensure that any
-> changes to the bindings in `bitwarden-api-api` and `bitwarden-api-identity` are **not** checked
-> into any pull request.
+> [!IMPORTANT] Use the [workflow](#updating-bindings-after-a-server-api-change) to make any merged
+> binding changes. Running the scripts below can be helpful during local development, but please
+> ensure that any changes to the bindings in `bitwarden-api-api` and `bitwarden-api-identity` are
+> **not** checked into any pull request.
 
-In order to update the bindings locally, we first need to build the internal Swagger documentation. This code should not be directly modified. Instead use the
-instructions below to generate Swagger documents and use these to generate the OpenApi bindings.
+In order to update the bindings locally, we first need to build the internal Swagger documentation.
+This code should not be directly modified. Instead use the instructions below to generate Swagger
+documents and use these to generate the OpenApi bindings.
 
 #### Swagger generation
 
@@ -178,8 +187,8 @@ pwsh ./dev/generate_openapi_files.ps1
 
 #### OpenApi Generator
 
-To generate a new version of the bindings, run the following script from the root of the SDK project.
-This requires a Java Runtime Environment, and also assumes the repositories `server` and
+To generate a new version of the bindings, run the following script from the root of the SDK
+project. This requires a Java Runtime Environment, and also assumes the repositories `server` and
 `sdk-internal` have the same parent directory.
 
 ```bash
