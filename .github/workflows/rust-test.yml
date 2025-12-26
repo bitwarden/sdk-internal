@@ -90,6 +90,17 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Free runner disk space
+        run: |
+          echo "Disk space before cleanup:"
+          df -h
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/share/swift
+          sudo rm -rf /usr/local/.ghcup
+          echo "Disk space after cleanup:"
+          df -h
+
       - name: Install rust
         uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e # stable
         with:
@@ -100,7 +111,7 @@ jobs:
         uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
 
       - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov --version 0.5.38 --locked
+        run: cargo install --version 0.5.38 --locked
 
       - name: Generate coverage
         run: cargo llvm-cov --all-features --lcov --output-path lcov.info --ignore-filename-regex "crates/bitwarden-api-"
