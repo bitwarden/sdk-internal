@@ -111,7 +111,7 @@ jobs:
         uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
 
       - name: Install cargo-llvm-cov
-        run: cargo install --version 0.5.38 --locked
+        run: cargo install cargo-llvm-cov --version 0.5.38 --locked
 
       - name: Generate coverage
         run: cargo llvm-cov --all-features --lcov --output-path lcov.info --ignore-filename-regex "crates/bitwarden-api-"
