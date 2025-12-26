@@ -5,8 +5,9 @@ and shared infrastructure that feature crates extend via extension traits. For a
 the SDK architecture, see the
 [SDK Architecture](https://contributing.bitwarden.com/architecture/sdk/) documentation.
 
-> [!WARNING] Do not add business logic or feature-specific functionality to this crate. Use feature
-> crates instead.
+<div class="warning">
+Do not add business logic or feature-specific functionality to this crate. Use feature crates instead.
+</div>
 
 ## `Client` structure
 
@@ -101,3 +102,15 @@ let response = api_config.api_client.ciphers_api().get_all().await?;
 # Ok(())
 # }
 ```
+
+<div class="warning">
+Need to update bindings for an API request? See [documentation](../../README.md#api-bindings) for instructions.
+</div>
+
+## Features
+
+- `internal` - Internal unstable APIs that should only be consumed by internal Bitwarden clients.
+- `no-memory-hardening` - Disables `bitwarden-crypto` memory hardening.
+- `secrets` - Secrets Manager specific functionality.
+- `uniffi` - Mobile bindings.
+- `wasm` - WebAssembly bindings.
