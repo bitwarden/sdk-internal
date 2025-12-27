@@ -125,7 +125,6 @@
         "@iarna/toml",
         "@openapitools/openapi-generator-cli",
         "@types/node",
-        "glob",
         "husky",
         "json5",
         "lint-staged",
