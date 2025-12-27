@@ -15,7 +15,7 @@
     },
   ],
   packageRules: [
-    // ------------------------- Pull request groups -------------------------
+    // ========================= Pull request groups =========================
     {
       groupName: "rust",
       matchManagers: ["custom.regex", "dockerfile"],
@@ -52,7 +52,7 @@
       matchPackageNames: ["/wasm-bindgen*/"],
     },
 
-    // ------------------------- Team review assignment -------------------------
+    // ========================= Team review assignment =========================
     {
       matchPackageNames: ["passkey", "passkey-client"],
       commitMessagePrefix: "[deps] Autofill:",
@@ -123,6 +123,22 @@
       ],
       commitMessagePrefix: "[deps] Platform (npm):",
       reviewers: ["team:team-platform-dev"],
+    },
+    {
+      matchUpdateTypes: ["lockFileMaintenance"],
+      description: "Platform owns lock file maintenance",
+      commitMessagePrefix: "[deps] Platform:",
+      reviewers: ["team:team-platform-dev"],
+    },
+
+    // ========================= Dependency Dashboard Approval =========================
+    {
+      // We are sending all minor updates to the dependency dashboard so we can focus
+      // on major and lockFile maintenance. If any teams want to override this with their
+      // dependencies a specific rule can be added after this one, as the last rule
+      // takes precedence.
+      matchUpdateTypes: ["minor"],
+      dependencyDashboardApproval: true,
     },
   ],
   ignoreDeps: ["dotnet-sdk"],
