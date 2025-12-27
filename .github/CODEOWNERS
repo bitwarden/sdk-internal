@@ -48,3 +48,10 @@ crates/bw/src/vault/** @bitwarden/team-vault-dev @bitwarden/team-sdk-sme
 **/*.dockerignore @bitwarden/team-appsec @bitwarden/dept-bre
 **/entrypoint.sh @bitwarden/team-appsec @bitwarden/dept-bre
 **/docker-compose.yml @bitwarden/team-appsec @bitwarden/dept-bre
+
+## No ownership for dependency management files to allow Renovate to manage updates
+Cargo.lock
+Cargo.toml
+package-lock.json
+package.json
+
