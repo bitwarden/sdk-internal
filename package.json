@@ -21,14 +21,14 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@iarna/toml": "^2.2.5",
+    "@iarna/toml": "2.2.5",
     "@openapitools/openapi-generator-cli": "2.23.1",
-    "@types/node": "^25.0.3",
-    "glob": "^13.0.0",
+    "@types/node": "25.0.3",
+    "glob": "13.0.0",
     "husky": "9.1.7",
-    "json5": "^2.2.3",
+    "json5": "2.2.3",
     "lint-staged": "16.2.7",
-    "prettier": "3.6.2",
-    "tsx": "^4.21.0"
+    "prettier": "3.7.4",
+    "tsx": "4.21.0"
   }
 }

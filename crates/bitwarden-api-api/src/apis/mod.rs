@@ -144,7 +144,6 @@ pub mod organization_reports_api;
 pub mod organization_sponsorships_api;
 pub mod organization_users_api;
 pub mod organizations_api;
-pub mod phishing_domains_api;
 pub mod plans_api;
 pub mod policies_api;
 pub mod projects_api;
@@ -226,7 +225,6 @@ struct ApiClientReal {
     organization_sponsorships_api: organization_sponsorships_api::OrganizationSponsorshipsApiClient,
     organization_users_api: organization_users_api::OrganizationUsersApiClient,
     organizations_api: organizations_api::OrganizationsApiClient,
-    phishing_domains_api: phishing_domains_api::PhishingDomainsApiClient,
     plans_api: plans_api::PlansApiClient,
     policies_api: policies_api::PoliciesApiClient,
     projects_api: projects_api::ProjectsApiClient,
@@ -304,7 +302,6 @@ pub struct ApiClientMock {
         organization_sponsorships_api::MockOrganizationSponsorshipsApi,
     pub organization_users_api: organization_users_api::MockOrganizationUsersApi,
     pub organizations_api: organizations_api::MockOrganizationsApi,
-    pub phishing_domains_api: phishing_domains_api::MockPhishingDomainsApi,
     pub plans_api: plans_api::MockPlansApi,
     pub policies_api: policies_api::MockPoliciesApi,
     pub projects_api: projects_api::MockProjectsApi,
@@ -379,7 +376,6 @@ impl ApiClient {
             organization_sponsorships_api: organization_sponsorships_api::OrganizationSponsorshipsApiClient::new(configuration.clone()),
             organization_users_api: organization_users_api::OrganizationUsersApiClient::new(configuration.clone()),
             organizations_api: organizations_api::OrganizationsApiClient::new(configuration.clone()),
-            phishing_domains_api: phishing_domains_api::PhishingDomainsApiClient::new(configuration.clone()),
             plans_api: plans_api::PlansApiClient::new(configuration.clone()),
             policies_api: policies_api::PoliciesApiClient::new(configuration.clone()),
             projects_api: projects_api::ProjectsApiClient::new(configuration.clone()),
@@ -451,7 +447,6 @@ impl ApiClient {
             organization_sponsorships_api: organization_sponsorships_api::MockOrganizationSponsorshipsApi::new(),
             organization_users_api: organization_users_api::MockOrganizationUsersApi::new(),
             organizations_api: organizations_api::MockOrganizationsApi::new(),
-            phishing_domains_api: phishing_domains_api::MockPhishingDomainsApi::new(),
             plans_api: plans_api::MockPlansApi::new(),
             policies_api: policies_api::MockPoliciesApi::new(),
             projects_api: projects_api::MockProjectsApi::new(),
@@ -735,13 +730,6 @@ impl ApiClient {
             ApiClient::Real(real) => &real.organizations_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.organizations_api,
-        }
-    }
-    pub fn phishing_domains_api(&self) -> &dyn phishing_domains_api::PhishingDomainsApi {
-        match self {
-            ApiClient::Real(real) => &real.phishing_domains_api,
-            #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.phishing_domains_api,
         }
     }
     pub fn plans_api(&self) -> &dyn plans_api::PlansApi {

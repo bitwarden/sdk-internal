@@ -12,9 +12,8 @@ use std::sync::RwLock;
 
 use bitwarden_api_api::models::{AccountKeysRequestModel, SecurityStateModel};
 use bitwarden_crypto::{
-    AsymmetricPublicCryptoKey, CoseSerializable, CryptoError, EncString, KeyStore, KeyStoreContext,
+    CoseSerializable, CryptoError, EncString, KeyStore, KeyStoreContext,
     PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKey, SymmetricKeyAlgorithm,
-    VerifyingKey,
 };
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
@@ -100,44 +99,41 @@ impl WrappedAccountCryptographicState {
     /// user key required to unlock this state.
     pub fn to_request_model(
         &self,
-        store: &KeyStore<KeyIds>,
+        user_key: &SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<AccountKeysRequestModel, AccountCryptographyInitializationError> {
-        let verifying_key = self.verifying_key(store)?;
+        let private_key = match self {
+            WrappedAccountCryptographicState::V1 { private_key }
+            | WrappedAccountCryptographicState::V2 { private_key, .. } => private_key.clone(),
+        };
+        let private_key_tmp_id = ctx.unwrap_private_key(*user_key, &private_key)?;
+        let public_key = ctx.get_public_key(private_key_tmp_id)?;
+
+        let signature_keypair = match self {
+            WrappedAccountCryptographicState::V1 { .. } => None,
+            WrappedAccountCryptographicState::V2 { signing_key, .. } => {
+                let signing_key_tmp_id = ctx.unwrap_signing_key(*user_key, signing_key)?;
+                let verifying_key = ctx.get_verifying_key(signing_key_tmp_id)?;
+                Some((signing_key.clone(), verifying_key))
+            }
+        };
+
         Ok(AccountKeysRequestModel {
             // Note: This property is deprecated and should be removed after a transition period.
-            user_key_encrypted_account_private_key: match self {
-                WrappedAccountCryptographicState::V1 { private_key }
-                | WrappedAccountCryptographicState::V2 { private_key, .. } => {
-                    Some(private_key.to_string())
-                }
-            },
+            user_key_encrypted_account_private_key: Some(private_key.to_string()),
             // Note: This property is deprecated and should be removed after a transition period.
-            account_public_key: match self.public_key(store)? {
-                Some(pk) => Some(B64::from(pk.to_der()?).to_string()),
-                None => None,
-            },
-            signature_key_pair: match self {
-                WrappedAccountCryptographicState::V1 { .. } => None,
-                WrappedAccountCryptographicState::V2 { signing_key, .. } => Some(Box::new(
-                    bitwarden_api_api::models::SignatureKeyPairRequestModel {
+            account_public_key: Some(B64::from(public_key.to_der()?).to_string()),
+            signature_key_pair: signature_keypair
+                .as_ref()
+                .map(|(signing_key, verifying_key)| {
+                    Box::new(bitwarden_api_api::models::SignatureKeyPairRequestModel {
                         wrapped_signing_key: Some(signing_key.to_string()),
-                        verifying_key: Some(
-                            B64::from(
-                                verifying_key
-                                    .as_ref()
-                                    .map(|vk| vk.to_cose())
-                                    .ok_or(AccountCryptographyInitializationError::CorruptData)?,
-                            )
-                            .to_string(),
-                        ),
-                        signature_algorithm: verifying_key.as_ref().map(|vk| {
-                            match vk.algorithm() {
-                                SignatureAlgorithm::Ed25519 => "ed25519".to_string(),
-                            }
+                        verifying_key: Some(B64::from(verifying_key.to_cose()).to_string()),
+                        signature_algorithm: Some(match verifying_key.algorithm() {
+                            SignatureAlgorithm::Ed25519 => "ed25519".to_string(),
                         }),
-                    },
-                )),
-            },
+                    })
+                }),
             public_key_encryption_key_pair: Some(Box::new(
                 bitwarden_api_api::models::PublicKeyEncryptionKeyPairRequestModel {
                     wrapped_private_key: match self {
@@ -146,29 +142,25 @@ impl WrappedAccountCryptographicState {
                             Some(private_key.to_string())
                         }
                     },
-                    public_key: match self.public_key(store) {
-                        Ok(Some(pk)) => Some(B64::from(pk.to_der()?).to_string()),
-                        _ => None,
-                    },
+                    public_key: Some(B64::from(public_key.to_der()?).to_string()),
                     signed_public_key: match self.signed_public_key() {
                         Ok(Some(spk)) => Some(spk.clone().into()),
                         _ => None,
                     },
                 },
             )),
-            security_state: match self {
-                WrappedAccountCryptographicState::V1 { .. } => None,
-                WrappedAccountCryptographicState::V2 { security_state, .. } => {
-                    // ensure we have a verifying key reference and convert the verified state's
-                    // version to i32 for the API model
-                    let vk_ref = verifying_key
-                        .as_ref()
-                        .ok_or(AccountCryptographyInitializationError::CorruptData)?;
+            security_state: match (self, signature_keypair.as_ref()) {
+                (_, None) | (WrappedAccountCryptographicState::V1 { .. }, Some(_)) => None,
+                (
+                    WrappedAccountCryptographicState::V2 { security_state, .. },
+                    Some((_, verifying_key)),
+                ) => {
+                    // Convert the verified state's version to i32 for the API model
                     Some(Box::new(SecurityStateModel {
                         security_state: Some(security_state.into()),
                         security_version: security_state
-                            .clone()
-                            .verify_and_unwrap(vk_ref)
+                            .to_owned()
+                            .verify_and_unwrap(verifying_key)
                             .map_err(|_| AccountCryptographyInitializationError::TamperedData)?
                             .version() as i32,
                     }))
@@ -284,46 +276,6 @@ impl WrappedAccountCryptographicState {
         }
 
         Ok(())
-    }
-
-    /// Retrieve the verifying key from the wrapped state, if present. This requires the user key to
-    /// be present in the store.
-    fn verifying_key(
-        &self,
-        store: &KeyStore<KeyIds>,
-    ) -> Result<Option<VerifyingKey>, AccountCryptographyInitializationError> {
-        match self {
-            WrappedAccountCryptographicState::V1 { .. } => Ok(None),
-            WrappedAccountCryptographicState::V2 { signing_key, .. } => {
-                let mut ctx = store.context_mut();
-                let signing_key = ctx
-                    .unwrap_signing_key(SymmetricKeyId::User, signing_key)
-                    .map_err(|_| AccountCryptographyInitializationError::WrongUserKey)?;
-                ctx.get_verifying_key(signing_key)
-                    .map(Some)
-                    .map_err(|e| e.into())
-            }
-        }
-    }
-
-    /// Retrieve the public key from the wrapped state, if present. This requires the user key to
-    /// be present in the store.
-    fn public_key(
-        &self,
-        store: &KeyStore<KeyIds>,
-    ) -> Result<Option<AsymmetricPublicCryptoKey>, AccountCryptographyInitializationError> {
-        match self {
-            WrappedAccountCryptographicState::V1 { private_key }
-            | WrappedAccountCryptographicState::V2 { private_key, .. } => {
-                let mut ctx = store.context_mut();
-                let private_key = ctx
-                    .unwrap_private_key(SymmetricKeyId::User, private_key)
-                    .map_err(|_| AccountCryptographyInitializationError::WrongUserKey)?;
-                ctx.get_public_key(private_key)
-                    .map(Some)
-                    .map_err(|e| e.into())
-            }
-        }
     }
 
     /// Retrieve the signed public key from the wrapped state, if present.
@@ -472,9 +424,12 @@ mod tests {
         wrapped_account_cryptography_state
             .set_to_context(&RwLock::new(None), user_key, &temp_store, temp_ctx)
             .unwrap();
+
+        let mut ctx = temp_store.context_mut();
         let model = wrapped_account_cryptography_state
-            .to_request_model(&temp_store)
+            .to_request_model(&SymmetricKeyId::User, &mut ctx)
             .expect("to_private_keys_request_model should succeed");
+        drop(ctx);
 
         let ctx = temp_store.context();
 

@@ -221,14 +221,12 @@ impl CiphersClient {
         Ok(())
     }
 
-    /// Moves a group of ciphers into an organization, adds them to collections, and calls the
-    /// share_ciphers API.
-    pub async fn share_ciphers_bulk(
+    async fn prepare_encrypted_ciphers_for_bulk_share(
         &self,
         cipher_views: Vec<CipherView>,
         organization_id: OrganizationId,
         collection_ids: Vec<CollectionId>,
-    ) -> Result<Vec<Cipher>, CipherError> {
+    ) -> Result<Vec<EncryptionContext>, CipherError> {
         let mut encrypted_ciphers: Vec<EncryptionContext> = Vec::new();
         for mut cv in cipher_views {
             cv = self.update_organization_and_collections(
@@ -239,6 +237,38 @@ impl CiphersClient {
             self.update_password_history(&mut cv, None).await?;
             encrypted_ciphers.push(self.encrypt(cv)?);
         }
+        Ok(encrypted_ciphers)
+    }
+
+    #[cfg(feature = "uniffi")]
+    /// Prepares ciphers for bulk sharing by assigning them to an organization, adding them to
+    /// collections, updating password history, and encrypting them. This method is exposed for
+    /// UniFFI bindings. Can be removed once Mobile supports authenticated API calls via the SDK.
+    pub async fn prepare_ciphers_for_bulk_share(
+        &self,
+        cipher_views: Vec<CipherView>,
+        organization_id: OrganizationId,
+        collection_ids: Vec<CollectionId>,
+    ) -> Result<Vec<EncryptionContext>, CipherError> {
+        self.prepare_encrypted_ciphers_for_bulk_share(cipher_views, organization_id, collection_ids)
+            .await
+    }
+
+    /// Moves a group of ciphers into an organization, adds them to collections, and calls the
+    /// share_ciphers API.
+    pub async fn share_ciphers_bulk(
+        &self,
+        cipher_views: Vec<CipherView>,
+        organization_id: OrganizationId,
+        collection_ids: Vec<CollectionId>,
+    ) -> Result<Vec<Cipher>, CipherError> {
+        let encrypted_ciphers = self
+            .prepare_encrypted_ciphers_for_bulk_share(
+                cipher_views,
+                organization_id,
+                collection_ids.clone(),
+            )
+            .await?;
 
         let api_client = &self
             .client
@@ -765,7 +795,9 @@ mod tests {
             api_url: format!("http://{}", mock_server.address()),
             user_agent: "Bitwarden Test".into(),
             device_type: DeviceType::SDK,
+            device_identifier: None,
             bitwarden_client_version: None,
+            bitwarden_package_type: None,
         };
 
         let client = Client::new(Some(settings));
