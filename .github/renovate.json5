@@ -1,76 +1,66 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>bitwarden/renovate-config:non-pinned"],
-  "separateMajorMinor": true,
-  "enabledManagers": [
-    "cargo",
-    "dockerfile",
-    "github-actions",
-    "npm",
-    "nuget",
-    "custom.regex"
-  ],
-  "regexManagers": [
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: ["github>bitwarden/renovate-config:non-pinned"],
+  separateMajorMinor: true,
+  enabledManagers: ["cargo", "dockerfile", "github-actions", "npm", "nuget", "custom.regex"],
+  regexManagers: [
     {
-      "fileMatch": ["^\\.github/workflows/.*\\.ya?ml$"],
-      "matchStrings": [
+      fileMatch: ["^\\.github/workflows/.*\\.ya?ml$"],
+      matchStrings: [
         "cargo install (?<depName>cargo-dylint) (?:[\\w-]+ )?--version (?<currentValue>\\d+\\.\\d+\\.\\d+) --locked",
-        "cargo install (?<depName>dylint-link) (?:[\\w-]+ )?--version (?<currentValue>\\d+\\.\\d+\\.\\d+) --locked"
+        "cargo install (?<depName>dylint-link) (?:[\\w-]+ )?--version (?<currentValue>\\d+\\.\\d+\\.\\d+) --locked",
       ],
-      "datasourceTemplate": "cargo",
-      "versioningTemplate": "cargo"
-    }
+      datasourceTemplate: "cargo",
+      versioningTemplate: "cargo",
+    },
   ],
-  "packageRules": [
+  packageRules: [
     // ------------------------- Pull request groups -------------------------
     {
-      "groupName": "rust",
-      "matchManagers": ["custom.regex", "dockerfile"],
-      "matchDepNames": ["rust"]
+      groupName: "rust",
+      matchManagers: ["custom.regex", "dockerfile"],
+      matchDepNames: ["rust"],
     },
     {
-      "groupName": "dockerfile minor",
-      "matchManagers": ["dockerfile"],
-      "matchUpdateTypes": ["minor", "patch"]
+      groupName: "dockerfile minor",
+      matchManagers: ["dockerfile"],
+      matchUpdateTypes: ["minor", "patch"],
     },
     {
-      "groupName": "gh minor",
-      "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["minor", "patch"]
+      groupName: "gh minor",
+      matchManagers: ["github-actions"],
+      matchUpdateTypes: ["minor", "patch"],
     },
     {
-      "matchManagers": ["custom.regex"],
-      "matchDepNames": ["rust", "rust-nightly"],
-      "commitMessageTopic": "Rust"
+      matchManagers: ["custom.regex"],
+      matchDepNames: ["rust", "rust-nightly"],
+      commitMessageTopic: "Rust",
     },
     {
-      "matchManagers": ["cargo"],
-      "groupName": "passkey-rs crates",
-      "matchPackageNames": ["passkey", "passkey-client"],
+      matchManagers: ["cargo"],
+      groupName: "passkey-rs crates",
+      matchPackageNames: ["passkey", "passkey-client"],
     },
     {
-      "groupName": "dylint (crates + actions)",
-      "matchManagers": ["cargo", "custom.regex"],
-      "matchPackageNames": ["dylint_linting", "dylint_testing", "cargo-dylint", "dylint-link"],
+      groupName: "dylint (crates + actions)",
+      matchManagers: ["cargo", "custom.regex"],
+      matchPackageNames: ["dylint_linting", "dylint_testing", "cargo-dylint", "dylint-link"],
     },
     {
-      "matchManagers": ["cargo"],
-      "groupName": "wasm-bindgen group",
-      "matchPackageNames": ["/wasm-bindgen*/"]
+      matchManagers: ["cargo"],
+      groupName: "wasm-bindgen group",
+      matchPackageNames: ["/wasm-bindgen*/"],
     },
 
     // ------------------------- Team review assignment -------------------------
     {
-      "matchPackageNames": [
-        "passkey",
-        "passkey-client"
-      ],
-      "commitMessagePrefix": "[deps] Autofill:",
-      "reviewers": ["team:team-autofill-dev"]
+      matchPackageNames: ["passkey", "passkey-client"],
+      commitMessagePrefix: "[deps] Autofill:",
+      reviewers: ["team:team-autofill-dev"],
     },
     {
-      "matchManagers": ["cargo"],
-      "matchPackageNames": [
+      matchManagers: ["cargo"],
+      matchPackageNames: [
         "async-trait",
         "cargo-dylint",
         "chrono",
@@ -100,7 +90,6 @@
         "tokio",
         "tracing",
         "tracing-subscriber",
-        "tsify",
         "uniffi",
         "uniffi_core",
         "uniffi_macros",
@@ -114,14 +103,14 @@
         "wasm-bindgen-futures",
         "wasm-bindgen-test",
         "wiremock",
-        "zxcvbn"
+        "zxcvbn",
       ],
-      "commitMessagePrefix": "[deps] Platform (cargo):",
-      "reviewers": ["team:team-platform-dev"]
+      commitMessagePrefix: "[deps] Platform (cargo):",
+      reviewers: ["team:team-platform-dev"],
     },
     {
-      "matchManagers": ["npm"],
-      "matchPackageNames": [
+      matchManagers: ["npm"],
+      matchPackageNames: [
         "@iarna/toml",
         "@openapitools/openapi-generator-cli",
         "@types/node",
@@ -129,11 +118,11 @@
         "json5",
         "lint-staged",
         "prettier",
-        "tsx"
+        "tsx",
       ],
-      "commitMessagePrefix": "[deps] Platform (npm):",
-      "reviewers": ["team:team-platform-dev"]
+      commitMessagePrefix: "[deps] Platform (npm):",
+      reviewers: ["team:team-platform-dev"],
     },
   ],
-  "ignoreDeps": ["dotnet-sdk"]
+  ignoreDeps: ["dotnet-sdk"],
 }
