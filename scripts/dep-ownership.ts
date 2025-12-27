@@ -6,7 +6,6 @@ import fs from "fs";
 import path from "path";
 
 import JSON5 from "json5";
-import TOML from "@iarna/toml";
 
 const renovateConfig = JSON5.parse(
   fs.readFileSync(path.join(__dirname, "..", ".github", "renovate.json5"), "utf8"),
@@ -22,30 +21,29 @@ function hasOwner(packageName: string): boolean {
 }
 
 // Collect npm dependencies
-const packageJson = JSON.parse(
-  fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8"),
-);
+const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8"));
 const npmDependencies = [
   ...Object.keys(packageJson.dependencies || {}),
   ...Object.keys(packageJson.devDependencies || {}),
 ];
 
 // Collect Cargo dependencies from workspace Cargo.toml
-const cargoToml = TOML.parse(
-  fs.readFileSync(path.join(__dirname, "..", "Cargo.toml"), "utf8"),
-) as any;
+const cargoTomlContent = fs.readFileSync(path.join(__dirname, "..", "Cargo.toml"), "utf8");
 
 const cargoDependencies = new Set<string>();
 
-// Extract from workspace.dependencies
-if (cargoToml.workspace?.dependencies) {
-  Object.keys(cargoToml.workspace.dependencies).forEach((depName) => {
-    // Skip internal bitwarden crates
-    if (!depName.startsWith("bitwarden")) {
-      cargoDependencies.add(depName);
-    }
-  });
-}
+// Extract dependency names from [workspace.dependencies] section by
+// extracting everything between [workspace.dependencies] and the next section start
+// (indicated by a "\n[").
+const workspaceSection =
+  cargoTomlContent.split("[workspace.dependencies]")[1]?.split(/\n\[/)[0] ?? "";
+
+// Process each line to extract dependency names
+workspaceSection
+  .split("\n") // Process each line
+  .map((line) => line.match(/^([a-zA-Z0-9_-]+)\s*=/)?.[1]) // Find the dependency name
+  .filter((depName): depName is string => depName != null && !depName.startsWith("bitwarden")) // Make sure it's not an empty line or a Bitwarden dependency
+  .forEach((depName) => cargoDependencies.add(depName));
 
 // Check for missing owners
 const missingNpmOwners = npmDependencies.filter((dep) => !hasOwner(dep));
