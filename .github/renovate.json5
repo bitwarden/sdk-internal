@@ -90,6 +90,7 @@
         "tokio",
         "tracing",
         "tracing-subscriber",
+        "tsify",
         "uniffi",
         "uniffi_core",
         "uniffi_macros",
