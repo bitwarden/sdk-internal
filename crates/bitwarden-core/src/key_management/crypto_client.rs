@@ -9,8 +9,9 @@ use wasm_bindgen::prelude::*;
 
 use super::crypto::{
     DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError,
-    MakeKeyPairResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
-    derive_key_connector, make_key_pair, verify_asymmetric_keys,
+    MakeJitMasterPasswordRegistrationResponse, MakeKeyPairResponse, VerifyAsymmetricKeysRequest,
+    VerifyAsymmetricKeysResponse, derive_key_connector, make_key_pair,
+    make_user_jit_master_password_registration, verify_asymmetric_keys,
 };
 #[cfg(feature = "internal")]
 use crate::key_management::{
@@ -204,6 +205,18 @@ impl CryptoClient {
         org_public_key: B64,
     ) -> Result<MakeTdeRegistrationResponse, MakeKeysError> {
         make_user_tde_registration(&self.client, user_id, org_public_key)
+    }
+
+    /// Creates a new V2 account cryptographic state for SSO JIT master password registration.
+    /// This generates fresh cryptographic keys (private key, signing key, signed public key,
+    /// and security state) wrapped with a new user key.
+    pub fn make_user_jit_master_password_registration(
+        &self,
+        user_id: UserId,
+        master_password: String,
+        salt: String,
+    ) -> Result<MakeJitMasterPasswordRegistrationResponse, MakeKeysError> {
+        make_user_jit_master_password_registration(&self.client, user_id, master_password, salt)
     }
 }
 

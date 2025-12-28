@@ -28,7 +28,8 @@ use crate::{
     client::{LoginMethod, UserLoginMethod, encryption_settings::EncryptionSettingsError},
     error::StatefulCryptoError,
     key_management::{
-        AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
+        AsymmetricKeyId, MasterPasswordError, SecurityState, SignedSecurityState, SigningKeyId,
+        SymmetricKeyId,
         account_cryptographic_state::{
             AccountCryptographyInitializationError, WrappedAccountCryptographicState,
         },
@@ -865,6 +866,23 @@ pub struct MakeTdeRegistrationResponse {
     pub reset_password_key: UnsignedSharedKey,
 }
 
+/// The response from `make_user_jit_master_password_registration`.
+pub struct MakeJitMasterPasswordRegistrationResponse {
+    /// The account cryptographic state
+    pub account_cryptographic_state: WrappedAccountCryptographicState,
+    /// The user's user key
+    pub user_key: SymmetricCryptoKey,
+    /// TODO do we need it ?
+    /// The user's master key used to encrypt the user key
+    pub master_key: MasterKey,
+    /// The master password unlock data
+    pub master_password_authentication_data: MasterPasswordAuthenticationData,
+    /// The master password unlock data
+    pub master_password_unlock_data: MasterPasswordUnlockData,
+    /// The request model for the account cryptographic state (also called Account Keys)
+    pub account_keys_request: AccountKeysRequestModel,
+}
+
 /// Errors that can occur when making keys for TDE registration.
 #[bitwarden_error(flat)]
 #[derive(Debug, thiserror::Error)]
@@ -872,6 +890,9 @@ pub enum MakeKeysError {
     /// Failed to initialize account cryptography
     #[error("Failed to initialize account cryptography")]
     AccountCryptographyInitialization(AccountCryptographyInitializationError),
+    /// Failed to derive master password
+    #[error("Failed to derive master password")]
+    MasterPasswordDerivation(MasterPasswordError),
     /// Failed to create request model
     #[error("Failed to make a request model")]
     RequestModelCreation,
@@ -915,6 +936,47 @@ pub(crate) fn make_user_tde_registration(
         account_keys_request: cryptography_state_request_model,
         trusted_device_keys: device_key,
         reset_password_key: admin_reset,
+    })
+}
+
+/// Create the data needed to register for JIT master password
+pub(crate) fn make_user_jit_master_password_registration(
+    client: &Client,
+    user_id: UserId,
+    master_password: String,
+    salt: String,
+) -> Result<MakeJitMasterPasswordRegistrationResponse, MakeKeysError> {
+    let mut ctx = client.internal.get_key_store().context_mut();
+    let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx, user_id)
+        .map_err(MakeKeysError::AccountCryptographyInitialization)?;
+
+    let kdf = Kdf::default();
+
+    #[expect(deprecated)]
+    let user_key = ctx.dangerous_get_symmetric_key(user_key_id)?.to_owned();
+
+    let master_password_unlock_data =
+        MasterPasswordUnlockData::derive(&master_password, &kdf, &salt, &user_key)
+            .map_err(MakeKeysError::MasterPasswordDerivation)?;
+
+    let master_password_authentication_data =
+        MasterPasswordAuthenticationData::derive(&master_password, &kdf, &salt)
+            .map_err(MakeKeysError::MasterPasswordDerivation)?;
+
+    let master_key =
+        MasterKey::derive(&master_password, &salt, &kdf).map_err(MakeKeysError::Crypto)?;
+
+    let cryptography_state_request_model = wrapped_state
+        .to_request_model(&user_key_id, &mut ctx)
+        .map_err(|_| MakeKeysError::RequestModelCreation)?;
+
+    Ok(MakeJitMasterPasswordRegistrationResponse {
+        account_cryptographic_state: wrapped_state,
+        user_key,
+        master_key,
+        master_password_unlock_data,
+        master_password_authentication_data,
+        account_keys_request: cryptography_state_request_model,
     })
 }
 

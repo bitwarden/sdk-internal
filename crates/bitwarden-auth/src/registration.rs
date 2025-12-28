@@ -7,10 +7,13 @@
 
 use bitwarden_api_api::models::{
     DeviceKeysRequestModel, KeysRequestModel, OrganizationUserResetPasswordEnrollmentRequestModel,
+    SetInitialPasswordRequestModel,
 };
 use bitwarden_core::{
     Client, OrganizationId, UserId,
-    key_management::account_cryptographic_state::WrappedAccountCryptographicState,
+    key_management::{
+        MasterPasswordUnlockData, account_cryptographic_state::WrappedAccountCryptographicState,
+    },
 };
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
@@ -41,6 +44,27 @@ pub struct TdeRegistrationRequest {
     pub trust_device: bool,
 }
 
+/// Request parameters for SSO JIT master password registration.
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct JitMasterPasswordRegistrationRequest {
+    /// Organization SSO identifier
+    pub organization_sso_identifier: String,
+    /// User ID for the account being initialized
+    pub user_id: UserId,
+    /// Salt for master password hashing, usually email
+    pub salt: String,
+    /// Master password for the account
+    pub master_password: String,
+    /// Optional hint for the master password
+    pub master_password_hint: Option<String>,
+}
+
 /// Client for initializing a user account.
 #[derive(Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
@@ -68,6 +92,17 @@ impl RegistrationClient {
         let client = &self.client.internal;
         let api_client = &client.get_api_configurations().await.api_client;
         internal_post_keys_for_tde_registration(self, api_client, request).await
+    }
+
+    /// Initializes a new cryptographic state for a user and posts it to the server;
+    /// enrolls the user to master password unlock.
+    pub async fn post_keys_for_jit_password_registration(
+        &self,
+        request: JitMasterPasswordRegistrationRequest,
+    ) -> Result<JitMasterPasswordRegistrationResponse, RegistrationError> {
+        let client = &self.client.internal;
+        let api_client = &client.get_api_configurations().await.api_client;
+        internal_post_keys_for_jit_password_registration(self, api_client, request).await
     }
 }
 
@@ -178,6 +213,71 @@ async fn internal_post_keys_for_tde_registration(
     })
 }
 
+async fn internal_post_keys_for_jit_password_registration(
+    registration_client: &RegistrationClient,
+    api_client: &bitwarden_api_api::apis::ApiClient,
+    request: JitMasterPasswordRegistrationRequest,
+) -> Result<JitMasterPasswordRegistrationResponse, RegistrationError> {
+    // First call crypto API to get all keys
+    info!("Initializing account cryptography");
+    let registration_crypto_result = registration_client
+        .client
+        .crypto()
+        .make_user_jit_master_password_registration(
+            request.user_id,
+            request.master_password,
+            request.salt,
+        )
+        .map_err(|_| RegistrationError::Crypto)?;
+
+    // Post the generated keys to the API here. The user now has keys and is "registered", but
+    // has no unlock method.
+    let api_request = SetInitialPasswordRequestModel {
+        account_keys: Some(Box::new(
+            registration_crypto_result.account_keys_request.clone(),
+        )),
+        master_password_unlock: Some(Box::new(
+            (&registration_crypto_result.master_password_unlock_data).into(),
+        )),
+        master_password_authentication: Some(Box::new(
+            (&registration_crypto_result.master_password_authentication_data).into(),
+        )),
+        master_password_hint: request.master_password_hint,
+        org_identifier: request.organization_sso_identifier,
+        // TODO Deprecated fields below, to be removed with https://bitwarden.atlassian.net/browse/PM-27327
+        kdf_parallelism: None,
+        master_password_hash: None,
+        key: None,
+        keys: None,
+        kdf: None,
+        kdf_iterations: None,
+        kdf_memory: None,
+    };
+    info!("Posting user account cryptographic state to server");
+    api_client
+        .accounts_api()
+        .post_set_password(Some(api_request))
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to post account keys: {e:?}");
+            RegistrationError::Api
+        })?;
+
+    info!("User initialized!");
+    // Note: This passing out of state and keys is temporary. Once SDK state management is more
+    // mature, the account cryptographic state and keys should be set directly here.
+    Ok(JitMasterPasswordRegistrationResponse {
+        account_cryptographic_state: registration_crypto_result.account_cryptographic_state,
+        master_key: registration_crypto_result.master_key.to_base64(),
+        master_password_unlock: registration_crypto_result.master_password_unlock_data,
+        user_key: registration_crypto_result
+            .user_key
+            .to_encoded()
+            .to_vec()
+            .into(),
+    })
+}
+
 /// Result of TDE registration process.
 #[cfg_attr(
     feature = "wasm",
@@ -192,6 +292,25 @@ pub struct TdeRegistrationResponse {
     /// The device key
     pub device_key: B64,
     /// The decrypted user key. This can be used to get the consuming client to an unlocked state.
+    pub user_key: B64,
+}
+
+/// Result of JIT master password registration process.
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct JitMasterPasswordRegistrationResponse {
+    /// The account cryptographic state of the user
+    pub account_cryptographic_state: WrappedAccountCryptographicState,
+    /// The master password unlock data
+    pub master_password_unlock: MasterPasswordUnlockData,
+    /// The master key
+    pub master_key: B64,
+    /// The decrypted user key.
     pub user_key: B64,
 }
 
