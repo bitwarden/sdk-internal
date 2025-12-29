@@ -15,12 +15,15 @@ use super::EncryptionContext;
 use crate::Fido2CredentialFullView;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
-    cipher::cipher::DecryptCipherListResult,
+    cipher::cipher::DecryptCipherListResult, cipher_client::admin::CipherAdminClient,
 };
 
+mod admin;
 mod create;
+mod delete;
 mod edit;
 mod get;
+mod restore;
 mod share_cipher;
 
 #[allow(missing_docs)]
@@ -183,6 +186,14 @@ impl CiphersClient {
         let key_store = self.client.internal.get_key_store();
         let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
         Ok(decrypted_key)
+    }
+
+    /// Returns a new client for performing admin operations.
+    /// Uses the admin server API endpoints and does not modify local state.
+    pub fn admin(&self) -> CipherAdminClient {
+        CipherAdminClient {
+            client: self.client.clone(),
+        }
     }
 }
 
