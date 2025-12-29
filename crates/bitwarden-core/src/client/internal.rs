@@ -271,7 +271,7 @@ impl InternalClient {
 
     #[cfg(feature = "internal")]
     #[instrument(err, skip_all)]
-    pub(crate) fn initialize_user_crypto_master_key(
+    pub(crate) fn initialize_user_crypto_key_connector_key(
         &self,
         master_key: MasterKey,
         user_key: EncString,
