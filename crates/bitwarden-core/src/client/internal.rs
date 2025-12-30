@@ -78,6 +78,22 @@ impl ApiConfigurations {
 
         *self = ApiConfigurations::new(identity, api, self.device_type);
     }
+
+    pub(crate) fn get_key_connector_client(
+        self: &Arc<Self>,
+        key_connector_url: String,
+    ) -> bitwarden_api_key_connector::apis::ApiClient {
+        let api = self.api_config.clone();
+
+        let key_connector = bitwarden_api_key_connector::apis::configuration::Configuration {
+            base_path: key_connector_url,
+            user_agent: api.user_agent,
+            client: api.client,
+            oauth_access_token: api.oauth_access_token,
+        };
+
+        bitwarden_api_key_connector::apis::ApiClient::new(&Arc::new(key_connector))
+    }
 }
 
 /// Access and refresh tokens used for authentication and authorization.
@@ -125,7 +141,7 @@ pub struct InternalClient {
 
     /// Reqwest client useable for external integrations like email forwarders, HIBP.
     #[allow(unused)]
-    pub(crate) external_client: reqwest::Client,
+    pub(crate) external_http_client: reqwest::Client,
 
     pub(super) key_store: KeyStore<KeyIds>,
     #[cfg(feature = "internal")]
@@ -216,6 +232,16 @@ impl InternalClient {
         }
     }
 
+    pub fn get_key_connector_client(
+        &self,
+        key_connector_url: String,
+    ) -> bitwarden_api_key_connector::apis::ApiClient {
+        self.__api_configurations
+            .read()
+            .expect("RwLock is not poisoned")
+            .get_key_connector_client(key_connector_url)
+    }
+
     #[allow(missing_docs)]
     pub async fn get_api_configurations(&self) -> Arc<ApiConfigurations> {
         // At the moment we ignore the error result from the token renewal, if it fails,
@@ -230,7 +256,7 @@ impl InternalClient {
     #[allow(missing_docs)]
     #[cfg(feature = "internal")]
     pub fn get_http_client(&self) -> &reqwest::Client {
-        &self.external_client
+        &self.external_http_client
     }
 
     #[allow(missing_docs)]
@@ -271,7 +297,7 @@ impl InternalClient {
 
     #[cfg(feature = "internal")]
     #[instrument(err, skip_all)]
-    pub(crate) fn initialize_user_crypto_master_key(
+    pub(crate) fn initialize_user_crypto_key_connector_key(
         &self,
         master_key: MasterKey,
         user_key: EncString,

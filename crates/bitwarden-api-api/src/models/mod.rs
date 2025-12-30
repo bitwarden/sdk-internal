@@ -776,6 +776,8 @@ pub mod selection_read_only_request_model;
 pub use self::selection_read_only_request_model::SelectionReadOnlyRequestModel;
 pub mod selection_read_only_response_model;
 pub use self::selection_read_only_response_model::SelectionReadOnlyResponseModel;
+pub mod self_hosted_organization_license_request_model;
+pub use self::self_hosted_organization_license_request_model::SelfHostedOrganizationLicenseRequestModel;
 pub mod send_access_request_model;
 pub use self::send_access_request_model::SendAccessRequestModel;
 pub mod send_file_model;

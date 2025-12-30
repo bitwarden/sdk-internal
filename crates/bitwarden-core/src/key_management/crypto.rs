@@ -6,10 +6,12 @@
 
 use std::collections::HashMap;
 
+use bitwarden_api_api::models::AccountKeysRequestModel;
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, CoseSerializable, CryptoError, EncString, Kdf, KeyDecryptable,
-    KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, RotateableKeySet,
-    SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CoseSerializable, CryptoError, DeviceKey,
+    EncString, Kdf, KeyConnectorKey, KeyDecryptable, KeyEncryptable, MasterKey,
+    Pkcs8PrivateKeyBytes, PrimitiveEncryptable, RotateableKeySet, SignatureAlgorithm,
+    SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey, TrustDeviceResponse,
     UnsignedSharedKey, UserKey, dangerous_get_v2_rotated_account_keys,
     derive_symmetric_key_from_prf,
     safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError},
@@ -28,7 +30,9 @@ use crate::{
     error::StatefulCryptoError,
     key_management::{
         AsymmetricKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
-        account_cryptographic_state::WrappedAccountCryptographicState,
+        account_cryptographic_state::{
+            AccountCryptographyInitializationError, WrappedAccountCryptographicState,
+        },
         master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData},
     },
 };
@@ -74,13 +78,6 @@ pub struct InitUserCryptoRequest {
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[allow(clippy::large_enum_variant)]
 pub enum InitUserCryptoMethod {
-    /// Password
-    Password {
-        /// The user's master password
-        password: String,
-        /// The user's encrypted symmetric crypto key
-        user_key: EncString,
-    },
     /// Master Password Unlock
     MasterPasswordUnlock {
         /// The user's master password
@@ -174,14 +171,6 @@ pub(super) async fn initialize_user_crypto(
     .entered();
 
     match req.method {
-        InitUserCryptoMethod::Password { password, user_key } => {
-            let master_key = MasterKey::derive(&password, &req.email, &req.kdf_params)?;
-            client.internal.initialize_user_crypto_master_key(
-                master_key,
-                user_key,
-                account_crypto_state,
-            )?;
-        }
         InitUserCryptoMethod::MasterPasswordUnlock {
             password,
             master_password_unlock,
@@ -262,7 +251,7 @@ pub(super) async fn initialize_user_crypto(
             let mut bytes = master_key.into_bytes();
             let master_key = MasterKey::try_from(bytes.as_mut_slice())?;
 
-            client.internal.initialize_user_crypto_master_key(
+            client.internal.initialize_user_crypto_key_connector_key(
                 master_key,
                 user_key,
                 account_crypto_state,
@@ -848,14 +837,128 @@ pub(crate) fn get_v2_rotated_account_keys(
     })
 }
 
+/// The response from `make_user_tde_registration`.
+pub struct MakeTdeRegistrationResponse {
+    /// The account cryptographic state
+    pub account_cryptographic_state: WrappedAccountCryptographicState,
+    /// The user's user key
+    pub user_key: SymmetricCryptoKey,
+    /// The request model for the account cryptographic state (also called Account Keys)
+    pub account_keys_request: AccountKeysRequestModel,
+    /// The keys needed to set up TDE decryption
+    pub trusted_device_keys: TrustDeviceResponse,
+    /// The key needed for admin password reset
+    pub reset_password_key: UnsignedSharedKey,
+}
+
+/// Errors that can occur when making keys for TDE or Key Connector registration.
+#[bitwarden_error(flat)]
+#[derive(Debug, thiserror::Error)]
+pub enum MakeKeysError {
+    /// Failed to initialize account cryptography
+    #[error("Failed to initialize account cryptography")]
+    AccountCryptographyInitialization(AccountCryptographyInitializationError),
+    /// Failed to create request model
+    #[error("Failed to make a request model")]
+    RequestModelCreation,
+    /// Generic crypto error
+    #[error("Cryptography error: {0}")]
+    Crypto(#[from] CryptoError),
+}
+
+/// Create the data needed to register for TDE (Trusted Device Enrollment)
+pub(crate) fn make_user_tde_registration(
+    client: &Client,
+    user_id: UserId,
+    org_public_key: B64,
+) -> Result<MakeTdeRegistrationResponse, MakeKeysError> {
+    let mut ctx = client.internal.get_key_store().context_mut();
+    let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx, user_id)
+        .map_err(MakeKeysError::AccountCryptographyInitialization)?;
+    // TDE unlock method
+    #[expect(deprecated)]
+    let device_key = DeviceKey::trust_device(ctx.dangerous_get_symmetric_key(user_key_id)?)?;
+
+    // Account recovery enrollment
+    let public_key =
+        AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))
+            .map_err(MakeKeysError::Crypto)?;
+    #[expect(deprecated)]
+    let admin_reset = UnsignedSharedKey::encapsulate_key_unsigned(
+        ctx.dangerous_get_symmetric_key(user_key_id)?,
+        &public_key,
+    )
+    .map_err(MakeKeysError::Crypto)?;
+
+    let cryptography_state_request_model = wrapped_state
+        .to_request_model(&user_key_id, &mut ctx)
+        .map_err(|_| MakeKeysError::RequestModelCreation)?;
+
+    #[expect(deprecated)]
+    Ok(MakeTdeRegistrationResponse {
+        account_cryptographic_state: wrapped_state,
+        user_key: ctx.dangerous_get_symmetric_key(user_key_id)?.to_owned(),
+        account_keys_request: cryptography_state_request_model,
+        trusted_device_keys: device_key,
+        reset_password_key: admin_reset,
+    })
+}
+
+/// The response from `make_user_key_connector_registration`.
+pub struct MakeKeyConnectorRegistrationResponse {
+    /// The account cryptographic state
+    pub account_cryptographic_state: WrappedAccountCryptographicState,
+    /// Encrypted user's user key, wrapped with the key connector key
+    pub key_connector_key_wrapped_user_key: EncString,
+    /// The user's user key
+    pub user_key: SymmetricCryptoKey,
+    /// The request model for the account cryptographic state (also called Account Keys)
+    pub account_keys_request: AccountKeysRequestModel,
+    /// The key connector key used for unlocking
+    pub key_connector_key: KeyConnectorKey,
+}
+
+/// Create the data needed to register for Key Connector
+pub(crate) fn make_user_key_connector_registration(
+    client: &Client,
+    user_id: UserId,
+) -> Result<MakeKeyConnectorRegistrationResponse, MakeKeysError> {
+    let mut ctx = client.internal.get_key_store().context_mut();
+    let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx, user_id)
+        .map_err(MakeKeysError::AccountCryptographyInitialization)?;
+    #[expect(deprecated)]
+    let user_key = ctx.dangerous_get_symmetric_key(user_key_id)?.to_owned();
+
+    // Key Connector unlock method
+    let key_connector_key = KeyConnectorKey::make();
+
+    let wrapped_user_key = key_connector_key
+        .encrypt_user_key(&user_key)
+        .map_err(MakeKeysError::Crypto)?;
+
+    let cryptography_state_request_model =
+        wrapped_state
+            .to_request_model(&user_key_id, &mut ctx)
+            .map_err(MakeKeysError::AccountCryptographyInitialization)?;
+
+    Ok(MakeKeyConnectorRegistrationResponse {
+        account_cryptographic_state: wrapped_state,
+        key_connector_key_wrapped_user_key: wrapped_user_key,
+        user_key,
+        account_keys_request: cryptography_state_request_model,
+        key_connector_key,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use std::num::NonZeroU32;
 
-    use bitwarden_crypto::{RsaKeyPair, SymmetricKeyAlgorithm};
+    use bitwarden_crypto::{PublicKeyEncryptionAlgorithm, RsaKeyPair, SymmetricKeyAlgorithm};
 
     use super::*;
     use crate::Client;
+
     const TEST_VECTOR_USER_KEY_V2_B64: &str = "pQEEAlACHUUoybNAuJoZzqNMxz2bAzoAARFvBIQDBAUGIFggAvGl4ifaUAomQdCdUPpXLHtypiQxHjZwRHeI83caZM4B";
     const TEST_VECTOR_PRIVATE_KEY_V2: &str = "7.g1gdowE6AAERbwMZARwEUAIdRSjJs0C4mhnOo0zHPZuhBVgYthGLGqVLPeidY8mNMxpLJn3fyeSxyaWsWQTR6pxmRV2DyGZXly/0l9KK+Rsfetl9wvYIz0O4/RW3R6wf7eGxo5XmicV3WnFsoAmIQObxkKWShxFyjzg+ocKItQDzG7Gp6+MW4biTrAlfK51ML/ZS+PCjLmgI1QQr4eMHjiwA2TBKtKkxfjoTJkMXECpRVLEXOo8/mbIGYkuabbSA7oU+TJ0yXlfKDtD25gnyO7tjW/0JMFUaoEKRJOuKoXTN4n/ks4Hbxk0X5/DzfG05rxWad2UNBjNg7ehW99WrQ+33ckdQFKMQOri/rt8JzzrF1k11/jMJ+Y2TADKNHr91NalnUX+yqZAAe3sRt5Pv5ZhLIwRMKQi/1NrLcsQPRuUnogVSPOoMnE/eD6F70iU60Z6pvm1iBw2IvELZcrs/oxpO2SeCue08fIZW/jNZokbLnm90tQ7QeZTUpiPALhUgfGOa3J9VOJ7jQGCqDjd9CzV2DCVfhKCapeTbldm+RwEWBz5VvorH5vMx1AzbPRJxdIQuxcg3NqRrXrYC7fyZljWaPB9qP1tztiPtd1PpGEgxLByIfR6fqyZMCvOBsWbd0H6NhF8mNVdDw60+skFRdbRBTSCjCtKZeLVuVFb8ioH45PR5oXjtx4atIDzu6DKm6TTMCbR6DjZuZZ8GbwHxuUD2mDD3pAFhaof9kR3lQdjy7Zb4EzUUYskQxzcLPcqzp9ZgB3Rg91SStBCCMhdQ6AnhTy+VTGt/mY5AbBXNRSL6fI0r+P9K8CcEI4bNZCDkwwQr5v4O4ykSUzIvmVU0zKzDngy9bteIZuhkvGUoZlQ9UATNGPhoLfqq2eSvqEXkCbxTVZ5D+Ww9pHmWeVcvoBhcl5MvicfeQt++dY3tPjIfZq87nlugG4HiNbcv9nbVpgwe3v8cFetWXQgnO4uhx8JHSwGoSuxHFZtl2sdahjTHavRHnYjSABEFrViUKgb12UDD5ow1GAL62wVdSJKRf9HlLbJhN3PBxuh5L/E0wy1wGA9ecXtw/R1ktvXZ7RklGAt1TmNzZv6vI2J/CMXvndOX9rEpjKMbwbIDAjQ9PxiWdcnmc5SowT9f6yfIjbjXnRMWWidPAua7sgrtej4HP4Qjz1fpgLMLCRyF97tbMTmsAI5Cuj98Buh9PwcdyXj5SbVuHdJS1ehv9b5SWPsD4pwOm3+otVNK6FTazhoUl47AZoAoQzXfsXxrzqYzvF0yJkCnk9S1dcij1L569gQ43CJO6o6jIZFJvA4EmZDl95ELu+BC+x37Ip8dq4JLPsANDVSqvXO9tfDUIXEx25AaOYhW2KAUoDve/fbsU8d0UZR1o/w+ZrOQwawCIPeVPtbh7KFRVQi/rPI+Abl6XR6qMJbKPegliYGUuGF2oEMEc6QLTsMRCEPuw0S3kxbNfVPqml8nGhB2r8zUHBY1diJEmipVghnwH74gIKnyJ2C9nKjV8noUfKzqyV8vxUX2G5yXgodx8Jn0cWs3XhWuApFla9z4R28W/4jA1jK2WQMlx+b6xKUWgRk8+fYsc0HSt2fDrQ9pLpnjb8ME59RCxSPV++PThpnR2JtastZBZur2hBIJsGILCAmufUU4VC4gBKPhNfu/OK4Ktgz+uQlUa9fEC/FnkpTRQPxHuQjSQSNrIIyW1bIRBtnwjvvvNoui9FZJ";
     #[allow(unused)]
@@ -884,20 +987,24 @@ mod tests {
         };
 
         initialize_user_crypto(
-            & client,
+            &client,
             InitUserCryptoRequest {
                 user_id: Some(UserId::new_v4()),
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
                 account_cryptographic_state: WrappedAccountCryptographicState::V1 { private_key: priv_key.to_owned() },
-                method: InitUserCryptoMethod::Password {
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
                     password: "asdfasdfasdf".into(),
-                    user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
+                    master_password_unlock: MasterPasswordUnlockData {
+                        kdf: kdf.clone(),
+                        master_key_wrapped_user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
+                        salt: "test@bitwarden.com".to_string(),
+                    },
                 },
             },
         )
-        .await
-        .unwrap();
+            .await
+            .unwrap();
 
         let new_kdf = Kdf::PBKDF2 {
             iterations: 600_000.try_into().unwrap(),
@@ -915,11 +1022,15 @@ mod tests {
                 account_cryptographic_state: WrappedAccountCryptographicState::V1 {
                     private_key: priv_key.to_owned(),
                 },
-                method: InitUserCryptoMethod::Password {
-                    password: "123412341234".into(),
-                    user_key: new_kdf_response
-                        .master_password_unlock_data
-                        .master_key_wrapped_user_key,
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
+                    password: "123412341234".to_string(),
+                    master_password_unlock: MasterPasswordUnlockData {
+                        kdf: new_kdf.clone(),
+                        master_key_wrapped_user_key: new_kdf_response
+                            .master_password_unlock_data
+                            .master_key_wrapped_user_key,
+                        salt: "test@bitwarden.com".to_string(),
+                    },
                 },
             },
         )
@@ -982,9 +1093,13 @@ mod tests {
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
                 account_cryptographic_state: WrappedAccountCryptographicState::V1 { private_key: priv_key.to_owned() },
-                method: InitUserCryptoMethod::Password {
-                    password: "asdfasdfasdf".into(),
-                    user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
+                    password: "asdfasdfasdf".to_string(),
+                    master_password_unlock: MasterPasswordUnlockData {
+                        kdf: kdf.clone(),
+                        master_key_wrapped_user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
+                        salt: "test@bitwarden.com".to_string(),
+                    },
                 },
             },
         )
@@ -1004,9 +1119,13 @@ mod tests {
                 account_cryptographic_state: WrappedAccountCryptographicState::V1 {
                     private_key: priv_key.to_owned(),
                 },
-                method: InitUserCryptoMethod::Password {
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
                     password: "123412341234".into(),
-                    user_key: new_password_response.new_key,
+                    master_password_unlock: MasterPasswordUnlockData {
+                        kdf: kdf.clone(),
+                        master_key_wrapped_user_key: new_password_response.new_key,
+                        salt: "test@bitwarden.com".to_string(),
+                    },
                 },
             },
         )
@@ -1062,9 +1181,15 @@ mod tests {
                 },
                 email: "test@bitwarden.com".into(),
                 account_cryptographic_state: WrappedAccountCryptographicState::V1 { private_key: priv_key.to_owned() },
-                method: InitUserCryptoMethod::Password {
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
                     password: "asdfasdfasdf".into(),
-                    user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
+                    master_password_unlock: MasterPasswordUnlockData {
+                        kdf: Kdf::PBKDF2 {
+                            iterations: 100_000.try_into().unwrap(),
+                        },
+                        master_key_wrapped_user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
+                        salt: "test@bitwarden.com".to_string(),
+                    },
                 },
             },
         )
@@ -1221,22 +1346,19 @@ mod tests {
     fn test_enroll_admin_password_reset() {
         let client = Client::new(None);
 
-        let master_key = MasterKey::derive(
-            "asdfasdfasdf",
-            "test@bitwarden.com",
-            &Kdf::PBKDF2 {
-                iterations: NonZeroU32::new(600_000).unwrap(),
-            },
-        )
-        .unwrap();
-
         let user_key = "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=".parse().unwrap();
         let private_key = "2.yN7l00BOlUE0Sb0M//Q53w==|EwKG/BduQRQ33Izqc/ogoBROIoI5dmgrxSo82sgzgAMIBt3A2FZ9vPRMY+GWT85JiqytDitGR3TqwnFUBhKUpRRAq4x7rA6A1arHrFp5Tp1p21O3SfjtvB3quiOKbqWk6ZaU1Np9HwqwAecddFcB0YyBEiRX3VwF2pgpAdiPbSMuvo2qIgyob0CUoC/h4Bz1be7Qa7B0Xw9/fMKkB1LpOm925lzqosyMQM62YpMGkjMsbZz0uPopu32fxzDWSPr+kekNNyLt9InGhTpxLmq1go/pXR2uw5dfpXc5yuta7DB0EGBwnQ8Vl5HPdDooqOTD9I1jE0mRyuBpWTTI3FRnu3JUh3rIyGBJhUmHqGZvw2CKdqHCIrQeQkkEYqOeJRJVdBjhv5KGJifqT3BFRwX/YFJIChAQpebNQKXe/0kPivWokHWwXlDB7S7mBZzhaAPidZvnuIhalE2qmTypDwHy22FyqV58T8MGGMchcASDi/QXI6kcdpJzPXSeU9o+NC68QDlOIrMVxKFeE7w7PvVmAaxEo0YwmuAzzKy9QpdlK0aab/xEi8V4iXj4hGepqAvHkXIQd+r3FNeiLfllkb61p6WTjr5urcmDQMR94/wYoilpG5OlybHdbhsYHvIzYoLrC7fzl630gcO6t4nM24vdB6Ymg9BVpEgKRAxSbE62Tqacxqnz9AcmgItb48NiR/He3n3ydGjPYuKk/ihZMgEwAEZvSlNxYONSbYrIGDtOY+8Nbt6KiH3l06wjZW8tcmFeVlWv+tWotnTY9IqlAfvNVTjtsobqtQnvsiDjdEVtNy/s2ci5TH+NdZluca2OVEr91Wayxh70kpM6ib4UGbfdmGgCo74gtKvKSJU0rTHakQ5L9JlaSDD5FamBRyI0qfL43Ad9qOUZ8DaffDCyuaVyuqk7cz9HwmEmvWU3VQ+5t06n/5kRDXttcw8w+3qClEEdGo1KeENcnXCB32dQe3tDTFpuAIMLqwXs6FhpawfZ5kPYvLPczGWaqftIs/RXJ/EltGc0ugw2dmTLpoQhCqrcKEBDoYVk0LDZKsnzitOGdi9mOWse7Se8798ib1UsHFUjGzISEt6upestxOeupSTOh0v4+AjXbDzRUyogHww3V+Bqg71bkcMxtB+WM+pn1XNbVTyl9NR040nhP7KEf6e9ruXAtmrBC2ah5cFEpLIot77VFZ9ilLuitSz+7T8n1yAh1IEG6xxXxninAZIzi2qGbH69O5RSpOJuJTv17zTLJQIIc781JwQ2TTwTGnx5wZLbffhCasowJKd2EVcyMJyhz6ru0PvXWJ4hUdkARJs3Xu8dus9a86N8Xk6aAPzBDqzYb1vyFIfBxP0oO8xFHgd30Cgmz8UrSE3qeWRrF8ftrI6xQnFjHBGWD/JWSvd6YMcQED0aVuQkuNW9ST/DzQThPzRfPUoiL10yAmV7Ytu4fR3x2sF0Yfi87YhHFuCMpV/DsqxmUizyiJuD938eRcH8hzR/VO53Qo3UIsqOLcyXtTv6THjSlTopQ+JOLOnHm1w8dzYbLN44OG44rRsbihMUQp+wUZ6bsI8rrOnm9WErzkbQFbrfAINdoCiNa6cimYIjvvnMTaFWNymqY1vZxGztQiMiHiHYwTfwHTXrb9j0uPM=|09J28iXv9oWzYtzK2LBT6Yht4IT4MijEkk0fwFdrVQ4=".parse().unwrap();
         client
             .internal
-            .initialize_user_crypto_master_key(
-                master_key,
-                user_key,
+            .initialize_user_crypto_master_password_unlock(
+                "asdfasdfasdf".to_string(),
+                MasterPasswordUnlockData {
+                    kdf: Kdf::PBKDF2 {
+                        iterations: NonZeroU32::new(600_000).unwrap(),
+                    },
+                    master_key_wrapped_user_key: user_key,
+                    salt: "test@bitwarden.com".to_string(),
+                },
                 WrappedAccountCryptographicState::V1 { private_key },
             )
             .unwrap();
@@ -1390,9 +1512,15 @@ mod tests {
                 account_cryptographic_state: WrappedAccountCryptographicState::V1 {
                     private_key: priv_key.to_owned(),
                 },
-                method: InitUserCryptoMethod::Password {
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
                     password: "asdfasdfasdf".into(),
-                    user_key: encrypted_userkey.clone(),
+                    master_password_unlock: MasterPasswordUnlockData {
+                        kdf: Kdf::PBKDF2 {
+                            iterations: 100_000.try_into().unwrap(),
+                        },
+                        master_key_wrapped_user_key: encrypted_userkey.clone(),
+                        salt: "test@bitwarden.com".into(),
+                    },
                 },
             },
         )
@@ -1429,9 +1557,15 @@ mod tests {
                     security_state: enrollment_response.security_state,
                     signed_public_key: Some(enrollment_response.signed_public_key),
                 },
-                method: InitUserCryptoMethod::Password {
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
                     password: "asdfasdfasdf".into(),
-                    user_key: encrypted_userkey_v2,
+                    master_password_unlock: MasterPasswordUnlockData {
+                        kdf: Kdf::PBKDF2 {
+                            iterations: 100_000.try_into().unwrap(),
+                        },
+                        master_key_wrapped_user_key: encrypted_userkey_v2,
+                        salt: "test@bitwarden.com".to_string(),
+                    },
                 },
             },
         )
@@ -1574,5 +1708,125 @@ mod tests {
         } else {
             panic!("Expected username login method");
         }
+    }
+
+    #[tokio::test]
+    async fn test_make_user_tde_registration() {
+        let user_id = UserId::new_v4();
+        let email = "test@bitwarden.com";
+        let kdf = Kdf::PBKDF2 {
+            iterations: NonZeroU32::new(600_000).expect("valid iteration count"),
+        };
+
+        // Generate a mock organization public key for TDE enrollment
+        let org_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let org_public_key_der = org_key
+            .to_public_key()
+            .to_der()
+            .expect("valid public key DER");
+        let org_public_key = B64::from(org_public_key_der.as_ref().to_vec());
+
+        // Create a client and generate TDE registration keys
+        let registration_client = Client::new(None);
+        let make_keys_response = registration_client
+            .crypto()
+            .make_user_tde_registration(user_id, org_public_key)
+            .expect("TDE registration should succeed");
+
+        // Initialize a new client using the TDE device key
+        let unlock_client = Client::new(None);
+        unlock_client
+            .crypto()
+            .initialize_user_crypto(InitUserCryptoRequest {
+                user_id: Some(user_id),
+                kdf_params: kdf,
+                email: email.to_owned(),
+                account_cryptographic_state: make_keys_response.account_cryptographic_state,
+                method: InitUserCryptoMethod::DeviceKey {
+                    device_key: make_keys_response
+                        .trusted_device_keys
+                        .device_key
+                        .to_string(),
+                    protected_device_private_key: make_keys_response
+                        .trusted_device_keys
+                        .protected_device_private_key,
+                    device_protected_user_key: make_keys_response
+                        .trusted_device_keys
+                        .protected_user_key,
+                },
+            })
+            .await
+            .expect("initializing user crypto with TDE device key should succeed");
+
+        // Verify we can retrieve the user encryption key
+        let retrieved_key = unlock_client
+            .crypto()
+            .get_user_encryption_key()
+            .await
+            .expect("should be able to get user encryption key");
+
+        // The retrieved key should be a valid symmetric key
+        let retrieved_symmetric_key = SymmetricCryptoKey::try_from(retrieved_key)
+            .expect("retrieved key should be valid symmetric key");
+
+        // Verify that the org key can decrypt the admin_reset_key UnsignedSharedKey
+        // and that the decrypted key matches the user's encryption key
+        let decrypted_user_key = make_keys_response
+            .reset_password_key
+            .decapsulate_key_unsigned(&org_key)
+            .expect("org key should be able to decrypt admin reset key");
+        assert_eq!(
+            retrieved_symmetric_key, decrypted_user_key,
+            "decrypted admin reset key should match the user's encryption key"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_make_user_key_connector_registration_success() {
+        let user_id = UserId::new_v4();
+        let email = "test@bitwarden.com";
+        let registration_client = Client::new(None);
+
+        let make_keys_response =
+            make_user_key_connector_registration(&registration_client, user_id);
+        assert!(make_keys_response.is_ok());
+        let make_keys_response = make_keys_response.unwrap();
+
+        // Initialize a new client using the key connector key
+        let unlock_client = Client::new(None);
+        unlock_client
+            .crypto()
+            .initialize_user_crypto(InitUserCryptoRequest {
+                user_id: Some(user_id),
+                kdf_params: Kdf::default(),
+                email: email.to_owned(),
+                account_cryptographic_state: make_keys_response.account_cryptographic_state,
+                method: InitUserCryptoMethod::KeyConnector {
+                    user_key: make_keys_response
+                        .key_connector_key_wrapped_user_key
+                        .clone(),
+                    master_key: make_keys_response.key_connector_key.clone().into(),
+                },
+            })
+            .await
+            .expect("initializing user crypto with key connector key should succeed");
+
+        // Verify we can retrieve the user encryption key
+        let retrieved_key = unlock_client
+            .crypto()
+            .get_user_encryption_key()
+            .await
+            .expect("should be able to get user encryption key");
+
+        // The retrieved key should be a valid symmetric key
+        let retrieved_symmetric_key = SymmetricCryptoKey::try_from(retrieved_key)
+            .expect("retrieved key should be valid symmetric key");
+
+        assert_eq!(retrieved_symmetric_key, make_keys_response.user_key);
+
+        let decrypted_user_key = make_keys_response
+            .key_connector_key
+            .decrypt_user_key(make_keys_response.key_connector_key_wrapped_user_key);
+        assert_eq!(retrieved_symmetric_key, decrypted_user_key.unwrap());
     }
 }

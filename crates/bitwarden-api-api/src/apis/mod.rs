@@ -131,6 +131,7 @@ pub mod hibp_api;
 pub mod import_ciphers_api;
 pub mod info_api;
 pub mod installations_api;
+pub mod licenses_api;
 pub mod notifications_api;
 pub mod organization_auth_requests_api;
 pub mod organization_billing_api;
@@ -144,7 +145,6 @@ pub mod organization_reports_api;
 pub mod organization_sponsorships_api;
 pub mod organization_users_api;
 pub mod organizations_api;
-pub mod phishing_domains_api;
 pub mod plans_api;
 pub mod policies_api;
 pub mod projects_api;
@@ -210,6 +210,7 @@ struct ApiClientReal {
     import_ciphers_api: import_ciphers_api::ImportCiphersApiClient,
     info_api: info_api::InfoApiClient,
     installations_api: installations_api::InstallationsApiClient,
+    licenses_api: licenses_api::LicensesApiClient,
     notifications_api: notifications_api::NotificationsApiClient,
     organization_auth_requests_api:
         organization_auth_requests_api::OrganizationAuthRequestsApiClient,
@@ -226,7 +227,6 @@ struct ApiClientReal {
     organization_sponsorships_api: organization_sponsorships_api::OrganizationSponsorshipsApiClient,
     organization_users_api: organization_users_api::OrganizationUsersApiClient,
     organizations_api: organizations_api::OrganizationsApiClient,
-    phishing_domains_api: phishing_domains_api::PhishingDomainsApiClient,
     plans_api: plans_api::PlansApiClient,
     policies_api: policies_api::PoliciesApiClient,
     projects_api: projects_api::ProjectsApiClient,
@@ -287,6 +287,7 @@ pub struct ApiClientMock {
     pub import_ciphers_api: import_ciphers_api::MockImportCiphersApi,
     pub info_api: info_api::MockInfoApi,
     pub installations_api: installations_api::MockInstallationsApi,
+    pub licenses_api: licenses_api::MockLicensesApi,
     pub notifications_api: notifications_api::MockNotificationsApi,
     pub organization_auth_requests_api:
         organization_auth_requests_api::MockOrganizationAuthRequestsApi,
@@ -304,7 +305,6 @@ pub struct ApiClientMock {
         organization_sponsorships_api::MockOrganizationSponsorshipsApi,
     pub organization_users_api: organization_users_api::MockOrganizationUsersApi,
     pub organizations_api: organizations_api::MockOrganizationsApi,
-    pub phishing_domains_api: phishing_domains_api::MockPhishingDomainsApi,
     pub plans_api: plans_api::MockPlansApi,
     pub policies_api: policies_api::MockPoliciesApi,
     pub projects_api: projects_api::MockProjectsApi,
@@ -366,6 +366,7 @@ impl ApiClient {
             import_ciphers_api: import_ciphers_api::ImportCiphersApiClient::new(configuration.clone()),
             info_api: info_api::InfoApiClient::new(configuration.clone()),
             installations_api: installations_api::InstallationsApiClient::new(configuration.clone()),
+            licenses_api: licenses_api::LicensesApiClient::new(configuration.clone()),
             notifications_api: notifications_api::NotificationsApiClient::new(configuration.clone()),
             organization_auth_requests_api: organization_auth_requests_api::OrganizationAuthRequestsApiClient::new(configuration.clone()),
             organization_billing_api: organization_billing_api::OrganizationBillingApiClient::new(configuration.clone()),
@@ -379,7 +380,6 @@ impl ApiClient {
             organization_sponsorships_api: organization_sponsorships_api::OrganizationSponsorshipsApiClient::new(configuration.clone()),
             organization_users_api: organization_users_api::OrganizationUsersApiClient::new(configuration.clone()),
             organizations_api: organizations_api::OrganizationsApiClient::new(configuration.clone()),
-            phishing_domains_api: phishing_domains_api::PhishingDomainsApiClient::new(configuration.clone()),
             plans_api: plans_api::PlansApiClient::new(configuration.clone()),
             policies_api: policies_api::PoliciesApiClient::new(configuration.clone()),
             projects_api: projects_api::ProjectsApiClient::new(configuration.clone()),
@@ -438,6 +438,7 @@ impl ApiClient {
             import_ciphers_api: import_ciphers_api::MockImportCiphersApi::new(),
             info_api: info_api::MockInfoApi::new(),
             installations_api: installations_api::MockInstallationsApi::new(),
+            licenses_api: licenses_api::MockLicensesApi::new(),
             notifications_api: notifications_api::MockNotificationsApi::new(),
             organization_auth_requests_api: organization_auth_requests_api::MockOrganizationAuthRequestsApi::new(),
             organization_billing_api: organization_billing_api::MockOrganizationBillingApi::new(),
@@ -451,7 +452,6 @@ impl ApiClient {
             organization_sponsorships_api: organization_sponsorships_api::MockOrganizationSponsorshipsApi::new(),
             organization_users_api: organization_users_api::MockOrganizationUsersApi::new(),
             organizations_api: organizations_api::MockOrganizationsApi::new(),
-            phishing_domains_api: phishing_domains_api::MockPhishingDomainsApi::new(),
             plans_api: plans_api::MockPlansApi::new(),
             policies_api: policies_api::MockPoliciesApi::new(),
             projects_api: projects_api::MockProjectsApi::new(),
@@ -629,6 +629,13 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.installations_api,
         }
     }
+    pub fn licenses_api(&self) -> &dyn licenses_api::LicensesApi {
+        match self {
+            ApiClient::Real(real) => &real.licenses_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.licenses_api,
+        }
+    }
     pub fn notifications_api(&self) -> &dyn notifications_api::NotificationsApi {
         match self {
             ApiClient::Real(real) => &real.notifications_api,
@@ -735,13 +742,6 @@ impl ApiClient {
             ApiClient::Real(real) => &real.organizations_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.organizations_api,
-        }
-    }
-    pub fn phishing_domains_api(&self) -> &dyn phishing_domains_api::PhishingDomainsApi {
-        match self {
-            ApiClient::Real(real) => &real.phishing_domains_api,
-            #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.phishing_domains_api,
         }
     }
     pub fn plans_api(&self) -> &dyn plans_api::PlansApi {

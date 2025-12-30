@@ -19,6 +19,7 @@ src/apis/hibp_api.rs
 src/apis/import_ciphers_api.rs
 src/apis/info_api.rs
 src/apis/installations_api.rs
+src/apis/licenses_api.rs
 src/apis/mod.rs
 src/apis/notifications_api.rs
 src/apis/organization_auth_requests_api.rs
@@ -33,7 +34,6 @@ src/apis/organization_reports_api.rs
 src/apis/organization_sponsorships_api.rs
 src/apis/organization_users_api.rs
 src/apis/organizations_api.rs
-src/apis/phishing_domains_api.rs
 src/apis/plans_api.rs
 src/apis/policies_api.rs
 src/apis/projects_api.rs
@@ -458,6 +458,7 @@ src/models/security_tasks_response_model.rs
 src/models/security_tasks_response_model_list_response_model.rs
 src/models/selection_read_only_request_model.rs
 src/models/selection_read_only_response_model.rs
+src/models/self_hosted_organization_license_request_model.rs
 src/models/send_access_request_model.rs
 src/models/send_file_model.rs
 src/models/send_file_upload_data_response_model.rs

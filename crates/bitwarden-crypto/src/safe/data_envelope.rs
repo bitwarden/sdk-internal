@@ -224,17 +224,21 @@ impl DataEnvelope {
 
         // Decrypt the message
         let decrypted_message = msg
-            .decrypt(&[], |data, aad| {
-                let nonce = msg.unprotected.iv.as_slice();
-                crate::xchacha20::decrypt_xchacha20_poly1305(
-                    nonce
-                        .try_into()
-                        .map_err(|_| CryptoError::InvalidNonceLength)?,
-                    &(*cek.enc_key).into(),
-                    data,
-                    aad,
-                )
-            })
+            .decrypt_ciphertext(
+                &[],
+                || CryptoError::MissingField("ciphertext"),
+                |data, aad| {
+                    let nonce = msg.unprotected.iv.as_slice();
+                    crate::xchacha20::decrypt_xchacha20_poly1305(
+                        nonce
+                            .try_into()
+                            .map_err(|_| CryptoError::InvalidNonceLength)?,
+                        &(*cek.enc_key).into(),
+                        data,
+                        aad,
+                    )
+                },
+            )
             .map_err(|_| DataEnvelopeError::DecryptionError)?;
 
         let unpadded_message =

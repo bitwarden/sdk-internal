@@ -2,7 +2,10 @@ use bitwarden_core::auth::{
     AuthRequestResponse, KeyConnectorResponse, RegisterKeyResponse, RegisterTdeKeyResponse,
     password::MasterPasswordPolicyOptions,
 };
-use bitwarden_crypto::{EncString, HashPurpose, Kdf, TrustDeviceResponse, UnsignedSharedKey};
+use bitwarden_crypto::{
+    EncString, HashPurpose, Kdf, TrustDeviceResponse, UnsignedSharedKey,
+    safe::PasswordProtectedKeyEnvelope,
+};
 use bitwarden_encoding::B64;
 
 use crate::error::Result;
@@ -112,6 +115,24 @@ impl AuthClient {
     /// be unlocked.
     pub fn validate_pin(&self, pin: String, pin_protected_user_key: EncString) -> Result<bool> {
         Ok(self.0.auth().validate_pin(pin, pin_protected_user_key)?)
+    }
+
+    /// Validates a PIN against a PIN-protected user key envelope.
+    ///
+    /// The `pin_protected_user_key_envelope` key is obtained when enabling PIN unlock on the
+    /// account with the [bitwarden_core::key_management::CryptoClient::enroll_pin] method.
+    ///
+    /// Returns `false` if validation fails for any reason:
+    /// - The PIN is incorrect
+    /// - The envelope is corrupted or malformed
+    pub fn validate_pin_protected_user_key_envelope(
+        &self,
+        pin: String,
+        pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
+    ) -> bool {
+        self.0
+            .auth()
+            .validate_pin_protected_user_key_envelope(pin, pin_protected_user_key_envelope)
     }
 
     /// Initialize a new auth request
