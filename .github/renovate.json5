@@ -71,6 +71,7 @@
         "ed25519-dalek",
         "futures",
         "js-sys",
+        "mockall",
         "proc-macro2",
         "quote",
         "rand",
