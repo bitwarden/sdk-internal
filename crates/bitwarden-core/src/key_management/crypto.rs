@@ -77,13 +77,6 @@ pub struct InitUserCryptoRequest {
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[allow(clippy::large_enum_variant)]
 pub enum InitUserCryptoMethod {
-    /// Password
-    Password {
-        /// The user's master password
-        password: String,
-        /// The user's encrypted symmetric crypto key
-        user_key: EncString,
-    },
     /// Master Password Unlock
     MasterPasswordUnlock {
         /// The user's master password
@@ -177,14 +170,6 @@ pub(super) async fn initialize_user_crypto(
     .entered();
 
     match req.method {
-        InitUserCryptoMethod::Password { password, user_key } => {
-            let master_key = MasterKey::derive(&password, &req.email, &req.kdf_params)?;
-            client.internal.initialize_user_crypto_master_key(
-                master_key,
-                user_key,
-                account_crypto_state,
-            )?;
-        }
         InitUserCryptoMethod::MasterPasswordUnlock {
             password,
             master_password_unlock,
@@ -265,7 +250,7 @@ pub(super) async fn initialize_user_crypto(
             let mut bytes = master_key.into_bytes();
             let master_key = MasterKey::try_from(bytes.as_mut_slice())?;
 
-            client.internal.initialize_user_crypto_master_key(
+            client.internal.initialize_user_crypto_key_connector_key(
                 master_key,
                 user_key,
                 account_crypto_state,
@@ -954,20 +939,24 @@ mod tests {
         };
 
         initialize_user_crypto(
-            & client,
+            &client,
             InitUserCryptoRequest {
                 user_id: Some(UserId::new_v4()),
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
                 account_cryptographic_state: WrappedAccountCryptographicState::V1 { private_key: priv_key.to_owned() },
-                method: InitUserCryptoMethod::Password {
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
                     password: "asdfasdfasdf".into(),
-                    user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
+                    master_password_unlock: MasterPasswordUnlockData {
+                        kdf: kdf.clone(),
+                        master_key_wrapped_user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
+                        salt: "test@bitwarden.com".to_string(),
+                    },
                 },
             },
         )
-        .await
-        .unwrap();
+            .await
+            .unwrap();
 
         let new_kdf = Kdf::PBKDF2 {
             iterations: 600_000.try_into().unwrap(),
@@ -985,11 +974,15 @@ mod tests {
                 account_cryptographic_state: WrappedAccountCryptographicState::V1 {
                     private_key: priv_key.to_owned(),
                 },
-                method: InitUserCryptoMethod::Password {
-                    password: "123412341234".into(),
-                    user_key: new_kdf_response
-                        .master_password_unlock_data
-                        .master_key_wrapped_user_key,
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
+                    password: "123412341234".to_string(),
+                    master_password_unlock: MasterPasswordUnlockData {
+                        kdf: new_kdf.clone(),
+                        master_key_wrapped_user_key: new_kdf_response
+                            .master_password_unlock_data
+                            .master_key_wrapped_user_key,
+                        salt: "test@bitwarden.com".to_string(),
+                    },
                 },
             },
         )
@@ -1052,9 +1045,13 @@ mod tests {
                 kdf_params: kdf.clone(),
                 email: "test@bitwarden.com".into(),
                 account_cryptographic_state: WrappedAccountCryptographicState::V1 { private_key: priv_key.to_owned() },
-                method: InitUserCryptoMethod::Password {
-                    password: "asdfasdfasdf".into(),
-                    user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
+                    password: "asdfasdfasdf".to_string(),
+                    master_password_unlock: MasterPasswordUnlockData {
+                        kdf: kdf.clone(),
+                        master_key_wrapped_user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
+                        salt: "test@bitwarden.com".to_string(),
+                    },
                 },
             },
         )
@@ -1074,9 +1071,13 @@ mod tests {
                 account_cryptographic_state: WrappedAccountCryptographicState::V1 {
                     private_key: priv_key.to_owned(),
                 },
-                method: InitUserCryptoMethod::Password {
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
                     password: "123412341234".into(),
-                    user_key: new_password_response.new_key,
+                    master_password_unlock: MasterPasswordUnlockData {
+                        kdf: kdf.clone(),
+                        master_key_wrapped_user_key: new_password_response.new_key,
+                        salt: "test@bitwarden.com".to_string(),
+                    },
                 },
             },
         )
@@ -1132,9 +1133,15 @@ mod tests {
                 },
                 email: "test@bitwarden.com".into(),
                 account_cryptographic_state: WrappedAccountCryptographicState::V1 { private_key: priv_key.to_owned() },
-                method: InitUserCryptoMethod::Password {
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
                     password: "asdfasdfasdf".into(),
-                    user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
+                    master_password_unlock: MasterPasswordUnlockData {
+                        kdf: Kdf::PBKDF2 {
+                            iterations: 100_000.try_into().unwrap(),
+                        },
+                        master_key_wrapped_user_key: "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap(),
+                        salt: "test@bitwarden.com".to_string(),
+                    },
                 },
             },
         )
@@ -1291,22 +1298,19 @@ mod tests {
     fn test_enroll_admin_password_reset() {
         let client = Client::new(None);
 
-        let master_key = MasterKey::derive(
-            "asdfasdfasdf",
-            "test@bitwarden.com",
-            &Kdf::PBKDF2 {
-                iterations: NonZeroU32::new(600_000).unwrap(),
-            },
-        )
-        .unwrap();
-
         let user_key = "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=".parse().unwrap();
         let private_key = "2.yN7l00BOlUE0Sb0M//Q53w==|EwKG/BduQRQ33Izqc/ogoBROIoI5dmgrxSo82sgzgAMIBt3A2FZ9vPRMY+GWT85JiqytDitGR3TqwnFUBhKUpRRAq4x7rA6A1arHrFp5Tp1p21O3SfjtvB3quiOKbqWk6ZaU1Np9HwqwAecddFcB0YyBEiRX3VwF2pgpAdiPbSMuvo2qIgyob0CUoC/h4Bz1be7Qa7B0Xw9/fMKkB1LpOm925lzqosyMQM62YpMGkjMsbZz0uPopu32fxzDWSPr+kekNNyLt9InGhTpxLmq1go/pXR2uw5dfpXc5yuta7DB0EGBwnQ8Vl5HPdDooqOTD9I1jE0mRyuBpWTTI3FRnu3JUh3rIyGBJhUmHqGZvw2CKdqHCIrQeQkkEYqOeJRJVdBjhv5KGJifqT3BFRwX/YFJIChAQpebNQKXe/0kPivWokHWwXlDB7S7mBZzhaAPidZvnuIhalE2qmTypDwHy22FyqV58T8MGGMchcASDi/QXI6kcdpJzPXSeU9o+NC68QDlOIrMVxKFeE7w7PvVmAaxEo0YwmuAzzKy9QpdlK0aab/xEi8V4iXj4hGepqAvHkXIQd+r3FNeiLfllkb61p6WTjr5urcmDQMR94/wYoilpG5OlybHdbhsYHvIzYoLrC7fzl630gcO6t4nM24vdB6Ymg9BVpEgKRAxSbE62Tqacxqnz9AcmgItb48NiR/He3n3ydGjPYuKk/ihZMgEwAEZvSlNxYONSbYrIGDtOY+8Nbt6KiH3l06wjZW8tcmFeVlWv+tWotnTY9IqlAfvNVTjtsobqtQnvsiDjdEVtNy/s2ci5TH+NdZluca2OVEr91Wayxh70kpM6ib4UGbfdmGgCo74gtKvKSJU0rTHakQ5L9JlaSDD5FamBRyI0qfL43Ad9qOUZ8DaffDCyuaVyuqk7cz9HwmEmvWU3VQ+5t06n/5kRDXttcw8w+3qClEEdGo1KeENcnXCB32dQe3tDTFpuAIMLqwXs6FhpawfZ5kPYvLPczGWaqftIs/RXJ/EltGc0ugw2dmTLpoQhCqrcKEBDoYVk0LDZKsnzitOGdi9mOWse7Se8798ib1UsHFUjGzISEt6upestxOeupSTOh0v4+AjXbDzRUyogHww3V+Bqg71bkcMxtB+WM+pn1XNbVTyl9NR040nhP7KEf6e9ruXAtmrBC2ah5cFEpLIot77VFZ9ilLuitSz+7T8n1yAh1IEG6xxXxninAZIzi2qGbH69O5RSpOJuJTv17zTLJQIIc781JwQ2TTwTGnx5wZLbffhCasowJKd2EVcyMJyhz6ru0PvXWJ4hUdkARJs3Xu8dus9a86N8Xk6aAPzBDqzYb1vyFIfBxP0oO8xFHgd30Cgmz8UrSE3qeWRrF8ftrI6xQnFjHBGWD/JWSvd6YMcQED0aVuQkuNW9ST/DzQThPzRfPUoiL10yAmV7Ytu4fR3x2sF0Yfi87YhHFuCMpV/DsqxmUizyiJuD938eRcH8hzR/VO53Qo3UIsqOLcyXtTv6THjSlTopQ+JOLOnHm1w8dzYbLN44OG44rRsbihMUQp+wUZ6bsI8rrOnm9WErzkbQFbrfAINdoCiNa6cimYIjvvnMTaFWNymqY1vZxGztQiMiHiHYwTfwHTXrb9j0uPM=|09J28iXv9oWzYtzK2LBT6Yht4IT4MijEkk0fwFdrVQ4=".parse().unwrap();
         client
             .internal
-            .initialize_user_crypto_master_key(
-                master_key,
-                user_key,
+            .initialize_user_crypto_master_password_unlock(
+                "asdfasdfasdf".to_string(),
+                MasterPasswordUnlockData {
+                    kdf: Kdf::PBKDF2 {
+                        iterations: NonZeroU32::new(600_000).unwrap(),
+                    },
+                    master_key_wrapped_user_key: user_key,
+                    salt: "test@bitwarden.com".to_string(),
+                },
                 WrappedAccountCryptographicState::V1 { private_key },
             )
             .unwrap();
@@ -1460,9 +1464,15 @@ mod tests {
                 account_cryptographic_state: WrappedAccountCryptographicState::V1 {
                     private_key: priv_key.to_owned(),
                 },
-                method: InitUserCryptoMethod::Password {
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
                     password: "asdfasdfasdf".into(),
-                    user_key: encrypted_userkey.clone(),
+                    master_password_unlock: MasterPasswordUnlockData {
+                        kdf: Kdf::PBKDF2 {
+                            iterations: 100_000.try_into().unwrap(),
+                        },
+                        master_key_wrapped_user_key: encrypted_userkey.clone(),
+                        salt: "test@bitwarden.com".into(),
+                    },
                 },
             },
         )
@@ -1499,9 +1509,15 @@ mod tests {
                     security_state: enrollment_response.security_state,
                     signed_public_key: Some(enrollment_response.signed_public_key),
                 },
-                method: InitUserCryptoMethod::Password {
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
                     password: "asdfasdfasdf".into(),
-                    user_key: encrypted_userkey_v2,
+                    master_password_unlock: MasterPasswordUnlockData {
+                        kdf: Kdf::PBKDF2 {
+                            iterations: 100_000.try_into().unwrap(),
+                        },
+                        master_key_wrapped_user_key: encrypted_userkey_v2,
+                        salt: "test@bitwarden.com".to_string(),
+                    },
                 },
             },
         )
