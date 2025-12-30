@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`e6c97bd8505d3a454763e41ebfdb05c92691ad1a`](https://github.com/bitwarden/server/commit/e6c97bd8505d3a454763e41ebfdb05c92691ad1a)
+  [`bf5cacdfc56451ef14d9aadbbd6cbac76b7b37b8`](https://github.com/bitwarden/server/commit/bf5cacdfc56451ef14d9aadbbd6cbac76b7b37b8)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -224,6 +224,8 @@ All URIs are relative to *https://api.bitwarden.com*
 | _InfoApi_                                 | [**get_version**](docs/InfoApi.md#info_get_version)                                                                                                              | **GET** /version                                                                                         |
 | _InstallationsApi_                        | [**get**](docs/InstallationsApi.md#installations_get)                                                                                                            | **GET** /installations/{id}                                                                              |
 | _InstallationsApi_                        | [**post**](docs/InstallationsApi.md#installations_post)                                                                                                          | **POST** /installations                                                                                  |
+| _LicensesApi_                             | [**get_user**](docs/LicensesApi.md#licenses_get_user)                                                                                                            | **GET** /licenses/user/{id}                                                                              |
+| _LicensesApi_                             | [**organization_sync**](docs/LicensesApi.md#licenses_organization_sync)                                                                                          | **GET** /licenses/organization/{id}                                                                      | Used by self-hosted installations to get an updated license file                                                                                                                                                                                                        |
 | _NotificationsApi_                        | [**list**](docs/NotificationsApi.md#notifications_list)                                                                                                          | **GET** /notifications                                                                                   |
 | _NotificationsApi_                        | [**mark_as_deleted**](docs/NotificationsApi.md#notifications_mark_as_deleted)                                                                                    | **PATCH** /notifications/{id}/delete                                                                     |
 | _NotificationsApi_                        | [**mark_as_read**](docs/NotificationsApi.md#notifications_mark_as_read)                                                                                          | **PATCH** /notifications/{id}/read                                                                       |
@@ -892,6 +894,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [SecurityTasksResponseModelListResponseModel](docs/SecurityTasksResponseModelListResponseModel.md)
 - [SelectionReadOnlyRequestModel](docs/SelectionReadOnlyRequestModel.md)
 - [SelectionReadOnlyResponseModel](docs/SelectionReadOnlyResponseModel.md)
+- [SelfHostedOrganizationLicenseRequestModel](docs/SelfHostedOrganizationLicenseRequestModel.md)
 - [SendAccessRequestModel](docs/SendAccessRequestModel.md)
 - [SendFileModel](docs/SendFileModel.md)
 - [SendFileUploadDataResponseModel](docs/SendFileUploadDataResponseModel.md)
