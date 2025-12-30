@@ -39,6 +39,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Free disk space
+        uses: bitwarden/gh-actions/free-disk-space@main
+
       - name: Install rust
         uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e # stable
         with:
@@ -89,6 +92,9 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
+
+      - name: Free disk space
+        uses: bitwarden/gh-actions/free-disk-space@main
 
       - name: Install rust
         uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e # stable
