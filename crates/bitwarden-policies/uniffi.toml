@@ -1,9 +1,9 @@
 [bindings.kotlin]
-package_name = "com.bitwarden.auth"
+package_name = "com.bitwarden.policies"
 generate_immutable_records = true
 android = true
 
 [bindings.swift]
-ffi_module_name = "BitwardenAuthFFI"
-module_name = "BitwardenAuth"
+ffi_module_name = "BitwardenPoliciesFFI"
+module_name = "BitwardenPolicies"
 generate_immutable_records = true
