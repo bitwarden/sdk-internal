@@ -526,17 +526,23 @@ dependencies = [
 name = "bitwarden-auth"
 version = "2.0.0"
 dependencies = [
+ "bitwarden-api-api",
  "bitwarden-core",
+ "bitwarden-crypto",
+ "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-test",
  "chrono",
  "reqwest",
  "serde",
+ "serde_bytes",
  "serde_json",
  "thiserror 2.0.12",
  "tokio",
+ "tracing",
  "tsify",
  "uniffi",
+ "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wiremock",
@@ -701,7 +707,6 @@ dependencies = [
 name = "bitwarden-error-macro"
 version = "2.0.0"
 dependencies = [
- "bitwarden-error",
  "darling",
  "js-sys",
  "proc-macro2",
@@ -1443,7 +1448,7 @@ version = "4.5.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2c7947ae4cc3d851207c1adb5b5e260ff0cca11446b1d6d1423788e442257ce"
 dependencies = [
- "heck 0.5.0",
+ "heck",
  "proc-macro2",
  "quote",
  "syn",
@@ -1590,9 +1595,9 @@ checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 
 [[package]]
 name = "coset"
-version = "0.3.8"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4c8cc80f631f8307b887faca24dcc3abc427cd0367f6eb6188f6e8f5b7ad8fb"
+checksum = "2aeb90e56027edc2a7d7f71cbc500e742e2520bede7a3f8a3bfb1dac7aed623e"
 dependencies = [
  "ciborium",
  "ciborium-io",
@@ -1793,14 +1798,14 @@ dependencies = [
 
 [[package]]
 name = "csv"
-version = "1.3.1"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "acdc4883a9c96732e4733212c01447ebd805833b7275a73ca3ee080fd77afdaf"
+checksum = "52cd9d68cf7efc6ddfaaee42e7288d3a99d613d4b50f76ce9827ae0c6e14f938"
 dependencies = [
  "csv-core",
  "itoa",
  "ryu",
- "serde",
+ "serde_core",
 ]
 
 [[package]]
@@ -2678,12 +2683,6 @@ checksum = "7382cf6263419f2d8df38c55d7da83da5c18aef87fc7a7fc1fb1e344edfe14c1"
 dependencies = [
  "hashbrown 0.15.4",
 ]
-
-[[package]]
-name = "heck"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
 name = "heck"
@@ -3638,7 +3637,7 @@ dependencies = [
 [[package]]
 name = "passkey"
 version = "0.5.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=357cc9672340f6ff1f22a0b210a74de64799fa73#357cc9672340f6ff1f22a0b210a74de64799fa73"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32#043279e92e2eb5f509bf87eb7fa50987fd377e32"
 dependencies = [
  "passkey-authenticator",
  "passkey-client",
@@ -3649,7 +3648,7 @@ dependencies = [
 [[package]]
 name = "passkey-authenticator"
 version = "0.5.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=357cc9672340f6ff1f22a0b210a74de64799fa73#357cc9672340f6ff1f22a0b210a74de64799fa73"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32#043279e92e2eb5f509bf87eb7fa50987fd377e32"
 dependencies = [
  "async-trait",
  "coset",
@@ -3662,7 +3661,7 @@ dependencies = [
 [[package]]
 name = "passkey-client"
 version = "0.5.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=357cc9672340f6ff1f22a0b210a74de64799fa73#357cc9672340f6ff1f22a0b210a74de64799fa73"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32#043279e92e2eb5f509bf87eb7fa50987fd377e32"
 dependencies = [
  "ciborium",
  "coset",
@@ -3680,12 +3679,12 @@ dependencies = [
 [[package]]
 name = "passkey-transports"
 version = "0.1.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=357cc9672340f6ff1f22a0b210a74de64799fa73#357cc9672340f6ff1f22a0b210a74de64799fa73"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32#043279e92e2eb5f509bf87eb7fa50987fd377e32"
 
 [[package]]
 name = "passkey-types"
 version = "0.5.0"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=357cc9672340f6ff1f22a0b210a74de64799fa73#357cc9672340f6ff1f22a0b210a74de64799fa73"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32#043279e92e2eb5f509bf87eb7fa50987fd377e32"
 dependencies = [
  "bitflags 2.9.1",
  "ciborium",
@@ -4042,7 +4041,7 @@ dependencies = [
 [[package]]
 name = "public-suffix"
 version = "0.1.3"
-source = "git+https://github.com/bitwarden/passkey-rs?rev=357cc9672340f6ff1f22a0b210a74de64799fa73#357cc9672340f6ff1f22a0b210a74de64799fa73"
+source = "git+https://github.com/bitwarden/passkey-rs?rev=043279e92e2eb5f509bf87eb7fa50987fd377e32#043279e92e2eb5f509bf87eb7fa50987fd377e32"
 
 [[package]]
 name = "quick-error"
@@ -5169,23 +5168,22 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "strum"
-version = "0.25.0"
+version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
+checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
 dependencies = [
  "strum_macros",
 ]
 
 [[package]]
 name = "strum_macros"
-version = "0.25.3"
+version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23dc1fa9ac9c169a78ba62f0b841814b7abae11bdd047b9c58f893439e309ea0"
+checksum = "7695ce3845ea4b33927c055a39dc438a45b059f7c1b3d91d38d10355fb8cbca7"
 dependencies = [
- "heck 0.4.1",
+ "heck",
  "proc-macro2",
  "quote",
- "rustversion",
  "syn",
 ]
 
@@ -5896,7 +5894,7 @@ dependencies = [
  "fs-err",
  "glob",
  "goblin",
- "heck 0.5.0",
+ "heck",
  "indexmap 2.12.1",
  "once_cell",
  "serde",
@@ -5976,7 +5974,7 @@ version = "0.29.4"
 source = "git+https://github.com/mozilla/uniffi-rs?rev=6d46b3f756dde3213357c477d86771a0fc5da7b4#6d46b3f756dde3213357c477d86771a0fc5da7b4"
 dependencies = [
  "anyhow",
- "heck 0.5.0",
+ "heck",
  "indexmap 2.12.1",
  "tempfile",
  "uniffi_internal_macros",
@@ -6159,7 +6157,7 @@ version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ef06db404cbaed87cb25fd2ca3a62502af485f43383c9641ffcf1479d02fffd"
 dependencies = [
- "heck 0.5.0",
+ "heck",
  "proc-macro2",
  "quote",
  "syn",
