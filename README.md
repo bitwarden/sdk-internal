@@ -146,8 +146,8 @@ impl From<bitwarden_api_api::models::UriMatchType> for UriMatchType {
 ### Updating bindings after a server API change
 
 When the API exposed by the server changes, new bindings will need to be generated to reflect this
-change for consumption in the SDK. This includes adding new fields to server request / response
-models, removing fields from models, or changing types of models.
+change for consumption in the SDK. Examples of such changes include adding new fields to server
+request / response models, removing fields from models, or changing types of models.
 
 A GitHub workflow exists to
 [update the API bindings](https://github.com/bitwarden/sdk-internal/actions/workflows/update-api-bindings.yml).
@@ -164,6 +164,16 @@ There are two ways to run the workflow:
 
 Both of these will generate a PR that will require approval from any teams whose owned code is
 affected by the binding updates.
+
+A suggested workflow for incorporating server API changes into the SDK would be:
+
+1. Make changes in `server` repo to expose the new API.
+2. Merge `server` changes to `main`.
+3. Trigger the `Update API Bindings` workflow in `sdk-internal` to open a pull request with the
+   updated API bindings.
+4. Review and merge that pull request to `sdk-internal` `main` branch.
+5. Pull in `sdk-internal` `main` into your feature branch for SDK work.
+6. Consume new API models in SDK code.
 
 #### Local binding updates
 
@@ -199,12 +209,12 @@ This project uses customized templates that live in the `support/openapi-templat
 templates resolve some outstanding issues we've experienced with the Rust generator. But we strive
 towards modifying the templates as little as possible to ease future upgrades.
 
-#### Note
+:::note
 
-- If you don't have the nightly toolchain installed, the `build-api.sh` script will install it for
-  you.
-- This process also changes the `Cargo.toml` file. When creating a PR updating the bindings, please
-  revert (do not include) the updates to the `Cargo.toml` file.
+If you don't have the nightly toolchain installed, the `build-api.sh` script will install it for
+you.
+
+:::
 
 ## Developer tools
 
