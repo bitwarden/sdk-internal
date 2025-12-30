@@ -9,8 +9,9 @@ use wasm_bindgen::prelude::*;
 
 use super::crypto::{
     DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError,
-    MakeKeyPairResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
-    derive_key_connector, make_key_pair, verify_asymmetric_keys,
+    MakeKeyConnectorRegistrationResponse, MakeKeyPairResponse, VerifyAsymmetricKeysRequest,
+    VerifyAsymmetricKeysResponse, derive_key_connector, make_key_pair,
+    make_user_key_connector_registration, verify_asymmetric_keys,
 };
 #[cfg(feature = "internal")]
 use crate::key_management::{
@@ -204,6 +205,16 @@ impl CryptoClient {
         org_public_key: B64,
     ) -> Result<MakeTdeRegistrationResponse, MakeKeysError> {
         make_user_tde_registration(&self.client, user_id, org_public_key)
+    }
+
+    /// Creates a new V2 account cryptographic state for Key Connector registration.
+    /// This generates fresh cryptographic keys (private key, signing key, signed public key,
+    /// and security state) wrapped with a new user key.
+    pub fn make_user_key_connector_registration(
+        &self,
+        user_id: UserId,
+    ) -> Result<MakeKeyConnectorRegistrationResponse, MakeKeysError> {
+        make_user_key_connector_registration(&self.client, user_id)
     }
 }
 

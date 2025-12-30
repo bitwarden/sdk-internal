@@ -27,6 +27,7 @@ uniffi = ["bitwarden-core/uniffi", "dep:uniffi"] # Uniffi bindings
 # Note: dependencies must be alphabetized to pass the cargo sort check in the CI pipeline.
 [dependencies]
 bitwarden-api-api = { workspace = true }
+bitwarden-api-key-connector = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }

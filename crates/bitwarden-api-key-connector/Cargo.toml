@@ -1,6 +1,6 @@
 [package]
-name = "bitwarden-api-identity"
-description = "Api bindings for the Bitwarden Identity API."
+name = "bitwarden-api-key-connector"
+description = "Api bindings for the Bitwarden Key Connector API."
 categories = ["api-bindings"]
 
 version.workspace = true
@@ -12,20 +12,13 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
-[features]
-mockall = ["dep:mockall"]
-
 [dependencies]
 async-trait = { workspace = true }
-mockall = { workspace = true, optional = true }
+mockall = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_repr = { workspace = true }
-serde_with = { version = ">=3.8, <4", default-features = false, features = [
-    "base64",
-    "std",
-    "macros",
-] }
-url = ">=2.5, <3"
-uuid = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+wiremock = { workspace = true }
