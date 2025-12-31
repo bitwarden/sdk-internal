@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`bf5cacdfc56451ef14d9aadbbd6cbac76b7b37b8`](https://github.com/bitwarden/server/commit/bf5cacdfc56451ef14d9aadbbd6cbac76b7b37b8)
+  [`484a8e42dc7cdf1e3e3178b14f43193e56694e87`](https://github.com/bitwarden/server/commit/484a8e42dc7cdf1e3e3178b14f43193e56694e87)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -47,6 +47,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _AccountBillingVNextApi_                  | [**add_credit_via_bit_pay**](docs/AccountBillingVNextApi.md#account_billing_v_next_add_credit_via_bit_pay)                                                       | **POST** /account/billing/vnext/credit/bitpay                                                            |
 | _AccountBillingVNextApi_                  | [**create_subscription**](docs/AccountBillingVNextApi.md#account_billing_v_next_create_subscription)                                                             | **POST** /account/billing/vnext/subscription                                                             |
 | _AccountBillingVNextApi_                  | [**get_credit**](docs/AccountBillingVNextApi.md#account_billing_v_next_get_credit)                                                                               | **GET** /account/billing/vnext/credit                                                                    |
+| _AccountBillingVNextApi_                  | [**get_license**](docs/AccountBillingVNextApi.md#account_billing_v_next_get_license)                                                                             | **GET** /account/billing/vnext/license                                                                   |
 | _AccountBillingVNextApi_                  | [**get_payment_method**](docs/AccountBillingVNextApi.md#account_billing_v_next_get_payment_method)                                                               | **GET** /account/billing/vnext/payment-method                                                            |
 | _AccountBillingVNextApi_                  | [**update_payment_method**](docs/AccountBillingVNextApi.md#account_billing_v_next_update_payment_method)                                                         | **PUT** /account/billing/vnext/payment-method                                                            |
 | _AccountsApi_                             | [**api_key**](docs/AccountsApi.md#accounts_api_key)                                                                                                              | **POST** /accounts/api-key                                                                               |
@@ -528,6 +529,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [AuthRequestResponseModelListResponseModel](docs/AuthRequestResponseModelListResponseModel.md)
 - [AuthRequestType](docs/AuthRequestType.md)
 - [AuthRequestUpdateRequestModel](docs/AuthRequestUpdateRequestModel.md)
+- [AuthType](docs/AuthType.md)
 - [AuthenticationExtensionsClientInputs](docs/AuthenticationExtensionsClientInputs.md)
 - [AuthenticationExtensionsClientOutputs](docs/AuthenticationExtensionsClientOutputs.md)
 - [AuthenticatorAssertionRawResponse](docs/AuthenticatorAssertionRawResponse.md)
