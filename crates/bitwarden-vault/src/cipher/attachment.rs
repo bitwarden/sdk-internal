@@ -59,6 +59,9 @@ pub struct AttachmentView {
     /// Do not rely on this field for long-term use.
     #[cfg(feature = "wasm")]
     pub decrypted_key: Option<String>,
+    /// Indicates whether this attachment failed to decrypt.
+    #[serde(default)]
+    pub decryption_failure: bool,
 }
 
 impl AttachmentView {
@@ -211,6 +214,12 @@ impl Decryptable<KeyIds, SymmetricKeyId, AttachmentView> for Attachment {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<AttachmentView, CryptoError> {
+        // Try to decrypt the file name
+        let (file_name, decryption_failure) = match self.file_name.decrypt(ctx, key) {
+            Ok(name) => (name, false),
+            Err(..) => (None, true),
+        };
+
         #[cfg(feature = "wasm")]
         let decrypted_key = if let Some(attachment_key) = &self.key {
             let content_key_id = ctx.unwrap_symmetric_key(key, attachment_key)?;
@@ -228,7 +237,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, AttachmentView> for Attachment {
             url: self.url.clone(),
             size: self.size.clone(),
             size_name: self.size_name.clone(),
-            file_name: self.file_name.decrypt(ctx, key)?,
+            file_name,
+            decryption_failure,
             key: self.key.clone(),
             #[cfg(feature = "wasm")]
             decrypted_key: decrypted_key.map(|k| k.to_string()),
@@ -290,6 +300,7 @@ mod tests {
             key: None,
             #[cfg(feature = "wasm")]
             decrypted_key: None,
+            decryption_failure: false,
         };
 
         let contents = b"This is a test file that we will encrypt. It's 100 bytes long, the encrypted version will be longer!";
@@ -350,6 +361,7 @@ mod tests {
             key: Some("2.r288/AOSPiaLFkW07EBGBw==|SAmnnCbOLFjX5lnURvoualOetQwuyPc54PAmHDTRrhT0gwO9ailna9U09q9bmBfI5XrjNNEsuXssgzNygRkezoVQvZQggZddOwHB6KQW5EQ=|erIMUJp8j+aTcmhdE50zEX+ipv/eR1sZ7EwULJm/6DY=".parse().unwrap()),
             #[cfg(feature = "wasm")]
             decrypted_key: None,
+            decryption_failure: false,
         };
 
         let cipher  = Cipher {
@@ -411,6 +423,7 @@ mod tests {
             key: None,
             #[cfg(feature = "wasm")]
             decrypted_key: None,
+            decryption_failure: false,
         };
 
         let cipher  = Cipher {

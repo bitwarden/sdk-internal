@@ -441,6 +441,7 @@ mod tests {
             key: None, // No key!
             #[cfg(feature = "wasm")]
             decrypted_key: None,
+            decryption_failure: false,
         }]);
 
         let organization_id: OrganizationId = TEST_ORG_ID.parse().unwrap();

@@ -1454,6 +1454,7 @@ mod tests {
             key: None,
             #[cfg(feature = "wasm")]
             decrypted_key: None,
+            decryption_failure: false,
         };
         cipher.attachments = Some(vec![attachment]);
 
@@ -1567,6 +1568,7 @@ mod tests {
             key: None,
             #[cfg(feature = "wasm")]
             decrypted_key: None,
+            decryption_failure: false,
         };
         cipher.attachments = Some(vec![attachment]);
 
@@ -1612,6 +1614,7 @@ mod tests {
             key: Some(attachment_key_enc),
             #[cfg(feature = "wasm")]
             decrypted_key: None,
+            decryption_failure: false,
         };
         cipher.attachments = Some(vec![attachment]);
         let cred = generate_fido2(&mut key_store.context(), SymmetricKeyId::User);
@@ -1681,6 +1684,7 @@ mod tests {
             key: Some(attachment_key_enc.clone()),
             #[cfg(feature = "wasm")]
             decrypted_key: None,
+            decryption_failure: false,
         };
         cipher.attachments = Some(vec![attachment]);
 
