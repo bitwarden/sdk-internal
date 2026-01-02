@@ -284,6 +284,16 @@ impl SymmetricCryptoKey {
     pub fn to_base64(&self) -> B64 {
         B64::from(self.to_encoded().as_ref())
     }
+
+    /// Returns the key ID of the key, if it has one. Only
+    /// [SymmetricCryptoKey::XChaCha20Poly1305Key] has a key ID.
+    pub(crate) fn key_id(&self) -> Option<KeyId> {
+        match self {
+            Self::Aes256CbcKey(_) => None,
+            Self::Aes256CbcHmacKey(_) => None,
+            Self::XChaCha20Poly1305Key(key) => Some(KeyId::from(key.key_id)),
+        }
+    }
 }
 
 impl ConstantTimeEq for SymmetricCryptoKey {
