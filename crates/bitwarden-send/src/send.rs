@@ -410,7 +410,13 @@ impl TryFrom<SendResponseModel> for Send {
             expiration_date: send.expiration_date.map(|s| s.parse()).transpose()?,
             emails: send
                 .emails
-                .map(|s| s.split(',').map(String::from).collect())
+                .map(|s| {
+                    s.split(',')
+                        .map(|e| e.trim())
+                        .filter(|e| !e.is_empty())
+                        .map(String::from)
+                        .collect()
+                })
                 .unwrap_or_default(),
             auth_type,
         })
