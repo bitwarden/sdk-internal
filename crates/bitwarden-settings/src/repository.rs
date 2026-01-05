@@ -17,7 +17,7 @@ use crate::{Key, Setting};
 /// Access this via the [`ClientSettingsExt`] trait on [`Client`].
 ///
 /// # Example
-/// ```rust,no_run
+/// ```rust
 /// use bitwarden_settings::{ClientSettingsExt, Key};
 /// use serde::{Deserialize, Serialize};
 ///
@@ -61,7 +61,7 @@ impl<'a> SettingsRepository<'a> {
     /// Deserialization errors are logged but do not propagate.
     ///
     /// # Example
-    /// ```rust,no_run
+    /// ```rust
     /// use bitwarden_settings::{ClientSettingsExt, Key};
     ///
     /// const THEME: Key<String> = Key::new("theme");
@@ -98,7 +98,7 @@ impl<'a> SettingsRepository<'a> {
     /// Set a value using a type-safe key.
     ///
     /// # Example
-    /// ```rust,no_run
+    /// ```rust
     /// use bitwarden_settings::{ClientSettingsExt, Key};
     ///
     /// const THEME: Key<String> = Key::new("theme");
@@ -125,7 +125,7 @@ impl<'a> SettingsRepository<'a> {
     /// Remove a value using a type-safe key.
     ///
     /// # Example
-    /// ```rust,no_run
+    /// ```rust
     /// use bitwarden_settings::{ClientSettingsExt, Key};
     ///
     /// const THEME: Key<String> = Key::new("theme");
@@ -150,7 +150,7 @@ impl<'a> SettingsRepository<'a> {
 /// Extension trait to get [`SettingsRepository`] from [`Client`].
 ///
 /// # Example
-/// ```rust,no_run
+/// ```rust
 /// use bitwarden_settings::{ClientSettingsExt, Key};
 ///
 /// const THEME: Key<String> = Key::new("theme");
