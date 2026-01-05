@@ -872,6 +872,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-settings"
+version = "2.0.0"
+dependencies = [
+ "bitwarden-core",
+ "bitwarden-crypto",
+ "bitwarden-error",
+ "bitwarden-state",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
 name = "bitwarden-sm"
 version = "2.0.0"
 dependencies = [
