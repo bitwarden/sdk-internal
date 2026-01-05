@@ -1,14 +1,7 @@
 # bitwarden-settings
 
-Type-safe settings repository for storing application configuration and state using compile-time
-type-safe keys, backed by the SDK's repository pattern with SQLite storage.
-
-## Features
-
-- **Type Safety**: Compile-time type-safe keys prevent type mismatches
-- **Automatic Serialization**: JSON serialization/deserialization handled automatically
-- **Graceful Error Handling**: Deserialization errors are logged but don't propagate
-- **SDK Integration**: Built on top of bitwarden-state repository pattern
+Type-safe settings repository for storing application configuration and state using type-safe keys.
+Backed by the SDK's repository pattern.
 
 ## Usage
 
@@ -56,17 +49,3 @@ let migrations = RepositoryMigrations::new(vec![
     // ... other migrations
 ]);
 ```
-
-## Architecture
-
-Settings are stored as JSON values in a SQLite database using the SDK's repository pattern. Each
-setting is identified by a string key and serialized to JSON for storage. The `Key<T>` type provides
-compile-time type safety while maintaining flexibility.
-
-## Layer
-
-This is a **Feature Implementation** layer crate that:
-
-- Builds on **Core Infrastructure** (bitwarden-state)
-- Provides reusable settings functionality
-- Can be used by applications (bw CLI) or other feature crates
