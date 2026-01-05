@@ -18,6 +18,7 @@ pub struct ClientFido2(pub(crate) bitwarden_fido::ClientFido2);
 
 #[uniffi::export]
 impl ClientFido2 {
+    /// FIDO2 authenticator for interacting with credentials stored in the vault.
     pub fn vault_authenticator(
         &self,
         user_interface: Arc<dyn Fido2UserInterface>,
@@ -34,6 +35,13 @@ impl ClientFido2 {
         ))
     }
 
+    /// FIDO2 authenticator for interacting with credentials stored on the
+    /// device.
+    ///
+    /// The credentials created with this authenticator are encrypted
+    /// with the given external encryption key, not the user key, so the same
+    /// device-specific key must be given to use credentials created with this
+    /// authenticator.
     pub fn device_authenticator(
         &self,
         user_interface: Arc<dyn Fido2UserInterface>,
