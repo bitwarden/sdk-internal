@@ -119,11 +119,11 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         Commands::Edit(_args) => todo!(),
         Commands::Delete { .. } => todo!(),
         Commands::Restore(_args) => todo!(),
-        Commands::Move(_args) => todo!(),
 
         // Admin console commands
         Commands::Confirm { .. } => todo!(),
         Commands::DeviceApproval => todo!(),
+        Commands::Move(_args) => todo!(),
 
         // Tools commands
         Commands::Generate(arg) => arg.run(&client),
