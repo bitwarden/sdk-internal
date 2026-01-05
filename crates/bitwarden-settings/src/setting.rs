@@ -1,6 +1,5 @@
 //! Internal setting storage type.
 
-use bitwarden_state::repository::{RepositoryItem, RepositoryMigrationStep};
 use serde::{Deserialize, Serialize};
 
 /// Internal setting value stored in the settings repository.
@@ -13,12 +12,3 @@ pub struct Setting(pub(crate) serde_json::Value);
 
 // Register Setting for repository usage
 bitwarden_state::register_repository_item!(Setting, "Setting");
-
-impl Setting {
-    /// Get the migration step for the Setting repository item.
-    ///
-    /// This is used internally by the settings crate to register the migration.
-    pub(crate) fn migration_step() -> RepositoryMigrationStep {
-        RepositoryMigrationStep::Add(Self::data())
-    }
-}

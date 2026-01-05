@@ -41,11 +41,11 @@ async fn example(client: &bitwarden_core::Client) -> Result<(), Box<dyn std::err
 Include the settings migration when initializing your database:
 
 ```rust
-use bitwarden_settings::get_settings_migration_step;
-use bitwarden_state::repository::RepositoryMigrations;
+use bitwarden_settings::Setting;
+use bitwarden_state::repository::{RepositoryItem, RepositoryMigrationStep, RepositoryMigrations};
 
 let migrations = RepositoryMigrations::new(vec![
-    get_settings_migration_step(),
+    RepositoryMigrationStep::Add(Setting::data()),
     // ... other migrations
 ]);
 ```
