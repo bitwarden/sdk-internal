@@ -13,17 +13,17 @@ use std::marker::PhantomData;
 /// use serde::{Deserialize, Serialize};
 ///
 /// #[derive(Serialize, Deserialize)]
-/// struct AuthState {
-///     user_id: String,
-///     token: String,
+/// struct AppConfig {
+///     theme: String,
+///     auto_save: bool,
 /// }
 ///
-/// pub const AUTH: Key<AuthState> = Key::new("auth");
+/// pub const CONFIG: Key<AppConfig> = Key::new("app_config");
 ///
 /// // Usage:
 /// # async {
 /// # let client: bitwarden_core::Client = todo!();
-/// let auth_state: Option<AuthState> = client.settings().get(AUTH).await?;
+/// let config: Option<AppConfig> = client.settings().get(CONFIG).await?;
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// # };
 /// ```
@@ -40,7 +40,7 @@ impl<T> Key<T> {
     /// ```rust
     /// use bitwarden_settings::Key;
     ///
-    /// const MY_KEY: Key<String> = Key::new("my_setting");
+    /// const MY_SETTING: Key<String> = Key::new("my_setting");
     /// ```
     pub const fn new(name: &'static str) -> Self {
         Self {
