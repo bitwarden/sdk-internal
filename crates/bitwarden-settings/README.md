@@ -1,10 +1,6 @@
 # bitwarden-settings
 
-Type-safe settings repository for storing application configuration and state.
-
-## Overview
-
-This crate provides a high-level API for storing and retrieving typed settings using compile-time
+Type-safe settings repository for storing application configuration and state using compile-time
 type-safe keys, backed by the SDK's repository pattern with SQLite storage.
 
 ## Features
