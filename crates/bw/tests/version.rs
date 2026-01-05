@@ -20,8 +20,9 @@ fn assert_version_output(args: &[&str]) {
     );
 
     assert!(
-        stdout.contains("0.0.2"),
-        "Output should contain version '0.0.2': {}",
+        stdout.contains(env!("CARGO_PKG_VERSION")),
+        "Output should contain version '{}': {}",
+        env!("CARGO_PKG_VERSION"),
         stdout
     );
 }
