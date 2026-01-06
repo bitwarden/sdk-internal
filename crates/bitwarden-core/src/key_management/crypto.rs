@@ -872,7 +872,6 @@ pub struct MakeJitMasterPasswordRegistrationResponse {
     pub account_cryptographic_state: WrappedAccountCryptographicState,
     /// The user's user key
     pub user_key: SymmetricCryptoKey,
-    /// TODO do we need it ?
     /// The user's master key used to encrypt the user key
     pub master_key: MasterKey,
     /// The master password unlock data
