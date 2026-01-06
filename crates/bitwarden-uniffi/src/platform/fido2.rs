@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use bitwarden_crypto::{BitwardenLegacyKeyBytes, SymmetricCryptoKey};
+use bitwarden_crypto::{BitwardenLegacyKeyBytes, CryptoError, SymmetricCryptoKey};
 use bitwarden_fido::{
     CheckUserOptions, ClientData, Fido2AuthenticatorOptions,
     Fido2CallbackError as BitFido2CallbackError, Fido2CredentialAutofillView, GetAssertionRequest,
@@ -47,10 +47,9 @@ impl ClientFido2 {
         user_interface: Arc<dyn Fido2UserInterface>,
         credential_store: Arc<dyn Fido2CredentialStore>,
         encryption_key: Vec<u8>,
-    ) -> Arc<ClientFido2Authenticator> {
-        let key =
-            SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(encryption_key)).unwrap();
-        Arc::new(ClientFido2Authenticator(
+    ) -> Result<Arc<ClientFido2Authenticator>, CryptoError> {
+        let key = SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(encryption_key))?;
+        Ok(Arc::new(ClientFido2Authenticator(
             self.0.clone(),
             user_interface,
             credential_store,
@@ -58,7 +57,7 @@ impl ClientFido2 {
                 enable_hmac_secret: true,
                 external_encryption_key: Some(key),
             },
-        ))
+        )))
     }
 
     pub fn client(
