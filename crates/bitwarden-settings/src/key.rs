@@ -50,7 +50,7 @@ impl<T> Key<T> {
     }
 
     /// Get the string key name used for storage.
-    pub const fn name(&self) -> &'static str {
+    pub(crate) const fn name(&self) -> &'static str {
         self.name
     }
 }
