@@ -79,6 +79,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Set up Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -97,11 +102,11 @@ jobs:
       - name: Set version
         working-directory: crates/bitwarden-wasm-internal/${{ matrix.license_type.npm_folder }}
         run: |
-          npm version --no-git-tag-version $VERSION
+          pnpm version --no-git-tag-version $VERSION
         env:
           VERSION: ${{needs.setup.outputs.release-version}}
 
       - name: Publish NPM
         if: ${{ inputs.release_type != 'Dry Run' }}
         working-directory: crates/bitwarden-wasm-internal/${{ matrix.license_type.npm_folder }}
-        run: npm publish --access public --tag latest
+        run: pnpm publish --access public --tag latest --no-git-checks

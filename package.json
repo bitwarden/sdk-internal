@@ -1,6 +1,7 @@
 {
   "name": "@bitwarden/sdk-internal",
   "version": "0.0.0",
+  "packageManager": "pnpm@9.15.4",
   "description": "",
   "homepage": "https://github.com/bitwarden/sdk-internal#readme",
   "bugs": {

@@ -13,7 +13,7 @@ rm -rf crates/bitwarden-api-api/src
 rm -rf crates/bitwarden-api-identity/src
 
 # Generate new API bindings
-npx openapi-generator-cli generate \
+pnpm exec openapi-generator-cli generate \
     -i artifacts/api.json \
     -g rust \
     -o crates/bitwarden-api-api \
@@ -22,7 +22,7 @@ npx openapi-generator-cli generate \
     --additional-properties=library=reqwest-trait,mockall,topLevelApiClient,packageVersion=$VERSION,packageDescription=\"Api bindings for the Bitwarden API.\"
 
 # Generate new Identity bindings
-npx openapi-generator-cli generate \
+pnpm exec openapi-generator-cli generate \
     -i artifacts/identity.json \
     -g rust \
     -o crates/bitwarden-api-identity \
@@ -30,4 +30,4 @@ npx openapi-generator-cli generate \
     -t ./support/openapi-template \
     --additional-properties=library=reqwest-trait,mockall,topLevelApiClient,packageVersion=$VERSION,packageDescription=\"Api bindings for the Bitwarden Identity API.\"
 
-npm run prettier
+pnpm run prettier

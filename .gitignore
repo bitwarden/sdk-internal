@@ -45,3 +45,7 @@ crates/bitwarden-uniffi/kotlin/sdk/src/main/java/com/bitwarden/**/*.kt
 
 # API Swagger files
 /artifacts
+
+# pnpm
+pnpm-debug.log
+.pnpm-store/

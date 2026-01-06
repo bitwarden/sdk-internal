@@ -12,7 +12,7 @@ contain no logic but rather only handle WASM unique conversions and bindings. Bu
 
 - `wasm32-unknown-unknown` rust target.
 - `binaryen` installed for `wasm-opt` and `wasm2js`.
-- npm packages must be installed in the `npm` folder. Run `npm ci` inside:
+- npm packages must be installed in the `npm` folder. Run `pnpm install` inside:
   - **OSS:** `crates/bitwarden-wasm-internal/npm`
   - **Commercial:** `crates/bitwarden-wasm-internal/bitwarden_license/npm`
 
