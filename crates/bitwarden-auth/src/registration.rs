@@ -918,4 +918,93 @@ mod tests {
             mock.user_keys_api.checkpoint();
         }
     }
+
+    #[tokio::test]
+    async fn test_post_keys_for_jit_password_registration_success() {
+        let client = Client::new(None);
+        let registration_client = RegistrationClient::new(client);
+
+        let expected_hint = "test hint";
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.accounts_api
+                .expect_post_set_password()
+                .once()
+                .withf(move |body| {
+                    if let Some(req) = body {
+                        assert_eq!(req.org_identifier, TEST_SSO_ORG_IDENTIFIER);
+                        assert_eq!(req.master_password_hint, Some(expected_hint.to_string()));
+                        assert!(req.account_keys.is_some());
+                        assert!(req.master_password_unlock.is_some());
+                        assert!(req.master_password_authentication.is_some());
+                        true
+                    } else {
+                        false
+                    }
+                })
+                .returning(move |_body| Ok(()));
+        });
+
+        let request = JitMasterPasswordRegistrationRequest {
+            organization_sso_identifier: TEST_SSO_ORG_IDENTIFIER.to_string(),
+            user_id: TEST_USER_ID.parse().unwrap(),
+            salt: "test@example.com".to_string(),
+            master_password: "test-password-123".to_string(),
+            master_password_hint: Some(expected_hint.to_string()),
+        };
+
+        let result = internal_post_keys_for_jit_password_registration(
+            &registration_client,
+            &api_client,
+            request,
+        )
+        .await;
+
+        assert!(result.is_ok());
+
+        // Assert that the mock expectations were met
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.accounts_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_post_keys_for_jit_password_registration_api_failure() {
+        let client = Client::new(None);
+        let registration_client = RegistrationClient::new(client);
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.accounts_api
+                .expect_post_set_password()
+                .once()
+                .returning(move |_body| {
+                    Err(bitwarden_api_api::apis::Error::Serde(
+                        serde_json::Error::io(std::io::Error::other("API error")),
+                    ))
+                });
+        });
+
+        let request = JitMasterPasswordRegistrationRequest {
+            organization_sso_identifier: TEST_SSO_ORG_IDENTIFIER.to_string(),
+            user_id: TEST_USER_ID.parse().unwrap(),
+            salt: "test@example.com".to_string(),
+            master_password: "test-password-123".to_string(),
+            master_password_hint: Some("test hint".to_string()),
+        };
+
+        let result = internal_post_keys_for_jit_password_registration(
+            &registration_client,
+            &api_client,
+            request,
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), RegistrationError::Api));
+
+        // Assert that the mock expectations were met
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.accounts_api.checkpoint();
+        }
+    }
 }
