@@ -80,7 +80,10 @@ jobs:
           RUST_TOOLCHAIN="$(grep -oP '^channel.*"(\K.*?)(?=")' ../../rust-toolchain.toml)"
           echo "RUST_TOOLCHAIN=${RUST_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
 
-      - name: pnpm setup
+      - name: Install root dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install WASM package dependencies
         run: pnpm install --frozen-lockfile
         working-directory: crates/bitwarden-wasm-internal/${{ matrix.license_type.npm_folder }}
 

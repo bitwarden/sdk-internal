@@ -59,7 +59,7 @@ wasm-opt -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/node/bitwarden_wasm_
 
 # Transpile to JS
 wasm2js -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js
-pnpm exec terser ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js
+pnpm dlx terser ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js
 
 # Typecheck the generated TypeScript definitions
 cd crates/bitwarden-wasm-internal/${NPM_FOLDER}
