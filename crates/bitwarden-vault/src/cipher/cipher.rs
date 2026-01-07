@@ -401,7 +401,7 @@ impl TryFrom<Cipher> for CipherWithIdRequestModel {
             identity: val.identity.map(|i| Box::new(i.into())),
             secure_note: val.secure_note.map(|s| Box::new(s.into())),
             ssh_key: val.ssh_key.map(|s| Box::new(s.into())),
-            data: None,
+            data: val.data,
             last_known_revision_date: Some(
                 val.revision_date
                     .to_rfc3339_opts(SecondsFormat::Millis, true),
