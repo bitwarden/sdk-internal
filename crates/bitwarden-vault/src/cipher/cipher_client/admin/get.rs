@@ -3,6 +3,7 @@ use bitwarden_core::{ApiError, OrganizationId, key_management::KeyIds};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
+#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{

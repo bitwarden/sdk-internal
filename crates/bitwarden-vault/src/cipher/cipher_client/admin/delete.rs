@@ -2,6 +2,7 @@ use bitwarden_api_api::models::CipherBulkDeleteRequestModel;
 use bitwarden_core::{ApiError, OrganizationId};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
+#[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{CipherId, cipher_client::admin::CipherAdminClient};
