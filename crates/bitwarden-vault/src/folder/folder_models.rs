@@ -1,4 +1,4 @@
-use bitwarden_api_api::models::FolderResponseModel;
+use bitwarden_api_api::models::{FolderResponseModel, FolderWithIdRequestModel};
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
     require,
@@ -26,6 +26,15 @@ pub struct Folder {
     pub id: Option<FolderId>,
     pub name: EncString,
     pub revision_date: DateTime<Utc>,
+}
+
+impl From<&Folder> for FolderWithIdRequestModel {
+    fn from(val: &Folder) -> Self {
+        FolderWithIdRequestModel {
+            name: val.name.to_string(),
+            id: val.id.map(|id| id.0),
+        }
+    }
 }
 
 bitwarden_state::register_repository_item!(Folder, "Folder");

@@ -354,6 +354,66 @@ pub struct CipherView {
     pub archived_date: Option<DateTime<Utc>>,
 }
 
+pub struct ParseError;
+
+impl TryFrom<Cipher> for CipherWithIdRequestModel {
+    type Error = ParseError;
+
+    fn try_from(val: Cipher) -> Result<Self, ParseError> {
+        Ok(CipherWithIdRequestModel {
+            encrypted_for: None,
+            r#type: Some(val.r#type.into()),
+            organization_id: val.organization_id.map(|o| o.to_string()),
+            folder_id: val.folder_id.as_ref().map(ToString::to_string),
+            favorite: Some(val.favorite),
+            reprompt: Some(val.reprompt.into()),
+            key: val.key.map(|k| k.to_string()),
+            name: val.name.to_string(),
+            notes: val.notes.map(|n| n.to_string()),
+            fields: Some(val.fields.into_iter().flatten().map(Into::into).collect()),
+            password_history: Some(
+                val.password_history
+                    .into_iter()
+                    .flatten()
+                    .map(Into::into)
+                    .collect(),
+            ),
+            attachments: None,
+            attachments2: Some(
+                val.attachments
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|a| {
+                        a.id.map(|id| {
+                            (
+                                id,
+                                bitwarden_api_api::models::CipherAttachmentModel {
+                                    file_name: a.file_name.map(|n| n.to_string()),
+                                    key: a.key.map(|k| k.to_string()),
+                                },
+                            )
+                        })
+                    })
+                    .collect(),
+            ),
+            login: val.login.map(|l| Box::new(l.into())),
+            card: val.card.map(|c| Box::new(c.into())),
+            identity: val.identity.map(|i| Box::new(i.into())),
+            secure_note: val.secure_note.map(|s| Box::new(s.into())),
+            ssh_key: val.ssh_key.map(|s| Box::new(s.into())),
+            data: None,
+            last_known_revision_date: Some(
+                val.revision_date
+                    .to_rfc3339_opts(SecondsFormat::Millis, true),
+            ),
+            archived_date: val
+                .archived_date
+                .map(|d| d.to_rfc3339_opts(SecondsFormat::Millis, true)),
+            id: val.id.ok_or(ParseError)?.into(),
+        })
+    }
+}
+
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
