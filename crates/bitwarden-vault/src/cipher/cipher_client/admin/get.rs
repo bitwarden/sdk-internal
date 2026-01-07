@@ -3,6 +3,8 @@ use bitwarden_core::{ApiError, OrganizationId, key_management::KeyIds};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     VaultParseError,
@@ -48,6 +50,7 @@ pub async fn list_org_ciphers(
     })
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CipherAdminClient {
     pub async fn list_org_ciphers(
         &self,
