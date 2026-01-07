@@ -1,3 +1,4 @@
+//! Functionality for re-encrypting account cryptographic state during user key rotation.
 use bitwarden_core::{
     UserId,
     key_management::{

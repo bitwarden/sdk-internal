@@ -1,3 +1,5 @@
+//! Functionality for syncing the latest account data from the server
+//!
 use std::str::FromStr;
 
 use bitwarden_api_api::{apis::ApiClient, models::ProfileResponseModel};

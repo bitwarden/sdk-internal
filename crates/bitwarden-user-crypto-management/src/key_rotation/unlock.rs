@@ -1,3 +1,5 @@
+//! Functionality for re-encrypting unlock (decryption) methods during user key rotation.
+
 use bitwarden_api_api::models::{
     self, EmergencyAccessWithIdRequestModel, MasterPasswordUnlockAndAuthenticationDataModel,
     ResetPasswordWithOrgIdRequestModel, UnlockDataRequestModel,

@@ -1,3 +1,5 @@
+//! Functionality for re-encrypting user data during key rotation.
+
 use bitwarden_api_api::models::{
     AccountDataRequestModel, CipherWithIdRequestModel, SendWithIdRequestModel,
 };
