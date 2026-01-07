@@ -457,11 +457,14 @@ pub enum RegistrationError {
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZeroU32;
+
     use bitwarden_api_api::{
         apis::ApiClient,
-        models::{DeviceResponseModel, KeysResponseModel},
+        models::{DeviceResponseModel, KdfRequestModel, KdfType, KeysResponseModel},
     };
     use bitwarden_core::Client;
+    use bitwarden_crypto::Kdf;
 
     use super::*;
 
@@ -935,8 +938,70 @@ mod tests {
                         assert_eq!(req.org_identifier, TEST_SSO_ORG_IDENTIFIER);
                         assert_eq!(req.master_password_hint, Some(expected_hint.to_string()));
                         assert!(req.account_keys.is_some());
+                        let account_keys = req.account_keys.as_ref().unwrap();
+                        assert!(
+                            account_keys
+                                .user_key_encrypted_account_private_key
+                                .is_some()
+                        );
+                        assert!(account_keys.account_public_key.is_some());
+                        assert!(account_keys.public_key_encryption_key_pair.is_some());
+                        let public_key_encryption_key_pair = account_keys
+                            .public_key_encryption_key_pair
+                            .as_ref()
+                            .unwrap();
+                        assert!(public_key_encryption_key_pair.public_key.is_some());
+                        assert!(public_key_encryption_key_pair.signed_public_key.is_some());
+                        assert!(public_key_encryption_key_pair.wrapped_private_key.is_some());
+                        assert!(account_keys.signature_key_pair.is_some());
+                        let signature_key_pair = account_keys.signature_key_pair.as_ref().unwrap();
+                        assert_eq!(
+                            signature_key_pair.signature_algorithm,
+                            Some("ed25519".to_string())
+                        );
+                        assert!(signature_key_pair.verifying_key.is_some());
+                        assert!(signature_key_pair.wrapped_signing_key.is_some());
+                        assert!(account_keys.security_state.is_some());
+                        let security_state = account_keys.security_state.as_ref().unwrap();
+                        assert!(security_state.security_state.is_some());
+                        assert_eq!(security_state.security_version, 2);
                         assert!(req.master_password_unlock.is_some());
+                        let master_password_unlock = req.master_password_unlock.as_ref().unwrap();
+                        assert_eq!(
+                            master_password_unlock.salt,
+                            Some("test@example.com".to_string())
+                        );
+                        assert_eq!(
+                            master_password_unlock.kdf,
+                            Box::new(KdfRequestModel {
+                                kdf_type: KdfType::Argon2id,
+                                iterations: 6,
+                                memory: Some(32),
+                                parallelism: Some(3),
+                            })
+                        );
+                        assert!(master_password_unlock.master_key_wrapped_user_key.is_some());
                         assert!(req.master_password_authentication.is_some());
+                        let master_password_authentication =
+                            req.master_password_authentication.as_ref().unwrap();
+                        assert_eq!(
+                            master_password_authentication.salt,
+                            Some("test@example.com".to_string())
+                        );
+                        assert_eq!(
+                            master_password_authentication.kdf,
+                            Box::new(KdfRequestModel {
+                                kdf_type: KdfType::Argon2id,
+                                iterations: 6,
+                                memory: Some(32),
+                                parallelism: Some(3),
+                            })
+                        );
+                        assert!(
+                            master_password_authentication
+                                .master_password_authentication_hash
+                                .is_some()
+                        );
                         true
                     } else {
                         false
@@ -961,6 +1026,24 @@ mod tests {
         .await;
 
         assert!(result.is_ok());
+        let result = result.unwrap();
+        assert!(matches!(
+            result.account_cryptographic_state,
+            WrappedAccountCryptographicState::V2 { .. }
+        ));
+        assert_eq!(result.master_password_unlock.salt, "test@example.com");
+        assert!(matches!(
+            result.master_password_unlock.master_key_wrapped_user_key,
+            EncString::Aes256Cbc_HmacSha256_B64 { .. }
+        ));
+        assert_eq!(
+            result.master_password_unlock.kdf,
+            Kdf::Argon2id {
+                iterations: NonZeroU32::new(6).unwrap(),
+                memory: NonZeroU32::new(32).unwrap(),
+                parallelism: NonZeroU32::new(3).unwrap(),
+            }
+        );
 
         // Assert that the mock expectations were met
         if let ApiClient::Mock(mut mock) = api_client {
