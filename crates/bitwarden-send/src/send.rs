@@ -1,4 +1,6 @@
-use bitwarden_api_api::models::{SendFileModel, SendResponseModel, SendTextModel};
+use bitwarden_api_api::models::{
+    SendFileModel, SendResponseModel, SendTextModel, SendWithIdRequestModel,
+};
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
     require,
@@ -29,6 +31,17 @@ pub struct SendFile {
     pub size_name: Option<String>,
 }
 
+impl From<SendFile> for SendFileModel {
+    fn from(val: SendFile) -> Self {
+        SendFileModel {
+            id: val.id,
+            file_name: Some(val.file_name.to_string()),
+            size: val.size.as_ref().and_then(|s| s.parse().ok()),
+            size_name: val.size_name,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -48,20 +61,53 @@ pub struct SendText {
     pub hidden: bool,
 }
 
+impl From<SendText> for SendTextModel {
+    fn from(val: SendText) -> Self {
+        SendTextModel {
+            text: val.text.map(|t| t.to_string()),
+            hidden: Some(val.hidden),
+        }
+    }
+}
+
+/// View model for SendText
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SendTextView {
+    /// The text content
     pub text: Option<String>,
+    /// Whether the text is hidden
     pub hidden: bool,
 }
 
+impl From<SendText> for SendTextView {
+    fn from(val: SendText) -> Self {
+        SendTextView {
+            text: val.text.map(|t| t.to_string()),
+            hidden: val.hidden,
+        }
+    }
+}
+
+/// The type of send being created.
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum SendType {
+    /// A text-based send
     Text = 0,
+    /// A file-based send
     File = 1,
+}
+
+impl From<SendType> for bitwarden_api_api::models::SendType {
+    fn from(val: SendType) -> Self {
+        match val {
+            SendType::Text => bitwarden_api_api::models::SendType::Text,
+            SendType::File => bitwarden_api_api::models::SendType::File,
+        }
+    }
 }
 
 #[allow(missing_docs)]
@@ -89,6 +135,35 @@ pub struct Send {
     pub revision_date: DateTime<Utc>,
     pub deletion_date: DateTime<Utc>,
     pub expiration_date: Option<DateTime<Utc>>,
+}
+
+pub struct ParseError;
+
+impl TryFrom<Send> for SendWithIdRequestModel {
+    type Error = ParseError;
+    fn try_from(val: Send) -> Result<Self, ParseError> {
+        Ok(SendWithIdRequestModel {
+            r#type: Some(val.r#type.into()),
+            file_length: val
+                .file
+                .as_ref()
+                .and_then(|f| f.size.as_ref().and_then(|s| s.parse().ok())),
+            name: Some(val.name.to_string()),
+            notes: val.notes.as_ref().map(|n| n.to_string()),
+            key: val.key.to_string(),
+            max_access_count: val.max_access_count.map(|s| s as i32),
+            expiration_date: val.expiration_date.map(|d| d.to_rfc3339()),
+            deletion_date: val.deletion_date.to_rfc3339(),
+            file: val.file.map(|f| Box::new(f.into())),
+            text: val.text.map(|t| Box::new(t.into())),
+            password: val.password,
+            disabled: val.disabled,
+            hide_email: Some(val.hide_email),
+            id: val.id.ok_or(ParseError)?,
+            auth_type: None,
+            emails: None,
+        })
+    }
 }
 
 #[allow(missing_docs)]

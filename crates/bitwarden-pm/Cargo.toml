@@ -36,6 +36,7 @@ wasm = [
     "bitwarden-generators/wasm",
     "bitwarden-state/wasm",
     "bitwarden-vault/wasm",
+    "bitwarden-user-crypto-management/wasm",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
     "dep:tsify",
@@ -51,6 +52,7 @@ bitwarden-fido = { workspace = true }
 bitwarden-generators = { workspace = true }
 bitwarden-send = { workspace = true }
 bitwarden-state = { workspace = true }
+bitwarden-user-crypto-management = { workspace = true }
 bitwarden-vault = { workspace = true }
 
 tsify = { workspace = true, optional = true }

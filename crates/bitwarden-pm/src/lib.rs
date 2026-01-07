@@ -10,6 +10,7 @@ use bitwarden_core::client::internal::ClientManagedTokens;
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_send::SendClientExt as _;
+use bitwarden_user_crypto_management::UserCryptoManagementClientExt as _;
 use bitwarden_vault::VaultClientExt as _;
 
 #[cfg(feature = "uniffi")]
@@ -22,6 +23,7 @@ pub mod clients {
     pub use bitwarden_exporters::ExporterClient;
     pub use bitwarden_generators::GeneratorClient;
     pub use bitwarden_send::SendClient;
+    pub use bitwarden_user_crypto_management::UserCryptoManagementClient;
     pub use bitwarden_vault::VaultClient;
 }
 #[cfg(feature = "bitwarden-license")]
@@ -67,6 +69,13 @@ impl PasswordManagerClient {
     /// Crypto operations
     pub fn crypto(&self) -> bitwarden_core::key_management::CryptoClient {
         self.0.crypto()
+    }
+
+    /// Management of user crypto and unlock
+    pub fn user_crypto_management(
+        &self,
+    ) -> bitwarden_user_crypto_management::UserCryptoManagementClient {
+        self.0.user_crypto_management()
     }
 
     /// Vault item operations

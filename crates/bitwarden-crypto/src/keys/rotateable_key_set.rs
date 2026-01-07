@@ -49,6 +49,7 @@ impl RotateableKeySet {
         #[allow(deprecated)]
         let downstream_key = ctx.dangerous_get_symmetric_key(downstream_key_id)?;
         // encapsulate downstream key
+        #[expect(deprecated)]
         let encapsulated_downstream_key =
             UnsignedSharedKey::encapsulate_key_unsigned(downstream_key, &key_pair.to_public_key())?;
 
@@ -86,6 +87,7 @@ impl RotateableKeySet {
             .decrypt_with_key(upstream_key)?;
         let decapsulation_key =
             AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(priv_key_bytes))?;
+        #[expect(deprecated)]
         let downstream_key = self
             .encapsulated_downstream_key
             .decapsulate_key_unsigned(&decapsulation_key)?;
@@ -112,6 +114,7 @@ fn rotate_key_set<Ids: KeyIds>(
     // have pull out the downstream key to encapsulate it manually.
     #[allow(deprecated)]
     let new_downstream_key = ctx.dangerous_get_symmetric_key(new_downstream_key_id)?;
+    #[expect(deprecated)]
     let new_encapsulated_key =
         UnsignedSharedKey::encapsulate_key_unsigned(new_downstream_key, &encapsulation_key)?;
     let new_encrypted_encapsulation_key = pub_key.encrypt_with_key(new_downstream_key)?;

@@ -241,6 +241,7 @@ impl PureCrypto {
     ) -> Result<String, CryptoError> {
         let encapsulation_key =
             AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(encapsulation_key))?;
+        #[expect(deprecated)]
         Ok(UnsignedSharedKey::encapsulate_key_unsigned(
             &SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(shared_key))?,
             &encapsulation_key,
@@ -255,6 +256,7 @@ impl PureCrypto {
         encapsulated_key: String,
         decapsulation_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
+        #[expect(deprecated)]
         Ok(UnsignedSharedKey::from_str(encapsulated_key.as_str())?
             .decapsulate_key_unsigned(&AsymmetricCryptoKey::from_der(
                 &Pkcs8PrivateKeyBytes::from(decapsulation_key),

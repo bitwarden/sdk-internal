@@ -341,7 +341,7 @@ pub(super) fn make_update_kdf(
 
     let authentication_data = MasterPasswordAuthenticationData::derive(password, new_kdf, email)
         .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
-    let unlock_data = MasterPasswordUnlockData::derive(password, new_kdf, email, user_key)
+    let unlock_data = MasterPasswordUnlockData::derive_ref(password, new_kdf, email, user_key)
         .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
     let old_authentication_data = MasterPasswordAuthenticationData::derive(
         password,
@@ -541,6 +541,7 @@ pub(super) fn enroll_admin_password_reset(
     #[allow(deprecated)]
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
+    #[expect(deprecated)]
     Ok(UnsignedSharedKey::encapsulate_key_unsigned(
         key,
         &public_key,
@@ -757,7 +758,7 @@ pub(crate) fn make_v2_keys_for_v1_user(
 
     // New signing key
     let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
-    let temporary_signing_key_id = ctx.add_local_signing_key(signing_key.clone())?;
+    let temporary_signing_key_id = ctx.add_local_signing_key(signing_key.clone());
 
     // Sign existing public key
     let signed_public_key = ctx.make_signed_public_key(private_key_id, temporary_signing_key_id)?;
@@ -1371,6 +1372,7 @@ mod tests {
 
         let private_key = Pkcs8PrivateKeyBytes::from(private_key.as_bytes());
         let private_key = AsymmetricCryptoKey::from_der(&private_key).unwrap();
+        #[expect(deprecated)]
         let decrypted: SymmetricCryptoKey =
             encrypted.decapsulate_key_unsigned(&private_key).unwrap();
 
@@ -1771,6 +1773,7 @@ mod tests {
 
         // Verify that the org key can decrypt the admin_reset_key UnsignedSharedKey
         // and that the decrypted key matches the user's encryption key
+        #[expect(deprecated)]
         let decrypted_user_key = make_keys_response
             .reset_password_key
             .decapsulate_key_unsigned(&org_key)

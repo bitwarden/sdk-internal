@@ -363,7 +363,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         let private_key_bytes: Vec<u8> = wrapped_key.decrypt_with_key(wrapping_key)?;
         let private_key =
             AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key_bytes))?;
-        self.add_local_asymmetric_key(private_key)
+        Ok(self.add_local_asymmetric_key(private_key))
     }
 
     /// Decrypt and import a previously wrapped signing key into the context.
@@ -382,7 +382,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         let wrapping_key = self.get_symmetric_key(wrapping_key)?;
         let signing_key_bytes: Vec<u8> = wrapped_key.decrypt_with_key(wrapping_key)?;
         let signing_key = SigningKey::from_cose(&CoseKeyBytes::from(signing_key_bytes))?;
-        self.add_local_signing_key(signing_key)
+        Ok(self.add_local_signing_key(signing_key))
     }
 
     /// Return the verifying (public) key corresponding to a signing key identifier.
@@ -477,6 +477,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         encapsulated_shared_key: &UnsignedSharedKey,
     ) -> Result<Ids::Symmetric> {
         let decapsulation_key = self.get_asymmetric_key(decapsulation_key)?;
+        #[expect(deprecated)]
         let decapsulated_key =
             encapsulated_shared_key.decapsulate_key_unsigned(decapsulation_key)?;
 
@@ -500,6 +501,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         encapsulation_key: Ids::Asymmetric,
         shared_key: Ids::Symmetric,
     ) -> Result<UnsignedSharedKey> {
+        #[expect(deprecated)]
         UnsignedSharedKey::encapsulate_key_unsigned(
             self.get_symmetric_key(shared_key)?,
             &self.get_asymmetric_key(encapsulation_key)?.to_public_key(),
@@ -534,22 +536,19 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 
     /// Makes a new asymmetric encryption key using the current default algorithm, and stores it in
     /// the context as a local key
-    pub fn make_private_key(
-        &mut self,
-        algorithm: PublicKeyEncryptionAlgorithm,
-    ) -> Result<Ids::Asymmetric> {
+    pub fn make_private_key(&mut self, algorithm: PublicKeyEncryptionAlgorithm) -> Ids::Asymmetric {
         self.add_local_asymmetric_key(AsymmetricCryptoKey::make(algorithm))
     }
 
     /// Makes a new signing key using the current default algorithm, and stores it in the context as
     /// a local key
-    pub fn make_signing_key(&mut self, algorithm: SignatureAlgorithm) -> Result<Ids::Signing> {
+    pub fn make_signing_key(&mut self, algorithm: SignatureAlgorithm) -> Ids::Signing {
         self.add_local_signing_key(SigningKey::make(algorithm))
     }
 
     /// Makes a new asymmetric encryption key using the current default algorithm, and stores it in
     /// the context
-    pub fn make_asymmetric_key(&mut self) -> Result<Ids::Asymmetric> {
+    pub fn make_asymmetric_key(&mut self) -> Ids::Asymmetric {
         let key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         self.add_local_asymmetric_key(key)
     }
@@ -729,13 +728,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Add a new asymmetric key to the local context, returning a new unique identifier for it.
-    pub fn add_local_asymmetric_key(
-        &mut self,
-        key: AsymmetricCryptoKey,
-    ) -> Result<Ids::Asymmetric> {
+    pub fn add_local_asymmetric_key(&mut self, key: AsymmetricCryptoKey) -> Ids::Asymmetric {
         let key_id = Ids::Asymmetric::new_local(LocalId::new());
         self.local_asymmetric_keys.upsert(key_id, key);
-        Ok(key_id)
+        key_id
     }
 
     /// Sets a signing key in the context
@@ -754,10 +750,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Add a new signing key to the local context, returning a new unique identifier for it.
-    pub fn add_local_signing_key(&mut self, key: SigningKey) -> Result<Ids::Signing> {
+    pub fn add_local_signing_key(&mut self, key: SigningKey) -> Ids::Signing {
         let key_id = Ids::Signing::new_local(LocalId::new());
         self.local_signing_keys.upsert(key_id, key);
-        Ok(key_id)
+        key_id
     }
 
     pub(crate) fn decrypt_data_with_symmetric_key(
@@ -1041,9 +1037,8 @@ mod tests {
         let mut ctx = store.context_mut();
 
         // Make the keys
-        let current_user_signing_key_id =
-            ctx.make_signing_key(SignatureAlgorithm::Ed25519).unwrap();
-        let current_user_private_key_id = ctx.make_asymmetric_key().unwrap();
+        let current_user_signing_key_id = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
+        let current_user_private_key_id = ctx.make_asymmetric_key();
 
         // Get the rotated account keys
         let rotated_keys = ctx
