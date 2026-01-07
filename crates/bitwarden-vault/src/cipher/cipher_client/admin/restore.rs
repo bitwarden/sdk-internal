@@ -3,6 +3,8 @@ use bitwarden_core::{ApiError, OrganizationId, key_management::KeyIds};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     Cipher, CipherId, CipherView, DecryptCipherListResult, VaultParseError,
@@ -71,9 +73,10 @@ pub async fn restore_many_as_admin(
     })
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CipherAdminClient {
     /// Restores a soft-deleted cipher on the server, using the admin endpoint.
-    pub async fn restore_as_admin(
+    pub async fn restore(
         &self,
         cipher_id: CipherId,
     ) -> Result<CipherView, RestoreCipherAdminError> {
@@ -88,7 +91,7 @@ impl CipherAdminClient {
         restore_as_admin(cipher_id, api_client, key_store).await
     }
     /// Restores multiple soft-deleted ciphers on the server.
-    pub async fn restore_many_as_admin(
+    pub async fn restore_many(
         &self,
         cipher_ids: Vec<CipherId>,
         org_id: OrganizationId,
