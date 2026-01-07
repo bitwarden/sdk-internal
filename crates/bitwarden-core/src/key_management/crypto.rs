@@ -981,7 +981,7 @@ pub(crate) fn make_user_jit_master_password_registration(
     let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx, user_id)
         .map_err(MakeKeysError::AccountCryptographyInitialization)?;
 
-    let kdf = Kdf::default();
+    let kdf = Kdf::default_argon2();
 
     #[expect(deprecated)]
     let user_key = ctx.dangerous_get_symmetric_key(user_key_id)?.to_owned();
@@ -1859,7 +1859,7 @@ mod tests {
             .crypto()
             .initialize_user_crypto(InitUserCryptoRequest {
                 user_id: Some(user_id),
-                kdf_params: Kdf::default(),
+                kdf_params: Kdf::default_argon2(),
                 email: email.to_owned(),
                 account_cryptographic_state: make_keys_response.account_cryptographic_state,
                 method: InitUserCryptoMethod::KeyConnector {
