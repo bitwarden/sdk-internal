@@ -3,6 +3,7 @@ use bitwarden_core::{ApiError, OrganizationId};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
+use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{Cipher, CipherId, CiphersClient};
 
@@ -95,6 +96,7 @@ async fn process_soft_delete<R: Repository<Cipher> + ?Sized>(
     Ok(())
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     /// Deletes the [Cipher] with the matching [CipherId] from the server.
     pub async fn delete(&self, cipher_id: CipherId) -> Result<(), DeleteCipherError> {
