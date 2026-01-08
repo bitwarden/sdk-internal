@@ -148,17 +148,20 @@ jobs:
           NODE_VERSION=${NODE_NVMRC/v/''}
           echo "node_version=$NODE_VERSION" >> $GITHUB_OUTPUT
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.1.0
+
       - name: Set up Node
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
         with:
-          cache: "npm"
-          cache-dependency-path: "package-lock.json"
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
           node-version: ${{ env._NODE_VERSION }}
         env:
           _NODE_VERSION: ${{ steps.retrieve-node-version.outputs.node_version }}
 
-      - name: NPM setup
-        run: npm ci
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Generate API bindings
         run: ./support/build-api-ci.sh

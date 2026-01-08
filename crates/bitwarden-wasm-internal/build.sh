@@ -51,7 +51,7 @@ cargo run -p wasm-bindgen-cli-runner --bin wasm-bindgen-runner -- --target bundl
 cargo run -p wasm-bindgen-cli-runner --bin wasm-bindgen-runner -- --target nodejs --out-dir crates/bitwarden-wasm-internal/${NPM_FOLDER}/node ./target/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
 
 # Format
-npx prettier --write ./crates/bitwarden-wasm-internal/${NPM_FOLDER}
+pnpm exec prettier --write ./crates/bitwarden-wasm-internal/${NPM_FOLDER}
 
 # Optimize size
 wasm-opt -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm
@@ -59,8 +59,8 @@ wasm-opt -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/node/bitwarden_wasm_
 
 # Transpile to JS
 wasm2js -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js
-npx terser ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js
+pnpm exec terser ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js
 
 # Typecheck the generated TypeScript definitions
 cd crates/bitwarden-wasm-internal/${NPM_FOLDER}
-npx tsc --noEmit --lib es2020,dom,ESNext.Disposable bitwarden_wasm_internal.d.ts
+pnpm exec tsc --noEmit --lib es2020,dom,ESNext.Disposable bitwarden_wasm_internal.d.ts
