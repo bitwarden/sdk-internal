@@ -74,7 +74,7 @@ jobs:
           private-key: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-KEY }}
           permission-pull-requests: write
 
-      - name: Download json artifacts
+      - name: Download json artifacts from server for updated bindings
         uses: bitwarden/gh-actions/download-artifacts@main
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -128,19 +128,6 @@ jobs:
 
       - name: NPM setup
         run: npm ci
-
-      - name: Generate API bindings
-        if: ${{ inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type }}
-        run: ./support/generate-api-bindings-ci.sh
-
-      - name: Generate Identity bindings
-        if: ${{ inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type }}
-        run: ./support/generate-identity-bindings-ci.sh
-
-      - name: Format
-        env:
-          RUST_NIGHTLY_TOOLCHAIN: ${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}
-        run: cargo +"${RUST_NIGHTLY_TOOLCHAIN}" fmt
 
       - name: Set Commit Info
         id: commit-info
@@ -209,6 +196,16 @@ jobs:
           fi
 
           echo "✅ Branch tip commit was made by the bot. Safe to proceed."
+
+      - name: Generate API bindings
+        if: ${{ inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type }}
+        run: ./support/generate-api-bindings-ci.sh
+
+      - name: Format API bindings
+        if: ${{ inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type }}
+        env:
+          RUST_NIGHTLY_TOOLCHAIN: ${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}
+        run: cargo +"${RUST_NIGHTLY_TOOLCHAIN}" fmt -p bitwarden-api-api
 
       - name: Commit API bindings
         if: ${{ inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type }}
@@ -304,6 +301,16 @@ jobs:
           fi
 
           echo "✅ Branch tip commit was made by the bot. Safe to proceed."
+
+      - name: Generate Identity bindings
+        if: ${{ inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type }}
+        run: ./support/generate-identity-bindings-ci.sh
+
+      - name: Format Identity bindings
+        if: ${{ inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type }}
+        env:
+          RUST_NIGHTLY_TOOLCHAIN: ${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}
+        run: cargo +"${RUST_NIGHTLY_TOOLCHAIN}" fmt -p bitwarden-api-identity
 
       - name: Commit Identity bindings
         if: ${{ inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type }}
