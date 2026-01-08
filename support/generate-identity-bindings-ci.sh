@@ -11,7 +11,7 @@ VERSION=$(grep '^version = ".*"' Cargo.toml | cut -d '"' -f 2)
 # Delete old directory to ensure all files are updated
 rm -rf crates/bitwarden-api-identity/src
 
-# Generate new API bindings
+# Generate new Identity bindings
 npx openapi-generator-cli generate \
     -i artifacts/identity.json \
     -g rust \
