@@ -56,9 +56,7 @@ impl KeysetUnlockData {
         let pubkey = AsymmetricPublicCryptoKey::from_der(&pubkey_der).map_err(|_| ())?;
         let reencrypted_user_key =
             UnsignedSharedKey::encapsulate(new_user_key_id, &pubkey, ctx).map_err(|_| ())?;
-        let reencrypted_public_key = pubkey_der
-            .encrypt(ctx, current_user_key_id)
-            .map_err(|_| ())?;
+        let reencrypted_public_key = pubkey_der.encrypt(ctx, new_user_key_id).map_err(|_| ())?;
         Ok(KeysetUnlockData {
             id: self.id,
             encrypted_public_key: reencrypted_public_key,
@@ -127,5 +125,12 @@ mod tests {
                 .to_owned()
         };
         assert_eq!(decapsulated, key_2);
+
+        // Check that the re-encyrpted public-key can be decrypted with the new key
+        let decrypted_pubkey_bytes: Vec<u8> = reencrypted
+            .encrypted_public_key
+            .decrypt(&mut ctx, key_id_2)
+            .expect("decryption should succeed");
+        assert_eq!(decrypted_pubkey_bytes, pubkey_der.as_ref());
     }
 }
