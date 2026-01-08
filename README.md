@@ -160,10 +160,13 @@ There are two ways to run the workflow:
 1. Manually run the `Update API Bindings`
    [workflow](https://github.com/bitwarden/sdk-internal/actions/workflows/update-api-bindings.yml)
    in the `sdk-internal` repo.
+
+- You can choose whether to update the bindings for the API, Identity, or both. You will likely only
+  need to update the API bindings for the majority of changes.
+
 2. Wait for an automatic binding update to run, which is scheduled every 2 weeks.
 
-Both of these will generate a PR that will require approval from any teams whose owned code is
-affected by the binding updates.
+- This automatic binding update will update bindings for both API and Identity.
 
 A suggested workflow for incorporating server API changes into the SDK would be:
 
