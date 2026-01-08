@@ -1,4 +1,4 @@
-export default {
+module.exports = {
   "*": "prettier --cache --ignore-unknown --write",
   "*.rs": (stagedFiles) => [
     "cargo +nightly fmt",
