@@ -834,6 +834,7 @@ dependencies = [
  "bitwarden-fido",
  "bitwarden-generators",
  "bitwarden-send",
+ "bitwarden-settings",
  "bitwarden-state",
  "bitwarden-vault",
  "tsify",
@@ -876,13 +877,13 @@ name = "bitwarden-settings"
 version = "2.0.0"
 dependencies = [
  "bitwarden-core",
- "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-state",
+ "bitwarden-test",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
- "tracing",
+ "tokio",
 ]
 
 [[package]]

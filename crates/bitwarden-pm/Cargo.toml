@@ -50,6 +50,7 @@ bitwarden-exporters = { workspace = true }
 bitwarden-fido = { workspace = true }
 bitwarden-generators = { workspace = true }
 bitwarden-send = { workspace = true }
+bitwarden-settings = { workspace = true }
 bitwarden-state = { workspace = true }
 bitwarden-vault = { workspace = true }
 

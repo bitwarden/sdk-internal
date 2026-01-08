@@ -7,7 +7,6 @@ use bitwarden_state::{
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tracing::warn;
 
 use crate::{Key, Setting};
 
@@ -57,8 +56,14 @@ impl<'a> SettingsRepository<'a> {
 
     /// Get a value using a type-safe key.
     ///
-    /// Returns `None` if the key doesn't exist or if deserialization fails.
-    /// Deserialization errors are logged but do not propagate.
+    /// Returns `None` if the key doesn't exist in storage.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if deserialization fails, which may indicate:
+    /// - Schema evolution problems (type definition changed)
+    /// - Data corruption
+    /// - Type mismatch (wrong `Key<T>` type for stored data)
     ///
     /// # Example
     /// ```rust
@@ -84,13 +89,7 @@ impl<'a> SettingsRepository<'a> {
             .get(key.name().to_string())
             .await?
         {
-            Some(setting) => match serde_json::from_value::<T>(setting.0) {
-                Ok(value) => Ok(Some(value)),
-                Err(e) => {
-                    warn!("Failed to deserialize setting '{}': {:?}", key.name(), e);
-                    Ok(None)
-                }
-            },
+            Some(setting) => Ok(Some(serde_json::from_value::<T>(setting.0)?)),
             None => Ok(None),
         }
     }

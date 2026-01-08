@@ -16,13 +16,15 @@ keywords.workspace = true
 
 [dependencies]
 bitwarden-core = { workspace = true, features = ["internal"] }
-bitwarden-crypto = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-state = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-tracing = { workspace = true }
+
+[dev-dependencies]
+bitwarden-test = { workspace = true }
+tokio = { workspace = true }
 
 [lints]
 workspace = true

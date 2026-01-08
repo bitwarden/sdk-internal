@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 /// This type wraps a JSON value for flexible storage. Users should not work with
 /// this type directly - use [`SettingsRepository`](crate::SettingsRepository) instead,
 /// which provides type-safe access.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Setting(pub(crate) serde_json::Value);
 
 // Register Setting for repository usage
