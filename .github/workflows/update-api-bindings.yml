@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       binding_type:
-        description: "Which bindings to update"
+        description: "Which bindings do you want to update?"
         required: true
         type: choice
         options:
