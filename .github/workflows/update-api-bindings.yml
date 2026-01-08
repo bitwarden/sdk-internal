@@ -333,14 +333,6 @@ jobs:
           PR_TITLE="Update Identity bindings to $_HASH"
           PR_BODY="Updates the Identity bindings to \`$_HASH\`"
 
-          # Set reviewer flag for scheduled runs
-          if [ "${{ github.event_name }}" == "schedule" ]; then
-            echo "🔔 Assigning team-platform-dev as reviewer for scheduled run"
-            REVIEWER_FLAG="--reviewer bitwarden/team-platform-dev"
-          else
-            REVIEWER_FLAG=""
-          fi
-
           EXISTING_PR=$(gh pr list --head $_BRANCH_NAME --base main --state open --json number --jq '.[0].number // empty')
 
           if [ -n "$EXISTING_PR" ]; then
@@ -356,7 +348,6 @@ jobs:
               --title "$PR_TITLE" \
               --body-file - \
               --base main \
-              --head $_BRANCH_NAME \
-              $REVIEWER_FLAG)
+              --head $_BRANCH_NAME)
             echo "## 🚀 Created Identity PR: $PR_URL" >> $GITHUB_STEP_SUMMARY
           fi
