@@ -49,6 +49,13 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
+      - name: Capture base commit
+        id: base-commit
+        run: |
+          BASE_SHA=$(git rev-parse HEAD)
+          echo "sha=$BASE_SHA" >> $GITHUB_OUTPUT
+          echo "📌 Base commit: $BASE_SHA"
+
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
         with:
@@ -157,6 +164,7 @@ jobs:
         if: ${{ inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type }}
         env:
           BRANCH_NAME: "api-bindings-update"
+          BASE_SHA: ${{ steps.base-commit.outputs.sha }}
         run: |
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
@@ -165,8 +173,8 @@ jobs:
             echo "✅ Switched to existing branch: $BRANCH_NAME"
             echo "updating_existing_branch=true" >> $GITHUB_OUTPUT
           else
-            echo "📝 Creating new branch: $BRANCH_NAME"
-            git switch -c $BRANCH_NAME
+            echo "📝 Creating new branch: $BRANCH_NAME from $BASE_SHA"
+            git switch -c $BRANCH_NAME $BASE_SHA
             echo "updating_existing_branch=false" >> $GITHUB_OUTPUT
           fi
 
@@ -262,6 +270,7 @@ jobs:
         if: ${{ inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type }}
         env:
           BRANCH_NAME: "identity-bindings-update"
+          BASE_SHA: ${{ steps.base-commit.outputs.sha }}
         run: |
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
@@ -270,8 +279,8 @@ jobs:
             echo "✅ Switched to existing branch: $BRANCH_NAME"
             echo "updating_existing_branch=true" >> $GITHUB_OUTPUT
           else
-            echo "📝 Creating new branch: $BRANCH_NAME from origin/main"
-            git switch -c $BRANCH_NAME origin/main
+            echo "📝 Creating new branch: $BRANCH_NAME from $BASE_SHA"
+            git switch -c $BRANCH_NAME $BASE_SHA
             echo "updating_existing_branch=false" >> $GITHUB_OUTPUT
           fi
 
