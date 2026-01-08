@@ -1,4 +1,4 @@
-name: Update API Bindings
+name: Update Identity Bindings
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ env:
 
 jobs:
   download:
-    name: Update API Bindings
+    name: Update Identity Bindings
     runs-on: ubuntu-24.04
     permissions:
       actions: read
@@ -65,7 +65,7 @@ jobs:
       - name: Switch to branch
         id: switch-branch
         run: |
-          BRANCH_NAME="sdlc/api-update"
+          BRANCH_NAME="sdlc/identity-binding-update"
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
           if git switch $BRANCH_NAME; then
@@ -160,8 +160,8 @@ jobs:
       - name: NPM setup
         run: npm ci
 
-      - name: Generate bindings for API
-        run: ./support/generate-api-bindings-ci.sh
+      - name: Generate bindings for Identity
+        run: ./support/generate-identity-bindings-ci.sh
 
       - name: Format
         env:
@@ -184,8 +184,8 @@ jobs:
           git config user.name "$_BOT_NAME"
           git config user.email "$_BOT_EMAIL"
 
-          git add crates/bitwarden-api-api
-          git commit -m "Update API bindings - $_HASH" --no-verify
+          git add crates/bitwarden-api-identity
+          git commit -m "Update Identity bindings - $_HASH" --no-verify
           git push origin $_BRANCH_NAME
 
       - name: Create or Update Pull Request
@@ -194,21 +194,21 @@ jobs:
           _HASH: ${{ steps.commit-info.outputs.HASH }}
           _BRANCH_NAME: ${{ steps.switch-branch.outputs.BRANCH_NAME }}
         run: |
-          PR_BODY="Updates the API bindings to \`$_HASH\`"
+          PR_BODY="Updates the Identity bindings to \`$_HASH\`"
 
           EXISTING_PR=$(gh pr list --head $_BRANCH_NAME --base main --state open --json number --jq '.[0].number // empty')
 
           if [ -n "$EXISTING_PR" ]; then
             echo "🔄 Updating existing PR #$EXISTING_PR..."
             echo -e "$PR_BODY" | gh pr edit $EXISTING_PR \
-              --title "Update API bindings to $_HASH" \
+              --title "Update Identity bindings to $_HASH" \
               --body-file -
             PR_URL="https://github.com/${{ github.repository }}/pull/$EXISTING_PR"
             echo "## ✅ Updated PR: $PR_URL" >> $GITHUB_STEP_SUMMARY
           else
             echo "📝 Creating new PR..."
             PR_URL=$(echo -e "$PR_BODY" | gh pr create \
-              --title "Update API bindings to $_HASH" \
+              --title "Update Identity bindings to $_HASH" \
               --body-file - \
               --base main \
               --head $_BRANCH_NAME)

@@ -20,14 +20,5 @@ npx openapi-generator-cli generate \
     --package-name bitwarden-api-api \
     -t ./support/openapi-template \
     --additional-properties=library=reqwest-trait,mockall,topLevelApiClient,packageVersion=$VERSION,packageDescription=\"Api bindings for the Bitwarden API.\"
-
-# Generate new Identity bindings
-npx openapi-generator-cli generate \
-    -i artifacts/identity.json \
-    -g rust \
-    -o crates/bitwarden-api-identity \
-    --package-name bitwarden-api-identity \
-    -t ./support/openapi-template \
-    --additional-properties=library=reqwest-trait,mockall,topLevelApiClient,packageVersion=$VERSION,packageDescription=\"Api bindings for the Bitwarden Identity API.\"
-
+    
 npm run prettier
