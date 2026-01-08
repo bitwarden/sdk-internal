@@ -100,12 +100,6 @@ impl UserCryptoManagementClient {
     }
 }
 
-#[derive(Debug)]
-enum SyncError {
-    NetworkError,
-    DataError,
-}
-
 #[derive(Debug, Error)]
 #[bitwarden_error(flat)]
 pub enum RotateUserKeysError {

@@ -7,13 +7,15 @@ use bitwarden_crypto::{
     AsymmetricPublicCryptoKey, EncString, Kdf, SpkiPublicKeyBytes, UnsignedSharedKey,
 };
 use bitwarden_encoding::B64;
+use bitwarden_error::bitwarden_error;
 use bitwarden_vault::{Cipher, Folder};
+use thiserror::Error;
 use tokio::try_join;
 use tracing::{debug, debug_span, info};
 use uuid::Uuid;
 
 use crate::key_rotation::{
-    KeysetUnlockData, SyncError, V1EmergencyAccessMembership, V1OrganizationMembership, from_kdf,
+    KeysetUnlockData, V1EmergencyAccessMembership, V1OrganizationMembership, from_kdf,
     from_private_keys_response,
 };
 
@@ -28,6 +30,15 @@ pub(super) struct SyncedAccountData {
     pub(super) passkeys: Vec<super::KeysetUnlockData>,
     pub(super) kdf_and_salt: Option<(Kdf, String)>,
     pub(super) user_id: uuid::Uuid,
+}
+
+#[derive(Debug, Error)]
+#[bitwarden_error(flat)]
+pub(super) enum SyncError {
+    #[error("Network error during sync")]
+    NetworkError,
+    #[error("Failed to parse sync data")]
+    DataError,
 }
 
 // Download the public keys for the organizations, since these are not included in the sync
@@ -85,10 +96,10 @@ async fn sync_emergency_access(
         .ok_or(SyncError::DataError)?
         .into_iter()
         .map(async |ea| {
-            let id = ea.id.ok_or(SyncError::DataError)?;
+            let user_id = ea.grantee_id.ok_or(SyncError::DataError)?;
             let user_key_response_model = api_client
                 .users_api()
-                .get_public_key(id)
+                .get_public_key(user_id)
                 .await
                 .map_err(|_| SyncError::NetworkError)?;
             let ea_details = user_key_response_model
