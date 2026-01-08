@@ -162,7 +162,8 @@ There are two ways to run the workflow:
    in the `sdk-internal` repo. You can choose whether to update the bindings for the API, Identity,
    or both. You will likely only need to update the API bindings for the majority of changes.
 
-2. Wait for an automatic binding update to run, which is scheduled every 2 weeks. This update will generate bindings for both API and Identity and create two PRs.
+2. Wait for an automatic binding update to run, which is scheduled every 2 weeks. This update will
+   generate bindings for both API and Identity and create two PRs.
 
 A suggested workflow for incorporating server API changes into the SDK would be:
 
