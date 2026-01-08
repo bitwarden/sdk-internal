@@ -104,7 +104,7 @@ pub struct Send {
     pub deletion_date: DateTime<Utc>,
     pub expiration_date: Option<DateTime<Utc>>,
 
-    pub emails: Vec<String>,
+    pub emails: String,
     pub auth_type: AuthType,
 }
 
@@ -141,7 +141,7 @@ pub struct SendView {
     pub deletion_date: DateTime<Utc>,
     pub expiration_date: Option<DateTime<Utc>>,
 
-    pub emails: Vec<String>,
+    pub emails: String,
     pub auth_type: AuthType,
 }
 
@@ -521,7 +521,7 @@ mod tests {
             expiration_date: None,
             deletion_date: "2024-01-14T23:56:48Z".parse().unwrap(),
             hide_email: false,
-            emails: Vec::new(),
+            emails: String::new(),
             auth_type: AuthType::None,
         };
 
@@ -548,7 +548,7 @@ mod tests {
             revision_date: "2024-01-07T23:56:48.207363Z".parse().unwrap(),
             deletion_date: "2024-01-14T23:56:48Z".parse().unwrap(),
             expiration_date: None,
-            emails: Vec::new(),
+            emails: String::new(),
             auth_type: AuthType::None,
         };
 
@@ -581,7 +581,7 @@ mod tests {
             revision_date: "2024-01-07T23:56:48.207363Z".parse().unwrap(),
             deletion_date: "2024-01-14T23:56:48Z".parse().unwrap(),
             expiration_date: None,
-            emails: Vec::new(),
+            emails: String::new(),
             auth_type: AuthType::None,
         };
 
@@ -618,7 +618,7 @@ mod tests {
             revision_date: "2024-01-07T23:56:48.207363Z".parse().unwrap(),
             deletion_date: "2024-01-14T23:56:48Z".parse().unwrap(),
             expiration_date: None,
-            emails: Vec::new(),
+            emails: String::new(),
             auth_type: AuthType::None,
         };
 
@@ -658,7 +658,7 @@ mod tests {
             revision_date: "2024-01-07T23:56:48.207363Z".parse().unwrap(),
             deletion_date: "2024-01-14T23:56:48Z".parse().unwrap(),
             expiration_date: None,
-            emails: Vec::new(),
+            emails: String::new(),
             auth_type: AuthType::Password,
         };
 
@@ -702,23 +702,17 @@ mod tests {
             revision_date: "2024-01-07T23:56:48.207363Z".parse().unwrap(),
             deletion_date: "2024-01-14T23:56:48Z".parse().unwrap(),
             expiration_date: None,
-            emails: vec!["test1@mail.com".to_string(), "test2@mail.com".to_string()],
+            emails: "test1@mail.com,test2@mail.com".to_string(),
             auth_type: AuthType::Email,
         };
 
         let send: Send = crypto.encrypt(view).unwrap();
 
-        assert_eq!(
-            send.emails,
-            vec!["test1@mail.com".to_string(), "test2@mail.com".to_string()]
-        );
+        assert_eq!(send.emails, "test1@mail.com,test2@mail.com".to_string());
         assert_eq!(send.auth_type, AuthType::Email);
 
         let v: SendView = crypto.decrypt(&send).unwrap();
-        assert_eq!(
-            v.emails,
-            vec!["test1@mail.com".to_string(), "test2@mail.com".to_string()]
-        );
+        assert_eq!(v.emails, "test1@mail.com,test2@mail.com".to_string());
         assert_eq!(v.auth_type, AuthType::Email);
     }
 }
