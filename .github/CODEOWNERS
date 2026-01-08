@@ -15,8 +15,8 @@
 
 # Claude related files
 .claude/ @bitwarden/team-ai-sme
-.github/workflows/respond.yml @bitwarden/dept-bre
-.github/workflows/review-code.yml @bitwarden/dept-bre
+.github/workflows/respond.yml @bitwarden/team-ai-sme
+.github/workflows/review-code.yml @bitwarden/team-ai-sme
 
 # Team-owned crates
 bitwarden_license/bitwarden-sm/** @bitwarden/team-secrets-manager-dev @bitwarden/team-platform-dev
@@ -24,6 +24,9 @@ crates/bitwarden-auth/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
 crates/bitwarden-crypto/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
 crates/bitwarden-vault/** @bitwarden/team-vault-dev @bitwarden/team-sdk-sme
 crates/bitwarden-api-key-connector/** @bitwarden/team-key-management-dev
+crates/bitwarden-generators/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
+crates/bitwarden-exporters/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
+crates/bitwarden-send/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
 
 # KM Co-owned files
 crates/bitwarden-core/src/key_management/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme

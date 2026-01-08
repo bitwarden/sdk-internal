@@ -44,6 +44,8 @@ pub mod auth_request_type;
 pub use self::auth_request_type::AuthRequestType;
 pub mod auth_request_update_request_model;
 pub use self::auth_request_update_request_model::AuthRequestUpdateRequestModel;
+pub mod auth_type;
+pub use self::auth_type::AuthType;
 pub mod authentication_extensions_client_inputs;
 pub use self::authentication_extensions_client_inputs::AuthenticationExtensionsClientInputs;
 pub mod authentication_extensions_client_outputs;
