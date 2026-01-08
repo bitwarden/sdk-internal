@@ -1,9 +1,21 @@
-name: Update API Bindings
+name: Update Bindings
 
 on:
   workflow_dispatch:
+    inputs:
+      binding_type:
+        description: "Which bindings to update"
+        required: true
+        type: choice
+        options:
+          - api
+          - identity
+          - both
+        default: "both"
   schedule:
-    - cron: "0 4 * * 1" # Every Monday at 4 AM UTC
+    # Runs every Monday at 4 AM UTC
+    # Note: schedule triggers don't have inputs, so binding_type will be null and default to 'both'
+    - cron: "0 4 * * 1"
 
 permissions:
   contents: read
@@ -14,7 +26,7 @@ env:
 
 jobs:
   download:
-    name: Update API Bindings
+    name: Update Bindings
     runs-on: ubuntu-24.04
     permissions:
       actions: read
@@ -61,49 +73,6 @@ jobs:
           app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
           private-key: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-KEY }}
           permission-pull-requests: write
-
-      - name: Switch to branch
-        id: switch-branch
-        run: |
-          BRANCH_NAME="sdlc/api-update"
-          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
-
-          if git switch $BRANCH_NAME; then
-            echo "✅ Switched to existing branch: $BRANCH_NAME"
-            echo "updating_existing_branch=true" >> $GITHUB_OUTPUT
-          else
-            echo "📝 Creating new branch: $BRANCH_NAME"
-            git switch -c $BRANCH_NAME
-            echo "updating_existing_branch=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Prevent updating the branch when the last committer isn't the bot
-        if: ${{ steps.switch-branch.outputs.updating_existing_branch == 'true' }}
-        env:
-          _BRANCH_NAME: ${{ steps.switch-branch.outputs.branch_name }}
-        run: |
-          LATEST_COMMIT_AUTHOR=$(git log -1 --format='%ae' $_BRANCH_NAME)
-
-          echo "Latest commit author in branch ($_BRANCH_NAME): $LATEST_COMMIT_AUTHOR"
-          echo "Expected bot email: $_BOT_EMAIL"
-
-          if [ "$LATEST_COMMIT_AUTHOR" != "$_BOT_EMAIL" ]; then
-            echo "::error::Branch $_BRANCH_NAME has a commit not made by the bot." \
-              "This indicates manual changes have been made to the branch," \
-              "PR has to be merged or closed before running this workflow again."
-            echo "👀 Fetching existing PR..."
-            gh pr list --head $_BRANCH_NAME --base main --state open --json number --jq '.[0].number // empty'
-            EXISTING_PR=$(gh pr list --head $_BRANCH_NAME --base main --state open --json number --jq '.[0].number // empty')
-            if [ -z "$EXISTING_PR" ]; then
-              echo "::error::Couldn't find an existing PR for branch $_BRANCH_NAME."
-              exit 1
-            fi
-            PR_URL="https://github.com/${{ github.repository }}/pull/$EXISTING_PR"
-            echo "## ❌ Merge or close: $PR_URL" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-          echo "✅ Branch tip commit was made by the bot. Safe to proceed."
 
       - name: Download json artifacts
         uses: bitwarden/gh-actions/download-artifacts@main
@@ -160,8 +129,13 @@ jobs:
       - name: NPM setup
         run: npm ci
 
-      - name: Generate bindings for API
+      - name: Generate API bindings
+        if: ${{ inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type }}
         run: ./support/generate-api-bindings-ci.sh
+
+      - name: Generate Identity bindings
+        if: ${{ inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type }}
+        run: ./support/generate-identity-bindings-ci.sh
 
       - name: Format
         env:
@@ -174,43 +148,180 @@ jobs:
           HASH=$(cat ./artifacts/identity.json | jq -r '.["x-git-commit"]')
           echo "HASH=$HASH" >> $GITHUB_OUTPUT
 
-      - name: Create branch and commit
-        env:
-          _HASH: ${{ steps.commit-info.outputs.HASH }}
-          _BRANCH_NAME: ${{ steps.switch-branch.outputs.BRANCH_NAME }}
+      - name: Configure Git
         run: |
-          echo "👀 Committing SDK version update..."
-
           git config user.name "$_BOT_NAME"
           git config user.email "$_BOT_EMAIL"
 
+      # API Bindings PR
+      - name: Switch to API branch
+        id: switch-api-branch
+        if: ${{ inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type }}
+        env:
+          BRANCH_NAME: "api-bindings-update"
+        run: |
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+          git fetch origin
+          if git switch $BRANCH_NAME 2>/dev/null; then
+            echo "✅ Switched to existing branch: $BRANCH_NAME"
+            echo "updating_existing_branch=true" >> $GITHUB_OUTPUT
+          else
+            echo "📝 Creating new branch: $BRANCH_NAME"
+            git switch -c $BRANCH_NAME
+            echo "updating_existing_branch=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Prevent updating API branch when last committer isn't the bot
+        if: ${{ (inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type) && steps.switch-api-branch.outputs.updating_existing_branch == 'true' }}
+        env:
+          _BRANCH_NAME: ${{ steps.switch-api-branch.outputs.branch_name }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          LATEST_COMMIT_AUTHOR=$(git log -1 --format='%ae' $_BRANCH_NAME)
+
+          echo "Latest commit author in branch ($_BRANCH_NAME): $LATEST_COMMIT_AUTHOR"
+          echo "Expected bot email: $_BOT_EMAIL"
+
+          if [ "$LATEST_COMMIT_AUTHOR" != "$_BOT_EMAIL" ]; then
+            echo "::error::Branch $_BRANCH_NAME has a commit not made by the bot." \
+              "This indicates manual changes have been made to the branch," \
+              "PR has to be merged or closed before running this workflow again."
+            EXISTING_PR=$(gh pr list --head $_BRANCH_NAME --base main --state open --json number --jq '.[0].number // empty')
+            if [ -z "$EXISTING_PR" ]; then
+              echo "::error::Couldn't find an existing PR for branch $_BRANCH_NAME."
+              exit 1
+            fi
+            PR_URL="https://github.com/${{ github.repository }}/pull/$EXISTING_PR"
+            echo "## ❌ Merge or close: $PR_URL" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "✅ Branch tip commit was made by the bot. Safe to proceed."
+
+      - name: Commit API bindings
+        if: ${{ inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type }}
+        env:
+          _HASH: ${{ steps.commit-info.outputs.HASH }}
+          _BRANCH_NAME: ${{ steps.switch-api-branch.outputs.branch_name }}
+        run: |
+          echo "👀 Committing API bindings update..."
           git add crates/bitwarden-api-api
-          git commit -m "Update API bindings - $_HASH" --no-verify
+          git commit -m "Update API bindings to $_HASH" --no-verify || echo "No changes to commit for API"
           git push origin $_BRANCH_NAME
 
-      - name: Create or Update Pull Request
+      - name: Create or Update API Pull Request
+        if: ${{ inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           _HASH: ${{ steps.commit-info.outputs.HASH }}
-          _BRANCH_NAME: ${{ steps.switch-branch.outputs.BRANCH_NAME }}
+          _BRANCH_NAME: ${{ steps.switch-api-branch.outputs.branch_name }}
         run: |
+          PR_TITLE="Update API bindings to $_HASH"
           PR_BODY="Updates the API bindings to \`$_HASH\`"
 
           EXISTING_PR=$(gh pr list --head $_BRANCH_NAME --base main --state open --json number --jq '.[0].number // empty')
 
           if [ -n "$EXISTING_PR" ]; then
-            echo "🔄 Updating existing PR #$EXISTING_PR..."
+            echo "🔄 Updating existing API PR #$EXISTING_PR..."
             echo -e "$PR_BODY" | gh pr edit $EXISTING_PR \
-              --title "Update API bindings to $_HASH" \
+              --title "$PR_TITLE" \
               --body-file -
             PR_URL="https://github.com/${{ github.repository }}/pull/$EXISTING_PR"
-            echo "## ✅ Updated PR: $PR_URL" >> $GITHUB_STEP_SUMMARY
+            echo "## ✅ Updated API PR: $PR_URL" >> $GITHUB_STEP_SUMMARY
           else
-            echo "📝 Creating new PR..."
+            echo "📝 Creating new API PR..."
             PR_URL=$(echo -e "$PR_BODY" | gh pr create \
-              --title "Update API bindings to $_HASH" \
+              --title "$PR_TITLE" \
               --body-file - \
               --base main \
               --head $_BRANCH_NAME)
-            echo "## 🚀 Created PR: $PR_URL" >> $GITHUB_STEP_SUMMARY
+            echo "## 🚀 Created API PR: $PR_URL" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      # Identity Bindings PR
+      - name: Switch to Identity branch
+        id: switch-identity-branch
+        if: ${{ inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type }}
+        env:
+          BRANCH_NAME: "identity-bindings-update"
+        run: |
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+          git checkout main
+          git fetch origin
+          if git switch $BRANCH_NAME 2>/dev/null; then
+            echo "✅ Switched to existing branch: $BRANCH_NAME"
+            echo "updating_existing_branch=true" >> $GITHUB_OUTPUT
+          else
+            echo "📝 Creating new branch: $BRANCH_NAME"
+            git switch -c $BRANCH_NAME
+            echo "updating_existing_branch=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Prevent updating Identity branch when last committer isn't the bot
+        if: ${{ (inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type) && steps.switch-identity-branch.outputs.updating_existing_branch == 'true' }}
+        env:
+          _BRANCH_NAME: ${{ steps.switch-identity-branch.outputs.branch_name }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          LATEST_COMMIT_AUTHOR=$(git log -1 --format='%ae' $_BRANCH_NAME)
+
+          echo "Latest commit author in branch ($_BRANCH_NAME): $LATEST_COMMIT_AUTHOR"
+          echo "Expected bot email: $_BOT_EMAIL"
+
+          if [ "$LATEST_COMMIT_AUTHOR" != "$_BOT_EMAIL" ]; then
+            echo "::error::Branch $_BRANCH_NAME has a commit not made by the bot." \
+              "This indicates manual changes have been made to the branch," \
+              "PR has to be merged or closed before running this workflow again."
+            EXISTING_PR=$(gh pr list --head $_BRANCH_NAME --base main --state open --json number --jq '.[0].number // empty')
+            if [ -z "$EXISTING_PR" ]; then
+              echo "::error::Couldn't find an existing PR for branch $_BRANCH_NAME."
+              exit 1
+            fi
+            PR_URL="https://github.com/${{ github.repository }}/pull/$EXISTING_PR"
+            echo "## ❌ Merge or close: $PR_URL" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "✅ Branch tip commit was made by the bot. Safe to proceed."
+
+      - name: Commit Identity bindings
+        if: ${{ inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type }}
+        env:
+          _HASH: ${{ steps.commit-info.outputs.HASH }}
+          _BRANCH_NAME: ${{ steps.switch-identity-branch.outputs.branch_name }}
+        run: |
+          echo "👀 Committing Identity bindings update..."
+          git add crates/bitwarden-api-identity
+          git commit -m "Update Identity bindings to $_HASH" --no-verify || echo "No changes to commit for Identity"
+          git push origin $_BRANCH_NAME
+
+      - name: Create or Update Identity Pull Request
+        if: ${{ inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          _HASH: ${{ steps.commit-info.outputs.HASH }}
+          _BRANCH_NAME: ${{ steps.switch-identity-branch.outputs.branch_name }}
+        run: |
+          PR_TITLE="Update Identity bindings to $_HASH"
+          PR_BODY="Updates the Identity bindings to \`$_HASH\`"
+
+          EXISTING_PR=$(gh pr list --head $_BRANCH_NAME --base main --state open --json number --jq '.[0].number // empty')
+
+          if [ -n "$EXISTING_PR" ]; then
+            echo "🔄 Updating existing Identity PR #$EXISTING_PR..."
+            echo -e "$PR_BODY" | gh pr edit $EXISTING_PR \
+              --title "$PR_TITLE" \
+              --body-file -
+            PR_URL="https://github.com/${{ github.repository }}/pull/$EXISTING_PR"
+            echo "## ✅ Updated Identity PR: $PR_URL" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "📝 Creating new Identity PR..."
+            PR_URL=$(echo -e "$PR_BODY" | gh pr create \
+              --title "$PR_TITLE" \
+              --body-file - \
+              --base main \
+              --head $_BRANCH_NAME)
+            echo "## 🚀 Created Identity PR: $PR_URL" >> $GITHUB_STEP_SUMMARY
           fi
