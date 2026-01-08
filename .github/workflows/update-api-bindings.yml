@@ -145,8 +145,19 @@ jobs:
       - name: Set Commit Info
         id: commit-info
         run: |
-          HASH=$(cat ./artifacts/identity.json | jq -r '.["x-git-commit"]')
-          echo "HASH=$HASH" >> $GITHUB_OUTPUT
+          API_HASH=$(cat ./artifacts/api.json | jq -r '.["x-git-commit"]')
+          IDENTITY_HASH=$(cat ./artifacts/identity.json | jq -r '.["x-git-commit"]')
+
+          echo "API commit hash: $API_HASH"
+          echo "Identity commit hash: $IDENTITY_HASH"
+
+          if [ "$API_HASH" != "$IDENTITY_HASH" ]; then
+            echo "::error::Commit hash mismatch! API: $API_HASH, Identity: $IDENTITY_HASH"
+            exit 1
+          fi
+
+          echo "HASH=$API_HASH" >> $GITHUB_OUTPUT
+          echo "✅ Using server commit: $API_HASH"
 
       - name: Configure Git
         run: |
