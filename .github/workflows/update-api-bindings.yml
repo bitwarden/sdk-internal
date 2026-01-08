@@ -220,6 +220,14 @@ jobs:
           PR_TITLE="Update API bindings to $_HASH"
           PR_BODY="Updates the API bindings to \`$_HASH\`"
 
+          # Set reviewer flag for scheduled runs
+          if [ "${{ github.event_name }}" == "schedule" ]; then
+            echo "🔔 Assigning team-platform-dev as reviewer for scheduled run"
+            REVIEWER_FLAG="--reviewer bitwarden/team-platform-dev"
+          else
+            REVIEWER_FLAG=""
+          fi
+
           EXISTING_PR=$(gh pr list --head $_BRANCH_NAME --base main --state open --json number --jq '.[0].number // empty')
 
           if [ -n "$EXISTING_PR" ]; then
@@ -235,7 +243,8 @@ jobs:
               --title "$PR_TITLE" \
               --body-file - \
               --base main \
-              --head $_BRANCH_NAME)
+              --head $_BRANCH_NAME \
+              $REVIEWER_FLAG)
             echo "## 🚀 Created API PR: $PR_URL" >> $GITHUB_STEP_SUMMARY
           fi
 
@@ -248,14 +257,13 @@ jobs:
         run: |
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
-          git checkout main
           git fetch origin
           if git switch $BRANCH_NAME 2>/dev/null; then
             echo "✅ Switched to existing branch: $BRANCH_NAME"
             echo "updating_existing_branch=true" >> $GITHUB_OUTPUT
           else
-            echo "📝 Creating new branch: $BRANCH_NAME"
-            git switch -c $BRANCH_NAME
+            echo "📝 Creating new branch: $BRANCH_NAME from origin/main"
+            git switch -c $BRANCH_NAME origin/main
             echo "updating_existing_branch=false" >> $GITHUB_OUTPUT
           fi
 
@@ -307,6 +315,14 @@ jobs:
           PR_TITLE="Update Identity bindings to $_HASH"
           PR_BODY="Updates the Identity bindings to \`$_HASH\`"
 
+          # Set reviewer flag for scheduled runs
+          if [ "${{ github.event_name }}" == "schedule" ]; then
+            echo "🔔 Assigning team-platform-dev as reviewer for scheduled run"
+            REVIEWER_FLAG="--reviewer bitwarden/team-platform-dev"
+          else
+            REVIEWER_FLAG=""
+          fi
+
           EXISTING_PR=$(gh pr list --head $_BRANCH_NAME --base main --state open --json number --jq '.[0].number // empty')
 
           if [ -n "$EXISTING_PR" ]; then
@@ -322,6 +338,7 @@ jobs:
               --title "$PR_TITLE" \
               --body-file - \
               --base main \
-              --head $_BRANCH_NAME)
+              --head $_BRANCH_NAME \
+              $REVIEWER_FLAG)
             echo "## 🚀 Created Identity PR: $PR_URL" >> $GITHUB_STEP_SUMMARY
           fi
