@@ -1,7 +1,7 @@
 //! Functionality for syncing the latest account data from the server
 use std::str::FromStr;
 
-use bitwarden_api_api::{apis::ApiClient, models::ProfileResponseModel};
+use bitwarden_api_api::apis::ApiClient;
 use bitwarden_core::key_management::account_cryptographic_state::WrappedAccountCryptographicState;
 use bitwarden_crypto::{
     AsymmetricPublicCryptoKey, EncString, Kdf, SpkiPublicKeyBytes, UnsignedSharedKey,
@@ -42,14 +42,18 @@ pub(super) enum SyncError {
 }
 
 // Download the public keys for the organizations, since these are not included in the sync
-async fn sync_orgs(
+pub(crate) async fn sync_orgs(
     api_client: &ApiClient,
-    profile: &ProfileResponseModel,
 ) -> Result<Vec<V1OrganizationMembership>, SyncError> {
-    let organizations = profile
-        .organizations
-        .clone()
+    let organizations = api_client
+        .organizations_api()
+        .get_user()
+        .await
+        .map_err(|_| SyncError::NetworkError)?
+        .data
         .ok_or(SyncError::DataError)?
+        .into_iter();
+    let organizations = organizations
         .into_iter()
         .map(async |org| {
             let id = org.id.ok_or(SyncError::DataError)?;
@@ -68,6 +72,7 @@ async fn sync_orgs(
             .map_err(|_| SyncError::DataError)?;
             Ok(V1OrganizationMembership {
                 organization_id: id,
+                name: org.name.ok_or(SyncError::DataError)?,
                 public_key,
             })
         })
@@ -84,7 +89,7 @@ async fn sync_orgs(
 }
 
 /// Download the emergency access memberships and their public keys
-async fn sync_emergency_access(
+pub(crate) async fn sync_emergency_access(
     api_client: &ApiClient,
 ) -> Result<Vec<V1EmergencyAccessMembership>, SyncError> {
     let emergency_access = api_client
@@ -113,6 +118,7 @@ async fn sync_emergency_access(
             .map_err(|_| SyncError::DataError)?;
             Ok(V1EmergencyAccessMembership {
                 id: ea.id.ok_or(SyncError::DataError)?,
+                name: ea.name.ok_or(SyncError::DataError)?,
                 public_key,
             })
         })
@@ -279,7 +285,7 @@ pub(super) async fn sync_current_account_data(
     // and passkeys
     info!("Syncing additional data (organizations, emergency access, devices, passkeys)");
     let (organization_memberships, emergency_access_memberships, trusted_devices, passkeys) = try_join!(
-        sync_orgs(api_client, profile),
+        sync_orgs(api_client),
         sync_emergency_access(api_client),
         sync_devices(api_client),
         sync_passkeys(api_client),

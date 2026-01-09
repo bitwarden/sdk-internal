@@ -8,7 +8,9 @@ use bitwarden_core::key_management::{
     KeyIds, MasterPasswordAuthenticationData, MasterPasswordUnlockData, SymmetricKeyId,
 };
 use bitwarden_crypto::{AsymmetricPublicCryptoKey, Kdf, KeyStoreContext, UnsignedSharedKey};
+use serde::{Deserialize, Serialize};
 use tracing::debug_span;
+use tsify::Tsify;
 
 use crate::key_rotation::rotateable_keyset::KeysetUnlockData;
 
@@ -31,18 +33,22 @@ pub enum MasterkeyUnlockMethod {
 
 /// The data necessary to re-share the user-key to a V1 emergency access membership. Note: The
 /// Public-key must be verified/trusted. Further, there is no sender authentication possible here.
-#[derive(Clone)]
-pub(super) struct V1EmergencyAccessMembership {
-    pub(super) id: uuid::Uuid,
-    pub(super) public_key: AsymmetricPublicCryptoKey,
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct V1EmergencyAccessMembership {
+    pub id: uuid::Uuid,
+    pub name: String,
+    pub public_key: AsymmetricPublicCryptoKey,
 }
 
 /// The data necessary to re-share the user-key to a V1 organization membership. Note: The
 /// Public-key must be verified/trusted. Further, there is no sender authentication possible here.
-#[derive(Clone)]
-pub(super) struct V1OrganizationMembership {
-    pub(super) organization_id: uuid::Uuid,
-    pub(super) public_key: AsymmetricPublicCryptoKey,
+#[derive(Serialize, Deserialize, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct V1OrganizationMembership {
+    pub organization_id: uuid::Uuid,
+    pub name: String,
+    pub public_key: AsymmetricPublicCryptoKey,
 }
 
 #[derive(Debug)]
@@ -372,6 +378,7 @@ mod tests {
         let ea_key = ctx.make_asymmetric_key();
         let emergency_access = V1EmergencyAccessMembership {
             id: Uuid::new_v4(),
+            name: "Test User".to_string(),
             public_key: ctx.get_public_key(ea_key).expect("key exists"),
         };
 
@@ -379,6 +386,7 @@ mod tests {
         let org_key = ctx.make_asymmetric_key();
         let org_membership = V1OrganizationMembership {
             organization_id: Uuid::new_v4(),
+            name: "Test Org".to_string(),
             public_key: ctx.get_public_key(org_key).expect("key exists"),
         };
 
