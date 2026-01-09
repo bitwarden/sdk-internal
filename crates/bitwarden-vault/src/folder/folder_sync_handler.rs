@@ -30,8 +30,8 @@ impl SyncEventHandler for FolderSyncHandler {
         let state = self.client.platform().state();
         let repo = state.get_sdk_managed::<Folder>()?;
 
-        // Build a map of existing folders by ID for efficient lookups
-        let mut existing_folders: HashMap<FolderId, Folder> = repo
+        // Get existing folders for revision_date comparison
+        let mut existing: HashMap<FolderId, Folder> = repo
             .list()
             .await?
             .into_iter()
@@ -39,27 +39,34 @@ impl SyncEventHandler for FolderSyncHandler {
             .collect();
 
         let api_folders = require!(response.folders.as_ref());
+
+        // Convert and validate all folders first (fail fast if any conversion fails)
+        // This ensures atomicity - either all conversions succeed or none are persisted
+        let mut folders_to_update = Vec::new();
         for folder_response in api_folders {
             let folder = Folder::try_from(folder_response.clone())?;
-
-            // Skip folders without IDs (invalid state)
             let folder_id = require!(folder.id);
 
-            // Only save if folder is new or has been updated
-            let needs_update = existing_folders
+            // Check if folder needs to be updated
+            let needs_update = existing
                 .get(&folder_id)
-                .is_none_or(|existing| folder.revision_date > existing.revision_date);
+                .is_none_or(|existing_folder| folder.revision_date > existing_folder.revision_date);
 
             if needs_update {
-                repo.set(folder_id.to_string(), folder).await?;
+                folders_to_update.push((folder_id, folder));
             }
 
-            // Mark as processed (remaining entries will be deleted)
-            existing_folders.remove(&folder_id);
+            // Mark as processed (remaining entries in map will be deleted)
+            existing.remove(&folder_id);
         }
 
-        // Delete folders that were not in the sync response
-        for (id, _) in existing_folders {
+        // TODO: Replace with bulk operations when supported
+        for (id, folder) in folders_to_update {
+            repo.set(id.to_string(), folder).await?;
+        }
+
+        // TODO: Replace with bulk operations when supported
+        for (id, _) in existing {
             repo.remove(id.to_string()).await?;
         }
 

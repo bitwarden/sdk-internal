@@ -24,6 +24,16 @@ Handlers implement the `SyncEventHandler` trait which provides a single lifecycl
 Handlers are executed sequentially in registration order. If any handler returns an error, execution
 stops immediately and the error is propagated.
 
+#### Transactional Semantics
+
+**Important:** The event system does NOT provide transactional guarantees across handlers or within
+individual handler operations:
+
+- If a handler fails mid-execution, partial changes persist in storage
+- No automatic rollback occurs on handler failure
+- Each handler is responsible for its own consistency and error recovery
+- Handlers should be idempotent to handle retry scenarios
+
 ## Usage
 
 ```rust,ignore

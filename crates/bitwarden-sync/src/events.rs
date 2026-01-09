@@ -84,3 +84,153 @@ impl Default for SyncEventRegistry {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, Mutex};
+
+    use super::*;
+
+    struct TestHandler {
+        name: String,
+        execution_log: Arc<Mutex<Vec<String>>>,
+        should_fail: bool,
+    }
+
+    #[async_trait::async_trait]
+    impl SyncEventHandler for TestHandler {
+        async fn on_sync_complete(
+            &self,
+            _response: &SyncResponseModel,
+        ) -> Result<(), SyncHandlerError> {
+            self.execution_log.lock().unwrap().push(self.name.clone());
+            if self.should_fail {
+                Err("Handler failed".into())
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handlers_execute_in_registration_order() {
+        let registry = SyncEventRegistry::new();
+        let log = Arc::new(Mutex::new(Vec::new()));
+
+        registry.register(Arc::new(TestHandler {
+            name: "first".to_string(),
+            execution_log: log.clone(),
+            should_fail: false,
+        }));
+        registry.register(Arc::new(TestHandler {
+            name: "second".to_string(),
+            execution_log: log.clone(),
+            should_fail: false,
+        }));
+        registry.register(Arc::new(TestHandler {
+            name: "third".to_string(),
+            execution_log: log.clone(),
+            should_fail: false,
+        }));
+
+        let response = SyncResponseModel::default();
+        registry.trigger_sync_complete(&response).await.unwrap();
+
+        assert_eq!(
+            *log.lock().unwrap(),
+            vec!["first", "second", "third"],
+            "Handlers should execute in registration order"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_handler_error_stops_subsequent_handlers() {
+        let registry = SyncEventRegistry::new();
+        let log = Arc::new(Mutex::new(Vec::new()));
+
+        registry.register(Arc::new(TestHandler {
+            name: "first".to_string(),
+            execution_log: log.clone(),
+            should_fail: false,
+        }));
+        registry.register(Arc::new(TestHandler {
+            name: "second".to_string(),
+            execution_log: log.clone(),
+            should_fail: true,
+        }));
+        registry.register(Arc::new(TestHandler {
+            name: "third".to_string(),
+            execution_log: log.clone(),
+            should_fail: false,
+        }));
+
+        let response = SyncResponseModel::default();
+        let result = registry.trigger_sync_complete(&response).await;
+
+        assert!(
+            result.is_err(),
+            "Registry should return error when handler fails"
+        );
+        assert_eq!(
+            *log.lock().unwrap(),
+            vec!["first", "second"],
+            "Third handler should not execute after second handler fails"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_empty_registry_succeeds() {
+        let registry = SyncEventRegistry::new();
+        let response = SyncResponseModel::default();
+
+        let result = registry.trigger_sync_complete(&response).await;
+
+        assert!(
+            result.is_ok(),
+            "Empty registry should succeed without errors"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_single_handler_success() {
+        let registry = SyncEventRegistry::new();
+        let log = Arc::new(Mutex::new(Vec::new()));
+
+        registry.register(Arc::new(TestHandler {
+            name: "only".to_string(),
+            execution_log: log.clone(),
+            should_fail: false,
+        }));
+
+        let response = SyncResponseModel::default();
+        registry.trigger_sync_complete(&response).await.unwrap();
+
+        assert_eq!(
+            *log.lock().unwrap(),
+            vec!["only"],
+            "Single handler should execute successfully"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_single_handler_failure() {
+        let registry = SyncEventRegistry::new();
+        let log = Arc::new(Mutex::new(Vec::new()));
+
+        registry.register(Arc::new(TestHandler {
+            name: "only".to_string(),
+            execution_log: log.clone(),
+            should_fail: true,
+        }));
+
+        let response = SyncResponseModel::default();
+        let result = registry.trigger_sync_complete(&response).await;
+
+        assert!(result.is_err(), "Should propagate handler failure");
+        assert_eq!(
+            *log.lock().unwrap(),
+            vec!["only"],
+            "Failed handler should have been called"
+        );
+    }
+}
