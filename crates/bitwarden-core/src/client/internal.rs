@@ -10,9 +10,8 @@ use bitwarden_crypto::{
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;
-use tracing::info;
 #[cfg(feature = "internal")]
-use tracing::instrument;
+use tracing::{info, instrument};
 
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::client::encryption_settings::EncryptionSettings;
