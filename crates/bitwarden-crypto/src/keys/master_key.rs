@@ -129,7 +129,7 @@ pub(super) fn encrypt_user_key(
     master_key: &Pin<Box<GenericArray<u8, U32>>>,
     user_key: &SymmetricCryptoKey,
 ) -> Result<EncString> {
-    let stretched_master_key = stretch_key(master_key)?;
+    let stretched_master_key = stretch_key(master_key);
     let user_key_bytes = user_key.to_encoded();
     EncString::encrypt_aes256_hmac(user_key_bytes.as_ref(), &stretched_master_key)
 }
@@ -150,7 +150,7 @@ pub(super) fn decrypt_user_key(
             user_key.decrypt_with_key(&legacy_key)?
         }
         EncString::Aes256Cbc_HmacSha256_B64 { .. } => {
-            let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(key)?);
+            let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(key));
             user_key.decrypt_with_key(&stretched_key)?
         }
         EncString::Cose_Encrypt0_B64 { .. } => {
