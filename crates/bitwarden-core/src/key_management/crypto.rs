@@ -988,7 +988,7 @@ pub(crate) fn make_user_jit_master_password_registration(
     let user_key = ctx.dangerous_get_symmetric_key(user_key_id)?.to_owned();
 
     let master_password_unlock_data =
-        MasterPasswordUnlockData::derive(&master_password, &kdf, &salt, &user_key)
+        MasterPasswordUnlockData::derive(&master_password, &kdf, &salt, user_key_id, &ctx)
             .map_err(MakeKeysError::MasterPasswordDerivation)?;
 
     let master_password_authentication_data =
