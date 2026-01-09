@@ -21,11 +21,7 @@ pub(crate) struct IdentityTokenSuccessResponse {
     two_factor_token: Option<String>,
     #[serde(alias = "Kdf")]
     kdf: KdfType,
-    #[serde(
-        rename = "kdfIterations",
-        alias = "KdfIterations",
-        default = "bitwarden_crypto::default_pbkdf2_iterations"
-    )]
+    #[serde(rename = "kdfIterations", alias = "KdfIterations")]
     kdf_iterations: NonZeroU32,
 
     #[serde(rename = "resetMasterPassword", alias = "ResetMasterPassword")]
@@ -46,12 +42,16 @@ pub(crate) struct IdentityTokenSuccessResponse {
 
 #[cfg(test)]
 mod test {
-    use bitwarden_crypto::default_pbkdf2_iterations;
+    use bitwarden_crypto::Kdf;
 
     use super::*;
 
     impl Default for IdentityTokenSuccessResponse {
         fn default() -> Self {
+            let Kdf::PBKDF2 { iterations } = Kdf::default_pbkdf2() else {
+                panic!("Expected default KDF to be PBKDF2");
+            };
+
             Self {
                 access_token: Default::default(),
                 expires_in: Default::default(),
@@ -60,8 +60,8 @@ mod test {
                 private_key: Default::default(),
                 key: Default::default(),
                 two_factor_token: Default::default(),
-                kdf: KdfType::default(),
-                kdf_iterations: default_pbkdf2_iterations(),
+                kdf: KdfType::PBKDF2_SHA256,
+                kdf_iterations: iterations,
                 reset_master_password: Default::default(),
                 force_password_reset: Default::default(),
                 api_use_key_connector: Default::default(),
