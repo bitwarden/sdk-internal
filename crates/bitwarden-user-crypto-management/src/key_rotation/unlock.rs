@@ -10,6 +10,7 @@ use bitwarden_core::key_management::{
 use bitwarden_crypto::{AsymmetricPublicCryptoKey, Kdf, KeyStoreContext, UnsignedSharedKey};
 use serde::{Deserialize, Serialize};
 use tracing::debug_span;
+#[cfg(feature = "wasm")]
 use tsify::Tsify;
 
 use crate::key_rotation::rotateable_keyset::KeysetUnlockData;
