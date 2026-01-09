@@ -214,7 +214,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
             (EncString::Aes256Cbc_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
                 SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(
                     crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
-                        .map_err(|_| CryptoError::KeyDecrypt)?,
+                        .map_err(|_| CryptoError::Decrypt)?,
                 ))?
             }
             (
@@ -222,7 +222,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
             ) => SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(
                 crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)
-                    .map_err(|_| CryptoError::KeyDecrypt)?,
+                    .map_err(|_| CryptoError::Decrypt)?,
             ))?,
             (
                 EncString::Cose_Encrypt0_B64 { data },
