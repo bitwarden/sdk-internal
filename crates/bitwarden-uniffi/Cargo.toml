@@ -17,6 +17,10 @@ crate-type = ["lib", "staticlib", "cdylib"]
 bench = false
 
 [features]
+# WARNING: This feature is for debugging purposes only and should never be enabled in production.
+# It disables compile-time debug prevention for cryptographic keys, exposing sensitive key material
+# in debug output, and adds tracing debug logs to encrypt/decrypt operations.
+dangerous-crypto-debug = ["bitwarden-crypto/dangerous-crypto-debug"]
 
 [dependencies]
 async-trait = { workspace = true }
