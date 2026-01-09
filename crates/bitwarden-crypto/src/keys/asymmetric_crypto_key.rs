@@ -106,8 +106,8 @@ impl AsymmetricCryptoKey {
     }
 
     #[allow(missing_docs)]
-    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(skip_all, err))]
-    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(err))]
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
+    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
     pub fn from_pem(pem: &str) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
@@ -118,8 +118,8 @@ impl AsymmetricCryptoKey {
     }
 
     #[allow(missing_docs)]
-    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(skip_all, err))]
-    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(err))]
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
+    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
     pub fn from_der(der: &Pkcs8PrivateKeyBytes) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
@@ -130,8 +130,8 @@ impl AsymmetricCryptoKey {
     }
 
     #[allow(missing_docs)]
-    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(skip_all, err))]
-    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(err))]
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
+    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
     pub fn to_der(&self) -> Result<Pkcs8PrivateKeyBytes> {
         match &self.inner {
             RawPrivateKey::RsaOaepSha1(private_key) => {
