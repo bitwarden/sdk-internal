@@ -69,6 +69,8 @@ pub struct JitMasterPasswordRegistrationRequest {
     pub master_password: String,
     /// Optional hint for the master password
     pub master_password_hint: Option<String>,
+    /// Should enroll user into admin password reset
+    pub reset_password_enroll: bool,
 }
 
 /// Client for initializing a user account.
@@ -412,27 +414,32 @@ async fn internal_post_keys_for_jit_password_registration(
             RegistrationError::Api
         })?;
 
-    info!("Enrolling into admin account recovery");
-    api_client
-        .organization_users_api()
-        .put_reset_password_enrollment(
-            request.org_id.into(),
-            request.user_id.into(),
-            Some(OrganizationUserResetPasswordEnrollmentRequestModel {
-                reset_password_key: Some(registration_crypto_result.reset_password_key.to_string()),
-                master_password_hash: Some(
-                    registration_crypto_result
-                        .master_password_authentication_data
-                        .master_password_authentication_hash
-                        .to_string(),
-                ),
-            }),
-        )
-        .await
-        .map_err(|e| {
-            error!("Failed to enroll for reset password: {e:?}");
-            RegistrationError::Api
-        })?;
+    // Enroll the user for reset password using the reset password key generated above.
+    if request.reset_password_enroll {
+        info!("Enrolling into admin account recovery");
+        api_client
+            .organization_users_api()
+            .put_reset_password_enrollment(
+                request.org_id.into(),
+                request.user_id.into(),
+                Some(OrganizationUserResetPasswordEnrollmentRequestModel {
+                    reset_password_key: Some(
+                        registration_crypto_result.reset_password_key.to_string(),
+                    ),
+                    master_password_hash: Some(
+                        registration_crypto_result
+                            .master_password_authentication_data
+                            .master_password_authentication_hash
+                            .to_string(),
+                    ),
+                }),
+            )
+            .await
+            .map_err(|e| {
+                error!("Failed to enroll for reset password: {e:?}");
+                RegistrationError::Api
+            })?;
+    }
 
     info!("User initialized!");
     // Note: This passing out of state and keys is temporary. Once SDK state management is more
@@ -1061,6 +1068,7 @@ mod tests {
             salt: "test@example.com".to_string(),
             master_password: "test-password-123".to_string(),
             master_password_hint: Some(expected_hint.to_string()),
+            reset_password_enroll: true,
         };
 
         let result = internal_post_keys_for_jit_password_registration(
@@ -1124,6 +1132,7 @@ mod tests {
             salt: "test@example.com".to_string(),
             master_password: "test-password-123".to_string(),
             master_password_hint: Some("test hint".to_string()),
+            reset_password_enroll: true,
         };
 
         let result = internal_post_keys_for_jit_password_registration(
@@ -1171,6 +1180,7 @@ mod tests {
             salt: "test@example.com".to_string(),
             master_password: "test-password-123".to_string(),
             master_password_hint: Some("test hint".to_string()),
+            reset_password_enroll: true,
         };
 
         let result = internal_post_keys_for_jit_password_registration(
@@ -1182,6 +1192,48 @@ mod tests {
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), RegistrationError::Api));
+
+        // Assert that the mock expectations were met
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.accounts_api.checkpoint();
+            mock.organization_users_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_post_keys_for_jit_password_registration_reset_password_enroll_false() {
+        let client = Client::new(None);
+        let registration_client = RegistrationClient::new(client);
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.accounts_api
+                .expect_post_set_password()
+                .once()
+                .returning(move |_body| Ok(()));
+            mock.organization_users_api
+                .expect_put_reset_password_enrollment()
+                .never();
+        });
+
+        let request = JitMasterPasswordRegistrationRequest {
+            org_id: TEST_ORG_ID.parse().unwrap(),
+            org_public_key: TEST_ORG_PUBLIC_KEY.into(),
+            organization_sso_identifier: TEST_SSO_ORG_IDENTIFIER.to_string(),
+            user_id: TEST_USER_ID.parse().unwrap(),
+            salt: "test@example.com".to_string(),
+            master_password: "test-password-123".to_string(),
+            master_password_hint: Some("test hint".to_string()),
+            reset_password_enroll: false,
+        };
+
+        let result = internal_post_keys_for_jit_password_registration(
+            &registration_client,
+            &api_client,
+            request,
+        )
+        .await;
+
+        assert!(result.is_ok());
 
         // Assert that the mock expectations were met
         if let ApiClient::Mock(mut mock) = api_client {
