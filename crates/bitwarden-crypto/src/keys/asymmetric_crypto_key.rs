@@ -2,6 +2,7 @@ use std::pin::Pin;
 
 use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::DecodePublicKey};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use tracing::instrument;
 
 use super::key_encryptable::CryptoKey;
 use crate::{
@@ -35,6 +36,7 @@ impl AsymmetricPublicCryptoKey {
     }
 
     /// Build a public key from the SubjectPublicKeyInfo DER.
+    #[instrument(skip_all, err)]
     pub fn from_der(der: &SpkiPublicKeyBytes) -> Result<Self> {
         Ok(AsymmetricPublicCryptoKey {
             inner: RawPublicKey::RsaOaepSha1(
@@ -45,6 +47,7 @@ impl AsymmetricPublicCryptoKey {
     }
 
     /// Makes a SubjectPublicKeyInfo DER serialized version of the public key.
+    #[instrument(skip_all, err)]
     pub fn to_der(&self) -> Result<SpkiPublicKeyBytes> {
         use rsa::pkcs8::EncodePublicKey;
         match &self.inner {
@@ -103,6 +106,8 @@ impl AsymmetricCryptoKey {
     }
 
     #[allow(missing_docs)]
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(skip_all, err))]
+    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(err))]
     pub fn from_pem(pem: &str) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
@@ -113,6 +118,8 @@ impl AsymmetricCryptoKey {
     }
 
     #[allow(missing_docs)]
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(skip_all, err))]
+    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(err))]
     pub fn from_der(der: &Pkcs8PrivateKeyBytes) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
@@ -123,6 +130,8 @@ impl AsymmetricCryptoKey {
     }
 
     #[allow(missing_docs)]
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(skip_all, err))]
+    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(err))]
     pub fn to_der(&self) -> Result<Pkcs8PrivateKeyBytes> {
         match &self.inner {
             RawPrivateKey::RsaOaepSha1(private_key) => {
@@ -155,7 +164,17 @@ impl AsymmetricCryptoKey {
 // We manually implement these to make sure we don't print any sensitive data
 impl std::fmt::Debug for AsymmetricCryptoKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AsymmetricCryptoKey").finish()
+        let mut debug_struct = f.debug_struct("AsymmetricCryptoKey");
+        #[cfg(feature = "dangerous-crypto-debug")]
+        match &self.inner {
+            RawPrivateKey::RsaOaepSha1(_key) => {
+                debug_struct.field("algorithm", &"RsaOaepSha1");
+                if let Ok(der) = self.to_der() {
+                    debug_struct.field("private_key_der", &der.as_ref());
+                }
+            }
+        }
+        debug_struct.finish()
     }
 }
 

@@ -47,4 +47,9 @@ pub fn init_sdk(log_level: Option<LogLevel>) {
         .with(filter)
         .with(fmt)
         .init();
+
+    #[cfg(feature = "dangerous-crypto-debug")]
+    tracing::warn!(
+        "Dangerous crypto debug features are enabled. THIS MUST NOT BE USED IN PRODUCTION BULIDS!!"
+    );
 }

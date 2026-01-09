@@ -10,6 +10,7 @@ use bitwarden_crypto::{
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;
+use tracing::info;
 #[cfg(feature = "internal")]
 use tracing::instrument;
 
@@ -315,7 +316,14 @@ impl InternalClient {
         account_crypto_state: WrappedAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
         let mut ctx = self.key_store.context_mut();
+
+        // Note: The actual key does not get logged unless the crypto crate has the
+        // dangerous-crypto-debug feature enabled, so this is safe
+        info!("Setting user key {:?}", user_key);
         let user_key = ctx.add_local_symmetric_key(user_key);
+        // The user key gets set to the local context frame here; It then gets persisted to the
+        // context when the cryptographic state was unwrapped correctly, so that there is no
+        // risk of a partial / incorrect setup.
         account_crypto_state
             .set_to_context(&self.security_state, user_key, &self.key_store, ctx)
             .map_err(|_| EncryptionSettingsError::CryptoInitialization)
