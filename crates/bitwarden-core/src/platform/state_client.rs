@@ -61,7 +61,7 @@ impl StateClient {
     /// Returns `StateRegistryError` when neither repository type is available.
     pub fn get<T>(&self) -> Result<Arc<dyn Repository<T>>, StateRegistryError>
     where
-        T: RepositoryItem + serde::ser::Serialize + serde::de::DeserializeOwned + 'static,
+        T: RepositoryItem,
     {
         self.client.internal.repository_map.get()
     }
