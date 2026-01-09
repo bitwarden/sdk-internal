@@ -20,7 +20,7 @@ bitwarden-license = ["bitwarden-pm/bitwarden-license", "dep:bitwarden-commercial
 # WARNING: This feature is for debugging purposes only and should never be enabled in production.
 # It disables compile-time debug prevention for cryptographic keys, exposing sensitive key material
 # in debug output, and adds tracing debug logs to encrypt/decrypt operations.
-dangerous-crypto-debug = []
+dangerous-crypto-debug = ["bitwarden-crypto/dangerous-crypto-debug"]
 
 [dependencies]
 async-trait = { workspace = true }
@@ -28,7 +28,7 @@ bitwarden-commercial-vault = { workspace = true, optional = true, features = [
   "wasm",
 ] }
 bitwarden-core = { workspace = true, features = ["wasm", "internal"] }
-bitwarden-crypto = { workspace = true, features = ["wasm", "dangerous-crypto-debug"] }
+bitwarden-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-error = { workspace = true }
 bitwarden-ipc = { workspace = true, features = ["wasm"] }
 bitwarden-pm = { workspace = true, features = ["wasm"] }
