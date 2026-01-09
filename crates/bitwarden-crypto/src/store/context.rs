@@ -213,14 +213,16 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         let key = match (wrapped_key, wrapping_key) {
             (EncString::Aes256Cbc_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
                 SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(
-                    crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)?,
+                    crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
+                        .map_err(|_| CryptoError::KeyDecrypt)?,
                 ))?
             }
             (
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
             ) => SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(
-                crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)?,
+                crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)
+                    .map_err(|_| CryptoError::KeyDecrypt)?,
             ))?,
             (
                 EncString::Cose_Encrypt0_B64 { data },
@@ -770,11 +772,13 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         match (data, key) {
             (EncString::Aes256Cbc_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
                 crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
+                    .map_err(|_| CryptoError::Decrypt)
             }
             (
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
-            ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key),
+            ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)
+                .map_err(|_| CryptoError::Decrypt),
             (
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
