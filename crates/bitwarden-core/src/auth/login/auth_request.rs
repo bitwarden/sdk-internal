@@ -116,7 +116,7 @@ pub(crate) async fn complete_auth_request(
         let kdf = master_password_unlock
             .as_ref()
             .map(|mpu| mpu.kdf.clone())
-            .unwrap_or_else(Kdf::default);
+            .unwrap_or_else(Kdf::default_pbkdf2);
         let salt = master_password_unlock
             .as_ref()
             .map(|mpu| mpu.salt.clone())
