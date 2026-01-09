@@ -146,6 +146,7 @@ src/models/cipher_permissions_response_model.rs
 src/models/cipher_reprompt_type.rs
 src/models/cipher_request_model.rs
 src/models/cipher_response_model.rs
+src/models/cipher_response_model_list_response_model.rs
 src/models/cipher_secure_note_model.rs
 src/models/cipher_share_request_model.rs
 src/models/cipher_ssh_key_model.rs
@@ -494,6 +495,7 @@ src/models/sso_configuration_data_request.rs
 src/models/sso_type.rs
 src/models/sso_urls.rs
 src/models/storage_request_model.rs
+src/models/storage_update_request.rs
 src/models/subscription_cancellation_request_model.rs
 src/models/subscription_response_model.rs
 src/models/sync_response_model.rs

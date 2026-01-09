@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`e9d53c0c6b9c81bfc4a638ff63083af41cea9c3e`](https://github.com/bitwarden/server/commit/e9d53c0c6b9c81bfc4a638ff63083af41cea9c3e)
+  [`62ae8281430055037ec7040f143ccc623cf13bc2`](https://github.com/bitwarden/server/commit/62ae8281430055037ec7040f143ccc623cf13bc2)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -50,6 +50,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _AccountBillingVNextApi_                  | [**get_license**](docs/AccountBillingVNextApi.md#account_billing_v_next_get_license)                                                                             | **GET** /account/billing/vnext/license                                                                   |
 | _AccountBillingVNextApi_                  | [**get_payment_method**](docs/AccountBillingVNextApi.md#account_billing_v_next_get_payment_method)                                                               | **GET** /account/billing/vnext/payment-method                                                            |
 | _AccountBillingVNextApi_                  | [**update_payment_method**](docs/AccountBillingVNextApi.md#account_billing_v_next_update_payment_method)                                                         | **PUT** /account/billing/vnext/payment-method                                                            |
+| _AccountBillingVNextApi_                  | [**update_storage**](docs/AccountBillingVNextApi.md#account_billing_v_next_update_storage)                                                                       | **PUT** /account/billing/vnext/storage                                                                   |
 | _AccountsApi_                             | [**api_key**](docs/AccountsApi.md#accounts_api_key)                                                                                                              | **POST** /accounts/api-key                                                                               |
 | _AccountsApi_                             | [**delete**](docs/AccountsApi.md#accounts_delete)                                                                                                                | **DELETE** /accounts                                                                                     |
 | _AccountsApi_                             | [**delete_sso_user**](docs/AccountsApi.md#accounts_delete_sso_user)                                                                                              | **DELETE** /accounts/sso/{organizationId}                                                                |
@@ -69,7 +70,6 @@ All URIs are relative to *https://api.bitwarden.com*
 | _AccountsApi_                             | [**post_license**](docs/AccountsApi.md#accounts_post_license)                                                                                                    | **POST** /accounts/license                                                                               |
 | _AccountsApi_                             | [**post_password**](docs/AccountsApi.md#accounts_post_password)                                                                                                  | **POST** /accounts/password                                                                              |
 | _AccountsApi_                             | [**post_password_hint**](docs/AccountsApi.md#accounts_post_password_hint)                                                                                        | **POST** /accounts/password-hint                                                                         |
-| _AccountsApi_                             | [**post_premium**](docs/AccountsApi.md#accounts_post_premium)                                                                                                    | **POST** /accounts/premium                                                                               |
 | _AccountsApi_                             | [**post_reinstate**](docs/AccountsApi.md#accounts_post_reinstate)                                                                                                | **POST** /accounts/reinstate-premium                                                                     |
 | _AccountsApi_                             | [**post_request_otp**](docs/AccountsApi.md#accounts_post_request_otp)                                                                                            | **POST** /accounts/request-otp                                                                           |
 | _AccountsApi_                             | [**post_security_stamp**](docs/AccountsApi.md#accounts_post_security_stamp)                                                                                      | **POST** /accounts/security-stamp                                                                        |
@@ -317,6 +317,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationUsersApi_                    | [**remove**](docs/OrganizationUsersApi.md#organization_users_remove)                                                                                             | **DELETE** /organizations/{orgId}/users/{id}                                                             |
 | _OrganizationUsersApi_                    | [**restore**](docs/OrganizationUsersApi.md#organization_users_restore)                                                                                           | **PUT** /organizations/{orgId}/users/{id}/restore                                                        |
 | _OrganizationUsersApi_                    | [**revoke**](docs/OrganizationUsersApi.md#organization_users_revoke)                                                                                             | **PUT** /organizations/{orgId}/users/{id}/revoke                                                         |
+| _OrganizationUsersApi_                    | [**revoke_self**](docs/OrganizationUsersApi.md#organization_users_revoke_self)                                                                                   | **PUT** /organizations/{orgId}/users/revoke-self                                                         |
 | _OrganizationUsersApi_                    | [**user_public_keys**](docs/OrganizationUsersApi.md#organization_users_user_public_keys)                                                                         | **POST** /organizations/{orgId}/users/public-keys                                                        |
 | _OrganizationsApi_                        | [**api_key**](docs/OrganizationsApi.md#organizations_api_key)                                                                                                    | **POST** /organizations/{id}/api-key                                                                     |
 | _OrganizationsApi_                        | [**api_key_information**](docs/OrganizationsApi.md#organizations_api_key_information)                                                                            | **GET** /organizations/{id}/api-key-information/{type}                                                   |
@@ -584,6 +585,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [CipherRepromptType](docs/CipherRepromptType.md)
 - [CipherRequestModel](docs/CipherRequestModel.md)
 - [CipherResponseModel](docs/CipherResponseModel.md)
+- [CipherResponseModelListResponseModel](docs/CipherResponseModelListResponseModel.md)
 - [CipherSecureNoteModel](docs/CipherSecureNoteModel.md)
 - [CipherShareRequestModel](docs/CipherShareRequestModel.md)
 - [CipherSshKeyModel](docs/CipherSshKeyModel.md)
@@ -931,6 +933,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [SsoType](docs/SsoType.md)
 - [SsoUrls](docs/SsoUrls.md)
 - [StorageRequestModel](docs/StorageRequestModel.md)
+- [StorageUpdateRequest](docs/StorageUpdateRequest.md)
 - [SubscriptionCancellationRequestModel](docs/SubscriptionCancellationRequestModel.md)
 - [SubscriptionResponseModel](docs/SubscriptionResponseModel.md)
 - [SyncResponseModel](docs/SyncResponseModel.md)
