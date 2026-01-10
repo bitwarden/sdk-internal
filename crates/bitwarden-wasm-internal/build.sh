@@ -50,8 +50,8 @@ RUSTFLAGS='-Ctarget-cpu=mvp --cfg getrandom_backend="wasm_js"' RUSTC_BOOTSTRAP=1
 cargo run -p wasm-bindgen-cli-runner --bin wasm-bindgen-runner -- --target bundler --out-dir crates/bitwarden-wasm-internal/${NPM_FOLDER} ./target/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
 cargo run -p wasm-bindgen-cli-runner --bin wasm-bindgen-runner -- --target nodejs --out-dir crates/bitwarden-wasm-internal/${NPM_FOLDER}/node ./target/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
 
-# Format
-npx prettier --write ./crates/bitwarden-wasm-internal/${NPM_FOLDER}
+# Format TypeScript definition files only (skip generated .wasm.js files)
+npx prettier --write "./crates/bitwarden-wasm-internal/${NPM_FOLDER}/**/*.ts"
 
 # Optimize size
 wasm-opt -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm

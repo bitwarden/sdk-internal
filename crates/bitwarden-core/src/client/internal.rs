@@ -500,7 +500,7 @@ mod tests {
     async fn test_set_user_master_password_unlock_email_and_keys_not_updated() {
         let password = "asdfasdfasdf".to_string();
         let new_email = format!("{}@example.com", uuid::Uuid::new_v4());
-        let kdf = Kdf::default();
+        let kdf = Kdf::default_pbkdf2();
         let expected_email = TEST_ACCOUNT_EMAIL.to_owned();
 
         let (new_user_key, new_encrypted_user_key) = {
