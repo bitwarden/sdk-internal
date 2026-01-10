@@ -131,17 +131,6 @@
       commitMessagePrefix: "[deps] Platform:",
       reviewers: ["team:team-platform-dev"],
     },
-
-    // ========================= Dependency Dashboard Approval =========================
-    {
-      // We are sending all minor updates to the dependency dashboard so we can focus
-      // on major and lockFile maintenance. Patch updates are already sent to the dashboard
-      // in the default config. If any teams want to override this with their
-      // dependencies a specific rule can be added after this one, as the last rule
-      // takes precedence.
-      matchUpdateTypes: ["minor"],
-      dependencyDashboardApproval: true,
-    },
   ],
   ignoreDeps: ["dotnet-sdk"],
 }
