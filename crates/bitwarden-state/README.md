@@ -183,3 +183,49 @@ pub fn get_sdk_managed_migrations() -> RepositoryMigrations {
     ])
 }
 ```
+
+## Settings
+
+This crate also provides a type-safe settings API for storing application configuration and state.
+The settings system uses type-safe keys to ensure compile-time type checking when getting and
+setting values.
+
+### Usage
+
+```rust
+use bitwarden_state::settings::Key;
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
+struct AppConfig {
+    theme: String,
+    auto_save: bool,
+}
+
+// Define a type-safe key
+const CONFIG: Key<AppConfig> = Key::new("app_config");
+
+async fn example(client: &bitwarden_core::Client) -> Result<(), Box<dyn std::error::Error>> {
+    // Get a setting handle
+    let setting = client.platform().state().setting(CONFIG)?;
+
+    // Get value
+    let config: Option<AppConfig> = setting.get().await?;
+
+    // Update value
+    let new_config = AppConfig {
+        theme: "dark".to_string(),
+        auto_save: true,
+    };
+    setting.update(new_config).await?;
+
+    // Delete setting
+    setting.delete().await?;
+
+    Ok(())
+}
+```
+
+The `Key<T>` type associates a string key name with a value type at compile time, preventing type
+mismatches while maintaining ergonomic usage. The `Setting<T>` handle provides async methods to get,
+update, and delete the setting value.
