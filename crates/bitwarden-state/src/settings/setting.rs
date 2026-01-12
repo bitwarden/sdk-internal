@@ -30,9 +30,9 @@ crate::register_repository_item!(SettingItem, "Setting");
 ///
 /// # Example
 /// ```rust,ignore
-/// use bitwarden_state::Key;
+/// use bitwarden_state::register_setting_key;
 ///
-/// const THEME: Key<String> = Key::new("theme");
+/// register_setting_key!(const THEME: String = "theme");
 ///
 /// let setting = client.platform().state().setting(THEME)?;
 ///

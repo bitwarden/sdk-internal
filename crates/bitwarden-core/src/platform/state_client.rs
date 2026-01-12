@@ -58,7 +58,7 @@ impl StateClient {
     ///
     /// # Example
     /// ```rust,ignore
-    /// use bitwarden_state::Key;
+    /// use bitwarden_state::register_setting_key;
     /// use serde::{Deserialize, Serialize};
     ///
     /// #[derive(Serialize, Deserialize)]
@@ -66,7 +66,7 @@ impl StateClient {
     ///     theme: String,
     /// }
     ///
-    /// const CONFIG: Key<AppConfig> = Key::new("app_config");
+    /// register_setting_key!(const CONFIG: AppConfig = "app_config");
     ///
     /// let setting = client.platform().state().setting(CONFIG)?;
     /// let value: Option<AppConfig> = setting.get().await?;

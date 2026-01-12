@@ -6,7 +6,7 @@
 //! # Usage
 //!
 //! ```rust,ignore
-//! use bitwarden_state::settings::Key;
+//! use bitwarden_state::register_setting_key;
 //! use serde::{Deserialize, Serialize};
 //!
 //! #[derive(Serialize, Deserialize)]
@@ -15,8 +15,8 @@
 //!     auto_save: bool,
 //! }
 //!
-//! // Define a type-safe key
-//! const CONFIG: Key<AppConfig> = Key::new("app_config");
+//! // Register a type-safe key
+//! register_setting_key!(const CONFIG: AppConfig = "app_config");
 //!
 //! // Access settings via client.platform().state().setting()
 //! async fn example(client: &bitwarden_core::Client) -> Result<(), Box<dyn std::error::Error>> {

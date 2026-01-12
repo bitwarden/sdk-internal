@@ -192,8 +192,8 @@ setting values.
 
 ### Usage
 
-```rust
-use bitwarden_state::settings::Key;
+```rust,ignore
+use bitwarden_state::register_setting_key;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -202,8 +202,8 @@ struct AppConfig {
     auto_save: bool,
 }
 
-// Define a type-safe key
-const CONFIG: Key<AppConfig> = Key::new("app_config");
+// Register a type-safe key
+register_setting_key!(const CONFIG: AppConfig = "app_config");
 
 async fn example(client: &bitwarden_core::Client) -> Result<(), Box<dyn std::error::Error>> {
     // Get a setting handle
