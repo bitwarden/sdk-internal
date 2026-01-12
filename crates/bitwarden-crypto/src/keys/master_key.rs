@@ -79,21 +79,15 @@ impl MasterKey {
     }
 
     /// Encrypt the users user key
-    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(skip(self), err))]
-    #[cfg_attr(
-        not(feature = "dangerous-crypto-debug"),
-        instrument(skip(self, user_key), err)
-    )]
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
+    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
     pub fn encrypt_user_key(&self, user_key: &SymmetricCryptoKey) -> Result<EncString> {
         encrypt_user_key(self.inner_bytes(), user_key)
     }
 
     /// Decrypt the users user key
-    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(skip(self), err))]
-    #[cfg_attr(
-        not(feature = "dangerous-crypto-debug"),
-        instrument(skip(self, user_key), err)
-    )]
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
+    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
     pub fn decrypt_user_key(&self, user_key: EncString) -> Result<SymmetricCryptoKey> {
         decrypt_user_key(self.inner_bytes(), user_key)
     }
