@@ -28,15 +28,6 @@ pub struct Folder {
     pub revision_date: DateTime<Utc>,
 }
 
-impl From<&Folder> for FolderWithIdRequestModel {
-    fn from(val: &Folder) -> Self {
-        FolderWithIdRequestModel {
-            name: val.name.to_string(),
-            id: val.id.map(|id| id.0),
-        }
-    }
-}
-
 bitwarden_state::register_repository_item!(Folder, "Folder");
 
 #[allow(missing_docs)]
@@ -98,5 +89,14 @@ impl TryFrom<FolderResponseModel> for Folder {
             name: require!(EncString::try_from_optional(folder.name)?),
             revision_date: require!(folder.revision_date).parse()?,
         })
+    }
+}
+
+impl From<&Folder> for FolderWithIdRequestModel {
+    fn from(val: &Folder) -> Self {
+        FolderWithIdRequestModel {
+            name: val.name.to_string(),
+            id: val.id.map(|id| id.0),
+        }
     }
 }
