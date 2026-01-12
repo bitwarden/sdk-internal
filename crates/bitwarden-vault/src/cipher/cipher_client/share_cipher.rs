@@ -345,6 +345,7 @@ mod tests {
             view_password: true,
             local_data: None,
             attachments: None,
+            attachment_decryption_failures: None,
             fields: None,
             password_history: None,
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
@@ -441,7 +442,6 @@ mod tests {
             key: None, // No key!
             #[cfg(feature = "wasm")]
             decrypted_key: None,
-            decryption_failure: false,
         }]);
 
         let organization_id: OrganizationId = TEST_ORG_ID.parse().unwrap();

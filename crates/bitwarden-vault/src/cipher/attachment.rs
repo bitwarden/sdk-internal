@@ -59,9 +59,6 @@ pub struct AttachmentView {
     /// Do not rely on this field for long-term use.
     #[cfg(feature = "wasm")]
     pub decrypted_key: Option<String>,
-    /// Indicates whether this attachment failed to decrypt.
-    #[serde(default)]
-    pub decryption_failure: bool,
 }
 
 impl AttachmentView {
@@ -214,11 +211,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, AttachmentView> for Attachment {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<AttachmentView, CryptoError> {
-        // Try to decrypt the file name
-        let (file_name, decryption_failure) = match self.file_name.decrypt(ctx, key) {
-            Ok(name) => (name, false),
-            Err(..) => (None, true),
-        };
+        // Decrypt the file name or return an error if decryption fails
+        let file_name = self.file_name.decrypt(ctx, key)?;
 
         #[cfg(feature = "wasm")]
         let decrypted_key = if let Some(attachment_key) = &self.key {
@@ -238,12 +232,44 @@ impl Decryptable<KeyIds, SymmetricKeyId, AttachmentView> for Attachment {
             size: self.size.clone(),
             size_name: self.size_name.clone(),
             file_name,
-            decryption_failure,
             key: self.key.clone(),
             #[cfg(feature = "wasm")]
             decrypted_key: decrypted_key.map(|k| k.to_string()),
         })
     }
+}
+
+/// Decrypts a list of attachments, separating successful decryptions from failures.
+///
+/// Returns a tuple of (successful_attachments, failed_attachments).
+pub(crate) fn decrypt_attachments_with_failures(
+    attachments: &[Attachment],
+    ctx: &mut KeyStoreContext<KeyIds>,
+    key: SymmetricKeyId,
+) -> (Option<Vec<AttachmentView>>, Option<Vec<AttachmentView>>) {
+    let mut successes = Vec::new();
+    let mut failures = Vec::new();
+
+    for attachment in attachments {
+        match attachment.decrypt(ctx, key) {
+            Ok(decrypted) => successes.push(decrypted),
+            Err(_) => failures.push(AttachmentView {
+                id: attachment.id.clone(),
+                url: attachment.url.clone(),
+                size: attachment.size.clone(),
+                size_name: attachment.size_name.clone(),
+                file_name: None,
+                key: attachment.key.clone(),
+                #[cfg(feature = "wasm")]
+                decrypted_key: None,
+            }),
+        }
+    }
+
+    let successes = (!successes.is_empty()).then_some(successes);
+    let failures = (!failures.is_empty()).then_some(failures);
+
+    (successes, failures)
 }
 
 impl TryFrom<bitwarden_api_api::models::AttachmentResponseModel> for Attachment {
@@ -300,7 +326,6 @@ mod tests {
             key: None,
             #[cfg(feature = "wasm")]
             decrypted_key: None,
-            decryption_failure: false,
         };
 
         let contents = b"This is a test file that we will encrypt. It's 100 bytes long, the encrypted version will be longer!";
@@ -361,7 +386,6 @@ mod tests {
             key: Some("2.r288/AOSPiaLFkW07EBGBw==|SAmnnCbOLFjX5lnURvoualOetQwuyPc54PAmHDTRrhT0gwO9ailna9U09q9bmBfI5XrjNNEsuXssgzNygRkezoVQvZQggZddOwHB6KQW5EQ=|erIMUJp8j+aTcmhdE50zEX+ipv/eR1sZ7EwULJm/6DY=".parse().unwrap()),
             #[cfg(feature = "wasm")]
             decrypted_key: None,
-            decryption_failure: false,
         };
 
         let cipher  = Cipher {
@@ -423,7 +447,6 @@ mod tests {
             key: None,
             #[cfg(feature = "wasm")]
             decrypted_key: None,
-            decryption_failure: false,
         };
 
         let cipher  = Cipher {
