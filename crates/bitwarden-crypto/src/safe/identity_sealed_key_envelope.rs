@@ -57,21 +57,9 @@ pub struct IdentitySealedKeyEnvelope {
 #[derive(Debug, Error)]
 #[bitwarden_error(flat)]
 pub enum SealError {
-    /// RSA encryption operation failed.
-    #[error("RSA operation failed")]
-    RsaOperationFailed,
-    /// COSE encoding or decoding failed.
-    #[error("COSE encoding/decoding failed")]
-    CoseEncodingFailed,
-    /// The key data was invalid.
-    #[error("Invalid key data")]
-    InvalidKeyData,
-    /// The content format is not supported.
-    #[error("Unsupported content format")]
-    UnsupportedContentFormat,
-    /// The signing key required for the operation was not found.
-    #[error("Missing signing key")]
-    MissingSigningKey,
+    /// A crypto operation such as signature generation or encryption failed
+    #[error("Sealing Failed")]
+    SealFailed,
 }
 
 /// Errors that can occur during identity sealed key envelope unsealing operations. This is internal
@@ -81,42 +69,12 @@ pub enum SealError {
 #[derive(Debug, Error)]
 #[bitwarden_error(flat)]
 pub enum UnsealError {
-    /// The namespace in the envelope is invalid or not recognized.
-    #[error("Invalid namespace in envelope")]
-    InvalidNamespace,
-    /// Signature verification failed.
-    #[error("Signature verification failed")]
-    SignatureVerificationFailed,
-    /// The envelope is missing a required payload.
-    #[error("Missing payload in envelope")]
-    MissingPayload,
-    /// COSE encoding or decoding failed.
-    #[error("COSE encoding/decoding failed")]
-    CoseEncodingFailed,
-    /// The fingerprint in the envelope does not match the expected value.
-    #[error("Fingerprint mismatch")]
-    FingerprintMismatch,
-    /// RSA decryption operation failed.
-    #[error("RSA operation failed")]
-    RsaOperationFailed,
-    /// The recipient key encryption algorithm is not supported.
-    #[error("Unsupported recipient key encryption algorithm")]
-    UnsupportedRecipientKeyEncryptionAlgorithm,
-    /// The nonce size is invalid.
-    #[error("Invalid nonce size")]
-    InvalidNonceSize,
-    /// Decryption of the envelope contents failed.
-    #[error("Decryption failed")]
-    DecryptionFailed,
-    /// The content format is not supported.
-    #[error("Unsupported content format")]
-    UnsupportedContentFormat,
-    /// The key data was invalid.
-    #[error("Invalid key data")]
-    InvalidKeyData,
-    /// The private key required for the operation was not found.
-    #[error("Missing private key")]
-    MissingPrivateKey,
+    /// The recipient is incorrect
+    #[error("The recipient is incorrect")]
+    RecipientMismatch,
+    /// A crypto operation such as signature verification or decryption failed
+    #[error("Unsealing failed")]
+    UnsealFailed,
 }
 
 impl IdentitySealedKeyEnvelope {
@@ -131,7 +89,7 @@ impl IdentitySealedKeyEnvelope {
         let sender_signing_key = sender
             .context()
             .dangerous_get_signing_key(sender.signing_key_id())
-            .map_err(|_| SealError::MissingSigningKey)?;
+            .map_err(|_| SealError::SealFailed)?;
 
         Self::seal_ref(
             &sender_signing_key,
@@ -177,7 +135,7 @@ impl IdentitySealedKeyEnvelope {
         let (recipient_cek_ct, recipient_alg) = match recipient_public_key.inner() {
             RawPublicKey::RsaOaepSha1(rsa_public_key) => (
                 crate::rsa::encrypt_rsa2048_oaep_sha1(rsa_public_key, &cek)
-                    .map_err(|_| SealError::RsaOperationFailed)?,
+                    .map_err(|_| SealError::SealFailed)?,
                 Some(coset::Algorithm::Assigned(
                     iana::Algorithm::RSAES_OAEP_RFC_8017_default,
                 )),
@@ -205,7 +163,7 @@ impl IdentitySealedKeyEnvelope {
                     ContentFormat::CoseKey => {
                         hdr = hdr.content_format(CoapContentFormat::CoseKey);
                     }
-                    _ => return Err(SealError::UnsupportedContentFormat),
+                    _ => return Err(SealError::SealFailed),
                 }
                 let mut hdr = hdr.build();
                 hdr.alg = Some(cek_alg.clone());
@@ -225,19 +183,19 @@ impl IdentitySealedKeyEnvelope {
                 match cek_alg {
                     coset::Algorithm::PrivateUse(XCHACHA20_POLY1305) => {
                         let cek: [u8; xchacha20::KEY_SIZE] =
-                            cek.try_into().map_err(|_| SealError::InvalidKeyData)?;
+                            cek.try_into().map_err(|_| SealError::SealFailed)?;
                         let ciphertext =
                             crate::xchacha20::encrypt_xchacha20_poly1305(&cek, data, aad);
                         nonce = ciphertext.nonce().to_vec();
                         Ok(ciphertext.encrypted_bytes().to_vec())
                     }
-                    _ => Err(SealError::UnsupportedContentFormat),
+                    _ => Err(SealError::SealFailed),
                 }
             })?
             .unprotected(coset::HeaderBuilder::new().iv(nonce).build())
             .build()
             .to_vec()
-            .map_err(|_| SealError::CoseEncodingFailed)?;
+            .map_err(|_| SealError::SealFailed)?;
 
         // Sign the COSE Encrypt structure with the sender's signing key
         // The signature binds the encrypted content to the sender's identity
@@ -285,13 +243,13 @@ impl IdentitySealedKeyEnvelope {
 
         // 1. Verify the namespace in the signature
         let namespace = crate::signing::namespace(&self.cose_sign1.protected)
-            .map_err(|_| UnsealError::InvalidNamespace)?;
+            .map_err(|_| UnsealError::UnsealFailed)?;
         if namespace != SigningNamespace::IdentitySealedKeyEnvelope {
-            return Err(UnsealError::InvalidNamespace);
+            return Err(UnsealError::UnsealFailed);
         }
         self.cose_sign1
             .verify_signature(&[], |sig, data| sender_verifying_key.verify_raw(sig, data))
-            .map_err(|_| UnsealError::SignatureVerificationFailed)?;
+            .map_err(|_| UnsealError::UnsealFailed)?;
 
         // The signature is verified. This means the outer message is verified to have come from the
         // sender (Sender authentication). However, the same cannot be claimed
@@ -303,27 +261,29 @@ impl IdentitySealedKeyEnvelope {
             .cose_sign1
             .payload
             .as_ref()
-            .ok_or(UnsealError::MissingPayload)?;
+            .ok_or(UnsealError::UnsealFailed)?;
         // Parse the COSE Encrypt structure
         let cose_encrypt = coset::CoseEncrypt::from_slice(cose_encrypt_bytes)
-            .map_err(|_| UnsealError::CoseEncodingFailed)?;
+            .map_err(|_| UnsealError::UnsealFailed)?;
 
         // Verify the sender and recipient fingerprints
         // Extract and verify the sender fingerprint from the COSE Encrypt protected header
         let sender_fingerprint_in_envelope = extract_fingerprint_from_header(
             &cose_encrypt.protected.header,
             IDENTITY_SEALED_ENVELOPE_SENDER_FINGERPRINT,
-        )?;
+        )
+        .map_err(|_| UnsealError::UnsealFailed)?;
         if sender_fingerprint_in_envelope != sender_verifying_key.fingerprint() {
-            return Err(UnsealError::FingerprintMismatch);
+            return Err(UnsealError::UnsealFailed);
         }
         // Extract and verify the recipient fingerprint from the COSE Encrypt protected header
         let recipient_fingerprint_in_envelope = extract_fingerprint_from_header(
             &cose_encrypt.protected.header,
             IDENTITY_SEALED_ENVELOPE_RECIPIENT_FINGERPRINT,
-        )?;
+        )
+        .map_err(|_| UnsealError::UnsealFailed)?;
         if recipient_fingerprint_in_envelope != recipient_verifying_key.fingerprint() {
-            return Err(UnsealError::FingerprintMismatch);
+            return Err(UnsealError::RecipientMismatch);
         }
 
         // Decrypt the CEK
@@ -331,30 +291,30 @@ impl IdentitySealedKeyEnvelope {
         let recipient = cose_encrypt
             .recipients
             .first()
-            .ok_or(UnsealError::MissingPayload)?;
+            .ok_or(UnsealError::UnsealFailed)?;
         // Get the CEK algorithm from the protected header
         let cek_alg = cose_encrypt
             .protected
             .header
             .alg
             .as_ref()
-            .ok_or(UnsealError::CoseEncodingFailed)?;
+            .ok_or(UnsealError::UnsealFailed)?;
         // Get the encrypted CEK from the recipient
         let encrypted_cek = recipient
             .ciphertext
             .as_ref()
-            .ok_or(UnsealError::MissingPayload)?;
+            .ok_or(UnsealError::UnsealFailed)?;
         // Decrypt the CEK using the recipient's private key
         let cek = match recipient.protected.header.alg {
             Some(coset::Algorithm::Assigned(iana::Algorithm::RSAES_OAEP_RFC_8017_default)) => {
                 match recipient_private_key.inner() {
                     RawPrivateKey::RsaOaepSha1(rsa_private_key) => rsa_private_key
                         .decrypt(Oaep::new::<sha1::Sha1>(), encrypted_cek)
-                        .map_err(|_| UnsealError::RsaOperationFailed)?,
+                        .map_err(|_| UnsealError::UnsealFailed)?,
                 }
             }
             _ => {
-                return Err(UnsealError::UnsupportedRecipientKeyEncryptionAlgorithm);
+                return Err(UnsealError::UnsealFailed);
             }
         };
 
@@ -373,30 +333,30 @@ impl IdentitySealedKeyEnvelope {
                     };
                     let nonce: [u8; xchacha20::NONCE_SIZE] = match nonce.try_into() {
                         Ok(n) => n,
-                        Err(_) => return Err(UnsealError::InvalidNonceSize),
+                        Err(_) => return Err(UnsealError::UnsealFailed),
                     };
                     crate::xchacha20::decrypt_xchacha20_poly1305(&nonce, &cek, data, aad)
-                        .map_err(|_| UnsealError::DecryptionFailed)
+                        .map_err(|_| UnsealError::UnsealFailed)
                 }
-                _ => return Err(UnsealError::UnsupportedContentFormat),
+                _ => return Err(UnsealError::UnsealFailed),
             })
-            .map_err(|_| UnsealError::DecryptionFailed)?;
+            .map_err(|_| UnsealError::UnsealFailed)?;
 
         let content_format = ContentFormat::try_from(&cose_encrypt.protected.header)
-            .map_err(|_| UnsealError::UnsupportedContentFormat)?;
+            .map_err(|_| UnsealError::UnsealFailed)?;
         let symmetric_key = match content_format {
             ContentFormat::BitwardenLegacyKey => EncodedSymmetricKey::BitwardenLegacyKey(
                 BitwardenLegacyKeyBytes::try_from(decrypted)
-                    .map_err(|_| UnsealError::InvalidKeyData)?,
+                    .map_err(|_| UnsealError::UnsealFailed)?,
             ),
             ContentFormat::CoseKey => EncodedSymmetricKey::CoseKey(
-                CoseKeyBytes::try_from(decrypted).map_err(|_| UnsealError::InvalidKeyData)?,
+                CoseKeyBytes::try_from(decrypted).map_err(|_| UnsealError::UnsealFailed)?,
             ),
             _ => {
-                return Err(UnsealError::InvalidKeyData);
+                return Err(UnsealError::UnsealFailed);
             }
         };
-        SymmetricCryptoKey::try_from(symmetric_key).map_err(|_| UnsealError::InvalidKeyData)
+        SymmetricCryptoKey::try_from(symmetric_key).map_err(|_| UnsealError::UnsealFailed)
     }
 
     /// Unseals the envelope and extracts the shared symmetric key using identity types.
@@ -414,12 +374,12 @@ impl IdentitySealedKeyEnvelope {
         let recipient_private_key = recipient
             .context()
             .dangerous_get_asymmetric_key(recipient.private_key_id())
-            .map_err(|_| UnsealError::MissingPrivateKey)?;
+            .map_err(|_| UnsealError::UnsealFailed)?;
 
         let recipient_verifying_key = recipient
             .context()
             .get_verifying_key(recipient.signing_key_id())
-            .map_err(|_| UnsealError::MissingPrivateKey)?;
+            .map_err(|_| UnsealError::UnsealFailed)?;
 
         self.unseal_ref(
             sender.verifying_key(),
@@ -440,7 +400,7 @@ fn make_cek() -> (Vec<u8>, coset::Algorithm) {
 fn extract_fingerprint_from_header(
     header: &coset::Header,
     label: i64,
-) -> Result<KeyFingerprint, UnsealError> {
+) -> Result<KeyFingerprint, ()> {
     let fingerprint_bytes = header
         .rest
         .iter()
@@ -452,11 +412,9 @@ fn extract_fingerprint_from_header(
             }
             None
         })
-        .ok_or(UnsealError::FingerprintMismatch)?;
+        .ok_or(())?;
     Ok(KeyFingerprint(
-        fingerprint_bytes
-            .try_into()
-            .map_err(|_| UnsealError::FingerprintMismatch)?,
+        fingerprint_bytes.try_into().map_err(|_| ())?,
     ))
 }
 
@@ -667,7 +625,7 @@ mod tests {
             &recipient_private_key,
         );
         assert!(
-            matches!(result, Err(UnsealError::SignatureVerificationFailed)),
+            matches!(result, Err(UnsealError::UnsealFailed)),
             "Expected signature verification to fail with wrong sender key"
         );
     }
@@ -720,7 +678,7 @@ mod tests {
             &wrong_recipient_private_key,
         );
         assert!(
-            matches!(result, Err(UnsealError::RsaOperationFailed)),
+            matches!(result, Err(UnsealError::UnsealFailed)),
             "Expected RSA decryption to fail with wrong recipient key"
         );
     }
