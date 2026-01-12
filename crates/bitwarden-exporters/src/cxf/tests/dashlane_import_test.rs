@@ -13,7 +13,7 @@ mod tests {
     fn load_file() -> Result<Vec<ImportingCipher>, CxfError> {
         use std::fs;
 
-        // Read teh actual Dashlane example file
+        // Read the actual Dashlane example file
         let cxf_data = fs::read_to_string("resources/dashlane_export.json").unwrap();
 
         let items = parse_cxf(cxf_data)?;

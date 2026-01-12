@@ -88,8 +88,12 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
     let note_content = grouped.note.first().map(extract_note_content);
 
     // Helper to add ciphers with consistent boilerplate
-    let mut add_item = |t: CipherType, fields: Vec<Field>, custom_name: Option<String>| {
-        let name = custom_name.unwrap_or_else(|| value.title.clone());
+    let mut add_item = |t: CipherType, fields: Vec<Field>, fallback_name: Option<String>| {
+        let name = if value.title.trim().is_empty() {
+            fallback_name.unwrap_or_else(|| value.title.clone())
+        } else {
+            value.title.clone()
+        };
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
             name,
@@ -118,16 +122,17 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
     if let Some(credit_card) = grouped.credit_card.first() {
         let (card, fields) = to_card(credit_card);
 
-        // Use cardholder name if title is empty or blank
-        let card_name = if value.title.trim().is_empty() {
-            card.cardholder_name
-                .clone()
-                .unwrap_or_else(|| "Untitled Card".to_string())
-        } else {
-            value.title.clone()
-        };
+        // Use cardholder name as fallback if title is empty
+        let fallback_name = card
+            .cardholder_name
+            .clone()
+            .unwrap_or_else(|| "Untitled Card".to_string());
 
-        add_item(CipherType::Card(Box::new(card)), fields, Some(card_name));
+        add_item(
+            CipherType::Card(Box::new(card)),
+            fields,
+            Some(fallback_name),
+        );
     }
 
     // Helper for creating SecureNote cipher type
