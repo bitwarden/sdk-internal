@@ -5,7 +5,6 @@ use std::{
 };
 
 use bitwarden_error::bitwarden_error;
-use serde::{Serialize, de::DeserializeOwned};
 use thiserror::Error;
 
 use crate::{
@@ -110,14 +109,39 @@ impl StateRegistry {
     }
 
     /// Retrieves a SDK-managed repository from the database.
-    pub fn get_sdk_managed<T: RepositoryItem + Serialize + DeserializeOwned>(
+    pub fn get_sdk_managed<T: RepositoryItem>(
         &self,
-    ) -> Result<impl Repository<T>, StateRegistryError> {
+    ) -> Result<Arc<dyn Repository<T>>, StateRegistryError> {
         if let Some(db) = self.database.get() {
             Ok(db.get_repository::<T>()?)
         } else {
             Err(StateRegistryError::DatabaseNotInitialized)
         }
+    }
+
+    /// Get a repository with fallback: prefer client-managed, fall back to SDK-managed.
+    ///
+    /// This method first attempts to retrieve a client-managed repository. If not found,
+    /// it falls back to an SDK-managed repository. Both are returned as `Arc<dyn Repository<T>>`.
+    ///
+    /// # Type Requirements
+    /// - `T` must implement `RepositoryItem` (for both types)
+    ///
+    /// # Errors
+    /// Returns `StateRegistryError` when:
+    /// - Client-managed repository is not registered, AND
+    /// - SDK-managed repository cannot be retrieved (e.g., database not initialized)
+    pub fn get<T>(&self) -> Result<Arc<dyn Repository<T>>, StateRegistryError>
+    where
+        T: RepositoryItem,
+    {
+        // Try client-managed first
+        if let Ok(repo) = self.get_client_managed::<T>() {
+            return Ok(repo);
+        }
+
+        // Fall back to SDK-managed
+        self.get_sdk_managed::<T>()
     }
 }
 
@@ -149,13 +173,15 @@ mod tests {
         };
     }
 
+    use serde::{Deserialize, Serialize};
+
     #[derive(PartialEq, Eq, Debug)]
     struct TestA(usize);
     #[derive(PartialEq, Eq, Debug)]
     struct TestB(String);
     #[derive(PartialEq, Eq, Debug)]
     struct TestC(Vec<u8>);
-    #[derive(PartialEq, Eq, Debug)]
+    #[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
     struct TestItem<T>(T);
 
     register_repository_item!(TestItem<usize>, "TestItem_usize");
@@ -200,5 +226,30 @@ mod tests {
         assert_eq!(get(&map).await, Some(TestItem(a.0)));
         assert_eq!(get(&map).await, Some(TestItem(b.0.clone())));
         assert_eq!(get(&map).await, Some(TestItem(c.0.clone())));
+    }
+
+    #[tokio::test]
+    async fn test_fallback_client_managed_found() {
+        let registry = StateRegistry::new();
+        let test_repo = Arc::new(TestA(12345));
+
+        registry.register_client_managed(test_repo.clone());
+
+        let repo = registry.get::<TestItem<usize>>().unwrap();
+        let result = repo.get(String::new()).await.unwrap();
+
+        assert_eq!(result, Some(TestItem(12345)));
+    }
+
+    #[tokio::test]
+    async fn test_fallback_neither_available() {
+        let registry = StateRegistry::new();
+        // Don't register client-managed or initialize database
+
+        let result = registry.get::<TestItem<usize>>();
+        assert!(matches!(
+            result,
+            Err(StateRegistryError::DatabaseNotInitialized)
+        ));
     }
 }
