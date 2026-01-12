@@ -199,11 +199,7 @@ impl CiphersClient {
 
 impl CiphersClient {
     fn get_repository(&self) -> Result<Arc<dyn Repository<Cipher>>, RepositoryError> {
-        Ok(self
-            .client
-            .platform()
-            .state()
-            .get_client_managed::<Cipher>()?)
+        Ok(self.client.platform().state().get::<Cipher>()?)
     }
 }
 
