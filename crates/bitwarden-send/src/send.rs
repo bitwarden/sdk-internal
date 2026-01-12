@@ -64,6 +64,7 @@ pub enum SendType {
     File = 1,
 }
 
+/// Indicates the authentication strategy to use when accessing a Send
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
