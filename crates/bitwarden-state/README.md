@@ -8,9 +8,12 @@ To make use of the `Repository` trait, the first thing to do is to ensure the da
 it is registered to do so:
 
 ```rust
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize)]
 struct Cipher {
     // Cipher fields
-};
+}
 
 // Register `Cipher` for use with a `Repository`.
 // This should be done in the crate where `Cipher` is defined.
