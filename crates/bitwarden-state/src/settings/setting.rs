@@ -26,7 +26,7 @@ crate::register_repository_item!(SettingItem, "Setting");
 /// A handle to a single setting value in storage.
 ///
 /// This type provides async methods to get, update, and delete the setting value.
-/// Obtained via [`StateClient::setting()`](crate::platform::StateClient::setting).
+/// Obtained via `StateClient::setting()`.
 ///
 /// # Example
 /// ```rust,ignore
