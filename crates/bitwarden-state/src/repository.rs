@@ -2,7 +2,7 @@ use std::any::TypeId;
 
 use serde::{Serialize, de::DeserializeOwned};
 
-use crate::registry::RepositoryNotFoundError;
+use crate::registry::StateRegistryError;
 
 /// An error resulting from operations on a repository.
 #[derive(thiserror::Error, Debug)]
@@ -19,9 +19,9 @@ pub enum RepositoryError {
     #[error(transparent)]
     Database(#[from] crate::sdk_managed::DatabaseError),
 
-    /// Repository not found.
+    /// State registry error.
     #[error(transparent)]
-    RepositoryNotFound(#[from] RepositoryNotFoundError),
+    StateRegistry(#[from] StateRegistryError),
 }
 
 /// This trait represents a generic repository interface, capable of storing and retrieving
