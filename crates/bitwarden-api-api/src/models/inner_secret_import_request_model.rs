@@ -14,15 +14,15 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InnerSecretImportRequestModel {
-    #[serde(rename = "id")]
+    #[serde(rename = "id", alias = "Id")]
     pub id: uuid::Uuid,
-    #[serde(rename = "key")]
+    #[serde(rename = "key", alias = "Key")]
     pub key: String,
-    #[serde(rename = "value")]
+    #[serde(rename = "value", alias = "Value")]
     pub value: String,
-    #[serde(rename = "note")]
+    #[serde(rename = "note", alias = "Note")]
     pub note: String,
-    #[serde(rename = "projectIds")]
+    #[serde(rename = "projectIds", alias = "ProjectIds")]
     pub project_ids: Vec<uuid::Uuid>,
 }
 

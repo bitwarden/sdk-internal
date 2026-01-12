@@ -370,14 +370,12 @@ pub struct ClientExtensionResults {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct CredPropsResult {
     pub rk: Option<bool>,
-    pub authenticator_display_name: Option<String>,
 }
 
 impl From<passkey::types::webauthn::CredentialPropertiesOutput> for CredPropsResult {
     fn from(value: passkey::types::webauthn::CredentialPropertiesOutput) -> Self {
         Self {
             rk: value.discoverable,
-            authenticator_display_name: value.authenticator_display_name,
         }
     }
 }
@@ -472,9 +470,11 @@ impl TryFrom<UnverifiedAssetLink> for passkey::client::UnverifiedAssetLink<'_> {
     type Error = InvalidOriginError;
 
     fn try_from(value: UnverifiedAssetLink) -> Result<Self, Self::Error> {
-        let asset_link_url = match value.asset_link_url {
-            Some(url) => Some(Url::parse(&url).map_err(|e| InvalidOriginError(format!("{e}")))?),
-            None => None,
+        let asset_link_url = {
+            let url = value
+                .asset_link_url
+                .unwrap_or_else(|| format!("https://{}/.well-known/assetlinks.json", value.host));
+            Url::parse(&url).map_err(|e| InvalidOriginError(e.to_string()))?
         };
 
         passkey::client::UnverifiedAssetLink::new(

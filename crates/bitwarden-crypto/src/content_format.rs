@@ -24,6 +24,8 @@ pub(crate) enum ContentFormat {
     CoseKey,
     /// CoseSign1 message
     CoseSign1,
+    /// CoseEncrypt0 message
+    CoseEncrypt0,
     /// Bitwarden Legacy Key
     /// There are three permissible byte values here:
     /// - `[u8; 32]` - AES-CBC (no hmac) key. This is to be removed and banned.
@@ -32,6 +34,8 @@ pub(crate) enum ContentFormat {
     BitwardenLegacyKey,
     /// Stream of bytes
     OctetStream,
+    /// Cbor serialized data
+    Cbor,
 }
 
 mod private {
@@ -209,6 +213,34 @@ impl FromB64ContentFormat for CoseSign1ContentFormat {}
 /// CoseSign1Bytes is a type alias for Bytes with `CoseSign1ContentFormat`. This is used for
 /// serialized COSE Sign1 messages.
 pub type CoseSign1Bytes = Bytes<CoseSign1ContentFormat>;
+
+/// CBOR serialized data
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub struct CborContentFormat;
+impl private::Sealed for CborContentFormat {}
+impl ConstContentFormat for CborContentFormat {
+    #[allow(private_interfaces)]
+    fn content_format() -> ContentFormat {
+        ContentFormat::Cbor
+    }
+}
+/// CborBytes is a type alias for Bytes with `CborContentFormat`. This is used for CBOR serialized
+/// data.
+pub type CborBytes = Bytes<CborContentFormat>;
+
+/// Content format for COSE Encrypt0 messages.
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub struct CoseEncrypt0ContentFormat;
+impl private::Sealed for CoseEncrypt0ContentFormat {}
+impl ConstContentFormat for CoseEncrypt0ContentFormat {
+    #[allow(private_interfaces)]
+    fn content_format() -> ContentFormat {
+        ContentFormat::CoseEncrypt0
+    }
+}
+/// CoseEncrypt0Bytes is a type alias for Bytes with `CoseEncrypt0ContentFormat`. This is used for
+/// serialized COSE Encrypt0 messages.
+pub type CoseEncrypt0Bytes = Bytes<CoseEncrypt0ContentFormat>;
 
 impl<Ids: KeyIds, T: ConstContentFormat> PrimitiveEncryptable<Ids, Ids::Symmetric, EncString>
     for Bytes<T>

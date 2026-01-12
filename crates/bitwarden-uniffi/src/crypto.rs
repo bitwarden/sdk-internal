@@ -2,7 +2,7 @@ use bitwarden_core::key_management::crypto::{
     DeriveKeyConnectorRequest, DerivePinKeyResponse, EnrollPinResponse, InitOrgCryptoRequest,
     InitUserCryptoRequest, UpdateKdfResponse, UpdatePasswordResponse,
 };
-use bitwarden_crypto::{EncString, Kdf, UnsignedSharedKey};
+use bitwarden_crypto::{EncString, Kdf, RotateableKeySet, UnsignedSharedKey};
 use bitwarden_encoding::B64;
 
 use crate::error::Result;
@@ -29,15 +29,6 @@ impl CryptoClient {
     /// to keep this key safe, as it can be used to decrypt all of the user's data
     pub async fn get_user_encryption_key(&self) -> Result<B64> {
         Ok(self.0.get_user_encryption_key().await?)
-    }
-
-    /// Create the data necessary to update the user's password. The user's encryption key is
-    /// re-encrypted with the new password. This returns the new encrypted user key and the new
-    /// password hash but does not update sdk state.
-    ///
-    /// Note: This is deprecated and `make_update_password` should be used instead
-    pub fn update_password(&self, new_password: String) -> Result<UpdatePasswordResponse> {
-        self.make_update_password(new_password)
     }
 
     /// Create the data necessary to update the user's password. The user's encryption key is
@@ -86,6 +77,12 @@ impl CryptoClient {
     /// Derive the master key for migrating to the key connector
     pub fn derive_key_connector(&self, request: DeriveKeyConnectorRequest) -> Result<B64> {
         Ok(self.0.derive_key_connector(request)?)
+    }
+
+    /// Creates the a new rotateable key set for the current user key protected
+    /// by a key derived from the given PRF.
+    pub fn make_prf_user_key_set(&self, prf: B64) -> Result<RotateableKeySet> {
+        Ok(self.0.make_prf_user_key_set(prf)?)
     }
 
     /// Create the data necessary to update the user's kdf settings. The user's encryption key is

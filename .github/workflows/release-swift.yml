@@ -32,7 +32,7 @@ jobs:
       _BOT_NAME: bitwarden-devops-bot
     steps:
       - name: Checkout SDK repo
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           path: sdk
           persist-credentials: false
@@ -129,12 +129,13 @@ jobs:
           permission-contents: write # used to: push code; create github release
 
       - name: Checkout SDK-Swift repo
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: bitwarden/sdk-swift
           path: sdk-swift
           ref: ${{ inputs.sdk-swift-branch-name }}
           token: ${{ steps.app-token-sdk-swift.outputs.token }}
+          persist-credentials: true
 
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6.3.0

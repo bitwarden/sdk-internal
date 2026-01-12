@@ -34,11 +34,11 @@ pub trait AccountsApi: Send + Sync {
         Error<GetWebAuthnLoginAssertionOptionsError>,
     >;
 
-    /// POST /accounts/prelogin
-    async fn post_prelogin<'a>(
+    /// POST /accounts/prelogin/password
+    async fn post_password_prelogin<'a>(
         &self,
-        prelogin_request_model: Option<models::PreloginRequestModel>,
-    ) -> Result<models::PreloginResponseModel, Error<PostPreloginError>>;
+        password_prelogin_request_model: Option<models::PasswordPreloginRequestModel>,
+    ) -> Result<models::PasswordPreloginResponseModel, Error<PostPasswordPreloginError>>;
 
     /// POST /accounts/register/finish
     async fn post_register_finish<'a>(
@@ -144,15 +144,18 @@ impl AccountsApi for AccountsApiClient {
         }
     }
 
-    async fn post_prelogin<'a>(
+    async fn post_password_prelogin<'a>(
         &self,
-        prelogin_request_model: Option<models::PreloginRequestModel>,
-    ) -> Result<models::PreloginResponseModel, Error<PostPreloginError>> {
+        password_prelogin_request_model: Option<models::PasswordPreloginRequestModel>,
+    ) -> Result<models::PasswordPreloginResponseModel, Error<PostPasswordPreloginError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
 
-        let local_var_uri_str = format!("{}/accounts/prelogin", local_var_configuration.base_path);
+        let local_var_uri_str = format!(
+            "{}/accounts/prelogin/password",
+            local_var_configuration.base_path
+        );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
@@ -160,7 +163,7 @@ impl AccountsApi for AccountsApiClient {
             local_var_req_builder = local_var_req_builder
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
-        local_var_req_builder = local_var_req_builder.json(&prelogin_request_model);
+        local_var_req_builder = local_var_req_builder.json(&password_prelogin_request_model);
 
         let local_var_req = local_var_req_builder.build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -179,17 +182,17 @@ impl AccountsApi for AccountsApiClient {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
                 ContentType::Text => {
                     return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::PreloginResponseModel`",
+                        "Received `text/plain` content type response that cannot be converted to `models::PasswordPreloginResponseModel`",
                     )));
                 }
                 ContentType::Unsupported(local_var_unknown_type) => {
                     return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PreloginResponseModel`"
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PasswordPreloginResponseModel`"
                     ))));
                 }
             }
         } else {
-            let local_var_entity: Option<PostPreloginError> =
+            let local_var_entity: Option<PostPasswordPreloginError> =
                 serde_json::from_str(&local_var_content).ok();
             let local_var_error = ResponseContent {
                 status: local_var_status,
@@ -398,10 +401,10 @@ impl AccountsApi for AccountsApiClient {
 pub enum GetWebAuthnLoginAssertionOptionsError {
     UnknownValue(serde_json::Value),
 }
-/// struct for typed errors of method [`AccountsApi::post_prelogin`]
+/// struct for typed errors of method [`AccountsApi::post_password_prelogin`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum PostPreloginError {
+pub enum PostPasswordPreloginError {
     UnknownValue(serde_json::Value),
 }
 /// struct for typed errors of method [`AccountsApi::post_register_finish`]

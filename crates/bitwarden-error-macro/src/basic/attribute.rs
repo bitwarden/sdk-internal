@@ -25,7 +25,7 @@ fn basic_error_wasm(
         r##"r#"
             export interface {export_as_identifier} extends Error {{
                 name: "{export_as_identifier}";
-            }};
+            }}
 
             export function {is_error_function_name}(error: any): error is {export_as_identifier};
         "#"##

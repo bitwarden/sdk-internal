@@ -14,9 +14,9 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OrganizationSponsorshipRedeemRequestModel {
-    #[serde(rename = "planSponsorshipType")]
+    #[serde(rename = "planSponsorshipType", alias = "PlanSponsorshipType")]
     pub plan_sponsorship_type: models::PlanSponsorshipType,
-    #[serde(rename = "sponsoredOrganizationId")]
+    #[serde(rename = "sponsoredOrganizationId", alias = "SponsoredOrganizationId")]
     pub sponsored_organization_id: uuid::Uuid,
 }
 

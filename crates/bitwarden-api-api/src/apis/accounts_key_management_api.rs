@@ -26,6 +26,15 @@ use crate::{
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait AccountsKeyManagementApi: Send + Sync {
+    /// GET /accounts/key-connector/confirmation-details/{orgSsoIdentifier}
+    async fn get_key_connector_confirmation_details<'a>(
+        &self,
+        org_sso_identifier: &'a str,
+    ) -> Result<
+        models::KeyConnectorConfirmationDetailsResponseModel,
+        Error<GetKeyConnectorConfirmationDetailsError>,
+    >;
+
     /// POST /accounts/convert-to-key-connector
     async fn post_convert_to_key_connector(
         &self,
@@ -65,6 +74,71 @@ impl AccountsKeyManagementApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
+    async fn get_key_connector_confirmation_details<'a>(
+        &self,
+        org_sso_identifier: &'a str,
+    ) -> Result<
+        models::KeyConnectorConfirmationDetailsResponseModel,
+        Error<GetKeyConnectorConfirmationDetailsError>,
+    > {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/accounts/key-connector/confirmation-details/{orgSsoIdentifier}",
+            local_var_configuration.base_path,
+            orgSsoIdentifier = crate::apis::urlencode(org_sso_identifier)
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+            local_var_req_builder = local_var_req_builder
+                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+        }
+        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+        };
+
+        let local_var_req = local_var_req_builder.build()?;
+        let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::KeyConnectorConfirmationDetailsResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::KeyConnectorConfirmationDetailsResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<GetKeyConnectorConfirmationDetailsError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
+    }
+
     async fn post_convert_to_key_connector(
         &self,
     ) -> Result<(), Error<PostConvertToKeyConnectorError>> {
@@ -243,6 +317,13 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
     }
 }
 
+/// struct for typed errors of method
+/// [`AccountsKeyManagementApi::get_key_connector_confirmation_details`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetKeyConnectorConfirmationDetailsError {
+    UnknownValue(serde_json::Value),
+}
 /// struct for typed errors of method [`AccountsKeyManagementApi::post_convert_to_key_connector`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]

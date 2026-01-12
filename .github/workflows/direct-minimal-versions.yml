@@ -39,7 +39,9 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
 
       - name: Set Rust Nightly Toolchain
         id: nightly-toolchain
@@ -51,7 +53,7 @@ jobs:
           echo "RUST_NIGHTLY_TOOLCHAIN=${RUST_NIGHTLY_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
 
       - name: Install rust
-        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # stable
+        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e # stable
         with:
           toolchain: "${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}"
           targets: ${{ matrix.settings.target }}
@@ -62,4 +64,6 @@ jobs:
           key: dmv-${{ matrix.settings.target }}-cargo-${{ matrix.settings.os }}
 
       - name: Cargo check direct-minimal-versions
-        run: cargo +"${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}" check -Z direct-minimal-versions --all-features
+        env:
+          RUST_NIGHTLY_TOOLCHAIN: ${{ steps.nightly-toolchain.outputs.RUST_NIGHTLY_TOOLCHAIN }}
+        run: cargo +"${RUST_NIGHTLY_TOOLCHAIN}" check -Z direct-minimal-versions --all-features

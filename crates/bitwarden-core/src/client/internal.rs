@@ -4,10 +4,14 @@ use bitwarden_crypto::KeyStore;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
-use bitwarden_crypto::{CryptoError, EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey};
+use bitwarden_crypto::{
+    EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey, safe::PasswordProtectedKeyEnvelope,
+};
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;
+#[cfg(feature = "internal")]
+use tracing::instrument;
 
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::client::encryption_settings::EncryptionSettings;
@@ -20,34 +24,14 @@ use crate::{
 #[cfg(feature = "internal")]
 use crate::{
     client::{
-        encryption_settings::{AccountEncryptionKeys, EncryptionSettingsError},
-        flags::Flags,
-        login_method::UserLoginMethod,
+        encryption_settings::EncryptionSettingsError, flags::Flags, login_method::UserLoginMethod,
     },
     error::NotAuthenticatedError,
     key_management::{
-        PasswordProtectedKeyEnvelope, SecurityState, SignedSecurityState,
-        crypto::InitUserCryptoRequest,
+        MasterPasswordUnlockData, SecurityState,
+        account_cryptographic_state::WrappedAccountCryptographicState,
     },
 };
-
-/// Represents the user's keys, that are encrypted by the user key, and the signed security state.
-#[cfg(feature = "internal")]
-pub(crate) struct UserKeyState {
-    pub(crate) private_key: EncString,
-    pub(crate) signing_key: Option<EncString>,
-    pub(crate) security_state: Option<SignedSecurityState>,
-}
-#[cfg(feature = "internal")]
-impl From<&InitUserCryptoRequest> for UserKeyState {
-    fn from(req: &InitUserCryptoRequest) -> Self {
-        UserKeyState {
-            private_key: req.private_key.clone(),
-            signing_key: req.signing_key.clone(),
-            security_state: req.security_state.clone(),
-        }
-    }
-}
 
 #[allow(missing_docs)]
 pub struct ApiConfigurations {
@@ -93,6 +77,22 @@ impl ApiConfigurations {
         api.oauth_access_token = Some(token);
 
         *self = ApiConfigurations::new(identity, api, self.device_type);
+    }
+
+    pub(crate) fn get_key_connector_client(
+        self: &Arc<Self>,
+        key_connector_url: String,
+    ) -> bitwarden_api_key_connector::apis::ApiClient {
+        let api = self.api_config.clone();
+
+        let key_connector = bitwarden_api_key_connector::apis::configuration::Configuration {
+            base_path: key_connector_url,
+            user_agent: api.user_agent,
+            client: api.client,
+            oauth_access_token: api.oauth_access_token,
+        };
+
+        bitwarden_api_key_connector::apis::ApiClient::new(&Arc::new(key_connector))
     }
 }
 
@@ -141,7 +141,7 @@ pub struct InternalClient {
 
     /// Reqwest client useable for external integrations like email forwarders, HIBP.
     #[allow(unused)]
-    pub(crate) external_client: reqwest::Client,
+    pub(crate) external_http_client: reqwest::Client,
 
     pub(super) key_store: KeyStore<KeyIds>,
     #[cfg(feature = "internal")]
@@ -192,9 +192,9 @@ impl InternalClient {
 
     #[cfg(any(feature = "internal", feature = "secrets"))]
     pub(crate) fn set_login_method(&self, login_method: LoginMethod) {
-        use log::debug;
+        use tracing::debug;
 
-        debug! {"setting login method: {login_method:#?}"}
+        debug!(?login_method, "setting login method.");
         *self.login_method.write().expect("RwLock is not poisoned") = Some(Arc::new(login_method));
     }
 
@@ -232,6 +232,16 @@ impl InternalClient {
         }
     }
 
+    pub fn get_key_connector_client(
+        &self,
+        key_connector_url: String,
+    ) -> bitwarden_api_key_connector::apis::ApiClient {
+        self.__api_configurations
+            .read()
+            .expect("RwLock is not poisoned")
+            .get_key_connector_client(key_connector_url)
+    }
+
     #[allow(missing_docs)]
     pub async fn get_api_configurations(&self) -> Arc<ApiConfigurations> {
         // At the moment we ignore the error result from the token renewal, if it fails,
@@ -246,7 +256,7 @@ impl InternalClient {
     #[allow(missing_docs)]
     #[cfg(feature = "internal")]
     pub fn get_http_client(&self) -> &reqwest::Client {
-        &self.external_client
+        &self.external_http_client
     }
 
     #[allow(missing_docs)]
@@ -286,82 +296,57 @@ impl InternalClient {
     }
 
     #[cfg(feature = "internal")]
-    pub(crate) fn initialize_user_crypto_master_key(
+    #[instrument(err, skip_all)]
+    pub(crate) fn initialize_user_crypto_key_connector_key(
         &self,
         master_key: MasterKey,
         user_key: EncString,
-        key_state: UserKeyState,
+        account_crypto_state: WrappedAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
         let user_key = master_key.decrypt_user_key(user_key)?;
-        self.initialize_user_crypto_decrypted_key(user_key, key_state)
+        self.initialize_user_crypto_decrypted_key(user_key, account_crypto_state)
     }
 
     #[cfg(feature = "internal")]
+    #[instrument(err, skip_all, fields(user_id = ?self.get_user_id()))]
     pub(crate) fn initialize_user_crypto_decrypted_key(
         &self,
         user_key: SymmetricCryptoKey,
-        key_state: UserKeyState,
+        account_crypto_state: WrappedAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
-        match user_key {
-            SymmetricCryptoKey::Aes256CbcHmacKey(ref user_key) => {
-                EncryptionSettings::new_decrypted_key(
-                    AccountEncryptionKeys::V1 {
-                        user_key: user_key.clone(),
-                        private_key: key_state.private_key,
-                    },
-                    &self.key_store,
-                    &self.security_state,
-                )?;
-            }
-            SymmetricCryptoKey::XChaCha20Poly1305Key(ref user_key) => {
-                EncryptionSettings::new_decrypted_key(
-                    AccountEncryptionKeys::V2 {
-                        user_key: user_key.clone(),
-                        private_key: key_state.private_key,
-                        signing_key: key_state
-                            .signing_key
-                            .ok_or(EncryptionSettingsError::InvalidSigningKey)?,
-                        security_state: key_state
-                            .security_state
-                            .ok_or(EncryptionSettingsError::InvalidSecurityState)?,
-                    },
-                    &self.key_store,
-                    &self.security_state,
-                )?;
-            }
-            _ => {
-                return Err(CryptoError::InvalidKey.into());
-            }
-        }
-
-        Ok(())
+        let mut ctx = self.key_store.context_mut();
+        let user_key = ctx.add_local_symmetric_key(user_key);
+        account_crypto_state
+            .set_to_context(&self.security_state, user_key, &self.key_store, ctx)
+            .map_err(|_| EncryptionSettingsError::CryptoInitialization)
     }
 
     #[cfg(feature = "internal")]
+    #[instrument(err, skip_all)]
     pub(crate) fn initialize_user_crypto_pin(
         &self,
         pin_key: PinKey,
         pin_protected_user_key: EncString,
-        key_state: UserKeyState,
+        account_crypto_state: WrappedAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
         let decrypted_user_key = pin_key.decrypt_user_key(pin_protected_user_key)?;
-        self.initialize_user_crypto_decrypted_key(decrypted_user_key, key_state)
+        self.initialize_user_crypto_decrypted_key(decrypted_user_key, account_crypto_state)
     }
 
     #[cfg(feature = "internal")]
+    #[instrument(err, skip_all)]
     pub(crate) fn initialize_user_crypto_pin_envelope(
         &self,
         pin: String,
         pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
-        key_state: UserKeyState,
+        account_crypto_state: WrappedAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
         let decrypted_user_key = {
             // Note: This block ensures ctx is dropped. Otherwise it would cause a deadlock when
             // initializing the user crypto
-            use crate::key_management::SymmetricKeyId;
             let ctx = &mut self.key_store.context_mut();
             let decrypted_user_key_id = pin_protected_user_key_envelope
-                .unseal(SymmetricKeyId::Local("tmp_unlock_pin"), &pin, ctx)
+                .unseal(&pin, ctx)
                 .map_err(|_| EncryptionSettingsError::WrongPin)?;
 
             // Allowing deprecated here, until a refactor to pass the Local key ids to
@@ -370,7 +355,7 @@ impl InternalClient {
             ctx.dangerous_get_symmetric_key(decrypted_user_key_id)?
                 .clone()
         };
-        self.initialize_user_crypto_decrypted_key(decrypted_user_key, key_state)
+        self.initialize_user_crypto_decrypted_key(decrypted_user_key, account_crypto_state)
     }
 
     #[cfg(feature = "secrets")]
@@ -390,11 +375,81 @@ impl InternalClient {
     ) -> Result<(), EncryptionSettingsError> {
         EncryptionSettings::set_org_keys(org_keys, &self.key_store)
     }
+
+    #[cfg(feature = "internal")]
+    #[instrument(err, skip_all)]
+    pub(crate) fn initialize_user_crypto_master_password_unlock(
+        &self,
+        password: String,
+        master_password_unlock: MasterPasswordUnlockData,
+        account_crypto_state: WrappedAccountCryptographicState,
+    ) -> Result<(), EncryptionSettingsError> {
+        let master_key = MasterKey::derive(
+            &password,
+            &master_password_unlock.salt,
+            &master_password_unlock.kdf,
+        )?;
+        let user_key =
+            master_key.decrypt_user_key(master_password_unlock.master_key_wrapped_user_key)?;
+        self.initialize_user_crypto_decrypted_key(user_key, account_crypto_state)
+    }
+
+    /// Sets the local KDF state for the master password unlock login method.
+    /// Salt and user key update is not supported yet.
+    #[cfg(feature = "internal")]
+    pub fn set_user_master_password_unlock(
+        &self,
+        master_password_unlock: MasterPasswordUnlockData,
+    ) -> Result<(), NotAuthenticatedError> {
+        let new_kdf = master_password_unlock.kdf;
+
+        let login_method = self.get_login_method().ok_or(NotAuthenticatedError)?;
+
+        let kdf = self.get_kdf()?;
+
+        if kdf != new_kdf {
+            match login_method.as_ref() {
+                LoginMethod::User(UserLoginMethod::Username {
+                    client_id, email, ..
+                }) => self.set_login_method(LoginMethod::User(UserLoginMethod::Username {
+                    client_id: client_id.to_owned(),
+                    email: email.to_owned(),
+                    kdf: new_kdf,
+                })),
+                LoginMethod::User(UserLoginMethod::ApiKey {
+                    client_id,
+                    client_secret,
+                    email,
+                    ..
+                }) => self.set_login_method(LoginMethod::User(UserLoginMethod::ApiKey {
+                    client_id: client_id.to_owned(),
+                    client_secret: client_secret.to_owned(),
+                    email: email.to_owned(),
+                    kdf: new_kdf,
+                })),
+                #[cfg(feature = "secrets")]
+                LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError),
+            };
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::Client;
+    use std::num::NonZeroU32;
+
+    use bitwarden_crypto::{EncString, Kdf, MasterKey};
+
+    use crate::{
+        Client,
+        client::{LoginMethod, UserLoginMethod, test_accounts::test_bitwarden_com_account},
+        key_management::MasterPasswordUnlockData,
+    };
+
+    const TEST_ACCOUNT_EMAIL: &str = "test@bitwarden.com";
+    const TEST_ACCOUNT_USER_KEY: &str = "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=";
 
     #[test]
     fn initializing_user_multiple_times() {
@@ -413,5 +468,67 @@ mod tests {
         // Trying to set a different user_id should return an error.
         let different_user_id = UserId::new_v4();
         assert!(client.internal.init_user_id(different_user_id).is_err());
+    }
+
+    #[tokio::test]
+    async fn test_set_user_master_password_unlock_kdf_updated() {
+        let new_kdf = Kdf::Argon2id {
+            iterations: NonZeroU32::new(4).unwrap(),
+            memory: NonZeroU32::new(65).unwrap(),
+            parallelism: NonZeroU32::new(5).unwrap(),
+        };
+
+        let user_key: EncString = TEST_ACCOUNT_USER_KEY.parse().expect("Invalid user key");
+        let email = TEST_ACCOUNT_EMAIL.to_owned();
+
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        client
+            .internal
+            .set_user_master_password_unlock(MasterPasswordUnlockData {
+                kdf: new_kdf.clone(),
+                master_key_wrapped_user_key: user_key,
+                salt: email,
+            })
+            .unwrap();
+
+        let kdf = client.internal.get_kdf().unwrap();
+        assert_eq!(kdf, new_kdf);
+    }
+
+    #[tokio::test]
+    async fn test_set_user_master_password_unlock_email_and_keys_not_updated() {
+        let password = "asdfasdfasdf".to_string();
+        let new_email = format!("{}@example.com", uuid::Uuid::new_v4());
+        let kdf = Kdf::default_pbkdf2();
+        let expected_email = TEST_ACCOUNT_EMAIL.to_owned();
+
+        let (new_user_key, new_encrypted_user_key) = {
+            let master_key = MasterKey::derive(&password, &new_email, &kdf).unwrap();
+            master_key.make_user_key().unwrap()
+        };
+
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        client
+            .internal
+            .set_user_master_password_unlock(MasterPasswordUnlockData {
+                kdf,
+                master_key_wrapped_user_key: new_encrypted_user_key,
+                salt: new_email,
+            })
+            .unwrap();
+
+        let login_method = client.internal.get_login_method().unwrap();
+        match login_method.as_ref() {
+            LoginMethod::User(UserLoginMethod::Username { email, .. }) => {
+                assert_eq!(*email, expected_email);
+            }
+            _ => panic!("Expected username login method"),
+        }
+
+        let user_key = client.crypto().get_user_encryption_key().await.unwrap();
+
+        assert_ne!(user_key, new_user_key.0.to_base64());
     }
 }

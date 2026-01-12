@@ -1,3 +1,5 @@
+use std::fmt;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -13,6 +15,9 @@ use serde::{Deserialize, Serialize};
 ///     api_url: "https://api.bitwarden.com".to_string(),
 ///     user_agent: "Bitwarden Rust-SDK".to_string(),
 ///     device_type: DeviceType::SDK,
+///     bitwarden_client_version: None,
+///     bitwarden_package_type: None,
+///     device_identifier: None,
 /// };
 /// let default = ClientSettings::default();
 /// ```
@@ -33,6 +38,15 @@ pub struct ClientSettings {
     pub user_agent: String,
     /// Device type to send to Bitwarden. Defaults to SDK
     pub device_type: DeviceType,
+
+    // TODO: PM-29939 - Remove optionality when all clients pass these values
+    /// Device identifier to send to Bitwarden. Optional for now in transition period.
+    pub device_identifier: Option<String>,
+    /// Bitwarden Client Version to send to Bitwarden. Optional for now in transition period.
+    pub bitwarden_client_version: Option<String>,
+    /// Bitwarden Package Type to send to Bitwarden. We should evaluate this field to see if it
+    /// should be optional later.
+    pub bitwarden_package_type: Option<String>,
 }
 
 impl Default for ClientSettings {
@@ -42,6 +56,9 @@ impl Default for ClientSettings {
             api_url: "https://api.bitwarden.com".into(),
             user_agent: "Bitwarden Rust-SDK".into(),
             device_type: DeviceType::SDK,
+            device_identifier: None,
+            bitwarden_client_version: None,
+            bitwarden_package_type: None,
         }
     }
 }
@@ -81,4 +98,65 @@ pub enum DeviceType {
     WindowsCLI = 23,
     MacOsCLI = 24,
     LinuxCLI = 25,
+    DuckDuckGoBrowser = 26,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub(crate) enum ClientName {
+    Web,
+    Browser,
+    Desktop,
+    Mobile,
+    Cli,
+}
+
+impl From<DeviceType> for Option<ClientName> {
+    fn from(device_type: DeviceType) -> Self {
+        match device_type {
+            DeviceType::Android | DeviceType::AndroidAmazon | DeviceType::iOS => {
+                Some(ClientName::Mobile)
+            }
+
+            DeviceType::ChromeBrowser
+            | DeviceType::FirefoxBrowser
+            | DeviceType::OperaBrowser
+            | DeviceType::EdgeBrowser
+            | DeviceType::IEBrowser
+            | DeviceType::SafariBrowser
+            | DeviceType::VivaldiBrowser
+            | DeviceType::DuckDuckGoBrowser
+            | DeviceType::UnknownBrowser => Some(ClientName::Web),
+
+            DeviceType::ChromeExtension
+            | DeviceType::FirefoxExtension
+            | DeviceType::OperaExtension
+            | DeviceType::EdgeExtension
+            | DeviceType::VivaldiExtension
+            | DeviceType::SafariExtension => Some(ClientName::Browser),
+
+            DeviceType::LinuxDesktop
+            | DeviceType::MacOsDesktop
+            | DeviceType::WindowsDesktop
+            | DeviceType::UWP => Some(ClientName::Desktop),
+
+            DeviceType::WindowsCLI | DeviceType::MacOsCLI | DeviceType::LinuxCLI => {
+                Some(ClientName::Cli)
+            }
+
+            DeviceType::SDK | DeviceType::Server => None,
+        }
+    }
+}
+
+impl fmt::Display for ClientName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            ClientName::Web => "web",
+            ClientName::Browser => "browser",
+            ClientName::Desktop => "desktop",
+            ClientName::Mobile => "mobile",
+            ClientName::Cli => "cli",
+        };
+        write!(f, "{}", s)
+    }
 }

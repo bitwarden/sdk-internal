@@ -89,6 +89,8 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
     ) -> Result<(), Error<AddCreditViaBitPayError>>;
 
@@ -155,6 +157,8 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
     ) -> Result<(), Error<GetBillingAddressError>>;
 
     /// GET /organizations/{organizationId}/billing/vnext/credit
@@ -220,7 +224,76 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
     ) -> Result<(), Error<GetCreditError>>;
+
+    /// GET /organizations/{organizationId}/billing/vnext/metadata
+    async fn get_metadata<'a>(
+        &self,
+        organization_id: &'a str,
+        id: Option<uuid::Uuid>,
+        identifier: Option<&'a str>,
+        name: Option<&'a str>,
+        business_name: Option<&'a str>,
+        business_address1: Option<&'a str>,
+        business_address2: Option<&'a str>,
+        business_address3: Option<&'a str>,
+        business_country: Option<&'a str>,
+        business_tax_number: Option<&'a str>,
+        billing_email: Option<&'a str>,
+        plan: Option<&'a str>,
+        plan_type: Option<models::PlanType>,
+        seats: Option<i32>,
+        max_collections: Option<i32>,
+        use_policies: Option<bool>,
+        use_sso: Option<bool>,
+        use_key_connector: Option<bool>,
+        use_scim: Option<bool>,
+        use_groups: Option<bool>,
+        use_directory: Option<bool>,
+        use_events: Option<bool>,
+        use_totp: Option<bool>,
+        use2fa: Option<bool>,
+        use_api: Option<bool>,
+        use_reset_password: Option<bool>,
+        use_secrets_manager: Option<bool>,
+        self_host: Option<bool>,
+        users_get_premium: Option<bool>,
+        use_custom_permissions: Option<bool>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        enabled: Option<bool>,
+        license_key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        expiration_date: Option<String>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        max_autoscale_seats: Option<i32>,
+        owners_notified_of_autoscaling: Option<String>,
+        status: Option<models::OrganizationStatusType>,
+        use_password_manager: Option<bool>,
+        sm_seats: Option<i32>,
+        sm_service_accounts: Option<i32>,
+        max_autoscale_sm_seats: Option<i32>,
+        max_autoscale_sm_service_accounts: Option<i32>,
+        limit_collection_creation: Option<bool>,
+        limit_collection_deletion: Option<bool>,
+        allow_admin_access_to_all_collection_items: Option<bool>,
+        limit_item_deletion: Option<bool>,
+        use_risk_insights: Option<bool>,
+        use_organization_domains: Option<bool>,
+        use_admin_sponsored_families: Option<bool>,
+        sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
+    ) -> Result<(), Error<GetMetadataError>>;
 
     /// GET /organizations/{organizationId}/billing/vnext/payment-method
     async fn get_payment_method<'a>(
@@ -285,6 +358,8 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
     ) -> Result<(), Error<GetPaymentMethodError>>;
 
     /// GET /organizations/{organizationId}/billing/vnext/warnings
@@ -350,6 +425,8 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
     ) -> Result<(), Error<GetWarningsError>>;
 
     /// POST /organizations/{organizationId}/billing/vnext/subscription/restart
@@ -415,6 +492,8 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
         restart_subscription_request: Option<models::RestartSubscriptionRequest>,
     ) -> Result<(), Error<RestartSubscriptionError>>;
 
@@ -481,6 +560,8 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
         billing_address_request: Option<models::BillingAddressRequest>,
     ) -> Result<(), Error<UpdateBillingAddressError>>;
 
@@ -547,6 +628,8 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
     ) -> Result<(), Error<UpdatePaymentMethodError>>;
 }
@@ -626,6 +709,8 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
     ) -> Result<(), Error<AddCreditViaBitPayError>> {
         let local_var_configuration = &self.configuration;
@@ -878,6 +963,14 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("syncSeats", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_automatic_user_confirmation {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_phishing_blocker {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
+        }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
@@ -969,6 +1062,8 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
     ) -> Result<(), Error<GetBillingAddressError>> {
         let local_var_configuration = &self.configuration;
 
@@ -1220,6 +1315,14 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("syncSeats", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_automatic_user_confirmation {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_phishing_blocker {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
+        }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
@@ -1310,6 +1413,8 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
     ) -> Result<(), Error<GetCreditError>> {
         let local_var_configuration = &self.configuration;
 
@@ -1561,6 +1666,14 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("syncSeats", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_automatic_user_confirmation {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_phishing_blocker {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
+        }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
@@ -1579,6 +1692,357 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             Ok(())
         } else {
             let local_var_entity: Option<GetCreditError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
+    }
+
+    async fn get_metadata<'a>(
+        &self,
+        organization_id: &'a str,
+        id: Option<uuid::Uuid>,
+        identifier: Option<&'a str>,
+        name: Option<&'a str>,
+        business_name: Option<&'a str>,
+        business_address1: Option<&'a str>,
+        business_address2: Option<&'a str>,
+        business_address3: Option<&'a str>,
+        business_country: Option<&'a str>,
+        business_tax_number: Option<&'a str>,
+        billing_email: Option<&'a str>,
+        plan: Option<&'a str>,
+        plan_type: Option<models::PlanType>,
+        seats: Option<i32>,
+        max_collections: Option<i32>,
+        use_policies: Option<bool>,
+        use_sso: Option<bool>,
+        use_key_connector: Option<bool>,
+        use_scim: Option<bool>,
+        use_groups: Option<bool>,
+        use_directory: Option<bool>,
+        use_events: Option<bool>,
+        use_totp: Option<bool>,
+        use2fa: Option<bool>,
+        use_api: Option<bool>,
+        use_reset_password: Option<bool>,
+        use_secrets_manager: Option<bool>,
+        self_host: Option<bool>,
+        users_get_premium: Option<bool>,
+        use_custom_permissions: Option<bool>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        enabled: Option<bool>,
+        license_key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        expiration_date: Option<String>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        max_autoscale_seats: Option<i32>,
+        owners_notified_of_autoscaling: Option<String>,
+        status: Option<models::OrganizationStatusType>,
+        use_password_manager: Option<bool>,
+        sm_seats: Option<i32>,
+        sm_service_accounts: Option<i32>,
+        max_autoscale_sm_seats: Option<i32>,
+        max_autoscale_sm_service_accounts: Option<i32>,
+        limit_collection_creation: Option<bool>,
+        limit_collection_deletion: Option<bool>,
+        allow_admin_access_to_all_collection_items: Option<bool>,
+        limit_item_deletion: Option<bool>,
+        use_risk_insights: Option<bool>,
+        use_organization_domains: Option<bool>,
+        use_admin_sponsored_families: Option<bool>,
+        sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
+    ) -> Result<(), Error<GetMetadataError>> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{organizationId}/billing/vnext/metadata",
+            local_var_configuration.base_path,
+            organizationId = crate::apis::urlencode(organization_id)
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+        if let Some(ref param_value) = id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("id", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = identifier {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("identifier", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = name {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("name", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = business_name {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("businessName", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = business_address1 {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("businessAddress1", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = business_address2 {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("businessAddress2", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = business_address3 {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("businessAddress3", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = business_country {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("businessCountry", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = business_tax_number {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("businessTaxNumber", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = billing_email {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("billingEmail", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = plan {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("plan", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = plan_type {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("planType", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = seats {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("seats", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = max_collections {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("maxCollections", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_policies {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usePolicies", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_sso {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useSso", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_key_connector {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useKeyConnector", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_scim {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useScim", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_groups {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useGroups", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_directory {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useDirectory", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_events {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useEvents", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_totp {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useTotp", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use2fa {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("use2fa", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_api {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useApi", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_reset_password {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useResetPassword", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_secrets_manager {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useSecretsManager", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = self_host {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("selfHost", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = users_get_premium {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usersGetPremium", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_custom_permissions {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useCustomPermissions", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = storage {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("storage", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = max_storage_gb {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("maxStorageGb", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gateway", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_customer_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_subscription_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = reference_data {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("referenceData", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = enabled {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("enabled", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = license_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("licenseKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("publicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = private_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("privateKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = two_factor_providers {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorProviders", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = expiration_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("expirationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = creation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("creationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("revisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = max_autoscale_seats {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("maxAutoscaleSeats", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = owners_notified_of_autoscaling {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("ownersNotifiedOfAutoscaling", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = status {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("status", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_password_manager {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usePasswordManager", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = sm_seats {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("smSeats", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = sm_service_accounts {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("smServiceAccounts", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = max_autoscale_sm_seats {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("maxAutoscaleSmSeats", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = max_autoscale_sm_service_accounts {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("maxAutoscaleSmServiceAccounts", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = limit_collection_creation {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("limitCollectionCreation", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = limit_collection_deletion {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("limitCollectionDeletion", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = allow_admin_access_to_all_collection_items {
+            local_var_req_builder = local_var_req_builder.query(&[(
+                "allowAdminAccessToAllCollectionItems",
+                &param_value.to_string(),
+            )]);
+        }
+        if let Some(ref param_value) = limit_item_deletion {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("limitItemDeletion", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_risk_insights {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useRiskInsights", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_organization_domains {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useOrganizationDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_admin_sponsored_families {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useAdminSponsoredFamilies", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = sync_seats {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("syncSeats", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_automatic_user_confirmation {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_phishing_blocker {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
+        }
+        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+            local_var_req_builder = local_var_req_builder
+                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+        }
+        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+        };
+
+        let local_var_req = local_var_req_builder.build()?;
+        let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<GetMetadataError> =
                 serde_json::from_str(&local_var_content).ok();
             let local_var_error = ResponseContent {
                 status: local_var_status,
@@ -1651,6 +2115,8 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
     ) -> Result<(), Error<GetPaymentMethodError>> {
         let local_var_configuration = &self.configuration;
 
@@ -1902,6 +2368,14 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("syncSeats", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_automatic_user_confirmation {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_phishing_blocker {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
+        }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
@@ -1992,6 +2466,8 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
     ) -> Result<(), Error<GetWarningsError>> {
         let local_var_configuration = &self.configuration;
 
@@ -2243,6 +2719,14 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("syncSeats", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_automatic_user_confirmation {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_phishing_blocker {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
+        }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
@@ -2333,6 +2817,8 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
         restart_subscription_request: Option<models::RestartSubscriptionRequest>,
     ) -> Result<(), Error<RestartSubscriptionError>> {
         let local_var_configuration = &self.configuration;
@@ -2585,6 +3071,14 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("syncSeats", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_automatic_user_confirmation {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_phishing_blocker {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
+        }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
@@ -2676,6 +3170,8 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
         billing_address_request: Option<models::BillingAddressRequest>,
     ) -> Result<(), Error<UpdateBillingAddressError>> {
         let local_var_configuration = &self.configuration;
@@ -2928,6 +3424,14 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("syncSeats", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_automatic_user_confirmation {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_phishing_blocker {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
+        }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
@@ -3019,6 +3523,8 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_organization_domains: Option<bool>,
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
+        use_automatic_user_confirmation: Option<bool>,
+        use_phishing_blocker: Option<bool>,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
     ) -> Result<(), Error<UpdatePaymentMethodError>> {
         let local_var_configuration = &self.configuration;
@@ -3271,6 +3777,14 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("syncSeats", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_automatic_user_confirmation {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_phishing_blocker {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
+        }
         if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
             local_var_req_builder = local_var_req_builder
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
@@ -3317,6 +3831,12 @@ pub enum GetBillingAddressError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum GetCreditError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`OrganizationBillingVNextApi::get_metadata`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetMetadataError {
     UnknownValue(serde_json::Value),
 }
 /// struct for typed errors of method [`OrganizationBillingVNextApi::get_payment_method`]

@@ -14,19 +14,27 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PushRegistrationRequestModel {
-    #[serde(rename = "deviceId")]
+    #[serde(rename = "deviceId", alias = "DeviceId")]
     pub device_id: String,
-    #[serde(rename = "pushToken")]
+    #[serde(rename = "pushToken", alias = "PushToken")]
     pub push_token: String,
-    #[serde(rename = "userId")]
+    #[serde(rename = "userId", alias = "UserId")]
     pub user_id: String,
-    #[serde(rename = "type")]
+    #[serde(rename = "type", alias = "R#type")]
     pub r#type: models::DeviceType,
-    #[serde(rename = "identifier")]
+    #[serde(rename = "identifier", alias = "Identifier")]
     pub identifier: String,
-    #[serde(rename = "organizationIds", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "organizationIds",
+        alias = "OrganizationIds",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub organization_ids: Option<Vec<String>>,
-    #[serde(rename = "installationId", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "installationId",
+        alias = "InstallationId",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub installation_id: Option<uuid::Uuid>,
 }
 

@@ -87,7 +87,7 @@ pub enum {{{classname}}} {
         {{#description}}
         /// {{{.}}}
         {{/description}}
-        #[serde(rename = "{{{baseName}}}"{{^required}}, skip_serializing_if = "Option::is_none"{{/required}})]
+        #[serde(rename = "{{{baseName}}}", alias = "{{{nameInPascalCase}}}"{{^required}}, skip_serializing_if = "Option::is_none"{{/required}})]
         {{{name}}}: {{#required}}{{#isNullable}}Option<{{/isNullable}}{{/required}}{{^required}}Option<{{/required}}{{#isEnum}}{{{enumName}}}{{/isEnum}}{{^isEnum}}{{#isModel}}{{^avoidBoxedModels}}Box<{{/avoidBoxedModels}}{{{dataType}}}{{^avoidBoxedModels}}>{{/avoidBoxedModels}}{{/isModel}}{{^isModel}}{{{dataType}}}{{/isModel}}{{/isEnum}}{{#required}}{{#isNullable}}>{{/isNullable}}{{/required}}{{^required}}>{{/required}},
     {{/vars}}
     },
@@ -163,7 +163,7 @@ pub struct {{{classname}}} {
     {{#isByteArray}}
     {{#vendorExtensions.isMandatory}}#[serde_as(as = "serde_with::base64::Base64")]{{/vendorExtensions.isMandatory}}{{^vendorExtensions.isMandatory}}#[serde_as(as = "Option<serde_with::base64::Base64>")]{{/vendorExtensions.isMandatory}}
     {{/isByteArray}}
-    #[serde(rename = "{{{baseName}}}"{{^required}}, skip_serializing_if = "Option::is_none"{{/required}})]
+    #[serde(rename = "{{{baseName}}}", alias = "{{{nameInPascalCase}}}"{{^required}}, skip_serializing_if = "Option::is_none"{{/required}})]
     pub {{{name}}}: {{!
     ### Option Start
     }}{{#isNullable}}Option<{{/isNullable}}{{^required}}{{^isNullable}}Option<{{/isNullable}}{{/required}}{{!
@@ -218,7 +218,7 @@ pub struct {{{classname}}} {
     {{#isByteArray}}
     {{#vendorExtensions.isMandatory}}#[serde_as(as = "serde_with::base64::Base64")]{{/vendorExtensions.isMandatory}}{{^vendorExtensions.isMandatory}}#[serde_as(as = "Option<serde_with::base64::Base64>")]{{/vendorExtensions.isMandatory}}
     {{/isByteArray}}
-    #[serde(rename = "{{{baseName}}}"{{^required}}, skip_serializing_if = "Option::is_none"{{/required}})]
+    #[serde(rename = "{{{baseName}}}", alias = "{{{nameInPascalCase}}}"{{^required}}, skip_serializing_if = "Option::is_none"{{/required}})]
     pub {{{name}}}: {{!
     ### Option Start
     }}{{#isNullable}}Option<{{/isNullable}}{{^required}}{{^isNullable}}Option<{{/isNullable}}{{/required}}{{!

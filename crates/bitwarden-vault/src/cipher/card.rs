@@ -12,7 +12,7 @@ use super::cipher::CipherKind;
 use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Card {
@@ -124,6 +124,19 @@ impl TryFrom<CipherCardModel> for Card {
             brand: EncString::try_from_optional(card.brand)?,
             number: EncString::try_from_optional(card.number)?,
         })
+    }
+}
+
+impl From<Card> for bitwarden_api_api::models::CipherCardModel {
+    fn from(card: Card) -> Self {
+        Self {
+            cardholder_name: card.cardholder_name.map(|n| n.to_string()),
+            brand: card.brand.map(|b| b.to_string()),
+            number: card.number.map(|n| n.to_string()),
+            exp_month: card.exp_month.map(|m| m.to_string()),
+            exp_year: card.exp_year.map(|y| y.to_string()),
+            code: card.code.map(|c| c.to_string()),
+        }
     }
 }
 

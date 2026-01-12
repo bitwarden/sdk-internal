@@ -31,6 +31,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::UserId;
 
+/// Icon URI hashes are enforced starting with this security state version.
+pub const MINIMUM_ENFORCE_ICON_URI_HASH_VERSION: u64 = 2;
+
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
@@ -111,6 +114,12 @@ impl TryFrom<&CoseSign1Bytes> for SignedSecurityState {
     }
 }
 
+impl From<&SignedSecurityState> for String {
+    fn from(val: &SignedSecurityState) -> Self {
+        val.to_owned().into()
+    }
+}
+
 impl From<SignedSecurityState> for String {
     fn from(val: SignedSecurityState) -> Self {
         let bytes: CoseSign1Bytes = val.into();
@@ -151,7 +160,7 @@ mod tests {
     use bitwarden_crypto::{KeyStore, SignatureAlgorithm, SigningKey};
 
     use super::*;
-    use crate::key_management::{KeyIds, SigningKeyId};
+    use crate::key_management::KeyIds;
 
     #[test]
     fn test_security_state_signing() {
@@ -161,12 +170,8 @@ mod tests {
         let user_id = UserId::new_v4();
         let security_state = SecurityState::initialize_for_user(user_id);
         let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
-        #[allow(deprecated)]
-        ctx.set_signing_key(SigningKeyId::Local(""), signing_key.clone())
-            .unwrap();
-        let signed_security_state = security_state
-            .sign(SigningKeyId::Local(""), &mut ctx)
-            .unwrap();
+        let key = ctx.add_local_signing_key(signing_key.clone()).unwrap();
+        let signed_security_state = security_state.sign(key, &mut ctx).unwrap();
 
         let verifying_key = signing_key.to_verifying_key();
         let verified_security_state = signed_security_state

@@ -12,40 +12,114 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// SendRequestModel : A send request issued by a Bitwarden client
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SendRequestModel {
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "type",
+        alias = "R#type",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub r#type: Option<models::SendType>,
-    #[serde(rename = "fileLength", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "authType",
+        alias = "AuthType",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub auth_type: Option<models::AuthType>,
+    /// Estimated length of the file accompanying the send. null when
+    /// Bit.Api.Tools.Models.Request.SendRequestModel.Type is Bit.Core.Tools.Enums.SendType.Text.
+    #[serde(
+        rename = "fileLength",
+        alias = "FileLength",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub file_length: Option<i64>,
-    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    /// Label for the send.
+    #[serde(
+        rename = "name",
+        alias = "Name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub name: Option<String>,
-    #[serde(rename = "notes", skip_serializing_if = "Option::is_none")]
+    /// Notes for the send. This is only visible to the owner of the send.
+    #[serde(
+        rename = "notes",
+        alias = "Notes",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub notes: Option<String>,
-    #[serde(rename = "key")]
+    /// A base64-encoded byte array containing the Send's encryption key. This key is also provided
+    /// to send recipients in the Send's URL.
+    #[serde(rename = "key", alias = "Key")]
     pub key: String,
-    #[serde(rename = "maxAccessCount", skip_serializing_if = "Option::is_none")]
+    /// The maximum number of times a send can be accessed before it expires. When this value is
+    /// null, there is no limit.
+    #[serde(
+        rename = "maxAccessCount",
+        alias = "MaxAccessCount",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub max_access_count: Option<i32>,
-    #[serde(rename = "expirationDate", skip_serializing_if = "Option::is_none")]
+    /// The date after which a send cannot be accessed. When this value is null, there is no
+    /// expiration date.
+    #[serde(
+        rename = "expirationDate",
+        alias = "ExpirationDate",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub expiration_date: Option<String>,
-    #[serde(rename = "deletionDate")]
+    /// The date after which a send may be automatically deleted from the server. When this is
+    /// null, the send may be deleted after it has exceeded the global send timeout limit.
+    #[serde(rename = "deletionDate", alias = "DeletionDate")]
     pub deletion_date: String,
-    #[serde(rename = "file", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "file",
+        alias = "File",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub file: Option<Box<models::SendFileModel>>,
-    #[serde(rename = "text", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "text",
+        alias = "Text",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub text: Option<Box<models::SendTextModel>>,
-    #[serde(rename = "password", skip_serializing_if = "Option::is_none")]
+    /// Base64-encoded byte array of a password hash that grants access to the send. Mutually
+    /// exclusive with Bit.Api.Tools.Models.Request.SendRequestModel.Emails.
+    #[serde(
+        rename = "password",
+        alias = "Password",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub password: Option<String>,
-    #[serde(rename = "disabled")]
+    /// Comma-separated list of emails that may access the send using OTP authentication. Mutually
+    /// exclusive with Bit.Api.Tools.Models.Request.SendRequestModel.Password.
+    #[serde(
+        rename = "emails",
+        alias = "Emails",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub emails: Option<String>,
+    /// When true, send access is disabled. Defaults to false.
+    #[serde(rename = "disabled", alias = "Disabled")]
     pub disabled: bool,
-    #[serde(rename = "hideEmail", skip_serializing_if = "Option::is_none")]
+    /// When true send access hides the user's email address and displays a confirmation message
+    /// instead. Defaults to false.
+    #[serde(
+        rename = "hideEmail",
+        alias = "HideEmail",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub hide_email: Option<bool>,
 }
 
 impl SendRequestModel {
+    /// A send request issued by a Bitwarden client
     pub fn new(key: String, deletion_date: String, disabled: bool) -> SendRequestModel {
         SendRequestModel {
             r#type: None,
+            auth_type: None,
             file_length: None,
             name: None,
             notes: None,
@@ -56,6 +130,7 @@ impl SendRequestModel {
             file: None,
             text: None,
             password: None,
+            emails: None,
             disabled,
             hide_email: None,
         }

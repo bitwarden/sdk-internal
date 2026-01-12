@@ -5,7 +5,7 @@ use serde_json::json;
 
 use crate::username::UsernameError;
 
-pub async fn generate(
+pub(crate) async fn generate(
     http: &reqwest::Client,
     api_token: String,
     website: Option<String>,
@@ -13,7 +13,7 @@ pub async fn generate(
     generate_with_api_url(http, api_token, website, "https://api.fastmail.com".into()).await
 }
 
-pub async fn generate_with_api_url(
+async fn generate_with_api_url(
     http: &reqwest::Client,
     api_token: String,
     website: Option<String>,

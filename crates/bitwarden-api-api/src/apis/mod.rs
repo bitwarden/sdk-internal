@@ -131,9 +131,7 @@ pub mod hibp_api;
 pub mod import_ciphers_api;
 pub mod info_api;
 pub mod installations_api;
-pub mod invoices_api;
 pub mod licenses_api;
-pub mod misc_api;
 pub mod notifications_api;
 pub mod organization_auth_requests_api;
 pub mod organization_billing_api;
@@ -147,7 +145,6 @@ pub mod organization_reports_api;
 pub mod organization_sponsorships_api;
 pub mod organization_users_api;
 pub mod organizations_api;
-pub mod phishing_domains_api;
 pub mod plans_api;
 pub mod policies_api;
 pub mod projects_api;
@@ -160,11 +157,13 @@ pub mod providers_api;
 pub mod push_api;
 pub mod reports_api;
 pub mod request_sm_access_api;
+pub mod secret_versions_api;
 pub mod secrets_api;
 pub mod secrets_manager_events_api;
 pub mod secrets_manager_porting_api;
 pub mod security_task_api;
-pub mod self_hosted_account_billing_api;
+pub mod self_hosted_account_billing_v_next_api;
+pub mod self_hosted_organization_billing_v_next_api;
 pub mod self_hosted_organization_licenses_api;
 pub mod self_hosted_organization_sponsorships_api;
 pub mod sends_api;
@@ -174,6 +173,7 @@ pub mod slack_integration_api;
 pub mod stripe_api;
 pub mod sync_api;
 pub mod tax_api;
+pub mod teams_integration_api;
 pub mod trash_api;
 pub mod two_factor_api;
 pub mod users_api;
@@ -210,9 +210,7 @@ struct ApiClientReal {
     import_ciphers_api: import_ciphers_api::ImportCiphersApiClient,
     info_api: info_api::InfoApiClient,
     installations_api: installations_api::InstallationsApiClient,
-    invoices_api: invoices_api::InvoicesApiClient,
     licenses_api: licenses_api::LicensesApiClient,
-    misc_api: misc_api::MiscApiClient,
     notifications_api: notifications_api::NotificationsApiClient,
     organization_auth_requests_api:
         organization_auth_requests_api::OrganizationAuthRequestsApiClient,
@@ -229,7 +227,6 @@ struct ApiClientReal {
     organization_sponsorships_api: organization_sponsorships_api::OrganizationSponsorshipsApiClient,
     organization_users_api: organization_users_api::OrganizationUsersApiClient,
     organizations_api: organizations_api::OrganizationsApiClient,
-    phishing_domains_api: phishing_domains_api::PhishingDomainsApiClient,
     plans_api: plans_api::PlansApiClient,
     policies_api: policies_api::PoliciesApiClient,
     projects_api: projects_api::ProjectsApiClient,
@@ -242,12 +239,15 @@ struct ApiClientReal {
     push_api: push_api::PushApiClient,
     reports_api: reports_api::ReportsApiClient,
     request_sm_access_api: request_sm_access_api::RequestSmAccessApiClient,
+    secret_versions_api: secret_versions_api::SecretVersionsApiClient,
     secrets_api: secrets_api::SecretsApiClient,
     secrets_manager_events_api: secrets_manager_events_api::SecretsManagerEventsApiClient,
     secrets_manager_porting_api: secrets_manager_porting_api::SecretsManagerPortingApiClient,
     security_task_api: security_task_api::SecurityTaskApiClient,
-    self_hosted_account_billing_api:
-        self_hosted_account_billing_api::SelfHostedAccountBillingApiClient,
+    self_hosted_account_billing_v_next_api:
+        self_hosted_account_billing_v_next_api::SelfHostedAccountBillingVNextApiClient,
+    self_hosted_organization_billing_v_next_api:
+        self_hosted_organization_billing_v_next_api::SelfHostedOrganizationBillingVNextApiClient,
     self_hosted_organization_licenses_api:
         self_hosted_organization_licenses_api::SelfHostedOrganizationLicensesApiClient,
     self_hosted_organization_sponsorships_api:
@@ -259,6 +259,7 @@ struct ApiClientReal {
     stripe_api: stripe_api::StripeApiClient,
     sync_api: sync_api::SyncApiClient,
     tax_api: tax_api::TaxApiClient,
+    teams_integration_api: teams_integration_api::TeamsIntegrationApiClient,
     trash_api: trash_api::TrashApiClient,
     two_factor_api: two_factor_api::TwoFactorApiClient,
     users_api: users_api::UsersApiClient,
@@ -286,9 +287,7 @@ pub struct ApiClientMock {
     pub import_ciphers_api: import_ciphers_api::MockImportCiphersApi,
     pub info_api: info_api::MockInfoApi,
     pub installations_api: installations_api::MockInstallationsApi,
-    pub invoices_api: invoices_api::MockInvoicesApi,
     pub licenses_api: licenses_api::MockLicensesApi,
-    pub misc_api: misc_api::MockMiscApi,
     pub notifications_api: notifications_api::MockNotificationsApi,
     pub organization_auth_requests_api:
         organization_auth_requests_api::MockOrganizationAuthRequestsApi,
@@ -306,7 +305,6 @@ pub struct ApiClientMock {
         organization_sponsorships_api::MockOrganizationSponsorshipsApi,
     pub organization_users_api: organization_users_api::MockOrganizationUsersApi,
     pub organizations_api: organizations_api::MockOrganizationsApi,
-    pub phishing_domains_api: phishing_domains_api::MockPhishingDomainsApi,
     pub plans_api: plans_api::MockPlansApi,
     pub policies_api: policies_api::MockPoliciesApi,
     pub projects_api: projects_api::MockProjectsApi,
@@ -319,12 +317,15 @@ pub struct ApiClientMock {
     pub push_api: push_api::MockPushApi,
     pub reports_api: reports_api::MockReportsApi,
     pub request_sm_access_api: request_sm_access_api::MockRequestSmAccessApi,
+    pub secret_versions_api: secret_versions_api::MockSecretVersionsApi,
     pub secrets_api: secrets_api::MockSecretsApi,
     pub secrets_manager_events_api: secrets_manager_events_api::MockSecretsManagerEventsApi,
     pub secrets_manager_porting_api: secrets_manager_porting_api::MockSecretsManagerPortingApi,
     pub security_task_api: security_task_api::MockSecurityTaskApi,
-    pub self_hosted_account_billing_api:
-        self_hosted_account_billing_api::MockSelfHostedAccountBillingApi,
+    pub self_hosted_account_billing_v_next_api:
+        self_hosted_account_billing_v_next_api::MockSelfHostedAccountBillingVNextApi,
+    pub self_hosted_organization_billing_v_next_api:
+        self_hosted_organization_billing_v_next_api::MockSelfHostedOrganizationBillingVNextApi,
     pub self_hosted_organization_licenses_api:
         self_hosted_organization_licenses_api::MockSelfHostedOrganizationLicensesApi,
     pub self_hosted_organization_sponsorships_api:
@@ -336,6 +337,7 @@ pub struct ApiClientMock {
     pub stripe_api: stripe_api::MockStripeApi,
     pub sync_api: sync_api::MockSyncApi,
     pub tax_api: tax_api::MockTaxApi,
+    pub teams_integration_api: teams_integration_api::MockTeamsIntegrationApi,
     pub trash_api: trash_api::MockTrashApi,
     pub two_factor_api: two_factor_api::MockTwoFactorApi,
     pub users_api: users_api::MockUsersApi,
@@ -364,9 +366,7 @@ impl ApiClient {
             import_ciphers_api: import_ciphers_api::ImportCiphersApiClient::new(configuration.clone()),
             info_api: info_api::InfoApiClient::new(configuration.clone()),
             installations_api: installations_api::InstallationsApiClient::new(configuration.clone()),
-            invoices_api: invoices_api::InvoicesApiClient::new(configuration.clone()),
             licenses_api: licenses_api::LicensesApiClient::new(configuration.clone()),
-            misc_api: misc_api::MiscApiClient::new(configuration.clone()),
             notifications_api: notifications_api::NotificationsApiClient::new(configuration.clone()),
             organization_auth_requests_api: organization_auth_requests_api::OrganizationAuthRequestsApiClient::new(configuration.clone()),
             organization_billing_api: organization_billing_api::OrganizationBillingApiClient::new(configuration.clone()),
@@ -380,7 +380,6 @@ impl ApiClient {
             organization_sponsorships_api: organization_sponsorships_api::OrganizationSponsorshipsApiClient::new(configuration.clone()),
             organization_users_api: organization_users_api::OrganizationUsersApiClient::new(configuration.clone()),
             organizations_api: organizations_api::OrganizationsApiClient::new(configuration.clone()),
-            phishing_domains_api: phishing_domains_api::PhishingDomainsApiClient::new(configuration.clone()),
             plans_api: plans_api::PlansApiClient::new(configuration.clone()),
             policies_api: policies_api::PoliciesApiClient::new(configuration.clone()),
             projects_api: projects_api::ProjectsApiClient::new(configuration.clone()),
@@ -393,11 +392,13 @@ impl ApiClient {
             push_api: push_api::PushApiClient::new(configuration.clone()),
             reports_api: reports_api::ReportsApiClient::new(configuration.clone()),
             request_sm_access_api: request_sm_access_api::RequestSmAccessApiClient::new(configuration.clone()),
+            secret_versions_api: secret_versions_api::SecretVersionsApiClient::new(configuration.clone()),
             secrets_api: secrets_api::SecretsApiClient::new(configuration.clone()),
             secrets_manager_events_api: secrets_manager_events_api::SecretsManagerEventsApiClient::new(configuration.clone()),
             secrets_manager_porting_api: secrets_manager_porting_api::SecretsManagerPortingApiClient::new(configuration.clone()),
             security_task_api: security_task_api::SecurityTaskApiClient::new(configuration.clone()),
-            self_hosted_account_billing_api: self_hosted_account_billing_api::SelfHostedAccountBillingApiClient::new(configuration.clone()),
+            self_hosted_account_billing_v_next_api: self_hosted_account_billing_v_next_api::SelfHostedAccountBillingVNextApiClient::new(configuration.clone()),
+            self_hosted_organization_billing_v_next_api: self_hosted_organization_billing_v_next_api::SelfHostedOrganizationBillingVNextApiClient::new(configuration.clone()),
             self_hosted_organization_licenses_api: self_hosted_organization_licenses_api::SelfHostedOrganizationLicensesApiClient::new(configuration.clone()),
             self_hosted_organization_sponsorships_api: self_hosted_organization_sponsorships_api::SelfHostedOrganizationSponsorshipsApiClient::new(configuration.clone()),
             sends_api: sends_api::SendsApiClient::new(configuration.clone()),
@@ -407,6 +408,7 @@ impl ApiClient {
             stripe_api: stripe_api::StripeApiClient::new(configuration.clone()),
             sync_api: sync_api::SyncApiClient::new(configuration.clone()),
             tax_api: tax_api::TaxApiClient::new(configuration.clone()),
+            teams_integration_api: teams_integration_api::TeamsIntegrationApiClient::new(configuration.clone()),
             trash_api: trash_api::TrashApiClient::new(configuration.clone()),
             two_factor_api: two_factor_api::TwoFactorApiClient::new(configuration.clone()),
             users_api: users_api::UsersApiClient::new(configuration.clone()),
@@ -436,9 +438,7 @@ impl ApiClient {
             import_ciphers_api: import_ciphers_api::MockImportCiphersApi::new(),
             info_api: info_api::MockInfoApi::new(),
             installations_api: installations_api::MockInstallationsApi::new(),
-            invoices_api: invoices_api::MockInvoicesApi::new(),
             licenses_api: licenses_api::MockLicensesApi::new(),
-            misc_api: misc_api::MockMiscApi::new(),
             notifications_api: notifications_api::MockNotificationsApi::new(),
             organization_auth_requests_api: organization_auth_requests_api::MockOrganizationAuthRequestsApi::new(),
             organization_billing_api: organization_billing_api::MockOrganizationBillingApi::new(),
@@ -452,7 +452,6 @@ impl ApiClient {
             organization_sponsorships_api: organization_sponsorships_api::MockOrganizationSponsorshipsApi::new(),
             organization_users_api: organization_users_api::MockOrganizationUsersApi::new(),
             organizations_api: organizations_api::MockOrganizationsApi::new(),
-            phishing_domains_api: phishing_domains_api::MockPhishingDomainsApi::new(),
             plans_api: plans_api::MockPlansApi::new(),
             policies_api: policies_api::MockPoliciesApi::new(),
             projects_api: projects_api::MockProjectsApi::new(),
@@ -465,11 +464,13 @@ impl ApiClient {
             push_api: push_api::MockPushApi::new(),
             reports_api: reports_api::MockReportsApi::new(),
             request_sm_access_api: request_sm_access_api::MockRequestSmAccessApi::new(),
+            secret_versions_api: secret_versions_api::MockSecretVersionsApi::new(),
             secrets_api: secrets_api::MockSecretsApi::new(),
             secrets_manager_events_api: secrets_manager_events_api::MockSecretsManagerEventsApi::new(),
             secrets_manager_porting_api: secrets_manager_porting_api::MockSecretsManagerPortingApi::new(),
             security_task_api: security_task_api::MockSecurityTaskApi::new(),
-            self_hosted_account_billing_api: self_hosted_account_billing_api::MockSelfHostedAccountBillingApi::new(),
+            self_hosted_account_billing_v_next_api: self_hosted_account_billing_v_next_api::MockSelfHostedAccountBillingVNextApi::new(),
+            self_hosted_organization_billing_v_next_api: self_hosted_organization_billing_v_next_api::MockSelfHostedOrganizationBillingVNextApi::new(),
             self_hosted_organization_licenses_api: self_hosted_organization_licenses_api::MockSelfHostedOrganizationLicensesApi::new(),
             self_hosted_organization_sponsorships_api: self_hosted_organization_sponsorships_api::MockSelfHostedOrganizationSponsorshipsApi::new(),
             sends_api: sends_api::MockSendsApi::new(),
@@ -479,6 +480,7 @@ impl ApiClient {
             stripe_api: stripe_api::MockStripeApi::new(),
             sync_api: sync_api::MockSyncApi::new(),
             tax_api: tax_api::MockTaxApi::new(),
+            teams_integration_api: teams_integration_api::MockTeamsIntegrationApi::new(),
             trash_api: trash_api::MockTrashApi::new(),
             two_factor_api: two_factor_api::MockTwoFactorApi::new(),
             users_api: users_api::MockUsersApi::new(),
@@ -627,25 +629,11 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.installations_api,
         }
     }
-    pub fn invoices_api(&self) -> &dyn invoices_api::InvoicesApi {
-        match self {
-            ApiClient::Real(real) => &real.invoices_api,
-            #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.invoices_api,
-        }
-    }
     pub fn licenses_api(&self) -> &dyn licenses_api::LicensesApi {
         match self {
             ApiClient::Real(real) => &real.licenses_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.licenses_api,
-        }
-    }
-    pub fn misc_api(&self) -> &dyn misc_api::MiscApi {
-        match self {
-            ApiClient::Real(real) => &real.misc_api,
-            #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.misc_api,
         }
     }
     pub fn notifications_api(&self) -> &dyn notifications_api::NotificationsApi {
@@ -756,13 +744,6 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.organizations_api,
         }
     }
-    pub fn phishing_domains_api(&self) -> &dyn phishing_domains_api::PhishingDomainsApi {
-        match self {
-            ApiClient::Real(real) => &real.phishing_domains_api,
-            #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.phishing_domains_api,
-        }
-    }
     pub fn plans_api(&self) -> &dyn plans_api::PlansApi {
         match self {
             ApiClient::Real(real) => &real.plans_api,
@@ -851,6 +832,13 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.request_sm_access_api,
         }
     }
+    pub fn secret_versions_api(&self) -> &dyn secret_versions_api::SecretVersionsApi {
+        match self {
+            ApiClient::Real(real) => &real.secret_versions_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.secret_versions_api,
+        }
+    }
     pub fn secrets_api(&self) -> &dyn secrets_api::SecretsApi {
         match self {
             ApiClient::Real(real) => &real.secrets_api,
@@ -883,13 +871,23 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.security_task_api,
         }
     }
-    pub fn self_hosted_account_billing_api(
+    pub fn self_hosted_account_billing_v_next_api(
         &self,
-    ) -> &dyn self_hosted_account_billing_api::SelfHostedAccountBillingApi {
+    ) -> &dyn self_hosted_account_billing_v_next_api::SelfHostedAccountBillingVNextApi {
         match self {
-            ApiClient::Real(real) => &real.self_hosted_account_billing_api,
+            ApiClient::Real(real) => &real.self_hosted_account_billing_v_next_api,
             #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.self_hosted_account_billing_api,
+            ApiClient::Mock(mock) => &mock.self_hosted_account_billing_v_next_api,
+        }
+    }
+    pub fn self_hosted_organization_billing_v_next_api(
+        &self,
+    ) -> &dyn self_hosted_organization_billing_v_next_api::SelfHostedOrganizationBillingVNextApi
+    {
+        match self {
+            ApiClient::Real(real) => &real.self_hosted_organization_billing_v_next_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.self_hosted_organization_billing_v_next_api,
         }
     }
     pub fn self_hosted_organization_licenses_api(
@@ -957,6 +955,13 @@ impl ApiClient {
             ApiClient::Real(real) => &real.tax_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.tax_api,
+        }
+    }
+    pub fn teams_integration_api(&self) -> &dyn teams_integration_api::TeamsIntegrationApi {
+        match self {
+            ApiClient::Real(real) => &real.teams_integration_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.teams_integration_api,
         }
     }
     pub fn trash_api(&self) -> &dyn trash_api::TrashApi {

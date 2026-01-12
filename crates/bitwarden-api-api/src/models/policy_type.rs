@@ -36,6 +36,8 @@ pub enum PolicyType {
     RestrictedItemTypesPolicy = 15,
     UriMatchDefaults = 16,
     AutotypeDefaultSetting = 17,
+    AutomaticUserConfirmation = 18,
+    BlockClaimedDomainAccountCreation = 19,
 }
 
 impl std::fmt::Display for PolicyType {
@@ -62,6 +64,8 @@ impl std::fmt::Display for PolicyType {
                 Self::RestrictedItemTypesPolicy => "15",
                 Self::UriMatchDefaults => "16",
                 Self::AutotypeDefaultSetting => "17",
+                Self::AutomaticUserConfirmation => "18",
+                Self::BlockClaimedDomainAccountCreation => "19",
             }
         )
     }

@@ -14,14 +14,34 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct KeysResponseModel {
-    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub object: Option<String>,
-    #[serde(rename = "key", skip_serializing_if = "Option::is_none")]
+    /// The master key wrapped user key. The master key can either be a master-password master key
+    /// or a key-connector master key.
+    #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
-    #[serde(rename = "publicKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "publicKey",
+        alias = "PublicKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub public_key: Option<String>,
-    #[serde(rename = "privateKey", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "privateKey",
+        alias = "PrivateKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub private_key: Option<String>,
+    #[serde(
+        rename = "accountKeys",
+        alias = "AccountKeys",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub account_keys: Option<Box<models::PrivateKeysResponseModel>>,
 }
 
 impl KeysResponseModel {
@@ -31,6 +51,7 @@ impl KeysResponseModel {
             key: None,
             public_key: None,
             private_key: None,
+            account_keys: None,
         }
     }
 }

@@ -2,6 +2,7 @@ use std::fmt::Debug;
 
 use bitwarden_encoding::NotB64EncodedError;
 use bitwarden_error::bitwarden_error;
+use coset::iana::KeyOperation;
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -29,8 +30,15 @@ pub enum CryptoError {
     MissingField(&'static str),
     #[error("Missing Key for Id: {0}")]
     MissingKeyId(String),
+    #[error("Key operation not supported by key: {0:?}")]
+    KeyOperationNotSupported(KeyOperation),
+
+    // Note: These variants will be moved into their own key store error in a follow up ticket,
+    // since the crypto error is growing too large
     #[error("Crypto store is read-only")]
     ReadOnlyKeyStore,
+    #[error("Invalid key store operation")]
+    InvalidKeyStoreOperation,
 
     #[error("Insufficient KDF parameters")]
     InsufficientKdfParameters,

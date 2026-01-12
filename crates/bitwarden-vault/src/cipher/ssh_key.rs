@@ -15,7 +15,7 @@ use super::cipher::CipherKind;
 use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SshKey {
@@ -92,6 +92,16 @@ impl TryFrom<CipherSshKeyModel> for SshKey {
             public_key: require!(EncString::try_from_optional(ssh_key.public_key)?),
             fingerprint: require!(EncString::try_from_optional(ssh_key.key_fingerprint)?),
         })
+    }
+}
+
+impl From<SshKey> for CipherSshKeyModel {
+    fn from(ssh_key: SshKey) -> Self {
+        Self {
+            private_key: Some(ssh_key.private_key.to_string()),
+            public_key: Some(ssh_key.public_key.to_string()),
+            key_fingerprint: Some(ssh_key.fingerprint.to_string()),
+        }
     }
 }
 

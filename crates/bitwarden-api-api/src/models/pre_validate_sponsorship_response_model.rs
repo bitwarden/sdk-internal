@@ -14,10 +14,15 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PreValidateSponsorshipResponseModel {
-    #[serde(rename = "isTokenValid", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "isTokenValid",
+        alias = "IsTokenValid",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub is_token_valid: Option<bool>,
     #[serde(
         rename = "isFreeFamilyPolicyEnabled",
+        alias = "IsFreeFamilyPolicyEnabled",
         skip_serializing_if = "Option::is_none"
     )]
     pub is_free_family_policy_enabled: Option<bool>,

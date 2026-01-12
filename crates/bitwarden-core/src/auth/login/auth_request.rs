@@ -10,8 +10,11 @@ use crate::{
         api::{request::AuthRequestTokenRequest, response::IdentityTokenResponse},
         auth_request::new_auth_request,
     },
-    client::{LoginMethod, UserLoginMethod},
-    key_management::crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
+    key_management::{
+        UserDecryptionData,
+        account_cryptographic_state::WrappedAccountCryptographicState,
+        crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
+    },
     require,
 };
 
@@ -88,20 +91,11 @@ pub(crate) async fn complete_auth_request(
     .await?;
 
     if let IdentityTokenResponse::Authenticated(r) = response {
-        let kdf = Kdf::default();
-
         client.internal.set_tokens(
             r.access_token.clone(),
             r.refresh_token.clone(),
             r.expires_in,
         );
-        client
-            .internal
-            .set_login_method(LoginMethod::User(UserLoginMethod::Username {
-                client_id: "web".to_owned(),
-                email: auth_req.email.to_owned(),
-                kdf: kdf.clone(),
-            }));
 
         let method = match res.master_password_hash {
             Some(_) => AuthRequestMethod::MasterKey {
@@ -113,15 +107,30 @@ pub(crate) async fn complete_auth_request(
             },
         };
 
+        let master_password_unlock = r
+            .user_decryption_options
+            .as_ref()
+            .map(UserDecryptionData::try_from)
+            .transpose()?
+            .and_then(|user_decryption| user_decryption.master_password_unlock);
+        let kdf = master_password_unlock
+            .as_ref()
+            .map(|mpu| mpu.kdf.clone())
+            .unwrap_or_else(Kdf::default_pbkdf2);
+        let salt = master_password_unlock
+            .as_ref()
+            .map(|mpu| mpu.salt.clone())
+            .unwrap_or_else(|| auth_req.email.clone());
+
         client
             .crypto()
             .initialize_user_crypto(InitUserCryptoRequest {
                 user_id: None,
                 kdf_params: kdf,
-                email: auth_req.email,
-                private_key: require!(r.private_key).parse()?,
-                signing_key: None,
-                security_state: None,
+                email: salt,
+                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
+                    private_key: require!(r.private_key).parse()?,
+                },
                 method: InitUserCryptoMethod::AuthRequest {
                     request_private_key: auth_req.private_key,
                     method,

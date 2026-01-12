@@ -9,7 +9,8 @@ mod symmetric_crypto_key;
 #[cfg(test)]
 pub use symmetric_crypto_key::derive_symmetric_key;
 pub use symmetric_crypto_key::{
-    Aes256CbcHmacKey, Aes256CbcKey, EncodedSymmetricKey, SymmetricCryptoKey, XChaCha20Poly1305Key,
+    Aes256CbcHmacKey, Aes256CbcKey, EncodedSymmetricKey, SymmetricCryptoKey, SymmetricKeyAlgorithm,
+    XChaCha20Poly1305Key,
 };
 mod asymmetric_crypto_key;
 pub use asymmetric_crypto_key::{
@@ -28,9 +29,13 @@ mod kdf;
 #[allow(deprecated)]
 pub use kdf::dangerous_derive_kdf_material;
 mod key_id;
-pub use kdf::{
-    Kdf, default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
-    default_pbkdf2_iterations,
-};
+pub use kdf::Kdf;
 pub(crate) use key_id::{KEY_ID_SIZE, KeyId};
+mod prf;
+mod rotateable_key_set;
+pub use rotateable_key_set::RotateableKeySet;
 pub(crate) mod utils;
+pub use prf::derive_symmetric_key_from_prf;
+
+mod key_connector_key;
+pub use key_connector_key::KeyConnectorKey;

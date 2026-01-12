@@ -1,23 +1,8 @@
 use pkcs8::EncodePrivateKey;
 use rsa::RsaPrivateKey;
-use ssh_key::{PrivateKey, private::RsaKeypair};
+use ssh_key::PrivateKey;
 
 use crate::error::SshKeyExportError;
-
-/// Convert RSA keypair to PKCS#8 DER format
-// There is a known defect in going RsaPrivateKey -> pkcs8::PrivateKey
-// https://github.com/RustCrypto/SSH/pull/218
-fn convert_rsa_keypair(keypair: &RsaKeypair) -> Result<RsaPrivateKey, ssh_key::Error> {
-    Ok(rsa::RsaPrivateKey::from_components(
-        rsa::BigUint::try_from(&keypair.public.n)?,
-        rsa::BigUint::try_from(&keypair.public.e)?,
-        rsa::BigUint::try_from(&keypair.private.d)?,
-        vec![
-            rsa::BigUint::try_from(&keypair.private.p)?,
-            rsa::BigUint::try_from(&keypair.private.q)?,
-        ],
-    )?)
-}
 
 /// Convert an OpenSSH private key to PKCS#8 DER format
 ///
@@ -40,12 +25,17 @@ pub fn export_pkcs8_der_key(private_key: &str) -> Result<Vec<u8>, SshKeyExportEr
                 .as_bytes()
                 .to_vec())
         }
-        ssh_key::private::KeypairData::Rsa(keypair) => Ok(convert_rsa_keypair(keypair)
-            .map_err(|_| SshKeyExportError::KeyConversion)?
-            .to_pkcs8_der()
-            .map_err(|_| SshKeyExportError::KeyConversion)?
-            .as_bytes()
-            .to_vec()),
+        ssh_key::private::KeypairData::Rsa(keypair) => {
+            let rk: RsaPrivateKey = keypair
+                .try_into()
+                .map_err(|_| SshKeyExportError::KeyConversion)?;
+
+            Ok(rk
+                .to_pkcs8_der()
+                .map_err(|_| SshKeyExportError::KeyConversion)?
+                .as_bytes()
+                .to_vec())
+        }
         _ => Err(SshKeyExportError::KeyConversion),
     }
 }

@@ -14,10 +14,16 @@ use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct KeysRequestModel {
-    #[serde(rename = "publicKey")]
+    #[serde(rename = "publicKey", alias = "PublicKey")]
     pub public_key: String,
-    #[serde(rename = "encryptedPrivateKey")]
+    #[serde(rename = "encryptedPrivateKey", alias = "EncryptedPrivateKey")]
     pub encrypted_private_key: String,
+    #[serde(
+        rename = "accountKeys",
+        alias = "AccountKeys",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub account_keys: Option<Box<models::AccountKeysRequestModel>>,
 }
 
 impl KeysRequestModel {
@@ -25,6 +31,7 @@ impl KeysRequestModel {
         KeysRequestModel {
             public_key,
             encrypted_private_key,
+            account_keys: None,
         }
     }
 }

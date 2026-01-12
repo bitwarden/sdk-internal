@@ -119,7 +119,7 @@ pub fn dangerous_derive_kdf_material(
 /// In Bitwarden accounts can use multiple KDFs to derive their master key from their password. This
 /// Enum represents all the possible KDFs.
 #[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -134,30 +134,39 @@ pub enum Kdf {
     },
 }
 
-impl Default for Kdf {
-    /// Default KDF for new accounts.
-    fn default() -> Self {
+impl Kdf {
+    /// Default KDF for new encryption V1 accounts.
+    pub fn default_pbkdf2() -> Kdf {
         Kdf::PBKDF2 {
             iterations: default_pbkdf2_iterations(),
+        }
+    }
+
+    /// Default KDF for new encryption V2 accounts.
+    pub fn default_argon2() -> Kdf {
+        Kdf::Argon2id {
+            iterations: default_argon2_iterations(),
+            memory: default_argon2_memory(),
+            parallelism: default_argon2_parallelism(),
         }
     }
 }
 
 /// Default PBKDF2 iterations
-pub fn default_pbkdf2_iterations() -> NonZeroU32 {
+fn default_pbkdf2_iterations() -> NonZeroU32 {
     NonZeroU32::new(600_000).expect("Non-zero number")
 }
 /// Default Argon2 iterations
-pub fn default_argon2_iterations() -> NonZeroU32 {
-    NonZeroU32::new(3).expect("Non-zero number")
+fn default_argon2_iterations() -> NonZeroU32 {
+    NonZeroU32::new(6).expect("Non-zero number")
 }
 /// Default Argon2 memory
-pub fn default_argon2_memory() -> NonZeroU32 {
-    NonZeroU32::new(64).expect("Non-zero number")
+fn default_argon2_memory() -> NonZeroU32 {
+    NonZeroU32::new(32).expect("Non-zero number")
 }
 /// Default Argon2 parallelism
-pub fn default_argon2_parallelism() -> NonZeroU32 {
-    NonZeroU32::new(4).expect("Non-zero number")
+fn default_argon2_parallelism() -> NonZeroU32 {
+    NonZeroU32::new(3).expect("Non-zero number")
 }
 
 #[cfg(test)]

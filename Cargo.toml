@@ -6,11 +6,11 @@ exclude = ["support/lints"]
 # Global settings for all crates should be defined here
 [workspace.package]
 # Update using `cargo set-version -p bitwarden-core <new-version>`
-version = "1.0.0"
+version = "2.0.0"
 authors = ["Bitwarden Inc"]
 edition = "2024"
 # Important: Changing rust-version should be considered a breaking change
-rust-version = "1.85"
+rust-version = "1.85.1"
 homepage = "https://bitwarden.com"
 repository = "https://github.com/bitwarden/sdk-internal"
 license-file = "LICENSE"
@@ -20,32 +20,34 @@ keywords = ["bitwarden"]
 # Define dependencies that are expected to be consistent across all crates
 [workspace.dependencies]
 bitwarden = { path = "crates/bitwarden", version = "=1.0.0" }
-bitwarden-api-api = { path = "crates/bitwarden-api-api", version = "=1.0.0" }
-bitwarden-api-identity = { path = "crates/bitwarden-api-identity", version = "=1.0.0" }
-bitwarden-auth = { path = "crates/bitwarden-auth", version = "=1.0.0" }
-bitwarden-cli = { path = "crates/bitwarden-cli", version = "=1.0.0" }
-bitwarden-collections = { path = "crates/bitwarden-collections", version = "=1.0.0" }
-bitwarden-commercial-vault = { path = "bitwarden_license/bitwarden-commercial-vault", version = "=1.0.0" }
-bitwarden-core = { path = "crates/bitwarden-core", version = "=1.0.0" }
-bitwarden-crypto = { path = "crates/bitwarden-crypto", version = "=1.0.0" }
-bitwarden-encoding = { path = "crates/bitwarden-encoding", version = "=1.0.0" }
-bitwarden-error = { path = "crates/bitwarden-error", version = "=1.0.0" }
-bitwarden-error-macro = { path = "crates/bitwarden-error-macro", version = "=1.0.0" }
-bitwarden-exporters = { path = "crates/bitwarden-exporters", version = "=1.0.0" }
-bitwarden-fido = { path = "crates/bitwarden-fido", version = "=1.0.0" }
-bitwarden-generators = { path = "crates/bitwarden-generators", version = "=1.0.0" }
-bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=1.0.0" }
-bitwarden-pm = { path = "crates/bitwarden-pm", version = "=1.0.0" }
-bitwarden-send = { path = "crates/bitwarden-send", version = "=1.0.0" }
-bitwarden-sm = { path = "bitwarden_license/bitwarden-sm", version = "=1.0.0" }
-bitwarden-ssh = { path = "crates/bitwarden-ssh", version = "=1.0.0" }
-bitwarden-state = { path = "crates/bitwarden-state", version = "=1.0.0" }
-bitwarden-test = { path = "crates/bitwarden-test", version = "=1.0.0" }
-bitwarden-threading = { path = "crates/bitwarden-threading", version = "=1.0.0" }
-bitwarden-uniffi-error = { path = "crates/bitwarden-uniffi-error", version = "=1.0.0" }
-bitwarden-uuid = { path = "crates/bitwarden-uuid", version = "=1.0.0" }
-bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=1.0.0" }
-bitwarden-vault = { path = "crates/bitwarden-vault", version = "=1.0.0" }
+bitwarden-api-api = { path = "crates/bitwarden-api-api", version = "=2.0.0" }
+bitwarden-api-identity = { path = "crates/bitwarden-api-identity", version = "=2.0.0" }
+bitwarden-api-key-connector = { path = "crates/bitwarden-api-key-connector", version = "=2.0.0" }
+bitwarden-auth = { path = "crates/bitwarden-auth", version = "=2.0.0" }
+bitwarden-cli = { path = "crates/bitwarden-cli", version = "=2.0.0" }
+bitwarden-collections = { path = "crates/bitwarden-collections", version = "=2.0.0" }
+bitwarden-commercial-vault = { path = "bitwarden_license/bitwarden-commercial-vault", version = "=2.0.0" }
+bitwarden-core = { path = "crates/bitwarden-core", version = "=2.0.0" }
+bitwarden-crypto = { path = "crates/bitwarden-crypto", version = "=2.0.0" }
+bitwarden-encoding = { path = "crates/bitwarden-encoding", version = "=2.0.0" }
+bitwarden-error = { path = "crates/bitwarden-error", version = "=2.0.0" }
+bitwarden-error-macro = { path = "crates/bitwarden-error-macro", version = "=2.0.0" }
+bitwarden-exporters = { path = "crates/bitwarden-exporters", version = "=2.0.0" }
+bitwarden-fido = { path = "crates/bitwarden-fido", version = "=2.0.0" }
+bitwarden-generators = { path = "crates/bitwarden-generators", version = "=2.0.0" }
+bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=2.0.0" }
+bitwarden-pm = { path = "crates/bitwarden-pm", version = "=2.0.0" }
+bitwarden-policies = { path = "crates/bitwarden-policies", version = "=2.0.0" }
+bitwarden-send = { path = "crates/bitwarden-send", version = "=2.0.0" }
+bitwarden-sm = { path = "bitwarden_license/bitwarden-sm", version = "=2.0.0" }
+bitwarden-ssh = { path = "crates/bitwarden-ssh", version = "=2.0.0" }
+bitwarden-state = { path = "crates/bitwarden-state", version = "=2.0.0" }
+bitwarden-test = { path = "crates/bitwarden-test", version = "=2.0.0" }
+bitwarden-threading = { path = "crates/bitwarden-threading", version = "=2.0.0" }
+bitwarden-uniffi-error = { path = "crates/bitwarden-uniffi-error", version = "=2.0.0" }
+bitwarden-uuid = { path = "crates/bitwarden-uuid", version = "=2.0.0" }
+bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=2.0.0" }
+bitwarden-vault = { path = "crates/bitwarden-vault", version = "=2.0.0" }
 
 # External crates that are expected to maintain a consistent version across all crates
 async-trait = ">=0.1.80, <0.2"
@@ -56,50 +58,51 @@ chrono = { version = ">=0.4.26, <0.5", features = [
 ], default-features = false }
 data-encoding = ">=2.0, <3"
 ed25519-dalek = { version = ">=2.1.1, <=2.2.0" }
+futures = ">=0.3.31, <0.4"
 js-sys = { version = ">=0.3.72, <0.4" }
-log = ">=0.4.18, <0.5"
+mockall = { version = ">=0.13.1, <0.15" }
 proc-macro2 = ">=1.0.89, <2"
 quote = ">=1.0.37, <2"
+rand = ">=0.8.5, <0.9"
 reqwest = { version = ">=0.12.5, <0.13", features = [
     "json",
     "multipart",
     "http2",
 ], default-features = false }
+rsa = ">=0.9.2, <0.10"
 schemars = { version = ">=1.0.0, <2.0", features = ["uuid1", "chrono04"] }
 serde = { version = ">=1.0, <2.0", features = ["derive"] }
+serde-wasm-bindgen = ">=0.6.0, <0.7"
 serde_bytes = { version = ">=0.11.17, <0.12.0" }
 serde_json = ">=1.0.96, <2.0"
 serde_qs = ">=0.12.0, <0.16"
 serde_repr = ">=0.1.12, <0.2"
-serde-wasm-bindgen = ">=0.6.0, <0.7"
+sha1 = ">=0.10.5, <0.11"
+subtle = ">=2.5.0, <3.0"
 syn = ">=2.0.87, <3"
 thiserror = ">=1.0.40, <3"
 tokio = { version = "1.36.0", features = ["macros"] }
+tracing = { version = "0.1.41" }
+tracing-subscriber = { version = "0.3.20", features = [
+    "fmt",
+    "env-filter",
+    "tracing-log",
+] }
 tsify = { version = ">=0.5.5, <0.6", features = [
     "js",
 ], default-features = false }
 uniffi = "=0.29.4"
 uuid = { version = ">=1.3.3, <2.0", features = ["serde", "v4", "js"] }
 validator = { version = ">=0.18.1, <0.21", features = ["derive"] }
-wasm-bindgen = { version = ">=0.2.91, <0.3", features = ["serde-serialize"] }
-wasm-bindgen-futures = "0.4.41"
-wasm-bindgen-test = "0.3.45"
+wasm-bindgen = { version = "=0.2.105", features = ["serde-serialize"] }
+wasm-bindgen-cli = "=0.2.105"
+wasm-bindgen-futures = "0.4.55"
+wasm-bindgen-test = "0.3.55"
 wiremock = ">=0.6.0, <0.7"
-
-# There is an incompatibility when using pkcs5 and chacha20 on wasm builds. This can be removed once a new
-# rustcrypto-formats crate version is released since the fix has been upstreamed.
-# https://github.com/RustCrypto/formats/pull/1625
-[patch.crates-io]
-pkcs5 = { git = "https://github.com/bitwarden/rustcrypto-formats.git", rev = "2b27c63034217dd126bbf5ed874da51b84f8c705" }
-
-uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-uniffi_core = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-uniffi_macros = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-uniffi_internal_macros = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-uniffi_bindgen = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-uniffi_build = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+zxcvbn = ">=3.0.1, <4.0"
 
 [workspace.lints.clippy]
+disallowed-macros = "deny"
 unused_async = "deny"
 unwrap_used = "deny"
 string_slice = "warn"
@@ -113,16 +116,25 @@ unexpected_cfgs = { level = "warn", check-cfg = [
 [workspace.metadata.dylint]
 libraries = [{ path = "support/lints" }]
 
-# Compile all dependencies with some optimizations when building this crate on debug
-# This slows down clean builds by about 50%, but the resulting binaries can be orders of magnitude faster
-# As clean builds won't occur very often, this won't slow down the development process
-[profile.dev.package."*"]
-opt-level = 2
+[patch.crates-io]
+
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+uniffi_core = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+uniffi_macros = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+uniffi_internal_macros = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+uniffi_bindgen = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
+uniffi_build = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
 
 # Turn on a small amount of optimisation in development mode. This might interfere when trying to use a debugger
 # if the compiler decides to optimize some code away, if that's the case, it can be set to 0 or commented out
 [profile.dev]
 opt-level = 1
+
+# Compile all dependencies with some optimizations when building this crate on debug
+# This slows down clean builds by about 50%, but the resulting binaries can be orders of magnitude faster
+# As clean builds won't occur very often, this won't slow down the development process
+[profile.dev.package."*"]
+opt-level = 2
 
 # Turn on LTO on release mode
 [profile.release]
