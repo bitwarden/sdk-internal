@@ -28,6 +28,7 @@ pub enum OtherIdentityError {
 /// cryptographically valid before it can be used.
 pub struct OtherIdentity {
     /// The signed public key, verified to be signed by the holder of the verifying key.
+    #[allow(dead_code)]
     signed_public_key: SignedPublicKey,
     /// The verifying key used to verify signatures from this identity.
     verifying_key: VerifyingKey,
@@ -37,6 +38,7 @@ pub struct OtherIdentity {
 
 impl OtherIdentity {
     /// Returns a reference to the signed public key.
+    #[allow(dead_code)]
     pub(crate) fn signed_public_key(&self) -> &SignedPublicKey {
         &self.signed_public_key
     }
@@ -82,7 +84,7 @@ impl TryFrom<(SignedPublicKey, VerifyingKey)> for OtherIdentity {
 /// private keys for cryptographic operations such as signing and decryption.
 pub struct SelfIdentity<'a, Ids: KeyIds> {
     /// Reference to the key store context containing the user's private keys.
-    ctx: &'a mut KeyStoreContext<'a, Ids>,
+    ctx: &'a KeyStoreContext<'a, Ids>,
     /// The key ID for the user's signing key.
     signing_key_id: Ids::Signing,
     /// The key ID for the user's asymmetric encryption key.
@@ -92,7 +94,7 @@ pub struct SelfIdentity<'a, Ids: KeyIds> {
 impl<'a, Ids: KeyIds> SelfIdentity<'a, Ids> {
     /// Creates a new `SelfIdentity` from a key store context and key IDs.
     pub fn new(
-        ctx: &'a mut KeyStoreContext<'a, Ids>,
+        ctx: &'a KeyStoreContext<'a, Ids>,
         signing_key_id: Ids::Signing,
         asymmetric_key_id: Ids::Asymmetric,
     ) -> Self {
@@ -105,11 +107,6 @@ impl<'a, Ids: KeyIds> SelfIdentity<'a, Ids> {
 
     /// Returns a reference to the key store context.
     pub fn context(&self) -> &KeyStoreContext<'a, Ids> {
-        self.ctx
-    }
-
-    /// Returns a mutable reference to the key store context.
-    pub fn context_mut(&mut self) -> &mut KeyStoreContext<'a, Ids> {
         self.ctx
     }
 

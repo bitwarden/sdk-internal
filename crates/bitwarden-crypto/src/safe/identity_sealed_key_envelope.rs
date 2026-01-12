@@ -32,9 +32,9 @@ use wasm_bindgen::convert::FromWasmAbi;
 
 use super::idenity::{OtherIdentity, SelfIdentity};
 use crate::{
-    AsymmetricCryptoKey, BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey,
-    KeyIds, RawPrivateKey, RawPublicKey, SignedPublicKey, SigningKey, SigningNamespace,
-    SymmetricCryptoKey, VerifyingKey,
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, ContentFormat,
+    CoseKeyBytes, EncodedSymmetricKey, KeyIds, RawPrivateKey, RawPublicKey, SigningKey,
+    SigningNamespace, SymmetricCryptoKey, VerifyingKey,
     cose::{
         CONTENT_TYPE_BITWARDEN_LEGACY_KEY, IDENTITY_SEALED_ENVELOPE_RECIPIENT_FINGERPRINT,
         IDENTITY_SEALED_ENVELOPE_SENDER_FINGERPRINT, XCHACHA20_POLY1305,
@@ -57,16 +57,19 @@ pub struct IdentitySealedKeyEnvelope {
 #[derive(Debug, Error)]
 #[bitwarden_error(flat)]
 pub enum SealError {
-    #[error("Recipient public key verification failed")]
-    RecipientPublicKeyVerificationFailed,
+    /// RSA encryption operation failed.
     #[error("RSA operation failed")]
     RsaOperationFailed,
+    /// COSE encoding or decoding failed.
     #[error("COSE encoding/decoding failed")]
     CoseEncodingFailed,
+    /// The key data was invalid.
     #[error("Invalid key data")]
     InvalidKeyData,
+    /// The content format is not supported.
     #[error("Unsupported content format")]
     UnsupportedContentFormat,
+    /// The signing key required for the operation was not found.
     #[error("Missing signing key")]
     MissingSigningKey,
 }
@@ -78,54 +81,84 @@ pub enum SealError {
 #[derive(Debug, Error)]
 #[bitwarden_error(flat)]
 pub enum UnsealError {
-    #[error("Signature verification failed")]
-    SignatureVerificationFailed,
-    #[error("RSA operation failed")]
-    RsaOperationFailed,
-    #[error("COSE encoding/decoding failed")]
-    CoseEncodingFailed,
-    #[error("Decryption failed")]
-    DecryptionFailed,
-    #[error("Invalid key data")]
-    InvalidKeyData,
+    /// The namespace in the envelope is invalid or not recognized.
     #[error("Invalid namespace in envelope")]
     InvalidNamespace,
+    /// Signature verification failed.
+    #[error("Signature verification failed")]
+    SignatureVerificationFailed,
+    /// The envelope is missing a required payload.
     #[error("Missing payload in envelope")]
     MissingPayload,
+    /// COSE encoding or decoding failed.
+    #[error("COSE encoding/decoding failed")]
+    CoseEncodingFailed,
+    /// The fingerprint in the envelope does not match the expected value.
     #[error("Fingerprint mismatch")]
     FingerprintMismatch,
-    #[error("Unsupported content format")]
-    UnsupportedContentFormat,
+    /// RSA decryption operation failed.
+    #[error("RSA operation failed")]
+    RsaOperationFailed,
+    /// The recipient key encryption algorithm is not supported.
     #[error("Unsupported recipient key encryption algorithm")]
     UnsupportedRecipientKeyEncryptionAlgorithm,
+    /// The nonce size is invalid.
     #[error("Invalid nonce size")]
     InvalidNonceSize,
+    /// Decryption of the envelope contents failed.
+    #[error("Decryption failed")]
+    DecryptionFailed,
+    /// The content format is not supported.
+    #[error("Unsupported content format")]
+    UnsupportedContentFormat,
+    /// The key data was invalid.
+    #[error("Invalid key data")]
+    InvalidKeyData,
+    /// The private key required for the operation was not found.
     #[error("Missing private key")]
     MissingPrivateKey,
 }
 
 impl IdentitySealedKeyEnvelope {
+    /// Seals a symmetric key to be shared with a recipient. This requires the sender's `SelfIdentity` and
+    /// the recipient's `OtherIdentity`.
+    pub fn seal(
+        sender: &SelfIdentity<'_, impl KeyIds>,
+        recipient: &OtherIdentity,
+        key_to_share: &SymmetricCryptoKey,
+    ) -> Result<Self, SealError> {
+        #[allow(deprecated)]
+        let sender_signing_key = sender
+            .context()
+            .dangerous_get_signing_key(sender.signing_key_id())
+            .map_err(|_| SealError::MissingSigningKey)?;
+
+        Self::seal_ref(
+            &sender_signing_key,
+            recipient.verifying_key(),
+            recipient.public_key(),
+            key_to_share,
+        )
+    }
+
     /// Seals a symmetric key to be shared with a recipient. This requires the senders identity
-    /// signature key pair, and the recipients identity verifying key, and a corresponding signed
-    /// public key for encryption.
+    /// signature key pair, the recipients identity verifying key, and a verified public key for
+    /// encryption.
+    ///
+    /// Note: The `recipient_public_key` must have been verified to belong to the identity
+    /// represented by `recipient_verifying_key` before calling this method. This is typically
+    /// done by constructing an `OtherIdentity` which performs this verification.
     #[instrument(level = "error", skip_all, err)]
     #[allow(unused)]
-    pub fn seal_ref(
+    fn seal_ref(
         sender_signing_key: &SigningKey,
         recipient_verifying_key: &VerifyingKey,
-        recipient_public_key: &SignedPublicKey,
+        recipient_public_key: &AsymmetricPublicCryptoKey,
         key_to_share: &SymmetricCryptoKey,
     ) -> Result<Self, SealError> {
         // Derive fingerprints for sender and recipient
         let recipient_verifying_key_fingerprint = recipient_verifying_key.fingerprint();
         let sender_verifying_key_fingerprint = sender_signing_key.to_verifying_key().fingerprint();
-
-        // Get the recipients raw public key. To unwrap a signed public key, the corresponding
-        // verifying key is required.
-        let recipient_public_key = recipient_public_key
-            .to_owned()
-            .verify_and_unwrap(recipient_verifying_key)
-            .map_err(|_| SealError::RecipientPublicKeyVerificationFailed)?;
 
         // Encode the symmetric key to a byte representation plus content format
         let (payload, content_type) = match key_to_share.to_encoded_raw() {
@@ -228,39 +261,14 @@ impl IdentitySealedKeyEnvelope {
         Ok(Self { cose_sign1 })
     }
 
-    /// Seals a symmetric key to be shared with a recipient using identity types.
-    ///
-    /// This method takes a `SelfIdentity` (the sender) and an `OtherIdentity` (the recipient)
-    /// and seals the key so that only the recipient can unseal it, while also authenticating
-    /// the sender.
-    #[instrument(level = "error", skip_all, err)]
-    #[allow(unused)]
-    pub fn seal<Ids: KeyIds>(
-        sender: &mut SelfIdentity<'_, Ids>,
-        recipient: &OtherIdentity,
-        key_to_share: &SymmetricCryptoKey,
-    ) -> Result<Self, SealError> {
-        #[allow(deprecated)]
-        let sender_signing_key = sender
-            .context()
-            .dangerous_get_signing_key(sender.signing_key_id())
-            .map_err(|_| SealError::MissingSigningKey)?;
-
-        Self::seal_ref(
-            sender_signing_key,
-            recipient.verifying_key(),
-            recipient.signed_public_key(),
-            key_to_share,
-        )
-    }
-
     /// Unseals the envelope and extracts the shared symmetric key.
-    /// To unseal correctly, this requires the sender's verifying key, the recipient's verifying key
-    /// to match the key pairs used during sealing, and the private key to be the private key
+    ///
+    /// To unseal correctly, this requires the sender's verifying key, the recipient's verifying
+    /// key to match the key pairs used during sealing, and the private key to be the private key
     /// corresponding to the signed public key used during sealing.
     #[instrument(level = "error", skip_all, err)]
     #[allow(unused)]
-    pub fn unseal_ref(
+    fn unseal_ref(
         &self,
         sender_verifying_key: &VerifyingKey,
         recipient_verifying_key: &VerifyingKey,
@@ -354,6 +362,7 @@ impl IdentitySealedKeyEnvelope {
         let nonce = cose_encrypt.unprotected.iv.as_slice();
 
         // Get the ciphertext
+        #[allow(deprecated)]
         let decrypted = cose_encrypt
             .decrypt(&[], |data, aad| match cek_alg {
                 coset::Algorithm::PrivateUse(XCHACHA20_POLY1305) => {
@@ -398,7 +407,7 @@ impl IdentitySealedKeyEnvelope {
     #[allow(unused)]
     pub fn unseal<Ids: KeyIds>(
         &self,
-        recipient: &mut SelfIdentity<'_, Ids>,
+        recipient: &SelfIdentity<'_, Ids>,
         sender: &OtherIdentity,
     ) -> Result<SymmetricCryptoKey, UnsealError> {
         #[allow(deprecated)]
@@ -565,7 +574,6 @@ mod tests {
 
         // Create recipient's signing key pair (for identity)
         let recipient_signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
-        let recipient_verifying_key = recipient_signing_key.to_verifying_key();
 
         // Create recipient's encryption key pair
         let recipient_private_key =
@@ -578,14 +586,19 @@ mod tests {
             .sign(&recipient_signing_key)
             .expect("Failed to sign public key");
 
+        // Create OtherIdentity for the recipient
+        let recipient_identity =
+            OtherIdentity::try_from((signed_public_key, recipient_signing_key.to_verifying_key()))
+                .expect("Failed to create recipient identity");
+
         // Create a symmetric key to share
         let key_to_share = SymmetricCryptoKey::make_xchacha20_poly1305_key();
 
         // Seal the key
         let envelope = IdentitySealedKeyEnvelope::seal_ref(
             &sender_signing_key,
-            &recipient_verifying_key,
-            &signed_public_key,
+            recipient_identity.verifying_key(),
+            recipient_identity.public_key(),
             &key_to_share,
         )
         .expect("Failed to seal key");
@@ -594,7 +607,7 @@ mod tests {
         let unsealed_key = envelope
             .unseal_ref(
                 &sender_verifying_key,
-                &recipient_verifying_key,
+                recipient_identity.verifying_key(),
                 &recipient_private_key,
             )
             .expect("Failed to unseal key");
@@ -618,7 +631,6 @@ mod tests {
 
         // Create recipient's signing key pair
         let recipient_signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
-        let recipient_verifying_key = recipient_signing_key.to_verifying_key();
 
         // Create recipient's encryption key pair
         let recipient_private_key =
@@ -631,14 +643,19 @@ mod tests {
             .sign(&recipient_signing_key)
             .expect("Failed to sign public key");
 
+        // Create OtherIdentity for the recipient
+        let recipient_identity =
+            OtherIdentity::try_from((signed_public_key, recipient_signing_key.to_verifying_key()))
+                .expect("Failed to create recipient identity");
+
         // Create a symmetric key to share
         let key_to_share = SymmetricCryptoKey::make_xchacha20_poly1305_key();
 
         // Seal the key with the real sender
         let envelope = IdentitySealedKeyEnvelope::seal_ref(
             &sender_signing_key,
-            &recipient_verifying_key,
-            &signed_public_key,
+            recipient_identity.verifying_key(),
+            recipient_identity.public_key(),
             &key_to_share,
         )
         .expect("Failed to seal key");
@@ -646,7 +663,7 @@ mod tests {
         // Try to unseal with wrong sender's verifying key - should fail
         let result = envelope.unseal_ref(
             &wrong_sender_verifying_key,
-            &recipient_verifying_key,
+            recipient_identity.verifying_key(),
             &recipient_private_key,
         );
         assert!(
@@ -663,7 +680,6 @@ mod tests {
 
         // Create recipient's signing key pair
         let recipient_signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
-        let recipient_verifying_key = recipient_signing_key.to_verifying_key();
 
         // Create recipient's encryption key pair
         let recipient_private_key =
@@ -680,14 +696,19 @@ mod tests {
             .sign(&recipient_signing_key)
             .expect("Failed to sign public key");
 
+        // Create OtherIdentity for the recipient
+        let recipient_identity =
+            OtherIdentity::try_from((signed_public_key, recipient_signing_key.to_verifying_key()))
+                .expect("Failed to create recipient identity");
+
         // Create a symmetric key to share
         let key_to_share = SymmetricCryptoKey::make_xchacha20_poly1305_key();
 
         // Seal the key
         let envelope = IdentitySealedKeyEnvelope::seal_ref(
             &sender_signing_key,
-            &recipient_verifying_key,
-            &signed_public_key,
+            recipient_identity.verifying_key(),
+            recipient_identity.public_key(),
             &key_to_share,
         )
         .expect("Failed to seal key");
@@ -695,7 +716,7 @@ mod tests {
         // Try to unseal with wrong recipient's private key - should fail
         let result = envelope.unseal_ref(
             &sender_verifying_key,
-            &recipient_verifying_key,
+            recipient_identity.verifying_key(),
             &wrong_recipient_private_key,
         );
         assert!(
@@ -717,7 +738,6 @@ mod tests {
 
         // Create recipient's signing key pair (for identity)
         let recipient_signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
-        let recipient_verifying_key = recipient_signing_key.to_verifying_key();
 
         // Create recipient's encryption key pair
         let recipient_private_key =
@@ -730,14 +750,21 @@ mod tests {
             .sign(&recipient_signing_key)
             .expect("Failed to sign public key");
 
+        // Create OtherIdentity for the recipient
+        let recipient_identity = OtherIdentity::try_from((
+            signed_public_key.clone(),
+            recipient_signing_key.to_verifying_key(),
+        ))
+        .expect("Failed to create recipient identity");
+
         // Create a symmetric key to share
         let key_to_share = SymmetricCryptoKey::make_xchacha20_poly1305_key();
 
         // Seal the key
         let envelope = IdentitySealedKeyEnvelope::seal_ref(
             &sender_signing_key,
-            &recipient_verifying_key,
-            &signed_public_key,
+            recipient_identity.verifying_key(),
+            recipient_identity.public_key(),
             &key_to_share,
         )
         .expect("Failed to seal key");
@@ -746,13 +773,14 @@ mod tests {
         let unsealed_key = envelope
             .unseal_ref(
                 &sender_verifying_key,
-                &recipient_verifying_key,
+                recipient_identity.verifying_key(),
                 &recipient_private_key,
             )
             .expect("Failed to unseal key");
         assert_eq!(key_to_share.to_base64(), unsealed_key.to_base64());
 
         // Print test vectors
+        let recipient_verifying_key = recipient_signing_key.to_verifying_key();
         println!("// Test vectors for IdentitySealedKeyEnvelope");
         println!(
             "const TEST_SENDER_SIGNING_KEY: &str = \"{}\";",
