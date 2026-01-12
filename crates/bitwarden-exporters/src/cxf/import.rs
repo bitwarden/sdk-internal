@@ -89,10 +89,9 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
 
     // Helper to add ciphers with consistent boilerplate
     let mut add_item = |t: CipherType, fields: Vec<Field>, fallback_name: Option<String>| {
-        let name = if value.title.trim().is_empty() {
-            fallback_name.unwrap_or_else(|| value.title.clone())
-        } else {
-            value.title.clone()
+        let name = match fallback_name {
+            Some(fallback) if value.title.trim().is_empty() => fallback,
+            _ => value.title.clone(),
         };
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
@@ -207,8 +206,6 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
                 .extend(custom_fields_to_fields(custom_fields));
         } else {
             // No ciphers created yet, create standalone custom fields secure note
-            // Note: Cannot use add_item here due to borrow checker - add_item closure
-            // holds mutable borrow of output, conflicting with first_mut() above
             let fields = custom_fields_to_fields(custom_fields);
             output.push(ImportingCipher {
                 folder_id: None,
