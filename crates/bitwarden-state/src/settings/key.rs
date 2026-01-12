@@ -9,7 +9,7 @@ use std::marker::PhantomData;
 ///
 /// # Example
 /// ```rust
-/// use bitwarden_settings::{ClientSettingsExt, Key};
+/// use bitwarden_state::settings::Key;
 /// use serde::{Deserialize, Serialize};
 ///
 /// #[derive(Serialize, Deserialize)]
@@ -19,17 +19,10 @@ use std::marker::PhantomData;
 /// }
 ///
 /// pub const CONFIG: Key<AppConfig> = Key::new("app_config");
-///
-/// // Usage:
-/// # async {
-/// # let client: bitwarden_core::Client = todo!();
-/// let config: Option<AppConfig> = client.settings().get(CONFIG).await?;
-/// # Ok::<_, Box<dyn std::error::Error>>(())
-/// # };
 /// ```
 #[derive(Debug, Clone, Copy)]
 pub struct Key<T> {
-    name: &'static str,
+    pub(crate) name: &'static str,
     _marker: PhantomData<T>,
 }
 
@@ -38,7 +31,7 @@ impl<T> Key<T> {
     ///
     /// # Example
     /// ```rust
-    /// use bitwarden_settings::Key;
+    /// use bitwarden_state::settings::Key;
     ///
     /// const MY_SETTING: Key<String> = Key::new("my_setting");
     /// ```
@@ -47,10 +40,5 @@ impl<T> Key<T> {
             name,
             _marker: PhantomData,
         }
-    }
-
-    /// Get the string key name used for storage.
-    pub(crate) const fn name(&self) -> &'static str {
-        self.name
     }
 }

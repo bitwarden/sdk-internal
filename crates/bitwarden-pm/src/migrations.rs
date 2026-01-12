@@ -1,7 +1,9 @@
 //! Manages repository migrations for the Bitwarden SDK.
 
-use bitwarden_settings::Setting;
-use bitwarden_state::repository::{RepositoryItem, RepositoryMigrationStep, RepositoryMigrations};
+use bitwarden_state::{
+    SettingItem,
+    repository::{RepositoryItem, RepositoryMigrationStep, RepositoryMigrations},
+};
 use bitwarden_vault::{Cipher, Folder};
 
 /// Returns a list of all SDK-managed repository migrations.
@@ -12,7 +14,7 @@ pub fn get_sdk_managed_migrations() -> RepositoryMigrations {
         // requires a separate migration step using `Remove(...)`.
         Add(Cipher::data()),
         Add(Folder::data()),
-        Add(Setting::data()),
+        Add(SettingItem::data()),
     ])
 }
 
