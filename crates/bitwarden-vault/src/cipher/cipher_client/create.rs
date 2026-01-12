@@ -1,4 +1,5 @@
-use bitwarden_api_api::models::CipherRequestModel;
+use bitwarden_api_api::models::{CipherCreateRequestModel, CipherRequestModel};
+use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
     key_management::{KeyIds, SymmetricKeyId},
@@ -41,6 +42,12 @@ pub enum CreateCipherError {
     Repository(#[from] RepositoryError),
 }
 
+impl<T> From<bitwarden_api_api::apis::Error<T>> for CreateCipherError {
+    fn from(val: bitwarden_api_api::apis::Error<T>) -> Self {
+        Self::Api(val.into())
+    }
+}
+
 /// Request to add a cipher.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -48,6 +55,7 @@ pub enum CreateCipherError {
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct CipherCreateRequest {
     pub organization_id: Option<OrganizationId>,
+    pub collection_ids: Vec<CollectionId>,
     pub folder_id: Option<FolderId>,
     pub name: String,
     pub notes: Option<String>,
@@ -60,8 +68,8 @@ pub struct CipherCreateRequest {
 /// Used as an intermediary between the public-facing [CipherCreateRequest], and the encrypted
 /// value. This allows us to manage the cipher key creation internally.
 #[derive(Clone, Debug)]
-struct CipherCreateRequestInternal {
-    create_request: CipherCreateRequest,
+pub(super) struct CipherCreateRequestInternal {
+    pub(super) create_request: CipherCreateRequest,
     key: Option<EncString>,
 }
 
@@ -77,7 +85,7 @@ impl From<CipherCreateRequest> for CipherCreateRequestInternal {
 impl CipherCreateRequestInternal {
     /// Generate a new key for the cipher, re-encrypting internal data, if necessary, and stores the
     /// encrypted key to the cipher data.
-    fn generate_cipher_key(
+    pub(crate) fn generate_cipher_key(
         &mut self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
@@ -219,25 +227,42 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     encrypted_for: UserId,
     request: CipherCreateRequestInternal,
 ) -> Result<CipherView, CreateCipherError> {
+    let collection_ids = request.create_request.collection_ids.clone();
     let mut cipher_request = key_store.encrypt(request)?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
-    let resp = api_client
-        .ciphers_api()
-        .post(Some(cipher_request))
-        .await
-        .map_err(ApiError::from)?;
-    let cipher: Cipher = resp.try_into()?;
-    repository
-        .set(require!(cipher.id).to_string(), cipher.clone())
-        .await?;
+    let cipher: Cipher;
+    if !collection_ids.is_empty() {
+        cipher = api_client
+            .ciphers_api()
+            .post_create(Some(CipherCreateRequestModel {
+                collection_ids: Some(collection_ids.into_iter().map(Into::into).collect()),
+                cipher: Box::new(cipher_request),
+            }))
+            .await
+            .map_err(ApiError::from)?
+            .try_into()?;
+        repository
+            .set(require!(cipher.id).to_string(), cipher.clone())
+            .await?;
+    } else {
+        cipher = api_client
+            .ciphers_api()
+            .post(Some(cipher_request))
+            .await
+            .map_err(ApiError::from)?
+            .try_into()?;
+        repository
+            .set(require!(cipher.id).to_string(), cipher.clone())
+            .await?;
+    }
+
     Ok(key_store.decrypt(&cipher)?)
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
-    /// Create a new [Cipher] and save it to the server.
-    pub async fn create(
+    async fn create_cipher(
         &self,
         request: CipherCreateRequest,
     ) -> Result<CipherView, CreateCipherError> {
@@ -273,19 +298,30 @@ impl CiphersClient {
         )
         .await
     }
+
+    /// Creates a new [Cipher] and saves it to the server.
+    pub async fn create(
+        &self,
+        request: CipherCreateRequest,
+    ) -> Result<CipherView, CreateCipherError> {
+        self.create_cipher(request).await
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::{apis::ApiClient, models::CipherResponseModel};
-    use bitwarden_crypto::SymmetricCryptoKey;
+    use bitwarden_crypto::SymmetricKeyAlgorithm;
     use bitwarden_test::MemoryRepository;
+    use chrono::Utc;
 
     use super::*;
     use crate::{CipherId, LoginView};
 
     const TEST_CIPHER_ID: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
+    const TEST_COLLECTION_ID: &str = "73546b86-8802-4449-ad2a-69ea981b4ffd";
     const TEST_USER_ID: &str = "550e8400-e29b-41d4-a716-446655440000";
+    const TEST_ORG_ID: &str = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8";
 
     fn generate_test_cipher_create_request() -> CipherCreateRequest {
         CipherCreateRequest {
@@ -305,17 +341,19 @@ mod tests {
             favorite: Default::default(),
             reprompt: Default::default(),
             fields: Default::default(),
+            collection_ids: vec![],
         }
     }
 
     #[tokio::test]
     async fn test_create_cipher() {
         let store: KeyStore<KeyIds> = KeyStore::default();
-        #[allow(deprecated)]
-        let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-        );
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+                .unwrap();
+        }
 
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
 
@@ -411,11 +449,12 @@ mod tests {
     #[tokio::test]
     async fn test_create_cipher_http_error() {
         let store: KeyStore<KeyIds> = KeyStore::default();
-        #[allow(deprecated)]
-        let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-        );
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+                .unwrap();
+        }
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.ciphers_api.expect_post().returning(move |_body| {
@@ -440,5 +479,84 @@ mod tests {
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), CreateCipherError::Api(_)));
+    }
+
+    #[tokio::test]
+    async fn test_create_org_cipher() {
+        let api_client = ApiClient::new_mocked(move |mock| {
+            mock.ciphers_api
+                .expect_post_create()
+                .returning(move |body| {
+                    let request_body = body.unwrap();
+
+                    Ok(CipherResponseModel {
+                        id: Some(TEST_CIPHER_ID.try_into().unwrap()),
+                        organization_id: request_body
+                            .cipher
+                            .organization_id
+                            .and_then(|id| id.parse().ok()),
+                        name: Some(request_body.cipher.name.clone()),
+                        r#type: request_body.cipher.r#type,
+                        creation_date: Some(Utc::now().to_string()),
+                        revision_date: Some(Utc::now().to_string()),
+                        ..Default::default()
+                    })
+                })
+                .once();
+        });
+
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(
+                local_key_id,
+                SymmetricKeyId::Organization(TEST_ORG_ID.parse().unwrap()),
+            )
+            .unwrap();
+        }
+        let repository = MemoryRepository::<Cipher>::default();
+        let request = CipherCreateRequest {
+            organization_id: Some(TEST_ORG_ID.parse().unwrap()),
+            collection_ids: vec![TEST_COLLECTION_ID.parse().unwrap()],
+            folder_id: None,
+            name: "Test Cipher".into(),
+            notes: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            r#type: CipherViewType::Login(LoginView {
+                username: None,
+                password: None,
+                password_revision_date: None,
+                uris: None,
+                totp: None,
+                autofill_on_page_load: None,
+                fido2_credentials: None,
+            }),
+            fields: vec![],
+        };
+
+        let response = create_cipher(
+            &store,
+            &api_client,
+            &repository,
+            TEST_USER_ID.parse().unwrap(),
+            request.into(),
+        )
+        .await
+        .unwrap();
+
+        let cipher: Cipher = repository
+            .get(TEST_CIPHER_ID.to_string())
+            .await
+            .unwrap()
+            .unwrap();
+        let cipher_view: CipherView = store.decrypt(&cipher).unwrap();
+
+        assert_eq!(response.id, cipher_view.id);
+        assert_eq!(response.organization_id, cipher_view.organization_id);
+
+        assert_eq!(response.id, Some(TEST_CIPHER_ID.parse().unwrap()));
+        assert_eq!(response.organization_id, Some(TEST_ORG_ID.parse().unwrap()));
     }
 }

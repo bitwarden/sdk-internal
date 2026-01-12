@@ -21,7 +21,7 @@ uniffi = [
     "argon2/parallel",
     "bitwarden-encoding/uniffi",
     "dep:bitwarden-uniffi-error",
-    "dep:uniffi"
+    "dep:uniffi",
 ] # Uniffi bindings
 wasm = ["dep:tsify", "dep:wasm-bindgen"] # WASM support
 
@@ -37,7 +37,7 @@ bitwarden-uniffi-error = { workspace = true, optional = true }
 cbc = { version = ">=0.1.2, <0.2", features = ["alloc", "zeroize"] }
 chacha20poly1305 = { version = "0.10.1" }
 ciborium = { version = ">=0.2.2, <0.3" }
-coset = { version = ">=0.3.8, <0.4" }
+coset = { version = ">=0.3.8, <0.5" }
 ed25519-dalek = { workspace = true, features = ["rand_core"] }
 generic-array = { version = ">=0.14.7, <1.0", features = ["zeroize"] }
 hkdf = ">=0.12.3, <0.13"
@@ -45,20 +45,20 @@ hmac = ">=0.12.1, <0.13"
 num-bigint = ">=0.4, <0.5"
 num-traits = ">=0.2.15, <0.3"
 pbkdf2 = { version = ">=0.12.1, <0.13", default-features = false }
-rand = ">=0.8.5, <0.9"
+rand = { workspace = true }
 rand_chacha = ">=0.3.1, <0.4.0"
 rayon = ">=1.8.1, <2.0"
-rsa = ">=0.9.2, <0.10"
+rsa = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde_bytes = { workspace = true }
 serde_repr.workspace = true
-sha1 = ">=0.10.5, <0.11"
+sha1 = { workspace = true }
 sha2 = ">=0.10.6, <0.11"
 sha3 = "0.10.8"
 subtle = { workspace = true }
 thiserror = { workspace = true }
-tracing = "0.1.44"
+tracing = { workspace = true }
 tsify = { workspace = true, optional = true }
 typenum = ">=1.18.0, <1.19.0"
 uniffi = { workspace = true, optional = true }

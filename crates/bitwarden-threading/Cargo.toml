@@ -1,5 +1,8 @@
 [package]
 name = "bitwarden-threading"
+description = """
+Internal crate for the bitwarden crate. Do not use.
+"""
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -17,17 +20,17 @@ wasm = [
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
     "dep:js-sys",
-    "dep:gloo-timers"
+    "dep:gloo-timers",
 ]
 
 [dependencies]
 bitwarden-error = { workspace = true }
 js-sys = { workspace = true, optional = true }
-log = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 tokio = { features = ["sync", "time", "rt"], workspace = true }
 tokio-util = { version = "0.7.15" }
+tracing = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 
 [target.'cfg(target_arch="wasm32")'.dependencies]

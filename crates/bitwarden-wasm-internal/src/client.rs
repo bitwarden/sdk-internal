@@ -3,7 +3,7 @@ use std::{fmt::Display, sync::Arc};
 
 use bitwarden_core::ClientSettings;
 use bitwarden_error::bitwarden_error;
-use bitwarden_pm::{PasswordManagerClient, clients::*};
+use bitwarden_pm::{PasswordManagerClient as InnerPasswordManagerClient, clients::*};
 use wasm_bindgen::prelude::*;
 
 use crate::platform::{
@@ -11,17 +11,25 @@ use crate::platform::{
     token_provider::{JsTokenProvider, WasmClientManagedTokens},
 };
 
+#[wasm_bindgen(typescript_custom_section)]
+const TOKEN_CUSTOM_TS_TYPE: &'static str = r#"
+/**
+ * @deprecated Use PasswordManagerClient instead
+ */
+export type BitwardenClient = PasswordManagerClient;
+"#;
+
 /// The main entry point for the Bitwarden SDK in WebAssembly environments
 #[wasm_bindgen]
-pub struct BitwardenClient(pub(crate) PasswordManagerClient);
+pub struct PasswordManagerClient(pub(crate) InnerPasswordManagerClient);
 
 #[wasm_bindgen]
-impl BitwardenClient {
+impl PasswordManagerClient {
     /// Initialize a new instance of the SDK client
     #[wasm_bindgen(constructor)]
     pub fn new(token_provider: JsTokenProvider, settings: Option<ClientSettings>) -> Self {
         let tokens = Arc::new(WasmClientManagedTokens::new(token_provider));
-        Self(PasswordManagerClient::new_with_client_tokens(
+        Self(InnerPasswordManagerClient::new_with_client_tokens(
             settings, tokens,
         ))
     }

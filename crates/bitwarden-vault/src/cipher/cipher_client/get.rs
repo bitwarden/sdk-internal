@@ -3,6 +3,8 @@ use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::CiphersClient;
 use crate::{Cipher, CipherView, ItemNotFoundError, cipher::cipher::DecryptCipherListResult};
@@ -16,7 +18,7 @@ pub enum GetCipherError {
     #[error(transparent)]
     Crypto(#[from] CryptoError),
     #[error(transparent)]
-    RepositoryError(#[from] RepositoryError),
+    Repository(#[from] RepositoryError),
 }
 
 async fn get_cipher(
@@ -44,6 +46,7 @@ async fn list_ciphers(
     })
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     /// Get all ciphers from state and decrypt them, returning both successes and failures.
     /// This method will not fail when some ciphers fail to decrypt, allowing for graceful

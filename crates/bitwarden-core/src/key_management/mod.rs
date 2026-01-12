@@ -13,6 +13,8 @@
 use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, key_ids};
 
 #[cfg(feature = "internal")]
+pub mod account_cryptographic_state;
+#[cfg(feature = "internal")]
 pub mod crypto;
 #[cfg(feature = "internal")]
 mod crypto_client;
@@ -24,7 +26,7 @@ mod master_password;
 #[cfg(feature = "internal")]
 pub use master_password::MasterPasswordError;
 #[cfg(feature = "internal")]
-pub(crate) use master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData};
+pub use master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData};
 #[cfg(feature = "internal")]
 mod security_state;
 #[cfg(feature = "internal")]

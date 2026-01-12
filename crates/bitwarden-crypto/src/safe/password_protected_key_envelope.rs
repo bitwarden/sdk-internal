@@ -26,7 +26,7 @@ use thiserror::Error;
 use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
-    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KeyIds,
+    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, EncodedSymmetricKey, KeyIds,
     KeyStoreContext, SymmetricCryptoKey,
     cose::{
         ALG_ARGON2ID13, ARGON2_ITERATIONS, ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
@@ -185,9 +185,11 @@ impl PasswordProtectedKeyEnvelope {
 
         let key_bytes = self
             .cose_encrypt
-            .decrypt(&[], |data, aad| {
-                xchacha20::decrypt_xchacha20_poly1305(&nonce, &envelope_key, data, aad)
-            })
+            .decrypt_ciphertext(
+                &[],
+                || CryptoError::MissingField("ciphertext"),
+                |data, aad| xchacha20::decrypt_xchacha20_poly1305(&nonce, &envelope_key, data, aad),
+            )
             // If decryption fails, the envelope-key is incorrect and thus the password is incorrect
             // since the KDF parameters & salt are guaranteed to be correct
             .map_err(|_| PasswordProtectedKeyEnvelopeError::WrongPassword)?;
@@ -465,10 +467,7 @@ impl FromWasmAbi for PasswordProtectedKeyEnvelope {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        KeyStore,
-        traits::tests::{TestIds, TestSymmKey},
-    };
+    use crate::{KeyStore, SymmetricKeyAlgorithm, traits::tests::TestIds};
 
     const TEST_UNSEALED_COSEKEY_ENCODED: &[u8] = &[
         165, 1, 4, 2, 80, 63, 208, 189, 183, 204, 37, 72, 170, 179, 236, 190, 208, 22, 65, 227,
@@ -553,7 +552,7 @@ mod tests {
     fn test_make_envelope() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
-        let test_key = ctx.make_cose_symmetric_key(TestSymmKey::A(0)).unwrap();
+        let test_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         let password = "test_password";
 
@@ -637,7 +636,7 @@ mod tests {
     fn test_wrong_password() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
-        let test_key = ctx.make_cose_symmetric_key(TestSymmKey::A(0)).unwrap();
+        let test_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         let password = "test_password";
         let wrong_password = "wrong_password";

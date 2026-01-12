@@ -19,15 +19,16 @@ uniffi = [
     "bitwarden-collections/uniffi",
     "bitwarden-core/uniffi",
     "bitwarden-crypto/uniffi",
-    "dep:uniffi"
+    "dep:uniffi",
 ] # Uniffi bindings
 wasm = [
     "bitwarden-collections/wasm",
     "bitwarden-core/wasm",
     "bitwarden-encoding/wasm",
+    "bitwarden-state/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
-    "dep:wasm-bindgen-futures"
+    "dep:wasm-bindgen-futures",
 ] # WASM support
 
 [dependencies]
@@ -52,6 +53,7 @@ sha1 = ">=0.10.5, <0.11"
 sha2 = ">=0.10.6, <0.11"
 subtle = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }

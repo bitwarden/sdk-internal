@@ -78,10 +78,15 @@ pub(crate) fn generate_user_fingerprint(
 mod tests {
     use std::num::NonZeroU32;
 
-    use bitwarden_crypto::{Kdf, MasterKey};
+    use bitwarden_crypto::Kdf;
 
     use super::*;
-    use crate::{Client, client::internal::UserKeyState};
+    use crate::{
+        Client,
+        key_management::{
+            MasterPasswordUnlockData, account_cryptographic_state::WrappedAccountCryptographicState,
+        },
+    };
 
     #[test]
     fn test_generate_user_fingerprint() {
@@ -91,24 +96,19 @@ mod tests {
 
         let client = Client::new(None);
 
-        let master_key = MasterKey::derive(
-            "asdfasdfasdf",
-            "robb@stark.com",
-            &Kdf::PBKDF2 {
-                iterations: NonZeroU32::new(600_000).unwrap(),
-            },
-        )
-        .unwrap();
-
         client
             .internal
-            .initialize_user_crypto_master_key(
-                master_key,
-                user_key.parse().unwrap(),
-                UserKeyState {
+            .initialize_user_crypto_master_password_unlock(
+                "asdfasdfasdf".to_string(),
+                MasterPasswordUnlockData {
+                    kdf: Kdf::PBKDF2 {
+                        iterations: NonZeroU32::new(600_000).unwrap(),
+                    },
+                    master_key_wrapped_user_key: user_key.parse().unwrap(),
+                    salt: "robb@stark.com".to_string(),
+                },
+                WrappedAccountCryptographicState::V1 {
                     private_key: private_key.parse().unwrap(),
-                    signing_key: None,
-                    security_state: None,
                 },
             )
             .unwrap();

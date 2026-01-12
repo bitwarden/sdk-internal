@@ -17,7 +17,7 @@ keywords.workspace = true
 [features]
 internal = ["dep:zxcvbn"]
 no-memory-hardening = [
-    "bitwarden-crypto/no-memory-hardening"
+    "bitwarden-crypto/no-memory-hardening",
 ] # Disable memory hardening features
 secrets = [] # Secrets manager API
 uniffi = [
@@ -25,21 +25,23 @@ uniffi = [
     "bitwarden-crypto/uniffi",
     "bitwarden-encoding/uniffi",
     "dep:bitwarden-uniffi-error",
-    "dep:uniffi"
+    "dep:uniffi",
 ] # Uniffi bindings
 wasm = [
     "bitwarden-crypto/wasm",
     "bitwarden-encoding/wasm",
     "bitwarden-error/wasm",
+    "bitwarden-state/wasm",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
-    "dep:tsify"
+    "dep:tsify",
 ] # WASM support
 
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-api-api = { workspace = true }
 bitwarden-api-identity = { workspace = true }
+bitwarden-api-key-connector = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
@@ -49,7 +51,6 @@ bitwarden-uuid = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
 # We don't use this directly (it's used by rand), but we need it here to enable WASM support
 getrandom = { version = ">=0.2.9, <0.3", features = ["js"] }
-log = { workspace = true }
 rand = ">=0.8.5, <0.9"
 reqwest = { workspace = true }
 schemars = { workspace = true }
@@ -59,6 +60,7 @@ serde_json = { workspace = true }
 serde_qs = { workspace = true }
 serde_repr = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true, features = ["tokio"] }
 uuid = { workspace = true }

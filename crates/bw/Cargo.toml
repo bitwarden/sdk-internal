@@ -16,7 +16,7 @@ license-file.workspace = true
 
 [dependencies]
 base64 = ">=0.22.1, <0.23"
-bat = { version = "0.25.0", features = [
+bat = { version = "0.26.0", features = [
     "regex-fancy",
 ], default-features = false }
 bitwarden-api-api = { workspace = true }
@@ -29,15 +29,15 @@ bitwarden-vault = { workspace = true }
 clap = { version = "4.5.4", features = ["derive", "env"] }
 clap_complete = "4.5.55"
 color-eyre = "0.6.3"
-env_logger = "0.11.1"
 erased-serde = "0.4.6"
 inquire = "0.9.1"
-log = "0.4.20"
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = "0.9.33"
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
 bitwarden-crypto = { workspace = true }

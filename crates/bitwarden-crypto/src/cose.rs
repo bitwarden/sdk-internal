@@ -9,6 +9,7 @@ use coset::{
 };
 use generic_array::GenericArray;
 use thiserror::Error;
+use tracing::instrument;
 use typenum::U32;
 
 use crate::{
@@ -111,17 +112,21 @@ pub(crate) fn decrypt_xchacha20_poly1305(
         return Err(CryptoError::WrongCoseKeyId);
     }
 
-    let decrypted_message = msg.decrypt(&[], |data, aad| {
-        let nonce = msg.unprotected.iv.as_slice();
-        crate::xchacha20::decrypt_xchacha20_poly1305(
-            nonce
-                .try_into()
-                .map_err(|_| CryptoError::InvalidNonceLength)?,
-            &(*key.enc_key).into(),
-            data,
-            aad,
-        )
-    })?;
+    let decrypted_message = msg.decrypt_ciphertext(
+        &[],
+        || CryptoError::MissingField("ciphertext"),
+        |data, aad| {
+            let nonce = msg.unprotected.iv.as_slice();
+            crate::xchacha20::decrypt_xchacha20_poly1305(
+                nonce
+                    .try_into()
+                    .map_err(|_| CryptoError::InvalidNonceLength)?,
+                &(*key.enc_key).into(),
+                data,
+                aad,
+            )
+        },
+    )?;
 
     if should_pad_content(&content_format) {
         // Unpad the data to get the original plaintext
@@ -137,6 +142,7 @@ const SYMMETRIC_KEY: Label = Label::Int(iana::SymmetricKeyParameter::K as i64);
 impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
     type Error = CryptoError;
 
+    #[instrument(err, skip_all)]
     fn try_from(cose_key: &coset::CoseKey) -> Result<Self, Self::Error> {
         let key_bytes = cose_key
             .params

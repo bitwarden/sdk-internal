@@ -1,7 +1,9 @@
 use std::num::NonZeroU32;
 
 use bitwarden_api_api::models::{
-    KdfType, master_password_unlock_response_model::MasterPasswordUnlockResponseModel,
+    KdfRequestModel, KdfType, MasterPasswordAuthenticationDataRequestModel,
+    MasterPasswordUnlockDataRequestModel,
+    master_password_unlock_response_model::MasterPasswordUnlockResponseModel,
 };
 use bitwarden_crypto::{EncString, Kdf, MasterKey, SymmetricCryptoKey};
 use bitwarden_encoding::B64;
@@ -101,6 +103,16 @@ impl TryFrom<&MasterPasswordUnlockResponseModel> for MasterPasswordUnlockData {
     }
 }
 
+impl From<&MasterPasswordUnlockData> for MasterPasswordUnlockDataRequestModel {
+    fn from(data: &MasterPasswordUnlockData) -> Self {
+        Self {
+            kdf: Box::new(kdf_to_kdf_request_model(&data.kdf)),
+            master_key_wrapped_user_key: Some(data.master_key_wrapped_user_key.to_string()),
+            salt: Some(data.salt.to_owned()),
+        }
+    }
+}
+
 fn kdf_parse_nonzero_u32(value: impl TryInto<u32>) -> Result<NonZeroU32, MasterPasswordError> {
     value
         .try_into()
@@ -143,6 +155,39 @@ impl MasterPasswordAuthenticationData {
             salt: salt.to_owned(),
             master_password_authentication_hash: hash,
         })
+    }
+}
+
+impl From<&MasterPasswordAuthenticationData> for MasterPasswordAuthenticationDataRequestModel {
+    fn from(data: &MasterPasswordAuthenticationData) -> Self {
+        Self {
+            kdf: Box::new(kdf_to_kdf_request_model(&data.kdf)),
+            master_password_authentication_hash: Some(
+                data.master_password_authentication_hash.to_string(),
+            ),
+            salt: Some(data.salt.to_owned()),
+        }
+    }
+}
+
+fn kdf_to_kdf_request_model(kdf: &Kdf) -> KdfRequestModel {
+    match kdf {
+        Kdf::PBKDF2 { iterations } => KdfRequestModel {
+            kdf_type: KdfType::PBKDF2_SHA256,
+            iterations: iterations.get() as i32,
+            memory: None,
+            parallelism: None,
+        },
+        Kdf::Argon2id {
+            iterations,
+            memory,
+            parallelism,
+        } => KdfRequestModel {
+            kdf_type: KdfType::Argon2id,
+            iterations: iterations.get() as i32,
+            memory: Some(memory.get() as i32),
+            parallelism: Some(parallelism.get() as i32),
+        },
     }
 }
 
