@@ -86,8 +86,8 @@ fn prompt_organization_to_verify_fingerprint(_member: &UserIdentity) -> bool {
     return true;
 }
 
-/// Step 2: User accepts the invite by signing an identity claim and receiving a membership agreement
-/// NOTE: REQUIRES OUT-OF-BAND VERIFICATION OF THE ORGANIZATION'S IDENTITY FINGERPRINT
+/// Step 2: User accepts the invite by signing an identity claim and receiving a membership
+/// agreement NOTE: REQUIRES OUT-OF-BAND VERIFICATION OF THE ORGANIZATION'S IDENTITY FINGERPRINT
 fn user_accepts_invite(
     org: &OrganizationIdentity,
     member: &UserIdentity,

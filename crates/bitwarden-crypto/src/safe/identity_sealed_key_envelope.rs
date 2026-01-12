@@ -49,8 +49,10 @@ pub struct IdentitySealedKeyEnvelope {
     cose_sign1: coset::CoseSign1,
 }
 
-/// Errors that can occur during identity sealed key envelope operations. This is internal only. The publicly exposed API surface does not expose these errors directly,
-/// as consumers cannot handle them in a meaningful way. Instead, these are meant for adding debug information via the instrument macro.
+/// Errors that can occur during identity sealed key envelope operations. This is internal only. The
+/// publicly exposed API surface does not expose these errors directly, as consumers cannot handle
+/// them in a meaningful way. Instead, these are meant for adding debug information via the
+/// instrument macro.
 #[derive(Debug, Error)]
 #[bitwarden_error(flat)]
 pub enum IdentitySealedKeyEnvelopeError {
@@ -96,7 +98,8 @@ impl IdentitySealedKeyEnvelope {
         let recipient_verifying_key_fingerprint = recipient_verifying_key.fingerprint();
         let sender_verifying_key_fingerprint = sender_signing_key.to_verifying_key().fingerprint();
 
-        // Get the recipients raw public key. To unwrap a signed public key, the corresponding verifying key is required.
+        // Get the recipients raw public key. To unwrap a signed public key, the corresponding
+        // verifying key is required.
         let recipient_public_key = recipient_public_key
             .to_owned()
             .verify_and_unwrap(recipient_verifying_key)
@@ -209,8 +212,9 @@ impl IdentitySealedKeyEnvelope {
     }
 
     /// Unseals the envelope and extracts the shared symmetric key.
-    /// To unseal correctly, this requires the sender's verifying key, the recipient's verifying key to match the key pairs used during sealing, and the
-    /// private key to be the private key corresponding to the signed public key used during sealing.
+    /// To unseal correctly, this requires the sender's verifying key, the recipient's verifying key
+    /// to match the key pairs used during sealing, and the private key to be the private key
+    /// corresponding to the signed public key used during sealing.
     #[instrument(level = "error", skip_all, err)]
     #[allow(unused)]
     pub fn unseal_ref(
@@ -219,12 +223,14 @@ impl IdentitySealedKeyEnvelope {
         recipient_verifying_key: &VerifyingKey,
         recipient_private_key: &AsymmetricCryptoKey,
     ) -> Result<SymmetricCryptoKey, IdentitySealedKeyEnvelopeError> {
-        // Cryptographic Safety: To unseal the envelope, while guaranteeing the security properties, the following must be verified:
+        // Cryptographic Safety: To unseal the envelope, while guaranteeing the security properties,
+        // the following must be verified:
         // 1. The signature namespace must be IdentitySealedKeyEnvelope
-        // 2. The protected header of the contained COSE Encrypt structure must contain:
-        //    a. The sender fingerprint matching the sender verifying key
-        //    b. The recipient fingerprint matching the recipient verifying key
-        // 3. The correct algorithm must be used for the CEK, the recipient ciphertext, and the signature
+        // 2. The protected header of the contained COSE Encrypt structure must contain: a. The
+        //    sender fingerprint matching the sender verifying key b. The recipient fingerprint
+        //    matching the recipient verifying key
+        // 3. The correct algorithm must be used for the CEK, the recipient ciphertext, and the
+        //    signature
 
         // 1. Verify the namespace in the signature
         let namespace = crate::signing::namespace(&self.cose_sign1.protected)
@@ -236,9 +242,12 @@ impl IdentitySealedKeyEnvelope {
             .verify_signature(&[], |sig, data| sender_verifying_key.verify_raw(sig, data))
             .map_err(|_| IdentitySealedKeyEnvelopeError::SignatureVerificationFailed)?;
 
-        // The signature is verified. This means the outer message is verified to have come from the sender (Sender authentication). However, the same cannot be claimed
-        // for the contents of the contained COSE Encrypt message could have been stripped and relayed by the sender. To prove that the sender knows and sent the contents of
-        // the COSE Encrypt message, authenticate the protected header containing the sender fingerprint, and the recipient fingerprint.
+        // The signature is verified. This means the outer message is verified to have come from the
+        // sender (Sender authentication). However, the same cannot be claimed
+        // for the contents of the contained COSE Encrypt message could have been stripped and
+        // relayed by the sender. To prove that the sender knows and sent the contents of
+        // the COSE Encrypt message, authenticate the protected header containing the sender
+        // fingerprint, and the recipient fingerprint.
         let cose_encrypt_bytes = self
             .cose_sign1
             .payload
