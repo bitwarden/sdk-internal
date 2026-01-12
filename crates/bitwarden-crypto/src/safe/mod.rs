@@ -8,3 +8,5 @@ mod data_envelope_namespace;
 pub use data_envelope_namespace::DataEnvelopeNamespace;
 mod identity_sealed_key_envelope;
 pub use identity_sealed_key_envelope::*;
+mod idenity;
+pub use idenity::*;
