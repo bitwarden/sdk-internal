@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bitwarden_state::{
     DatabaseConfiguration,
-    registry::{RepositoryNotFoundError, StateRegistryError},
+    registry::StateRegistryError,
     repository::{Repository, RepositoryItem, RepositoryMigrations},
 };
 
@@ -25,13 +25,6 @@ impl StateClient {
             .register_client_managed(store)
     }
 
-    /// Get a client managed state repository for a specific type, if it exists.
-    pub fn get_client_managed<T: RepositoryItem>(
-        &self,
-    ) -> Result<Arc<dyn Repository<T>>, RepositoryNotFoundError> {
-        self.client.internal.repository_map.get_client_managed()
-    }
-
     /// Initialize the database for SDK managed repositories.
     pub async fn initialize_database(
         &self,
@@ -45,12 +38,17 @@ impl StateClient {
             .await
     }
 
-    /// Get a SDK managed state repository for a specific type, if it exists.
-    pub fn get_sdk_managed<
-        T: RepositoryItem + serde::ser::Serialize + serde::de::DeserializeOwned,
-    >(
-        &self,
-    ) -> Result<impl Repository<T>, StateRegistryError> {
-        self.client.internal.repository_map.get_sdk_managed()
+    /// Get a repository with fallback: prefer client-managed, fall back to SDK-managed.
+    ///
+    /// This method first attempts to retrieve a client-managed repository. If not registered,
+    /// it falls back to an SDK-managed repository. Both are returned as `Arc<dyn Repository<T>>`.
+    ///
+    /// # Errors
+    /// Returns `StateRegistryError` when neither repository type is available.
+    pub fn get<T>(&self) -> Result<Arc<dyn Repository<T>>, StateRegistryError>
+    where
+        T: RepositoryItem,
+    {
+        self.client.internal.repository_map.get()
     }
 }
