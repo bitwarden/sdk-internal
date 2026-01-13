@@ -37,7 +37,6 @@ use std::{future::Future, marker::PhantomData, rc::Rc};
 
 use bitwarden_state::repository::{Repository, RepositoryError, RepositoryItem};
 use bitwarden_threading::ThreadBoundRunner;
-use serde::{Serialize, de::DeserializeOwned};
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
 /// This trait defines the methods that a [::wasm_bindgen] repository must implement.
@@ -65,7 +64,7 @@ impl<T, R: WasmRepository<T> + 'static> WasmRepositoryChannel<T, R> {
 }
 
 #[async_trait::async_trait]
-impl<T: RepositoryItem + Serialize + DeserializeOwned, R: WasmRepository<T> + 'static> Repository<T>
+impl<T: RepositoryItem, R: WasmRepository<T> + 'static> Repository<T>
     for WasmRepositoryChannel<T, R>
 {
     async fn get(&self, id: String) -> Result<Option<T>, RepositoryError> {

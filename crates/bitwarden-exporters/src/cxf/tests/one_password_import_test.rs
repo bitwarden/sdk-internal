@@ -55,7 +55,15 @@ mod tests {
                     })),
                     favorite: false,
                     reprompt: 0,
-                    fields: vec![],
+                    fields: vec![
+                        Field { name: Some("initial".to_string()), value: Some("JD".to_string()), r#type: 0, linked_id: None },
+                        Field { name: Some("gender".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
+                        Field { name: Some("birth date".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
+                        Field { name: Some("occupation".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
+                        Field { name: Some("company".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
+                        Field { name: Some("department".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
+                        Field { name: Some("job title".to_string()), value: Some("Dr.".to_string()), r#type: 0, linked_id: None }
+                    ],
                     revision_date: "2056-09-03T20:11:08Z".parse().unwrap(),
                     creation_date: "2056-09-03T20:11:08Z".parse().unwrap(),
                     deleted_date: None,
@@ -93,28 +101,6 @@ mod tests {
                 },
                 ImportingCipher {
                     folder_id: None,
-                    name: "John doe".to_string(),
-                    notes: None,
-                    r#type: CipherType::SecureNote(Box::new(SecureNote {
-                        r#type: SecureNoteType::Generic
-                    })),
-                    favorite: false,
-                    reprompt: 0,
-                    fields: vec![
-                        Field { name: Some("initial".to_string()), value: Some("JD".to_string()), r#type: 0, linked_id: None },
-                        Field { name: Some("gender".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
-                        Field { name: Some("birth date".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
-                        Field { name: Some("occupation".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
-                        Field { name: Some("company".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
-                        Field { name: Some("department".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
-                        Field { name: Some("job title".to_string()), value: Some("Dr.".to_string()), r#type: 0, linked_id: None }
-                    ],
-                    revision_date: "2056-09-03T20:11:08Z".parse().unwrap(),
-                    creation_date: "2056-09-03T20:11:08Z".parse().unwrap(),
-                    deleted_date: None,
-                },
-                ImportingCipher {
-                    folder_id: None,
                     name: "Facebook".to_string(),
                     notes: None,
                     r#type: CipherType::Login(Box::new(Login {
@@ -123,20 +109,6 @@ mod tests {
                         login_uris: vec![LoginUri { uri: Some("https://facebook.com".to_string()), r#match: None }],
                         totp: None,
                         fido2_credentials: None
-                    })),
-                    favorite: false,
-                    reprompt: 0,
-                    fields: vec![],
-                    revision_date: "2056-09-03T20:02:09Z".parse().unwrap(),
-                    creation_date: "2056-09-03T19:58:21Z".parse().unwrap(),
-                    deleted_date: None,
-                },
-                ImportingCipher {
-                    folder_id: None,
-                    name: "Facebook".to_string(),
-                    notes: None,
-                    r#type: CipherType::SecureNote(Box::new(SecureNote {
-                        r#type: SecureNoteType::Generic
                     })),
                     favorite: false,
                     reprompt: 0,
@@ -176,7 +148,15 @@ mod tests {
                     })),
                     favorite: false,
                     reprompt: 0,
-                    fields: vec![],
+                    fields: vec![
+                        Field { name: Some("initial".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
+                        Field { name: Some("gender".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
+                        Field { name: Some("birth date".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
+                        Field { name: Some("occupation".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
+                        Field { name: Some("company".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
+                        Field { name: Some("department".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
+                        Field { name: Some("job title".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None }
+                    ],
                     revision_date: "2056-09-03T20:11:20Z".parse().unwrap(),
                     creation_date: "2056-09-03T20:09:29Z".parse().unwrap(),
                     deleted_date: None,
@@ -208,28 +188,6 @@ mod tests {
                     favorite: false,
                     reprompt: 0,
                     fields: vec![],
-                    revision_date: "2056-09-03T20:11:20Z".parse().unwrap(),
-                    creation_date: "2056-09-03T20:09:29Z".parse().unwrap(),
-                    deleted_date: None,
-                },
-                ImportingCipher {
-                    folder_id: None,
-                    name: "Address".to_string(),
-                    notes: None,
-                    r#type: CipherType::SecureNote(Box::new(SecureNote {
-                        r#type: SecureNoteType::Generic
-                    })),
-                    favorite: false,
-                    reprompt: 0,
-                    fields: vec![
-                        Field { name: Some("initial".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
-                        Field { name: Some("gender".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
-                        Field { name: Some("birth date".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
-                        Field { name: Some("occupation".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
-                        Field { name: Some("company".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
-                        Field { name: Some("department".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
-                        Field { name: Some("job title".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None }
-                    ],
                     revision_date: "2056-09-03T20:11:20Z".parse().unwrap(),
                     creation_date: "2056-09-03T20:09:29Z".parse().unwrap(),
                     deleted_date: None,
@@ -268,7 +226,7 @@ mod tests {
                 ImportingCipher {
                     folder_id: None,
                     name: "Home Wifi".to_string(),
-                    notes: None,
+                    notes: Some("My notes heigfkfdkkcmdwkkfkckekfkjf".to_string()),
                     r#type: CipherType::SecureNote(Box::new(SecureNote {
                         r#type: SecureNoteType::Generic
                     })),
@@ -277,22 +235,7 @@ mod tests {
                     fields: vec![
                         Field { name: Some("SSID".to_string()), value: Some("Home_Network".to_string()), r#type: 0, linked_id: None },
                         Field { name: Some("Passphrase".to_string()), value: Some("mypassword123".to_string()), r#type: 1, linked_id: None },
-                        Field { name: Some("Network Security Type".to_string()), value: Some("WPA2 Personal".to_string()), r#type: 0, linked_id: None }
-                    ],
-                    revision_date: "2056-09-03T20:04:46Z".parse().unwrap(),
-                    creation_date: "2056-09-03T20:04:46Z".parse().unwrap(),
-                    deleted_date: None,
-                },
-                ImportingCipher {
-                    folder_id: None,
-                    name: "Home Wifi".to_string(),
-                    notes: None,
-                    r#type: CipherType::SecureNote(Box::new(SecureNote {
-                        r#type: SecureNoteType::Generic
-                    })),
-                    favorite: false,
-                    reprompt: 0,
-                    fields: vec![
+                        Field { name: Some("Network Security Type".to_string()), value: Some("WPA2 Personal".to_string()), r#type: 0, linked_id: None },
                         Field { name: Some("base station name".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
                         Field { name: Some("base station password".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
                         Field { name: Some("server / IP address".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
@@ -317,21 +260,8 @@ mod tests {
                     })),
                     favorite: false,
                     reprompt: 0,
-                    fields: vec![Field { name: Some("Valid From".to_string()), value: Some("2024-02".to_string()), r#type: 0, linked_id: None }],
-                    revision_date: "2056-09-03T20:03:40Z".parse().unwrap(),
-                    creation_date: "2056-09-03T20:03:40Z".parse().unwrap(),
-                    deleted_date: None,
-                },
-                ImportingCipher {
-                    folder_id: None,
-                    name: "Personal Credit Card".to_string(),
-                    notes: None,
-                    r#type: CipherType::SecureNote(Box::new(SecureNote {
-                        r#type: SecureNoteType::Generic
-                    })),
-                    favorite: false,
-                    reprompt: 0,
                     fields: vec![
+                        Field { name: Some("Valid From".to_string()), value: Some("2024-02".to_string()), r#type: 0, linked_id: None },
                         Field { name: Some("issuing bank".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
                         Field { name: Some("phone (local)".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
                         Field { name: Some("phone (toll free)".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
@@ -411,22 +341,7 @@ mod tests {
                     reprompt: 0,
                     fields: vec![
                         Field { name: Some("Birth Date".to_string()), value: Some("1990-05-15".to_string()), r#type: 0, linked_id: None },
-                        Field { name: Some("License Class".to_string()), value: Some("C".to_string()), r#type: 0, linked_id: None }
-                    ],
-                    revision_date: "2056-09-03T20:07:51Z".parse().unwrap(),
-                    creation_date: "2056-09-03T20:07:51Z".parse().unwrap(),
-                    deleted_date: None,
-                },
-                ImportingCipher {
-                    folder_id: None,
-                    name: "Driver License".to_string(),
-                    notes: None,
-                    r#type: CipherType::SecureNote(Box::new(SecureNote {
-                        r#type: SecureNoteType::Generic
-                    })),
-                    favorite: false,
-                    reprompt: 0,
-                    fields: vec![
+                        Field { name: Some("License Class".to_string()), value: Some("C".to_string()), r#type: 0, linked_id: None },
                         Field { name: Some("address".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
                         Field { name: Some("gender".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
                         Field { name: Some("height".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
@@ -463,7 +378,15 @@ mod tests {
                     })),
                     favorite: false,
                     reprompt: 0,
-                    fields: vec![],
+                    fields: vec![
+                        Field { name: Some("initial".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
+                        Field { name: Some("gender".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
+                        Field { name: Some("birth date".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
+                        Field { name: Some("occupation".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
+                        Field { name: Some("company".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
+                        Field { name: Some("department".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
+                        Field { name: Some("job title".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None }
+                    ],
                     revision_date: "2056-09-04T14:11:48Z".parse().unwrap(),
                     creation_date: "2056-09-04T14:11:48Z".parse().unwrap(),
                     deleted_date: None,
@@ -495,28 +418,6 @@ mod tests {
                     favorite: false,
                     reprompt: 0,
                     fields: vec![],
-                    revision_date: "2056-09-04T14:11:48Z".parse().unwrap(),
-                    creation_date: "2056-09-04T14:11:48Z".parse().unwrap(),
-                    deleted_date: None,
-                },
-                ImportingCipher {
-                    folder_id: None,
-                    name: "EXPORTER".to_string(),
-                    notes: Some("It’s you! 🖐 Select Edit to fill in more details, like your address and contact information.".to_string()),
-                    r#type: CipherType::SecureNote(Box::new(SecureNote {
-                        r#type: SecureNoteType::Generic
-                    })),
-                    favorite: false,
-                    reprompt: 0,
-                    fields: vec![
-                        Field { name: Some("initial".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
-                        Field { name: Some("gender".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
-                        Field { name: Some("birth date".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
-                        Field { name: Some("occupation".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
-                        Field { name: Some("company".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
-                        Field { name: Some("department".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None },
-                        Field { name: Some("job title".to_string()), value: Some("".to_string()), r#type: 0, linked_id: None }
-                    ],
                     revision_date: "2056-09-04T14:11:48Z".parse().unwrap(),
                     creation_date: "2056-09-04T14:11:48Z".parse().unwrap(),
                     deleted_date: None,

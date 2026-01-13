@@ -16,8 +16,6 @@ pub enum CryptoError {
     Decrypt,
     #[error("The provided key is not the expected type")]
     InvalidKey,
-    #[error("The key provided expects mac protected encstrings, but the mac is missing")]
-    MacNotProvided,
     #[error("Error while decrypting EncString")]
     KeyDecrypt,
     #[error("The cipher key has an invalid length")]
