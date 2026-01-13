@@ -6,6 +6,7 @@ use bitwarden_crypto::SymmetricCryptoKey;
 use bitwarden_crypto::UnsignedSharedKey;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
+use tracing::info;
 #[cfg(feature = "internal")]
 use tracing::instrument;
 
@@ -67,10 +68,12 @@ impl EncryptionSettings {
 
         // FIXME: [PM-11690] - Early abort to handle private key being corrupt
         if org_enc_keys.is_empty() {
+            info!("No organization keys to set");
             return Ok(());
         }
 
         if !ctx.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey) {
+            info!("User private key is missing, cannot set organization keys");
             return Err(MissingPrivateKeyError.into());
         }
 
@@ -78,13 +81,20 @@ impl EncryptionSettings {
         // ones, which might be from organizations that the user is no longer a part of anymore
         ctx.retain_symmetric_keys(|key_ref| !matches!(key_ref, SymmetricKeyId::Organization(_)));
 
+        info!("Decrypting organization keys");
         // Decrypt the org keys with the private key
         for (org_id, org_enc_key) in org_enc_keys {
-            ctx.decapsulate_key_unsigned(
+            let _span =
+                tracing::span!(tracing::Level::INFO, "decapsulate_org_key", org_id = %org_id)
+                    .entered();
+            if let Err(e) = ctx.decapsulate_key_unsigned(
                 AsymmetricKeyId::UserPrivateKey,
                 SymmetricKeyId::Organization(org_id),
                 &org_enc_key,
-            )?;
+            ) {
+                tracing::error!("Failed to decapsulate organization key: {}", e);
+                return Err(e.into());
+            }
         }
 
         Ok(())
