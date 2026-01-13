@@ -7,6 +7,9 @@ use std::marker::PhantomData;
 /// This macro is the primary way to create settings keys. It associates
 /// a string key name with a value type at compile time.
 ///
+/// **Important:** The key name must be globally unique across the entire application.
+/// Using the same key name for different settings will cause conflicts.
+///
 /// # Example
 /// ```rust
 /// use bitwarden_state::register_setting_key;
