@@ -94,6 +94,8 @@ impl EncryptionSettings {
             ) {
                 tracing::error!("Failed to decapsulate organization key: {}", e);
                 return Err(e.into());
+            } else {
+                tracing::info!("Successfully decapsulated organization key");
             }
         }
 
