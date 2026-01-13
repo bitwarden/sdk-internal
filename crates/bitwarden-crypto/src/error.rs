@@ -12,10 +12,10 @@ use crate::fingerprint::FingerprintError;
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
 pub enum CryptoError {
+    #[error("The decryption operation failed")]
+    Decrypt,
     #[error("The provided key is not the expected type")]
     InvalidKey,
-    #[error("The cipher's MAC doesn't match the expected value")]
-    InvalidMac,
     #[error("Error while decrypting EncString")]
     KeyDecrypt,
     #[error("The cipher key has an invalid length")]
