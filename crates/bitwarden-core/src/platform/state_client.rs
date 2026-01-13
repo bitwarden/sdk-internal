@@ -57,7 +57,7 @@ impl StateClient {
     /// Returns a [`Setting`] handle that can be used to get, update, or delete the value.
     ///
     /// # Example
-    /// ```rust,ignore
+    /// ```rust
     /// use bitwarden_state::register_setting_key;
     /// use serde::{Deserialize, Serialize};
     ///
@@ -68,8 +68,11 @@ impl StateClient {
     ///
     /// register_setting_key!(const CONFIG: AppConfig = "app_config");
     ///
+    /// # async fn example(client: bitwarden_core::Client) -> Result<(), bitwarden_state::SettingsError> {
     /// let setting = client.platform().state().setting(CONFIG)?;
     /// let value: Option<AppConfig> = setting.get().await?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn setting<T>(&self, key: Key<T>) -> Result<Setting<T>, SettingsError> {
         let repository = self.client.internal.repository_map.get::<SettingItem>()?;
