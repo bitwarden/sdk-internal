@@ -88,10 +88,14 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
     let note_content = grouped.note.first().map(extract_note_content);
 
     // Helper to add ciphers with consistent boilerplate
-    let mut add_item = |t: CipherType, fields: Vec<Field>| {
+    let mut add_item = |t: CipherType, fields: Vec<Field>, fallback_name: Option<String>| {
+        let name = match fallback_name {
+            Some(fallback) if value.title.trim().is_empty() => fallback,
+            _ => value.title.clone(),
+        };
         output.push(ImportingCipher {
             folder_id: None, // TODO: Handle folders
-            name: value.title.clone(),
+            name,
             notes: note_content.clone(),
             r#type: t,
             favorite: false,
@@ -110,14 +114,24 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
         let totp = grouped.totp.first();
 
         let login = to_login(creation_date, basic_auth, passkey, totp, scope);
-        add_item(CipherType::Login(Box::new(login)), vec![]);
+        add_item(CipherType::Login(Box::new(login)), vec![], None);
     }
 
     // Credit Card credentials
     if let Some(credit_card) = grouped.credit_card.first() {
         let (card, fields) = to_card(credit_card);
 
-        add_item(CipherType::Card(Box::new(card)), fields);
+        // Use cardholder name as fallback if title is empty
+        let fallback_name = card
+            .cardholder_name
+            .clone()
+            .unwrap_or_else(|| "Untitled Card".to_string());
+
+        add_item(
+            CipherType::Card(Box::new(card)),
+            fields,
+            Some(fallback_name),
+        );
     }
 
     // Helper for creating SecureNote cipher type
@@ -130,13 +144,13 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
     // API Key credentials -> Secure Note
     if let Some(api_key) = grouped.api_key.first() {
         let fields = api_key_to_fields(api_key);
-        add_item(secure_note_type(), fields);
+        add_item(secure_note_type(), fields, None);
     }
 
     // WiFi credentials -> Secure Note
     if let Some(wifi) = grouped.wifi.first() {
         let fields = wifi_to_fields(wifi);
-        add_item(secure_note_type(), fields);
+        add_item(secure_note_type(), fields, None);
     }
 
     // Identity credentials (address, passport, person name, drivers license, identity document)
@@ -165,23 +179,47 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
     .into_iter()
     .flatten()
     .for_each(|(identity, custom_fields)| {
-        add_item(CipherType::Identity(Box::new(identity)), custom_fields);
+        add_item(
+            CipherType::Identity(Box::new(identity)),
+            custom_fields,
+            None,
+        );
     });
 
     // SSH Key credentials
     if let Some(ssh) = grouped.ssh.first() {
         match to_ssh(ssh) {
-            Ok((ssh_key, fields)) => add_item(CipherType::SshKey(Box::new(ssh_key)), fields),
+            Ok((ssh_key, fields)) => add_item(CipherType::SshKey(Box::new(ssh_key)), fields, None),
             Err(_) => {
                 // Include information about the failed items, or import as note?
             }
         }
     }
 
-    // CustomFields credentials -> Secure Note
+    // After creating all primary ciphers, add custom fields to the first cipher if present
+    // If no ciphers were created, create a standalone SecureNote with custom fields
     if let Some(custom_fields) = grouped.custom_fields.first() {
-        let fields = custom_fields_to_fields(custom_fields);
-        add_item(secure_note_type(), fields);
+        if let Some(first_cipher) = output.first_mut() {
+            // Append custom fields to the first cipher's fields
+            first_cipher
+                .fields
+                .extend(custom_fields_to_fields(custom_fields));
+        } else {
+            // No ciphers created yet, create standalone custom fields secure note
+            let fields = custom_fields_to_fields(custom_fields);
+            output.push(ImportingCipher {
+                folder_id: None,
+                name: value.title.clone(),
+                notes: note_content.clone(),
+                r#type: secure_note_type(),
+                favorite: false,
+                reprompt: 0,
+                fields,
+                revision_date,
+                creation_date,
+                deleted_date: None,
+            });
+        }
     }
 
     // Standalone Note credentials -> Secure Note (only if no other credentials exist)
@@ -859,6 +897,143 @@ mod tests {
     }
 
     #[test]
+    fn test_credit_card_empty_title_uses_cardholder_name() {
+        let item = Item {
+            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            creation_at: Some(1706613834),
+            modified_at: Some(1706623773),
+            title: "".to_string(), // Empty title
+            subtitle: None,
+            favorite: None,
+            credentials: vec![Credential::CreditCard(Box::new(CreditCardCredential {
+                number: Some("1234 5678 9012 3456".to_string().into()),
+                full_name: Some("Jane Smith".to_string().into()), // Cardholder name
+                card_type: Some("Visa".to_string().into()),
+                verification_number: Some("456".to_string().into()),
+                pin: None,
+                expiry_date: Some(
+                    EditableFieldYearMonth {
+                        year: 2027,
+                        month: Month::March,
+                    }
+                    .into(),
+                ),
+                valid_from: None,
+            }))],
+            tags: None,
+            extensions: None,
+            scope: None,
+        };
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1);
+        let cipher = ciphers.first().unwrap();
+
+        // Should use cardholder name since title is empty
+        assert_eq!(cipher.name, "Jane Smith");
+
+        let card = match &cipher.r#type {
+            CipherType::Card(card) => card,
+            _ => panic!("Expected card"),
+        };
+
+        assert_eq!(card.cardholder_name, Some("Jane Smith".to_string()));
+    }
+
+    #[test]
+    fn test_credit_card_blank_title_uses_cardholder_name() {
+        let item = Item {
+            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            creation_at: Some(1706613834),
+            modified_at: Some(1706623773),
+            title: "   ".to_string(), // Blank/whitespace title
+            subtitle: None,
+            favorite: None,
+            credentials: vec![Credential::CreditCard(Box::new(CreditCardCredential {
+                number: Some("1234 5678 9012 3456".to_string().into()),
+                full_name: Some("John Doe".to_string().into()),
+                card_type: Some("Mastercard".to_string().into()),
+                verification_number: Some("789".to_string().into()),
+                pin: None,
+                expiry_date: None,
+                valid_from: None,
+            }))],
+            tags: None,
+            extensions: None,
+            scope: None,
+        };
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1);
+        let cipher = ciphers.first().unwrap();
+
+        // Should use cardholder name since title is just whitespace
+        assert_eq!(cipher.name, "John Doe");
+    }
+
+    #[test]
+    fn test_credit_card_empty_title_no_cardholder_uses_fallback() {
+        let item = Item {
+            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            creation_at: Some(1706613834),
+            modified_at: Some(1706623773),
+            title: "".to_string(), // Empty title
+            subtitle: None,
+            favorite: None,
+            credentials: vec![Credential::CreditCard(Box::new(CreditCardCredential {
+                number: Some("1234 5678 9012 3456".to_string().into()),
+                full_name: None, // No cardholder name
+                card_type: Some("Visa".to_string().into()),
+                verification_number: Some("123".to_string().into()),
+                pin: None,
+                expiry_date: None,
+                valid_from: None,
+            }))],
+            tags: None,
+            extensions: None,
+            scope: None,
+        };
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1);
+        let cipher = ciphers.first().unwrap();
+
+        // Should use fallback since both title and cardholder name are missing
+        assert_eq!(cipher.name, "Untitled Card");
+    }
+
+    #[test]
+    fn test_credit_card_with_title_ignores_cardholder_name() {
+        let item = Item {
+            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            creation_at: Some(1706613834),
+            modified_at: Some(1706623773),
+            title: "My Business Card".to_string(), // Has title
+            subtitle: None,
+            favorite: None,
+            credentials: vec![Credential::CreditCard(Box::new(CreditCardCredential {
+                number: Some("1234 5678 9012 3456".to_string().into()),
+                full_name: Some("Jane Smith".to_string().into()),
+                card_type: Some("Visa".to_string().into()),
+                verification_number: Some("456".to_string().into()),
+                pin: None,
+                expiry_date: None,
+                valid_from: None,
+            }))],
+            tags: None,
+            extensions: None,
+            scope: None,
+        };
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1);
+        let cipher = ciphers.first().unwrap();
+
+        // Should use title since it exists, not cardholder name
+        assert_eq!(cipher.name, "My Business Card");
+    }
+
+    #[test]
     fn test_note_as_part_of_identity() {
         use credential_exchange_format::{AddressCredential, Credential, Item, NoteCredential};
 
@@ -903,5 +1078,118 @@ mod tests {
             CipherType::Identity(_) => (), // Should be an Identity cipher
             _ => panic!("Expected Identity cipher"),
         };
+    }
+
+    #[test]
+    fn test_wifi_with_note_and_custom_fields() {
+        use bitwarden_vault::FieldType;
+        use credential_exchange_format::{
+            Credential, CustomFieldsCredential, EditableFieldValue,
+            EditableFieldWifiNetworkSecurityType, Item, NoteCredential, WifiCredential,
+        };
+
+        let item = Item {
+            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            creation_at: Some(1706613834),
+            modified_at: Some(1706623773),
+            title: "Wireless Router".to_string(),
+            subtitle: None,
+            favorite: None,
+            credentials: vec![
+                Credential::Wifi(Box::new(WifiCredential {
+                    ssid: Some("networker".to_string().into()),
+                    passphrase: Some("zhc6KLx9CD7Kj2RV9vPF".to_string().into()),
+                    network_security_type: Some(
+                        EditableFieldWifiNetworkSecurityType::Wpa3Personal.into(),
+                    ),
+                    hidden: None,
+                })),
+                Credential::Note(Box::new(NoteCredential {
+                    content: "My notes heigfkfdkkcmdwkkfkckekfkjf".to_string().into(),
+                })),
+                Credential::CustomFields(Box::new(CustomFieldsCredential {
+                    id: None,
+                    label: None,
+                    fields: vec![
+                        EditableFieldValue::String("My Station".to_string().into()),
+                        EditableFieldValue::ConcealedString(
+                            "hf6LW9UMmaxDg4sy6YCv".to_string().into(),
+                        ),
+                        EditableFieldValue::String("1.1.1.3".to_string().into()),
+                        EditableFieldValue::String("".to_string().into()),
+                        EditableFieldValue::ConcealedString(
+                            "kJaFcs7KwETkrmnpiQER".to_string().into(),
+                        ),
+                    ],
+                    extensions: vec![],
+                })),
+            ],
+            tags: None,
+            extensions: None,
+            scope: None,
+        };
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1); // Should create only ONE secure note, not two
+
+        let cipher = ciphers.first().unwrap();
+        assert_eq!(cipher.name, "Wireless Router");
+        assert_eq!(
+            cipher.notes,
+            Some("My notes heigfkfdkkcmdwkkfkckekfkjf".to_string())
+        );
+
+        match &cipher.r#type {
+            CipherType::SecureNote(_) => (), // Should be a SecureNote cipher
+            _ => panic!("Expected SecureNote cipher"),
+        };
+
+        // Should have both WiFi fields AND custom fields merged together
+        assert_eq!(cipher.fields.len(), 8); // 3 WiFi fields + 5 custom fields
+
+        // Verify WiFi fields are present
+        assert!(
+            cipher
+                .fields
+                .iter()
+                .any(|f| f.name.as_deref() == Some("SSID")
+                    && f.value.as_deref() == Some("networker"))
+        );
+        assert!(
+            cipher
+                .fields
+                .iter()
+                .any(|f| f.name.as_deref() == Some("Passphrase")
+                    && f.value.as_deref() == Some("zhc6KLx9CD7Kj2RV9vPF")
+                    && f.r#type == FieldType::Hidden as u8)
+        );
+        assert!(
+            cipher
+                .fields
+                .iter()
+                .any(|f| f.name.as_deref() == Some("Network Security Type")
+                    && f.value.as_deref() == Some("WPA3 Personal"))
+        );
+
+        // Verify custom fields are present
+        assert!(
+            cipher
+                .fields
+                .iter()
+                .any(|f| f.value.as_deref() == Some("My Station"))
+        );
+        assert!(
+            cipher
+                .fields
+                .iter()
+                .any(|f| f.value.as_deref() == Some("hf6LW9UMmaxDg4sy6YCv")
+                    && f.r#type == FieldType::Hidden as u8)
+        );
+        assert!(
+            cipher
+                .fields
+                .iter()
+                .any(|f| f.value.as_deref() == Some("1.1.1.3"))
+        );
     }
 }
