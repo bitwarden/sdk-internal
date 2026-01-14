@@ -40,11 +40,6 @@ pub enum StateRegistryError {
     Database(#[from] crate::sdk_managed::DatabaseError),
 }
 
-/// Repository not found.
-#[derive(Debug, Error)]
-#[error("Repository not found for the requested type")]
-pub struct RepositoryNotFoundError;
-
 impl StateRegistry {
     /// Creates a new empty `StateRegistry`.
     #[allow(clippy::new_without_default)]
@@ -96,20 +91,17 @@ impl StateRegistry {
     }
 
     /// Retrieves a client-managed repository from the map given its type.
-    pub fn get_client_managed<T: RepositoryItem>(
-        &self,
-    ) -> Result<Arc<dyn Repository<T>>, RepositoryNotFoundError> {
+    fn get_client_managed<T: RepositoryItem>(&self) -> Option<Arc<dyn Repository<T>>> {
         self.client_managed
             .read()
             .expect("RwLock should not be poisoned")
             .get(&TypeId::of::<T>())
             .and_then(|boxed| boxed.downcast_ref::<Arc<dyn Repository<T>>>())
             .map(Arc::clone)
-            .ok_or(RepositoryNotFoundError)
     }
 
     /// Retrieves a SDK-managed repository from the database.
-    pub fn get_sdk_managed<T: RepositoryItem>(
+    fn get_sdk_managed<T: RepositoryItem>(
         &self,
     ) -> Result<Arc<dyn Repository<T>>, StateRegistryError> {
         if let Some(db) = self.database.get() {
@@ -135,12 +127,10 @@ impl StateRegistry {
     where
         T: RepositoryItem,
     {
-        // Try client-managed first
-        if let Ok(repo) = self.get_client_managed::<T>() {
+        if let Some(repo) = self.get_client_managed::<T>() {
             return Ok(repo);
         }
 
-        // Fall back to SDK-managed
         self.get_sdk_managed::<T>()
     }
 }
@@ -208,19 +198,19 @@ mod tests {
                 .unwrap()
         }
 
-        assert!(map.get_client_managed::<TestItem<usize>>().is_err());
-        assert!(map.get_client_managed::<TestItem<String>>().is_err());
-        assert!(map.get_client_managed::<TestItem<Vec<u8>>>().is_err());
+        assert!(map.get_client_managed::<TestItem<usize>>().is_none());
+        assert!(map.get_client_managed::<TestItem<String>>().is_none());
+        assert!(map.get_client_managed::<TestItem<Vec<u8>>>().is_none());
 
         map.register_client_managed(a.clone());
         assert_eq!(get(&map).await, Some(TestItem(a.0)));
-        assert!(map.get_client_managed::<TestItem<String>>().is_err());
-        assert!(map.get_client_managed::<TestItem<Vec<u8>>>().is_err());
+        assert!(map.get_client_managed::<TestItem<String>>().is_none());
+        assert!(map.get_client_managed::<TestItem<Vec<u8>>>().is_none());
 
         map.register_client_managed(b.clone());
         assert_eq!(get(&map).await, Some(TestItem(a.0)));
         assert_eq!(get(&map).await, Some(TestItem(b.0.clone())));
-        assert!(map.get_client_managed::<TestItem<Vec<u8>>>().is_err());
+        assert!(map.get_client_managed::<TestItem<Vec<u8>>>().is_none());
 
         map.register_client_managed(c.clone());
         assert_eq!(get(&map).await, Some(TestItem(a.0)));

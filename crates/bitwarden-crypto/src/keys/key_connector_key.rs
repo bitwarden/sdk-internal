@@ -45,7 +45,8 @@ impl KeyConnectorKey {
             // decrypting these old keys.
             EncString::Aes256Cbc_B64 { iv, ref data } => {
                 let legacy_key = Box::pin(GenericArray::clone_from_slice(&self.0));
-                crate::aes::decrypt_aes256(&iv, data.clone(), &legacy_key)?
+                crate::aes::decrypt_aes256(&iv, data.clone(), &legacy_key)
+                    .map_err(|_| CryptoError::Decrypt)?
             }
             EncString::Aes256Cbc_HmacSha256_B64 { .. } => {
                 let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(&self.0)?);
