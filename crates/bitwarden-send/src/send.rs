@@ -105,6 +105,9 @@ pub struct Send {
     pub deletion_date: DateTime<Utc>,
     pub expiration_date: Option<DateTime<Utc>>,
 
+    /// Email addresses for OTP authentication.
+    /// **Note**: Mutually exclusive with `new_password`. If both are set,
+    /// only password authentication will be used.
     pub emails: String,
     pub auth_type: AuthType,
 }
@@ -142,6 +145,9 @@ pub struct SendView {
     pub deletion_date: DateTime<Utc>,
     pub expiration_date: Option<DateTime<Utc>>,
 
+    /// Email addresses for OTP authentication.
+    /// **Note**: Mutually exclusive with `new_password`. If both are set,
+    /// only password authentication will be used.
     pub emails: Vec<String>,
     pub auth_type: AuthType,
 }
