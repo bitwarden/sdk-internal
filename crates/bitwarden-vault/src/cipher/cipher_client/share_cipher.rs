@@ -121,7 +121,7 @@ async fn share_ciphers_bulk(
             archived_date: orig_cipher
                 .as_ref()
                 .map(|c| c.archived_date)
-               .unwrap_or_default(),
+                .unwrap_or_default(),
             edit: orig_cipher.as_ref().map(|c| c.edit).unwrap_or_default(),
             favorite: orig_cipher.as_ref().map(|c| c.favorite).unwrap_or_default(),
             folder_id: orig_cipher
