@@ -249,7 +249,6 @@ mod tests {
                         password_history: body.password_history,
                         attachments: None,
                         data: None,
-                        archived_date: None,
                     })
                 })
                 .once();
