@@ -5,6 +5,7 @@ use std::{
 
 use coset::iana::KeyOperation;
 use serde::Serialize;
+use tracing::instrument;
 use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
@@ -203,6 +204,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
     ///   will be overwritten
     /// * `wrapped_key` - The key to decrypt
+    #[instrument(skip(self, wrapped_key), err)]
     pub fn unwrap_symmetric_key(
         &mut self,
         wrapping_key: Ids::Symmetric,
@@ -240,7 +242,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                     _ => return Err(CryptoError::InvalidKey),
                 }
             }
-            _ => return Err(CryptoError::InvalidKey),
+            _ => {
+                tracing::warn!("Unsupported unwrap operation for the given key and data");
+                return Err(CryptoError::InvalidKey);
+            }
         };
 
         let new_key_id = Ids::Symmetric::new_local(LocalId::new());
@@ -356,6 +361,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ///
     /// # Errors
     /// Returns an error if decryption or parsing fails.
+    #[instrument(skip(self, wrapped_key), err)]
     pub fn unwrap_private_key(
         &mut self,
         wrapping_key: Ids::Symmetric,
@@ -762,6 +768,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(key_id)
     }
 
+    #[instrument(skip(self, data), err)]
     pub(crate) fn decrypt_data_with_symmetric_key(
         &self,
         key: Ids::Symmetric,
@@ -789,7 +796,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 )?;
                 Ok(data)
             }
-            _ => Err(CryptoError::InvalidKey),
+            _ => {
+                tracing::warn!("Unsupported decryption operation for the given key and data");
+                Err(CryptoError::InvalidKey)
+            }
         }
     }
 
