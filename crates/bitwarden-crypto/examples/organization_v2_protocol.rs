@@ -195,7 +195,8 @@ fn user_accepts_invite(
 
 /// Step 3: Member verifies and counter-signs the membership agreement
 /// NOTE: REQUIRES ADMIN TO FIRST CONFIRM THE MEMBERS NAME TO THE FINGERPRINT OUT-OF-BAND
-/// Returns the counter-signature, signed member claim, OtherIdentity for member, and org symmetric key
+/// Returns the counter-signature, signed member claim, OtherIdentity for member, and org symmetric
+/// key
 fn admin_confirms_join(
     member: &UserIdentity,
     org: &OrganizationIdentity,

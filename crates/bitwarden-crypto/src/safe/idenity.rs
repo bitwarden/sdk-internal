@@ -80,8 +80,8 @@ impl TryFrom<(SignedPublicKey, VerifyingKey)> for OtherIdentity {
 
 /// Represents the current user's / organization's cryptographic identity.
 ///
-/// This struct holds a reference to a `KeyStoreContext` which provides access to the user's / organization's
-/// private keys for cryptographic operations such as signing and decryption.
+/// This struct holds a reference to a `KeyStoreContext` which provides access to the user's /
+/// organization's private keys for cryptographic operations such as signing and decryption.
 pub struct SelfIdentity<'a, Ids: KeyIds> {
     /// Reference to the key store context containing the user's private keys.
     ctx: &'a KeyStoreContext<'a, Ids>,

@@ -78,8 +78,8 @@ pub enum UnsealError {
 }
 
 impl IdentitySealedKeyEnvelope {
-    /// Seals a symmetric key to be shared with a recipient. This requires the sender's `SelfIdentity` and
-    /// the recipient's `OtherIdentity`.
+    /// Seals a symmetric key to be shared with a recipient. This requires the sender's
+    /// `SelfIdentity` and the recipient's `OtherIdentity`.
     pub fn seal(
         sender: &SelfIdentity<'_, impl KeyIds>,
         recipient: &OtherIdentity,
