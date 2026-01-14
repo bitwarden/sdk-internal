@@ -24,6 +24,12 @@ use crate::CryptoError;
 pub(crate) const NONCE_SIZE: usize = <XChaCha20Poly1305 as AeadCore>::NonceSize::USIZE;
 pub(crate) const KEY_SIZE: usize = 32;
 
+pub(crate) fn make_xchacha20_poly1305_key() -> [u8; KEY_SIZE] {
+    let mut key = [0u8; KEY_SIZE];
+    rand::thread_rng().fill_bytes(&mut key);
+    key
+}
+
 pub(crate) struct XChaCha20Poly1305Ciphertext {
     nonce: GenericArray<u8, <XChaCha20Poly1305 as AeadCore>::NonceSize>,
     encrypted_bytes: Vec<u8>,

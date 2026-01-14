@@ -28,6 +28,7 @@
 //!   then sign detached can be used.
 
 mod cose;
+pub(crate) use cose::namespace;
 use cose::*;
 mod namespace;
 pub use namespace::SigningNamespace;

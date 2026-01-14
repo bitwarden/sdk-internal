@@ -15,7 +15,7 @@ use crate::{
 
 /// Helper function to extract the namespace from a `ProtectedHeader`. The namespace is a custom
 /// header set on the protected headers of the signature object.
-pub(super) fn namespace(
+pub(crate) fn namespace(
     protected_header: &ProtectedHeader,
 ) -> Result<SigningNamespace, CryptoError> {
     let namespace = protected_header
