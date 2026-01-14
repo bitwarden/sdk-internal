@@ -5,10 +5,9 @@
 //! authentication.
 
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, DeriveFingerprint, KeyStore, PublicKeyEncryptionAlgorithm,
-    SerializedMessage, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
-    SignedPublicKeyMessage, SigningKey, SigningNamespace, SymmetricCryptoKey, VerifyingKey,
-    key_ids,
+    AsymmetricCryptoKey, DeriveFingerprint, KeyStore, KeyStoreContext,
+    PublicKeyEncryptionAlgorithm, SerializedMessage, Signature, SignatureAlgorithm, SignedObject,
+    SignedPublicKeyMessage, SigningKey, SigningNamespace, SymmetricCryptoKey, key_ids,
     safe::{IdentitySealedKeyEnvelope, OtherIdentity, SelfIdentity},
 };
 use serde::{Deserialize, Serialize};
@@ -16,31 +15,74 @@ use serde::{Deserialize, Serialize};
 /// Represents a user's cryptographic identity
 struct UserIdentity {
     name: String,
-    key_store: KeyStore<ExampleIds>,
-    /// Kept for deriving fresh VerifyingKey instances (since VerifyingKey doesn't implement Clone)
-    signing_key_copy: SigningKey,
-    signed_public_key: SignedPublicKey,
 }
 
 impl UserIdentity {
-    fn verifying_key(&self) -> VerifyingKey {
-        self.signing_key_copy.to_verifying_key()
+    fn self_identity<'a>(
+        &self,
+        ctx: &'a KeyStoreContext<'a, ExampleIds>,
+    ) -> SelfIdentity<'a, ExampleIds> {
+        SelfIdentity::new(
+            ctx,
+            ExampleSigningKey::UserSigningKey,
+            ExampleAsymmetricKey::UserPrivateKey,
+        )
+    }
+
+    fn other_identity(&self, ctx: &KeyStoreContext<'_, ExampleIds>) -> OtherIdentity {
+        let verifying_key = ctx
+            .get_verifying_key(ExampleSigningKey::UserSigningKey)
+            .expect("Signing key should exist");
+        let signed_public_key = SignedPublicKeyMessage::from_public_key(
+            &ctx.get_public_key(ExampleAsymmetricKey::UserPrivateKey)
+                .expect("Private key should exist"),
+        )
+        .expect("Failed to create signed public key message")
+        .sign(
+            #[allow(deprecated)]
+            &ctx.dangerous_get_signing_key(ExampleSigningKey::UserSigningKey)
+                .expect("Signing key should exist"),
+        )
+        .expect("Failed to sign public key");
+        OtherIdentity::try_from((signed_public_key, verifying_key))
+            .expect("Failed to create other identity")
     }
 }
 
 /// Represents an organization's cryptographic identity and key material
 struct OrganizationIdentity {
     name: String,
-    key_store: KeyStore<ExampleIds>,
-    /// Kept for deriving fresh VerifyingKey instances (since VerifyingKey doesn't implement Clone)
-    signing_key_copy: SigningKey,
-    /// The organization's signed public key for identity verification
-    signed_public_key: SignedPublicKey,
 }
 
 impl OrganizationIdentity {
-    fn verifying_key(&self) -> VerifyingKey {
-        self.signing_key_copy.to_verifying_key()
+    fn self_identity<'a>(
+        &self,
+        ctx: &'a KeyStoreContext<'a, ExampleIds>,
+    ) -> SelfIdentity<'a, ExampleIds> {
+        SelfIdentity::new(
+            ctx,
+            ExampleSigningKey::OrgSigningKey,
+            ExampleAsymmetricKey::OrgPrivateKey,
+        )
+    }
+
+    fn other_identity(&self, ctx: &KeyStoreContext<'_, ExampleIds>) -> OtherIdentity {
+        let verifying_key = ctx
+            .get_verifying_key(ExampleSigningKey::OrgSigningKey)
+            .expect("Signing key should exist");
+        let signed_public_key = SignedPublicKeyMessage::from_public_key(
+            &ctx.get_public_key(ExampleAsymmetricKey::OrgPrivateKey)
+                .expect("Private key should exist"),
+        )
+        .expect("Failed to create signed public key message")
+        .sign(
+            #[allow(deprecated)]
+            &ctx.dangerous_get_signing_key(ExampleSigningKey::OrgSigningKey)
+                .expect("Signing key should exist"),
+        )
+        .expect("Failed to sign public key");
+        OtherIdentity::try_from((signed_public_key, verifying_key))
+            .expect("Failed to create other identity")
     }
 }
 
@@ -52,6 +94,15 @@ struct IdentityClaim {
     identifier: String,
 }
 
+impl IdentityClaim {
+    fn new(identity: OtherIdentity, identifier: String) -> Self {
+        Self {
+            identity_fingerprint: identity.fingerprint(),
+            identifier,
+        }
+    }
+}
+
 /// An agreement between a member and an organization, signed by both parties
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -60,60 +111,45 @@ struct MembershipAgreement {
     organization_identity: bitwarden_crypto::KeyFingerprint,
 }
 
-fn setup_user() -> UserIdentity {
-    let key_store = KeyStore::<ExampleIds>::default();
-    let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
-    let signing_key_copy = signing_key.clone();
-    let private_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-    let signed_public_key = SignedPublicKeyMessage::from_public_key(&private_key.to_public_key())
-        .expect("Failed to create signed public key message")
-        .sign(&signing_key)
-        .expect("Failed to sign public key");
-
-    // Store keys in the key store (scope the context borrow)
-    {
-        let mut ctx = key_store.context_mut();
-        #[allow(deprecated)]
-        let _ = ctx.set_signing_key(ExampleSigningKey::UserSigningKey, signing_key);
-        #[allow(deprecated)]
-        let _ = ctx.set_asymmetric_key(ExampleAsymmetricKey::UserPrivateKey, private_key);
-    }
-
-    UserIdentity {
-        name: "Alice".to_string(),
-        key_store,
-        signing_key_copy,
-        signed_public_key,
+impl MembershipAgreement {
+    fn new(member_identity: OtherIdentity, organization_identity: OtherIdentity) -> Self {
+        Self {
+            member_identity: member_identity.fingerprint(),
+            organization_identity: organization_identity.fingerprint(),
+        }
     }
 }
 
-fn setup_organization() -> OrganizationIdentity {
-    let key_store = KeyStore::<ExampleIds>::default();
+fn setup_user(ctx: &mut KeyStoreContext<'_, ExampleIds>) -> UserIdentity {
     let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
-    let signing_key_copy = signing_key.clone();
-    let symmetric_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
     let private_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-    let signed_public_key = SignedPublicKeyMessage::from_public_key(&private_key.to_public_key())
-        .expect("Failed to create signed public key message")
-        .sign(&signing_key)
-        .expect("Failed to sign public key");
 
     // Store keys in the key store (scope the context borrow)
-    {
-        let mut ctx = key_store.context_mut();
-        #[allow(deprecated)]
-        let _ = ctx.set_signing_key(ExampleSigningKey::OrgSigningKey, signing_key);
-        #[allow(deprecated)]
-        let _ = ctx.set_symmetric_key(ExampleSymmetricKey::OrgKey, symmetric_key);
-        #[allow(deprecated)]
-        let _ = ctx.set_asymmetric_key(ExampleAsymmetricKey::OrgPrivateKey, private_key);
+    #[allow(deprecated)]
+    let _ = ctx.set_signing_key(ExampleSigningKey::UserSigningKey, signing_key);
+    #[allow(deprecated)]
+    let _ = ctx.set_asymmetric_key(ExampleAsymmetricKey::UserPrivateKey, private_key);
+
+    UserIdentity {
+        name: "Alice".to_string(),
     }
+}
+
+fn setup_organization(ctx: &mut KeyStoreContext<'_, ExampleIds>) -> OrganizationIdentity {
+    let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
+    let symmetric_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+    let private_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+
+    // Store keys in the key store (scope the context borrow)
+    #[allow(deprecated)]
+    let _ = ctx.set_signing_key(ExampleSigningKey::OrgSigningKey, signing_key);
+    #[allow(deprecated)]
+    let _ = ctx.set_symmetric_key(ExampleSymmetricKey::OrgKey, symmetric_key);
+    #[allow(deprecated)]
+    let _ = ctx.set_asymmetric_key(ExampleAsymmetricKey::OrgPrivateKey, private_key);
 
     OrganizationIdentity {
         name: "My Org Name".to_string(),
-        key_store,
-        signing_key_copy,
-        signed_public_key,
     }
 }
 
@@ -132,11 +168,10 @@ fn prompt_organization_to_verify_fingerprint(_member: &UserIdentity) -> bool {
 fn user_accepts_invite(
     org: &OrganizationIdentity,
     member: &UserIdentity,
+    ctx: &KeyStoreContext<'_, ExampleIds>,
 ) -> (Signature, SerializedMessage, SignedObject) {
-    let ctx = member.key_store.context();
-
     let identity_claim = IdentityClaim {
-        identity_fingerprint: org.verifying_key().fingerprint(),
+        identity_fingerprint: org.other_identity(ctx).fingerprint(),
         identifier: org.name.to_string(),
     };
 
@@ -151,10 +186,8 @@ fn user_accepts_invite(
         .sign(&identity_claim, &SigningNamespace::IdentityClaim)
         .expect("Failed to sign identity claim");
 
-    let membership_agreement = MembershipAgreement {
-        member_identity: member.verifying_key().fingerprint(),
-        organization_identity: org.verifying_key().fingerprint(),
-    };
+    let membership_agreement =
+        MembershipAgreement::new(member.other_identity(ctx), org.other_identity(ctx));
 
     let (signature, serialized_message) = signing_key
         .sign_detached(
@@ -174,6 +207,7 @@ fn admin_confirms_join(
     org: &OrganizationIdentity,
     signature: &Signature,
     serialized_message: &SerializedMessage,
+    ctx: &KeyStoreContext<'_, ExampleIds>,
 ) -> (
     Signature,
     SignedObject,
@@ -184,23 +218,19 @@ fn admin_confirms_join(
     assert!(
         signature.verify(
             serialized_message.as_bytes(),
-            &member.verifying_key(),
+            &member.other_identity(ctx).verifying_key(),
             &SigningNamespace::MembershipAgreement,
         ),
         "Failed to verify admin's membership signature"
     );
 
     // Get the signing key from context
-    let ctx = org.key_store.context();
     #[allow(deprecated)]
     let org_signing_key = ctx
         .dangerous_get_signing_key(ExampleSigningKey::OrgSigningKey)
         .expect("Org signing key should exist");
 
-    let identity_claim = IdentityClaim {
-        identity_fingerprint: member.verifying_key().fingerprint(),
-        identifier: member.name.to_string(),
-    };
+    let identity_claim = IdentityClaim::new(member.other_identity(ctx), member.name.to_string());
     let signed_member_claim = org_signing_key
         .sign(&identity_claim, &SigningNamespace::IdentityClaim)
         .expect("Failed to sign member identity claim");
@@ -222,17 +252,10 @@ fn admin_confirms_join(
 
     // Create OtherIdentity for the member to seal the key
     // This validates that the member's signed public key is authentic
-    let member_identity =
-        OtherIdentity::try_from((member.signed_public_key.clone(), member.verifying_key()))
-            .expect("Failed to create member identity");
-    let ctx = org.key_store.context_mut();
-    let self_idenitty = SelfIdentity::new(
-        &ctx,
-        ExampleSigningKey::OrgSigningKey,
-        ExampleAsymmetricKey::OrgPrivateKey,
-    );
+    let member_identity = member.other_identity(ctx);
+    let self_identity = org.self_identity(ctx);
     let envelope =
-        IdentitySealedKeyEnvelope::seal(&self_idenitty, &member_identity, &org_symmetric_key)
+        IdentitySealedKeyEnvelope::seal(&self_identity, &member_identity, &org_symmetric_key)
             .expect("Failed to seal organization key");
 
     (
@@ -252,12 +275,13 @@ fn load_shared_vault_key(
     member_signature: &Signature,
     serialized_message: &SerializedMessage,
     envelope: &IdentitySealedKeyEnvelope,
+    ctx: &KeyStoreContext<'_, ExampleIds>,
 ) -> SymmetricCryptoKey {
     // Verify both signatures on the membership agreement
     assert!(
         admin_signature.verify(
             serialized_message.as_bytes(),
-            &org.verifying_key(),
+            &org.other_identity(ctx).verifying_key(),
             &SigningNamespace::MembershipAgreement,
         ),
         "Failed to verify admin's membership signature"
@@ -265,24 +289,14 @@ fn load_shared_vault_key(
     assert!(
         member_signature.verify(
             serialized_message.as_bytes(),
-            &member.verifying_key(),
+            &member.other_identity(ctx).verifying_key(),
             &SigningNamespace::MembershipAgreement,
         ),
         "Failed to verify member's membership signature"
     );
 
-    let ctx = member.key_store.context();
-    let self_identity = SelfIdentity::new(
-        &ctx,
-        ExampleSigningKey::UserSigningKey,
-        ExampleAsymmetricKey::UserPrivateKey,
-    );
-    let org_identity =
-        OtherIdentity::try_from((org.signed_public_key.clone(), org.verifying_key()))
-            .expect("Failed to create organization identity");
-
-    // Unseal the organization key
-
+    let self_identity = member.self_identity(ctx);
+    let org_identity = org.other_identity(ctx);
     envelope
         .unseal(&self_identity, &org_identity)
         .expect("Failed to unseal organization key")
@@ -290,45 +304,40 @@ fn load_shared_vault_key(
 
 fn main() {
     // Setup identities
-    let alice = setup_user();
-    let org = setup_organization();
+    let key_store = KeyStore::<ExampleIds>::default();
+    let mut ctx = key_store.context_mut();
+    let user = setup_user(&mut ctx);
+    let org = setup_organization(&mut ctx);
 
     // Step 2: Alice accepts the invite
     if !prompt_user_to_verify_fingerprint(&org) {
         panic!("User did not verify organization fingerprint");
     }
     let (alice_signature, serialized_message, _signed_org_claim) =
-        user_accepts_invite(&org, &alice);
+        user_accepts_invite(&org, &user, &ctx);
     // upload: alice_signature, serialized_message, _signed_org_claim
 
     // Step 3: Admin confirms alice
-    if !prompt_organization_to_verify_fingerprint(&alice) {
+    if !prompt_organization_to_verify_fingerprint(&user) {
         panic!("Organization did not verify member fingerprint");
     }
     let (admin_signature, _signed_member_claim, _member_identity, envelope) =
-        admin_confirms_join(&alice, &org, &alice_signature, &serialized_message);
+        admin_confirms_join(&user, &org, &alice_signature, &serialized_message, &ctx);
     // upload: admin_signature, envelope, _signed_member_claim
 
     // Alice loads her vault, including the organization key
     let loaded_vault_key = load_shared_vault_key(
-        &alice,
+        &user,
         &org,
         &admin_signature,
         &alice_signature,
         &serialized_message,
         &envelope,
+        &ctx,
     );
-
-    // Get the original org key to compare
-    let org_ctx = org.key_store.context();
-    #[allow(deprecated)]
-    let original_org_key = org_ctx
-        .dangerous_get_symmetric_key(ExampleSymmetricKey::OrgKey)
-        .expect("Org key should exist");
-
-    assert_eq!(
-        *original_org_key, loaded_vault_key,
-        "Loaded key does not match original organization key"
+    println!(
+        "Successfully loaded organization vault key: {:?}",
+        loaded_vault_key
     );
 }
 

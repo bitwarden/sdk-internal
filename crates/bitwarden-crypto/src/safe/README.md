@@ -31,9 +31,17 @@ returned.
 
 ## Identity-sealed key envelope
 
-Use the identity sealed key envelope to share a symmetric key from one cryptographic identity to another cryptographic identity. Example use-cases include:
+Use the identity sealed key envelope to share a symmetric key from one cryptographic identity to
+another cryptographic identity. Example use-cases include:
+
 - Sharing a symmetric key for emergency access
 - Sharing a symmetric key for organization membership
 - Sharing a symmetric key for ad-hoc item sharing
 
-This provides sender authentication, so that the recipient knows that the key was intended for them, and knows who it was sent by.
+This provides sender authentication, so that the recipient knows that the key was intended for them,
+and knows who it was sent by.
+
+## Identity
+
+A cryptographic identity acts as a simplified abstraction over the keys of a user or organization.
+Instead of managing keys directly, APIs should use the cryptographic identities.

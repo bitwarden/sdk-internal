@@ -1,8 +1,14 @@
-//! Represents cryptographic identities.
+//! Cryptographic identities act as an abstraction for users and organizations and other entities
+//! that have an identity. A cryptographic identitiy usually at least has a public-key-encryption
+//! key-pair and a signing key-pair. The signing-key-pair signs the public-key-encryption public key
+//! to create a binding between these. In protocols, the signing-key-pair's verifying key
+//! fingerprint is included to bind to the identity.
+//!
+//! There are two types of identities, the `OtherIdentity` and the `SelfIdentity`.
 //!
 //! An `OtherIdentity` is used to represent the public-facing cryptographic identity of another
-//! user. It contains their signed public key and verifying key. The signed public key is verified
-//! against the verifying key during construction to ensure the identity is valid.
+//! user or organization. It contains their signed public key and verifying key. The signed public
+//! key is verified against the verifying key during construction to ensure the identity is valid.
 //!
 //! A `SelfIdentity` is used to represent the current user's cryptographic identity. It holds a
 //! reference to a `KeyStoreContext` which provides access to the user's private keys.
@@ -10,7 +16,8 @@
 use thiserror::Error;
 
 use crate::{
-    AsymmetricPublicCryptoKey, KeyIds, SignedPublicKey, VerifyingKey, store::KeyStoreContext,
+    AsymmetricPublicCryptoKey, DeriveFingerprint, KeyFingerprint, KeyIds, SignedPublicKey,
+    VerifyingKey, store::KeyStoreContext,
 };
 
 /// Errors that can occur when constructing an `OtherIdentity`.
@@ -44,13 +51,20 @@ impl OtherIdentity {
     }
 
     /// Returns a reference to the verifying key.
-    pub(crate) fn verifying_key(&self) -> &VerifyingKey {
+    pub fn verifying_key(&self) -> &VerifyingKey {
         &self.verifying_key
     }
 
     /// Returns a reference to the verified public encryption key.
     pub(crate) fn public_key(&self) -> &AsymmetricPublicCryptoKey {
         &self.public_key
+    }
+}
+
+impl DeriveFingerprint for OtherIdentity {
+    /// Derives the fingerprint from the verifying key of this identity.
+    fn fingerprint(&self) -> crate::traits::key_fingerprint::KeyFingerprint {
+        self.verifying_key.fingerprint()
     }
 }
 
@@ -91,6 +105,9 @@ pub struct SelfIdentity<'a, Ids: KeyIds> {
     asymmetric_key_id: Ids::Asymmetric,
 }
 
+/// Error indicating that a required key was not found in the key store.
+pub struct KeyNotFoundError;
+
 impl<'a, Ids: KeyIds> SelfIdentity<'a, Ids> {
     /// Creates a new `SelfIdentity` from a key store context and key IDs.
     pub fn new(
@@ -118,6 +135,15 @@ impl<'a, Ids: KeyIds> SelfIdentity<'a, Ids> {
     /// Returns the private encryption key ID.
     pub fn private_key_id(&self) -> Ids::Asymmetric {
         self.asymmetric_key_id
+    }
+
+    /// Derives the fingerprint from the signing key of this identity.
+    pub fn fingerprint(&self) -> Result<KeyFingerprint, KeyNotFoundError> {
+        let verifying_key = self
+            .ctx
+            .get_verifying_key(self.signing_key_id)
+            .map_err(|_| KeyNotFoundError)?;
+        Ok(verifying_key.fingerprint())
     }
 }
 
