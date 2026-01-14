@@ -233,7 +233,7 @@ fn admin_confirms_join(
     );
     let envelope =
         IdentitySealedKeyEnvelope::seal(&self_idenitty, &member_identity, &org_symmetric_key)
-            .unwrap();
+            .expect("Failed to seal organization key");
 
     (
         counter_signature,
