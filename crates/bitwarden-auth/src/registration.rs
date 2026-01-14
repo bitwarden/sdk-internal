@@ -446,7 +446,6 @@ async fn internal_post_keys_for_jit_password_registration(
     // mature, the account cryptographic state and keys should be set directly here.
     Ok(JitMasterPasswordRegistrationResponse {
         account_cryptographic_state: registration_crypto_result.account_cryptographic_state,
-        master_key: registration_crypto_result.master_key.to_base64(),
         master_password_unlock: registration_crypto_result.master_password_unlock_data,
         user_key: registration_crypto_result
             .user_key
@@ -469,8 +468,6 @@ pub struct JitMasterPasswordRegistrationResponse {
     pub account_cryptographic_state: WrappedAccountCryptographicState,
     /// The master password unlock data
     pub master_password_unlock: MasterPasswordUnlockData,
-    /// The master key
-    pub master_key: B64,
     /// The decrypted user key.
     pub user_key: B64,
 }
