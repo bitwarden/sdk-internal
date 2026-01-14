@@ -92,7 +92,7 @@ impl IdentitySealedKeyEnvelope {
             .map_err(|_| SealError::SealFailed)?;
 
         Self::seal_ref(
-            &sender_signing_key,
+            sender_signing_key,
             recipient.verifying_key(),
             recipient.public_key(),
             key_to_share,
@@ -338,20 +338,17 @@ impl IdentitySealedKeyEnvelope {
                     crate::xchacha20::decrypt_xchacha20_poly1305(&nonce, &cek, data, aad)
                         .map_err(|_| UnsealError::UnsealFailed)
                 }
-                _ => return Err(UnsealError::UnsealFailed),
+                _ => Err(UnsealError::UnsealFailed),
             })
             .map_err(|_| UnsealError::UnsealFailed)?;
 
         let content_format = ContentFormat::try_from(&cose_encrypt.protected.header)
             .map_err(|_| UnsealError::UnsealFailed)?;
         let symmetric_key = match content_format {
-            ContentFormat::BitwardenLegacyKey => EncodedSymmetricKey::BitwardenLegacyKey(
-                BitwardenLegacyKeyBytes::try_from(decrypted)
-                    .map_err(|_| UnsealError::UnsealFailed)?,
-            ),
-            ContentFormat::CoseKey => EncodedSymmetricKey::CoseKey(
-                CoseKeyBytes::try_from(decrypted).map_err(|_| UnsealError::UnsealFailed)?,
-            ),
+            ContentFormat::BitwardenLegacyKey => {
+                EncodedSymmetricKey::BitwardenLegacyKey(BitwardenLegacyKeyBytes::from(decrypted))
+            }
+            ContentFormat::CoseKey => EncodedSymmetricKey::CoseKey(CoseKeyBytes::from(decrypted)),
             _ => {
                 return Err(UnsealError::UnsealFailed);
             }

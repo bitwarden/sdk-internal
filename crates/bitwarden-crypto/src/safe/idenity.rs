@@ -112,12 +112,12 @@ impl<'a, Ids: KeyIds> SelfIdentity<'a, Ids> {
 
     /// Returns the signing key ID.
     pub fn signing_key_id(&self) -> Ids::Signing {
-        self.signing_key_id.clone()
+        self.signing_key_id
     }
 
     /// Returns the private encryption key ID.
     pub fn private_key_id(&self) -> Ids::Asymmetric {
-        self.asymmetric_key_id.clone()
+        self.asymmetric_key_id
     }
 }
 

@@ -13,34 +13,6 @@ use bitwarden_crypto::{
 };
 use serde::{Deserialize, Serialize};
 
-// Define key IDs for the example
-key_ids! {
-    #[symmetric]
-    pub enum ExampleSymmetricKey {
-        OrgKey,
-        #[local]
-        VaultKey(LocalId)
-    }
-
-    #[asymmetric]
-    pub enum ExampleAsymmetricKey {
-        UserPrivateKey,
-        OrgPrivateKey,
-        #[local]
-        Local(LocalId)
-    }
-
-    #[signing]
-    pub enum ExampleSigningKey {
-        UserSigningKey,
-        OrgSigningKey,
-        #[local]
-        Local(LocalId)
-    }
-
-   pub ExampleIds => ExampleSymmetricKey, ExampleAsymmetricKey, ExampleSigningKey;
-}
-
 /// Represents a user's cryptographic identity
 struct UserIdentity {
     name: String,
@@ -102,9 +74,9 @@ fn setup_user() -> UserIdentity {
     {
         let mut ctx = key_store.context_mut();
         #[allow(deprecated)]
-        ctx.set_signing_key(ExampleSigningKey::UserSigningKey, signing_key);
+        let _ = ctx.set_signing_key(ExampleSigningKey::UserSigningKey, signing_key);
         #[allow(deprecated)]
-        ctx.set_asymmetric_key(ExampleAsymmetricKey::UserPrivateKey, private_key);
+        let _ = ctx.set_asymmetric_key(ExampleAsymmetricKey::UserPrivateKey, private_key);
     }
 
     UserIdentity {
@@ -130,11 +102,11 @@ fn setup_organization() -> OrganizationIdentity {
     {
         let mut ctx = key_store.context_mut();
         #[allow(deprecated)]
-        ctx.set_signing_key(ExampleSigningKey::OrgSigningKey, signing_key);
+        let _ = ctx.set_signing_key(ExampleSigningKey::OrgSigningKey, signing_key);
         #[allow(deprecated)]
-        ctx.set_symmetric_key(ExampleSymmetricKey::OrgKey, symmetric_key);
+        let _ = ctx.set_symmetric_key(ExampleSymmetricKey::OrgKey, symmetric_key);
         #[allow(deprecated)]
-        ctx.set_asymmetric_key(ExampleAsymmetricKey::OrgPrivateKey, private_key);
+        let _ = ctx.set_asymmetric_key(ExampleAsymmetricKey::OrgPrivateKey, private_key);
     }
 
     OrganizationIdentity {
@@ -147,12 +119,12 @@ fn setup_organization() -> OrganizationIdentity {
 
 // placeholder for out-of-band fingerprint verification
 fn prompt_user_to_verify_fingerprint(_org: &OrganizationIdentity) -> bool {
-    return true;
+    true
 }
 
 // placeholder for out-of-band fingerprint verification
 fn prompt_organization_to_verify_fingerprint(_member: &UserIdentity) -> bool {
-    return true;
+    true
 }
 
 /// Step 2: User accepts the invite by signing an identity claim and receiving a membership
@@ -310,10 +282,10 @@ fn load_shared_vault_key(
             .expect("Failed to create organization identity");
 
     // Unseal the organization key
-    let key = envelope
+
+    envelope
         .unseal(&self_identity, &org_identity)
-        .expect("Failed to unseal organization key");
-    key
+        .expect("Failed to unseal organization key")
 }
 
 fn main() {
@@ -358,4 +330,32 @@ fn main() {
         *original_org_key, loaded_vault_key,
         "Loaded key does not match original organization key"
     );
+}
+
+// Define key IDs for the example
+key_ids! {
+    #[symmetric]
+    pub enum ExampleSymmetricKey {
+        OrgKey,
+        #[local]
+        VaultKey(LocalId)
+    }
+
+    #[asymmetric]
+    pub enum ExampleAsymmetricKey {
+        UserPrivateKey,
+        OrgPrivateKey,
+        #[local]
+        Local(LocalId)
+    }
+
+    #[signing]
+    pub enum ExampleSigningKey {
+        UserSigningKey,
+        OrgSigningKey,
+        #[local]
+        Local(LocalId)
+    }
+
+   pub ExampleIds => ExampleSymmetricKey, ExampleAsymmetricKey, ExampleSigningKey;
 }

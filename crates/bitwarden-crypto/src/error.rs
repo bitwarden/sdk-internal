@@ -82,7 +82,7 @@ pub enum CryptoError {
 
 impl From<CryptoError> for () {
     fn from(_: CryptoError) -> Self {
-        ()
+        
     }
 }
 

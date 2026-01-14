@@ -69,7 +69,7 @@ impl DeriveFingerprint for VerifyingKey {
                 // 256 bits, they are not pseudo-randomly distributed and do not
                 // satisfy the properties of a fingerprint directly. Therefore, they are hashed
                 // using SHA-256 to get a pseudo-random distribution.
-                let digest = sha2::Sha256::digest(&key.to_bytes());
+                let digest = sha2::Sha256::digest(key.to_bytes());
                 let arr: [u8; 32] = digest
                     .as_slice()
                     .try_into()
