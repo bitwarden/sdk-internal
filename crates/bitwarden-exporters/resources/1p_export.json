@@ -501,6 +501,15 @@
           }
         },
         {
+          "type": "note",
+          "content": {
+            "id": null,
+            "fieldType": "string",
+            "value": "My notes heigfkfdkkcmdwkkfkckekfkjf",
+            "label": null
+          }
+        },
+        {
           "type": "custom-fields",
           "fields": [
             {
