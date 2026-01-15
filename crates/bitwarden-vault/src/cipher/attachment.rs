@@ -246,7 +246,7 @@ pub(crate) fn decrypt_attachments_with_failures(
     attachments: &[Attachment],
     ctx: &mut KeyStoreContext<KeyIds>,
     key: SymmetricKeyId,
-) -> (Option<Vec<AttachmentView>>, Option<Vec<AttachmentView>>) {
+) -> (Vec<AttachmentView>, Vec<AttachmentView>) {
     let mut successes = Vec::new();
     let mut failures = Vec::new();
 
@@ -265,9 +265,6 @@ pub(crate) fn decrypt_attachments_with_failures(
             }),
         }
     }
-
-    let successes = (!successes.is_empty()).then_some(successes);
-    let failures = (!failures.is_empty()).then_some(failures);
 
     (successes, failures)
 }

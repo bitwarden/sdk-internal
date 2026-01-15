@@ -345,12 +345,11 @@ pub struct CipherView {
     pub local_data: Option<LocalDataView>,
 
     pub attachments: Option<Vec<attachment::AttachmentView>>,
-    pub fields: Option<Vec<field::FieldView>>,
-    pub password_history: Option<Vec<password_history::PasswordHistoryView>>,
     /// Attachments that failed to decrypt. Only present when there are decryption failures.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub attachment_decryption_failures: Option<Vec<attachment::AttachmentView>>,
-
+    pub fields: Option<Vec<field::FieldView>>,
+    pub password_history: Option<Vec<password_history::PasswordHistoryView>>,
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
@@ -536,7 +535,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
                     ciphers_key,
                 )
             })
-            .unwrap_or((None, None));
+            .unwrap_or_default();
 
         let mut cipher = CipherView {
             id: self.id,
@@ -559,8 +558,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
             permissions: self.permissions,
             view_password: self.view_password,
             local_data: self.local_data.decrypt(ctx, ciphers_key).ok().flatten(),
-            attachments,
-            attachment_decryption_failures,
+            attachments: Some(attachments),
+            attachment_decryption_failures: Some(attachment_decryption_failures),
             fields: self.fields.decrypt(ctx, ciphers_key).ok().flatten(),
             password_history: self
                 .password_history
