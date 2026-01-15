@@ -192,8 +192,8 @@ setting values.
 
 ### Usage
 
-```rust,ignore
-use bitwarden_state::register_setting_key;
+```rust
+use bitwarden_state::{register_setting_key, Setting};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -205,22 +205,24 @@ struct AppConfig {
 // Register a type-safe key
 register_setting_key!(const CONFIG: AppConfig = "app_config");
 
-async fn example(client: &bitwarden_core::Client) -> Result<(), Box<dyn std::error::Error>> {
-    // Get a setting handle
-    let setting = client.platform().state().setting(CONFIG)?;
+struct TestClient {
+    // Access settings via bitwarden_core::Client.platform().state().setting()
+    app_config: Setting<AppConfig>,
+}
 
+async fn example(client: &TestClient) -> Result<(), Box<dyn std::error::Error>> {
     // Get value
-    let config: Option<AppConfig> = setting.get().await?;
+    let config: Option<AppConfig> = client.app_config.get().await?;
 
     // Update value
     let new_config = AppConfig {
         theme: "dark".to_string(),
         auto_save: true,
     };
-    setting.update(new_config).await?;
+    client.app_config.update(new_config).await?;
 
     // Delete setting
-    setting.delete().await?;
+    client.app_config.delete().await?;
 
     Ok(())
 }
