@@ -108,7 +108,7 @@ pub struct Send {
     /// Email addresses for OTP authentication.
     /// **Note**: Mutually exclusive with `new_password`. If both are set,
     /// only password authentication will be used.
-    pub emails: String,
+    pub emails: Option<String>,
     pub auth_type: AuthType,
 }
 
@@ -295,11 +295,15 @@ impl Decryptable<KeyIds, SymmetricKeyId, SendView> for Send {
 
             emails: self
                 .emails
-                .split(',')
-                .map(|e| e.trim())
-                .filter(|e| !e.is_empty())
-                .map(String::from)
-                .collect(),
+                .as_deref()
+                .map(|s| {
+                    s.split(',')
+                        .map(|e| e.trim())
+                        .filter(|e| !e.is_empty())
+                        .map(String::from)
+                        .collect()
+                })
+                .unwrap_or_default(),
             auth_type: self.auth_type,
         })
     }
@@ -382,7 +386,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Send> for SendView {
             deletion_date: self.deletion_date,
             expiration_date: self.expiration_date,
 
-            emails: self.emails.join(","),
+            emails: (!self.emails.is_empty()).then(|| self.emails.join(",")),
             auth_type: self.auth_type,
         })
     }
@@ -421,7 +425,7 @@ impl TryFrom<SendResponseModel> for Send {
             revision_date: require!(send.revision_date).parse()?,
             deletion_date: require!(send.deletion_date).parse()?,
             expiration_date: send.expiration_date.map(|s| s.parse()).transpose()?,
-            emails: send.emails.unwrap_or_default(),
+            emails: send.emails,
             auth_type,
         })
     }
@@ -525,7 +529,7 @@ mod tests {
             expiration_date: None,
             deletion_date: "2024-01-14T23:56:48Z".parse().unwrap(),
             hide_email: false,
-            emails: String::new(),
+            emails: None,
             auth_type: AuthType::None,
         };
 
@@ -715,7 +719,10 @@ mod tests {
 
         let send: Send = crypto.encrypt(view).unwrap();
 
-        assert_eq!(send.emails, "test1@mail.com,test2@mail.com".to_string());
+        assert_eq!(
+            send.emails,
+            Some("test1@mail.com,test2@mail.com".to_string())
+        );
         assert_eq!(send.auth_type, AuthType::Email);
 
         let v: SendView = crypto.decrypt(&send).unwrap();
