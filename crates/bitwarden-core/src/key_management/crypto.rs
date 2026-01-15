@@ -858,8 +858,6 @@ pub struct MakeJitMasterPasswordRegistrationResponse {
     pub account_cryptographic_state: WrappedAccountCryptographicState,
     /// The user's user key
     pub user_key: SymmetricCryptoKey,
-    /// The user's master key used to encrypt the user key
-    pub master_key: MasterKey,
     /// The master password unlock data
     pub master_password_authentication_data: MasterPasswordAuthenticationData,
     /// The master password unlock data
@@ -997,9 +995,6 @@ pub(crate) fn make_user_jit_master_password_registration(
         MasterPasswordAuthenticationData::derive(&master_password, &kdf, &salt)
             .map_err(MakeKeysError::MasterPasswordDerivation)?;
 
-    let master_key =
-        MasterKey::derive(&master_password, &salt, &kdf).map_err(MakeKeysError::Crypto)?;
-
     let cryptography_state_request_model = wrapped_state
         .to_request_model(&user_key_id, &mut ctx)
         .map_err(|_| MakeKeysError::RequestModelCreation)?;
@@ -1014,7 +1009,6 @@ pub(crate) fn make_user_jit_master_password_registration(
     Ok(MakeJitMasterPasswordRegistrationResponse {
         account_cryptographic_state: wrapped_state,
         user_key,
-        master_key,
         master_password_unlock_data,
         master_password_authentication_data,
         account_keys_request: cryptography_state_request_model,
