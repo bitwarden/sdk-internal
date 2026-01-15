@@ -34,6 +34,7 @@ bitwarden-error = { path = "crates/bitwarden-error", version = "=2.0.0" }
 bitwarden-error-macro = { path = "crates/bitwarden-error-macro", version = "=2.0.0" }
 bitwarden-exporters = { path = "crates/bitwarden-exporters", version = "=2.0.0" }
 bitwarden-fido = { path = "crates/bitwarden-fido", version = "=2.0.0" }
+bitwarden-flight-recorder = { path = "crates/bitwarden-flight-recorder", version = "=2.0.0" }
 bitwarden-generators = { path = "crates/bitwarden-generators", version = "=2.0.0" }
 bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=2.0.0" }
 bitwarden-pm = { path = "crates/bitwarden-pm", version = "=2.0.0" }
