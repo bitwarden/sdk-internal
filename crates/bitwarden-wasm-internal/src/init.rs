@@ -1,3 +1,4 @@
+use bitwarden_flight_recorder::{FlightRecorderConfig, init_flight_recorder};
 use tracing::Level;
 use tracing_subscriber::{
     EnvFilter, fmt::format::Pretty, layer::SubscriberExt as _, util::SubscriberInitExt as _,
@@ -42,8 +43,15 @@ pub fn init_sdk(log_level: Option<LogLevel>) {
 
     let perf_layer = performance_layer().with_details_from_fields(Pretty::default());
 
+    let flight_recorder_layer = init_flight_recorder(
+        FlightRecorderConfig::default()
+            .with_max_events(1000)
+            .with_max_size_bytes(5 * 1024 * 1024), // 5MB
+    );
+
     tracing_subscriber::registry()
         .with(perf_layer)
+        .with(flight_recorder_layer)
         .with(filter)
         .with(fmt)
         .init();
