@@ -199,11 +199,7 @@ impl CiphersClient {
 
 impl CiphersClient {
     fn get_repository(&self) -> Result<Arc<dyn Repository<Cipher>>, RepositoryError> {
-        Ok(self
-            .client
-            .platform()
-            .state()
-            .get_client_managed::<Cipher>()?)
+        Ok(self.client.platform().state().get::<Cipher>()?)
     }
 }
 
@@ -571,7 +567,7 @@ mod tests {
         // Decrypting the cipher "normally" will fail because it was encrypted with a new key
         assert!(matches!(
             client.vault().ciphers().decrypt(ctx.cipher).err(),
-            Some(DecryptError::Crypto(CryptoError::InvalidMac))
+            Some(DecryptError::Crypto(CryptoError::Decrypt))
         ));
     }
 }

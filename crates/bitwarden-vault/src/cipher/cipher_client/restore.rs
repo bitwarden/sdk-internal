@@ -4,6 +4,8 @@ use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     Cipher, CipherId, CipherView, CiphersClient, DecryptCipherListResult, VaultParseError,
@@ -81,6 +83,7 @@ pub async fn restore_many<R: Repository<Cipher> + ?Sized>(
     })
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
     /// Restores a soft-deleted cipher on the server.
     pub async fn restore(&self, cipher_id: CipherId) -> Result<CipherView, RestoreCipherError> {
