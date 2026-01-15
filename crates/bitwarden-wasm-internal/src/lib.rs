@@ -2,6 +2,7 @@
 
 mod client;
 mod custom_types;
+mod flight_recorder;
 mod init;
 mod platform;
 mod pure_crypto;
@@ -9,4 +10,5 @@ mod ssh;
 
 pub use bitwarden_ipc::wasm::*;
 pub use client::PasswordManagerClient;
+pub use flight_recorder::FlightRecorderClient;
 pub use init::init_sdk;
