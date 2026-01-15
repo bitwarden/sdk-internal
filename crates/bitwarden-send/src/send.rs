@@ -296,14 +296,12 @@ impl Decryptable<KeyIds, SymmetricKeyId, SendView> for Send {
             emails: self
                 .emails
                 .as_deref()
-                .map(|s| {
-                    s.split(',')
-                        .map(|e| e.trim())
-                        .filter(|e| !e.is_empty())
-                        .map(String::from)
-                        .collect()
-                })
-                .unwrap_or_default(),
+                .unwrap_or_default()
+                .split(',')
+                .map(|e| e.trim())
+                .filter(|e| !e.is_empty())
+                .map(String::from)
+                .collect(),
             auth_type: self.auth_type,
         })
     }
