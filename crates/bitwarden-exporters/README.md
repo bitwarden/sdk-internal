@@ -1,3 +1,7 @@
+---
+category: feature
+---
+
 # Bitwarden Exporters
 
-Contains the export and import functionality for Bitwarden Password Manager.
+Export and import support for Bitwarden Password Manager through various formats.

@@ -1,3 +1,7 @@
+---
+category: feature
+---
+
 # Bitwarden Policies
 
-Contains Admin console owned policy code
+Admin console owned policy code.

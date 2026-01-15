@@ -1,3 +1,7 @@
+---
+category: feature
+---
+
 # Bitwarden Vault
 
 Defines the data model for the vault items both encrypted and decrypted. It also handles conversions

@@ -1,3 +1,8 @@
+---
+description: Contains core functionality used by the feature crates.
+category: foundation
+---
+
 # Bitwarden Core
 
 Contains core functionality used by the feature crates. For an introduction to the Bitwarden SDK and

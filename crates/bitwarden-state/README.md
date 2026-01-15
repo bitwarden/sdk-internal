@@ -1,4 +1,11 @@
+---
+category: foundation
+---
+
 # bitwarden-state
+
+Type safe persisted state management for the Bitwarden SDK. Provides Repositories and Key-Value
+(settings) abstractions. Should always be used when dealing with persisted state.
 
 This crate contains the core state handling code of the Bitwarden SDK. Its primary feature is a
 namespaced key-value store, accessible via the typed [Repository](crate::repository::Repository)

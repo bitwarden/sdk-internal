@@ -1,3 +1,8 @@
+---
+category: feature
+---
+
 # Bitwarden Generators
 
-Contains the implementation of the generators for the Bitwarden Password Manager.
+Various generators implementations for the Bitwarden Password Manager. Such as password, passphrase
+and username generation.

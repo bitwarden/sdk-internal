@@ -1,6 +1,11 @@
+---
+category: foundation
+---
+
 # bitwarden-threading
 
-Utility crate for Bitwarden SDK to handle threading and async quirks in FFI contexts.
+Provides abstractions around threading and async quirks in FFI contexts. Allows a single
+implementation to work across native and WASM targets.
 
 ## WASM Testing
 

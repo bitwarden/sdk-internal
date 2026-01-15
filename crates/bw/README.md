@@ -1,3 +1,7 @@
+---
+category: application
+---
+
 # Bitwarden CLI (testing)
 
-A testing CLI for the Bitwarden Password Manager SDK.
+A work-in-progress rust rewrite of the Bitwarden CLI.

@@ -1,3 +1,7 @@
+---
+category: foundation
+---
+
 # Bitwarden UUID
 
-Provides UUID macros for simplifying UUID handling when working with WebAssembly.
+UUID utilities and macros for simplifying UUID handling across platforms.

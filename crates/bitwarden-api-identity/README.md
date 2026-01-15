@@ -1,4 +1,11 @@
+---
+category: bindings
+---
+
 # Rust API client for bitwarden-api-identity
+
+Auto-generated API bindings for Bitwarden Identity service (**DO NOT edit - regenerate from OpenAPI
+specs**)
 
 ## Updating bindings after a server API change
 
