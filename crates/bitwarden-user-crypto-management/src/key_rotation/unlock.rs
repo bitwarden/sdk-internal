@@ -2,7 +2,8 @@
 
 use bitwarden_api_api::models::{
     self, EmergencyAccessWithIdRequestModel, MasterPasswordUnlockAndAuthenticationDataModel,
-    ResetPasswordWithOrgIdRequestModel, UnlockDataRequestModel,
+    OtherDeviceKeysUpdateRequestModel, ResetPasswordWithOrgIdRequestModel, UnlockDataRequestModel,
+    WebAuthnLoginRotateKeyRequestModel,
 };
 use bitwarden_core::key_management::{
     KeyIds, MasterPasswordAuthenticationData, MasterPasswordUnlockData, SymmetricKeyId,
@@ -56,8 +57,12 @@ pub struct V1OrganizationMembership {
 #[expect(unused)]
 #[derive(Debug)]
 pub(super) enum ReencryptError {
+    /// Failed to update the unlock data for the master password
     MasterPasswordDerivation,
+    /// Failed to update the unlock data for TDE/PRF-Passkey
     KeysetUnlockDataReencryption,
+    /// Failed to update the unlock data for emergency access or organization membership
+    KeysharingError,
 }
 
 #[expect(unused)]
@@ -114,68 +119,66 @@ pub(super) fn reencrypt_unlock(
         }
     };
 
-    let devices: Vec<PartialRotateableKeyset> = {
-        let _span = debug_span!("reencrypt_device_keys").entered();
-        input
-            .trusted_devices
-            .iter()
-            .map(|device| {
-                let _span = debug_span!("reencrypt_device_key", device_id = ?device.id).entered();
-                device
-                    .rotate_userkey(current_user_key_id, new_user_key_id, ctx)
-                    .map_err(|_| ReencryptError::KeysetUnlockDataReencryption)
-            })
-            .collect::<Result<Vec<PartialRotateableKeyset>, ReencryptError>>()?
-    };
-    let passkeys: Vec<PartialRotateableKeyset> = {
-        let _span = debug_span!("reencrypt_webauthn_credentials").entered();
-        input
-            .webauthn_credentials
-            .iter()
-            .map(|cred| {
-                let _span = debug_span!("reencrypt_webauthn_credential", credential_id = ?cred.id)
-                    .entered();
-                cred.rotate_userkey(current_user_key_id, new_user_key_id, ctx)
-                    .map_err(|_| ReencryptError::KeysetUnlockDataReencryption)
-            })
-            .collect::<Result<Vec<PartialRotateableKeyset>, ReencryptError>>()?
-    };
-    let emergency_accesses = {
-        let _span = debug_span!("reencrypt_emergency_access_keys").entered();
-        input
-            .trusted_emergency_access_keys
-            .iter()
-            .map(|ea| {
-                let _span =
-                    debug_span!("reencrypt_emergency_access_key", grantee_id = ?ea.id).entered();
-                match UnsignedSharedKey::encapsulate(new_user_key_id, &ea.public_key, ctx) {
-                    Ok(reencrypted_key) => Ok(EmergencyAccessWithIdRequestModel {
-                        r#type: models::EmergencyAccessType::Takeover,
-                        wait_time_days: 0,
-                        id: ea.id,
-                        key_encrypted: reencrypted_key.to_string().into(),
-                    }),
-                    Err(_) => Err(ReencryptError::KeysetUnlockDataReencryption),
-                }
-            })
-            .collect::<Result<Vec<EmergencyAccessWithIdRequestModel>, ReencryptError>>()?
-    };
+    let tde_device_unlock_data: Vec<OtherDeviceKeysUpdateRequestModel> = input
+        .trusted_devices
+        .iter()
+        .map(|device| {
+            let _span = debug_span!("reencrypt_device_key", device_id = ?device.id).entered();
+            device
+                .rotate_userkey(current_user_key_id, new_user_key_id, ctx)
+                .map_err(|_| ReencryptError::KeysetUnlockDataReencryption)
+                .map(Into::into)
+        })
+        .collect::<Result<Vec<OtherDeviceKeysUpdateRequestModel>, ReencryptError>>()?;
+    let prf_passkey_unlock_data: Vec<WebAuthnLoginRotateKeyRequestModel> = input
+        .webauthn_credentials
+        .iter()
+        .map(|cred| {
+            let _span =
+                debug_span!("reencrypt_webauthn_credential", credential_id = ?cred.id).entered();
+            cred.rotate_userkey(current_user_key_id, new_user_key_id, ctx)
+                .map_err(|_| ReencryptError::KeysetUnlockDataReencryption)
+                .map(Into::into)
+        })
+        .collect::<Result<Vec<WebAuthnLoginRotateKeyRequestModel>, ReencryptError>>()?;
+    let emergency_accesses = input
+        .trusted_emergency_access_keys
+        .into_iter()
+        .map(|ea| {
+            let _span =
+                debug_span!("reencrypt_emergency_access_key", grantee_id = ?ea.id).entered();
+            // Share the key to the organization. Note: No sender authentication
+            // and the passed in public-key must be verified/trusted.
+            match UnsignedSharedKey::encapsulate(new_user_key_id, &ea.public_key, ctx) {
+                Ok(reencrypted_key) => Ok(EmergencyAccessWithIdRequestModel {
+                    r#type: models::EmergencyAccessType::Takeover,
+                    wait_time_days: 0,
+                    id: ea.id,
+                    key_encrypted: reencrypted_key.to_string().into(),
+                }),
+                Err(_) => Err(ReencryptError::KeysharingError),
+            }
+        })
+        .collect::<Result<Vec<EmergencyAccessWithIdRequestModel>, ReencryptError>>()?;
     let organizations_memberships = input
         .trusted_organization_keys
         .into_iter()
-        .filter_map(|org_membership| {
+        .map(|org_membership| {
+            let _span =
+                debug_span!("reencrypt_organization_key", organization = ?org_membership.organization_id)
+                    .entered();
             // Share the key to the organization. Note: No sender authentication
             // and the passed in public-key must be verified/trusted.
             match UnsignedSharedKey::encapsulate(new_user_key_id, &org_membership.public_key, ctx) {
-                Ok(reencrypted_key) => Some(ResetPasswordWithOrgIdRequestModel {
+                Ok(reencrypted_key) => Ok(ResetPasswordWithOrgIdRequestModel {
                     reset_password_key: Some(reencrypted_key.to_string()),
                     master_password_hash: None,
                     organization_id: org_membership.organization_id,
                 }),
-                Err(_) => None,
+                Err(_) => Err(ReencryptError::KeysharingError),
             }
         })
-        .collect();
+        .collect::<Result<Vec<ResetPasswordWithOrgIdRequestModel>, ReencryptError>>()?;
 
     Ok(UnlockDataRequestModel {
         master_password_unlock_data: Box::new(
@@ -186,8 +189,8 @@ pub(super) fn reencrypt_unlock(
         ),
         emergency_access_unlock_data: Some(emergency_accesses),
         organization_account_recovery_unlock_data: Some(organizations_memberships),
-        passkey_unlock_data: Some(passkeys.into_iter().map(Into::into).collect()),
-        device_key_unlock_data: Some(devices.into_iter().map(Into::into).collect()),
+        passkey_unlock_data: Some(prf_passkey_unlock_data),
+        device_key_unlock_data: Some(tde_device_unlock_data),
     })
 }
 
