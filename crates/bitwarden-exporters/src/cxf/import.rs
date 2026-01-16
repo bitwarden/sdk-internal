@@ -178,10 +178,30 @@ pub(super) fn parse_item(value: Item) -> Vec<ImportingCipher> {
         }
     }
 
-    // CustomFields credentials -> Secure Note
+    // After creating all primary ciphers, add custom fields to the first cipher if present
+    // If no ciphers were created, create a standalone SecureNote with custom fields
     if let Some(custom_fields) = grouped.custom_fields.first() {
-        let fields = custom_fields_to_fields(custom_fields);
-        add_item(secure_note_type(), fields);
+        if let Some(first_cipher) = output.first_mut() {
+            // Append custom fields to the first cipher's fields
+            first_cipher
+                .fields
+                .extend(custom_fields_to_fields(custom_fields));
+        } else {
+            // No ciphers created yet, create standalone custom fields secure note
+            let fields = custom_fields_to_fields(custom_fields);
+            output.push(ImportingCipher {
+                folder_id: None,
+                name: value.title.clone(),
+                notes: note_content.clone(),
+                r#type: secure_note_type(),
+                favorite: false,
+                reprompt: 0,
+                fields,
+                revision_date,
+                creation_date,
+                deleted_date: None,
+            });
+        }
     }
 
     // Standalone Note credentials -> Secure Note (only if no other credentials exist)
@@ -903,5 +923,118 @@ mod tests {
             CipherType::Identity(_) => (), // Should be an Identity cipher
             _ => panic!("Expected Identity cipher"),
         };
+    }
+
+    #[test]
+    fn test_wifi_with_note_and_custom_fields() {
+        use bitwarden_vault::FieldType;
+        use credential_exchange_format::{
+            Credential, CustomFieldsCredential, EditableFieldValue,
+            EditableFieldWifiNetworkSecurityType, Item, NoteCredential, WifiCredential,
+        };
+
+        let item = Item {
+            id: [0, 1, 2, 3, 4, 5, 6].as_ref().into(),
+            creation_at: Some(1706613834),
+            modified_at: Some(1706623773),
+            title: "Wireless Router".to_string(),
+            subtitle: None,
+            favorite: None,
+            credentials: vec![
+                Credential::Wifi(Box::new(WifiCredential {
+                    ssid: Some("networker".to_string().into()),
+                    passphrase: Some("zhc6KLx9CD7Kj2RV9vPF".to_string().into()),
+                    network_security_type: Some(
+                        EditableFieldWifiNetworkSecurityType::Wpa3Personal.into(),
+                    ),
+                    hidden: None,
+                })),
+                Credential::Note(Box::new(NoteCredential {
+                    content: "My notes heigfkfdkkcmdwkkfkckekfkjf".to_string().into(),
+                })),
+                Credential::CustomFields(Box::new(CustomFieldsCredential {
+                    id: None,
+                    label: None,
+                    fields: vec![
+                        EditableFieldValue::String("My Station".to_string().into()),
+                        EditableFieldValue::ConcealedString(
+                            "hf6LW9UMmaxDg4sy6YCv".to_string().into(),
+                        ),
+                        EditableFieldValue::String("1.1.1.3".to_string().into()),
+                        EditableFieldValue::String("".to_string().into()),
+                        EditableFieldValue::ConcealedString(
+                            "kJaFcs7KwETkrmnpiQER".to_string().into(),
+                        ),
+                    ],
+                    extensions: vec![],
+                })),
+            ],
+            tags: None,
+            extensions: None,
+            scope: None,
+        };
+
+        let ciphers: Vec<ImportingCipher> = parse_item(item);
+        assert_eq!(ciphers.len(), 1); // Should create only ONE secure note, not two
+
+        let cipher = ciphers.first().unwrap();
+        assert_eq!(cipher.name, "Wireless Router");
+        assert_eq!(
+            cipher.notes,
+            Some("My notes heigfkfdkkcmdwkkfkckekfkjf".to_string())
+        );
+
+        match &cipher.r#type {
+            CipherType::SecureNote(_) => (), // Should be a SecureNote cipher
+            _ => panic!("Expected SecureNote cipher"),
+        };
+
+        // Should have both WiFi fields AND custom fields merged together
+        assert_eq!(cipher.fields.len(), 8); // 3 WiFi fields + 5 custom fields
+
+        // Verify WiFi fields are present
+        assert!(
+            cipher
+                .fields
+                .iter()
+                .any(|f| f.name.as_deref() == Some("SSID")
+                    && f.value.as_deref() == Some("networker"))
+        );
+        assert!(
+            cipher
+                .fields
+                .iter()
+                .any(|f| f.name.as_deref() == Some("Passphrase")
+                    && f.value.as_deref() == Some("zhc6KLx9CD7Kj2RV9vPF")
+                    && f.r#type == FieldType::Hidden as u8)
+        );
+        assert!(
+            cipher
+                .fields
+                .iter()
+                .any(|f| f.name.as_deref() == Some("Network Security Type")
+                    && f.value.as_deref() == Some("WPA3 Personal"))
+        );
+
+        // Verify custom fields are present
+        assert!(
+            cipher
+                .fields
+                .iter()
+                .any(|f| f.value.as_deref() == Some("My Station"))
+        );
+        assert!(
+            cipher
+                .fields
+                .iter()
+                .any(|f| f.value.as_deref() == Some("hf6LW9UMmaxDg4sy6YCv")
+                    && f.r#type == FieldType::Hidden as u8)
+        );
+        assert!(
+            cipher
+                .fields
+                .iter()
+                .any(|f| f.value.as_deref() == Some("1.1.1.3"))
+        );
     }
 }
