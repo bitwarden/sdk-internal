@@ -1,6 +1,8 @@
 use bitwarden_api_api::models::{
     OtherDeviceKeysUpdateRequestModel, WebAuthnLoginRotateKeyRequestModel,
 };
+#[cfg(test)]
+use bitwarden_core::key_management::PrivateKeyId;
 use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
     Decryptable, EncString, KeyStoreContext, PrimitiveEncryptable, PublicKey, UnsignedSharedKey,
@@ -65,13 +67,40 @@ impl PartialRotateableKeyset {
             encrypted_user_key: reencrypted_user_key,
         })
     }
+
+    /// Makes a test `PartialRotateableKeyset` for the given downstream key.
+    /// The private key is stored on the context since it is no present on the partial keyset.
+    #[cfg(test)]
+    pub(crate) fn make_test_keyset(
+        downstream_key_id: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeyIds>,
+    ) -> (Self, PrivateKeyId) {
+        use bitwarden_crypto::PublicKeyEncryptionAlgorithm;
+
+        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let pubkey_der = ctx.get_public_key(private_key).unwrap().to_der().unwrap();
+        let encrypted_public_key = pubkey_der.encrypt(ctx, downstream_key_id).unwrap();
+        let encrypted_user_key = UnsignedSharedKey::encapsulate(
+            downstream_key_id,
+            &ctx.get_public_key(private_key).unwrap(),
+            ctx,
+        )
+        .unwrap();
+        (
+            PartialRotateableKeyset {
+                id: uuid::Uuid::new_v4(),
+                encrypted_public_key,
+                encrypted_user_key,
+            },
+            private_key,
+        )
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use bitwarden_core::key_management::KeyIds;
-    use bitwarden_crypto::{KeyStore, PublicKeyEncryptionAlgorithm};
-    use uuid::Uuid;
+    use bitwarden_crypto::{Bytes, KeyStore, SpkiPublicKeyDerContentFormat};
 
     use super::*;
 
@@ -85,26 +114,18 @@ mod tests {
         let key_id_2 = ctx.generate_symmetric_key();
 
         // Generate an asymmetric key pair and encapsulate a symmetric key
-        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-        let pubkey_der = ctx.get_public_key(private_key).unwrap().to_der().unwrap();
-        let encrypted_public_key = pubkey_der.encrypt(&mut ctx, key_id_1).unwrap();
-
-        let encrypted_user_key = UnsignedSharedKey::encapsulate(
-            key_id_1,
-            &ctx.get_public_key(private_key).unwrap(),
-            &ctx,
-        )
-        .unwrap();
-
-        // Create a KeysetUnlockData
-        let keyset = PartialRotateableKeyset {
-            id: Uuid::new_v4(),
-            encrypted_public_key,
-            encrypted_user_key,
+        let (test_keyset, private_key) =
+            PartialRotateableKeyset::make_test_keyset(key_id_1, &mut ctx);
+        let pubkey_der = {
+            let decrypted_pubkey_bytes: Vec<u8> = test_keyset
+                .encrypted_public_key
+                .decrypt(&mut ctx, key_id_1)
+                .expect("decryption should succeed");
+            Bytes::<SpkiPublicKeyDerContentFormat>::from(decrypted_pubkey_bytes)
         };
 
         // Re-encrypt the keyset with the new key
-        let reencrypted = keyset
+        let reencrypted = test_keyset
             .rotate_userkey(key_id_1, key_id_2, &mut ctx)
             .expect("reencrypt should succeed");
 

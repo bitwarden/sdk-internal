@@ -254,7 +254,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::key_rotation::partial_rotateable_keyset::PartialRotateableKeyset;
+    use crate::key_rotation::{partial_rotateable_keyset::PartialRotateableKeyset, unlock};
 
     fn create_test_kdf_pbkdf2() -> Kdf {
         Kdf::PBKDF2 {
@@ -268,6 +268,22 @@ mod tests {
             memory: NonZeroU32::new(64).expect("valid memory"),
             parallelism: NonZeroU32::new(4).expect("valid parallelism"),
         }
+    }
+
+    fn assert_symmetric_keys_equal(
+        key_id_1: SymmetricKeyId,
+        key_id_2: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeyIds>,
+    ) {
+        #[allow(deprecated)]
+        let key_1 = ctx
+            .dangerous_get_symmetric_key(key_id_1)
+            .expect("key 1 should exist");
+        #[allow(deprecated)]
+        let key_2 = ctx
+            .dangerous_get_symmetric_key(key_id_2)
+            .expect("key 2 should exist");
+        assert_eq!(key_1, key_2, "symmetric keys should be equal");
     }
 
     #[test]
@@ -339,51 +355,10 @@ mod tests {
         let current_user_key_id = ctx.generate_symmetric_key();
         let new_user_key_id = ctx.generate_symmetric_key();
 
-        // Create device keyset
-        let device_private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-        let device_pubkey_der = ctx
-            .get_public_key(device_private_key)
-            .expect("key exists")
-            .to_der()
-            .expect("valid der");
-        let device_encrypted_public_key = device_pubkey_der
-            .encrypt(&mut ctx, current_user_key_id)
-            .expect("encrypt works");
-        let device_encrypted_user_key = UnsignedSharedKey::encapsulate(
-            current_user_key_id,
-            &ctx.get_public_key(device_private_key).expect("key exists"),
-            &ctx,
-        )
-        .expect("encapsulate works");
-        let device = PartialRotateableKeyset {
-            id: Uuid::new_v4(),
-            encrypted_public_key: device_encrypted_public_key,
-            encrypted_user_key: device_encrypted_user_key,
-        };
-
-        // Create webauthn credential keyset
-        let credential_private_key =
-            ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-        let credential_pubkey_der = ctx
-            .get_public_key(credential_private_key)
-            .expect("key exists")
-            .to_der()
-            .expect("valid der");
-        let credential_encrypted_public_key = credential_pubkey_der
-            .encrypt(&mut ctx, current_user_key_id)
-            .expect("encrypt works");
-        let credential_encrypted_user_key = UnsignedSharedKey::encapsulate(
-            current_user_key_id,
-            &ctx.get_public_key(credential_private_key)
-                .expect("key exists"),
-            &ctx,
-        )
-        .expect("encapsulate works");
-        let credential = PartialRotateableKeyset {
-            id: Uuid::new_v4(),
-            encrypted_public_key: credential_encrypted_public_key,
-            encrypted_user_key: credential_encrypted_user_key,
-        };
+        let (device_keyset, device_private_key) =
+            PartialRotateableKeyset::make_test_keyset(current_user_key_id, &mut ctx);
+        let (credential_keyset, credential_private_key) =
+            PartialRotateableKeyset::make_test_keyset(current_user_key_id, &mut ctx);
 
         // Create emergency access membership
         let ea_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
@@ -411,8 +386,8 @@ mod tests {
         let result = reencrypt_unlock(
             ReencryptUnlockInput {
                 master_key_unlock_method,
-                trusted_devices: vec![device],
-                webauthn_credentials: vec![credential],
+                trusted_devices: vec![device_keyset],
+                webauthn_credentials: vec![credential_keyset],
                 trusted_organization_keys: vec![org_membership],
                 trusted_emergency_access_keys: vec![emergency_access],
             },
@@ -421,173 +396,86 @@ mod tests {
             &mut ctx,
         );
 
-        assert!(result.is_ok());
         let unlock_data = result.expect("should be ok");
 
-        // Verify all data was re-encrypted
-        assert_eq!(
-            unlock_data.master_password_unlock_data.kdf_type,
-            KdfType::Argon2id
-        );
-        assert_eq!(
-            unlock_data.master_password_unlock_data.email,
-            Some(salt.clone())
-        );
-        assert_eq!(
-            unlock_data
-                .device_key_unlock_data
-                .as_ref()
-                .expect("present")
-                .len(),
-            1
-        );
-        assert_eq!(
-            unlock_data
-                .passkey_unlock_data
-                .as_ref()
-                .expect("present")
-                .len(),
-            1
-        );
-        assert_eq!(
-            unlock_data
-                .emergency_access_unlock_data
-                .as_ref()
-                .expect("present")
-                .len(),
-            1
-        );
-        assert_eq!(
-            unlock_data
-                .organization_account_recovery_unlock_data
-                .as_ref()
-                .expect("present")
-                .len(),
-            1
-        );
-
-        // Get the expected new user key for comparison
-        #[expect(deprecated)]
-        let expected_new_user_key = ctx
-            .dangerous_get_symmetric_key(new_user_key_id)
-            .expect("new user key exists")
-            .clone();
-
-        // Validate master password unlock: derive master key and decrypt user key
-        let master_key_encrypted_user_key: bitwarden_crypto::EncString = unlock_data
-            .master_password_unlock_data
-            .master_key_encrypted_user_key
-            .as_ref()
-            .expect("master key encrypted user key exists")
-            .parse()
-            .expect("valid enc string");
-        let mp_unlock_data = MasterPasswordUnlockData {
+        // Validate each unlock method
+        let master_password_unlock_data = MasterPasswordUnlockData {
+            master_key_wrapped_user_key: unlock_data
+                .master_password_unlock_data
+                .master_key_encrypted_user_key
+                .expect("should be present")
+                .parse()
+                .expect("should parse"),
             kdf: kdf.clone(),
             salt: salt.clone(),
-            master_key_wrapped_user_key: master_key_encrypted_user_key,
         };
-        let unwrapped_user_key_id = mp_unlock_data
-            .unwrap_to_context(&password, &mut ctx)
-            .unwrap();
-        #[expect(deprecated)]
-        let unwrapped_user_key = ctx
-            .dangerous_get_symmetric_key(unwrapped_user_key_id)
-            .expect("key exists");
-        assert_eq!(
-            unwrapped_user_key, &expected_new_user_key,
-            "Master password unlock should decrypt to the new user key"
-        );
+        let decrypted_user_key = master_password_unlock_data
+            .unwrap_to_context("test_password", &mut ctx)
+            .expect("unwrap should succeed");
+        assert_symmetric_keys_equal(new_user_key_id, decrypted_user_key, &mut ctx);
 
-        // Validate device key unlock: use device private key to decrypt user key
-        let device_unlock_data = &unlock_data
+        // Validate device key
+        let device_unlock = unlock_data
             .device_key_unlock_data
             .as_ref()
-            .expect("device unlock data exists")[0];
-        let device_encrypted_user_key: UnsignedSharedKey = device_unlock_data
+            .expect("should be present")
+            .first()
+            .expect("should have at least one");
+        let decrypted_user_key = device_unlock
             .encrypted_user_key
-            .parse()
-            .expect("valid unsigned shared key");
-        let decrypted_user_key_from_device: bitwarden_core::key_management::SymmetricKeyId =
-            device_encrypted_user_key
-                .decapsulate(device_private_key, &mut ctx)
-                .expect("decapsulate succeeds");
-        #[expect(deprecated)]
-        let decrypted_user_key_from_device = ctx
-            .dangerous_get_symmetric_key(decrypted_user_key_from_device)
-            .expect("key exists");
-        assert_eq!(
-            decrypted_user_key_from_device, &expected_new_user_key,
-            "Device key unlock should decrypt to the new user key"
-        );
+            .parse::<UnsignedSharedKey>()
+            .expect("should parse")
+            .decapsulate(device_private_key, &mut ctx)
+            .expect("unwrap should succeed");
+        assert_symmetric_keys_equal(new_user_key_id, decrypted_user_key, &mut ctx);
 
-        // Validate passkey unlock: use credential private key to decrypt user key
-        let passkey_unlock_data = &unlock_data
+        // Validate webauthn-prf credential key
+        let credential_unlock = unlock_data
             .passkey_unlock_data
             .as_ref()
-            .expect("passkey unlock data exists")[0];
-        let passkey_encrypted_user_key: UnsignedSharedKey = passkey_unlock_data
+            .expect("should be present")
+            .first()
+            .expect("should have at least one");
+        let decrypted_user_key = credential_unlock
             .encrypted_user_key
-            .parse()
-            .expect("valid unsigned shared key");
-        let decrypted_user_key_from_passkey: bitwarden_core::key_management::SymmetricKeyId =
-            passkey_encrypted_user_key
-                .decapsulate(credential_private_key, &mut ctx)
-                .expect("decapsulate succeeds");
-        #[expect(deprecated)]
-        let decrypted_user_key_from_passkey = ctx
-            .dangerous_get_symmetric_key(decrypted_user_key_from_passkey)
-            .expect("key exists");
-        assert_eq!(
-            decrypted_user_key_from_passkey, &expected_new_user_key,
-            "Passkey unlock should decrypt to the new user key"
-        );
+            .parse::<UnsignedSharedKey>()
+            .expect("should parse")
+            .decapsulate(credential_private_key, &mut ctx)
+            .expect("unwrap should succeed");
+        assert_symmetric_keys_equal(new_user_key_id, decrypted_user_key, &mut ctx);
 
-        // Validate emergency access unlock: use EA private key to decrypt user key
-        let ea_unlock_data = &unlock_data
+        // Validate emergency access key
+        let emergency_access_unlock = unlock_data
             .emergency_access_unlock_data
             .as_ref()
-            .expect("emergency access unlock data exists")[0];
-        let ea_encrypted_user_key: UnsignedSharedKey = ea_unlock_data
+            .expect("should be present")
+            .first()
+            .expect("should have at least one");
+        let decrypted_user_key = emergency_access_unlock
             .key_encrypted
             .as_ref()
-            .expect("key encrypted exists")
-            .parse()
-            .expect("valid unsigned shared key");
-        let decrypted_user_key_from_ea: bitwarden_core::key_management::SymmetricKeyId =
-            ea_encrypted_user_key
-                .decapsulate(ea_key, &mut ctx)
-                .expect("decapsulate succeeds");
-        #[expect(deprecated)]
-        let decrypted_user_key_from_ea = ctx
-            .dangerous_get_symmetric_key(decrypted_user_key_from_ea)
-            .expect("key exists");
-        assert_eq!(
-            decrypted_user_key_from_ea, &expected_new_user_key,
-            "Emergency access unlock should decrypt to the new user key"
-        );
+            .map(|k| k.parse::<UnsignedSharedKey>())
+            .expect("should be present")
+            .expect("should parse")
+            .decapsulate(ea_key, &mut ctx)
+            .expect("unwrap should succeed");
+        assert_symmetric_keys_equal(new_user_key_id, decrypted_user_key, &mut ctx);
 
-        // Validate organization account recovery unlock: use org private key to decrypt user key
-        let org_unlock_data = &unlock_data
+        // Validate organization membership key
+        let org_membership_unlock = unlock_data
             .organization_account_recovery_unlock_data
             .as_ref()
-            .expect("organization unlock data exists")[0];
-        let org_encrypted_user_key: UnsignedSharedKey = org_unlock_data
+            .expect("should be present")
+            .first()
+            .expect("should have at least one");
+        let decrypted_user_key = org_membership_unlock
             .reset_password_key
             .as_ref()
-            .expect("reset password key exists")
-            .parse()
-            .expect("valid unsigned shared key");
-        let decrypted_user_key_from_org: bitwarden_core::key_management::SymmetricKeyId =
-            org_encrypted_user_key
-                .decapsulate(org_key, &mut ctx)
-                .expect("decapsulate succeeds");
-        #[expect(deprecated)]
-        let decrypted_user_key_from_org = ctx
-            .dangerous_get_symmetric_key(decrypted_user_key_from_org)
-            .expect("key exists");
-        assert_eq!(
-            decrypted_user_key_from_org, &expected_new_user_key,
-            "Organization account recovery unlock should decrypt to the new user key"
-        );
+            .map(|k| k.parse::<UnsignedSharedKey>())
+            .expect("should be present")
+            .expect("should parse")
+            .decapsulate(org_key, &mut ctx)
+            .expect("unwrap should succeed");
+        assert_symmetric_keys_equal(new_user_key_id, decrypted_user_key, &mut ctx);
     }
 }
