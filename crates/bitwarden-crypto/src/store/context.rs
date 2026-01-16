@@ -775,6 +775,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         current_user_private_key_id: Ids::Private,
         current_user_signing_key_id: Ids::Signing,
     ) -> Result<RotatedUserKeys> {
+        #[expect(deprecated)]
         crate::dangerous_get_v2_rotated_account_keys(
             current_user_private_key_id,
             current_user_signing_key_id,
