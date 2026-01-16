@@ -88,39 +88,48 @@ pub(super) fn reencrypt_unlock(
     new_user_key_id: SymmetricKeyId,
     ctx: &mut KeyStoreContext<KeyIds>,
 ) -> Result<UnlockDataRequestModel, ReencryptError> {
-    let master_password_unlock_and_authentication_data_model = match input.master_key_unlock_method
-    {
-        MasterkeyUnlockMethod::Password {
-            password,
-            hint,
-            kdf,
-            salt,
-        } => {
-            let _span = debug_span!("derive_master_password_unlock_data").entered();
-            let unlock_data =
-                MasterPasswordUnlockData::derive(&password, &kdf, &salt, new_user_key_id, ctx)
-                    .map_err(|_| ReencryptError::MasterPasswordDerivation)?;
-            let authentication_data =
-                MasterPasswordAuthenticationData::derive(&password, &kdf, &salt)
-                    .map_err(|_| ReencryptError::MasterPasswordDerivation)?;
-            Some(to_authentication_and_unlock_data(
-                unlock_data,
-                authentication_data,
-                hint,
-            ))
-        }
-        MasterkeyUnlockMethod::KeyConnector => {
-            tracing::error!("Key-connector based key rotation is not yet implemented");
-            None
-        }
-        MasterkeyUnlockMethod::None => {
-            tracing::error!("Key-rotation without master-key based unlock is not supported yet");
-            None
-        }
-    };
+    let master_password_unlock_data = reencrypt_userkey_for_masterpassword_unlock(
+        input.master_key_unlock_method,
+        new_user_key_id,
+        ctx,
+    )?
+    // This is safe for now until we support key-connector or no-master-key based rotation.
+    .expect("master-password based unlock data must be present");
 
-    let tde_device_unlock_data: Vec<OtherDeviceKeysUpdateRequestModel> = input
-        .trusted_devices
+    let tde_device_unlock_data = reencrypt_tde_devices(
+        &input.trusted_devices,
+        current_user_key_id,
+        new_user_key_id,
+        ctx,
+    )?;
+    let prf_passkey_unlock_data = reencrypt_passkey_credentials(
+        &input.webauthn_credentials,
+        current_user_key_id,
+        new_user_key_id,
+        ctx,
+    )?;
+    let emergency_accesses =
+        reencrypt_emergency_access_keys(input.trusted_emergency_access_keys, new_user_key_id, ctx)?;
+    let organizations_memberships =
+        reencrypt_organization_memberships(input.trusted_organization_keys, new_user_key_id, ctx)?;
+
+    Ok(UnlockDataRequestModel {
+        master_password_unlock_data: Box::new(master_password_unlock_data),
+        emergency_access_unlock_data: Some(emergency_accesses),
+        organization_account_recovery_unlock_data: Some(organizations_memberships),
+        passkey_unlock_data: Some(prf_passkey_unlock_data),
+        device_key_unlock_data: Some(tde_device_unlock_data),
+    })
+}
+
+/// Re-encrypt TDE device keys for the new user key.
+fn reencrypt_tde_devices(
+    trusted_devices: &[PartialRotateableKeyset],
+    current_user_key_id: SymmetricKeyId,
+    new_user_key_id: SymmetricKeyId,
+    ctx: &mut KeyStoreContext<KeyIds>,
+) -> Result<Vec<OtherDeviceKeysUpdateRequestModel>, ReencryptError> {
+    trusted_devices
         .iter()
         .map(|device| {
             let _span = debug_span!("reencrypt_device_key", device_id = ?device.id).entered();
@@ -129,9 +138,17 @@ pub(super) fn reencrypt_unlock(
                 .map_err(|_| ReencryptError::KeysetUnlockDataReencryption)
                 .map(Into::into)
         })
-        .collect::<Result<Vec<OtherDeviceKeysUpdateRequestModel>, ReencryptError>>()?;
-    let prf_passkey_unlock_data: Vec<WebAuthnLoginRotateKeyRequestModel> = input
-        .webauthn_credentials
+        .collect()
+}
+
+/// Re-encrypt passkey (WebAuthn PRF) credentials for the new user key.
+fn reencrypt_passkey_credentials(
+    webauthn_credentials: &[PartialRotateableKeyset],
+    current_user_key_id: SymmetricKeyId,
+    new_user_key_id: SymmetricKeyId,
+    ctx: &mut KeyStoreContext<KeyIds>,
+) -> Result<Vec<WebAuthnLoginRotateKeyRequestModel>, ReencryptError> {
+    webauthn_credentials
         .iter()
         .map(|cred| {
             let _span =
@@ -140,9 +157,16 @@ pub(super) fn reencrypt_unlock(
                 .map_err(|_| ReencryptError::KeysetUnlockDataReencryption)
                 .map(Into::into)
         })
-        .collect::<Result<Vec<WebAuthnLoginRotateKeyRequestModel>, ReencryptError>>()?;
-    let emergency_accesses = input
-        .trusted_emergency_access_keys
+        .collect()
+}
+
+/// Re-encrypt emergency access keys for the new user key.
+fn reencrypt_emergency_access_keys(
+    trusted_emergency_access_keys: Vec<V1EmergencyAccessMembership>,
+    new_user_key_id: SymmetricKeyId,
+    ctx: &mut KeyStoreContext<KeyIds>,
+) -> Result<Vec<EmergencyAccessWithIdRequestModel>, ReencryptError> {
+    trusted_emergency_access_keys
         .into_iter()
         .map(|ea| {
             let _span =
@@ -159,9 +183,16 @@ pub(super) fn reencrypt_unlock(
                 Err(_) => Err(ReencryptError::KeysharingError),
             }
         })
-        .collect::<Result<Vec<EmergencyAccessWithIdRequestModel>, ReencryptError>>()?;
-    let organizations_memberships = input
-        .trusted_organization_keys
+        .collect()
+}
+
+/// Re-encrypt organization membership keys for the new user key.
+fn reencrypt_organization_memberships(
+    trusted_organization_keys: Vec<V1OrganizationMembership>,
+    new_user_key_id: SymmetricKeyId,
+    ctx: &mut KeyStoreContext<KeyIds>,
+) -> Result<Vec<ResetPasswordWithOrgIdRequestModel>, ReencryptError> {
+    trusted_organization_keys
         .into_iter()
         .map(|org_membership| {
             let _span =
@@ -178,19 +209,41 @@ pub(super) fn reencrypt_unlock(
                 Err(_) => Err(ReencryptError::KeysharingError),
             }
         })
-        .collect::<Result<Vec<ResetPasswordWithOrgIdRequestModel>, ReencryptError>>()?;
+        .collect()
+}
 
-    Ok(UnlockDataRequestModel {
-        master_password_unlock_data: Box::new(
-            // This is safe for now until we support key-connector or no-master-key based rotation.
-            master_password_unlock_and_authentication_data_model
-                .expect("Master-password based unlock data must be present for re-encryption")
-                .map_err(|_| ReencryptError::KeysetUnlockDataReencryption)?,
-        ),
-        emergency_access_unlock_data: Some(emergency_accesses),
-        organization_account_recovery_unlock_data: Some(organizations_memberships),
-        passkey_unlock_data: Some(prf_passkey_unlock_data),
-        device_key_unlock_data: Some(tde_device_unlock_data),
+fn reencrypt_userkey_for_masterpassword_unlock(
+    masterkey_unlock_method: MasterkeyUnlockMethod,
+    new_user_key_id: SymmetricKeyId,
+    ctx: &mut KeyStoreContext<KeyIds>,
+) -> Result<Option<MasterPasswordUnlockAndAuthenticationDataModel>, ReencryptError> {
+    Ok(match masterkey_unlock_method {
+        MasterkeyUnlockMethod::Password {
+            password,
+            hint,
+            kdf,
+            salt,
+        } => {
+            let _span = debug_span!("derive_master_password_unlock_data").entered();
+            let unlock_data =
+                MasterPasswordUnlockData::derive(&password, &kdf, &salt, new_user_key_id, ctx)
+                    .map_err(|_| ReencryptError::MasterPasswordDerivation)?;
+            let authentication_data =
+                MasterPasswordAuthenticationData::derive(&password, &kdf, &salt)
+                    .map_err(|_| ReencryptError::MasterPasswordDerivation)?;
+            Some(
+                to_authentication_and_unlock_data(unlock_data, authentication_data, hint)
+                    .map_err(|_| ReencryptError::MasterPasswordDerivation)?,
+            )
+        }
+        MasterkeyUnlockMethod::KeyConnector => {
+            tracing::error!("Key-connector based key rotation is not yet implemented");
+            None
+        }
+        MasterkeyUnlockMethod::None => {
+            tracing::error!("Key-rotation without master-key based unlock is not supported yet");
+            None
+        }
     })
 }
 
