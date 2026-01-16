@@ -219,6 +219,21 @@ impl WrappedAccountCryptographicState {
         ))
     }
 
+    #[cfg(test)]
+    fn make_v1(
+        ctx: &mut KeyStoreContext<KeyIds>,
+    ) -> Result<(SymmetricKeyId, Self), AccountCryptographyInitializationError> {
+        let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1)?;
+
+        Ok((
+            user_key,
+            WrappedAccountCryptographicState::V1 {
+                private_key: ctx.wrap_private_key(user_key, private_key)?,
+            },
+        ))
+    }
+
     /// Re-wraps the account cryptographic state with a new user key. If the cryptographic state is
     /// a V1 state, it gets upgraded to a V2 state
     #[instrument(skip(self, ctx), err)]
@@ -636,23 +651,13 @@ mod tests {
         let mut ctx = store.context_mut();
 
         // Create a V1-style user key and add to context
-        let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let new_user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-
-        // Make a private key and wrap it with the user key
-        let private_key_id = ctx
-            .make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1)
-            .unwrap();
-        let wrapped_private = ctx.wrap_private_key(user_key, private_key_id).unwrap();
-
-        // Construct the V1 wrapped state
-        let wrapped = WrappedAccountCryptographicState::V1 {
-            private_key: wrapped_private,
-        };
+        let (user_key, wrapped_state) =
+            WrappedAccountCryptographicState::make_v1(&mut ctx).unwrap();
+        let new_user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         // Rotate the state
         let user_id = UserId::new_v4();
-        let rotated = wrapped
+        let rotated = wrapped_state
             .rotate(&user_key, &new_user_key, user_id, &mut ctx)
             .unwrap();
 
@@ -671,34 +676,13 @@ mod tests {
         let mut ctx = store.context_mut();
 
         // Create a V2-style user key and add to context
-        let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let user_id = UserId::new_v4();
+        let (user_key, wrapped_state) =
+            WrappedAccountCryptographicState::make(&mut ctx, user_id).unwrap();
         let new_user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        // Make keys
-        let private_key_id = ctx
-            .make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1)
-            .unwrap();
-        let signing_key_id = ctx.make_signing_key(SignatureAlgorithm::Ed25519).unwrap();
-        let signed_public_key = ctx
-            .make_signed_public_key(private_key_id, signing_key_id)
-            .unwrap();
-        let user_id = UserId::new_v4();
-        let security_state = SecurityState::initialize_for_user(user_id);
-        let signed_security_state = security_state.sign(signing_key_id, &mut ctx).unwrap();
-
-        // Wrap the private and signing keys with the user key
-        let wrapped_private = ctx.wrap_private_key(user_key, private_key_id).unwrap();
-        let wrapped_signing = ctx.wrap_signing_key(user_key, signing_key_id).unwrap();
-
-        let wrapped = WrappedAccountCryptographicState::V2 {
-            private_key: wrapped_private,
-            signed_public_key: Some(signed_public_key),
-            signing_key: wrapped_signing,
-            security_state: signed_security_state,
-        };
-
         // Rotate the state
-        let rotated = wrapped
+        let rotated = wrapped_state
             .rotate(&user_key, &new_user_key, user_id, &mut ctx)
             .unwrap();
 
