@@ -21,6 +21,7 @@ pub struct RotatedUserKeys {
 }
 
 /// Generates a new user key and re-encrypts the current private and signing keys with it.
+#[deprecated(note = "Use AccountCryptographicState::rotate instead")]
 pub fn dangerous_get_v2_rotated_account_keys<Ids: KeyIds>(
     current_user_private_key_id: Ids::Asymmetric,
     current_user_signing_key_id: Ids::Signing,
