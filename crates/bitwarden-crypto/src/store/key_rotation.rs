@@ -60,7 +60,8 @@ mod tests {
 
         // Make the keys
         let current_user_signing_key_id = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
-        let current_user_private_key_id = ctx.make_asymmetric_key();
+        let current_user_private_key_id =
+            ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
         // Get the rotated account keys
         let rotated_keys = dangerous_get_v2_rotated_account_keys(
