@@ -1726,7 +1726,8 @@ mod tests {
         .unwrap();
 
         #[expect(deprecated)]
-        assert!(get_v2_rotated_account_keys(&client).is_ok());
+        let result = get_v2_rotated_account_keys(&client);
+        assert!(result.is_ok());
     }
 
     #[tokio::test]

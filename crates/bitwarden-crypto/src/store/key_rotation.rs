@@ -65,6 +65,7 @@ mod tests {
         let current_user_private_key_id = ctx.make_asymmetric_key().unwrap();
 
         // Get the rotated account keys
+        #[expect(deprecated)]
         let rotated_keys = dangerous_get_v2_rotated_account_keys(
             current_user_private_key_id,
             current_user_signing_key_id,
