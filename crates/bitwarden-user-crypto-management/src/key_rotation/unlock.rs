@@ -54,7 +54,7 @@ pub struct V1OrganizationMembership {
     pub public_key: PublicKey,
 }
 
-#[expect(unused)]
+#[allow(unused)]
 #[derive(Debug)]
 pub(super) enum ReencryptError {
     /// Failed to update the unlock data for the master password
@@ -65,7 +65,7 @@ pub(super) enum ReencryptError {
     KeysharingError,
 }
 
-#[expect(unused)]
+#[allow(unused)]
 /// Input data for re-encrypting unlock methods during user key rotation.
 pub(super) struct ReencryptUnlockInput {
     /// The master-key based unlock method.
@@ -80,7 +80,7 @@ pub(super) struct ReencryptUnlockInput {
     pub(super) trusted_emergency_access_keys: Vec<V1EmergencyAccessMembership>,
 }
 
-#[expect(unused)]
+#[allow(unused)]
 /// Update the unlock methods for the updated user-key.
 pub(super) fn reencrypt_unlock(
     input: ReencryptUnlockInput,
