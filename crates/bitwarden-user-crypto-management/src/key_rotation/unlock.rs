@@ -248,9 +248,7 @@ mod tests {
 
     use bitwarden_api_api::models::KdfType;
     use bitwarden_core::key_management::KeyIds;
-    use bitwarden_crypto::{
-        Kdf, KeyStore, PublicKeyEncryptionAlgorithm, UnsignedSharedKey,
-    };
+    use bitwarden_crypto::{Kdf, KeyStore, PublicKeyEncryptionAlgorithm, UnsignedSharedKey};
     use uuid::Uuid;
 
     use super::*;
