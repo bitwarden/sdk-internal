@@ -257,7 +257,7 @@ impl PureCrypto {
         EncString::from_str(wrapped_key.as_str())?.decrypt(&mut context, wrapping_key)
     }
 
-    /// Encapsulates (encrypts) a symmetric key using an asymmetric encapsulation key (public key)
+    /// Encapsulates (encrypts) a symmetric key using an public-key/encapsulation-key
     /// in SPKI format, returning the encapsulated key as a string. Note: This is unsigned, so
     /// the sender's authenticity cannot be verified by the recipient.
     pub fn encapsulate_key_unsigned(
@@ -273,7 +273,7 @@ impl PureCrypto {
         .to_string())
     }
 
-    /// Decapsulates (decrypts) a symmetric key using an decapsulation key (private key) in PKCS8
+    /// Decapsulates (decrypts) a symmetric key using an decapsulation-key/private-key in PKCS8
     /// DER format. Note: This is unsigned, so the sender's authenticity cannot be verified by the
     /// recipient.
     pub fn decapsulate_key_unsigned(
