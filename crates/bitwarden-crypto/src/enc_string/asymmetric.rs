@@ -7,8 +7,8 @@ use serde::Deserialize;
 
 use super::{from_b64_vec, split_enc_string};
 use crate::{
-    BitwardenLegacyKeyBytes, PrivateKey, PublicKey, RawPrivateKey, RawPublicKey,
-    SymmetricCryptoKey,
+    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, KeyIds,
+    KeyStoreContext, PrivateKey, PublicKey, RawPrivateKey, RawPublicKey, SymmetricCryptoKey,
     error::{CryptoError, EncStringParseError, Result},
     rsa::encrypt_rsa2048_oaep_sha1,
 };
@@ -23,6 +23,9 @@ mod internal {
     "#;
 
     /// # Encrypted string primitive
+    ///
+    /// WARNING: This should not be used for new cryptographic constructions, since it does not
+    /// provide sender authentication, or cryptographic namespacing.
     ///
     /// [UnsignedSharedKey] is a Bitwarden specific primitive that represents an
     /// asymmetrically encrypted symmetric key. Since the symmetric key is directly encrypted
@@ -162,6 +165,7 @@ impl UnsignedSharedKey {
     /// Encapsulate a symmetric key, to be shared asymmetrically. Produces a
     /// [UnsignedSharedKey::Rsa2048_OaepSha1_B64] variant. Note, this does not sign the data
     /// and thus does not guarantee sender authenticity.
+    #[deprecated(note = "Use encapsulate() instead")]
     pub fn encapsulate_key_unsigned(
         encapsulated_key: &SymmetricCryptoKey,
         encapsulation_key: &PublicKey,
@@ -178,6 +182,22 @@ impl UnsignedSharedKey {
         }
     }
 
+    /// Encapsulate a symmetric key, to be shared asymmetrically. Produces a
+    /// [UnsignedSharedKey::Rsa2048_OaepSha1_B64] variant. Note, this does not sign the data
+    /// and thus does not guarantee sender authenticity.
+    pub fn encapsulate<Ids: KeyIds>(
+        key_to_encapsulate: Ids::Symmetric,
+        encapsulation_key: &AsymmetricPublicCryptoKey,
+        ctx: &KeyStoreContext<Ids>,
+    ) -> Result<UnsignedSharedKey> {
+        // Internal usage to the crypto crate is allowed
+        #[expect(deprecated)]
+        let encapsulated_key = ctx.dangerous_get_symmetric_key(key_to_encapsulate)?;
+        // Will be replaced once callers have been moved over
+        #[expect(deprecated)]
+        Self::encapsulate_key_unsigned(encapsulated_key, encapsulation_key)
+    }
+
     /// The numerical representation of the encryption type of the [UnsignedSharedKey].
     const fn enc_type(&self) -> u8 {
         match self {
@@ -192,9 +212,26 @@ impl UnsignedSharedKey {
 }
 
 impl UnsignedSharedKey {
+    /// Decapsulate a symmetric key using an asymmetric decapsulation key from the key store.
+    /// Returns the key ID of the decapsulated symmetric key added to the context.
+    pub fn decapsulate<Ids: KeyIds>(
+        &self,
+        decapsulation_key: Ids::Private,
+        ctx: &mut KeyStoreContext<Ids>,
+    ) -> Result<Ids::Symmetric> {
+        // Internal usage to the crypto crate is allowed
+        #[expect(deprecated)]
+        let private_key = ctx.dangerous_get_private_key(decapsulation_key)?;
+        #[expect(deprecated)]
+        let key = Self::decapsulate_key_unsigned(self, private_key)
+            .map_err(|_| CryptoError::KeyDecrypt)?;
+        Ok(ctx.add_local_symmetric_key(key))
+    }
+
     /// Decapsulate a symmetric key, shared asymmetrically.
     /// Note: The shared key does not have a sender signature and sender authenticity is not
     /// guaranteed.
+    #[deprecated(note = "Use decapsulate() instead")]
     pub fn decapsulate_key_unsigned(
         &self,
         decapsulation_key: &PrivateKey,
@@ -283,6 +320,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
         let test_key = SymmetricCryptoKey::generate_seeded_for_unit_tests("test");
         assert_eq!(enc_string.enc_type(), 3);
 
+        #[expect(deprecated)]
         let res = enc_string.decapsulate_key_unsigned(&key_pair).unwrap();
         assert_eq!(res, test_key);
     }
@@ -296,6 +334,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
         let test_key = SymmetricCryptoKey::generate_seeded_for_unit_tests("test");
         assert_eq!(enc_string.enc_type(), 4);
 
+        #[expect(deprecated)]
         let res = enc_string.decapsulate_key_unsigned(&private_key).unwrap();
         assert_eq!(res, test_key);
     }
@@ -310,6 +349,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
             SymmetricCryptoKey::generate_seeded_for_unit_tests("test");
         assert_eq!(enc_string.enc_type(), 6);
 
+        #[expect(deprecated)]
         let res = enc_string.decapsulate_key_unsigned(&private_key).unwrap();
         assert_eq!(res.to_base64(), test_key.to_base64());
     }
