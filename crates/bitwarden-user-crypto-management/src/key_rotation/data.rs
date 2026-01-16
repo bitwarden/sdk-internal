@@ -20,20 +20,21 @@ pub(crate) enum DataReencryptionError {
     DataConversion,
 }
 
+#[allow(unused)]
 #[instrument(name = "reencrypt_data", skip(folders, cipher, sends, ctx))]
 pub(super) fn reencrypt_data(
     folders: Vec<bitwarden_vault::Folder>,
     cipher: Vec<bitwarden_vault::Cipher>,
     sends: Vec<bitwarden_send::Send>,
-    ctx: &mut KeyStoreContext<KeyIds>,
     current_user_key_id: SymmetricKeyId,
     new_user_key_id: SymmetricKeyId,
+    ctx: &mut KeyStoreContext<KeyIds>,
 ) -> Result<AccountDataRequestModel, DataReencryptionError> {
     // Fully re-encrypt all user data with the new user key
     let reencrypted_folders =
-        reencrypt_folders(folders, ctx, current_user_key_id, new_user_key_id)?;
-    let reencrypted_ciphers = reencrypt_ciphers(cipher, ctx, current_user_key_id, new_user_key_id)?;
-    let reencrypted_sends = reencrypt_sends(sends, ctx, current_user_key_id, new_user_key_id)?;
+        reencrypt_folders(folders, current_user_key_id, new_user_key_id, ctx)?;
+    let reencrypted_ciphers = reencrypt_ciphers(cipher, current_user_key_id, new_user_key_id, ctx)?;
+    let reencrypted_sends = reencrypt_sends(sends, current_user_key_id, new_user_key_id, ctx)?;
     Ok(AccountDataRequestModel {
         folders: Some(
             reencrypted_folders
@@ -67,9 +68,9 @@ pub(super) fn reencrypt_data(
 #[instrument(name = "reencrypt_folders", skip(folders, ctx))]
 fn reencrypt_folders(
     folders: Vec<bitwarden_vault::Folder>,
-    ctx: &mut KeyStoreContext<KeyIds>,
     current_key: SymmetricKeyId,
     new_key: SymmetricKeyId,
+    ctx: &mut KeyStoreContext<KeyIds>,
 ) -> Result<Vec<bitwarden_vault::Folder>, DataReencryptionError> {
     folders
         .into_iter()
@@ -88,9 +89,9 @@ fn reencrypt_folders(
 #[instrument(name = "reencrypt_ciphers", skip(ciphers, ctx))]
 fn reencrypt_ciphers(
     ciphers: Vec<bitwarden_vault::Cipher>,
-    ctx: &mut KeyStoreContext<KeyIds>,
     current_key: SymmetricKeyId,
     new_key: SymmetricKeyId,
+    ctx: &mut KeyStoreContext<KeyIds>,
 ) -> Result<Vec<bitwarden_vault::Cipher>, DataReencryptionError> {
     ciphers
         .into_iter()
@@ -109,9 +110,9 @@ fn reencrypt_ciphers(
 #[instrument(name = "reencrypt_sends", skip(sends, ctx))]
 fn reencrypt_sends(
     sends: Vec<bitwarden_send::Send>,
-    ctx: &mut KeyStoreContext<KeyIds>,
     current_key: SymmetricKeyId,
     new_key: SymmetricKeyId,
+    ctx: &mut KeyStoreContext<KeyIds>,
 ) -> Result<Vec<bitwarden_send::Send>, DataReencryptionError> {
     sends
         .into_iter()
@@ -145,7 +146,6 @@ mod tests {
         let user_key_new =
             ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac);
 
-        // Create an encrypted cipher (minimal valid fields)
         let cipher = CipherView {
             id: None,
             organization_id: None,
@@ -188,7 +188,7 @@ mod tests {
         // Rotate it
         let ciphers = vec![encrypted_cipher];
         let reencrypted_ciphers =
-            super::reencrypt_ciphers(ciphers, &mut ctx, user_key_old, user_key_new).unwrap();
+            super::reencrypt_ciphers(ciphers, user_key_old, user_key_new, &mut ctx).unwrap();
 
         // Decrypt and assert
         let decrypted_cipher: CipherView = reencrypted_ciphers[0]
@@ -228,7 +228,7 @@ mod tests {
         // Rotate it
         let folders = vec![encrypted_folder];
         let reencrypted_folders =
-            super::reencrypt_folders(folders, &mut ctx, user_key_old, user_key_new).unwrap();
+            super::reencrypt_folders(folders, user_key_old, user_key_new, &mut ctx).unwrap();
 
         // Decrypt and assert
         let decrypted_folder = reencrypted_folders[0]
@@ -275,7 +275,7 @@ mod tests {
         // Rotate it
         let sends = vec![encrypted_send];
         let reencrypted_sends =
-            super::reencrypt_sends(sends, &mut ctx, user_key_old, user_key_new).unwrap();
+            super::reencrypt_sends(sends, user_key_old, user_key_new, &mut ctx).unwrap();
 
         // Decrypt and assert
         let decrypted_send: SendView = reencrypted_sends[0]
