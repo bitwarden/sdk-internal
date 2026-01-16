@@ -58,4 +58,12 @@ pub fn init_sdk(log_level: Option<LogLevel>) {
     tracing::warn!(
         "Dangerous crypto debug features are enabled. THIS MUST NOT BE USED IN PRODUCTION BUILDS!!"
     );
+
+    // Log startup diagnostics for Flight Recorder context
+    tracing::info!(
+        sdk_version = env!("SDK_VERSION"),
+        platform = "wasm",
+        log_level = %log_level,
+        "SDK initialized"
+    );
 }
