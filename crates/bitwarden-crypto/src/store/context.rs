@@ -366,7 +366,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         let wrapping_key = self.get_symmetric_key(wrapping_key)?;
         let private_key_bytes: Vec<u8> = wrapped_key.decrypt_with_key(wrapping_key)?;
         let private_key = PrivateKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key_bytes))?;
-        self.add_local_private_key(private_key)
+        Ok(self.add_local_private_key(private_key))
     }
 
     /// Decrypt and import a previously wrapped signing key into the context.
@@ -385,7 +385,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         let wrapping_key = self.get_symmetric_key(wrapping_key)?;
         let signing_key_bytes: Vec<u8> = wrapped_key.decrypt_with_key(wrapping_key)?;
         let signing_key = SigningKey::from_cose(&CoseKeyBytes::from(signing_key_bytes))?;
-        self.add_local_signing_key(signing_key)
+        Ok(self.add_local_signing_key(signing_key))
     }
 
     /// Return the verifying (public) key corresponding to a signing key identifier.
@@ -534,16 +534,13 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 
     /// Makes a new asymmetric encryption key using the current default algorithm, and stores it in
     /// the context as a local key
-    pub fn make_private_key(
-        &mut self,
-        algorithm: PublicKeyEncryptionAlgorithm,
-    ) -> Result<Ids::Private> {
+    pub fn make_private_key(&mut self, algorithm: PublicKeyEncryptionAlgorithm) -> Ids::Private {
         self.add_local_private_key(PrivateKey::make(algorithm))
     }
 
     /// Makes a new signing key using the current default algorithm, and stores it in the context as
     /// a local key
-    pub fn make_signing_key(&mut self, algorithm: SignatureAlgorithm) -> Result<Ids::Signing> {
+    pub fn make_signing_key(&mut self, algorithm: SignatureAlgorithm) -> Ids::Signing {
         self.add_local_signing_key(SigningKey::make(algorithm))
     }
 
@@ -709,10 +706,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Add a new private key to the local context, returning a new unique identifier for it.
-    pub fn add_local_private_key(&mut self, key: PrivateKey) -> Result<Ids::Private> {
+    pub fn add_local_private_key(&mut self, key: PrivateKey) -> Ids::Private {
         let key_id = Ids::Private::new_local(LocalId::new());
         self.local_private_keys.upsert(key_id, key);
-        Ok(key_id)
+        key_id
     }
 
     /// Sets a signing key in the context
@@ -731,10 +728,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Add a new signing key to the local context, returning a new unique identifier for it.
-    pub fn add_local_signing_key(&mut self, key: SigningKey) -> Result<Ids::Signing> {
+    pub fn add_local_signing_key(&mut self, key: SigningKey) -> Ids::Signing {
         let key_id = Ids::Signing::new_local(LocalId::new());
         self.local_signing_keys.upsert(key_id, key);
-        Ok(key_id)
+        key_id
     }
 
     #[instrument(skip(self, data), err)]
@@ -1024,11 +1021,9 @@ mod tests {
         let mut ctx = store.context_mut();
 
         // Make the keys
-        let current_user_signing_key_id =
-            ctx.make_signing_key(SignatureAlgorithm::Ed25519).unwrap();
-        let current_user_private_key_id = ctx
-            .make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1)
-            .unwrap();
+        let current_user_signing_key_id = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
+        let current_user_private_key_id =
+            ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
         // Get the rotated account keys
         let rotated_keys = ctx
