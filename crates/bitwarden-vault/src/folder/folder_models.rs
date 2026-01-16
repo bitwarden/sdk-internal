@@ -100,3 +100,12 @@ impl TryFrom<FolderResponseModel> for Folder {
         })
     }
 }
+
+impl From<&Folder> for FolderWithIdRequestModel {
+    fn from(val: &Folder) -> Self {
+        FolderWithIdRequestModel {
+            name: val.name.to_string(),
+            id: val.id.map(|id| id.0),
+        }
+    }
+}

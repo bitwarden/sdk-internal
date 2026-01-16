@@ -226,8 +226,15 @@ impl CryptoClient {
         user_id: UserId,
         master_password: String,
         salt: String,
+        org_public_key: B64,
     ) -> Result<MakeJitMasterPasswordRegistrationResponse, MakeKeysError> {
-        make_user_jit_master_password_registration(&self.client, user_id, master_password, salt)
+        make_user_jit_master_password_registration(
+            &self.client,
+            user_id,
+            master_password,
+            salt,
+            org_public_key,
+        )
     }
 }
 

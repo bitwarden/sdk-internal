@@ -37,6 +37,7 @@ impl PureCrypto {
         enc_string: String,
         key: Vec<u8>,
     ) -> Result<String, CryptoError> {
+        let _span = tracing::info_span!("PureCrypto::symmetric_decrypt_string").entered();
         let key = &BitwardenLegacyKeyBytes::from(key);
         EncString::from_str(&enc_string)?.decrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
     }
@@ -45,6 +46,7 @@ impl PureCrypto {
         enc_string: String,
         key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
+        let _span = tracing::info_span!("PureCrypto::symmetric_decrypt_bytes").entered();
         let key = &BitwardenLegacyKeyBytes::from(key);
         EncString::from_str(&enc_string)?.decrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
     }
@@ -62,11 +64,13 @@ impl PureCrypto {
         enc_bytes: Vec<u8>,
         key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
+        let _span = tracing::info_span!("PureCrypto::symmetric_decrypt_filedata").entered();
         let key = &BitwardenLegacyKeyBytes::from(key);
         EncString::from_buffer(&enc_bytes)?.decrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
     }
 
     pub fn symmetric_encrypt_string(plain: String, key: Vec<u8>) -> Result<String, CryptoError> {
+        let _span = tracing::info_span!("PureCrypto::symmetric_encrypt_string").entered();
         let key = &BitwardenLegacyKeyBytes::from(key);
         plain
             .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
@@ -75,6 +79,7 @@ impl PureCrypto {
 
     /// DEPRECATED: Only used by send keys
     pub fn symmetric_encrypt_bytes(plain: Vec<u8>, key: Vec<u8>) -> Result<String, CryptoError> {
+        let _span = tracing::info_span!("PureCrypto::symmetric_encrypt_bytes").entered();
         let key = &BitwardenLegacyKeyBytes::from(key);
         OctetStreamBytes::from(plain)
             .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)
@@ -85,6 +90,7 @@ impl PureCrypto {
         plain: Vec<u8>,
         key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
+        let _span = tracing::info_span!("PureCrypto::symmetric_encrypt_filedata").entered();
         let key = &BitwardenLegacyKeyBytes::from(key);
         OctetStreamBytes::from(plain)
             .encrypt_with_key(&SymmetricCryptoKey::try_from(key)?)?
@@ -97,6 +103,13 @@ impl PureCrypto {
         email: String,
         kdf: Kdf,
     ) -> Result<Vec<u8>, CryptoError> {
+        let _span = tracing::info_span!(
+            "PureCrypto::decrypt_user_key_with_master_password",
+            email = %email,
+            kdf = ?kdf
+        )
+        .entered();
+
         let master_key = MasterKey::derive(master_password.as_str(), email.as_str(), &kdf)?;
         let encrypted_user_key = EncString::from_str(&encrypted_user_key)?;
         let result = master_key
@@ -111,6 +124,12 @@ impl PureCrypto {
         email: String,
         kdf: Kdf,
     ) -> Result<String, CryptoError> {
+        let _span = tracing::info_span!(
+            "PureCrypto::encrypt_user_key_with_master_password",
+            email = %email,
+            kdf = ?kdf
+        )
+        .entered();
         let master_key = MasterKey::derive(master_password.as_str(), email.as_str(), &kdf)?;
         let user_key = &BitwardenLegacyKeyBytes::from(user_key);
         let user_key = SymmetricCryptoKey::try_from(user_key)?;
@@ -136,6 +155,7 @@ impl PureCrypto {
         key_to_be_wrapped: Vec<u8>,
         wrapping_key: Vec<u8>,
     ) -> Result<String, CryptoError> {
+        let _span = tracing::info_span!("PureCrypto::wrap_symmetric_key").entered();
         let tmp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut context = tmp_store.context();
         let wrapping_key =
@@ -156,6 +176,7 @@ impl PureCrypto {
         wrapped_key: String,
         wrapping_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
+        let _span = tracing::info_span!("PureCrypto::unwrap_symmetric_key").entered();
         let tmp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut context = tmp_store.context();
         let wrapping_key =
@@ -178,6 +199,7 @@ impl PureCrypto {
         encapsulation_key: Vec<u8>,
         wrapping_key: Vec<u8>,
     ) -> Result<String, CryptoError> {
+        let _span = tracing::info_span!("PureCrypto::wrap_encapsulation_key").entered();
         let tmp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut context = tmp_store.context();
         let wrapping_key = context.add_local_symmetric_key(SymmetricCryptoKey::try_from(
@@ -194,6 +216,7 @@ impl PureCrypto {
         wrapped_key: String,
         wrapping_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
+        let _span = tracing::info_span!("PureCrypto::unwrap_encapsulation_key").entered();
         let tmp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut context = tmp_store.context();
         let wrapping_key = context.add_local_symmetric_key(SymmetricCryptoKey::try_from(
@@ -208,6 +231,7 @@ impl PureCrypto {
         decapsulation_key: Vec<u8>,
         wrapping_key: Vec<u8>,
     ) -> Result<String, CryptoError> {
+        let _span = tracing::info_span!("PureCrypto::wrap_decapsulation_key").entered();
         let tmp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut context = tmp_store.context();
         let wrapping_key = context.add_local_symmetric_key(SymmetricCryptoKey::try_from(
@@ -224,6 +248,7 @@ impl PureCrypto {
         wrapped_key: String,
         wrapping_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
+        let _span = tracing::info_span!("PureCrypto::unwrap_decapsulation_key").entered();
         let tmp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut context = tmp_store.context();
         let wrapping_key = context.add_local_symmetric_key(SymmetricCryptoKey::try_from(
@@ -239,6 +264,7 @@ impl PureCrypto {
         shared_key: Vec<u8>,
         encapsulation_key: Vec<u8>,
     ) -> Result<String, CryptoError> {
+        let _span = tracing::info_span!("PureCrypto::encapsulate_key_unsigned").entered();
         let encapsulation_key =
             AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(encapsulation_key))?;
         #[expect(deprecated)]
@@ -256,6 +282,7 @@ impl PureCrypto {
         encapsulated_key: String,
         decapsulation_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
+        let _span = tracing::info_span!("PureCrypto::decapsulate_key_unsigned").entered();
         #[expect(deprecated)]
         Ok(UnsignedSharedKey::from_str(encapsulated_key.as_str())?
             .decapsulate_key_unsigned(&AsymmetricCryptoKey::from_der(
@@ -271,6 +298,7 @@ impl PureCrypto {
         signing_key: String,
         wrapping_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
+        let _span = tracing::info_span!("PureCrypto::verifying_key_for_signing_key").entered();
         let bytes = Self::symmetric_decrypt_bytes(signing_key, wrapping_key)?;
         let signing_key = SigningKey::from_cose(&CoseKeyBytes::from(bytes))?;
         let verifying_key = signing_key.to_verifying_key();
@@ -281,6 +309,7 @@ impl PureCrypto {
     pub fn key_algorithm_for_verifying_key(
         verifying_key: Vec<u8>,
     ) -> Result<SignatureAlgorithm, CryptoError> {
+        let _span = tracing::info_span!("PureCrypto::key_algorithm_for_verifying_key").entered();
         let verifying_key = VerifyingKey::from_cose(&CoseKeyBytes::from(verifying_key))?;
         let algorithm = verifying_key.algorithm();
         Ok(algorithm)
@@ -294,6 +323,8 @@ impl PureCrypto {
         signed_public_key: Vec<u8>,
         verifying_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
+        let _span =
+            tracing::info_span!("PureCrypto::verify_and_unwrap_signed_public_key").entered();
         let signed_public_key = SignedPublicKey::try_from(CoseSign1Bytes::from(signed_public_key))?;
         let verifying_key = VerifyingKey::from_cose(&CoseKeyBytes::from(verifying_key))?;
         signed_public_key
@@ -308,6 +339,7 @@ impl PureCrypto {
         salt: &[u8],
         kdf: Kdf,
     ) -> Result<Vec<u8>, CryptoError> {
+        let _span = tracing::info_span!("PureCrypto::derive_kdf_material", kdf = ?kdf).entered();
         #[allow(deprecated)]
         dangerous_derive_kdf_material(password, salt, &kdf)
     }
@@ -316,6 +348,7 @@ impl PureCrypto {
         encrypted_user_key: String,
         master_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
+        let _span = tracing::info_span!("PureCrypto::decrypt_user_key_with_master_key").entered();
         let master_key = &BitwardenLegacyKeyBytes::from(master_key);
         let master_key = &SymmetricCryptoKey::try_from(master_key)?;
         let master_key = MasterKey::try_from(master_key)?;
@@ -330,6 +363,7 @@ impl PureCrypto {
     /// returns the corresponding public RSA key in DER format.
     /// HAZMAT WARNING: Do not use outside of implementing cryptofunctionservice
     pub fn rsa_extract_public_key(private_key: Vec<u8>) -> Result<Vec<u8>, RsaError> {
+        let _span = tracing::info_span!("PureCrypto::rsa_extract_public_key").entered();
         let private_key = AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key))
             .map_err(|_| RsaError::KeyParse)?;
         let public_key = private_key.to_public_key();
@@ -342,6 +376,7 @@ impl PureCrypto {
     /// Generates a new RSA key pair and returns the private key
     /// HAZMAT WARNING: Do not use outside of implementing cryptofunctionservice
     pub fn rsa_generate_keypair() -> Result<Vec<u8>, RsaError> {
+        let _span = tracing::info_span!("PureCrypto::rsa_generate_keypair").entered();
         let private_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         Ok(private_key
             .to_der()
@@ -355,6 +390,7 @@ impl PureCrypto {
         encrypted_data: Vec<u8>,
         private_key: Vec<u8>,
     ) -> Result<Vec<u8>, RsaError> {
+        let _span = tracing::info_span!("PureCrypto::rsa_decrypt_data").entered();
         let private_key = RsaPrivateKey::from_pkcs8_der(private_key.as_slice())
             .map_err(|_| RsaError::KeyParse)?;
         let padding = Oaep::new::<Sha1>();
@@ -366,6 +402,7 @@ impl PureCrypto {
     /// Encrypts data using RSAES-OAEP with SHA-1
     /// HAZMAT WARNING: Do not use outside of implementing cryptofunctionservice
     pub fn rsa_encrypt_data(plain_data: Vec<u8>, public_key: Vec<u8>) -> Result<Vec<u8>, RsaError> {
+        let _span = tracing::info_span!("PureCrypto::rsa_encrypt_data").entered();
         let public_key = RsaPublicKey::from_public_key_der(public_key.as_slice())
             .map_err(|_| RsaError::KeyParse)?;
         let padding = Oaep::new::<Sha1>();

@@ -1189,11 +1189,7 @@ impl PartialCipher for CipherMiniResponseModel {
             revision_date: require!(self.revision_date)
                 .parse()
                 .map_err(Into::<VaultParseError>::into)?,
-            archived_date: self
-                .archived_date
-                .map(|d| d.parse())
-                .transpose()
-                .map_err(Into::<VaultParseError>::into)?,
+            archived_date: cipher.map_or(Default::default(), |c| c.archived_date),
             folder_id: cipher.map_or(Default::default(), |c| c.folder_id),
             favorite: cipher.map_or(Default::default(), |c| c.favorite),
             edit: cipher.map_or(Default::default(), |c| c.edit),
@@ -1249,17 +1245,13 @@ impl PartialCipher for CipherMiniDetailsResponseModel {
             revision_date: require!(self.revision_date)
                 .parse()
                 .map_err(Into::<VaultParseError>::into)?,
-            archived_date: self
-                .archived_date
-                .map(|d| d.parse())
-                .transpose()
-                .map_err(Into::<VaultParseError>::into)?,
             collection_ids: self
                 .collection_ids
                 .into_iter()
                 .flatten()
                 .map(CollectionId::new)
                 .collect(),
+            archived_date: cipher.map_or(Default::default(), |c| c.archived_date),
             folder_id: cipher.map_or(Default::default(), |c| c.folder_id),
             favorite: cipher.map_or(Default::default(), |c| c.favorite),
             edit: cipher.map_or(Default::default(), |c| c.edit),
