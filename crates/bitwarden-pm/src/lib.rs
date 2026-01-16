@@ -71,7 +71,7 @@ impl PasswordManagerClient {
         self.0.crypto()
     }
 
-    /// Management of user crypto and unlock
+    /// Operations that manage the cryptographic machinery of a user account, including key-rotation
     pub fn user_crypto_management(
         &self,
     ) -> bitwarden_user_crypto_management::UserCryptoManagementClient {

@@ -4,7 +4,7 @@ use std::{fmt::Display, sync::Arc};
 use bitwarden_core::ClientSettings;
 use bitwarden_error::bitwarden_error;
 use bitwarden_pm::{PasswordManagerClient as InnerPasswordManagerClient, clients::*};
-use bitwarden_user_crypto_management::UserCryptoManagementClientExt;
+use bitwarden_user_crypto_management::{UserCryptoManagementClient, UserCryptoManagementClientExt};
 use wasm_bindgen::prelude::*;
 
 use crate::platform::{
