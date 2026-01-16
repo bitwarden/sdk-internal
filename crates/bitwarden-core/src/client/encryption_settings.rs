@@ -81,7 +81,7 @@ impl EncryptionSettings {
         // Decrypt the org keys with the private key
         for (org_id, org_enc_key) in org_enc_keys {
             let org_symmetric_key =
-                org_enc_key.decapsulate(AsymmetricKeyId::UserPrivateKey, &mut ctx)?;
+                org_enc_key.decapsulate(PrivateKeyId::UserPrivateKey, &mut ctx)?;
             ctx.persist_symmetric_key(org_symmetric_key, SymmetricKeyId::Organization(org_id))?;
         }
 
