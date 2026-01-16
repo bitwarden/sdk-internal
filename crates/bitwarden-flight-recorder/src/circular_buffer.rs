@@ -2,6 +2,16 @@
 
 use std::{collections::VecDeque, sync::Mutex};
 
+// Static assertion: CircularBuffer<T> must be Send + Sync for any Send type T.
+// This is required because the buffer is stored in a global OnceLock and accessed
+// from multiple threads. This assertion documents the requirement and will cause
+// a compile error if future changes break thread safety.
+const _: () = {
+    const fn assert_send_sync<T: Send + Sync>() {}
+    // String is a common Send type, so we use it as the test type
+    assert_send_sync::<CircularBuffer<String>>();
+};
+
 /// A thread-safe circular buffer with FIFO eviction.
 ///
 /// When the buffer reaches its capacity, the oldest items are automatically
