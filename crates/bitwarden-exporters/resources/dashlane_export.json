@@ -1,0 +1,308 @@
+{
+  "items": [
+    {
+      "id": "ezEwRjNCNEIzLUZFOEYtNDBFMi1BRkVELUMyNkUyOUMxNzIwNX0",
+      "creationAt": 2735237468,
+      "modifiedAt": 2735237468,
+      "title": "",
+      "credentials": [
+        {
+          "type": "credit-card",
+          "number": {
+            "id": "e2Y0ZTdiMThiLTNhZGMtNGJlYS05ZmJjLTIxYjU0MWYxMDhlY30",
+            "fieldType": "concealed-string",
+            "value": "4111111111111111"
+          },
+          "fullName": {
+            "id": "ezFiYmZmNjdlLTUyODEtNGZhZC04ZmRjLWFlYzYwNjJmM2ZkYn0",
+            "fieldType": "string",
+            "value": "Dashlane CC"
+          },
+          "verificationNumber": {
+            "id": "e2JmODAyZjA0LTdjMzItNDY1MC05NTZjLTIzM2MxODc4MDZkMX0",
+            "fieldType": "concealed-string",
+            "value": "999"
+          },
+          "expiryDate": {
+            "id": "ezRhOTYyY2QzLWUxNzktNGM1My1iMTBmLTNiNzM2OThlMGRjYn0",
+            "fieldType": "year-month",
+            "value": "2028-10"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ezM0NzhERkE1LTI0RjktNEI5MS1CNzM0LUMwQTUxRDlFNzMxNX0",
+      "creationAt": 2735237468,
+      "modifiedAt": 2735237468,
+      "title": "adobe.com",
+      "scope": {
+        "urls": [
+          "adobe.com"
+        ],
+        "androidApps": []
+      },
+      "credentials": [
+        {
+          "type": "basic-auth",
+          "username": {
+            "id": "ezY2OGE4NzA3LTQ3MGItNDU0YS05YzgwLTdkYjc4ZWRmNjhmM30",
+            "fieldType": "string",
+            "value": "dashlane@dashlane.com"
+          },
+          "password": {
+            "id": "ezE2YWE0MzNhLTU2ZDktNDA3Yy04ZWNlLTYzMjRlYTExZTI0Mn0",
+            "fieldType": "concealed-string",
+            "value": "asdfgh"
+          }
+        },
+        {
+          "type": "totp",
+          "secret": "JBSWY3DPEHPK3PXP",
+          "period": 30,
+          "digits": 6,
+          "algorithm": "sha1"
+        }
+      ]
+    },
+    {
+      "id": "ezM0Nzk5NTI3LUYwQTktNDlBOS04NTRELUNFNTFBQkQzRDI2M30",
+      "creationAt": 2735237468,
+      "modifiedAt": 2735237468,
+      "title": "Dashlane note",
+      "credentials": [
+        {
+          "type": "note",
+          "content": {
+            "id": "ezg4MWQ4MjJiLTczODQtNGU5YS05MjY4LWZlYTg1ZTFiYWQ3YX0",
+            "fieldType": "string",
+            "value": "Dashlane note content"
+          }
+        }
+      ]
+    },
+    {
+      "id": "e0Q5ODYzMUNBLUE1RDUtNDVDQS05MDY1LUI1MDI0NkY4QkFEMX0",
+      "creationAt": 2735237468,
+      "modifiedAt": 2735237468,
+      "title": "Dashlane address",
+      "credentials": [
+        {
+          "type": "address",
+          "streetAddress": {
+            "id": "e2IzODRlMjRlLWRlMDktNDYzMS04MDkyLWJjOTlkOGVlMDM3Mn0",
+            "fieldType": "string",
+            "value": "Addy1"
+          },
+          "postalCode": {
+            "id": "ezUxZmVmMDMxLWE1NmQtNDFhOS04ZDAxLTBhNGE3ZWY4NjhjZH0",
+            "fieldType": "string",
+            "value": "12345"
+          },
+          "city": {
+            "id": "ezI5ODFkZDA3LWQ1MmUtNGZjMy1hYjVkLWY4YzAzYTY1NWQ2Nn0",
+            "fieldType": "string",
+            "value": "City"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ezI2RkE1MUI4LUU0MEUtNEU3NC04NDUzLUQwQTU4MjQ2MkRDOH0",
+      "creationAt": 2735237468,
+      "modifiedAt": 2735237468,
+      "title": "",
+      "credentials": [
+        {
+          "type": "identity-document",
+          "documentNumber": {
+            "id": "ezdlODUxM2I0LWQ2MTQtNDIyOS1iZjEyLWFlYWVmZDYxYWUwNH0",
+            "fieldType": "string",
+            "value": "LicenseNumber"
+          },
+          "issueDate": {
+            "id": "e2U3YTdkZjIzLTU5NjYtNDE4YS1hYjMwLTlhMzIzZjkyYTA2OH0",
+            "fieldType": "date",
+            "value": "2025-10-09"
+          },
+          "expiryDate": {
+            "id": "ezk2M2U3ZjhkLTkxOWYtNDNiNi1hYjQ0LWIyYTdmMTYyNmI5OH0",
+            "fieldType": "date",
+            "value": "2025-10-10"
+          }
+        }
+      ]
+    },
+    {
+      "id": "e0MwQTQzRTA0LTUxNjEtNDBFNi04RjJBLTgxNThGMjQ2MEQ3NH0",
+      "creationAt": 2735237468,
+      "modifiedAt": 2735237468,
+      "title": "",
+      "credentials": [
+        {
+          "type": "passport",
+          "passportNumber": {
+            "id": "ezM1ZGZiMjBiLWMxMzAtNGVlNy04ZTFhLTdlZTE5YTdjZGRhZH0",
+            "fieldType": "string",
+            "value": "PassportNumber"
+          },
+          "issueDate": {
+            "id": "e2RmMTU4ZjlhLTM3NmItNDcyZC05NjJiLTk4MTFlYTlkYmU2NH0",
+            "fieldType": "date",
+            "value": "2025-10-09"
+          },
+          "expiryDate": {
+            "id": "e2YxYTMyMjMzLWMxMWYtNDlmOS1iZGQ3LWI1M2M0NDAwNjI0Yn0",
+            "fieldType": "date",
+            "value": "2025-10-10"
+          },
+          "issuingAuthority": {
+            "id": "e2U0YWRlMDYwLTQ5ZjQtNGVmMy1iMzJlLTZlMjk2MWU2ODA5Yn0",
+            "fieldType": "string",
+            "value": "PassportIssuer"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ezA0NTBCMUQxLUNEOTctNDk0Qy05NzM0LTM4MUJBNjk2QzcwQ30",
+      "creationAt": 2735237468,
+      "modifiedAt": 2735237468,
+      "title": "",
+      "credentials": [
+        {
+          "type": "drivers-license",
+          "issueDate": {
+            "id": "e2Y2N2IxYWMwLTkyMmItNDI0My05NGM0LTA0MTdhNDVkOTUzOX0",
+            "fieldType": "date",
+            "value": "2025-10-09"
+          },
+          "expiryDate": {
+            "id": "e2MzYjYyZDVlLWI2YjItNDMzMi04N2M5LTYxZjgxMTM4NTQ3MX0",
+            "fieldType": "date",
+            "value": "2025-10-10"
+          },
+          "licenseNumber": {
+            "id": "ezAyYWRhN2UwLTM4NzUtNGE5YS04MTIyLWFjZDFjZTc2MWZlZn0",
+            "fieldType": "string",
+            "value": "LicenseNumber"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ezc2NTRDQTQ2LTc4MzMtNDU1Qy05MUU0LTE0NUU1MzI0NjUxMX0",
+      "creationAt": 2735237468,
+      "modifiedAt": 2735237468,
+      "title": "",
+      "credentials": [
+        {
+          "type": "identity-document",
+          "identificationNumber": {
+            "id": "e2FhYmI3MDlhLWQ0NDAtNGQzNS04MjFlLWE5Mjk4ZjBmNDIyY30",
+            "fieldType": "string",
+            "value": "SSN"
+          }
+        }
+      ]
+    },
+    {
+      "id": "e0VDOTM4NEE5LUZBMzktNEQ4Mi1CQTBDLUE3NDFGRjdENTVFOX0",
+      "creationAt": 2735237468,
+      "modifiedAt": 2735237468,
+      "title": "",
+      "credentials": [
+        {
+          "type": "identity-document",
+          "documentNumber": {
+            "id": "ezZmYWQ0ZGQwLWUwMjQtNDEzZi1hOWY4LWQ4OWFkMmJlYTdiY30",
+            "fieldType": "string",
+            "value": "TaxNumber"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ezY1Q0Q0Mzk4LTZFQTMtNDEzMi1COTQyLUQwMzVFRjM1N0RCQ30",
+      "creationAt": 2735237468,
+      "modifiedAt": 2735237468,
+      "title": "WifiOrg",
+      "credentials": [
+        {
+          "type": "wifi",
+          "ssid": {
+            "id": "ezI5YmE4ZjY0LTg0MjEtNDkwOC05ZTNhLTljY2NlZGUyY2I5Nn0",
+            "fieldType": "string",
+            "value": "Dashlane WiFi"
+          },
+          "passphrase": {
+            "id": "ezY2MGFlOWZmLThiZmUtNDY2Mi1hZDE0LWM5ODljNGZmZWI4MH0",
+            "fieldType": "concealed-string",
+            "value": "123456"
+          },
+          "hidden": {
+            "id": "e2M4MGQ1N2I3LTU4ZGMtNGY3OS1hOWU4LWVhNTZhZjI3ZDE5NX0",
+            "fieldType": "boolean",
+            "value": "false"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ezkxQkRFREM3LTQ5NTYtNDI5RS1BMTJFLUQxMUVENjRFQkRCMn0",
+      "creationAt": 2735237468,
+      "modifiedAt": 2735237468,
+      "title": "Dashlane company",
+      "credentials": [
+        {
+          "type": "identity-document",
+          "fullName": {
+            "id": "e2I2N2Y3MTRhLWYzYjUtNGQ3NS1iNTMwLTQ5NDU5NTVhOWVhZH0",
+            "fieldType": "string",
+            "value": "Dashlane company"
+          },
+          "issuingAuthority": {
+            "id": "ezQ2ODA5NTE2LTAzYzItNDMyYi1iZDhiLWFlNmQ0ZTY2OWI4ZX0",
+            "fieldType": "string",
+            "value": "Company title"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ezZCMkI4MDZFLUUyQUUtNDFDQi04NUY1LTlCOTg5MDE3Q0YwRH0",
+      "creationAt": 2735237468,
+      "modifiedAt": 2735237468,
+      "title": "Dashlane Person",
+      "credentials": [
+        {
+          "type": "person-name",
+          "title": {
+            "id": "ezQwYTM5ZDExLTcyYmItNGFhMS04NzYxLTYwNjA0M2ExZTA0OH0",
+            "fieldType": "string",
+            "value": "mr"
+          },
+          "given": {
+            "id": "ezE2NzNjMjA3LWJhNTEtNDMwOS1hM2NjLTlmODA3ZGIzNjI2OX0",
+            "fieldType": "string",
+            "value": "Dashlane Person"
+          },
+          "givenInformal": {
+            "id": "ezI5ZjIyMTE0LTgzYzEtNDA3Yi05NTVlLTc5ZWFmNWEwZjUxMX0",
+            "fieldType": "string",
+            "value": "DashlaneUsername"
+          },
+          "given2": {
+            "id": "e2Y0Mzc5M2U2LWIyOWYtNDRiNy1iMWYzLTczZmRjMjYyMjVjYX0",
+            "fieldType": "string",
+            "value": "M"
+          }
+        }
+      ]
+    }
+  ],
+  "id": "e2I5OWM4MTgxLWU3MTQtNGM1MS05ZGM1LTMyZTJlNzllZDQwOX0",
+  "username": "dashlane@dashlane.com",
+  "email": "dashlane@dashlane.com",
+  "collections": []
+}
