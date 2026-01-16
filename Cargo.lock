@@ -1013,6 +1013,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-send",
  "bitwarden-test",
  "chrono",
  "reqwest",
