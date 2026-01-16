@@ -7,13 +7,13 @@ use bitwarden_api_api::models::{
 use bitwarden_core::key_management::{
     KeyIds, MasterPasswordAuthenticationData, MasterPasswordUnlockData, SymmetricKeyId,
 };
-use bitwarden_crypto::{AsymmetricPublicCryptoKey, Kdf, KeyStoreContext, UnsignedSharedKey};
+use bitwarden_crypto::{Kdf, KeyStoreContext, PublicKey, UnsignedSharedKey};
 use serde::{Deserialize, Serialize};
 use tracing::debug_span;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use crate::key_rotation::rotateable_keyset::KeysetUnlockData;
+use crate::key_rotation::partial_rotateable_keyset::PartialRotateableKeyset;
 
 /// The unlock method that uses the master-key field on the user's account. This can be either
 /// the master password, or the key-connector. For TDE users without a master password, this field
@@ -39,7 +39,7 @@ pub enum MasterkeyUnlockMethod {
 pub struct V1EmergencyAccessMembership {
     pub id: uuid::Uuid,
     pub name: String,
-    pub public_key: AsymmetricPublicCryptoKey,
+    pub public_key: PublicKey,
 }
 
 /// The data necessary to re-share the user-key to a V1 organization membership. Note: The
@@ -49,7 +49,7 @@ pub struct V1EmergencyAccessMembership {
 pub struct V1OrganizationMembership {
     pub organization_id: uuid::Uuid,
     pub name: String,
-    pub public_key: AsymmetricPublicCryptoKey,
+    pub public_key: PublicKey,
 }
 
 #[derive(Debug)]
@@ -63,9 +63,9 @@ pub(super) struct ReencryptUnlockInput {
     /// The master-key based unlock method.
     pub(super) master_key_unlock_method: MasterkeyUnlockMethod,
     /// The trusted device keysets.
-    pub(super) trusted_devices: Vec<KeysetUnlockData>,
+    pub(super) trusted_devices: Vec<PartialRotateableKeyset>,
     /// The webauthn credential keysets.
-    pub(super) webauthn_credentials: Vec<KeysetUnlockData>,
+    pub(super) webauthn_credentials: Vec<PartialRotateableKeyset>,
     /// The V1 organization memberships.
     pub(super) trusted_organization_keys: Vec<V1OrganizationMembership>,
     /// The V1 emergency access memberships.
@@ -110,7 +110,7 @@ pub(super) fn reencrypt_unlock(
         }
     };
 
-    let devices: Vec<KeysetUnlockData> = {
+    let devices: Vec<PartialRotateableKeyset> = {
         let _span = debug_span!("reencrypt_device_keys").entered();
         input
             .trusted_devices
@@ -121,9 +121,9 @@ pub(super) fn reencrypt_unlock(
                     .reencrypt(current_user_key_id, new_user_key_id, ctx)
                     .map_err(|_| ReencryptError::KeysetUnlockDataReencryption)
             })
-            .collect::<Result<Vec<KeysetUnlockData>, ReencryptError>>()?
+            .collect::<Result<Vec<PartialRotateableKeyset>, ReencryptError>>()?
     };
-    let passkeys: Vec<KeysetUnlockData> = {
+    let passkeys: Vec<PartialRotateableKeyset> = {
         let _span = debug_span!("reencrypt_webauthn_credentials").entered();
         input
             .webauthn_credentials
@@ -134,7 +134,7 @@ pub(super) fn reencrypt_unlock(
                 cred.reencrypt(current_user_key_id, new_user_key_id, ctx)
                     .map_err(|_| ReencryptError::KeysetUnlockDataReencryption)
             })
-            .collect::<Result<Vec<KeysetUnlockData>, ReencryptError>>()?
+            .collect::<Result<Vec<PartialRotateableKeyset>, ReencryptError>>()?
     };
     let emergency_accesses = {
         let _span = debug_span!("reencrypt_emergency_access_keys").entered();
@@ -241,11 +241,13 @@ mod tests {
 
     use bitwarden_api_api::models::KdfType;
     use bitwarden_core::key_management::KeyIds;
-    use bitwarden_crypto::{Kdf, KeyStore, PrimitiveEncryptable, UnsignedSharedKey};
+    use bitwarden_crypto::{
+        Kdf, KeyStore, PrimitiveEncryptable, PublicKeyEncryptionAlgorithm, UnsignedSharedKey,
+    };
     use uuid::Uuid;
 
     use super::*;
-    use crate::key_rotation::rotateable_keyset::KeysetUnlockData;
+    use crate::key_rotation::partial_rotateable_keyset::PartialRotateableKeyset;
 
     fn create_test_kdf_pbkdf2() -> Kdf {
         Kdf::PBKDF2 {
@@ -331,7 +333,7 @@ mod tests {
         let new_user_key_id = ctx.generate_symmetric_key();
 
         // Create device keyset
-        let device_private_key = ctx.make_asymmetric_key();
+        let device_private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let device_pubkey_der = ctx
             .get_public_key(device_private_key)
             .expect("key exists")
@@ -346,14 +348,15 @@ mod tests {
             &ctx,
         )
         .expect("encapsulate works");
-        let device = KeysetUnlockData {
+        let device = PartialRotateableKeyset {
             id: Uuid::new_v4(),
             encrypted_public_key: device_encrypted_public_key,
             encrypted_user_key: device_encrypted_user_key,
         };
 
         // Create webauthn credential keyset
-        let credential_private_key = ctx.make_asymmetric_key();
+        let credential_private_key =
+            ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let credential_pubkey_der = ctx
             .get_public_key(credential_private_key)
             .expect("key exists")
@@ -369,14 +372,14 @@ mod tests {
             &ctx,
         )
         .expect("encapsulate works");
-        let credential = KeysetUnlockData {
+        let credential = PartialRotateableKeyset {
             id: Uuid::new_v4(),
             encrypted_public_key: credential_encrypted_public_key,
             encrypted_user_key: credential_encrypted_user_key,
         };
 
         // Create emergency access membership
-        let ea_key = ctx.make_asymmetric_key();
+        let ea_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let emergency_access = V1EmergencyAccessMembership {
             id: Uuid::new_v4(),
             name: "Test User".to_string(),
@@ -384,7 +387,7 @@ mod tests {
         };
 
         // Create organization membership
-        let org_key = ctx.make_asymmetric_key();
+        let org_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let org_membership = V1OrganizationMembership {
             organization_id: Uuid::new_v4(),
             name: "Test Org".to_string(),
