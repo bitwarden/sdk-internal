@@ -759,7 +759,7 @@ pub(crate) fn make_v2_keys_for_v1_user(
 
     // New signing key
     let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
-    let temporary_signing_key_id = ctx.add_local_signing_key(signing_key.clone())?;
+    let temporary_signing_key_id = ctx.add_local_signing_key(signing_key.clone());
 
     // Sign existing public key
     let signed_public_key = ctx.make_signed_public_key(private_key_id, temporary_signing_key_id)?;
