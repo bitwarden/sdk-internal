@@ -176,8 +176,8 @@ impl WrappedAccountCryptographicState {
         user_id: UserId,
     ) -> Result<(SymmetricKeyId, Self), AccountCryptographyInitializationError> {
         let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1)?;
-        let signing_key = ctx.make_signing_key(SignatureAlgorithm::Ed25519)?;
+        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let signing_key = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
         let signed_public_key = ctx.make_signed_public_key(private_key, signing_key)?;
 
         let security_state = SecurityState::initialize_for_user(user_id);
