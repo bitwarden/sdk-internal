@@ -20,7 +20,7 @@ fn main() {
     let cases = memory_testing::load_cases(base_dir);
 
     let mut symmetric_keys = Vec::new();
-    let mut asymmetric_keys = Vec::new();
+    let mut private_keys = Vec::new();
     let mut master_keys = Vec::new();
     let mut strings = Vec::new();
 
@@ -30,9 +30,9 @@ fn main() {
                 let key = SymmetricCryptoKey::try_from(key).unwrap();
                 symmetric_keys.push((key.to_encoded(), key));
             }
-            memory_testing::CaseCommand::AsymmetricKey { private_key } => {
-                let key = bitwarden_crypto::AsymmetricCryptoKey::from_pem(&private_key).unwrap();
-                asymmetric_keys.push(key);
+            memory_testing::CaseCommand::PrivateKey { private_key } => {
+                let key = bitwarden_crypto::PrivateKey::from_pem(&private_key).unwrap();
+                private_keys.push(key);
             }
             memory_testing::CaseCommand::MasterKey {
                 password,
@@ -62,7 +62,7 @@ fn main() {
     let _ = std::hint::black_box((
         test_string,
         symmetric_keys,
-        asymmetric_keys,
+        private_keys,
         master_keys,
         strings,
     ));
