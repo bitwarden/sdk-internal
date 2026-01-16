@@ -43,9 +43,8 @@ pub fn init_sdk(log_level: Option<LogLevel>) {
 
     let perf_layer = performance_layer().with_details_from_fields(Pretty::default());
 
-    let flight_recorder_layer = init_flight_recorder(
-        FlightRecorderConfig::default().with_max_events(1000),
-    );
+    let flight_recorder_layer =
+        init_flight_recorder(FlightRecorderConfig::default().with_max_events(1000));
 
     tracing_subscriber::registry()
         .with(perf_layer)

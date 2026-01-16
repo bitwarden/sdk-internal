@@ -68,14 +68,20 @@ impl<T: Clone> CircularBuffer<T> {
     #[inline]
     #[must_use]
     pub fn len(&self) -> usize {
-        self.buffer.lock().expect("CircularBuffer mutex poisoned").len()
+        self.buffer
+            .lock()
+            .expect("CircularBuffer mutex poisoned")
+            .len()
     }
 
     /// Check if the buffer is empty.
     #[inline]
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.buffer.lock().expect("CircularBuffer mutex poisoned").is_empty()
+        self.buffer
+            .lock()
+            .expect("CircularBuffer mutex poisoned")
+            .is_empty()
     }
 }
 

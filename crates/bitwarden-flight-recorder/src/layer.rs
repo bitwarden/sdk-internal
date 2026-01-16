@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use tracing::{Event, Subscriber};
-use tracing_subscriber::{layer::Context, Layer};
+use tracing_subscriber::{Layer, layer::Context};
 
 use crate::{CircularBuffer, FlightRecorderConfig, FlightRecorderEvent};
 

@@ -1,7 +1,6 @@
 //! Flight Recorder event definitions.
 
 use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "wasm")]
@@ -47,7 +46,6 @@ impl FlightRecorderEvent {
             fields: visitor.fields,
         }
     }
-
 }
 
 /// Visitor for extracting fields from tracing events.
