@@ -17,18 +17,18 @@ use crate::{
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
-export type AsymmetricPublicCryptoKey = Tagged<string, "PublicKey">;
+export type PublicKey = Tagged<string, "PublicKey">;
 "#;
 
 #[cfg(feature = "wasm")]
-impl wasm_bindgen::describe::WasmDescribe for AsymmetricPublicCryptoKey {
+impl wasm_bindgen::describe::WasmDescribe for PublicKey {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();
     }
 }
 
 #[cfg(feature = "wasm")]
-impl FromWasmAbi for AsymmetricPublicCryptoKey {
+impl FromWasmAbi for PublicKey {
     type Abi = <String as FromWasmAbi>::Abi;
 
     unsafe fn from_abi(abi: Self::Abi) -> Self {
@@ -36,7 +36,7 @@ impl FromWasmAbi for AsymmetricPublicCryptoKey {
 
         let s = unsafe { String::from_abi(abi) };
         let bytes: Vec<u8> = s.parse::<bitwarden_encoding::B64>().unwrap_throw().into();
-        AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(bytes)).unwrap_throw()
+        PublicKey::from_der(&SpkiPublicKeyBytes::from(bytes)).unwrap_throw()
     }
 }
 
@@ -91,7 +91,7 @@ impl PublicKey {
     }
 }
 
-impl FromStr for AsymmetricPublicCryptoKey {
+impl FromStr for PublicKey {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -100,7 +100,7 @@ impl FromStr for AsymmetricPublicCryptoKey {
     }
 }
 
-impl<'de> Deserialize<'de> for AsymmetricPublicCryptoKey {
+impl<'de> Deserialize<'de> for PublicKey {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -109,7 +109,7 @@ impl<'de> Deserialize<'de> for AsymmetricPublicCryptoKey {
     }
 }
 
-impl Serialize for AsymmetricPublicCryptoKey {
+impl Serialize for PublicKey {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -364,7 +364,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         );
 
         // Test FromStr
-        let parsed_key: AsymmetricPublicCryptoKey = public_key_b64.parse().expect("should parse");
+        let parsed_key: PublicKey = public_key_b64.parse().expect("should parse");
 
         // Verify the key can be converted back to DER and then to B64
         let der = parsed_key.to_der().expect("should convert to DER");
@@ -375,11 +375,11 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
     #[test]
     fn test_asymmetric_public_crypto_key_from_str_invalid() {
         // Invalid base64
-        let result: Result<AsymmetricPublicCryptoKey, _> = "not-valid-base64!!!".parse();
+        let result: Result<PublicKey, _> = "not-valid-base64!!!".parse();
         assert!(result.is_err());
 
         // Valid base64 but invalid key data
-        let result: Result<AsymmetricPublicCryptoKey, _> = "aGVsbG8gd29ybGQ=".parse();
+        let result: Result<PublicKey, _> = "aGVsbG8gd29ybGQ=".parse();
         assert!(result.is_err());
     }
 
@@ -396,14 +396,14 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         );
 
         // Parse the key
-        let key: AsymmetricPublicCryptoKey = public_key_b64.parse().expect("should parse");
+        let key: PublicKey = public_key_b64.parse().expect("should parse");
 
         // Serialize to JSON
         let serialized = serde_json::to_string(&key).expect("should serialize");
         assert_eq!(serialized, format!("\"{}\"", public_key_b64));
 
         // Deserialize from JSON
-        let deserialized: AsymmetricPublicCryptoKey =
+        let deserialized: PublicKey =
             serde_json::from_str(&serialized).expect("should deserialize");
 
         // Verify the keys are equal by comparing their DER representations
@@ -416,17 +416,15 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
     #[test]
     fn test_asymmetric_public_crypto_key_deserialize_invalid() {
         // Invalid base64
-        let result: Result<AsymmetricPublicCryptoKey, _> =
-            serde_json::from_str("\"not-valid-base64!!!\"");
+        let result: Result<PublicKey, _> = serde_json::from_str("\"not-valid-base64!!!\"");
         assert!(result.is_err());
 
         // Valid base64 but invalid key data
-        let result: Result<AsymmetricPublicCryptoKey, _> =
-            serde_json::from_str("\"aGVsbG8gd29ybGQ=\"");
+        let result: Result<PublicKey, _> = serde_json::from_str("\"aGVsbG8gd29ybGQ=\"");
         assert!(result.is_err());
 
         // Not a string
-        let result: Result<AsymmetricPublicCryptoKey, _> = serde_json::from_str("123");
+        let result: Result<PublicKey, _> = serde_json::from_str("123");
         assert!(result.is_err());
     }
 }
