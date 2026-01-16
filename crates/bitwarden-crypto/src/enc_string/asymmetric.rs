@@ -187,7 +187,7 @@ impl UnsignedSharedKey {
     /// and thus does not guarantee sender authenticity.
     pub fn encapsulate<Ids: KeyIds>(
         key_to_encapsulate: Ids::Symmetric,
-        encapsulation_key: &AsymmetricPublicCryptoKey,
+        encapsulation_key: &PublicKey,
         ctx: &KeyStoreContext<Ids>,
     ) -> Result<UnsignedSharedKey> {
         // Internal usage to the crypto crate is allowed
