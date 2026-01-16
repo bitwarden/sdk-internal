@@ -59,9 +59,8 @@ mod tests {
         let mut ctx = store.context_mut();
 
         // Make the keys
-        let current_user_signing_key_id =
-            ctx.make_signing_key(SignatureAlgorithm::Ed25519).unwrap();
-        let current_user_private_key_id = ctx.make_asymmetric_key().unwrap();
+        let current_user_signing_key_id = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
+        let current_user_private_key_id = ctx.make_asymmetric_key();
 
         // Get the rotated account keys
         let rotated_keys = dangerous_get_v2_rotated_account_keys(
