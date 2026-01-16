@@ -1086,6 +1086,7 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
+ "bitwarden-flight-recorder",
  "bitwarden-ipc",
  "bitwarden-pm",
  "bitwarden-ssh",

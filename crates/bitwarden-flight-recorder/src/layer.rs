@@ -26,9 +26,9 @@ impl std::fmt::Debug for FlightRecorderLayer {
 
 impl FlightRecorderLayer {
     /// Create a new FlightRecorderLayer with the given configuration.
+    #[must_use]
     pub fn new(config: FlightRecorderConfig) -> Self {
-        let buffer = Arc::new(CircularBuffer::new(config.max_events, config.max_size_bytes));
-
+        let buffer = Arc::new(CircularBuffer::new(config.max_events));
         Self { buffer }
     }
 
@@ -52,8 +52,7 @@ where
         }
 
         let log_event = FlightRecorderEvent::from_tracing_event(event);
-        let size = log_event.estimate_size();
-        self.buffer.push(log_event, size);
+        self.buffer.push(log_event);
     }
 }
 
@@ -63,9 +62,7 @@ mod tests {
 
     #[test]
     fn test_layer_creation() {
-        let config = FlightRecorderConfig::default()
-            .with_max_events(500)
-            .with_max_size_bytes(1024);
+        let config = FlightRecorderConfig::default().with_max_events(500);
         let layer = FlightRecorderLayer::new(config);
         let buffer = layer.buffer();
 

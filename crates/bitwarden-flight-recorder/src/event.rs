@@ -48,18 +48,6 @@ impl FlightRecorderEvent {
         }
     }
 
-    /// Estimate the size of this event in bytes for buffer tracking.
-    pub fn estimate_size(&self) -> usize {
-        let base_size = std::mem::size_of::<Self>();
-        let string_sizes = self.target.len() + self.message.len() + self.level.len();
-        let fields_size: usize = self
-            .fields
-            .iter()
-            .map(|(k, v)| k.len() + v.len())
-            .sum();
-
-        base_size + string_sizes + fields_size + 100 // JSON overhead estimate
-    }
 }
 
 /// Visitor for extracting fields from tracing events.
@@ -97,12 +85,12 @@ mod tests {
         };
         let json = serde_json::to_string(&event).unwrap();
         assert!(json.contains("timestamp"));
-        assert!(json.contains("camelCase") == false); // Verify rename_all works
+        assert!(!json.contains("camelCase")); // Verify rename_all works
         assert!(json.contains("\"level\":\"INFO\""));
     }
 
     #[test]
-    fn test_event_size_estimation() {
+    fn test_event_with_fields() {
         let mut fields = HashMap::new();
         fields.insert("key".to_string(), "value".to_string());
 
@@ -114,9 +102,7 @@ mod tests {
             fields,
         };
 
-        let size = event.estimate_size();
-        assert!(size > 0);
-        // Size should include base struct + strings + fields + overhead
-        assert!(size > std::mem::size_of::<FlightRecorderEvent>());
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("\"key\":\"value\""));
     }
 }
