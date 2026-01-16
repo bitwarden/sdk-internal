@@ -46,7 +46,7 @@ pub(super) fn make_register_tde_keys(
             crate::client::UserLoginMethod::Username {
                 client_id: "".to_owned(),
                 email,
-                kdf: Kdf::default(),
+                kdf: Kdf::default_pbkdf2(),
             },
         ));
 

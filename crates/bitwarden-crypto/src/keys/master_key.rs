@@ -3,6 +3,7 @@ use std::pin::Pin;
 use bitwarden_encoding::B64;
 use generic_array::GenericArray;
 use rand::Rng;
+use tracing::instrument;
 use typenum::U32;
 use zeroize::Zeroize;
 
@@ -19,6 +20,7 @@ use crate::{
 #[allow(missing_docs)]
 #[derive(Copy, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "dangerous-crypto-debug", derive(Debug))]
 pub enum HashPurpose {
     ServerAuthorization = 1,
     LocalAuthorization = 2,
@@ -29,6 +31,7 @@ pub enum HashPurpose {
 /// Derived from the users master password, used to protect the [UserKey].
 /// TODO: <https://bitwarden.atlassian.net/browse/PM-18366> split KeyConnectorKey into a separate file
 #[allow(missing_docs)]
+#[cfg_attr(feature = "dangerous-crypto-debug", derive(Debug))]
 pub enum MasterKey {
     KdfKey(KdfDerivedKeyMaterial),
     KeyConnectorKey(Pin<Box<GenericArray<u8, U32>>>),
@@ -57,11 +60,13 @@ impl MasterKey {
     /// Derives a users master key from their password, email and KDF.
     ///
     /// Note: the email is trimmed and converted to lowercase before being used.
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument)]
     pub fn derive(password: &str, email: &str, kdf: &Kdf) -> Result<Self, CryptoError> {
         Ok(KdfDerivedKeyMaterial::derive(password, email, kdf)?.into())
     }
 
     /// Derive the master key hash, used for local and remote password validation.
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument)]
     pub fn derive_master_key_hash(&self, password: &[u8], purpose: HashPurpose) -> B64 {
         let hash = util::pbkdf2(self.inner_bytes().as_slice(), password, purpose as u32);
 
@@ -74,11 +79,15 @@ impl MasterKey {
     }
 
     /// Encrypt the users user key
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
+    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
     pub fn encrypt_user_key(&self, user_key: &SymmetricCryptoKey) -> Result<EncString> {
         encrypt_user_key(self.inner_bytes(), user_key)
     }
 
     /// Decrypt the users user key
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
+    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
     pub fn decrypt_user_key(&self, user_key: EncString) -> Result<SymmetricCryptoKey> {
         decrypt_user_key(self.inner_bytes(), user_key)
     }

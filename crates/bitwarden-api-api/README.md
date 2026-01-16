@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`d03277323fb9957c3d8cc5ae2d17f07efc9ad0f3`](https://github.com/bitwarden/server/commit/d03277323fb9957c3d8cc5ae2d17f07efc9ad0f3)
+  [`e9d53c0c6b9c81bfc4a638ff63083af41cea9c3e`](https://github.com/bitwarden/server/commit/e9d53c0c6b9c81bfc4a638ff63083af41cea9c3e)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -47,6 +47,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _AccountBillingVNextApi_                  | [**add_credit_via_bit_pay**](docs/AccountBillingVNextApi.md#account_billing_v_next_add_credit_via_bit_pay)                                                       | **POST** /account/billing/vnext/credit/bitpay                                                            |
 | _AccountBillingVNextApi_                  | [**create_subscription**](docs/AccountBillingVNextApi.md#account_billing_v_next_create_subscription)                                                             | **POST** /account/billing/vnext/subscription                                                             |
 | _AccountBillingVNextApi_                  | [**get_credit**](docs/AccountBillingVNextApi.md#account_billing_v_next_get_credit)                                                                               | **GET** /account/billing/vnext/credit                                                                    |
+| _AccountBillingVNextApi_                  | [**get_license**](docs/AccountBillingVNextApi.md#account_billing_v_next_get_license)                                                                             | **GET** /account/billing/vnext/license                                                                   |
 | _AccountBillingVNextApi_                  | [**get_payment_method**](docs/AccountBillingVNextApi.md#account_billing_v_next_get_payment_method)                                                               | **GET** /account/billing/vnext/payment-method                                                            |
 | _AccountBillingVNextApi_                  | [**update_payment_method**](docs/AccountBillingVNextApi.md#account_billing_v_next_update_payment_method)                                                         | **PUT** /account/billing/vnext/payment-method                                                            |
 | _AccountsApi_                             | [**api_key**](docs/AccountsApi.md#accounts_api_key)                                                                                                              | **POST** /accounts/api-key                                                                               |
@@ -224,6 +225,8 @@ All URIs are relative to *https://api.bitwarden.com*
 | _InfoApi_                                 | [**get_version**](docs/InfoApi.md#info_get_version)                                                                                                              | **GET** /version                                                                                         |
 | _InstallationsApi_                        | [**get**](docs/InstallationsApi.md#installations_get)                                                                                                            | **GET** /installations/{id}                                                                              |
 | _InstallationsApi_                        | [**post**](docs/InstallationsApi.md#installations_post)                                                                                                          | **POST** /installations                                                                                  |
+| _LicensesApi_                             | [**get_user**](docs/LicensesApi.md#licenses_get_user)                                                                                                            | **GET** /licenses/user/{id}                                                                              |
+| _LicensesApi_                             | [**organization_sync**](docs/LicensesApi.md#licenses_organization_sync)                                                                                          | **GET** /licenses/organization/{id}                                                                      | Used by self-hosted installations to get an updated license file                                                                                                                                                                                                        |
 | _NotificationsApi_                        | [**list**](docs/NotificationsApi.md#notifications_list)                                                                                                          | **GET** /notifications                                                                                   |
 | _NotificationsApi_                        | [**mark_as_deleted**](docs/NotificationsApi.md#notifications_mark_as_deleted)                                                                                    | **PATCH** /notifications/{id}/delete                                                                     |
 | _NotificationsApi_                        | [**mark_as_read**](docs/NotificationsApi.md#notifications_mark_as_read)                                                                                          | **PATCH** /notifications/{id}/read                                                                       |
@@ -526,6 +529,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [AuthRequestResponseModelListResponseModel](docs/AuthRequestResponseModelListResponseModel.md)
 - [AuthRequestType](docs/AuthRequestType.md)
 - [AuthRequestUpdateRequestModel](docs/AuthRequestUpdateRequestModel.md)
+- [AuthType](docs/AuthType.md)
 - [AuthenticationExtensionsClientInputs](docs/AuthenticationExtensionsClientInputs.md)
 - [AuthenticationExtensionsClientOutputs](docs/AuthenticationExtensionsClientOutputs.md)
 - [AuthenticatorAssertionRawResponse](docs/AuthenticatorAssertionRawResponse.md)
@@ -892,6 +896,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [SecurityTasksResponseModelListResponseModel](docs/SecurityTasksResponseModelListResponseModel.md)
 - [SelectionReadOnlyRequestModel](docs/SelectionReadOnlyRequestModel.md)
 - [SelectionReadOnlyResponseModel](docs/SelectionReadOnlyResponseModel.md)
+- [SelfHostedOrganizationLicenseRequestModel](docs/SelfHostedOrganizationLicenseRequestModel.md)
 - [SendAccessRequestModel](docs/SendAccessRequestModel.md)
 - [SendFileModel](docs/SendFileModel.md)
 - [SendFileUploadDataResponseModel](docs/SendFileUploadDataResponseModel.md)

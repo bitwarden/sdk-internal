@@ -5,6 +5,7 @@ use std::{
 
 use coset::iana::KeyOperation;
 use serde::Serialize;
+use tracing::instrument;
 use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
@@ -203,6 +204,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
     ///   will be overwritten
     /// * `wrapped_key` - The key to decrypt
+    #[instrument(skip(self, wrapped_key), err)]
     pub fn unwrap_symmetric_key(
         &mut self,
         wrapping_key: Ids::Symmetric,
@@ -213,14 +215,16 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         let key = match (wrapped_key, wrapping_key) {
             (EncString::Aes256Cbc_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
                 SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(
-                    crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)?,
+                    crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
+                        .map_err(|_| CryptoError::Decrypt)?,
                 ))?
             }
             (
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
             ) => SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(
-                crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)?,
+                crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)
+                    .map_err(|_| CryptoError::Decrypt)?,
             ))?,
             (
                 EncString::Cose_Encrypt0_B64 { data },
@@ -238,7 +242,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                     _ => return Err(CryptoError::InvalidKey),
                 }
             }
-            _ => return Err(CryptoError::InvalidKey),
+            _ => {
+                tracing::warn!("Unsupported unwrap operation for the given key and data");
+                return Err(CryptoError::InvalidKey);
+            }
         };
 
         let new_key_id = Ids::Symmetric::new_local(LocalId::new());
@@ -350,6 +357,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ///
     /// # Errors
     /// Returns an error if decryption or parsing fails.
+    #[instrument(skip(self, wrapped_key), err)]
     pub fn unwrap_private_key(
         &mut self,
         wrapping_key: Ids::Symmetric,
@@ -729,6 +737,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(key_id)
     }
 
+    #[instrument(skip(self, data), err)]
     pub(crate) fn decrypt_data_with_symmetric_key(
         &self,
         key: Ids::Symmetric,
@@ -739,11 +748,13 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         match (data, key) {
             (EncString::Aes256Cbc_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
                 crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
+                    .map_err(|_| CryptoError::Decrypt)
             }
             (
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
-            ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key),
+            ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)
+                .map_err(|_| CryptoError::Decrypt),
             (
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
@@ -754,7 +765,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 )?;
                 Ok(data)
             }
-            _ => Err(CryptoError::InvalidKey),
+            _ => {
+                tracing::warn!("Unsupported decryption operation for the given key and data");
+                Err(CryptoError::InvalidKey)
+            }
         }
     }
 

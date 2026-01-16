@@ -19,6 +19,7 @@ src/apis/hibp_api.rs
 src/apis/import_ciphers_api.rs
 src/apis/info_api.rs
 src/apis/installations_api.rs
+src/apis/licenses_api.rs
 src/apis/mod.rs
 src/apis/notifications_api.rs
 src/apis/organization_auth_requests_api.rs
@@ -90,6 +91,7 @@ src/models/auth_request_response_model.rs
 src/models/auth_request_response_model_list_response_model.rs
 src/models/auth_request_type.rs
 src/models/auth_request_update_request_model.rs
+src/models/auth_type.rs
 src/models/authentication_extensions_client_inputs.rs
 src/models/authentication_extensions_client_outputs.rs
 src/models/authenticator_assertion_raw_response.rs
@@ -457,6 +459,7 @@ src/models/security_tasks_response_model.rs
 src/models/security_tasks_response_model_list_response_model.rs
 src/models/selection_read_only_request_model.rs
 src/models/selection_read_only_response_model.rs
+src/models/self_hosted_organization_license_request_model.rs
 src/models/send_access_request_model.rs
 src/models/send_file_model.rs
 src/models/send_file_upload_data_response_model.rs

@@ -26,7 +26,7 @@ mod master_password;
 #[cfg(feature = "internal")]
 pub use master_password::MasterPasswordError;
 #[cfg(feature = "internal")]
-pub(crate) use master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData};
+pub use master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData};
 #[cfg(feature = "internal")]
 mod security_state;
 #[cfg(feature = "internal")]

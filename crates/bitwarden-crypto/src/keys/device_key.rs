@@ -1,4 +1,5 @@
 use bitwarden_encoding::B64;
+use serde::{Deserialize, Serialize};
 
 use super::{PrivateKey, PublicKeyEncryptionAlgorithm};
 use crate::{
@@ -14,8 +15,14 @@ use crate::{
 pub struct DeviceKey(SymmetricCryptoKey);
 
 #[allow(missing_docs)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+#[derive(Serialize, Deserialize)]
 pub struct TrustDeviceResponse {
     /// Base64 encoded device key
     pub device_key: B64,

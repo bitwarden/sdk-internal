@@ -28,6 +28,7 @@ import com.bitwarden.vault.Folder
 import com.bitwarden.core.InitOrgCryptoRequest
 import com.bitwarden.core.InitUserCryptoMethod
 import com.bitwarden.core.InitUserCryptoRequest
+import com.bitwarden.core.MasterPasswordUnlockData
 import com.bitwarden.core.WrappedAccountCryptographicState
 import com.bitwarden.core.Uuid
 import com.bitwarden.crypto.HashPurpose
@@ -261,8 +262,13 @@ class MainActivity : FragmentActivity() {
                 kdfParams = kdf,
                 email = EMAIL,
                 accountCryptographicState = WrappedAccountCryptographicState.V1(privateKey = loginBody.PrivateKey),
-                method = InitUserCryptoMethod.Password(
-                    password = PASSWORD, userKey = loginBody.Key
+                method = InitUserCryptoMethod.MasterPasswordUnlock(
+                    password = PASSWORD,
+                    masterPasswordUnlock = MasterPasswordUnlockData(
+                        kdf = kdf,
+                        masterKeyWrappedUserKey = loginBody.Key,
+                        salt = EMAIL
+                    )
                 )
             )
         )

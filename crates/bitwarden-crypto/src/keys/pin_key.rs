@@ -4,7 +4,8 @@ use super::{
     utils::stretch_key,
 };
 use crate::{
-    EncString, KeyEncryptable, Result, SymmetricCryptoKey, keys::key_encryptable::CryptoKey,
+    EncString, KeyDecryptable, KeyEncryptable, Result, SymmetricCryptoKey,
+    keys::key_encryptable::CryptoKey,
 };
 
 /// Pin Key.
@@ -45,5 +46,12 @@ impl KeyEncryptable<PinKey, EncString> for String {
         self.encrypt_with_key(&SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(
             &key.0.0,
         )?))
+    }
+}
+
+impl KeyDecryptable<PinKey, String> for EncString {
+    fn decrypt_with_key(&self, key: &PinKey) -> Result<String> {
+        let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(&key.0.0)?);
+        self.decrypt_with_key(&stretched_key)
     }
 }
