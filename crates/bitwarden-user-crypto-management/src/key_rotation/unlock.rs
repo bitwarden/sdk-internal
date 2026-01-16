@@ -18,6 +18,7 @@ use crate::key_rotation::partial_rotateable_keyset::PartialRotateableKeyset;
 /// The unlock method that uses the master-key field on the user's account. This can be either
 /// the master password, or the key-connector. For TDE users without a master password, this field
 /// is empty.
+#[expect(unused)]
 pub enum MasterkeyUnlockMethod {
     /// The master password based unlock method.
     Password {
@@ -52,12 +53,14 @@ pub struct V1OrganizationMembership {
     pub public_key: PublicKey,
 }
 
+#[expect(unused)]
 #[derive(Debug)]
 pub(super) enum ReencryptError {
     MasterPasswordDerivation,
     KeysetUnlockDataReencryption,
 }
 
+#[expect(unused)]
 /// Input data for re-encrypting unlock methods during user key rotation.
 pub(super) struct ReencryptUnlockInput {
     /// The master-key based unlock method.
@@ -72,6 +75,7 @@ pub(super) struct ReencryptUnlockInput {
     pub(super) trusted_emergency_access_keys: Vec<V1EmergencyAccessMembership>,
 }
 
+#[expect(unused)]
 /// Update the unlock methods for the updated user-key.
 pub(super) fn reencrypt_unlock(
     input: ReencryptUnlockInput,
