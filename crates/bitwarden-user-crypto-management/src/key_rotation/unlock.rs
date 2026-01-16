@@ -249,12 +249,12 @@ mod tests {
     use bitwarden_api_api::models::KdfType;
     use bitwarden_core::key_management::KeyIds;
     use bitwarden_crypto::{
-        Kdf, KeyStore, PrimitiveEncryptable, PublicKeyEncryptionAlgorithm, UnsignedSharedKey,
+        Kdf, KeyStore, PublicKeyEncryptionAlgorithm, UnsignedSharedKey,
     };
     use uuid::Uuid;
 
     use super::*;
-    use crate::key_rotation::{partial_rotateable_keyset::PartialRotateableKeyset, unlock};
+    use crate::key_rotation::partial_rotateable_keyset::PartialRotateableKeyset;
 
     fn create_test_kdf_pbkdf2() -> Kdf {
         Kdf::PBKDF2 {
