@@ -224,7 +224,7 @@ impl WrappedAccountCryptographicState {
         ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<(SymmetricKeyId, Self), AccountCryptographyInitializationError> {
         let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1)?;
+        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
         Ok((
             user_key,
@@ -261,10 +261,7 @@ impl WrappedAccountCryptographicState {
                     .map_err(|_| RotateCryptographyStateError::KeyMissing)?;
 
                 // 2. The signing key is generated
-                let signing_key_id = ctx
-                    .make_signing_key(SignatureAlgorithm::Ed25519)
-                    // Result is removed in https://github.com/bitwarden/sdk-internal/pull/679
-                    .expect("Making signing key cannot fail");
+                let signing_key_id = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
                 let new_signing_key = ctx
                     .wrap_signing_key(*new_user_key, signing_key_id)
                     .map_err(|_| RotateCryptographyStateError::KeyMissing)?;
