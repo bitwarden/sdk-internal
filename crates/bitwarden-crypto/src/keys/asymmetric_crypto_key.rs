@@ -288,7 +288,9 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
             AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&public_key)).unwrap();
 
         let raw_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        #[expect(deprecated)]
         let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(&raw_key, &public_key).unwrap();
+        #[expect(deprecated)]
         let decrypted = encrypted.decapsulate_key_unsigned(&private_key).unwrap();
 
         assert_eq!(raw_key, decrypted);
