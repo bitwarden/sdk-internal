@@ -122,7 +122,7 @@ pub(super) fn reencrypt_unlock(
             .map(|device| {
                 let _span = debug_span!("reencrypt_device_key", device_id = ?device.id).entered();
                 device
-                    .reencrypt(current_user_key_id, new_user_key_id, ctx)
+                    .rotate_userkey(current_user_key_id, new_user_key_id, ctx)
                     .map_err(|_| ReencryptError::KeysetUnlockDataReencryption)
             })
             .collect::<Result<Vec<PartialRotateableKeyset>, ReencryptError>>()?
@@ -135,7 +135,7 @@ pub(super) fn reencrypt_unlock(
             .map(|cred| {
                 let _span = debug_span!("reencrypt_webauthn_credential", credential_id = ?cred.id)
                     .entered();
-                cred.reencrypt(current_user_key_id, new_user_key_id, ctx)
+                cred.rotate_userkey(current_user_key_id, new_user_key_id, ctx)
                     .map_err(|_| ReencryptError::KeysetUnlockDataReencryption)
             })
             .collect::<Result<Vec<PartialRotateableKeyset>, ReencryptError>>()?

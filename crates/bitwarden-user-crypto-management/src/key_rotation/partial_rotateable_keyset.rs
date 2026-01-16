@@ -37,8 +37,11 @@ impl From<PartialRotateableKeyset> for WebAuthnLoginRotateKeyRequestModel {
 }
 
 impl PartialRotateableKeyset {
+    /// Makes a new `PartialRotateableKeyset` by re-encrypting the user-key. Specifically,
+    /// the user-key-encrypted-public-key is re-encrypted for the new user-key, and the
+    /// public-key-encrypted-user-key is re-created for the new user-key.
     #[instrument(skip(self, ctx))]
-    pub(super) fn reencrypt(
+    pub(super) fn rotate_userkey(
         &self,
         current_user_key_id: SymmetricKeyId,
         new_user_key_id: SymmetricKeyId,
@@ -102,10 +105,10 @@ mod tests {
 
         // Re-encrypt the keyset with the new key
         let reencrypted = keyset
-            .reencrypt(key_id_1, key_id_2, &mut ctx)
+            .rotate_userkey(key_id_1, key_id_2, &mut ctx)
             .expect("reencrypt should succeed");
 
-        // Check that the re-encrypted user key can be decapsulated to the same symmetric key
+        // Check that the re-encrypted user key can be decapsulated and is the same symmetric key
         let decapsulated = {
             let decapsulated = reencrypted
                 .encrypted_user_key
