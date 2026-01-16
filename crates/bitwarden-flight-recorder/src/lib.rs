@@ -46,6 +46,7 @@ static FLIGHT_RECORDER_BUFFER: OnceLock<Arc<CircularBuffer<FlightRecorderEvent>>
 ///     .with(layer)
 ///     .init();
 /// ```
+#[must_use]
 pub fn init_flight_recorder(config: FlightRecorderConfig) -> FlightRecorderLayer {
     let layer = FlightRecorderLayer::new(config);
     let _ = FLIGHT_RECORDER_BUFFER.set(layer.buffer());
@@ -66,6 +67,7 @@ pub fn get_flight_recorder_buffer() -> Option<Arc<CircularBuffer<FlightRecorderE
 /// array rather than erroring, allowing safe usage during early bootstrapping.
 ///
 /// After calling this, the buffer is empty.
+#[must_use]
 pub fn drain_flight_recorder() -> Vec<FlightRecorderEvent> {
     get_flight_recorder_buffer()
         .map(|buffer| buffer.drain())
@@ -85,15 +87,14 @@ pub fn flight_recorder_count() -> usize {
 mod tests {
     use super::*;
 
-    // Note: These tests need to be careful about global state.
-    // In a real test environment, each test would run in isolation.
+    // Note: Global OnceLock state cannot be reset between tests, limiting
+    // what we can test here. The layer and buffer are tested in their
+    // respective modules. Integration testing happens via manual testing
+    // in the web application.
 
     #[test]
-    fn test_drain_before_init_returns_empty() {
-        // Since we can't reset the OnceLock, we just verify the behavior
-        // when the buffer exists but is empty
-        let events = drain_flight_recorder();
-        // Will be empty either because not initialized or because drained
-        assert!(events.is_empty() || !events.is_empty());
+    fn test_config_default_values() {
+        let config = FlightRecorderConfig::default();
+        assert_eq!(config.max_events, 1000);
     }
 }
