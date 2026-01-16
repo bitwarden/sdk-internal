@@ -332,7 +332,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         signing_key.to_cose().encrypt_with_key(wrapping_key)
     }
 
-    /// Wrap (encrypt) a private/asymmetric key with a symmetric key.
+    /// Wrap (encrypt) a private key with a symmetric key.
     ///
     /// The private key identified by `key_to_wrap` will be serialized to DER (PKCS#8) and
     /// encrypted with `wrapping_key`, returning an `EncString` suitable for storage.
@@ -349,10 +349,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         private_key.to_der()?.encrypt_with_key(wrapping_key)
     }
 
-    /// Decrypt and import a previously wrapped asymmetric private key into the context.
+    /// Decrypt and import a previously wrapped private key into the context.
     ///
     /// The `wrapped_key` will be decrypted using `wrapping_key` and parsed as a PKCS#8
-    /// private key; the resulting key will be inserted as a local asymmetric key and the
+    /// private key; the resulting key will be inserted as a local private key and the
     /// new local identifier returned.
     ///
     /// # Errors
@@ -400,7 +400,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(signing_key.to_verifying_key())
     }
 
-    /// Return the public key corresponding to an asymmetric (private) key identifier.
+    /// Return the public key corresponding to an private key identifier.
     ///
     /// This converts the stored private key into its public key representation.
     ///
@@ -461,7 +461,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         }
     }
 
-    /// Decapsulate a symmetric key into the context by using an already existing asymmetric key
+    /// Decapsulate a symmetric key into the context by using an already existing private key
     ///
     /// # Arguments
     ///
@@ -488,7 +488,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Encapsulate and return a symmetric key from the context by using an already existing
-    /// asymmetric key
+    /// private key
     ///
     /// # Arguments
     ///
@@ -532,7 +532,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         self.add_local_symmetric_key(SymmetricCryptoKey::make(algorithm))
     }
 
-    /// Makes a new asymmetric encryption key using the current default algorithm, and stores it in
+    /// Makes a new private encryption key using the current default algorithm, and stores it in
     /// the context as a local key
     pub fn make_private_key(&mut self, algorithm: PublicKeyEncryptionAlgorithm) -> Ids::Private {
         self.add_local_private_key(PrivateKey::make(algorithm))
@@ -593,7 +593,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         self.get_private_key(key_id)
     }
 
-    /// Makes a signed public key from an asymmetric private key and signing key stored in context.
+    /// Makes a signed public key from a private key and signing key stored in context.
     /// Signing a public key asserts ownership, and makes the claim to other users that if they want
     /// to share with you, they can use this public key.
     pub fn make_signed_public_key(
@@ -690,7 +690,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         }
     }
 
-    /// Set an asymmetric (private) key in the context.
+    /// Set a private key in the context.
     ///
     /// # Errors
     /// Returns [`CryptoError::ReadOnlyKeyStore`] if attempting to write to the global store when
