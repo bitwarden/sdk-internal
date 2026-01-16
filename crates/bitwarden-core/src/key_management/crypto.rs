@@ -1605,6 +1605,7 @@ mod tests {
             },
         )
         .unwrap();
+        #[expect(deprecated)]
         let enrollment_response = make_v2_keys_for_v1_user(&client).unwrap();
         let encrypted_userkey_v2 = master_key
             .encrypt_user_key(
@@ -1668,6 +1669,7 @@ mod tests {
         .await
         .unwrap();
 
+        #[expect(deprecated)]
         let result = make_v2_keys_for_v1_user(&client);
         assert!(matches!(
             result,
@@ -1687,6 +1689,7 @@ mod tests {
             .unwrap();
         drop(ctx);
 
+        #[expect(deprecated)]
         let result = get_v2_rotated_account_keys(&client);
         assert!(matches!(
             result,
@@ -1722,6 +1725,7 @@ mod tests {
         .await
         .unwrap();
 
+        #[expect(deprecated)]
         assert!(get_v2_rotated_account_keys(&client).is_ok());
     }
 
