@@ -169,6 +169,10 @@ fn init_logger() {
                 .with(filter)
                 .init();
         }
+        #[cfg(feature = "dangerous-crypto-debug")]
+        tracing::warn!(
+            "Dangerous crypto debug features are enabled. THIS MUST NOT BE USED IN PRODUCTION BUILDS!!"
+        );
     });
 }
 

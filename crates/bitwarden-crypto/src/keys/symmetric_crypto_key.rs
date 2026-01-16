@@ -402,21 +402,31 @@ impl std::fmt::Debug for SymmetricCryptoKey {
 
 impl std::fmt::Debug for Aes256CbcKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Aes256CbcKey").finish()
+        let mut debug_struct = f.debug_struct("Aes256CbcKey");
+        #[cfg(feature = "dangerous-crypto-debug")]
+        debug_struct.field("enc_key", &self.enc_key.as_slice());
+        debug_struct.finish()
     }
 }
 
 impl std::fmt::Debug for Aes256CbcHmacKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Aes256CbcHmacKey").finish()
+        let mut debug_struct = f.debug_struct("Aes256CbcHmacKey");
+        #[cfg(feature = "dangerous-crypto-debug")]
+        debug_struct
+            .field("enc_key", &self.enc_key.as_slice())
+            .field("mac_key", &self.mac_key.as_slice());
+        debug_struct.finish()
     }
 }
 
 impl std::fmt::Debug for XChaCha20Poly1305Key {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("XChaCha20Poly1305Key")
-            .field("key_id", &self.key_id)
-            .finish()
+        let mut debug_struct = f.debug_struct("XChaCha20Poly1305Key");
+        debug_struct.field("key_id", &self.key_id);
+        #[cfg(feature = "dangerous-crypto-debug")]
+        debug_struct.field("enc_key", &self.enc_key.as_slice());
+        debug_struct.finish()
     }
 }
 

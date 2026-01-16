@@ -858,14 +858,14 @@ pub struct MakeJitMasterPasswordRegistrationResponse {
     pub account_cryptographic_state: WrappedAccountCryptographicState,
     /// The user's user key
     pub user_key: SymmetricCryptoKey,
-    /// The user's master key used to encrypt the user key
-    pub master_key: MasterKey,
     /// The master password unlock data
     pub master_password_authentication_data: MasterPasswordAuthenticationData,
     /// The master password unlock data
     pub master_password_unlock_data: MasterPasswordUnlockData,
     /// The request model for the account cryptographic state (also called Account Keys)
     pub account_keys_request: AccountKeysRequestModel,
+    /// The key needed for admin password reset
+    pub reset_password_key: UnsignedSharedKey,
 }
 
 /// Errors that can occur when making keys for account cryptography registration.
@@ -976,6 +976,7 @@ pub(crate) fn make_user_jit_master_password_registration(
     user_id: UserId,
     master_password: String,
     salt: String,
+    org_public_key: B64,
 ) -> Result<MakeJitMasterPasswordRegistrationResponse, MakeKeysError> {
     let mut ctx = client.internal.get_key_store().context_mut();
     let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx, user_id)
@@ -994,20 +995,24 @@ pub(crate) fn make_user_jit_master_password_registration(
         MasterPasswordAuthenticationData::derive(&master_password, &kdf, &salt)
             .map_err(MakeKeysError::MasterPasswordDerivation)?;
 
-    let master_key =
-        MasterKey::derive(&master_password, &salt, &kdf).map_err(MakeKeysError::Crypto)?;
-
     let cryptography_state_request_model = wrapped_state
         .to_request_model(&user_key_id, &mut ctx)
         .map_err(|_| MakeKeysError::RequestModelCreation)?;
 
+    // Account recovery enrollment
+    let public_key =
+        AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))
+            .map_err(MakeKeysError::Crypto)?;
+    let admin_reset_key = UnsignedSharedKey::encapsulate_key_unsigned(&user_key, &public_key)
+        .map_err(MakeKeysError::Crypto)?;
+
     Ok(MakeJitMasterPasswordRegistrationResponse {
         account_cryptographic_state: wrapped_state,
         user_key,
-        master_key,
         master_password_unlock_data,
         master_password_authentication_data,
         account_keys_request: cryptography_state_request_model,
+        reset_password_key: admin_reset_key,
     })
 }
 
