@@ -1,5 +1,5 @@
 use bitwarden_crypto::{
-    AsymmetricPublicCryptoKey, DeviceKey, EncString, Kdf, SpkiPublicKeyBytes, SymmetricCryptoKey,
+    DeviceKey, EncString, Kdf, PublicKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
     TrustDeviceResponse, UnsignedSharedKey, UserKey,
 };
 use bitwarden_encoding::B64;
@@ -18,12 +18,12 @@ pub(super) fn make_register_tde_keys(
     org_public_key: B64,
     remember_device: bool,
 ) -> Result<RegisterTdeKeyResponse, EncryptionSettingsError> {
-    let public_key =
-        AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))?;
+    let public_key = PublicKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))?;
 
     let user_key = UserKey::new(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
     let key_pair = user_key.make_key_pair()?;
 
+    #[expect(deprecated)]
     let admin_reset = UnsignedSharedKey::encapsulate_key_unsigned(&user_key.0, &public_key)?;
 
     let device_key = if remember_device {
