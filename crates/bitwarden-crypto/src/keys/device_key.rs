@@ -45,6 +45,7 @@ impl DeviceKey {
         let device_private_key =
             AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
+        #[expect(deprecated)]
         let protected_user_key = UnsignedSharedKey::encapsulate_key_unsigned(
             user_key,
             &device_private_key.to_public_key(),
@@ -77,6 +78,7 @@ impl DeviceKey {
         let device_private_key = Pkcs8PrivateKeyBytes::from(device_private_key);
         let device_private_key = AsymmetricCryptoKey::from_der(&device_private_key)?;
 
+        #[expect(deprecated)]
         let user_key: SymmetricCryptoKey =
             protected_user_key.decapsulate_key_unsigned(&device_private_key)?;
         Ok(user_key)

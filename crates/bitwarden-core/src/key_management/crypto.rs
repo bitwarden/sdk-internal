@@ -542,6 +542,7 @@ pub(super) fn enroll_admin_password_reset(
     #[allow(deprecated)]
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
+    #[expect(deprecated)]
     Ok(UnsignedSharedKey::encapsulate_key_unsigned(
         key,
         &public_key,
@@ -1003,7 +1004,7 @@ pub(crate) fn make_user_jit_master_password_registration(
     let public_key =
         AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))
             .map_err(MakeKeysError::Crypto)?;
-    let admin_reset_key = UnsignedSharedKey::encapsulate_key_unsigned(&user_key, &public_key)
+    let admin_reset_key = UnsignedSharedKey::encapsulate(user_key_id, &public_key, &mut ctx)
         .map_err(MakeKeysError::Crypto)?;
 
     Ok(MakeJitMasterPasswordRegistrationResponse {

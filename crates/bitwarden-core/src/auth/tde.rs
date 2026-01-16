@@ -24,6 +24,7 @@ pub(super) fn make_register_tde_keys(
     let user_key = UserKey::new(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
     let key_pair = user_key.make_key_pair()?;
 
+    #[expect(deprecated)]
     let admin_reset = UnsignedSharedKey::encapsulate_key_unsigned(&user_key.0, &public_key)?;
 
     let device_key = if remember_device {
