@@ -1,0 +1,28 @@
+[package]
+name = "bitwarden-user-crypto-management"
+description = """
+Internal crate for the bitwarden crate. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[features]
+wasm = [
+] # WASM support
+uniffi = [] # Uniffi bindings
+
+# Note: dependencies must be alphabetized to pass the cargo sort check in the CI pipeline.
+[dependencies]
+
+[dev-dependencies]
+
+[lints]
+workspace = true

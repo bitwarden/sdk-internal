@@ -1004,6 +1004,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-user-crypto-management"
+version = "2.0.0"
+
+[[package]]
 name = "bitwarden-uuid"
 version = "2.0.0"
 dependencies = [
