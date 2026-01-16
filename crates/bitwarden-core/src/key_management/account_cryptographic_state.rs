@@ -12,9 +12,8 @@ use std::sync::RwLock;
 
 use bitwarden_api_api::models::{AccountKeysRequestModel, SecurityStateModel};
 use bitwarden_crypto::{
-    CoseSerializable, CryptoError, EncString, KeyStore, KeyStoreContext, PublicKey,
+    CoseSerializable, CryptoError, EncString, KeyStore, KeyStoreContext,
     PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKey, SymmetricKeyAlgorithm,
-    VerifyingKey,
 };
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;

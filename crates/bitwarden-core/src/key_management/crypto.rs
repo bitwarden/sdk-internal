@@ -1784,7 +1784,7 @@ mod tests {
         };
 
         // Generate a mock organization public key for TDE enrollment
-        let org_key = PublicKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let org_key = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let org_public_key_der = org_key
             .to_public_key()
             .to_der()
