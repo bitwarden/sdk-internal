@@ -278,7 +278,8 @@ impl WrappedAccountCryptographicState {
                 signing_key,
                 security_state,
             } => {
-                // To rotate a V2 state, the private and signing keys are re-encrypted with the new user key.
+                // To rotate a V2 state, the private and signing keys are re-encrypted with the new
+                // user key.
                 // 1. Re-encrypt private key
                 let private_key_id = ctx
                     .unwrap_private_key(*current_user_key, private_key)
