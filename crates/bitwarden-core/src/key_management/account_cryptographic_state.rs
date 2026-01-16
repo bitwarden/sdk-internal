@@ -201,8 +201,8 @@ impl WrappedAccountCryptographicState {
         user_id: UserId,
     ) -> Result<(SymmetricKeyId, Self), AccountCryptographyInitializationError> {
         let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1)?;
-        let signing_key = ctx.make_signing_key(SignatureAlgorithm::Ed25519)?;
+        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let signing_key = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
         let signed_public_key = ctx.make_signed_public_key(private_key, signing_key)?;
 
         let security_state = SecurityState::initialize_for_user(user_id);
@@ -437,9 +437,7 @@ mod tests {
         let user_key = temp_ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
 
         // Make a private key and wrap it with the user key
-        let private_key_id = temp_ctx
-            .make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1)
-            .unwrap();
+        let private_key_id = temp_ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let wrapped_private = temp_ctx.wrap_private_key(user_key, private_key_id).unwrap();
 
         // Construct the V1 wrapped state
@@ -481,12 +479,8 @@ mod tests {
         let user_key = temp_ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         // Make keys
-        let private_key_id = temp_ctx
-            .make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1)
-            .unwrap();
-        let signing_key_id = temp_ctx
-            .make_signing_key(SignatureAlgorithm::Ed25519)
-            .unwrap();
+        let private_key_id = temp_ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let signing_key_id = temp_ctx.make_signing_key(SignatureAlgorithm::Ed25519);
         let signed_public_key = temp_ctx
             .make_signed_public_key(private_key_id, signing_key_id)
             .unwrap();
