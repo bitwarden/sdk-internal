@@ -93,10 +93,6 @@ impl FoldersClient {
 impl FoldersClient {
     /// Helper for getting the repository for folders.
     fn get_repository(&self) -> Result<Arc<dyn Repository<Folder>>, RepositoryError> {
-        Ok(self
-            .client
-            .platform()
-            .state()
-            .get_client_managed::<Folder>()?)
+        Ok(self.client.platform().state().get::<Folder>()?)
     }
 }

@@ -1,7 +1,22 @@
 use bitwarden_api_api::models::CipherBulkDeleteRequestModel;
 use bitwarden_core::{ApiError, OrganizationId};
+use bitwarden_error::bitwarden_error;
+use thiserror::Error;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{CipherId, cipher_client::admin::CipherAdminClient};
+
+#[allow(missing_docs)]
+#[bitwarden_error(flat)]
+#[derive(Debug, Error)]
+/// Errors that can occur when deleting ciphers as an admin.
+pub enum DeleteCipherAdminError {
+    // ApiError is incompatible with wasm_bindgen, so we wrap it in this enum
+    // for wasm_bindgen compatibility.
+    #[error(transparent)]
+    Api(#[from] ApiError),
+}
 
 async fn delete_cipher(
     cipher_id: CipherId,
@@ -52,11 +67,12 @@ async fn soft_delete_many(
     Ok(())
 }
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CipherAdminClient {
     /// Deletes the Cipher with the matching CipherId from the server, using the admin endpoint.
     /// Affects server data only, does not modify local state.
-    pub async fn delete(&self, cipher_id: CipherId) -> Result<(), ApiError> {
-        delete_cipher(
+    pub async fn delete(&self, cipher_id: CipherId) -> Result<(), DeleteCipherAdminError> {
+        Ok(delete_cipher(
             cipher_id,
             &self
                 .client
@@ -65,13 +81,13 @@ impl CipherAdminClient {
                 .await
                 .api_client,
         )
-        .await
+        .await?)
     }
 
     /// Soft-deletes the Cipher with the matching CipherId from the server, using the admin
     /// endpoint. Affects server data only, does not modify local state.
-    pub async fn soft_delete(&self, cipher_id: CipherId) -> Result<(), ApiError> {
-        soft_delete(
+    pub async fn soft_delete(&self, cipher_id: CipherId) -> Result<(), DeleteCipherAdminError> {
+        Ok(soft_delete(
             cipher_id,
             &self
                 .client
@@ -80,7 +96,7 @@ impl CipherAdminClient {
                 .await
                 .api_client,
         )
-        .await
+        .await?)
     }
 
     /// Deletes all Cipher objects with a matching CipherId from the server, using the admin
@@ -89,8 +105,8 @@ impl CipherAdminClient {
         &self,
         cipher_ids: Vec<CipherId>,
         organization_id: OrganizationId,
-    ) -> Result<(), ApiError> {
-        delete_ciphers_many(
+    ) -> Result<(), DeleteCipherAdminError> {
+        Ok(delete_ciphers_many(
             cipher_ids,
             organization_id,
             &self
@@ -100,7 +116,7 @@ impl CipherAdminClient {
                 .await
                 .api_client,
         )
-        .await
+        .await?)
     }
 
     /// Soft-deletes all Cipher objects for the given CipherIds from the server, using the admin
@@ -109,8 +125,8 @@ impl CipherAdminClient {
         &self,
         cipher_ids: Vec<CipherId>,
         organization_id: OrganizationId,
-    ) -> Result<(), ApiError> {
-        soft_delete_many(
+    ) -> Result<(), DeleteCipherAdminError> {
+        Ok(soft_delete_many(
             cipher_ids,
             organization_id,
             &self
@@ -120,7 +136,7 @@ impl CipherAdminClient {
                 .await
                 .api_client,
         )
-        .await
+        .await?)
     }
 }
 

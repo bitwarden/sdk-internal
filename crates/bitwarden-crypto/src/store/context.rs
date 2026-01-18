@@ -5,6 +5,7 @@ use std::{
 
 use coset::iana::KeyOperation;
 use serde::Serialize;
+use tracing::instrument;
 use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
@@ -203,6 +204,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
     ///   will be overwritten
     /// * `wrapped_key` - The key to decrypt
+    #[instrument(skip(self, wrapped_key), err)]
     pub fn unwrap_symmetric_key(
         &mut self,
         wrapping_key: Ids::Symmetric,
@@ -213,14 +215,16 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         let key = match (wrapped_key, wrapping_key) {
             (EncString::Aes256Cbc_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
                 SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(
-                    crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)?,
+                    crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
+                        .map_err(|_| CryptoError::Decrypt)?,
                 ))?
             }
             (
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
             ) => SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(
-                crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)?,
+                crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)
+                    .map_err(|_| CryptoError::Decrypt)?,
             ))?,
             (
                 EncString::Cose_Encrypt0_B64 { data },
@@ -238,7 +242,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                     _ => return Err(CryptoError::InvalidKey),
                 }
             }
-            _ => return Err(CryptoError::InvalidKey),
+            _ => {
+                tracing::warn!("Unsupported unwrap operation for the given key and data");
+                return Err(CryptoError::InvalidKey);
+            }
         };
 
         let new_key_id = Ids::Symmetric::new_local(LocalId::new());
@@ -354,6 +361,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     ///
     /// # Errors
     /// Returns an error if decryption or parsing fails.
+    #[instrument(skip(self, wrapped_key), err)]
     pub fn unwrap_private_key(
         &mut self,
         wrapping_key: Ids::Symmetric,
@@ -363,7 +371,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         let private_key_bytes: Vec<u8> = wrapped_key.decrypt_with_key(wrapping_key)?;
         let private_key =
             AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key_bytes))?;
-        self.add_local_asymmetric_key(private_key)
+        Ok(self.add_local_asymmetric_key(private_key))
     }
 
     /// Decrypt and import a previously wrapped signing key into the context.
@@ -382,7 +390,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         let wrapping_key = self.get_symmetric_key(wrapping_key)?;
         let signing_key_bytes: Vec<u8> = wrapped_key.decrypt_with_key(wrapping_key)?;
         let signing_key = SigningKey::from_cose(&CoseKeyBytes::from(signing_key_bytes))?;
-        self.add_local_signing_key(signing_key)
+        Ok(self.add_local_signing_key(signing_key))
     }
 
     /// Return the verifying (public) key corresponding to a signing key identifier.
@@ -534,22 +542,19 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
 
     /// Makes a new asymmetric encryption key using the current default algorithm, and stores it in
     /// the context as a local key
-    pub fn make_private_key(
-        &mut self,
-        algorithm: PublicKeyEncryptionAlgorithm,
-    ) -> Result<Ids::Asymmetric> {
+    pub fn make_private_key(&mut self, algorithm: PublicKeyEncryptionAlgorithm) -> Ids::Asymmetric {
         self.add_local_asymmetric_key(AsymmetricCryptoKey::make(algorithm))
     }
 
     /// Makes a new signing key using the current default algorithm, and stores it in the context as
     /// a local key
-    pub fn make_signing_key(&mut self, algorithm: SignatureAlgorithm) -> Result<Ids::Signing> {
+    pub fn make_signing_key(&mut self, algorithm: SignatureAlgorithm) -> Ids::Signing {
         self.add_local_signing_key(SigningKey::make(algorithm))
     }
 
     /// Makes a new asymmetric encryption key using the current default algorithm, and stores it in
     /// the context
-    pub fn make_asymmetric_key(&mut self) -> Result<Ids::Asymmetric> {
+    pub fn make_asymmetric_key(&mut self) -> Ids::Asymmetric {
         let key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         self.add_local_asymmetric_key(key)
     }
@@ -729,13 +734,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Add a new asymmetric key to the local context, returning a new unique identifier for it.
-    pub fn add_local_asymmetric_key(
-        &mut self,
-        key: AsymmetricCryptoKey,
-    ) -> Result<Ids::Asymmetric> {
+    pub fn add_local_asymmetric_key(&mut self, key: AsymmetricCryptoKey) -> Ids::Asymmetric {
         let key_id = Ids::Asymmetric::new_local(LocalId::new());
         self.local_asymmetric_keys.upsert(key_id, key);
-        Ok(key_id)
+        key_id
     }
 
     /// Sets a signing key in the context
@@ -754,12 +756,13 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Add a new signing key to the local context, returning a new unique identifier for it.
-    pub fn add_local_signing_key(&mut self, key: SigningKey) -> Result<Ids::Signing> {
+    pub fn add_local_signing_key(&mut self, key: SigningKey) -> Ids::Signing {
         let key_id = Ids::Signing::new_local(LocalId::new());
         self.local_signing_keys.upsert(key_id, key);
-        Ok(key_id)
+        key_id
     }
 
+    #[instrument(skip(self, data), err)]
     pub(crate) fn decrypt_data_with_symmetric_key(
         &self,
         key: Ids::Symmetric,
@@ -770,11 +773,13 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         match (data, key) {
             (EncString::Aes256Cbc_B64 { iv, data }, SymmetricCryptoKey::Aes256CbcKey(key)) => {
                 crate::aes::decrypt_aes256(iv, data.clone(), &key.enc_key)
+                    .map_err(|_| CryptoError::Decrypt)
             }
             (
                 EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data },
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
-            ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key),
+            ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)
+                .map_err(|_| CryptoError::Decrypt),
             (
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
@@ -785,7 +790,10 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 )?;
                 Ok(data)
             }
-            _ => Err(CryptoError::InvalidKey),
+            _ => {
+                tracing::warn!("Unsupported decryption operation for the given key and data");
+                Err(CryptoError::InvalidKey)
+            }
         }
     }
 
@@ -1041,9 +1049,8 @@ mod tests {
         let mut ctx = store.context_mut();
 
         // Make the keys
-        let current_user_signing_key_id =
-            ctx.make_signing_key(SignatureAlgorithm::Ed25519).unwrap();
-        let current_user_private_key_id = ctx.make_asymmetric_key().unwrap();
+        let current_user_signing_key_id = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
+        let current_user_private_key_id = ctx.make_asymmetric_key();
 
         // Get the rotated account keys
         let rotated_keys = ctx

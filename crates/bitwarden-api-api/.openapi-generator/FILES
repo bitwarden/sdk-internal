@@ -91,6 +91,7 @@ src/models/auth_request_response_model.rs
 src/models/auth_request_response_model_list_response_model.rs
 src/models/auth_request_type.rs
 src/models/auth_request_update_request_model.rs
+src/models/auth_type.rs
 src/models/authentication_extensions_client_inputs.rs
 src/models/authentication_extensions_client_outputs.rs
 src/models/authenticator_assertion_raw_response.rs

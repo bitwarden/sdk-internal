@@ -25,6 +25,7 @@ const ARGON2ID_MIN_PARALLELISM: u32 = 1;
 /// further using HKDF (HMAC-based Key Derivation Function).
 ///
 /// Uses a pinned heap data structure, as noted in [Pinned heap data][crate#pinned-heap-data]
+#[cfg_attr(feature = "dangerous-crypto-debug", derive(Debug))]
 pub struct KdfDerivedKeyMaterial(pub(super) Pin<Box<GenericArray<u8, U32>>>);
 
 impl KdfDerivedKeyMaterial {
@@ -134,30 +135,39 @@ pub enum Kdf {
     },
 }
 
-impl Default for Kdf {
-    /// Default KDF for new accounts.
-    fn default() -> Self {
+impl Kdf {
+    /// Default KDF for new encryption V1 accounts.
+    pub fn default_pbkdf2() -> Kdf {
         Kdf::PBKDF2 {
             iterations: default_pbkdf2_iterations(),
+        }
+    }
+
+    /// Default KDF for new encryption V2 accounts.
+    pub fn default_argon2() -> Kdf {
+        Kdf::Argon2id {
+            iterations: default_argon2_iterations(),
+            memory: default_argon2_memory(),
+            parallelism: default_argon2_parallelism(),
         }
     }
 }
 
 /// Default PBKDF2 iterations
-pub fn default_pbkdf2_iterations() -> NonZeroU32 {
+fn default_pbkdf2_iterations() -> NonZeroU32 {
     NonZeroU32::new(600_000).expect("Non-zero number")
 }
 /// Default Argon2 iterations
-pub fn default_argon2_iterations() -> NonZeroU32 {
-    NonZeroU32::new(3).expect("Non-zero number")
+fn default_argon2_iterations() -> NonZeroU32 {
+    NonZeroU32::new(6).expect("Non-zero number")
 }
 /// Default Argon2 memory
-pub fn default_argon2_memory() -> NonZeroU32 {
-    NonZeroU32::new(64).expect("Non-zero number")
+fn default_argon2_memory() -> NonZeroU32 {
+    NonZeroU32::new(32).expect("Non-zero number")
 }
 /// Default Argon2 parallelism
-pub fn default_argon2_parallelism() -> NonZeroU32 {
-    NonZeroU32::new(4).expect("Non-zero number")
+fn default_argon2_parallelism() -> NonZeroU32 {
+    NonZeroU32::new(3).expect("Non-zero number")
 }
 
 #[cfg(test)]

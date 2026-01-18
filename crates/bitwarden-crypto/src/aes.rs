@@ -12,9 +12,13 @@ use subtle::ConstantTimeEq;
 use typenum::U32;
 
 use crate::{
-    error::{CryptoError, Result},
+    error::Result,
     util::{PBKDF_SHA256_HMAC_OUT_SIZE, PbkdfSha256Hmac},
 };
+
+/// An aes operation failed either due to invalid padding or due to an invalid MAC.
+#[derive(Debug)]
+pub(crate) struct DecryptError {}
 
 /// Decrypt using AES-256 in CBC mode.
 ///
@@ -23,13 +27,13 @@ pub(crate) fn decrypt_aes256(
     iv: &[u8; 16],
     data: Vec<u8>,
     key: &GenericArray<u8, U32>,
-) -> Result<Vec<u8>> {
+) -> Result<Vec<u8>, DecryptError> {
     // Decrypt data
     let iv = GenericArray::from_slice(iv);
     let mut data = data;
     let decrypted_key_slice = cbc::Decryptor::<aes::Aes256>::new(key, iv)
         .decrypt_padded_mut::<Pkcs7>(&mut data)
-        .map_err(|_| CryptoError::KeyDecrypt)?;
+        .map_err(|_| DecryptError {})?;
 
     // Data is decrypted in place and returns a subslice of the original Vec, to avoid cloning it,
     // we truncate to the subslice length
@@ -48,10 +52,10 @@ pub(crate) fn decrypt_aes256_hmac(
     data: Vec<u8>,
     mac_key: &GenericArray<u8, U32>,
     key: &GenericArray<u8, U32>,
-) -> Result<Vec<u8>> {
-    let res = generate_mac(mac_key, iv, &data)?;
+) -> Result<Vec<u8>, DecryptError> {
+    let res = generate_mac(mac_key, iv, &data);
     if res.ct_ne(mac).into() {
-        return Err(CryptoError::InvalidMac);
+        return Err(DecryptError {});
     }
     decrypt_aes256(iv, data, key)
 }
@@ -68,7 +72,7 @@ pub(crate) fn encrypt_aes256_hmac(
 ) -> Result<([u8; 16], [u8; 32], Vec<u8>)> {
     let rng = rand::thread_rng();
     let (iv, data) = encrypt_aes256_internal(rng, data_dec, key);
-    let mac = generate_mac(mac_key, &iv, &data)?;
+    let mac = generate_mac(mac_key, &iv, &data);
 
     Ok((iv, mac, data))
 }
@@ -91,16 +95,16 @@ fn encrypt_aes256_internal(
 }
 
 /// Generate a MAC using HMAC-SHA256.
-fn generate_mac(mac_key: &[u8], iv: &[u8], data: &[u8]) -> Result<[u8; 32]> {
+fn generate_mac(mac_key: &[u8], iv: &[u8], data: &[u8]) -> [u8; 32] {
     let mut hmac =
         PbkdfSha256Hmac::new_from_slice(mac_key).expect("hmac new_from_slice should not fail");
     hmac.update(iv);
     hmac.update(data);
     let mac: [u8; PBKDF_SHA256_HMAC_OUT_SIZE] = (*hmac.finalize().into_bytes())
         .try_into()
-        .map_err(|_| CryptoError::InvalidMac)?;
-
-    Ok(mac)
+        // This is safe because Pbkdf2Sha256Hmac output size is always 32 bytes
+        .expect("HMAC output size to be correct");
+    mac
 }
 
 #[cfg(test)]
@@ -152,11 +156,8 @@ mod tests {
         let iv = generate_vec(16, 0, 16);
         let data = generate_vec(16, 0, 16);
 
-        let result = generate_mac(&mac_key, &iv, &data);
-
-        assert!(result.is_ok());
-        let mac = result.unwrap();
-        assert_eq!(mac.len(), 32);
+        let mac = generate_mac(&mac_key, &iv, &data);
+        assert!(mac.iter().any(|&b| b != 0));
     }
 
     #[test]
