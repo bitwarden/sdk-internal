@@ -1,4 +1,7 @@
 //! Functionality for re-encrypting unlock (decryption) methods during user key rotation.
+//!
+//! During key-rotation, a new user-key is sampled. The unlock module then creates a set of newly encrypted copies, one for each
+//! decryption/unlock method.
 
 use bitwarden_api_api::models::{
     self, EmergencyAccessWithIdRequestModel, MasterPasswordUnlockAndAuthenticationDataModel,
