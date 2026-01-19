@@ -1,4 +1,5 @@
 //! Client to manage the cryptographic machinery of a user account, including key-rotation
+mod sync;
 
 mod partial_rotateable_keyset;
 mod unlock;
