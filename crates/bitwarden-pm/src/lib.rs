@@ -10,6 +10,7 @@ use bitwarden_core::client::internal::ClientManagedTokens;
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_send::SendClientExt as _;
+use bitwarden_user_crypto_management::UserCryptoManagementClientExt;
 use bitwarden_vault::VaultClientExt as _;
 
 #[cfg(feature = "uniffi")]
@@ -67,6 +68,13 @@ impl PasswordManagerClient {
     /// Crypto operations
     pub fn crypto(&self) -> bitwarden_core::key_management::CryptoClient {
         self.0.crypto()
+    }
+
+    /// Operations that manage the cryptographic machinery of a user account, including key-rotation
+    pub fn user_crypto_management(
+        &self,
+    ) -> bitwarden_user_crypto_management::UserCryptoManagementClient {
+        self.0.user_crypto_management()
     }
 
     /// Vault item operations
