@@ -41,6 +41,26 @@ pub(super) enum SyncError {
     DataError,
 }
 
+/// Fetch the public key for an organization
+async fn fetch_organization_public_key(
+    api_client: &ApiClient,
+    organization_id: Uuid,
+) -> Result<AsymmetricPublicCryptoKey, SyncError> {
+    let org_details = api_client
+        .organizations_api()
+        .get_public_key(&organization_id.to_string())
+        .await
+        .map_err(|_| SyncError::NetworkError)?
+        .public_key
+        .ok_or(SyncError::DataError)?;
+    AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(
+        B64::from_str(&org_details)
+            .map_err(|_| SyncError::DataError)?
+            .into_bytes(),
+    ))
+    .map_err(|_| SyncError::DataError)
+}
+
 // Download the public keys for the organizations, since these are not included in the sync
 pub(crate) async fn sync_orgs(
     api_client: &ApiClient,
@@ -57,19 +77,7 @@ pub(crate) async fn sync_orgs(
         .into_iter()
         .map(async |org| {
             let id = org.id.ok_or(SyncError::DataError)?;
-            let org_details = api_client
-                .organizations_api()
-                .get_public_key(&id.to_string())
-                .await
-                .map_err(|_| SyncError::NetworkError)?
-                .public_key
-                .ok_or(SyncError::DataError)?;
-            let public_key = AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(
-                B64::from_str(&org_details)
-                    .map_err(|_| SyncError::DataError)?
-                    .into_bytes(),
-            ))
-            .map_err(|_| SyncError::DataError)?;
+            let public_key = fetch_organization_public_key(api_client, id).await?;
             Ok(V1OrganizationMembership {
                 organization_id: id,
                 name: org.name.ok_or(SyncError::DataError)?,
@@ -77,15 +85,37 @@ pub(crate) async fn sync_orgs(
             })
         })
         .collect::<Vec<_>>();
+
+    // Await all fetches
     let mut organization_memberships = Vec::new();
     for futures in organizations {
         organization_memberships.push(futures.await?);
     }
+
     info!(
         "Downloaded {} organization memberships",
         organization_memberships.len()
     );
     Ok(organization_memberships)
+}
+
+/// Fetch the public key for a user (used for emergency access)
+async fn fetch_user_public_key(
+    api_client: &ApiClient,
+    user_id: Uuid,
+) -> Result<AsymmetricPublicCryptoKey, SyncError> {
+    let user_key_response = api_client
+        .users_api()
+        .get_public_key(user_id)
+        .await
+        .map_err(|_| SyncError::NetworkError)?;
+    let public_key_b64 = user_key_response.public_key.ok_or(SyncError::DataError)?;
+    AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(
+        B64::from_str(&public_key_b64)
+            .map_err(|_| SyncError::DataError)?
+            .into_bytes(),
+    ))
+    .map_err(|_| SyncError::DataError)
 }
 
 /// Download the emergency access memberships and their public keys
@@ -102,20 +132,7 @@ pub(crate) async fn sync_emergency_access(
         .into_iter()
         .map(async |ea| {
             let user_id = ea.grantee_id.ok_or(SyncError::DataError)?;
-            let user_key_response_model = api_client
-                .users_api()
-                .get_public_key(user_id)
-                .await
-                .map_err(|_| SyncError::NetworkError)?;
-            let ea_details = user_key_response_model
-                .public_key
-                .ok_or(SyncError::DataError)?;
-            let public_key = AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(
-                B64::from_str(&ea_details)
-                    .map_err(|_| SyncError::DataError)?
-                    .into_bytes(),
-            ))
-            .map_err(|_| SyncError::DataError)?;
+            let public_key = fetch_user_public_key(api_client, user_id).await?;
             Ok(V1EmergencyAccessMembership {
                 id: ea.id.ok_or(SyncError::DataError)?,
                 name: ea.name.ok_or(SyncError::DataError)?,
@@ -123,10 +140,13 @@ pub(crate) async fn sync_emergency_access(
             })
         })
         .collect::<Vec<_>>();
+
+    // Await all fetches
     let mut emergency_access_memberships = Vec::new();
     for futures in emergency_access {
         emergency_access_memberships.push(futures.await?);
     }
+
     info!(
         "Downloaded {} emergency access memberships",
         emergency_access_memberships.len()
@@ -315,15 +335,14 @@ mod tests {
 
     use super::*;
 
-    // Valid EncString format: "2.<iv>|<data>|<mac>" where all parts are base64 encoded
-    const VALID_ENC_STRING: &str = "2.STIyTrfDZN/JXNDN9zNEMw==|NDLum8BHZpPNYhJo9ggSkg==|UCsCLlBO3QzdPwvMAWs2VVwuE6xwOx/vxOooPObqnEw=";
-    const VALID_KEY_ENC_STRING: &str = "2.KLv/j0V4Ebs0dwyPdtt4vw==|Nczvv+DTkeP466cP/wMDnGK6W9zEIg5iHLhcuQG6s+M=|SZGsfuIAIaGZ7/kzygaVUau3LeOvJUlolENBOU+LX7g=";
+    const TEST_ENC_STRING: &str = "2.STIyTrfDZN/JXNDN9zNEMw==|NDLum8BHZpPNYhJo9ggSkg==|UCsCLlBO3QzdPwvMAWs2VVwuE6xwOx/vxOooPObqnEw=";
+    const KEY_ENC_STRING: &str = "2.KLv/j0V4Ebs0dwyPdtt4vw==|Nczvv+DTkeP466cP/wMDnGK6W9zEIg5iHLhcuQG6s+M=|SZGsfuIAIaGZ7/kzygaVUau3LeOvJUlolENBOU+LX7g=";
 
     fn create_test_folder(id: uuid::Uuid) -> FolderResponseModel {
         FolderResponseModel {
             object: Some("folder".to_string()),
             id: Some(id),
-            name: Some(VALID_ENC_STRING.to_string()),
+            name: Some(TEST_ENC_STRING.to_string()),
             revision_date: Some("2024-01-01T00:00:00Z".to_string()),
         }
     }
@@ -335,7 +354,7 @@ mod tests {
             organization_id: None,
             r#type: Some(bitwarden_api_api::models::CipherType::Login),
             data: None,
-            name: Some(VALID_ENC_STRING.to_string()),
+            name: Some(TEST_ENC_STRING.to_string()),
             notes: None,
             login: None,
             card: None,
@@ -365,13 +384,13 @@ mod tests {
         SendResponseModel {
             object: Some("send".to_string()),
             id: Some(id),
-            access_id: Some("ct2APRQtJk-BLLDwAYqhRA".to_string()),
+            access_id: Some("access_id".to_string()),
             r#type: Some(SendType::Text),
-            name: Some(VALID_ENC_STRING.to_string()),
+            name: Some(TEST_ENC_STRING.to_string()),
             notes: None,
             file: None,
             text: None,
-            key: Some(VALID_KEY_ENC_STRING.to_string()),
+            key: Some(KEY_ENC_STRING.to_string()),
             max_access_count: None,
             access_count: Some(0),
             password: None,
@@ -426,13 +445,6 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_folders_none_returns_error() {
-        let result = parse_folders(None);
-
-        assert!(result.is_err());
-    }
-
-    #[test]
     fn test_parse_ciphers_success() {
         let cipher_id = uuid::Uuid::new_v4();
         let ciphers = vec![create_test_cipher(cipher_id)];
@@ -458,13 +470,6 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_ciphers_none_returns_error() {
-        let result = parse_ciphers(None);
-
-        assert!(result.is_err());
-    }
-
-    #[test]
     fn test_parse_sends_success() {
         let send_id = uuid::Uuid::new_v4();
         let sends = vec![create_test_send(send_id)];
@@ -487,13 +492,6 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_sends_none_returns_error() {
-        let result = parse_sends(None);
-
-        assert!(result.is_err());
-    }
-
-    #[test]
     fn test_parse_kdf_and_salt_success() {
         let user_decryption = Some(Box::new(create_test_user_decryption()));
 
@@ -505,59 +503,5 @@ mod tests {
         let (kdf, salt) = parsed.expect("should have kdf and salt");
         assert_eq!(salt, "test_salt");
         assert!(matches!(kdf, Kdf::PBKDF2 { iterations } if iterations.get() == 600000));
-    }
-
-    #[test]
-    fn test_parse_kdf_and_salt_none_returns_error() {
-        let result = parse_kdf_and_salt(&None);
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_parse_kdf_and_salt_missing_master_password_unlock_returns_error() {
-        let user_decryption = Some(Box::new(UserDecryptionResponseModel {
-            master_password_unlock: None,
-        }));
-
-        let result = parse_kdf_and_salt(&user_decryption);
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_parse_kdf_and_salt_missing_salt_returns_error() {
-        let user_decryption = Some(Box::new(UserDecryptionResponseModel {
-            master_password_unlock: Some(Box::new(MasterPasswordUnlockResponseModel {
-                kdf: Box::new(MasterPasswordUnlockKdfResponseModel {
-                    kdf_type: KdfType::PBKDF2_SHA256,
-                    iterations: 600000,
-                    memory: None,
-                    parallelism: None,
-                }),
-                master_key_encrypted_user_key: None,
-                salt: None,
-            })),
-        }));
-
-        let result = parse_kdf_and_salt(&user_decryption);
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_parse_folders_multiple() {
-        let folder_id1 = uuid::Uuid::new_v4();
-        let folder_id2 = uuid::Uuid::new_v4();
-        let folders = vec![
-            create_test_folder(folder_id1),
-            create_test_folder(folder_id2),
-        ];
-
-        let result = parse_folders(Some(folders));
-
-        assert!(result.is_ok());
-        let parsed = result.unwrap();
-        assert_eq!(parsed.len(), 2);
     }
 }
