@@ -51,7 +51,8 @@ pub(super) fn reencrypt_data(
                 .into_iter()
                 .map(|cipher| {
                     Ok(EncryptionContext {
-                        // Encrypted for is not used in key-rotation, and ciphers are validated to be correct server-side
+                        // Encrypted for is not used in key-rotation, and ciphers are validated to
+                        // be correct server-side
                         encrypted_for: UserId::new(Uuid::nil()),
                         cipher: cipher,
                     }
