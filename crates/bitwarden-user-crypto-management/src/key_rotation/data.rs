@@ -27,9 +27,9 @@ pub(crate) enum DataReencryptionError {
 #[allow(unused)]
 #[instrument(name = "reencrypt_data", skip(folders, cipher, sends, ctx))]
 pub(super) fn reencrypt_data(
-    folders: Vec<bitwarden_vault::Folder>,
-    cipher: Vec<bitwarden_vault::Cipher>,
-    sends: Vec<bitwarden_send::Send>,
+    folders: &[bitwarden_vault::Folder],
+    cipher: &[bitwarden_vault::Cipher],
+    sends: &[bitwarden_send::Send],
     current_user_key_id: SymmetricKeyId,
     new_user_key_id: SymmetricKeyId,
     ctx: &mut KeyStoreContext<KeyIds>,
@@ -76,13 +76,13 @@ pub(super) fn reencrypt_data(
 
 #[instrument(name = "reencrypt_folders", skip(folders, ctx))]
 fn reencrypt_folders(
-    folders: Vec<bitwarden_vault::Folder>,
+    folders: &[bitwarden_vault::Folder],
     current_key: SymmetricKeyId,
     new_key: SymmetricKeyId,
     ctx: &mut KeyStoreContext<KeyIds>,
 ) -> Result<Vec<bitwarden_vault::Folder>, DataReencryptionError> {
     folders
-        .into_iter()
+        .iter()
         .map(|folder| {
             let _span = debug_span!("reencrypt_folder", folder_id = ?folder.id).entered();
             let folder_view: FolderView = folder
@@ -97,13 +97,13 @@ fn reencrypt_folders(
 
 #[instrument(name = "reencrypt_ciphers", skip(ciphers, ctx))]
 fn reencrypt_ciphers(
-    ciphers: Vec<bitwarden_vault::Cipher>,
+    ciphers: &[bitwarden_vault::Cipher],
     current_key: SymmetricKeyId,
     new_key: SymmetricKeyId,
     ctx: &mut KeyStoreContext<KeyIds>,
 ) -> Result<Vec<bitwarden_vault::Cipher>, DataReencryptionError> {
     ciphers
-        .into_iter()
+        .iter()
         .map(|cipher| {
             let _span = debug_span!("reencrypt_cipher", cipher_id = ?cipher.id).entered();
             let cipher_view: CipherView = cipher
@@ -118,13 +118,13 @@ fn reencrypt_ciphers(
 
 #[instrument(name = "reencrypt_sends", skip(sends, ctx))]
 fn reencrypt_sends(
-    sends: Vec<bitwarden_send::Send>,
+    sends: &[bitwarden_send::Send],
     current_key: SymmetricKeyId,
     new_key: SymmetricKeyId,
     ctx: &mut KeyStoreContext<KeyIds>,
 ) -> Result<Vec<bitwarden_send::Send>, DataReencryptionError> {
     sends
-        .into_iter()
+        .iter()
         .map(|send| {
             let _span = debug_span!("reencrypt_send", send_id = ?send.id).entered();
             let send_view: SendView = send
@@ -197,7 +197,8 @@ mod tests {
         // Rotate it
         let ciphers = vec![encrypted_cipher];
         let reencrypted_ciphers =
-            super::reencrypt_ciphers(ciphers, user_key_old, user_key_new, &mut ctx).unwrap();
+            super::reencrypt_ciphers(ciphers.as_slice(), user_key_old, user_key_new, &mut ctx)
+                .unwrap();
 
         // Decrypt and assert
         let decrypted_cipher: CipherView = reencrypted_ciphers[0]
@@ -237,7 +238,8 @@ mod tests {
         // Rotate it
         let folders = vec![encrypted_folder];
         let reencrypted_folders =
-            super::reencrypt_folders(folders, user_key_old, user_key_new, &mut ctx).unwrap();
+            super::reencrypt_folders(folders.as_slice(), user_key_old, user_key_new, &mut ctx)
+                .unwrap();
 
         // Decrypt and assert
         let decrypted_folder = reencrypted_folders[0]
@@ -284,7 +286,7 @@ mod tests {
         // Rotate it
         let sends = vec![encrypted_send];
         let reencrypted_sends =
-            super::reencrypt_sends(sends, user_key_old, user_key_new, &mut ctx).unwrap();
+            super::reencrypt_sends(sends.as_slice(), user_key_old, user_key_new, &mut ctx).unwrap();
 
         // Decrypt and assert
         let decrypted_send: SendView = reencrypted_sends[0]
