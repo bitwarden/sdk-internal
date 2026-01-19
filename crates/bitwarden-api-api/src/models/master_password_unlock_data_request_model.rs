@@ -17,16 +17,16 @@ pub struct MasterPasswordUnlockDataRequestModel {
     #[serde(rename = "kdf", alias = "Kdf")]
     pub kdf: Box<models::KdfRequestModel>,
     #[serde(rename = "masterKeyWrappedUserKey", alias = "MasterKeyWrappedUserKey")]
-    pub master_key_wrapped_user_key: Option<String>,
+    pub master_key_wrapped_user_key: String,
     #[serde(rename = "salt", alias = "Salt")]
-    pub salt: Option<String>,
+    pub salt: String,
 }
 
 impl MasterPasswordUnlockDataRequestModel {
     pub fn new(
         kdf: models::KdfRequestModel,
-        master_key_wrapped_user_key: Option<String>,
-        salt: Option<String>,
+        master_key_wrapped_user_key: String,
+        salt: String,
     ) -> MasterPasswordUnlockDataRequestModel {
         MasterPasswordUnlockDataRequestModel {
             kdf: Box::new(kdf),

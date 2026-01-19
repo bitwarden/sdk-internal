@@ -30,7 +30,6 @@ pub trait KeyId:
 }
 
 /// Represents a set of all the key identifiers that need to be defined to use a key store.
-/// At the moment it's just symmetric and asymmetric keys.
 pub trait KeyIds {
     #[allow(missing_docs)]
     type Symmetric: KeyId<KeyValue = SymmetricCryptoKey>;

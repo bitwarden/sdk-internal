@@ -22,7 +22,7 @@ const TS_CUSTOM_TYPES: &'static str = r#"
 export type SignedPublicKey = Tagged<string, "SignedPublicKey">;
 "#;
 
-/// `PublicKeyFormat` defines the format of the public key in a `SignedAsymmetricPublicKeyMessage`.
+/// [`PublicKeyFormat`] defines the format of the public key in a [`SignedPublicKeyMessage`].
 /// Currently, only ASN.1 Subject Public Key Info (SPKI) is used, but CoseKey may become another
 /// option in the future.
 #[derive(Serialize_repr, Deserialize_repr)]
@@ -31,7 +31,7 @@ enum PublicKeyFormat {
     Spki = 0,
 }
 
-/// `SignedAsymmetricPublicKeyMessage` is a message that once signed, makes a claim towards owning a
+/// [`SignedPublicKeyMessage`] is a message that once signed, makes a claim towards owning a
 /// public encryption key.
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -50,8 +50,8 @@ pub struct SignedPublicKeyMessage {
 }
 
 impl SignedPublicKeyMessage {
-    /// Creates a new `SignedPublicKeyMessage` from an `AsymmetricPublicCryptoKey`. This message
-    /// can then be signed using a `SigningKey` to create a `SignedPublicKey`.
+    /// Creates a new [`SignedPublicKeyMessage`] from a [`PublicKey`]. This message
+    /// can then be signed using a [`SigningKey`] to create a [`SignedPublicKey`].
     pub fn from_public_key(public_key: &PublicKey) -> Result<Self, CryptoError> {
         match public_key.inner() {
             RawPublicKey::RsaOaepSha1(_) => Ok(SignedPublicKeyMessage {
@@ -62,8 +62,8 @@ impl SignedPublicKeyMessage {
         }
     }
 
-    /// Signs the `SignedPublicKeyMessage` using the provided `SigningKey`, and returns a
-    /// `SignedPublicKey`.
+    /// Signs the [`SignedPublicKeyMessage`] using the provided [`SigningKey`], and returns a
+    /// [`SignedPublicKey`].
     pub fn sign(&self, signing_key: &SigningKey) -> Result<SignedPublicKey, CryptoError> {
         Ok(SignedPublicKey(
             signing_key.sign(self, &SigningNamespace::SignedPublicKey)?,
@@ -71,7 +71,7 @@ impl SignedPublicKeyMessage {
     }
 }
 
-/// `SignedAsymmetricPublicKey` is a public encryption key, signed by the owner of the encryption
+/// [`SignedPublicKey`] is a public encryption key, signed by the owner of the encryption
 /// keypair. This wrapping ensures that the consumer of the public key MUST verify the identity of
 /// the Signer before they can use the public key for encryption.
 #[derive(Clone, Debug)]
@@ -98,8 +98,8 @@ impl From<SignedPublicKey> for String {
 }
 
 impl SignedPublicKey {
-    /// Verifies the signature of the public key against the provided `VerifyingKey`, and returns
-    /// the `AsymmetricPublicCryptoKey` if the verification is successful.
+    /// Verifies the signature of the public key against the provided [`VerifyingKey`], and returns
+    /// the [`PublicKey`] if the verification is successful.
     pub fn verify_and_unwrap(self, verifying_key: &VerifyingKey) -> Result<PublicKey, CryptoError> {
         let public_key_message: SignedPublicKeyMessage = self
             .0
