@@ -31,6 +31,7 @@ bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true } 
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-send = { workspace = true }
 chrono = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
