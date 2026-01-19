@@ -1,10 +1,10 @@
 //! Client to manage the cryptographic machinery of a user account, including key-rotation
-mod sync;
-
+mod crypto;
+mod data;
 mod partial_rotateable_keyset;
+mod sync;
 mod unlock;
 
-mod data;
 use bitwarden_api_api::models::RotateUserAccountKeysAndDataRequestModel;
 use bitwarden_core::{
     Client, UserId,
@@ -16,6 +16,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, info, info_span, warn};
 use tsify::Tsify;
+
+use bitwarden_core::Client;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
