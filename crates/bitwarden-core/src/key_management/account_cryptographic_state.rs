@@ -26,7 +26,7 @@ use tsify::Tsify;
 use crate::{
     UserId,
     key_management::{
-        AsymmetricKeyId, KeyIds, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
+        KeyIds, PrivateKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
     },
 };
 
@@ -176,8 +176,8 @@ impl WrappedAccountCryptographicState {
         user_id: UserId,
     ) -> Result<(SymmetricKeyId, Self), AccountCryptographyInitializationError> {
         let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1)?;
-        let signing_key = ctx.make_signing_key(SignatureAlgorithm::Ed25519)?;
+        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let signing_key = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
         let signed_public_key = ctx.make_signed_public_key(private_key, signing_key)?;
 
         let security_state = SecurityState::initialize_for_user(user_id);
@@ -206,7 +206,7 @@ impl WrappedAccountCryptographicState {
         mut ctx: KeyStoreContext<KeyIds>,
     ) -> Result<(), AccountCryptographyInitializationError> {
         if ctx.has_symmetric_key(SymmetricKeyId::User)
-            || ctx.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey)
+            || ctx.has_private_key(PrivateKeyId::UserPrivateKey)
             || ctx.has_signing_key(SigningKeyId::UserSigningKey)
         {
             return Err(AccountCryptographyInitializationError::KeyStoreAlreadyInitialized);
@@ -224,7 +224,7 @@ impl WrappedAccountCryptographicState {
                 // Some users have unreadable V1 private keys. In this case, we set no keys to
                 // state.
                 if let Ok(private_key_id) = ctx.unwrap_private_key(user_key, private_key) {
-                    ctx.persist_asymmetric_key(private_key_id, AsymmetricKeyId::UserPrivateKey)?;
+                    ctx.persist_private_key(private_key_id, PrivateKeyId::UserPrivateKey)?;
                 } else {
                     tracing::warn!(
                         "V1 private key could not be unwrapped, skipping setting private key"
@@ -264,7 +264,7 @@ impl WrappedAccountCryptographicState {
                     .to_owned()
                     .verify_and_unwrap(&ctx.get_verifying_key(signing_key_id)?)
                     .map_err(|_| AccountCryptographyInitializationError::TamperedData)?;
-                ctx.persist_asymmetric_key(private_key_id, AsymmetricKeyId::UserPrivateKey)?;
+                ctx.persist_private_key(private_key_id, PrivateKeyId::UserPrivateKey)?;
                 ctx.persist_signing_key(signing_key_id, SigningKeyId::UserSigningKey)?;
                 ctx.persist_symmetric_key(user_key, SymmetricKeyId::User)?;
                 // Not manually dropping ctx here would lead to a deadlock, since storing the state
@@ -298,7 +298,7 @@ mod tests {
     use bitwarden_crypto::{KeyStore, PrimitiveEncryptable};
 
     use super::*;
-    use crate::key_management::{AsymmetricKeyId, SigningKeyId, SymmetricKeyId};
+    use crate::key_management::{PrivateKeyId, SigningKeyId, SymmetricKeyId};
 
     #[test]
     fn test_set_to_context_v1() {
@@ -310,9 +310,7 @@ mod tests {
         let user_key = temp_ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
 
         // Make a private key and wrap it with the user key
-        let private_key_id = temp_ctx
-            .make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1)
-            .unwrap();
+        let private_key_id = temp_ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let wrapped_private = temp_ctx.wrap_private_key(user_key, private_key_id).unwrap();
 
         // Construct the V1 wrapped state
@@ -340,7 +338,7 @@ mod tests {
         let ctx = store.context();
 
         // Assert that the private key and user symmetric key were set in the store
-        assert!(ctx.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey));
+        assert!(ctx.has_private_key(PrivateKeyId::UserPrivateKey));
         assert!(ctx.has_symmetric_key(SymmetricKeyId::User));
     }
 
@@ -354,12 +352,8 @@ mod tests {
         let user_key = temp_ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         // Make keys
-        let private_key_id = temp_ctx
-            .make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1)
-            .unwrap();
-        let signing_key_id = temp_ctx
-            .make_signing_key(SignatureAlgorithm::Ed25519)
-            .unwrap();
+        let private_key_id = temp_ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let signing_key_id = temp_ctx.make_signing_key(SignatureAlgorithm::Ed25519);
         let signed_public_key = temp_ctx
             .make_signed_public_key(private_key_id, signing_key_id)
             .unwrap();
@@ -402,7 +396,7 @@ mod tests {
         assert!(
             store
                 .context()
-                .has_asymmetric_key(AsymmetricKeyId::UserPrivateKey)
+                .has_private_key(PrivateKeyId::UserPrivateKey)
         );
         assert!(
             store
@@ -450,7 +444,7 @@ mod tests {
         assert_eq!(
             pk_pair.public_key.unwrap(),
             B64::from(
-                ctx.get_public_key(AsymmetricKeyId::UserPrivateKey)
+                ctx.get_public_key(PrivateKeyId::UserPrivateKey)
                     .unwrap()
                     .to_der()
                     .unwrap()
@@ -513,6 +507,6 @@ mod tests {
         // The user symmetric key should be set
         assert!(ctx.has_symmetric_key(SymmetricKeyId::User));
         // But the private key should NOT be set (due to corruption)
-        assert!(!ctx.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey));
+        assert!(!ctx.has_private_key(PrivateKeyId::UserPrivateKey));
     }
 }

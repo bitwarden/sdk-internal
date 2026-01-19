@@ -446,7 +446,6 @@ async fn internal_post_keys_for_jit_password_registration(
     // mature, the account cryptographic state and keys should be set directly here.
     Ok(JitMasterPasswordRegistrationResponse {
         account_cryptographic_state: registration_crypto_result.account_cryptographic_state,
-        master_key: registration_crypto_result.master_key.to_base64(),
         master_password_unlock: registration_crypto_result.master_password_unlock_data,
         user_key: registration_crypto_result
             .user_key
@@ -469,8 +468,6 @@ pub struct JitMasterPasswordRegistrationResponse {
     pub account_cryptographic_state: WrappedAccountCryptographicState,
     /// The master password unlock data
     pub master_password_unlock: MasterPasswordUnlockData,
-    /// The master key
-    pub master_key: B64,
     /// The decrypted user key.
     pub user_key: B64,
 }
@@ -1002,10 +999,7 @@ mod tests {
                         assert_eq!(security_state.security_version, 2);
                         assert!(req.master_password_unlock.is_some());
                         let master_password_unlock = req.master_password_unlock.as_ref().unwrap();
-                        assert_eq!(
-                            master_password_unlock.salt,
-                            Some("test@example.com".to_string())
-                        );
+                        assert_eq!(master_password_unlock.salt, "test@example.com".to_string());
                         assert_eq!(
                             master_password_unlock.kdf,
                             Box::new(KdfRequestModel {
@@ -1015,13 +1009,12 @@ mod tests {
                                 parallelism: Some(3),
                             })
                         );
-                        assert!(master_password_unlock.master_key_wrapped_user_key.is_some());
                         assert!(req.master_password_authentication.is_some());
                         let master_password_authentication =
                             req.master_password_authentication.as_ref().unwrap();
                         assert_eq!(
                             master_password_authentication.salt,
-                            Some("test@example.com".to_string())
+                            "test@example.com".to_string()
                         );
                         assert_eq!(
                             master_password_authentication.kdf,
@@ -1031,11 +1024,6 @@ mod tests {
                                 memory: Some(32),
                                 parallelism: Some(3),
                             })
-                        );
-                        assert!(
-                            master_password_authentication
-                                .master_password_authentication_hash
-                                .is_some()
                         );
                         true
                     } else {
