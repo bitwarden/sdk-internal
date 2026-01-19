@@ -50,14 +50,14 @@ pub(super) fn reencrypt_data(
             reencrypted_ciphers
                 .into_iter()
                 .map(|cipher| {
-                    Ok(EncryptionContext {
+                    EncryptionContext {
                         // Encrypted for is not used in key-rotation, and ciphers are validated to
                         // be correct server-side
                         encrypted_for: UserId::new(Uuid::nil()),
-                        cipher: cipher,
+                        cipher,
                     }
                     .try_into()
-                    .map_err(|_| DataReencryptionError::DataConversion)?)
+                    .map_err(|_| DataReencryptionError::DataConversion)
                 })
                 .collect::<Result<Vec<CipherWithIdRequestModel>, DataReencryptionError>>()?,
         ),
