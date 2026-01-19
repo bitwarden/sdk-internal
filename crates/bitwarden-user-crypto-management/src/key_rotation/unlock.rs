@@ -321,6 +321,18 @@ mod tests {
         }
     }
 
+    fn create_test_unlock_data() -> MasterkeyUnlockMethod {
+        let kdf = create_test_kdf_argon2id();
+        let salt = "test@example.com".to_string();
+        let password = "test_password".to_string();
+        MasterkeyUnlockMethod::Password {
+            password,
+            hint: None,
+            kdf,
+            salt,
+        }
+    }
+
     fn assert_symmetric_keys_equal(
         key_id_1: SymmetricKeyId,
         key_id_2: SymmetricKeyId,
@@ -364,6 +376,21 @@ mod tests {
         assert!(model.master_key_authentication_hash.is_some());
         assert!(model.master_key_encrypted_user_key.is_some());
         assert!(model.master_password_hint.is_none());
+
+        // Verify the unlock data can decrypt the user key
+        let master_password_unlock_data = MasterPasswordUnlockData {
+            master_key_wrapped_user_key: model
+                .master_key_encrypted_user_key
+                .expect("should be present")
+                .parse()
+                .expect("should parse"),
+            kdf: kdf.clone(),
+            salt: salt.to_string(),
+        };
+        let decrypted_user_key = master_password_unlock_data
+            .unwrap_to_context(password, &mut ctx)
+            .expect("unwrap should succeed");
+        assert_symmetric_keys_equal(user_key_id, decrypted_user_key, &mut ctx);
     }
 
     #[test]
@@ -392,56 +419,21 @@ mod tests {
         assert_eq!(model.email, Some(salt.to_string()));
         assert!(model.master_key_authentication_hash.is_some());
         assert!(model.master_key_encrypted_user_key.is_some());
-    }
 
-    #[test]
-    fn test_reencrypt_unlock_master_password_data() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
-        let mut ctx = store.context_mut();
-
-        let kdf = create_test_kdf_argon2id();
-        let salt = "test@example.com".to_string();
-        let password = "test_password".to_string();
-
-        let current_user_key_id = ctx.generate_symmetric_key();
-        let new_user_key_id = ctx.generate_symmetric_key();
-
-        let master_key_unlock_method = MasterkeyUnlockMethod::Password {
-            password: password.clone(),
-            hint: None,
-            kdf: kdf.clone(),
-            salt: salt.clone(),
-        };
-
-        let result = reencrypt_unlock(
-            ReencryptUnlockInput {
-                master_key_unlock_method,
-                trusted_devices: vec![],
-                webauthn_credentials: vec![],
-                trusted_organization_keys: vec![],
-                trusted_emergency_access_keys: vec![],
-            },
-            current_user_key_id,
-            new_user_key_id,
-            &mut ctx,
-        );
-
-        let unlock_data = result.expect("should be ok");
-
+        // Verify the unlock data can decrypt the user key
         let master_password_unlock_data = MasterPasswordUnlockData {
-            master_key_wrapped_user_key: unlock_data
-                .master_password_unlock_data
+            master_key_wrapped_user_key: model
                 .master_key_encrypted_user_key
                 .expect("should be present")
                 .parse()
                 .expect("should parse"),
             kdf: kdf.clone(),
-            salt: salt.clone(),
+            salt: salt.to_string(),
         };
         let decrypted_user_key = master_password_unlock_data
-            .unwrap_to_context("test_password", &mut ctx)
+            .unwrap_to_context(password, &mut ctx)
             .expect("unwrap should succeed");
-        assert_symmetric_keys_equal(new_user_key_id, decrypted_user_key, &mut ctx);
+        assert_symmetric_keys_equal(user_key_id, decrypted_user_key, &mut ctx);
     }
 
     #[test]
@@ -449,23 +441,12 @@ mod tests {
         let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
-        let kdf = create_test_kdf_argon2id();
-        let salt = "test@example.com".to_string();
-        let password = "test_password".to_string();
-
         let current_user_key_id = ctx.generate_symmetric_key();
         let new_user_key_id = ctx.generate_symmetric_key();
+        let master_key_unlock_method = create_test_unlock_data();
 
         let (device_keyset, device_private_key) =
             PartialRotateableKeyset::make_test_keyset(current_user_key_id, &mut ctx);
-
-        // Note: Replace this with [`MasterkeyUnlockMethod::None`] when implemented.
-        let master_key_unlock_method = MasterkeyUnlockMethod::Password {
-            password: password.clone(),
-            hint: None,
-            kdf: kdf.clone(),
-            salt: salt.clone(),
-        };
 
         let result = reencrypt_unlock(
             ReencryptUnlockInput {
@@ -502,23 +483,12 @@ mod tests {
         let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
-        let kdf = create_test_kdf_argon2id();
-        let salt = "test@example.com".to_string();
-        let password = "test_password".to_string();
-
         let current_user_key_id = ctx.generate_symmetric_key();
         let new_user_key_id = ctx.generate_symmetric_key();
+        let master_key_unlock_method = create_test_unlock_data();
 
         let (credential_keyset, credential_private_key) =
             PartialRotateableKeyset::make_test_keyset(current_user_key_id, &mut ctx);
-
-        // Note: Replace this with [`MasterkeyUnlockMethod::None`] when implemented.
-        let master_key_unlock_method = MasterkeyUnlockMethod::Password {
-            password: password.clone(),
-            hint: None,
-            kdf: kdf.clone(),
-            salt: salt.clone(),
-        };
 
         let result = reencrypt_unlock(
             ReencryptUnlockInput {
@@ -535,6 +505,7 @@ mod tests {
 
         let unlock_data = result.expect("should be ok");
 
+        // Ensure it decrypts to the correct key after rotation
         let credential_unlock = unlock_data
             .passkey_unlock_data
             .as_ref()
@@ -555,26 +526,18 @@ mod tests {
         let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
-        let kdf = create_test_kdf_argon2id();
-        let salt = "test@example.com".to_string();
-        let password = "test_password".to_string();
-
         let current_user_key_id = ctx.generate_symmetric_key();
         let new_user_key_id = ctx.generate_symmetric_key();
+        let master_key_unlock_method = create_test_unlock_data();
 
-        let ea_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let organization_private_key =
+            ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let emergency_access = V1EmergencyAccessMembership {
             id: Uuid::new_v4(),
             name: "Test User".to_string(),
-            public_key: ctx.get_public_key(ea_key).expect("key exists"),
-        };
-
-        // Note: Replace this with [`MasterkeyUnlockMethod::None`] when implemented.
-        let master_key_unlock_method = MasterkeyUnlockMethod::Password {
-            password: password.clone(),
-            hint: None,
-            kdf: kdf.clone(),
-            salt: salt.clone(),
+            public_key: ctx
+                .get_public_key(organization_private_key)
+                .expect("key exists"),
         };
 
         let result = reencrypt_unlock(
@@ -592,6 +555,7 @@ mod tests {
 
         let unlock_data = result.expect("should be ok");
 
+        // Ensure it decrypts to the correct key after rotation
         let emergency_access_unlock = unlock_data
             .emergency_access_unlock_data
             .as_ref()
@@ -604,7 +568,7 @@ mod tests {
             .map(|k| k.parse::<UnsignedSharedKey>())
             .expect("should be present")
             .expect("should parse")
-            .decapsulate(ea_key, &mut ctx)
+            .decapsulate(organization_private_key, &mut ctx)
             .expect("unwrap should succeed");
         assert_symmetric_keys_equal(new_user_key_id, decrypted_user_key, &mut ctx);
     }
