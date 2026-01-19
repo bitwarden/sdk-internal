@@ -1,5 +1,7 @@
 //! Client to manage the cryptographic machinery of a user account, including key-rotation
 
+mod crypto;
+
 use bitwarden_core::Client;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
