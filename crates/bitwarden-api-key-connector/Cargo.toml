@@ -16,6 +16,7 @@ keywords.workspace = true
 async-trait = { workspace = true }
 mockall = { workspace = true }
 reqwest = { workspace = true }
+reqwest-middleware = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
