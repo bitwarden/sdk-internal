@@ -1191,8 +1191,10 @@ dependencies = [
  "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-encoding",
  "bitwarden-generators",
  "bitwarden-pm",
+ "bitwarden-state",
  "bitwarden-test",
  "bitwarden-vault",
  "clap",
@@ -5914,7 +5916,7 @@ dependencies = [
  "serde",
  "tempfile",
  "textwrap",
- "toml 0.8.23",
+ "toml 0.9.9+spec-1.0.0",
  "uniffi_internal_macros",
  "uniffi_meta",
  "uniffi_pipeline",
@@ -5967,7 +5969,7 @@ dependencies = [
  "quote",
  "serde",
  "syn",
- "toml 0.8.23",
+ "toml 0.9.9+spec-1.0.0",
  "uniffi_meta",
 ]
 

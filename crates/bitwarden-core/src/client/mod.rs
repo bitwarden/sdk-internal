@@ -9,11 +9,15 @@ pub mod encryption_settings;
 #[allow(missing_docs)]
 pub mod internal;
 pub use internal::ApiConfigurations;
+#[cfg(feature = "cli")]
+pub use internal::{PersistedAuthState, PersistedCryptoState};
 #[allow(missing_docs)]
 pub mod login_method;
+pub(crate) use login_method::LoginMethod;
 #[cfg(feature = "secrets")]
 pub(crate) use login_method::ServiceAccountLoginMethod;
-pub(crate) use login_method::{LoginMethod, UserLoginMethod};
+// Export publicly for CLI persistence
+pub use login_method::UserLoginMethod;
 #[cfg(feature = "internal")]
 mod flags;
 

@@ -80,7 +80,7 @@ impl Database for SqliteDatabase {
         else {
             return Err(DatabaseError::UnsupportedConfiguration(configuration));
         };
-        path.set_file_name(format!("{db_name}.sqlite"));
+        path.push(format!("{db_name}.sqlite"));
 
         let db = rusqlite::Connection::open(path)?;
         Self::initialize_internal(db, migrations)
