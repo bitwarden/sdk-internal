@@ -3,11 +3,15 @@
 use bitwarden_api_api::models::{
     AccountDataRequestModel, CipherWithIdRequestModel, SendWithIdRequestModel,
 };
-use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
+use bitwarden_core::{
+    UserId,
+    key_management::{KeyIds, SymmetricKeyId},
+};
 use bitwarden_crypto::{CompositeEncryptable, Decryptable, KeyStoreContext};
 use bitwarden_send::SendView;
-use bitwarden_vault::{CipherView, FolderView};
+use bitwarden_vault::{CipherView, EncryptionContext, FolderView};
 use tracing::{debug_span, instrument};
+use uuid::Uuid;
 
 /// Errors that can occur during data re-encryption
 #[derive(Debug)]
@@ -46,9 +50,13 @@ pub(super) fn reencrypt_data(
             reencrypted_ciphers
                 .into_iter()
                 .map(|cipher| {
-                    cipher
-                        .try_into()
-                        .map_err(|_| DataReencryptionError::DataConversion)
+                    Ok(EncryptionContext {
+                        // Encrypted for is not used in key-rotation, and ciphers are validated to be correct server-side
+                        encrypted_for: UserId::new(Uuid::nil()),
+                        cipher: cipher,
+                    }
+                    .try_into()
+                    .map_err(|_| DataReencryptionError::DataConversion)?)
                 })
                 .collect::<Result<Vec<CipherWithIdRequestModel>, DataReencryptionError>>()?,
         ),
