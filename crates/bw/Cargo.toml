@@ -42,6 +42,7 @@ tracing-subscriber = { workspace = true }
 [dev-dependencies]
 bitwarden-crypto = { workspace = true }
 bitwarden-test = { workspace = true }
+rexpect = "0.6"
 uuid = { workspace = true }
 wiremock = { workspace = true }
 
