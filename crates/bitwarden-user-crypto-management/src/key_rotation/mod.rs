@@ -16,12 +16,11 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, info, info_span, warn};
 use tsify::Tsify;
-
-use bitwarden_core::Client;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use crate::key_rotation::{
+    crypto::rotate_account_cryptographic_state,
     data::reencrypt_data,
     unlock::{
         ReencryptUnlockInput, V1EmergencyAccessMembership, V1OrganizationMembership,
