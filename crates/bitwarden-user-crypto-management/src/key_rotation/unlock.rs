@@ -32,8 +32,10 @@ pub(super) enum MasterkeyUnlockMethod {
         salt: String,
     },
     /// The key-connector based unlock method.
+    /// NOTE: THIS IS NOT SUPPORTED YET AND WILL PANIC IF USED
     KeyConnector,
     /// No master-key based unlock method. This is TDE users without a master password.
+    /// NOTE: THIS IS NOT SUPPORTED YET AND WILL PANIC IF USED
     None,
 }
 
