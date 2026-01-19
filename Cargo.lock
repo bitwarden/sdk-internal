@@ -1015,6 +1015,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-send",
  "bitwarden-test",
+ "bitwarden-vault",
  "chrono",
  "reqwest",
  "serde",
