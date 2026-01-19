@@ -64,16 +64,18 @@ pub enum MasterkeyUnlockMethod {
         password: String,
         hint: Option<String>,
     },
+    /// Unlock via key-connector.
+    /// NOTE: This is not yet implemented, and will panic
     KeyConnector,
+    /// No masterkey-based unlock.
+    /// NOTE: This is not yet implemented, and will panic
     None,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct RotateUserKeysRequest {
-    pub old_password: String,
-    pub password: String,
-    pub hint: Option<String>,
+    pub master_key_unlock_method: MasterkeyUnlockMethod,
     pub trusted_emergency_access_public_keys: Vec<PublicKey>,
     pub trusted_organization_public_keys: Vec<PublicKey>,
 }
@@ -81,7 +83,7 @@ pub struct RotateUserKeysRequest {
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl UserCryptoManagementClient {
     /// Rotates the user's encryption keys. The user must have a master-password.
-    pub async fn rotate_user_keys_with_password_change(
+    pub async fn rotate_user_keys(
         &self,
         request: RotateUserKeysRequest,
     ) -> Result<(), RotateUserKeysError> {
@@ -97,11 +99,7 @@ impl UserCryptoManagementClient {
             api_client,
             request.trusted_organization_public_keys.as_slice(),
             request.trusted_emergency_access_public_keys.as_slice(),
-            MasterkeyUnlockMethod::Password {
-                old_password: request.old_password,
-                password: request.password,
-                hint: request.hint,
-            },
+            request.master_key_unlock_method,
         )
         .await
     }
