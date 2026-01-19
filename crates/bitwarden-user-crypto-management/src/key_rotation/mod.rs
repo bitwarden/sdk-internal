@@ -4,6 +4,7 @@ mod sync;
 mod partial_rotateable_keyset;
 mod unlock;
 
+mod data;
 use bitwarden_core::Client;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
