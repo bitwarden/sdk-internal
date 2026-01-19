@@ -21,7 +21,6 @@ use crate::key_rotation::partial_rotateable_keyset::PartialRotateableKeyset;
 /// The unlock method that uses the master-key field on the user's account. This can be either
 /// the master password, or the key-connector. For TDE users without a master password, this field
 /// is empty.
-#[expect(unused)]
 pub(super) enum MasterkeyUnlockMethod {
     /// The master password based unlock method.
     Password {
