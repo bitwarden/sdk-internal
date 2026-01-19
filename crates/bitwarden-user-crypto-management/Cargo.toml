@@ -22,7 +22,11 @@ wasm = [
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
 ] # WASM support
-uniffi = ["bitwarden-core/uniffi", "dep:uniffi"] # Uniffi bindings
+uniffi = [
+    "bitwarden-core/uniffi",
+    "bitwarden-send/uniffi",
+    "dep:uniffi",
+] # Uniffi bindings
 
 # Note: dependencies must be alphabetized to pass the cargo sort check in the CI pipeline.
 [dependencies]
@@ -31,6 +35,8 @@ bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true } 
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
+bitwarden-send = { workspace = true }
+bitwarden-vault = { workspace = true }
 chrono = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
