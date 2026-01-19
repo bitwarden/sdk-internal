@@ -221,12 +221,12 @@ async fn post_rotate_user_keys(
         // keys
         let v1_organization_memberships = filter_trusted_organization(
             sync.organization_memberships.as_slice(),
-            &trusted_organization_public_keys,
+            trusted_organization_public_keys,
         )
         .map_err(|_| RotateUserKeysError::UntrustedKeyError)?;
         let v1_emergency_access_memberships = filter_trusted_emergency_access(
             sync.emergency_access_memberships.as_slice(),
-            &trusted_emergency_access_public_keys,
+            trusted_emergency_access_public_keys,
         )
         .map_err(|_| RotateUserKeysError::UntrustedKeyError)?;
 
