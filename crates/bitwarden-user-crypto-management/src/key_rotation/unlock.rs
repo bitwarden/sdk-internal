@@ -459,6 +459,7 @@ mod tests {
         let (device_keyset, device_private_key) =
             PartialRotateableKeyset::make_test_keyset(current_user_key_id, &mut ctx);
 
+        // Note: Replace this with [`MasterkeyUnlockMethod::None`] when implemented.
         let master_key_unlock_method = MasterkeyUnlockMethod::Password {
             password: password.clone(),
             hint: None,
@@ -511,6 +512,7 @@ mod tests {
         let (credential_keyset, credential_private_key) =
             PartialRotateableKeyset::make_test_keyset(current_user_key_id, &mut ctx);
 
+        // Note: Replace this with [`MasterkeyUnlockMethod::None`] when implemented.
         let master_key_unlock_method = MasterkeyUnlockMethod::Password {
             password: password.clone(),
             hint: None,
@@ -567,6 +569,7 @@ mod tests {
             public_key: ctx.get_public_key(ea_key).expect("key exists"),
         };
 
+        // Note: Replace this with [`MasterkeyUnlockMethod::None`] when implemented.
         let master_key_unlock_method = MasterkeyUnlockMethod::Password {
             password: password.clone(),
             hint: None,
@@ -625,6 +628,7 @@ mod tests {
             public_key: ctx.get_public_key(org_key).expect("key exists"),
         };
 
+        // Note: Replace this with [`MasterkeyUnlockMethod::None`] when implemented.
         let master_key_unlock_method = MasterkeyUnlockMethod::Password {
             password: password.clone(),
             hint: None,
