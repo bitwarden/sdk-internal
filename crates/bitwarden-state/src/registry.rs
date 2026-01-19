@@ -104,11 +104,10 @@ impl StateRegistry {
     fn get_sdk_managed<T: RepositoryItem>(
         &self,
     ) -> Result<Arc<dyn Repository<T>>, StateRegistryError> {
-        if let Some(db) = self.database.get() {
-            Ok(db.get_repository::<T>()?)
-        } else {
-            Err(StateRegistryError::DatabaseNotInitialized)
-        }
+        self.database
+            .get()
+            .map(|db| db.get_repository::<T>())
+            .ok_or(StateRegistryError::DatabaseNotInitialized)
     }
 
     /// Get a repository with fallback: prefer client-managed, fall back to SDK-managed.
