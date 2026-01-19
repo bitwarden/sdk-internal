@@ -20,7 +20,7 @@ use crate::key_rotation::partial_rotateable_keyset::PartialRotateableKeyset;
 /// the master password, or the key-connector. For TDE users without a master password, this field
 /// is empty.
 #[expect(unused)]
-pub enum MasterkeyUnlockMethod {
+pub(super) enum MasterkeyUnlockMethod {
     /// The master password based unlock method.
     Password {
         password: String,
