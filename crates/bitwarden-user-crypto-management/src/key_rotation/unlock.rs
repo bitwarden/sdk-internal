@@ -395,7 +395,57 @@ mod tests {
     }
 
     #[test]
-    fn test_reencrypt_unlock_with_all_data() {
+    fn test_reencrypt_unlock_master_password_data() {
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let kdf = create_test_kdf_argon2id();
+        let salt = "test@example.com".to_string();
+        let password = "test_password".to_string();
+
+        let current_user_key_id = ctx.generate_symmetric_key();
+        let new_user_key_id = ctx.generate_symmetric_key();
+
+        let master_key_unlock_method = MasterkeyUnlockMethod::Password {
+            password: password.clone(),
+            hint: None,
+            kdf: kdf.clone(),
+            salt: salt.clone(),
+        };
+
+        let result = reencrypt_unlock(
+            ReencryptUnlockInput {
+                master_key_unlock_method,
+                trusted_devices: vec![],
+                webauthn_credentials: vec![],
+                trusted_organization_keys: vec![],
+                trusted_emergency_access_keys: vec![],
+            },
+            current_user_key_id,
+            new_user_key_id,
+            &mut ctx,
+        );
+
+        let unlock_data = result.expect("should be ok");
+
+        let master_password_unlock_data = MasterPasswordUnlockData {
+            master_key_wrapped_user_key: unlock_data
+                .master_password_unlock_data
+                .master_key_encrypted_user_key
+                .expect("should be present")
+                .parse()
+                .expect("should parse"),
+            kdf: kdf.clone(),
+            salt: salt.clone(),
+        };
+        let decrypted_user_key = master_password_unlock_data
+            .unwrap_to_context("test_password", &mut ctx)
+            .expect("unwrap should succeed");
+        assert_symmetric_keys_equal(new_user_key_id, decrypted_user_key, &mut ctx);
+    }
+
+    #[test]
+    fn test_reencrypt_unlock_device_key_data() {
         let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
@@ -408,10 +458,108 @@ mod tests {
 
         let (device_keyset, device_private_key) =
             PartialRotateableKeyset::make_test_keyset(current_user_key_id, &mut ctx);
+
+        let master_key_unlock_method = MasterkeyUnlockMethod::Password {
+            password: password.clone(),
+            hint: None,
+            kdf: kdf.clone(),
+            salt: salt.clone(),
+        };
+
+        let result = reencrypt_unlock(
+            ReencryptUnlockInput {
+                master_key_unlock_method,
+                trusted_devices: vec![device_keyset],
+                webauthn_credentials: vec![],
+                trusted_organization_keys: vec![],
+                trusted_emergency_access_keys: vec![],
+            },
+            current_user_key_id,
+            new_user_key_id,
+            &mut ctx,
+        );
+
+        let unlock_data = result.expect("should be ok");
+
+        let device_unlock = unlock_data
+            .device_key_unlock_data
+            .as_ref()
+            .expect("should be present")
+            .first()
+            .expect("should have at least one");
+        let decrypted_user_key = device_unlock
+            .encrypted_user_key
+            .parse::<UnsignedSharedKey>()
+            .expect("should parse")
+            .decapsulate(device_private_key, &mut ctx)
+            .expect("unwrap should succeed");
+        assert_symmetric_keys_equal(new_user_key_id, decrypted_user_key, &mut ctx);
+    }
+
+    #[test]
+    fn test_reencrypt_unlock_webauthn_prf_credential_data() {
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let kdf = create_test_kdf_argon2id();
+        let salt = "test@example.com".to_string();
+        let password = "test_password".to_string();
+
+        let current_user_key_id = ctx.generate_symmetric_key();
+        let new_user_key_id = ctx.generate_symmetric_key();
+
         let (credential_keyset, credential_private_key) =
             PartialRotateableKeyset::make_test_keyset(current_user_key_id, &mut ctx);
 
-        // Create emergency access membership
+        let master_key_unlock_method = MasterkeyUnlockMethod::Password {
+            password: password.clone(),
+            hint: None,
+            kdf: kdf.clone(),
+            salt: salt.clone(),
+        };
+
+        let result = reencrypt_unlock(
+            ReencryptUnlockInput {
+                master_key_unlock_method,
+                trusted_devices: vec![],
+                webauthn_credentials: vec![credential_keyset],
+                trusted_organization_keys: vec![],
+                trusted_emergency_access_keys: vec![],
+            },
+            current_user_key_id,
+            new_user_key_id,
+            &mut ctx,
+        );
+
+        let unlock_data = result.expect("should be ok");
+
+        let credential_unlock = unlock_data
+            .passkey_unlock_data
+            .as_ref()
+            .expect("should be present")
+            .first()
+            .expect("should have at least one");
+        let decrypted_user_key = credential_unlock
+            .encrypted_user_key
+            .parse::<UnsignedSharedKey>()
+            .expect("should parse")
+            .decapsulate(credential_private_key, &mut ctx)
+            .expect("unwrap should succeed");
+        assert_symmetric_keys_equal(new_user_key_id, decrypted_user_key, &mut ctx);
+    }
+
+    #[test]
+    fn test_reencrypt_unlock_emergency_access_data() {
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let kdf = create_test_kdf_argon2id();
+        let salt = "test@example.com".to_string();
+        let password = "test_password".to_string();
+
+        let current_user_key_id = ctx.generate_symmetric_key();
+        let new_user_key_id = ctx.generate_symmetric_key();
+
         let ea_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let emergency_access = V1EmergencyAccessMembership {
             id: Uuid::new_v4(),
@@ -419,7 +567,57 @@ mod tests {
             public_key: ctx.get_public_key(ea_key).expect("key exists"),
         };
 
-        // Create organization membership
+        let master_key_unlock_method = MasterkeyUnlockMethod::Password {
+            password: password.clone(),
+            hint: None,
+            kdf: kdf.clone(),
+            salt: salt.clone(),
+        };
+
+        let result = reencrypt_unlock(
+            ReencryptUnlockInput {
+                master_key_unlock_method,
+                trusted_devices: vec![],
+                webauthn_credentials: vec![],
+                trusted_organization_keys: vec![],
+                trusted_emergency_access_keys: vec![emergency_access],
+            },
+            current_user_key_id,
+            new_user_key_id,
+            &mut ctx,
+        );
+
+        let unlock_data = result.expect("should be ok");
+
+        let emergency_access_unlock = unlock_data
+            .emergency_access_unlock_data
+            .as_ref()
+            .expect("should be present")
+            .first()
+            .expect("should have at least one");
+        let decrypted_user_key = emergency_access_unlock
+            .key_encrypted
+            .as_ref()
+            .map(|k| k.parse::<UnsignedSharedKey>())
+            .expect("should be present")
+            .expect("should parse")
+            .decapsulate(ea_key, &mut ctx)
+            .expect("unwrap should succeed");
+        assert_symmetric_keys_equal(new_user_key_id, decrypted_user_key, &mut ctx);
+    }
+
+    #[test]
+    fn test_reencrypt_unlock_organization_membership_data() {
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let kdf = create_test_kdf_argon2id();
+        let salt = "test@example.com".to_string();
+        let password = "test_password".to_string();
+
+        let current_user_key_id = ctx.generate_symmetric_key();
+        let new_user_key_id = ctx.generate_symmetric_key();
+
         let org_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let org_membership = V1OrganizationMembership {
             organization_id: Uuid::new_v4(),
@@ -437,10 +635,10 @@ mod tests {
         let result = reencrypt_unlock(
             ReencryptUnlockInput {
                 master_key_unlock_method,
-                trusted_devices: vec![device_keyset],
-                webauthn_credentials: vec![credential_keyset],
+                trusted_devices: vec![],
+                webauthn_credentials: vec![],
                 trusted_organization_keys: vec![org_membership],
-                trusted_emergency_access_keys: vec![emergency_access],
+                trusted_emergency_access_keys: vec![],
             },
             current_user_key_id,
             new_user_key_id,
@@ -449,70 +647,6 @@ mod tests {
 
         let unlock_data = result.expect("should be ok");
 
-        // Validate each unlock method
-        let master_password_unlock_data = MasterPasswordUnlockData {
-            master_key_wrapped_user_key: unlock_data
-                .master_password_unlock_data
-                .master_key_encrypted_user_key
-                .expect("should be present")
-                .parse()
-                .expect("should parse"),
-            kdf: kdf.clone(),
-            salt: salt.clone(),
-        };
-        let decrypted_user_key = master_password_unlock_data
-            .unwrap_to_context("test_password", &mut ctx)
-            .expect("unwrap should succeed");
-        assert_symmetric_keys_equal(new_user_key_id, decrypted_user_key, &mut ctx);
-
-        // Validate device key
-        let device_unlock = unlock_data
-            .device_key_unlock_data
-            .as_ref()
-            .expect("should be present")
-            .first()
-            .expect("should have at least one");
-        let decrypted_user_key = device_unlock
-            .encrypted_user_key
-            .parse::<UnsignedSharedKey>()
-            .expect("should parse")
-            .decapsulate(device_private_key, &mut ctx)
-            .expect("unwrap should succeed");
-        assert_symmetric_keys_equal(new_user_key_id, decrypted_user_key, &mut ctx);
-
-        // Validate webauthn-prf credential key
-        let credential_unlock = unlock_data
-            .passkey_unlock_data
-            .as_ref()
-            .expect("should be present")
-            .first()
-            .expect("should have at least one");
-        let decrypted_user_key = credential_unlock
-            .encrypted_user_key
-            .parse::<UnsignedSharedKey>()
-            .expect("should parse")
-            .decapsulate(credential_private_key, &mut ctx)
-            .expect("unwrap should succeed");
-        assert_symmetric_keys_equal(new_user_key_id, decrypted_user_key, &mut ctx);
-
-        // Validate emergency access key
-        let emergency_access_unlock = unlock_data
-            .emergency_access_unlock_data
-            .as_ref()
-            .expect("should be present")
-            .first()
-            .expect("should have at least one");
-        let decrypted_user_key = emergency_access_unlock
-            .key_encrypted
-            .as_ref()
-            .map(|k| k.parse::<UnsignedSharedKey>())
-            .expect("should be present")
-            .expect("should parse")
-            .decapsulate(ea_key, &mut ctx)
-            .expect("unwrap should succeed");
-        assert_symmetric_keys_equal(new_user_key_id, decrypted_user_key, &mut ctx);
-
-        // Validate organization membership key
         let org_membership_unlock = unlock_data
             .organization_account_recovery_unlock_data
             .as_ref()
