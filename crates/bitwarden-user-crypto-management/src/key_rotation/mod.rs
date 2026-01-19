@@ -58,6 +58,7 @@ impl UserCryptoManagementClientExt for Client {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum MasterkeyUnlockMethod {
     Password {
         old_password: String,
@@ -74,6 +75,7 @@ pub enum MasterkeyUnlockMethod {
 
 #[derive(Serialize, Deserialize, Clone)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct RotateUserKeysRequest {
     pub master_key_unlock_method: MasterkeyUnlockMethod,
     pub trusted_emergency_access_public_keys: Vec<PublicKey>,

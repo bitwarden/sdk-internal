@@ -100,6 +100,15 @@ impl FromStr for PublicKey {
     }
 }
 
+impl ToString for PublicKey {
+    fn to_string(&self) -> String {
+        match self.to_der() {
+            Ok(der) => B64::from(der.as_ref()).to_string(),
+            Err(_) => String::new(),
+        }
+    }
+}
+
 impl<'de> Deserialize<'de> for PublicKey {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
