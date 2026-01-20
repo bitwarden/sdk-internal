@@ -636,85 +636,52 @@ mod tests {
 
     #[test]
     fn test_rotate_v1_to_v2() {
-        use bitwarden_crypto::SymmetricKeyAlgorithm;
         // Create a key store and context
         let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         // Create a V1-style user key and add to context
-        let (user_key, wrapped_state) =
+        let user_id = UserId::new_v4();
+        let (old_user_key_id, wrapped_state) =
             WrappedAccountCryptographicState::make_v1(&mut ctx).unwrap();
-        let new_user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-
-        // Rotate the state
-        let user_id = UserId::new_v4();
-        let rotated = wrapped_state
-            .rotate(&user_key, &new_user_key, user_id, &mut ctx)
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        #[allow(deprecated)]
+        let new_user_key_owned = ctx
+            .dangerous_get_symmetric_key(new_user_key_id)
+            .unwrap()
+            .to_owned();
+        wrapped_state
+            .set_to_context(&RwLock::new(None), old_user_key_id, &store, ctx)
             .unwrap();
 
-        // Should now be V2
-        match rotated {
-            WrappedAccountCryptographicState::V2 { .. } => {}
-            _ => panic!("Expected V2 after rotation from V1"),
-        }
-
-        // We need to ensure two things after a rotation from V1 to V2:
-        // 1. The new state is valid and can be set to context
-        // 2. The new state uses the old private key
-
-        let store_2 = KeyStore::<KeyIds>::default();
-        let ctx_2 = store_2.context_mut();
-
-        let public_key_before_rotation = ctx
-            .get_public_key(PrivateKeyId::UserPrivateKey)
-            .expect("Private key should be present in context before rotation");
-        let public_key_after_rotation = ctx_2
-            .get_public_key(PrivateKeyId::UserPrivateKey)
-            .expect("Private key should be present in context after rotation");
-        assert_eq!(
-            public_key_before_rotation.to_der().unwrap(),
-            public_key_after_rotation.to_der().unwrap(),
-            "Private key should be preserved during rotation from V1 to V2"
-        );
-
-        // Ensure the state can be unwrapped again into a context
-        rotated
-            .set_to_context(&RwLock::new(None), new_user_key, &store_2, ctx_2)
-            .unwrap();
-    }
-
-    #[test]
-    fn test_rotate_v2() {
-        use bitwarden_crypto::SymmetricKeyAlgorithm;
-        // Create a key store and context
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        // The previous context got consumed, so we are creating a new one here. Setting the state to context persisted the user-key and other keys
         let mut ctx = store.context_mut();
-
-        // Create a V2-style user key and add to context
-        let user_id = UserId::new_v4();
-        let (user_key, wrapped_state) =
-            WrappedAccountCryptographicState::make(&mut ctx, user_id).unwrap();
-        let new_user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let new_user_key_id = ctx.add_local_symmetric_key(new_user_key_owned.clone());
 
         // Rotate the state
-        let rotated = wrapped_state
-            .rotate(&user_key, &new_user_key, user_id, &mut ctx)
+        let rotated_state = wrapped_state
+            .rotate(&SymmetricKeyId::User, &new_user_key_id, user_id, &mut ctx)
             .unwrap();
-
-        // Should still be V2
-        match rotated {
-            WrappedAccountCryptographicState::V2 { .. } => {}
-            _ => panic!("Expected V2 after rotation from V2"),
-        }
 
         // We need to ensure two things after a rotation from V1 to V2:
         // 1. The new state is valid and can be set to context
         // 2. The new state uses the same private and signing keys
 
-        // Ensure the state can be unwrapped again into a context
+        // 1. The new state is valid and can be set to context
+        match rotated_state {
+            WrappedAccountCryptographicState::V2 { .. } => {}
+            _ => panic!("Expected V2 after rotation from V2"),
+        }
         let store_2 = KeyStore::<KeyIds>::default();
-        let ctx_2 = store_2.context_mut();
+        let mut ctx_2 = store_2.context_mut();
+        let user_key_id = ctx_2.add_local_symmetric_key(new_user_key_owned.clone());
+        rotated_state
+            .set_to_context(&RwLock::new(None), user_key_id, &store_2, ctx_2)
+            .unwrap();
+        // The context was consumed, so we create a new one to inspect the keys
+        let ctx_2 = store_2.context();
 
+        // 2. The new state uses the same private and signing keys
         let public_key_before_rotation = ctx
             .get_public_key(PrivateKeyId::UserPrivateKey)
             .expect("Private key should be present in context before rotation");
@@ -726,7 +693,56 @@ mod tests {
             public_key_after_rotation.to_der().unwrap(),
             "Private key should be preserved during rotation from V2 to V2"
         );
+    }
 
+    #[test]
+    fn test_rotate_v2() {
+        // Create a key store and context
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        // Create a V2-style user key and add to context
+        let user_id = UserId::new_v4();
+        let (old_user_key_id, wrapped_state) =
+            WrappedAccountCryptographicState::make(&mut ctx, user_id).unwrap();
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        #[allow(deprecated)]
+        let new_user_key_owned = ctx
+            .dangerous_get_symmetric_key(new_user_key_id)
+            .unwrap()
+            .to_owned();
+        wrapped_state
+            .set_to_context(&RwLock::new(None), old_user_key_id, &store, ctx)
+            .unwrap();
+
+        // The previous context got consumed, so we are creating a new one here. Setting the state to context persisted the user-key and other keys
+        let mut ctx = store.context_mut();
+        let new_user_key_id = ctx.add_local_symmetric_key(new_user_key_owned.clone());
+
+        // Rotate the state
+        let rotated_state = wrapped_state
+            .rotate(&SymmetricKeyId::User, &new_user_key_id, user_id, &mut ctx)
+            .unwrap();
+
+        // We need to ensure two things after a rotation from V1 to V2:
+        // 1. The new state is valid and can be set to context
+        // 2. The new state uses the same private and signing keys
+
+        // 1. The new state is valid and can be set to context
+        match rotated_state {
+            WrappedAccountCryptographicState::V2 { .. } => {}
+            _ => panic!("Expected V2 after rotation from V2"),
+        }
+        let store_2 = KeyStore::<KeyIds>::default();
+        let mut ctx_2 = store_2.context_mut();
+        let user_key_id = ctx_2.add_local_symmetric_key(new_user_key_owned.clone());
+        rotated_state
+            .set_to_context(&RwLock::new(None), user_key_id, &store_2, ctx_2)
+            .unwrap();
+        // The context was consumed, so we create a new one to inspect the keys
+        let ctx_2 = store_2.context();
+
+        // 2. The new state uses the same private and signing keys
         let verifying_key_before_rotation = ctx
             .get_verifying_key(SigningKeyId::UserSigningKey)
             .expect("Signing key should be present in context before rotation");
@@ -739,8 +755,16 @@ mod tests {
             "Signing key should be preserved during rotation from V2 to V2"
         );
 
-        rotated
-            .set_to_context(&RwLock::new(None), new_user_key, &store_2, ctx_2)
-            .unwrap();
+        let public_key_before_rotation = ctx
+            .get_public_key(PrivateKeyId::UserPrivateKey)
+            .expect("Private key should be present in context before rotation");
+        let public_key_after_rotation = ctx_2
+            .get_public_key(PrivateKeyId::UserPrivateKey)
+            .expect("Private key should be present in context after rotation");
+        assert_eq!(
+            public_key_before_rotation.to_der().unwrap(),
+            public_key_after_rotation.to_der().unwrap(),
+            "Private key should be preserved during rotation from V2 to V2"
+        );
     }
 }
