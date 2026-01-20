@@ -195,9 +195,13 @@ struct ContentView: View {
                 kdfParams: kdf,
                 email: EMAIL,
                 accountCryptographicState: WrappedAccountCryptographicState.v1(privateKey: loginData.PrivateKey),
-                method: InitUserCryptoMethod.password(
+                method: InitUserCryptoMethod.masterPasswordUnlock(
                     password: PASSWORD,
-                    userKey: loginData.Key
+                    masterPasswordUnlock: MasterPasswordUnlockData(
+                        kdf: kdf,
+                        masterKeyWrappedUserKey: loginData.Key,
+                        salt: EMAIL
+                    )
                 )
             ))
 

@@ -1,14 +1,14 @@
 use bitwarden_cli::Color;
-use clap::{Args, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 
 use crate::{
-    admin_console::ConfirmCommand,
-    auth::{LoginArgs, RegisterArgs},
-    platform::ConfigCommand,
-    remote_client::RemoteClientArgs,
+    admin_console::{ConfirmCommand, MoveArgs},
+    auth::LoginArgs,
+    key_management::UnlockArgs,
+    platform::{ConfigCommand, SyncArgs},
     render::Output,
-    tools::GenerateArgs,
-    vault::{ItemCommands, TemplateCommands},
+    tools::{ExportArgs, GenerateArgs, ImportArgs, ReceiveArgs, SendArgs},
+    vault::{RestoreArgs, TemplateCommands},
 };
 
 pub const SESSION_ENV: &str = "BW_SESSION";
@@ -73,8 +73,8 @@ pub enum Commands {
     #[command(long_about = "Log out of the current user account.")]
     Logout,
 
-    #[command(long_about = "Register a new user account.")]
-    Register(RegisterArgs),
+    #[command(long_about = "Lock the vault and destroy active session keys.")]
+    Lock,
 
     // KM commands
     #[command(long_about = "Unlock the vault and return a session key.")]
@@ -82,13 +82,7 @@ pub enum Commands {
 
     // Platform commands
     #[command(long_about = "Pull the latest vault data from server.")]
-    Sync {
-        #[arg(short = 'f', long, help = "Force a full sync.")]
-        force: bool,
-
-        #[arg(long, help = "Get the last sync date.")]
-        last: bool,
-    },
+    Sync(SyncArgs),
 
     #[command(long_about = "Base 64 encode stdin.")]
     Encode,
@@ -131,34 +125,31 @@ Notes:
     )]
     Status,
 
-    // Vault commands
-    #[command(long_about = "Manage vault objects.")]
-    Item {
-        #[command(subcommand)]
-        command: ItemCommands,
-    },
-    #[command(long_about = "Get the available templates")]
-    Template {
-        #[command(subcommand)]
-        command: TemplateCommands,
-    },
-
     // These are the old style action-name commands, to be replaced by name-action commands in the
     // future
     #[command(long_about = "List an array of objects from the vault.")]
-    List,
+    List(ListArgs),
     #[command(long_about = "Get an object from the vault.")]
-    Get,
+    Get {
+        #[command(subcommand)]
+        command: GetCommands,
+    },
     #[command(long_about = "Create an object in the vault.")]
-    Create,
+    Create {
+        #[command(subcommand)]
+        command: CreateCommands,
+    },
     #[command(long_about = "Edit an object from the vault.")]
-    Edit,
+    Edit(EditArgs),
     #[command(long_about = "Delete an object from the vault.")]
-    Delete,
+    Delete {
+        #[command(subcommand)]
+        command: DeleteCommands,
+    },
     #[command(long_about = "Restores an object from the trash.")]
-    Restore,
+    Restore(RestoreArgs),
     #[command(long_about = "Move an item to an organization.")]
-    Move,
+    Move(MoveArgs),
 
     // Admin console commands
     #[command(long_about = "Confirm an object to the organization.")]
@@ -185,38 +176,221 @@ Examples:
     "#)]
     Generate(GenerateArgs),
     #[command(long_about = "Import vault data from a file.")]
-    Import,
+    Import(ImportArgs),
     #[command(long_about = "Export vault data to a CSV, JSON or ZIP file.")]
-    Export,
-    #[command(long_about = "--DEPRECATED-- Move an item to an organization.")]
-    Share,
+    Export(ExportArgs),
     #[command(
         long_about = "Work with Bitwarden sends. A Send can be quickly created using this command or subcommands can be used to fine-tune the Send."
     )]
-    Send,
+    Send(SendArgs),
     #[command(long_about = "Access a Bitwarden Send from a url.")]
-    Receive,
+    Receive(ReceiveArgs),
 
-    // Remote client command
+    // Device approval commands
     #[command(
-        long_about = "Connect to a user-client through a proxy to request credentials over a secure channel."
+        long_about = "Manage device approval requests sent to organizations that use SSO with trusted devices."
     )]
-    RemoteClient(RemoteClientArgs),
+    DeviceApproval,
+
+    // Server commands
+    #[command(long_about = "Start a RESTful API webserver.")]
+    Serve(ServeArgs),
 }
 
-#[derive(Args, Clone)]
-pub struct UnlockArgs {
-    pub password: Option<String>,
+#[derive(clap::Args, Clone)]
+pub struct ServeArgs {
+    #[arg(long, help = "Port number to listen on.", default_value = "8087")]
+    pub port: u16,
 
-    #[arg(long, help = "Environment variable storing your password.")]
-    pub passwordenv: Option<String>,
+    #[arg(long, help = "Hostname to bind to.", default_value = "localhost")]
+    pub hostname: String,
 
     #[arg(
         long,
-        help = "Path to a file containing your password as its first line."
+        help = "Disable origin protection (not recommended for production use)."
     )]
-    pub passwordfile: Option<String>,
+    pub disable_origin_protection: bool,
+}
 
-    #[arg(long, help = "Only return the session key.")]
-    pub raw: bool,
+#[derive(clap::Args, Clone)]
+pub struct ListArgs {
+    /// The type of object to list
+    pub object: ListObject,
+
+    #[arg(long, help = "Filter items by URL")]
+    pub url: Option<String>,
+
+    #[arg(long, help = "Filter items by folder ID")]
+    pub folderid: Option<String>,
+
+    #[arg(long, help = "Filter items by collection ID")]
+    pub collectionid: Option<String>,
+
+    #[arg(long, help = "Filter items by organization ID")]
+    pub organizationid: Option<String>,
+
+    #[arg(long, help = "Filter items in trash")]
+    pub trash: bool,
+
+    #[arg(long, help = "Search term")]
+    pub search: Option<String>,
+}
+
+#[derive(clap::Args, Clone)]
+pub struct EditArgs {
+    /// The type of object to edit
+    pub object: EditObject,
+    /// Object ID
+    pub id: String,
+    /// Base64-encoded JSON object (optional, can read from stdin)
+    pub encoded_json: Option<String>,
+
+    #[arg(long, help = "Organization ID for an organization object")]
+    pub organizationid: Option<String>,
+}
+
+#[derive(clap::ValueEnum, Clone, Debug)]
+#[value(rename_all = "kebab-case")]
+pub enum ListObject {
+    Items,
+    Folders,
+    Collections,
+    Organizations,
+    OrgCollections,
+    OrgMembers,
+}
+
+#[derive(clap::ValueEnum, Clone, Debug)]
+#[value(rename_all = "kebab-case")]
+pub enum EditObject {
+    Item,
+    ItemCollections,
+    Folder,
+    OrgCollection,
+}
+
+#[derive(Subcommand, Clone, Debug)]
+pub enum GetCommands {
+    #[command(long_about = "Get an item from the vault.")]
+    Item { id: String },
+
+    #[command(long_about = "Get the username for an item.")]
+    Username { id: String },
+
+    #[command(long_about = "Get the password for an item.")]
+    Password { id: String },
+
+    #[command(long_about = "Get the URI for an item.")]
+    Uri { id: String },
+
+    #[command(long_about = "Get the TOTP code for an item.")]
+    Totp { id: String },
+
+    #[command(long_about = "Check if an item password has been exposed in a data breach.")]
+    Exposed { id: String },
+
+    #[command(long_about = "Get the notes for an item.")]
+    Notes { id: String },
+
+    #[command(long_about = "Get a folder from the vault.")]
+    Folder { id: String },
+
+    #[command(long_about = "Get a collection from the vault.")]
+    Collection { id: String },
+
+    #[command(long_about = "Get an organization.")]
+    Organization { id: String },
+
+    #[command(long_about = "Get an organization collection.")]
+    #[command(name = "org-collection")]
+    OrgCollection { id: String },
+
+    #[command(long_about = "Get an attachment from an item.")]
+    Attachment {
+        filename: String,
+        #[arg(long, help = "Item ID that the attachment belongs to.")]
+        itemid: String,
+        #[arg(long, help = "Output file path. If not specified, outputs to stdout.")]
+        output: Option<String>,
+    },
+
+    #[command(long_about = "Get the fingerprint for the current user or a specified user.")]
+    Fingerprint {
+        #[arg(default_value = "me", help = "User ID or 'me' for current user")]
+        user: String,
+    },
+
+    #[command(long_about = "Get a JSON template for creating objects.")]
+    Template {
+        #[command(subcommand)]
+        command: TemplateCommands,
+    },
+
+    #[command(long_about = "Get a Bitwarden Send.")]
+    Send { id: String },
+}
+
+#[derive(Subcommand, Clone, Debug)]
+pub enum CreateCommands {
+    #[command(long_about = "Create an item in the vault.")]
+    Item {
+        #[arg(help = "Base64-encoded JSON item object")]
+        encoded_json: String,
+    },
+
+    #[command(long_about = "Create an attachment for an item.")]
+    Attachment {
+        #[arg(long, help = "Path to the file to attach")]
+        file: String,
+        #[arg(long, help = "Item ID to attach the file to")]
+        itemid: String,
+    },
+
+    #[command(long_about = "Create a folder.")]
+    Folder {
+        #[arg(help = "Base64-encoded JSON folder object")]
+        encoded_json: String,
+    },
+
+    #[command(long_about = "Create an organization collection.")]
+    #[command(name = "org-collection")]
+    OrgCollection {
+        #[arg(help = "Base64-encoded JSON collection object")]
+        encoded_json: String,
+
+        #[arg(long, help = "Organization ID")]
+        organizationid: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Clone, Debug)]
+pub enum DeleteCommands {
+    #[command(long_about = "Delete an item from the vault.")]
+    Item {
+        id: String,
+        #[arg(short = 'p', long, help = "Permanently delete the item (skip trash)")]
+        permanent: bool,
+    },
+
+    #[command(long_about = "Delete an attachment from an item.")]
+    Attachment {
+        id: String,
+        #[arg(long, help = "Item ID that the attachment belongs to")]
+        itemid: String,
+    },
+
+    #[command(long_about = "Delete a folder.")]
+    Folder {
+        id: String,
+        #[arg(short = 'p', long, help = "Permanently delete the folder (skip trash)")]
+        permanent: bool,
+    },
+
+    #[command(long_about = "Delete an organization collection.")]
+    #[command(name = "org-collection")]
+    OrgCollection {
+        id: String,
+        #[arg(long, help = "Organization ID")]
+        organizationid: String,
+    },
 }

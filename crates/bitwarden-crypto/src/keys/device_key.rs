@@ -1,6 +1,7 @@
 use bitwarden_encoding::B64;
+use serde::{Deserialize, Serialize};
 
-use super::{AsymmetricCryptoKey, PublicKeyEncryptionAlgorithm};
+use super::{PrivateKey, PublicKeyEncryptionAlgorithm};
 use crate::{
     CryptoError, EncString, KeyDecryptable, KeyEncryptable, Pkcs8PrivateKeyBytes,
     SymmetricCryptoKey, UnsignedSharedKey, error::Result,
@@ -14,8 +15,14 @@ use crate::{
 pub struct DeviceKey(SymmetricCryptoKey);
 
 #[allow(missing_docs)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+#[derive(Serialize, Deserialize)]
 pub struct TrustDeviceResponse {
     /// Base64 encoded device key
     pub device_key: B64,
@@ -35,8 +42,7 @@ impl DeviceKey {
     pub fn trust_device(user_key: &SymmetricCryptoKey) -> Result<TrustDeviceResponse> {
         let device_key = DeviceKey(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
 
-        let device_private_key =
-            AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let device_private_key = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
         let protected_user_key = UnsignedSharedKey::encapsulate_key_unsigned(
             user_key,
@@ -68,7 +74,7 @@ impl DeviceKey {
     ) -> Result<SymmetricCryptoKey> {
         let device_private_key: Vec<u8> = protected_device_private_key.decrypt_with_key(&self.0)?;
         let device_private_key = Pkcs8PrivateKeyBytes::from(device_private_key);
-        let device_private_key = AsymmetricCryptoKey::from_der(&device_private_key)?;
+        let device_private_key = PrivateKey::from_der(&device_private_key)?;
 
         let user_key: SymmetricCryptoKey =
             protected_user_key.decapsulate_key_unsigned(&device_private_key)?;

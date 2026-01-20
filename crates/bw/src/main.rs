@@ -14,8 +14,8 @@ use crate::{command::*, render::CommandResult};
 mod admin_console;
 mod auth;
 mod command;
+mod key_management;
 mod platform;
-mod remote_client;
 mod render;
 mod tools;
 mod vault;
@@ -75,9 +75,9 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         // Auth commands
         Commands::Login(args) => args.run().await,
         Commands::Logout => todo!(),
-        Commands::Register(register) => register.run().await,
 
         // KM commands
+        Commands::Lock => todo!(),
         Commands::Unlock(_args) => todo!(),
 
         // Platform commands
@@ -110,29 +110,29 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         Commands::Status => todo!(),
 
         // Vault commands
-        Commands::Item { command: _ } => todo!(),
-        Commands::Template { command } => command.run(),
-
-        Commands::List => todo!(),
-        Commands::Get => todo!(),
-        Commands::Create => todo!(),
-        Commands::Edit => todo!(),
-        Commands::Delete => todo!(),
-        Commands::Restore => todo!(),
-        Commands::Move => todo!(),
+        Commands::List(_args) => todo!(),
+        Commands::Get { command } => match command {
+            GetCommands::Template { command } => command.run(),
+            _ => todo!("Get command implementation with {:?}", command),
+        },
+        Commands::Create { .. } => todo!(),
+        Commands::Edit(_args) => todo!(),
+        Commands::Delete { .. } => todo!(),
+        Commands::Restore(_args) => todo!(),
 
         // Admin console commands
         Commands::Confirm { .. } => todo!(),
+        Commands::DeviceApproval => todo!(),
+        Commands::Move(_args) => todo!(),
 
         // Tools commands
         Commands::Generate(arg) => arg.run(&client),
-        Commands::Import => todo!(),
-        Commands::Export => todo!(),
-        Commands::Share => todo!(),
-        Commands::Send => todo!(),
-        Commands::Receive => todo!(),
+        Commands::Import(_args) => todo!(),
+        Commands::Export(_args) => todo!(),
+        Commands::Send(_args) => todo!(),
+        Commands::Receive(_args) => todo!(),
 
-        // Remote client command
-        Commands::RemoteClient(args) => args.run().await,
+        // Server commands
+        Commands::Serve(_args) => todo!(),
     }
 }

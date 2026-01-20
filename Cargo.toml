@@ -25,6 +25,7 @@ async-trait = ">=0.1.80, <0.2"
 bitwarden = { path = "crates/bitwarden", version = "=1.0.0" }
 bitwarden-api-api = { path = "crates/bitwarden-api-api", version = "=2.0.0" }
 bitwarden-api-identity = { path = "crates/bitwarden-api-identity", version = "=2.0.0" }
+bitwarden-api-key-connector = { path = "crates/bitwarden-api-key-connector", version = "=2.0.0" }
 bitwarden-auth = { path = "crates/bitwarden-auth", version = "=2.0.0" }
 bitwarden-cli = { path = "crates/bitwarden-cli", version = "=2.0.0" }
 bitwarden-collections = { path = "crates/bitwarden-collections", version = "=2.0.0" }
@@ -61,6 +62,7 @@ data-encoding = ">=2.0, <3"
 ed25519-dalek = { version = ">=2.1.1, <=2.2.0" }
 futures = ">=0.3.31, <0.4"
 js-sys = { version = ">=0.3.72, <0.4" }
+mockall = { version = ">=0.13.1, <0.15" }
 proc-macro2 = ">=1.0.89, <2"
 quote = ">=1.0.37, <2"
 rand = ">=0.8.5, <0.9"

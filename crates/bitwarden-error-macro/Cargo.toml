@@ -27,7 +27,6 @@ quote = { workspace = true }
 syn = { workspace = true }
 
 [dev-dependencies]
-bitwarden-error = { workspace = true, features = ["wasm"] }
 js-sys.workspace = true
 serde.workspace = true
 thiserror.workspace = true

@@ -35,7 +35,7 @@ pub enum CaseCommand {
     SymmetricKey {
         key: String,
     },
-    AsymmetricKey {
+    PrivateKey {
         private_key: String,
     },
     MasterKey {
