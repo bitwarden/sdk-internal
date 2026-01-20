@@ -14,7 +14,7 @@ use crate::models;
 
 /// AuthType : Specifies the authentication method required to access a Send.
 /// Specifies the authentication method required to access a Send.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum AuthType {
     #[serde(rename = "Email")]
     Email,
@@ -22,6 +22,10 @@ pub enum AuthType {
     Password,
     #[serde(rename = "None")]
     None,
+
+    /// Unknown value returned from the server. This is used to handle forward compatibility.
+    #[serde(untagged)]
+    __Unknown(String),
 }
 
 impl std::fmt::Display for AuthType {
@@ -30,6 +34,7 @@ impl std::fmt::Display for AuthType {
             Self::Email => write!(f, "Email"),
             Self::Password => write!(f, "Password"),
             Self::None => write!(f, "None"),
+            Self::__Unknown(s) => write!(f, "{}", s),
         }
     }
 }
