@@ -7,7 +7,7 @@ use bitwarden_pm::{PasswordManagerClient as InnerPasswordManagerClient, clients:
 use wasm_bindgen::prelude::*;
 
 use crate::platform::{
-    PlatformClient,
+    CipherRepository, PlatformClient,
     token_provider::{JsTokenProvider, WasmClientManagedTokens},
 };
 
