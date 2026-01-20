@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CryptoError, EncString, KeyDecryptable,
-    KeyEncryptable, KeyIds, KeyStoreContext, Pkcs8PrivateKeyBytes, SpkiPublicKeyBytes,
-    SymmetricCryptoKey, UnsignedSharedKey,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeyIds, KeyStoreContext,
+    Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
+    UnsignedSharedKey,
 };
 
 /// A set of keys where a given `DownstreamKey` is protected by an encrypted public/private
@@ -41,7 +41,7 @@ impl RotateableKeySet {
         upstream_key: &SymmetricCryptoKey,
         downstream_key_id: Ids::Symmetric,
     ) -> Result<Self, CryptoError> {
-        let key_pair = AsymmetricCryptoKey::make(crate::PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let key_pair = PrivateKey::make(crate::PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
         // This uses this deprecated method and other methods directly on the other keys
         // rather than the key store context because we don't want the keys to
@@ -85,8 +85,7 @@ impl RotateableKeySet {
         let priv_key_bytes: Vec<u8> = self
             .encrypted_decapsulation_key
             .decrypt_with_key(upstream_key)?;
-        let decapsulation_key =
-            AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(priv_key_bytes))?;
+        let decapsulation_key = PrivateKey::from_der(&Pkcs8PrivateKeyBytes::from(priv_key_bytes))?;
         #[expect(deprecated)]
         let downstream_key = self
             .encapsulated_downstream_key
@@ -109,7 +108,7 @@ fn rotate_key_set<Ids: KeyIds>(
         &key_set.encrypted_encapsulation_key,
     )?;
     let pub_key = SpkiPublicKeyBytes::from(pub_key_bytes);
-    let encapsulation_key = AsymmetricPublicCryptoKey::from_der(&pub_key)?;
+    let encapsulation_key = PublicKey::from_der(&pub_key)?;
     // TODO: There is no method to store only the public key in the store, so we
     // have pull out the downstream key to encapsulate it manually.
     #[allow(deprecated)]

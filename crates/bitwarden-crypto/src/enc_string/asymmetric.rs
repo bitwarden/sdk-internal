@@ -7,8 +7,8 @@ use serde::Deserialize;
 
 use super::{from_b64_vec, split_enc_string};
 use crate::{
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, KeyIds,
-    KeyStoreContext, RawPrivateKey, RawPublicKey, SymmetricCryptoKey,
+    BitwardenLegacyKeyBytes, KeyIds, KeyStoreContext, PrivateKey, PublicKey, RawPrivateKey,
+    RawPublicKey, SymmetricCryptoKey,
     error::{CryptoError, EncStringParseError, Result},
     rsa::encrypt_rsa2048_oaep_sha1,
 };
@@ -168,7 +168,7 @@ impl UnsignedSharedKey {
     #[deprecated(note = "Use encapsulate() instead")]
     pub fn encapsulate_key_unsigned(
         encapsulated_key: &SymmetricCryptoKey,
-        encapsulation_key: &AsymmetricPublicCryptoKey,
+        encapsulation_key: &PublicKey,
     ) -> Result<UnsignedSharedKey> {
         match encapsulation_key.inner() {
             RawPublicKey::RsaOaepSha1(rsa_public_key) => {
@@ -187,7 +187,7 @@ impl UnsignedSharedKey {
     /// and thus does not guarantee sender authenticity.
     pub fn encapsulate<Ids: KeyIds>(
         key_to_encapsulate: Ids::Symmetric,
-        encapsulation_key: &AsymmetricPublicCryptoKey,
+        encapsulation_key: &PublicKey,
         ctx: &KeyStoreContext<Ids>,
     ) -> Result<UnsignedSharedKey> {
         // Internal usage to the crypto crate is allowed
@@ -216,12 +216,12 @@ impl UnsignedSharedKey {
     /// Returns the key ID of the decapsulated symmetric key added to the context.
     pub fn decapsulate<Ids: KeyIds>(
         &self,
-        decapsulation_key: Ids::Asymmetric,
+        decapsulation_key: Ids::Private,
         ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<Ids::Symmetric> {
         // Internal usage to the crypto crate is allowed
         #[expect(deprecated)]
-        let private_key = ctx.dangerous_get_asymmetric_key(decapsulation_key)?;
+        let private_key = ctx.dangerous_get_private_key(decapsulation_key)?;
         #[expect(deprecated)]
         let key = Self::decapsulate_key_unsigned(self, private_key)
             .map_err(|_| CryptoError::KeyDecrypt)?;
@@ -234,7 +234,7 @@ impl UnsignedSharedKey {
     #[deprecated(note = "Use decapsulate() instead")]
     pub fn decapsulate_key_unsigned(
         &self,
-        decapsulation_key: &AsymmetricCryptoKey,
+        decapsulation_key: &PrivateKey,
     ) -> Result<SymmetricCryptoKey> {
         match decapsulation_key.inner() {
             RawPrivateKey::RsaOaepSha1(rsa_private_key) => {
@@ -280,7 +280,7 @@ mod tests {
     use schemars::schema_for;
 
     use super::UnsignedSharedKey;
-    use crate::{AsymmetricCryptoKey, SymmetricCryptoKey};
+    use crate::{PrivateKey, SymmetricCryptoKey};
 
     const RSA_PRIVATE_KEY: &str = "-----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCXRVrCX+2hfOQS
@@ -313,7 +313,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
 
     #[test]
     fn test_enc_string_rsa2048_oaep_sha256_b64() {
-        let key_pair = AsymmetricCryptoKey::from_pem(RSA_PRIVATE_KEY).unwrap();
+        let key_pair = PrivateKey::from_pem(RSA_PRIVATE_KEY).unwrap();
         let enc_str: &str = "3.SUx5gWrgmAKs/S1BoQrqOmx2Hl5fPVBVHokW17Flvm4TpBnJJRkfoitp7Jc4dfazPYjWGlckJz6X+qe+/AWilS1mxtzS0PmDy7tS5xP0GRlB39dstCd5jDw1wPmTbXiLcQ5VTvzpRAfRMEYVveTsEvVTByvEYAGSn4TnCsUDykyhRbD0YcJ4r1KHLs1b3BCBy2M1Gl5nmwckH08CAXaf8VfuBFStAGRKueovqp4euneQla+4G4fXdVvb8qKPnu0iVuALIE6nUNmeOiA3xN3d+akMxbbGxrQ1Ca4TYWjHVdj9C6abngQHkjKNYQwGUXrYo160hP4LIHn/huK6bZe5dQ==";
         let enc_string: UnsignedSharedKey = enc_str.parse().unwrap();
 
@@ -327,7 +327,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
 
     #[test]
     fn test_enc_string_rsa2048_oaep_sha1_b64() {
-        let private_key = AsymmetricCryptoKey::from_pem(RSA_PRIVATE_KEY).unwrap();
+        let private_key = PrivateKey::from_pem(RSA_PRIVATE_KEY).unwrap();
         let enc_str: &str = "4.DMD1D5r6BsDDd7C/FE1eZbMCKrmryvAsCKj6+bO54gJNUxisOI7SDcpPLRXf+JdhqY15pT+wimQ5cD9C+6OQ6s71LFQHewXPU29l9Pa1JxGeiKqp37KLYf+1IS6UB2K3ANN35C52ZUHh2TlzIS5RuntxnpCw7APbcfpcnmIdLPJBtuj/xbFd6eBwnI3GSe5qdS6/Ixdd0dgsZcpz3gHJBKmIlSo0YN60SweDq3kTJwox9xSqdCueIDg5U4khc7RhjYx8b33HXaNJj3DwgIH8iLj+lqpDekogr630OhHG3XRpvl4QzYO45bmHb8wAh67Dj70nsZcVg6bAEFHdSFohww==";
         let enc_string: UnsignedSharedKey = enc_str.parse().unwrap();
 
@@ -341,7 +341,7 @@ XKZBokBGnjFnTnKcs7nv/O8=
 
     #[test]
     fn test_enc_string_rsa2048_oaep_sha1_hmac_sha256_b64() {
-        let private_key = AsymmetricCryptoKey::from_pem(RSA_PRIVATE_KEY).unwrap();
+        let private_key = PrivateKey::from_pem(RSA_PRIVATE_KEY).unwrap();
         let enc_str: &str = "6.DMD1D5r6BsDDd7C/FE1eZbMCKrmryvAsCKj6+bO54gJNUxisOI7SDcpPLRXf+JdhqY15pT+wimQ5cD9C+6OQ6s71LFQHewXPU29l9Pa1JxGeiKqp37KLYf+1IS6UB2K3ANN35C52ZUHh2TlzIS5RuntxnpCw7APbcfpcnmIdLPJBtuj/xbFd6eBwnI3GSe5qdS6/Ixdd0dgsZcpz3gHJBKmIlSo0YN60SweDq3kTJwox9xSqdCueIDg5U4khc7RhjYx8b33HXaNJj3DwgIH8iLj+lqpDekogr630OhHG3XRpvl4QzYO45bmHb8wAh67Dj70nsZcVg6bAEFHdSFohww==|AA==";
         let enc_string: UnsignedSharedKey = enc_str.parse().unwrap();
 

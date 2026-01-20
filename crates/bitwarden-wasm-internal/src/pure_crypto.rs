@@ -4,11 +4,11 @@ use bitwarden_core::key_management::KeyIds;
 #[allow(deprecated)]
 use bitwarden_crypto::dangerous_derive_kdf_material;
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, CoseKeyBytes,
-    CoseSerializable, CoseSign1Bytes, CryptoError, Decryptable, EncString, Kdf, KeyDecryptable,
-    KeyEncryptable, KeyStore, MasterKey, OctetStreamBytes, Pkcs8PrivateKeyBytes,
-    PrimitiveEncryptable, PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKey,
-    SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey, VerifyingKey,
+    BitwardenLegacyKeyBytes, CoseKeyBytes, CoseSerializable, CoseSign1Bytes, CryptoError,
+    Decryptable, EncString, Kdf, KeyDecryptable, KeyEncryptable, KeyStore, MasterKey,
+    OctetStreamBytes, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, PrivateKey, PublicKey,
+    PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKey, SigningKey,
+    SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey, VerifyingKey,
 };
 use rsa::{
     Oaep, RsaPrivateKey, RsaPublicKey,
@@ -257,7 +257,7 @@ impl PureCrypto {
         EncString::from_str(wrapped_key.as_str())?.decrypt(&mut context, wrapping_key)
     }
 
-    /// Encapsulates (encrypts) a symmetric key using an asymmetric encapsulation key (public key)
+    /// Encapsulates (encrypts) a symmetric key using an public-key/encapsulation-key
     /// in SPKI format, returning the encapsulated key as a string. Note: This is unsigned, so
     /// the sender's authenticity cannot be verified by the recipient.
     pub fn encapsulate_key_unsigned(
@@ -265,8 +265,7 @@ impl PureCrypto {
         encapsulation_key: Vec<u8>,
     ) -> Result<String, CryptoError> {
         let _span = tracing::info_span!("PureCrypto::encapsulate_key_unsigned").entered();
-        let encapsulation_key =
-            AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(encapsulation_key))?;
+        let encapsulation_key = PublicKey::from_der(&SpkiPublicKeyBytes::from(encapsulation_key))?;
         #[expect(deprecated)]
         Ok(UnsignedSharedKey::encapsulate_key_unsigned(
             &SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(shared_key))?,
@@ -275,7 +274,7 @@ impl PureCrypto {
         .to_string())
     }
 
-    /// Decapsulates (decrypts) a symmetric key using an decapsulation key (private key) in PKCS8
+    /// Decapsulates (decrypts) a symmetric key using an decapsulation-key/private-key in PKCS8
     /// DER format. Note: This is unsigned, so the sender's authenticity cannot be verified by the
     /// recipient.
     pub fn decapsulate_key_unsigned(
@@ -285,9 +284,9 @@ impl PureCrypto {
         let _span = tracing::info_span!("PureCrypto::decapsulate_key_unsigned").entered();
         #[expect(deprecated)]
         Ok(UnsignedSharedKey::from_str(encapsulated_key.as_str())?
-            .decapsulate_key_unsigned(&AsymmetricCryptoKey::from_der(
-                &Pkcs8PrivateKeyBytes::from(decapsulation_key),
-            )?)?
+            .decapsulate_key_unsigned(&PrivateKey::from_der(&Pkcs8PrivateKeyBytes::from(
+                decapsulation_key,
+            ))?)?
             .to_encoded()
             .to_vec())
     }
@@ -364,7 +363,7 @@ impl PureCrypto {
     /// HAZMAT WARNING: Do not use outside of implementing cryptofunctionservice
     pub fn rsa_extract_public_key(private_key: Vec<u8>) -> Result<Vec<u8>, RsaError> {
         let _span = tracing::info_span!("PureCrypto::rsa_extract_public_key").entered();
-        let private_key = AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key))
+        let private_key = PrivateKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key))
             .map_err(|_| RsaError::KeyParse)?;
         let public_key = private_key.to_public_key();
         Ok(public_key
@@ -377,7 +376,7 @@ impl PureCrypto {
     /// HAZMAT WARNING: Do not use outside of implementing cryptofunctionservice
     pub fn rsa_generate_keypair() -> Result<Vec<u8>, RsaError> {
         let _span = tracing::info_span!("PureCrypto::rsa_generate_keypair").entered();
-        let private_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let private_key = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         Ok(private_key
             .to_der()
             .map_err(|_| RsaError::KeySerialize)?
@@ -653,7 +652,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
 
     #[test]
     fn test_wrap_encapsulation_key() {
-        let decapsulation_key = AsymmetricCryptoKey::from_pem(PEM_KEY).unwrap();
+        let decapsulation_key = PrivateKey::from_pem(PEM_KEY).unwrap();
         let encapsulation_key = decapsulation_key
             .to_public_key()
             .to_der()
@@ -671,7 +670,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
 
     #[test]
     fn test_wrap_decapsulation_key() {
-        let decapsulation_key = AsymmetricCryptoKey::from_pem(PEM_KEY).unwrap();
+        let decapsulation_key = PrivateKey::from_pem(PEM_KEY).unwrap();
         let wrapping_key = PureCrypto::make_user_key_aes256_cbc_hmac();
         let wrapped_key = PureCrypto::wrap_decapsulation_key(
             decapsulation_key.to_der().unwrap().to_vec(),
@@ -686,7 +685,7 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
     #[test]
     fn test_encapsulate_key_unsigned() {
         let shared_key = PureCrypto::make_user_key_aes256_cbc_hmac();
-        let decapsulation_key = AsymmetricCryptoKey::from_pem(PEM_KEY).unwrap();
+        let decapsulation_key = PrivateKey::from_pem(PEM_KEY).unwrap();
         let encapsulation_key = decapsulation_key.to_public_key().to_der().unwrap();
         let encapsulated_key = PureCrypto::encapsulate_key_unsigned(
             shared_key.clone(),

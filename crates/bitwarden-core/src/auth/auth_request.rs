@@ -1,6 +1,6 @@
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CryptoError, PublicKeyEncryptionAlgorithm,
-    SpkiPublicKeyBytes, UnsignedSharedKey, fingerprint, generate_random_alphanumeric,
+    CryptoError, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm, SpkiPublicKeyBytes,
+    UnsignedSharedKey, fingerprint, generate_random_alphanumeric,
 };
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, SymmetricCryptoKey};
@@ -32,7 +32,7 @@ pub struct AuthRequestResponse {
 /// to another device. Where the user confirms the validity by confirming the fingerprint. The user
 /// key is then encrypted using the public key and returned to the initiating device.
 pub(crate) fn new_auth_request(email: &str) -> Result<AuthRequestResponse, CryptoError> {
-    let key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+    let key = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
     let spki = key.to_public_key().to_der()?;
 
@@ -52,7 +52,7 @@ pub(crate) fn auth_request_decrypt_user_key(
     private_key: B64,
     user_key: UnsignedSharedKey,
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
-    let key = AsymmetricCryptoKey::from_der(&private_key.as_bytes().into())?;
+    let key = PrivateKey::from_der(&private_key.as_bytes().into())?;
     #[expect(deprecated)]
     let key: SymmetricCryptoKey = user_key.decapsulate_key_unsigned(&key)?;
     Ok(key)
@@ -67,7 +67,7 @@ pub(crate) fn auth_request_decrypt_master_key(
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
     use bitwarden_crypto::MasterKey;
 
-    let key = AsymmetricCryptoKey::from_der(&private_key.as_bytes().into())?;
+    let key = PrivateKey::from_der(&private_key.as_bytes().into())?;
     #[expect(deprecated)]
     let master_key: SymmetricCryptoKey = master_key.decapsulate_key_unsigned(&key)?;
     let master_key = MasterKey::try_from(&master_key)?;
@@ -90,7 +90,7 @@ pub(crate) fn approve_auth_request(
     client: &Client,
     public_key: B64,
 ) -> Result<UnsignedSharedKey, ApproveAuthRequestError> {
-    let public_key = AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&public_key))?;
+    let public_key = PublicKey::from_der(&SpkiPublicKeyBytes::from(&public_key))?;
 
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
@@ -133,8 +133,7 @@ mod tests {
             248, 43, 255, 67, 35, 61, 245, 93,
         ];
 
-        let private_key =
-            AsymmetricCryptoKey::from_der(&request.private_key.as_bytes().into()).unwrap();
+        let private_key = PrivateKey::from_der(&request.private_key.as_bytes().into()).unwrap();
 
         let secret = BitwardenLegacyKeyBytes::from(secret);
         #[expect(deprecated)]

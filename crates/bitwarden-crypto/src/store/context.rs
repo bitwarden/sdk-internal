@@ -44,8 +44,8 @@ use crate::{
 /// #         #[local]
 /// #         Local(LocalId),
 /// #     }
-/// #     #[asymmetric]
-/// #     pub enum AsymmKeyId {
+/// #     #[private]
+/// #     pub enum PrivateKeyId {
 /// #         UserPrivate,
 /// #         #[local]
 /// #         Local(LocalId),
@@ -56,7 +56,7 @@ use crate::{
 /// #         #[local]
 /// #         Local(LocalId),
 /// #     }
-/// #     pub Ids => SymmKeyId, AsymmKeyId, SigningKeyId;
+/// #     pub Ids => SymmKeyId, PrivateKeyId, SigningKeyId;
 /// # }
 /// struct Data {
 ///     key: EncString,
@@ -81,7 +81,7 @@ pub struct KeyStoreContext<'a, Ids: KeyIds> {
     pub(super) global_keys: GlobalKeys<'a, Ids>,
 
     pub(super) local_symmetric_keys: Box<dyn StoreBackend<Ids::Symmetric>>,
-    pub(super) local_asymmetric_keys: Box<dyn StoreBackend<Ids::Asymmetric>>,
+    pub(super) local_private_keys: Box<dyn StoreBackend<Ids::Private>>,
     pub(super) local_signing_keys: Box<dyn StoreBackend<Ids::Signing>>,
 
     pub(super) security_state_version: u64,
@@ -135,7 +135,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// To clear the global keys, you need to use [super::KeyStore::clear] instead.
     pub fn clear_local(&mut self) {
         self.local_symmetric_keys.clear();
-        self.local_asymmetric_keys.clear();
+        self.local_private_keys.clear();
         self.local_signing_keys.clear();
     }
 
@@ -155,13 +155,13 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         self.local_symmetric_keys.retain(f);
     }
 
-    /// Remove all asymmetric keys from the context for which the predicate returns false
+    /// Remove all private keys from the context for which the predicate returns false
     /// This will also remove the keys from the global store if this context has write access
-    pub fn retain_asymmetric_keys(&mut self, f: fn(Ids::Asymmetric) -> bool) {
+    pub fn retain_private_keys(&mut self, f: fn(Ids::Private) -> bool) {
         if let Ok(keys) = self.global_keys.get_mut() {
-            keys.asymmetric_keys.retain(f);
+            keys.private_keys.retain(f);
         }
-        self.local_asymmetric_keys.retain(f);
+        self.local_private_keys.retain(f);
     }
 
     fn drop_symmetric_key(&mut self, key_id: Ids::Symmetric) -> Result<()> {
@@ -173,11 +173,11 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(())
     }
 
-    fn drop_asymmetric_key(&mut self, key_id: Ids::Asymmetric) -> Result<()> {
+    fn drop_private_key(&mut self, key_id: Ids::Private) -> Result<()> {
         if key_id.is_local() {
-            self.local_asymmetric_keys.remove(key_id);
+            self.local_private_keys.remove(key_id);
         } else {
-            self.global_keys.get_mut()?.asymmetric_keys.remove(key_id);
+            self.global_keys.get_mut()?.private_keys.remove(key_id);
         }
         Ok(())
     }
@@ -278,25 +278,21 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(())
     }
 
-    /// Move an asymmetric key from a local identifier to a global identifier within the context
+    /// Move a private key from a local identifier to a global identifier within the context
     ///
     /// The key value is copied to `to` and the original identifier `from` is removed.
     ///
     /// # Errors
     /// Returns an error if the source key does not exist or if setting the destination key
     /// fails (for example due to read-only global store).
-    pub fn persist_asymmetric_key(
-        &mut self,
-        from: Ids::Asymmetric,
-        to: Ids::Asymmetric,
-    ) -> Result<()> {
+    pub fn persist_private_key(&mut self, from: Ids::Private, to: Ids::Private) -> Result<()> {
         if !from.is_local() || to.is_local() {
             return Err(CryptoError::InvalidKeyStoreOperation);
         }
-        let key = self.get_asymmetric_key(from)?.to_owned();
-        self.drop_asymmetric_key(from)?;
+        let key = self.get_private_key(from)?.to_owned();
+        self.drop_private_key(from)?;
         #[allow(deprecated)]
-        self.set_asymmetric_key(to, key)?;
+        self.set_private_key(to, key)?;
         Ok(())
     }
 
@@ -335,7 +331,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         signing_key.to_cose().encrypt_with_key(wrapping_key)
     }
 
-    /// Wrap (encrypt) a private/asymmetric key with a symmetric key.
+    /// Wrap (encrypt) a private key with a symmetric key.
     ///
     /// The private key identified by `key_to_wrap` will be serialized to DER (PKCS#8) and
     /// encrypted with `wrapping_key`, returning an `EncString` suitable for storage.
@@ -345,17 +341,17 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     pub fn wrap_private_key(
         &self,
         wrapping_key: Ids::Symmetric,
-        key_to_wrap: Ids::Asymmetric,
+        key_to_wrap: Ids::Private,
     ) -> Result<EncString> {
         let wrapping_key = self.get_symmetric_key(wrapping_key)?;
-        let private_key = self.get_asymmetric_key(key_to_wrap)?.to_owned();
+        let private_key = self.get_private_key(key_to_wrap)?.to_owned();
         private_key.to_der()?.encrypt_with_key(wrapping_key)
     }
 
-    /// Decrypt and import a previously wrapped asymmetric private key into the context.
+    /// Decrypt and import a previously wrapped private key into the context.
     ///
     /// The `wrapped_key` will be decrypted using `wrapping_key` and parsed as a PKCS#8
-    /// private key; the resulting key will be inserted as a local asymmetric key and the
+    /// private key; the resulting key will be inserted as a local private key and the
     /// new local identifier returned.
     ///
     /// # Errors
@@ -365,12 +361,11 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         &mut self,
         wrapping_key: Ids::Symmetric,
         wrapped_key: &EncString,
-    ) -> Result<Ids::Asymmetric> {
+    ) -> Result<Ids::Private> {
         let wrapping_key = self.get_symmetric_key(wrapping_key)?;
         let private_key_bytes: Vec<u8> = wrapped_key.decrypt_with_key(wrapping_key)?;
-        let private_key =
-            AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key_bytes))?;
-        Ok(self.add_local_asymmetric_key(private_key))
+        let private_key = PrivateKey::from_der(&Pkcs8PrivateKeyBytes::from(private_key_bytes))?;
+        Ok(self.add_local_private_key(private_key))
     }
 
     /// Decrypt and import a previously wrapped signing key into the context.
@@ -404,18 +399,15 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         Ok(signing_key.to_verifying_key())
     }
 
-    /// Return the public key corresponding to an asymmetric (private) key identifier.
+    /// Return the public key corresponding to an private key identifier.
     ///
     /// This converts the stored private key into its public key representation.
     ///
     /// # Errors
-    /// Returns an error if the asymmetric key id does not exist.
-    pub fn get_public_key(
-        &self,
-        asymmetric_key_id: Ids::Asymmetric,
-    ) -> Result<AsymmetricPublicCryptoKey> {
-        let asymmetric_key = self.get_asymmetric_key(asymmetric_key_id)?;
-        Ok(asymmetric_key.to_public_key())
+    /// Returns an error if the private key id does not exist.
+    pub fn get_public_key(&self, private_key_id: Ids::Private) -> Result<PublicKey> {
+        let private_key = self.get_private_key(private_key_id)?;
+        Ok(private_key.to_public_key())
     }
 
     /// Encrypt and return a symmetric key from the context by using an already existing symmetric
@@ -473,9 +465,9 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         self.get_symmetric_key(key_id).is_ok()
     }
 
-    /// Returns `true` if the context has an asymmetric key with the given identifier
-    pub fn has_asymmetric_key(&self, key_id: Ids::Asymmetric) -> bool {
-        self.get_asymmetric_key(key_id).is_ok()
+    /// Returns `true` if the context has a private key with the given identifier
+    pub fn has_private_key(&self, key_id: Ids::Private) -> bool {
+        self.get_private_key(key_id).is_ok()
     }
 
     /// Returns `true` if the context has a signing key with the given identifier
@@ -494,23 +486,16 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         self.add_local_symmetric_key(SymmetricCryptoKey::make(algorithm))
     }
 
-    /// Makes a new asymmetric encryption key using the current default algorithm, and stores it in
+    /// Makes a new private encryption key using the current default algorithm, and stores it in
     /// the context as a local key
-    pub fn make_private_key(&mut self, algorithm: PublicKeyEncryptionAlgorithm) -> Ids::Asymmetric {
-        self.add_local_asymmetric_key(AsymmetricCryptoKey::make(algorithm))
+    pub fn make_private_key(&mut self, algorithm: PublicKeyEncryptionAlgorithm) -> Ids::Private {
+        self.add_local_private_key(PrivateKey::make(algorithm))
     }
 
     /// Makes a new signing key using the current default algorithm, and stores it in the context as
     /// a local key
     pub fn make_signing_key(&mut self, algorithm: SignatureAlgorithm) -> Ids::Signing {
         self.add_local_signing_key(SigningKey::make(algorithm))
-    }
-
-    /// Makes a new asymmetric encryption key using the current default algorithm, and stores it in
-    /// the context
-    pub fn make_asymmetric_key(&mut self) -> Ids::Asymmetric {
-        let key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
-        self.add_local_asymmetric_key(key)
     }
 
     /// Derive a shareable key using hkdf from secret and name and store it in the context.
@@ -552,28 +537,25 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// Return a reference to an asymmetric (private) key stored in the context.
     ///
     /// Deprecated: intended only for internal use and tests. This exposes the underlying
-    /// `AsymmetricCryptoKey` reference directly and should not be used by external code. Prefer
+    /// `PrivateKey` reference directly and should not be used by external code. Prefer
     /// using the public key via `get_public_key` or other higher-level APIs instead.
     ///
     /// # Errors
     /// Returns [`CryptoError::MissingKeyId`] if the key id does not exist in the context.
     #[deprecated(note = "This function should ideally never be used outside this crate")]
-    pub fn dangerous_get_asymmetric_key(
-        &self,
-        key_id: Ids::Asymmetric,
-    ) -> Result<&AsymmetricCryptoKey> {
-        self.get_asymmetric_key(key_id)
+    pub fn dangerous_get_private_key(&self, key_id: Ids::Private) -> Result<&PrivateKey> {
+        self.get_private_key(key_id)
     }
 
-    /// Makes a signed public key from an asymmetric private key and signing key stored in context.
+    /// Makes a signed public key from a private key and signing key stored in context.
     /// Signing a public key asserts ownership, and makes the claim to other users that if they want
     /// to share with you, they can use this public key.
     pub fn make_signed_public_key(
         &self,
-        private_key_id: Ids::Asymmetric,
+        private_key_id: Ids::Private,
         signing_key_id: Ids::Signing,
     ) -> Result<SignedPublicKey> {
-        let public_key = self.get_asymmetric_key(private_key_id)?.to_public_key();
+        let public_key = self.get_private_key(private_key_id)?.to_public_key();
         let signing_key = self.get_signing_key(signing_key_id)?;
         let signed_public_key =
             SignedPublicKeyMessage::from_public_key(&public_key)?.sign(signing_key)?;
@@ -589,14 +571,11 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         .ok_or_else(|| crate::CryptoError::MissingKeyId(format!("{key_id:?}")))
     }
 
-    pub(super) fn get_asymmetric_key(
-        &self,
-        key_id: Ids::Asymmetric,
-    ) -> Result<&AsymmetricCryptoKey> {
+    pub(super) fn get_private_key(&self, key_id: Ids::Private) -> Result<&PrivateKey> {
         if key_id.is_local() {
-            self.local_asymmetric_keys.get(key_id)
+            self.local_private_keys.get(key_id)
         } else {
-            self.global_keys.get().asymmetric_keys.get(key_id)
+            self.global_keys.get().private_keys.get(key_id)
         }
         .ok_or_else(|| crate::CryptoError::MissingKeyId(format!("{key_id:?}")))
     }
@@ -665,32 +644,25 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         }
     }
 
-    /// Set an asymmetric (private) key in the context.
+    /// Set a private key in the context.
     ///
     /// # Errors
     /// Returns [`CryptoError::ReadOnlyKeyStore`] if attempting to write to the global store when
     /// the context is read-only.
     #[deprecated(note = "This function should ideally never be used outside this crate")]
-    pub fn set_asymmetric_key(
-        &mut self,
-        key_id: Ids::Asymmetric,
-        key: AsymmetricCryptoKey,
-    ) -> Result<()> {
+    pub fn set_private_key(&mut self, key_id: Ids::Private, key: PrivateKey) -> Result<()> {
         if key_id.is_local() {
-            self.local_asymmetric_keys.upsert(key_id, key);
+            self.local_private_keys.upsert(key_id, key);
         } else {
-            self.global_keys
-                .get_mut()?
-                .asymmetric_keys
-                .upsert(key_id, key);
+            self.global_keys.get_mut()?.private_keys.upsert(key_id, key);
         }
         Ok(())
     }
 
-    /// Add a new asymmetric key to the local context, returning a new unique identifier for it.
-    pub fn add_local_asymmetric_key(&mut self, key: AsymmetricCryptoKey) -> Ids::Asymmetric {
-        let key_id = Ids::Asymmetric::new_local(LocalId::new());
-        self.local_asymmetric_keys.upsert(key_id, key);
+    /// Add a new private key to the local context, returning a new unique identifier for it.
+    pub fn add_local_private_key(&mut self, key: PrivateKey) -> Ids::Private {
+        let key_id = Ids::Private::new_local(LocalId::new());
+        self.local_private_keys.upsert(key_id, key);
         key_id
     }
 
@@ -800,7 +772,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// Re-encrypts the user's keys with the provided symmetric key for a v2 user.
     pub fn dangerous_get_v2_rotated_account_keys(
         &self,
-        current_user_private_key_id: Ids::Asymmetric,
+        current_user_private_key_id: Ids::Private,
         current_user_signing_key_id: Ids::Signing,
     ) -> Result<RotatedUserKeys> {
         crate::dangerous_get_v2_rotated_account_keys(
@@ -817,8 +789,8 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CompositeEncryptable, CoseKeyBytes,
-        CoseSerializable, CryptoError, Decryptable, KeyDecryptable, Pkcs8PrivateKeyBytes,
+        CompositeEncryptable, CoseKeyBytes, CoseSerializable, CryptoError, Decryptable,
+        KeyDecryptable, Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm,
         SignatureAlgorithm, SigningKey, SigningNamespace, SymmetricCryptoKey,
         SymmetricKeyAlgorithm,
         store::{
@@ -1004,7 +976,8 @@ mod tests {
 
         // Make the keys
         let current_user_signing_key_id = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
-        let current_user_private_key_id = ctx.make_asymmetric_key();
+        let current_user_private_key_id =
+            ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
         // Get the rotated account keys
         let rotated_keys = ctx
@@ -1016,11 +989,11 @@ mod tests {
 
         // Public/Private key
         assert_eq!(
-            AsymmetricPublicCryptoKey::from_der(&rotated_keys.public_key)
+            PublicKey::from_der(&rotated_keys.public_key)
                 .unwrap()
                 .to_der()
                 .unwrap(),
-            ctx.get_asymmetric_key(current_user_private_key_id)
+            ctx.get_private_key(current_user_private_key_id)
                 .unwrap()
                 .to_public_key()
                 .to_der()
@@ -1031,11 +1004,10 @@ mod tests {
             .decrypt_with_key(&rotated_keys.user_key)
             .unwrap();
         let private_key =
-            AsymmetricCryptoKey::from_der(&Pkcs8PrivateKeyBytes::from(decrypted_private_key))
-                .unwrap();
+            PrivateKey::from_der(&Pkcs8PrivateKeyBytes::from(decrypted_private_key)).unwrap();
         assert_eq!(
             private_key.to_der().unwrap(),
-            ctx.get_asymmetric_key(current_user_private_key_id)
+            ctx.get_private_key(current_user_private_key_id)
                 .unwrap()
                 .to_der()
                 .unwrap()
@@ -1066,7 +1038,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             unwrapped_key.to_der().unwrap(),
-            ctx.get_asymmetric_key(current_user_private_key_id)
+            ctx.get_private_key(current_user_private_key_id)
                 .unwrap()
                 .to_public_key()
                 .to_der()
