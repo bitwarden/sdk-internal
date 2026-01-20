@@ -170,7 +170,7 @@ mod tests {
         let user_id = UserId::new_v4();
         let security_state = SecurityState::initialize_for_user(user_id);
         let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
-        let key = ctx.add_local_signing_key(signing_key.clone()).unwrap();
+        let key = ctx.add_local_signing_key(signing_key.clone());
         let signed_security_state = security_state.sign(key, &mut ctx).unwrap();
 
         let verifying_key = signing_key.to_verifying_key();

@@ -1,0 +1,24 @@
+[package]
+name = "bitwarden-api-key-connector"
+description = "Api bindings for the Bitwarden Key Connector API."
+categories = ["api-bindings"]
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+mockall = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+wiremock = { workspace = true }

@@ -15,12 +15,15 @@ use super::EncryptionContext;
 use crate::Fido2CredentialFullView;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
-    cipher::cipher::DecryptCipherListResult,
+    cipher::cipher::DecryptCipherListResult, cipher_client::admin::CipherAdminClient,
 };
 
+mod admin;
 mod create;
+mod delete;
 mod edit;
 mod get;
+mod restore;
 mod share_cipher;
 
 #[allow(missing_docs)]
@@ -184,15 +187,19 @@ impl CiphersClient {
         let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
         Ok(decrypted_key)
     }
+
+    /// Returns a new client for performing admin operations.
+    /// Uses the admin server API endpoints and does not modify local state.
+    pub fn admin(&self) -> CipherAdminClient {
+        CipherAdminClient {
+            client: self.client.clone(),
+        }
+    }
 }
 
 impl CiphersClient {
     fn get_repository(&self) -> Result<Arc<dyn Repository<Cipher>>, RepositoryError> {
-        Ok(self
-            .client
-            .platform()
-            .state()
-            .get_client_managed::<Cipher>()?)
+        Ok(self.client.platform().state().get::<Cipher>()?)
     }
 }
 
@@ -559,7 +566,7 @@ mod tests {
         // Decrypting the cipher "normally" will fail because it was encrypted with a new key
         assert!(matches!(
             client.vault().ciphers().decrypt(ctx.cipher).err(),
-            Some(DecryptError::Crypto(CryptoError::InvalidMac))
+            Some(DecryptError::Crypto(CryptoError::Decrypt))
         ));
     }
 }

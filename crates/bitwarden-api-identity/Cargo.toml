@@ -17,7 +17,7 @@ mockall = ["dep:mockall"]
 
 [dependencies]
 async-trait = { workspace = true }
-mockall = { version = ">=0.13.1, <0.15", optional = true }
+mockall = { workspace = true, optional = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -2,8 +2,8 @@
 //! Any code that needs to interact with the [KeyStore] should use these types.
 //!
 //! - [SymmetricKeyId] is used to identify symmetric keys.
-//! - [AsymmetricKeyId] is used to identify asymmetric keys.
-//! - [KeyIds] is a helper type that combines both symmetric and asymmetric key identifiers. This is
+//! - [PrivateKeyId] is used to identify private keys.
+//! - [KeyIds] is a helper type that combines both symmetric and private key identifiers. This is
 //!   usually used in the type bounds of [KeyStore],
 //!   [KeyStoreContext](bitwarden_crypto::KeyStoreContext),
 //!   [PrimitiveEncryptable](bitwarden_crypto::PrimitiveEncryptable),
@@ -26,7 +26,7 @@ mod master_password;
 #[cfg(feature = "internal")]
 pub use master_password::MasterPasswordError;
 #[cfg(feature = "internal")]
-pub(crate) use master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData};
+pub use master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData};
 #[cfg(feature = "internal")]
 mod security_state;
 #[cfg(feature = "internal")]
@@ -50,8 +50,8 @@ key_ids! {
         Local(LocalId),
     }
 
-    #[asymmetric]
-    pub enum AsymmetricKeyId {
+    #[private]
+    pub enum PrivateKeyId {
         UserPrivateKey,
         #[local]
         Local(LocalId),
@@ -64,7 +64,7 @@ key_ids! {
         Local(LocalId),
     }
 
-    pub KeyIds => SymmetricKeyId, AsymmetricKeyId, SigningKeyId;
+    pub KeyIds => SymmetricKeyId, PrivateKeyId, SigningKeyId;
 }
 
 /// This is a helper function to create a test KeyStore with a single user key.

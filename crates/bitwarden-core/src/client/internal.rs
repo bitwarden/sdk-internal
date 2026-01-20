@@ -11,7 +11,7 @@ use bitwarden_crypto::{
 use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;
 #[cfg(feature = "internal")]
-use tracing::instrument;
+use tracing::{info, instrument};
 
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::client::encryption_settings::EncryptionSettings;
@@ -77,6 +77,22 @@ impl ApiConfigurations {
         api.oauth_access_token = Some(token);
 
         *self = ApiConfigurations::new(identity, api, self.device_type);
+    }
+
+    pub(crate) fn get_key_connector_client(
+        self: &Arc<Self>,
+        key_connector_url: String,
+    ) -> bitwarden_api_key_connector::apis::ApiClient {
+        let api = self.api_config.clone();
+
+        let key_connector = bitwarden_api_key_connector::apis::configuration::Configuration {
+            base_path: key_connector_url,
+            user_agent: api.user_agent,
+            client: api.client,
+            oauth_access_token: api.oauth_access_token,
+        };
+
+        bitwarden_api_key_connector::apis::ApiClient::new(&Arc::new(key_connector))
     }
 }
 
@@ -216,6 +232,16 @@ impl InternalClient {
         }
     }
 
+    pub fn get_key_connector_client(
+        &self,
+        key_connector_url: String,
+    ) -> bitwarden_api_key_connector::apis::ApiClient {
+        self.__api_configurations
+            .read()
+            .expect("RwLock is not poisoned")
+            .get_key_connector_client(key_connector_url)
+    }
+
     #[allow(missing_docs)]
     pub async fn get_api_configurations(&self) -> Arc<ApiConfigurations> {
         // At the moment we ignore the error result from the token renewal, if it fails,
@@ -271,7 +297,7 @@ impl InternalClient {
 
     #[cfg(feature = "internal")]
     #[instrument(err, skip_all)]
-    pub(crate) fn initialize_user_crypto_master_key(
+    pub(crate) fn initialize_user_crypto_key_connector_key(
         &self,
         master_key: MasterKey,
         user_key: EncString,
@@ -289,7 +315,14 @@ impl InternalClient {
         account_crypto_state: WrappedAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
         let mut ctx = self.key_store.context_mut();
+
+        // Note: The actual key does not get logged unless the crypto crate has the
+        // dangerous-crypto-debug feature enabled, so this is safe
+        info!("Setting user key {:?}", user_key);
         let user_key = ctx.add_local_symmetric_key(user_key);
+        // The user key gets set to the local context frame here; It then gets persisted to the
+        // context when the cryptographic state was unwrapped correctly, so that there is no
+        // risk of a partial / incorrect setup.
         account_crypto_state
             .set_to_context(&self.security_state, user_key, &self.key_store, ctx)
             .map_err(|_| EncryptionSettingsError::CryptoInitialization)
@@ -474,7 +507,7 @@ mod tests {
     async fn test_set_user_master_password_unlock_email_and_keys_not_updated() {
         let password = "asdfasdfasdf".to_string();
         let new_email = format!("{}@example.com", uuid::Uuid::new_v4());
-        let kdf = Kdf::default();
+        let kdf = Kdf::default_pbkdf2();
         let expected_email = TEST_ACCOUNT_EMAIL.to_owned();
 
         let (new_user_key, new_encrypted_user_key) = {

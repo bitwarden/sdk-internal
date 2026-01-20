@@ -200,13 +200,13 @@ pub trait CiphersApi: Send + Sync {
     async fn put_archive<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::CipherMiniResponseModel, Error<PutArchiveError>>;
+    ) -> Result<models::CipherResponseModel, Error<PutArchiveError>>;
 
     /// PUT /ciphers/archive
     async fn put_archive_many<'a>(
         &self,
         cipher_bulk_archive_request_model: Option<models::CipherBulkArchiveRequestModel>,
-    ) -> Result<models::CipherMiniResponseModelListResponseModel, Error<PutArchiveManyError>>;
+    ) -> Result<models::CipherResponseModelListResponseModel, Error<PutArchiveManyError>>;
 
     /// PUT /ciphers/{id}/collections
     async fn put_collections<'a>(
@@ -295,13 +295,13 @@ pub trait CiphersApi: Send + Sync {
     async fn put_unarchive<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::CipherMiniResponseModel, Error<PutUnarchiveError>>;
+    ) -> Result<models::CipherResponseModel, Error<PutUnarchiveError>>;
 
     /// PUT /ciphers/unarchive
     async fn put_unarchive_many<'a>(
         &self,
         cipher_bulk_unarchive_request_model: Option<models::CipherBulkUnarchiveRequestModel>,
-    ) -> Result<models::CipherMiniResponseModelListResponseModel, Error<PutUnarchiveManyError>>;
+    ) -> Result<models::CipherResponseModelListResponseModel, Error<PutUnarchiveManyError>>;
 
     /// GET /ciphers/{id}/attachment/{attachmentId}/renew
     async fn renew_file_upload_url<'a>(
@@ -1830,7 +1830,7 @@ impl CiphersApi for CiphersApiClient {
     async fn put_archive<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::CipherMiniResponseModel, Error<PutArchiveError>> {
+    ) -> Result<models::CipherResponseModel, Error<PutArchiveError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1868,12 +1868,12 @@ impl CiphersApi for CiphersApiClient {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
                 ContentType::Text => {
                     return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::CipherMiniResponseModel`",
+                        "Received `text/plain` content type response that cannot be converted to `models::CipherResponseModel`",
                     )));
                 }
                 ContentType::Unsupported(local_var_unknown_type) => {
                     return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CipherMiniResponseModel`"
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CipherResponseModel`"
                     ))));
                 }
             }
@@ -1892,7 +1892,7 @@ impl CiphersApi for CiphersApiClient {
     async fn put_archive_many<'a>(
         &self,
         cipher_bulk_archive_request_model: Option<models::CipherBulkArchiveRequestModel>,
-    ) -> Result<models::CipherMiniResponseModelListResponseModel, Error<PutArchiveManyError>> {
+    ) -> Result<models::CipherResponseModelListResponseModel, Error<PutArchiveManyError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1927,12 +1927,12 @@ impl CiphersApi for CiphersApiClient {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
                 ContentType::Text => {
                     return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::CipherMiniResponseModelListResponseModel`",
+                        "Received `text/plain` content type response that cannot be converted to `models::CipherResponseModelListResponseModel`",
                     )));
                 }
                 ContentType::Unsupported(local_var_unknown_type) => {
                     return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CipherMiniResponseModelListResponseModel`"
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CipherResponseModelListResponseModel`"
                     ))));
                 }
             }
@@ -2741,7 +2741,7 @@ impl CiphersApi for CiphersApiClient {
     async fn put_unarchive<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::CipherMiniResponseModel, Error<PutUnarchiveError>> {
+    ) -> Result<models::CipherResponseModel, Error<PutUnarchiveError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2779,12 +2779,12 @@ impl CiphersApi for CiphersApiClient {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
                 ContentType::Text => {
                     return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::CipherMiniResponseModel`",
+                        "Received `text/plain` content type response that cannot be converted to `models::CipherResponseModel`",
                     )));
                 }
                 ContentType::Unsupported(local_var_unknown_type) => {
                     return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CipherMiniResponseModel`"
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CipherResponseModel`"
                     ))));
                 }
             }
@@ -2803,8 +2803,7 @@ impl CiphersApi for CiphersApiClient {
     async fn put_unarchive_many<'a>(
         &self,
         cipher_bulk_unarchive_request_model: Option<models::CipherBulkUnarchiveRequestModel>,
-    ) -> Result<models::CipherMiniResponseModelListResponseModel, Error<PutUnarchiveManyError>>
-    {
+    ) -> Result<models::CipherResponseModelListResponseModel, Error<PutUnarchiveManyError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2839,12 +2838,12 @@ impl CiphersApi for CiphersApiClient {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
                 ContentType::Text => {
                     return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::CipherMiniResponseModelListResponseModel`",
+                        "Received `text/plain` content type response that cannot be converted to `models::CipherResponseModelListResponseModel`",
                     )));
                 }
                 ContentType::Unsupported(local_var_unknown_type) => {
                     return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CipherMiniResponseModelListResponseModel`"
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::CipherResponseModelListResponseModel`"
                     ))));
                 }
             }

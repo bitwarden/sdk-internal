@@ -197,7 +197,7 @@ mod tests {
     use bitwarden_core::{
         ClientSettings, DeviceType,
         key_management::{
-            SymmetricKeyId,
+            MasterPasswordUnlockData, SymmetricKeyId,
             account_cryptographic_state::WrappedAccountCryptographicState,
             crypto::{InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest},
         },
@@ -281,14 +281,18 @@ mod tests {
     fn make_user_crypto_request() -> InitUserCryptoRequest {
         InitUserCryptoRequest {
             user_id: Some(TEST_USER_ID.parse().unwrap()),
-            kdf_params: Kdf::default(),
+            kdf_params: Kdf::default_pbkdf2(),
             email: TEST_USER_EMAIL.to_string(),
             account_cryptographic_state: WrappedAccountCryptographicState::V1 {
                 private_key: TEST_ACCOUNT_PRIVATE_KEY.parse().unwrap(),
             },
-            method: InitUserCryptoMethod::Password {
+            method: InitUserCryptoMethod::MasterPasswordUnlock {
                 password: TEST_USER_PASSWORD.to_string(),
-                user_key: TEST_ACCOUNT_USER_KEY.parse().unwrap(),
+                master_password_unlock: MasterPasswordUnlockData {
+                    kdf: Kdf::default_pbkdf2(),
+                    master_key_wrapped_user_key: TEST_ACCOUNT_USER_KEY.parse().unwrap(),
+                    salt: TEST_USER_EMAIL.to_string(),
+                },
             },
         }
     }
