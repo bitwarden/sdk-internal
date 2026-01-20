@@ -323,9 +323,6 @@ pub(super) fn make_update_kdf(
 ) -> Result<UpdateKdfResponse, CryptoClientError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
-    // FIXME: [PM-18099] Once MasterKey deals with KeyIds, this should be updated
-    #[allow(deprecated)]
-    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     let login_method = client
         .internal
@@ -341,8 +338,9 @@ pub(super) fn make_update_kdf(
 
     let authentication_data = MasterPasswordAuthenticationData::derive(password, new_kdf, email)
         .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
-    let unlock_data = MasterPasswordUnlockData::derive(password, new_kdf, email, user_key)
-        .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
+    let unlock_data =
+        MasterPasswordUnlockData::derive(password, new_kdf, email, SymmetricKeyId::User, &ctx)
+            .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
     let old_authentication_data = MasterPasswordAuthenticationData::derive(
         password,
         &client
@@ -986,7 +984,7 @@ pub(crate) fn make_user_jit_master_password_registration(
     let user_key = ctx.dangerous_get_symmetric_key(user_key_id)?.to_owned();
 
     let master_password_unlock_data =
-        MasterPasswordUnlockData::derive(&master_password, &kdf, &salt, &user_key)
+        MasterPasswordUnlockData::derive(&master_password, &kdf, &salt, user_key_id, &ctx)
             .map_err(MakeKeysError::MasterPasswordDerivation)?;
 
     let master_password_authentication_data =
