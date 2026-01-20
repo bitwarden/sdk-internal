@@ -61,7 +61,7 @@ impl EncryptionSettings {
         org_enc_keys: Vec<(OrganizationId, UnsignedSharedKey)>,
         store: &KeyStore<KeyIds>,
     ) -> Result<(), EncryptionSettingsError> {
-        use crate::key_management::AsymmetricKeyId;
+        use crate::key_management::PrivateKeyId;
 
         let mut ctx = store.context_mut();
 
@@ -71,7 +71,7 @@ impl EncryptionSettings {
             return Ok(());
         }
 
-        if !ctx.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey) {
+        if !ctx.has_private_key(PrivateKeyId::UserPrivateKey) {
             info!("User private key is missing, cannot set organization keys");
             return Err(MissingPrivateKeyError.into());
         }
@@ -86,8 +86,8 @@ impl EncryptionSettings {
             let _span =
                 tracing::span!(tracing::Level::INFO, "decapsulate_org_key", org_id = %org_id)
                     .entered();
-            if let Err(e) = ctx.decapsulate_key_unsigned(
-                AsymmetricKeyId::UserPrivateKey,
+            ctx.decapsulate_key_unsigned(
+                PrivateKeyId::UserPrivateKey,
                 SymmetricKeyId::Organization(org_id),
                 &org_enc_key,
             ) {

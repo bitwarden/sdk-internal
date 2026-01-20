@@ -2,6 +2,7 @@ use std::pin::Pin;
 
 use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::DecodePublicKey};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use tracing::instrument;
 
 use super::key_encryptable::CryptoKey;
 use crate::{
@@ -25,18 +26,19 @@ pub(crate) enum RawPublicKey {
 /// Public key of a key pair used in a public key encryption scheme. It is used for
 /// encrypting data.
 #[derive(Clone, PartialEq)]
-pub struct AsymmetricPublicCryptoKey {
+pub struct PublicKey {
     inner: RawPublicKey,
 }
 
-impl AsymmetricPublicCryptoKey {
+impl PublicKey {
     pub(crate) fn inner(&self) -> &RawPublicKey {
         &self.inner
     }
 
     /// Build a public key from the SubjectPublicKeyInfo DER.
+    #[instrument(skip_all, err)]
     pub fn from_der(der: &SpkiPublicKeyBytes) -> Result<Self> {
-        Ok(AsymmetricPublicCryptoKey {
+        Ok(PublicKey {
             inner: RawPublicKey::RsaOaepSha1(
                 RsaPublicKey::from_public_key_der(der.as_ref())
                     .map_err(|_| CryptoError::InvalidKey)?,
@@ -45,6 +47,7 @@ impl AsymmetricPublicCryptoKey {
     }
 
     /// Makes a SubjectPublicKeyInfo DER serialized version of the public key.
+    #[instrument(skip_all, err)]
     pub fn to_der(&self) -> Result<SpkiPublicKeyBytes> {
         use rsa::pkcs8::EncodePublicKey;
         match &self.inner {
@@ -70,7 +73,7 @@ pub(crate) enum RawPrivateKey {
 /// Private key of a key pair used in a public key encryption scheme. It is used for
 /// decrypting data that was encrypted with the corresponding public key.
 #[derive(Clone)]
-pub struct AsymmetricCryptoKey {
+pub struct PrivateKey {
     inner: RawPrivateKey,
 }
 
@@ -80,11 +83,11 @@ const _: fn() = || {
     fn assert_zeroize_on_drop<T: zeroize::ZeroizeOnDrop>() {}
     assert_zeroize_on_drop::<RsaPrivateKey>();
 };
-impl zeroize::ZeroizeOnDrop for AsymmetricCryptoKey {}
-impl CryptoKey for AsymmetricCryptoKey {}
+impl zeroize::ZeroizeOnDrop for PrivateKey {}
+impl CryptoKey for PrivateKey {}
 
-impl AsymmetricCryptoKey {
-    /// Generate a random AsymmetricCryptoKey (RSA-2048).
+impl PrivateKey {
+    /// Generate a random PrivateKey (RSA-2048).
     pub fn make(algorithm: PublicKeyEncryptionAlgorithm) -> Self {
         Self::make_internal(algorithm, &mut rand::thread_rng())
     }
@@ -103,6 +106,8 @@ impl AsymmetricCryptoKey {
     }
 
     #[allow(missing_docs)]
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
+    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
     pub fn from_pem(pem: &str) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
@@ -113,6 +118,8 @@ impl AsymmetricCryptoKey {
     }
 
     #[allow(missing_docs)]
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
+    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
     pub fn from_der(der: &Pkcs8PrivateKeyBytes) -> Result<Self> {
         use rsa::pkcs8::DecodePrivateKey;
         Ok(Self {
@@ -123,6 +130,8 @@ impl AsymmetricCryptoKey {
     }
 
     #[allow(missing_docs)]
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
+    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
     pub fn to_der(&self) -> Result<Pkcs8PrivateKeyBytes> {
         match &self.inner {
             RawPrivateKey::RsaOaepSha1(private_key) => {
@@ -139,9 +148,9 @@ impl AsymmetricCryptoKey {
 
     /// Derives the public key corresponding to this private key. This is deterministic
     /// and always derives the same public key.
-    pub fn to_public_key(&self) -> AsymmetricPublicCryptoKey {
+    pub fn to_public_key(&self) -> PublicKey {
         match &self.inner {
-            RawPrivateKey::RsaOaepSha1(private_key) => AsymmetricPublicCryptoKey {
+            RawPrivateKey::RsaOaepSha1(private_key) => PublicKey {
                 inner: RawPublicKey::RsaOaepSha1(private_key.to_public_key()),
             },
         }
@@ -153,9 +162,19 @@ impl AsymmetricCryptoKey {
 }
 
 // We manually implement these to make sure we don't print any sensitive data
-impl std::fmt::Debug for AsymmetricCryptoKey {
+impl std::fmt::Debug for PrivateKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AsymmetricCryptoKey").finish()
+        let mut debug_struct = f.debug_struct("PrivateKey");
+        #[cfg(feature = "dangerous-crypto-debug")]
+        match &self.inner {
+            RawPrivateKey::RsaOaepSha1(_key) => {
+                debug_struct.field("algorithm", &"RsaOaepSha1");
+                if let Ok(der) = self.to_der() {
+                    debug_struct.field("private_key_der", &der.as_ref());
+                }
+            }
+        }
+        debug_struct.finish()
     }
 }
 
@@ -165,8 +184,8 @@ mod tests {
     use bitwarden_encoding::B64;
 
     use crate::{
-        AsymmetricCryptoKey, AsymmetricPublicCryptoKey, Pkcs8PrivateKeyBytes, SpkiPublicKeyBytes,
-        SymmetricCryptoKey, UnsignedSharedKey,
+        Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
+        UnsignedSharedKey,
         content_format::{Bytes, Pkcs8PrivateKeyDerContentFormat},
     };
 
@@ -205,10 +224,10 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         let der_key_vec: Vec<u8> = der_key.into();
 
         // Load the two different formats and check they are the same key
-        let pem_key = AsymmetricCryptoKey::from_pem(pem_key_str).unwrap();
-        let der_key = AsymmetricCryptoKey::from_der(
-            &Bytes::<Pkcs8PrivateKeyDerContentFormat>::from(der_key_vec.clone()),
-        )
+        let pem_key = PrivateKey::from_pem(pem_key_str).unwrap();
+        let der_key = PrivateKey::from_der(&Bytes::<Pkcs8PrivateKeyDerContentFormat>::from(
+            der_key_vec.clone(),
+        ))
         .unwrap();
         assert_eq!(pem_key.to_der().unwrap(), der_key.to_der().unwrap());
 
@@ -264,9 +283,8 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         .unwrap();
 
         let private_key = Pkcs8PrivateKeyBytes::from(private_key.as_bytes());
-        let private_key = AsymmetricCryptoKey::from_der(&private_key).unwrap();
-        let public_key =
-            AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&public_key)).unwrap();
+        let private_key = PrivateKey::from_der(&private_key).unwrap();
+        let public_key = PublicKey::from_der(&SpkiPublicKeyBytes::from(&public_key)).unwrap();
 
         let raw_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(&raw_key, &public_key).unwrap();

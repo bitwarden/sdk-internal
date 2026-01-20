@@ -1,6 +1,8 @@
 use std::any::TypeId;
 
-use crate::registry::RepositoryNotFoundError;
+use serde::{Serialize, de::DeserializeOwned};
+
+use crate::registry::StateRegistryError;
 
 /// An error resulting from operations on a repository.
 #[derive(thiserror::Error, Debug)]
@@ -17,9 +19,9 @@ pub enum RepositoryError {
     #[error(transparent)]
     Database(#[from] crate::sdk_managed::DatabaseError),
 
-    /// Repository not found.
+    /// State registry error.
     #[error(transparent)]
-    RepositoryNotFound(#[from] RepositoryNotFoundError),
+    StateRegistry(#[from] StateRegistryError),
 }
 
 /// This trait represents a generic repository interface, capable of storing and retrieving
@@ -39,7 +41,10 @@ pub trait Repository<V: RepositoryItem>: Send + Sync {
 /// This trait is used to mark types that can be stored in a repository.
 /// It should not be implemented manually; instead, users should
 /// use the [crate::register_repository_item] macro to register their item types.
-pub trait RepositoryItem: Internal + Send + Sync + 'static {
+///
+/// All repository items must implement `Serialize` and `DeserializeOwned` to support
+/// SDK-managed repositories that persist items to storage.
+pub trait RepositoryItem: Internal + Serialize + DeserializeOwned + Send + Sync + 'static {
     /// The name of the type implementing this trait.
     const NAME: &'static str;
 
@@ -64,7 +69,7 @@ pub struct RepositoryItemData {
 
 impl RepositoryItemData {
     /// Create a new `RepositoryItemData` from a type that implements `RepositoryItem`.
-    pub fn new<T: RepositoryItem + ?Sized>() -> Self {
+    pub fn new<T: RepositoryItem>() -> Self {
         Self {
             type_id: TypeId::of::<T>(),
             name: T::NAME,

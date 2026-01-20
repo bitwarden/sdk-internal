@@ -85,11 +85,11 @@ pub struct Cipher {
     #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
     #[serde(
-        rename = "archivedDate",
-        alias = "ArchivedDate",
+        rename = "archives",
+        alias = "Archives",
         skip_serializing_if = "Option::is_none"
     )]
-    pub archived_date: Option<String>,
+    pub archives: Option<String>,
 }
 
 impl Cipher {
@@ -108,7 +108,7 @@ impl Cipher {
             deleted_date: None,
             reprompt: None,
             key: None,
-            archived_date: None,
+            archives: None,
         }
     }
 }
