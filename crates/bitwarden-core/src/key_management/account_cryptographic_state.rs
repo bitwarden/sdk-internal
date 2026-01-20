@@ -671,7 +671,7 @@ mod tests {
         // 1. The new state is valid and can be set to context
         match rotated_state {
             WrappedAccountCryptographicState::V2 { .. } => {}
-            _ => panic!("Expected V2 after rotation from V2"),
+            _ => panic!("Expected V2 after rotation from V1"),
         }
         let store_2 = KeyStore::<KeyIds>::default();
         let mut ctx_2 = store_2.context_mut();
