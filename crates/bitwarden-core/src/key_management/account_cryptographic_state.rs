@@ -654,7 +654,8 @@ mod tests {
             .set_to_context(&RwLock::new(None), old_user_key_id, &store, ctx)
             .unwrap();
 
-        // The previous context got consumed, so we are creating a new one here. Setting the state to context persisted the user-key and other keys
+        // The previous context got consumed, so we are creating a new one here. Setting the state
+        // to context persisted the user-key and other keys
         let mut ctx = store.context_mut();
         let new_user_key_id = ctx.add_local_symmetric_key(new_user_key_owned.clone());
 
@@ -715,7 +716,8 @@ mod tests {
             .set_to_context(&RwLock::new(None), old_user_key_id, &store, ctx)
             .unwrap();
 
-        // The previous context got consumed, so we are creating a new one here. Setting the state to context persisted the user-key and other keys
+        // The previous context got consumed, so we are creating a new one here. Setting the state
+        // to context persisted the user-key and other keys
         let mut ctx = store.context_mut();
         let new_user_key_id = ctx.add_local_symmetric_key(new_user_key_owned.clone());
 
