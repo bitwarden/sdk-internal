@@ -7,6 +7,7 @@
 use std::collections::HashMap;
 
 use bitwarden_api_api::models::AccountKeysRequestModel;
+#[expect(deprecated)]
 use bitwarden_crypto::{
     CoseSerializable, CryptoError, DeviceKey, EncString, Kdf, KeyConnectorKey, KeyDecryptable,
     KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, PrivateKey, PublicKey,
@@ -323,9 +324,6 @@ pub(super) fn make_update_kdf(
 ) -> Result<UpdateKdfResponse, CryptoClientError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
-    // FIXME: [PM-18099] Once MasterKey deals with KeyIds, this should be updated
-    #[allow(deprecated)]
-    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     let login_method = client
         .internal
@@ -341,8 +339,9 @@ pub(super) fn make_update_kdf(
 
     let authentication_data = MasterPasswordAuthenticationData::derive(password, new_kdf, email)
         .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
-    let unlock_data = MasterPasswordUnlockData::derive(password, new_kdf, email, user_key)
-        .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
+    let unlock_data =
+        MasterPasswordUnlockData::derive(password, new_kdf, email, SymmetricKeyId::User, &ctx)
+            .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
     let old_authentication_data = MasterPasswordAuthenticationData::derive(
         password,
         &client
@@ -723,6 +722,7 @@ pub struct UserCryptoV2KeysResponse {
 /// Creates the user's cryptographic state for v2 users. This includes ensuring signature key pair
 /// is present, a signed public key is present, a security state is present and signed, and the user
 /// key is a Cose key.
+#[deprecated(note = "Use AccountCryptographicState::rotate instead")]
 pub(crate) fn make_v2_keys_for_v1_user(
     client: &Client,
 ) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
@@ -791,6 +791,7 @@ pub(crate) fn make_v2_keys_for_v1_user(
 ///
 /// In the current implementation, it just re-encrypts any existing keys. This function expects a
 /// user to be a v2 user; that is, they have a signing key, a cose user-key, and a private key
+#[deprecated(note = "Use AccountCryptographicState::rotate instead")]
 pub(crate) fn get_v2_rotated_account_keys(
     client: &Client,
 ) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
@@ -816,6 +817,7 @@ pub(crate) fn get_v2_rotated_account_keys(
         // security state is present.
         .ok_or(StatefulCryptoError::MissingSecurityState)?;
 
+    #[expect(deprecated)]
     let rotated_keys = dangerous_get_v2_rotated_account_keys(
         PrivateKeyId::UserPrivateKey,
         SigningKeyId::UserSigningKey,
@@ -986,7 +988,7 @@ pub(crate) fn make_user_jit_master_password_registration(
     let user_key = ctx.dangerous_get_symmetric_key(user_key_id)?.to_owned();
 
     let master_password_unlock_data =
-        MasterPasswordUnlockData::derive(&master_password, &kdf, &salt, &user_key)
+        MasterPasswordUnlockData::derive(&master_password, &kdf, &salt, user_key_id, &ctx)
             .map_err(MakeKeysError::MasterPasswordDerivation)?;
 
     let master_password_authentication_data =
@@ -1600,6 +1602,7 @@ mod tests {
             },
         )
         .unwrap();
+        #[expect(deprecated)]
         let enrollment_response = make_v2_keys_for_v1_user(&client).unwrap();
         let encrypted_userkey_v2 = master_key
             .encrypt_user_key(
@@ -1663,6 +1666,7 @@ mod tests {
         .await
         .unwrap();
 
+        #[expect(deprecated)]
         let result = make_v2_keys_for_v1_user(&client);
         assert!(matches!(
             result,
@@ -1682,6 +1686,7 @@ mod tests {
             .unwrap();
         drop(ctx);
 
+        #[expect(deprecated)]
         let result = get_v2_rotated_account_keys(&client);
         assert!(matches!(
             result,
@@ -1717,7 +1722,9 @@ mod tests {
         .await
         .unwrap();
 
-        assert!(get_v2_rotated_account_keys(&client).is_ok());
+        #[expect(deprecated)]
+        let result = get_v2_rotated_account_keys(&client);
+        assert!(result.is_ok());
     }
 
     #[tokio::test]
