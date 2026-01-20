@@ -86,7 +86,7 @@ impl EncryptionSettings {
             let _span =
                 tracing::span!(tracing::Level::INFO, "decapsulate_org_key", org_id = %org_id)
                     .entered();
-            ctx.decapsulate_key_unsigned(
+            if let Err(e) = ctx.decapsulate_key_unsigned(
                 PrivateKeyId::UserPrivateKey,
                 SymmetricKeyId::Organization(org_id),
                 &org_enc_key,
