@@ -657,6 +657,30 @@ mod tests {
             WrappedAccountCryptographicState::V2 { .. } => {}
             _ => panic!("Expected V2 after rotation from V1"),
         }
+
+        // We need to ensure two things after a rotation from V1 to V2:
+        // 1. The new state is valid and can be set to context
+        // 2. The new state uses the old private key
+
+        let store_2 = KeyStore::<KeyIds>::default();
+        let ctx_2 = store_2.context_mut();
+
+        let public_key_before_rotation = ctx
+            .get_public_key(PrivateKeyId::UserPrivateKey)
+            .expect("Private key should be present in context before rotation");
+        let public_key_after_rotation = ctx_2
+            .get_public_key(PrivateKeyId::UserPrivateKey)
+            .expect("Private key should be present in context after rotation");
+        assert_eq!(
+            public_key_before_rotation.to_der().unwrap(),
+            public_key_after_rotation.to_der().unwrap(),
+            "Private key should be preserved during rotation from V1 to V2"
+        );
+
+        // Ensure the state can be unwrapped again into a context
+        rotated
+            .set_to_context(&RwLock::new(None), new_user_key, &store_2, ctx_2)
+            .unwrap();
     }
 
     #[test]
@@ -682,5 +706,41 @@ mod tests {
             WrappedAccountCryptographicState::V2 { .. } => {}
             _ => panic!("Expected V2 after rotation from V2"),
         }
+
+        // We need to ensure two things after a rotation from V1 to V2:
+        // 1. The new state is valid and can be set to context
+        // 2. The new state uses the same private and signing keys
+
+        // Ensure the state can be unwrapped again into a context
+        let store_2 = KeyStore::<KeyIds>::default();
+        let ctx_2 = store_2.context_mut();
+
+        let public_key_before_rotation = ctx
+            .get_public_key(PrivateKeyId::UserPrivateKey)
+            .expect("Private key should be present in context before rotation");
+        let public_key_after_rotation = ctx_2
+            .get_public_key(PrivateKeyId::UserPrivateKey)
+            .expect("Private key should be present in context after rotation");
+        assert_eq!(
+            public_key_before_rotation.to_der().unwrap(),
+            public_key_after_rotation.to_der().unwrap(),
+            "Private key should be preserved during rotation from V2 to V2"
+        );
+
+        let verifying_key_before_rotation = ctx
+            .get_verifying_key(SigningKeyId::UserSigningKey)
+            .expect("Signing key should be present in context before rotation");
+        let verifying_key_after_rotation = ctx_2
+            .get_verifying_key(SigningKeyId::UserSigningKey)
+            .expect("Signing key should be present in context after rotation");
+        assert_eq!(
+            verifying_key_before_rotation.to_cose(),
+            verifying_key_after_rotation.to_cose(),
+            "Signing key should be preserved during rotation from V2 to V2"
+        );
+
+        rotated
+            .set_to_context(&RwLock::new(None), new_user_key, &store_2, ctx_2)
+            .unwrap();
     }
 }
