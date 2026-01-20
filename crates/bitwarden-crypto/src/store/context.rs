@@ -10,10 +10,10 @@ use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
 use crate::{
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, ContentFormat,
-    CoseEncrypt0Bytes, CoseKeyBytes, CoseSerializable, CryptoError, EncString, KeyDecryptable,
-    KeyEncryptable, KeyId, KeyIds, LocalId, Pkcs8PrivateKeyBytes, PublicKeyEncryptionAlgorithm,
-    Result, RotatedUserKeys, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
+    BitwardenLegacyKeyBytes, ContentFormat, CoseEncrypt0Bytes, CoseKeyBytes, CoseSerializable,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeyId, KeyIds, LocalId,
+    Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm, Result,
+    RotatedUserKeys, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
     SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, SymmetricKeyAlgorithm, VerifyingKey,
     derive_shareable_key, error::UnsupportedOperationError, signing, store::backend::StoreBackend,
 };
