@@ -84,6 +84,7 @@ jobs:
         with:
           node-version: 24
           registry-url: "https://registry.npmjs.org/"
+          scope: "@bitwarden"
 
       - name: Download artifact
         uses: bitwarden/gh-actions/download-artifacts@main
@@ -100,6 +101,13 @@ jobs:
           npm version --no-git-tag-version $VERSION
         env:
           VERSION: ${{needs.setup.outputs.release-version}}
+
+      - name: "Diagnostic: npm identity and maintainers (commercial only)"
+        working-directory: crates/bitwarden-wasm-internal/${{ matrix.license_type.npm_folder }}
+        run: |
+          echo "npm whoami: $(npm whoami || echo 'unknown')"
+          echo "Maintainers for @bitwarden/commercial-sdk-internal:"
+          npm view @bitwarden/commercial-sdk-internal maintainers --json || true
 
       - name: Publish NPM
         if: ${{ inputs.release_type != 'Dry Run' }}
