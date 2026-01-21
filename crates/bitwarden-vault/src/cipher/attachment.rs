@@ -253,16 +253,19 @@ pub(crate) fn decrypt_attachments_with_failures(
     for attachment in attachments {
         match attachment.decrypt(ctx, key) {
             Ok(decrypted) => successes.push(decrypted),
-            Err(_) => failures.push(AttachmentView {
-                id: attachment.id.clone(),
-                url: attachment.url.clone(),
-                size: attachment.size.clone(),
-                size_name: attachment.size_name.clone(),
-                file_name: None,
-                key: attachment.key.clone(),
-                #[cfg(feature = "wasm")]
-                decrypted_key: None,
-            }),
+            Err(e) => {
+                tracing::warn!(attachment_id = ?attachment.id, error = %e, "Failed to decrypt attachment");
+                failures.push(AttachmentView {
+                    id: attachment.id.clone(),
+                    url: attachment.url.clone(),
+                    size: attachment.size.clone(),
+                    size_name: attachment.size_name.clone(),
+                    file_name: None,
+                    key: attachment.key.clone(),
+                    #[cfg(feature = "wasm")]
+                    decrypted_key: None,
+                });
+            }
         }
     }
 
