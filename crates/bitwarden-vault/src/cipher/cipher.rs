@@ -525,17 +525,12 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
         // Separate successful and failed attachment decryptions
-        let (attachments, attachment_decryption_failures) = self
-            .attachments
-            .as_deref()
-            .map(|encrypted_attachments| {
-                attachment::decrypt_attachments_with_failures(
-                    encrypted_attachments,
-                    ctx,
-                    ciphers_key,
-                )
-            })
-            .unwrap_or_default();
+        let (attachments, attachment_decryption_failures) =
+            attachment::decrypt_attachments_with_failures(
+                self.attachments.as_deref().unwrap_or_default(),
+                ctx,
+                ciphers_key,
+            );
 
         let mut cipher = CipherView {
             id: self.id,
