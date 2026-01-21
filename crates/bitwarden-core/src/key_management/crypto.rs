@@ -540,6 +540,7 @@ pub(super) fn enroll_admin_password_reset(
     #[allow(deprecated)]
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
+    #[expect(deprecated)]
     Ok(UnsignedSharedKey::encapsulate_key_unsigned(
         key,
         &public_key,
@@ -1002,7 +1003,7 @@ pub(crate) fn make_user_jit_master_password_registration(
     // Account recovery enrollment
     let public_key = PublicKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))
         .map_err(MakeKeysError::Crypto)?;
-    let admin_reset_key = UnsignedSharedKey::encapsulate_key_unsigned(&user_key, &public_key)
+    let admin_reset_key = UnsignedSharedKey::encapsulate(user_key_id, &public_key, &ctx)
         .map_err(MakeKeysError::Crypto)?;
 
     Ok(MakeJitMasterPasswordRegistrationResponse {
@@ -1438,6 +1439,7 @@ mod tests {
 
         let private_key = Pkcs8PrivateKeyBytes::from(private_key.as_bytes());
         let private_key = PrivateKey::from_der(&private_key).unwrap();
+        #[expect(deprecated)]
         let decrypted: SymmetricCryptoKey =
             encrypted.decapsulate_key_unsigned(&private_key).unwrap();
 
@@ -1843,6 +1845,7 @@ mod tests {
 
         // Verify that the org key can decrypt the admin_reset_key UnsignedSharedKey
         // and that the decrypted key matches the user's encryption key
+        #[expect(deprecated)]
         let decrypted_user_key = make_keys_response
             .reset_password_key
             .decapsulate_key_unsigned(&org_key)
