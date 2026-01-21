@@ -19,7 +19,7 @@ use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tracing::info;
+use tracing::{info, instrument};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
@@ -63,9 +63,21 @@ impl From<CryptoError> for AccountCryptographyInitializationError {
     }
 }
 
+/// Errors that can occur during rotation of the account cryptographic state.
+#[derive(Debug, Error)]
+#[bitwarden_error(flat)]
+pub enum RotateCryptographyStateError {
+    /// The key is missing from the key store
+    #[error("The provided key is missing from the key store")]
+    KeyMissing,
+    /// The provided data was invalid
+    #[error("The provided data was invalid")]
+    InvalidData,
+}
+
 /// Any keys / cryptographic protection "downstream" from the account symmetric key (user key).
 /// Private keys are protected by the user key.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[allow(clippy::large_enum_variant)]
@@ -91,6 +103,19 @@ pub enum WrappedAccountCryptographicState {
         /// The user's signed security state.
         security_state: SignedSecurityState,
     },
+}
+
+impl std::fmt::Debug for WrappedAccountCryptographicState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WrappedAccountCryptographicState::V1 { .. } => f
+                .debug_struct("WrappedAccountCryptographicState::V1")
+                .finish(),
+            WrappedAccountCryptographicState::V2 { .. } => f
+                .debug_struct("WrappedAccountCryptographicState::V2")
+                .finish(),
+        }
+    }
 }
 
 impl WrappedAccountCryptographicState {
@@ -192,6 +217,105 @@ impl WrappedAccountCryptographicState {
                 security_state: signed_security_state,
             },
         ))
+    }
+
+    #[cfg(test)]
+    fn make_v1(
+        ctx: &mut KeyStoreContext<KeyIds>,
+    ) -> Result<(SymmetricKeyId, Self), AccountCryptographyInitializationError> {
+        let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+
+        Ok((
+            user_key,
+            WrappedAccountCryptographicState::V1 {
+                private_key: ctx.wrap_private_key(user_key, private_key)?,
+            },
+        ))
+    }
+
+    /// Re-wraps the account cryptographic state with a new user key. If the cryptographic state is
+    /// a V1 state, it gets upgraded to a V2 state
+    #[instrument(skip(self, ctx), err)]
+    pub fn rotate(
+        &self,
+        current_user_key: &SymmetricKeyId,
+        new_user_key: &SymmetricKeyId,
+        user_id: UserId,
+        ctx: &mut KeyStoreContext<KeyIds>,
+    ) -> Result<Self, RotateCryptographyStateError> {
+        match self {
+            WrappedAccountCryptographicState::V1 { private_key } => {
+                // To upgrade a V1 state to a V2 state,
+                // 1. The private key is re-encrypted
+                // 2. The signing key is generated
+                // 3. The public key is signed and
+                // 4. The security state is initialized and signed.
+
+                // 1. Re-encrypt private key
+                let private_key_id = ctx
+                    .unwrap_private_key(*current_user_key, private_key)
+                    .map_err(|_| RotateCryptographyStateError::InvalidData)?;
+                let new_private_key = ctx
+                    .wrap_private_key(*new_user_key, private_key_id)
+                    .map_err(|_| RotateCryptographyStateError::KeyMissing)?;
+
+                // 2. The signing key is generated
+                let signing_key_id = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
+                let new_signing_key = ctx
+                    .wrap_signing_key(*new_user_key, signing_key_id)
+                    .map_err(|_| RotateCryptographyStateError::KeyMissing)?;
+
+                // 3. The public key is signed and
+                let signed_public_key = ctx
+                    .make_signed_public_key(private_key_id, signing_key_id)
+                    .map_err(|_| RotateCryptographyStateError::KeyMissing)?;
+
+                // 4. The security state is initialized and signed.
+                let security_state = SecurityState::initialize_for_user(user_id);
+                let signed_security_state = security_state
+                    .sign(signing_key_id, ctx)
+                    .map_err(|_| RotateCryptographyStateError::KeyMissing)?;
+
+                Ok(WrappedAccountCryptographicState::V2 {
+                    private_key: new_private_key,
+                    signed_public_key: Some(signed_public_key),
+                    signing_key: new_signing_key,
+                    security_state: signed_security_state,
+                })
+            }
+            WrappedAccountCryptographicState::V2 {
+                private_key,
+                signed_public_key,
+                signing_key,
+                security_state,
+            } => {
+                // To rotate a V2 state, the private and signing keys are re-encrypted with the new
+                // user key.
+                // 1. Re-encrypt private key
+                let private_key_id = ctx
+                    .unwrap_private_key(*current_user_key, private_key)
+                    .map_err(|_| RotateCryptographyStateError::KeyMissing)?;
+                let new_private_key = ctx
+                    .wrap_private_key(*new_user_key, private_key_id)
+                    .map_err(|_| RotateCryptographyStateError::KeyMissing)?;
+
+                // 2. Re-encrypt signing key
+                let signing_key_id = ctx
+                    .unwrap_signing_key(*current_user_key, signing_key)
+                    .map_err(|_| RotateCryptographyStateError::KeyMissing)?;
+                let new_signing_key = ctx
+                    .wrap_signing_key(*new_user_key, signing_key_id)
+                    .map_err(|_| RotateCryptographyStateError::KeyMissing)?;
+
+                Ok(WrappedAccountCryptographicState::V2 {
+                    private_key: new_private_key,
+                    signed_public_key: signed_public_key.clone(),
+                    signing_key: new_signing_key,
+                    security_state: security_state.clone(),
+                })
+            }
+        }
     }
 
     /// Set the decrypted account cryptographic state to the context's non-local storage.
@@ -508,5 +632,55 @@ mod tests {
         assert!(ctx.has_symmetric_key(SymmetricKeyId::User));
         // But the private key should NOT be set (due to corruption)
         assert!(!ctx.has_private_key(PrivateKeyId::UserPrivateKey));
+    }
+
+    #[test]
+    fn test_rotate_v1_to_v2() {
+        use bitwarden_crypto::SymmetricKeyAlgorithm;
+        // Create a key store and context
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        // Create a V1-style user key and add to context
+        let (user_key, wrapped_state) =
+            WrappedAccountCryptographicState::make_v1(&mut ctx).unwrap();
+        let new_user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        // Rotate the state
+        let user_id = UserId::new_v4();
+        let rotated = wrapped_state
+            .rotate(&user_key, &new_user_key, user_id, &mut ctx)
+            .unwrap();
+
+        // Should now be V2
+        match rotated {
+            WrappedAccountCryptographicState::V2 { .. } => {}
+            _ => panic!("Expected V2 after rotation from V1"),
+        }
+    }
+
+    #[test]
+    fn test_rotate_v2() {
+        use bitwarden_crypto::SymmetricKeyAlgorithm;
+        // Create a key store and context
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        // Create a V2-style user key and add to context
+        let user_id = UserId::new_v4();
+        let (user_key, wrapped_state) =
+            WrappedAccountCryptographicState::make(&mut ctx, user_id).unwrap();
+        let new_user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        // Rotate the state
+        let rotated = wrapped_state
+            .rotate(&user_key, &new_user_key, user_id, &mut ctx)
+            .unwrap();
+
+        // Should still be V2
+        match rotated {
+            WrappedAccountCryptographicState::V2 { .. } => {}
+            _ => panic!("Expected V2 after rotation from V2"),
+        }
     }
 }

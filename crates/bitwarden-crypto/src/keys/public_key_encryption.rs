@@ -1,14 +1,44 @@
-use std::pin::Pin;
+use std::{pin::Pin, str::FromStr};
 
+use bitwarden_encoding::{B64, FromStrVisitor};
 use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::DecodePublicKey};
+use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use tracing::instrument;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::convert::FromWasmAbi;
 
 use super::key_encryptable::CryptoKey;
 use crate::{
     Pkcs8PrivateKeyBytes, SpkiPublicKeyBytes,
     error::{CryptoError, Result},
 };
+
+#[cfg(feature = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
+const TS_CUSTOM_TYPES: &'static str = r#"
+export type PublicKey = Tagged<string, "PublicKey">;
+"#;
+
+#[cfg(feature = "wasm")]
+impl wasm_bindgen::describe::WasmDescribe for PublicKey {
+    fn describe() {
+        <String as wasm_bindgen::describe::WasmDescribe>::describe();
+    }
+}
+
+#[cfg(feature = "wasm")]
+impl FromWasmAbi for PublicKey {
+    type Abi = <String as FromWasmAbi>::Abi;
+
+    unsafe fn from_abi(abi: Self::Abi) -> Self {
+        use wasm_bindgen::UnwrapThrowExt;
+
+        let s = unsafe { String::from_abi(abi) };
+        let bytes: Vec<u8> = s.parse::<bitwarden_encoding::B64>().unwrap_throw().into();
+        PublicKey::from_der(&SpkiPublicKeyBytes::from(bytes)).unwrap_throw()
+    }
+}
 
 /// Algorithm / public key encryption scheme used for encryption/decryption.
 #[derive(Serialize_repr, Deserialize_repr)]
@@ -58,6 +88,34 @@ impl PublicKey {
                 .to_owned()
                 .into()),
         }
+    }
+}
+
+impl FromStr for PublicKey {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let bytes: Vec<u8> = s.parse::<B64>().map_err(|_| ())?.into();
+        Self::from_der(&SpkiPublicKeyBytes::from(bytes)).map_err(|_| ())
+    }
+}
+
+impl<'de> Deserialize<'de> for PublicKey {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(FromStrVisitor::new())
+    }
+}
+
+impl Serialize for PublicKey {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let der = self.to_der().map_err(serde::ser::Error::custom)?;
+        serializer.serialize_str(&B64::from(der.as_ref()).to_string())
     }
 }
 
@@ -293,5 +351,82 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
         let decrypted = encrypted.decapsulate_key_unsigned(&private_key).unwrap();
 
         assert_eq!(raw_key, decrypted);
+    }
+
+    #[test]
+    fn test_asymmetric_public_crypto_key_from_str() {
+        let public_key_b64 = concat!(
+            "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArvcXfr5pCD6KhzXo7BWc",
+            "5Hdcbgp9U6hk0+wDYQBJ2yP8mlbd3GiN9JMFAtliE6BaTYLuxI9Mdk7XmDoKy63X",
+            "AuI8tUon5imL/792Wca3f3qrbZh9pOfPKWp7HkcByty1ZO8QPlEYUP24y4DzOfVd",
+            "LkdZfs9X5qKHiTxc+VklzTm3PSap4eORTQ/lP1GB10y0qJk5+44GRcSQSr3ku6ui",
+            "2re8AJ2GQhdnZz5oWaCb/kij5bQPBwBrIEBlgRdaeasVdR6wFJPJAQZxtqWo9MPK",
+            "eVDOkaQ3Qrryh+49S4rln3592/WeHYM5hO47DJr86ELcqcyCmksYas7xTqHfVfHS",
+            "XQIDAQAB",
+        );
+
+        // Test FromStr
+        let parsed_key: PublicKey = public_key_b64.parse().expect("should parse");
+
+        // Verify the key can be converted back to DER and then to B64
+        let der = parsed_key.to_der().expect("should convert to DER");
+        let b64_str = B64::from(der.as_ref()).to_string();
+        assert_eq!(b64_str, public_key_b64);
+    }
+
+    #[test]
+    fn test_asymmetric_public_crypto_key_from_str_invalid() {
+        // Invalid base64
+        let result: Result<PublicKey, _> = "not-valid-base64!!!".parse();
+        assert!(result.is_err());
+
+        // Valid base64 but invalid key data
+        let result: Result<PublicKey, _> = "aGVsbG8gd29ybGQ=".parse();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_asymmetric_public_crypto_key_serialize_deserialize() {
+        let public_key_b64 = concat!(
+            "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArvcXfr5pCD6KhzXo7BWc",
+            "5Hdcbgp9U6hk0+wDYQBJ2yP8mlbd3GiN9JMFAtliE6BaTYLuxI9Mdk7XmDoKy63X",
+            "AuI8tUon5imL/792Wca3f3qrbZh9pOfPKWp7HkcByty1ZO8QPlEYUP24y4DzOfVd",
+            "LkdZfs9X5qKHiTxc+VklzTm3PSap4eORTQ/lP1GB10y0qJk5+44GRcSQSr3ku6ui",
+            "2re8AJ2GQhdnZz5oWaCb/kij5bQPBwBrIEBlgRdaeasVdR6wFJPJAQZxtqWo9MPK",
+            "eVDOkaQ3Qrryh+49S4rln3592/WeHYM5hO47DJr86ELcqcyCmksYas7xTqHfVfHS",
+            "XQIDAQAB",
+        );
+
+        // Parse the key
+        let key: PublicKey = public_key_b64.parse().expect("should parse");
+
+        // Serialize to JSON
+        let serialized = serde_json::to_string(&key).expect("should serialize");
+        assert_eq!(serialized, format!("\"{}\"", public_key_b64));
+
+        // Deserialize from JSON
+        let deserialized: PublicKey =
+            serde_json::from_str(&serialized).expect("should deserialize");
+
+        // Verify the keys are equal by comparing their DER representations
+        assert_eq!(
+            key.to_der().expect("should convert to DER"),
+            deserialized.to_der().expect("should convert to DER")
+        );
+    }
+
+    #[test]
+    fn test_asymmetric_public_crypto_key_deserialize_invalid() {
+        // Invalid base64
+        let result: Result<PublicKey, _> = serde_json::from_str("\"not-valid-base64!!!\"");
+        assert!(result.is_err());
+
+        // Valid base64 but invalid key data
+        let result: Result<PublicKey, _> = serde_json::from_str("\"aGVsbG8gd29ybGQ=\"");
+        assert!(result.is_err());
+
+        // Not a string
+        let result: Result<PublicKey, _> = serde_json::from_str("123");
+        assert!(result.is_err());
     }
 }

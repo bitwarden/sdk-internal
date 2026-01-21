@@ -499,6 +499,7 @@ dependencies = [
  "async-trait",
  "mockall",
  "reqwest",
+ "reqwest-middleware",
  "serde",
  "serde_json",
  "serde_repr",
@@ -514,6 +515,7 @@ dependencies = [
  "async-trait",
  "mockall",
  "reqwest",
+ "reqwest-middleware",
  "serde",
  "serde_json",
  "serde_repr",
@@ -529,6 +531,7 @@ dependencies = [
  "async-trait",
  "mockall",
  "reqwest",
+ "reqwest-middleware",
  "serde",
  "serde_json",
  "tokio",
@@ -548,6 +551,7 @@ dependencies = [
  "bitwarden-test",
  "chrono",
  "reqwest",
+ "reqwest-middleware",
  "serde",
  "serde_bytes",
  "serde_json",
@@ -624,6 +628,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "reqwest",
+ "reqwest-middleware",
  "rustls",
  "rustls-platform-verifier",
  "schemars 1.0.0",
@@ -4347,6 +4352,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "reqwest-middleware"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57f17d28a6e6acfe1733fe24bcd30774d13bffa4b8a22535b4c8c98423088d4e"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "http",
+ "reqwest",
+ "serde",
+ "thiserror 1.0.69",
+ "tower-service",
+]
+
+[[package]]
 name = "rfc6979"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5642,9 +5662,9 @@ dependencies = [
 
 [[package]]
 name = "tower-http"
-version = "0.6.6"
+version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "adc82fd73de2a9722ac5da747f12383d2bfdb93591ee6c58486e0097890f05f2"
+checksum = "d4e6559d53cc268e5031cd8429d05415bc4cb4aefc4aa5d6cc35fbf5b924a1f8"
 dependencies = [
  "bitflags 2.9.1",
  "bytes",
@@ -5914,7 +5934,7 @@ dependencies = [
  "serde",
  "tempfile",
  "textwrap",
- "toml 0.8.23",
+ "toml 0.9.9+spec-1.0.0",
  "uniffi_internal_macros",
  "uniffi_meta",
  "uniffi_pipeline",
@@ -5967,7 +5987,7 @@ dependencies = [
  "quote",
  "serde",
  "syn",
- "toml 0.8.23",
+ "toml 0.9.9+spec-1.0.0",
  "uniffi_meta",
 ]
 

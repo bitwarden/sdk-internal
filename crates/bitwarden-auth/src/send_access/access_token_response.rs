@@ -59,6 +59,11 @@ impl From<reqwest::Error> for SendAccessTokenError {
         Self::Unexpected(UnexpectedIdentityError(format!("{value:?}")))
     }
 }
+impl From<reqwest_middleware::Error> for SendAccessTokenError {
+    fn from(value: reqwest_middleware::Error) -> Self {
+        Self::Unexpected(UnexpectedIdentityError(format!("{value:?}")))
+    }
+}
 
 /// Any unexpected error that occurs when making requests to identity. This could be
 /// local/transport/decoding failure from the HTTP client (DNS/TLS/connect/read timeout,
