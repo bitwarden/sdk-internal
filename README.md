@@ -250,7 +250,7 @@ versions. Here are the cli tools we use:
 - [rust clippy](https://github.com/rust-lang/rust-clippy)
 - [cargo dylint](https://github.com/trailofbits/dylint)
 - [cargo sort](https://github.com/DevinR528/cargo-sort)
-- [prettier](https://github.com/prettier/prettier)
+- [oxfmt](https://www.npmjs.com/package/oxfmt)
 
 ### Checks
 
@@ -263,7 +263,7 @@ cargo +nightly fmt --check
 cargo +nightly udeps --workspace --all-features
 cargo clippy --all-features --all-targets
 cargo dylint --all -- --all-features --all-targets
-cargo sort --workspace --grouped --check
+cargo sort --workspace --grouped --check --no-format
 npm run lint
 ```
 

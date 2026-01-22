@@ -15,7 +15,7 @@ indent_size = 2
 [*.ts]
 quote_type = double
 
-[*.rs]
+[*.{rs,toml}]
 indent_style = space
 indent_size = 4
 
