@@ -1,5 +1,5 @@
 ---
-category: feature
+category: features
 ---
 
 # Bitwarden SSH

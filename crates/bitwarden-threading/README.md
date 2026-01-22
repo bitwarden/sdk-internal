@@ -1,5 +1,5 @@
 ---
-category: foundation
+category: core
 ---
 
 # bitwarden-threading

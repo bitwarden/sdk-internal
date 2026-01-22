@@ -1,6 +1,6 @@
 ---
 description: Contains core functionality used by the feature crates.
-category: foundation
+category: core
 ---
 
 # Bitwarden Core

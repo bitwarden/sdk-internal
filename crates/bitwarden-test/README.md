@@ -1,5 +1,5 @@
 ---
-category: utility
+category: core
 ---
 
 # Bitwarden Test

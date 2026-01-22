@@ -1,5 +1,5 @@
 ---
-category: application
+category: applications
 ---
 
 # Bitwarden CLI (testing)

@@ -1,5 +1,5 @@
 ---
-category: feature
+category: applications
 ---
 
 # Bitwarden Password Manager

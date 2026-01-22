@@ -1,5 +1,5 @@
 ---
-category: bindings
+category: apis
 ---
 
 # Rust API client for bitwarden-api-identity
