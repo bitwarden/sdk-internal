@@ -51,6 +51,8 @@ pub enum CryptoClientError {
     InvalidKdfSettings,
     #[error(transparent)]
     PasswordProtectedKeyEnvelope(#[from] PasswordProtectedKeyEnvelopeError),
+    #[error("Invalid PRF input")]
+    InvalidPrfInput,
 }
 
 /// State used for initializing the user cryptographic state.
@@ -513,7 +515,8 @@ pub(super) fn make_prf_user_key_set(
     client: &Client,
     prf: B64,
 ) -> Result<RotateableKeySet, CryptoClientError> {
-    let prf_key = derive_symmetric_key_from_prf(prf.as_bytes())?;
+    let prf_key = derive_symmetric_key_from_prf(prf.as_bytes())
+        .map_err(|_| CryptoClientError::InvalidPrfInput)?;
     let ctx = client.internal.get_key_store().context();
     let key_set = RotateableKeySet::new(&ctx, &prf_key, SymmetricKeyId::User)?;
     Ok(key_set)
