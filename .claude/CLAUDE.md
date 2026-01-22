@@ -1,9 +1,16 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Bitwarden Internal SDK
 
 Cross-platform Rust SDK implementing Bitwarden's core business logic.
 
 **Rust Edition:** The SDK targets the
 [2024](https://doc.rust-lang.org/nightly/edition-guide/rust-2024/index.html) edition of Rust.
+
+**Rust Version:** Locked to 1.91.1 via `rust-toolchain.toml`. Nightly toolchain
+(nightly-2025-08-18) required for formatting and unused dependency checks.
 
 **Crate documentation**: Before working in any crate, read available documentation: `CLAUDE.md` for
 critical rules, `README.md` for architecture, `examples/` for usage patterns, and `tests/` for
@@ -104,22 +111,63 @@ Monorepo crates organized in **four architectural layers**:
 - TypeScript compilation tested against `clients` repo on PR
 - Document migration path for clients
 
+### Regenerating API Bindings
+
+**DO NOT manually edit** `bitwarden-api-api` or `bitwarden-api-identity` crates - they are
+auto-generated from OpenAPI specs.
+
+To regenerate API bindings:
+
+1. Generate swagger docs from the server repository:
+   ```bash
+   pwsh ./dev/generate_openapi_files.ps1
+   ```
+2. Run generation script from SDK root:
+   ```bash
+   ./support/build-api.sh
+   ```
+3. **Important**: Do NOT commit changes to `Cargo.toml` made by the generation process - revert
+   those changes before creating a PR
+
+The generation uses customized templates in `support/openapi-template/` to resolve known issues with
+the rust generator.
+
 ## Development Workflow
 
 **Build & Test:**
 
+- `cargo build` - Standard build
 - `cargo check --all-features --all-targets` - Quick validation
 - `cargo test --workspace --all-features` - Full test suite
+- `cargo nextest run --all-features` - Faster parallel test runner (requires separate installation:
+  `cargo install cargo-nextest --locked`)
+- Run tests for specific package: `cargo test -p bitwarden-crypto --all-features`
 
 **Format & Lint:**
 
-- `cargo +nightly fmt --workspace` - Code formatting
-- Use `cargo clippy` to lint code and catch common mistakes
+The repository requires strict formatting and linting before merging. Commands match CI checks:
+
+- `cargo +nightly fmt --workspace` - Code formatting (nightly required)
+- `cargo +nightly udeps --workspace --all-features` - Find unused dependencies (nightly required)
+- `cargo clippy --all-features --all-targets` - Lint for common mistakes (set `RUSTFLAGS="-D
+  warnings"` to fail on warnings)
+- `cargo dylint --all -- --all-features --all-targets` - Custom lints (requires separate
+  installation: `cargo install cargo-dylint --locked`)
+- `cargo sort --workspace --grouped --check` - Check dependency ordering (requires separate
+  installation: `cargo install cargo-sort`)
+- `npm run lint` - Run prettier checks on non-Rust files
+- `npm run prettier` - Auto-fix prettier formatting
 
 **WASM Testing:**
 
 - `cargo test --target wasm32-unknown-unknown --features wasm -p bitwarden-error -p bitwarden-threading -p bitwarden-uuid` -
   WASM-specific tests
+
+**Background Code Checking (Optional):**
+
+- Install bacon: `cargo install bacon --locked`
+- Run `bacon` in project root for continuous background checking
+- Run `bacon -l` to list available tasks (check, clippy, test, doc, etc.)
 
 ## References
 
