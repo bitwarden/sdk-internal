@@ -51,8 +51,11 @@ pub struct KeyProtectedKeyEnvelope {
 /// Identifies the type of key contained within a `KeyProtectedKeyEnvelope`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeyProtectedEnvelopeType {
+    /// A symmetric key is contained in the envelope.
     Symmetric,
+    /// A private key is contained in the envelope.
     Private,
+    /// A signing key is contained in the envelope.
     Signing,
 }
 
