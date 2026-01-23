@@ -10,7 +10,9 @@
 
 use std::sync::RwLock;
 
-use bitwarden_api_api::models::{AccountKeysRequestModel, SecurityStateModel};
+use bitwarden_api_api::models::{
+    AccountKeysRequestModel, ProfileResponseModel, SecurityStateModel,
+};
 use bitwarden_crypto::{
     CoseSerializable, CryptoError, EncString, KeyStore, KeyStoreContext,
     PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKey, SymmetricKeyAlgorithm,
@@ -29,6 +31,32 @@ use crate::{
         KeyIds, PrivateKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
     },
 };
+
+/// Error when parsing wrapped account cryptographic state from a profile response.
+#[derive(Debug, Error)]
+pub enum WrappedAccountCryptographicStateError {
+    /// The profile is missing the private key field.
+    #[error("Profile is missing private key")]
+    MissingPrivateKey,
+    /// Failed to parse the private key EncString.
+    #[error("Failed to parse private key")]
+    InvalidPrivateKey,
+    /// Failed to parse the signing key EncString.
+    #[error("Failed to parse signing key")]
+    InvalidSigningKey,
+    /// Failed to parse the signed public key.
+    #[error("Failed to parse signed public key")]
+    InvalidSignedPublicKey,
+    /// Failed to parse the security state.
+    #[error("Failed to parse security state")]
+    InvalidSecurityState,
+    /// V2 account is missing required signing key.
+    #[error("V2 account missing signing key")]
+    MissingSigningKey,
+    /// V2 account is missing required security state.
+    #[error("V2 account missing security state")]
+    MissingSecurityState,
+}
 
 /// Errors that can occur during initialization of the account cryptographic state.
 #[derive(Debug, Error)]
@@ -91,6 +119,72 @@ pub enum WrappedAccountCryptographicState {
         /// The user's signed security state.
         security_state: SignedSecurityState,
     },
+}
+
+impl TryFrom<&ProfileResponseModel> for WrappedAccountCryptographicState {
+    type Error = WrappedAccountCryptographicStateError;
+
+    fn try_from(profile: &ProfileResponseModel) -> Result<Self, Self::Error> {
+        // Check if this is a V2 user by looking for account_keys with signature_key_pair and
+        // security_state
+        if let Some(account_keys) = &profile.account_keys {
+            if let Some(signature_key_pair) = &account_keys.signature_key_pair {
+                if let Some(wrapped_signing_key) = &signature_key_pair.wrapped_signing_key {
+                    // This is a V2 user - must have signing key and security state
+                    let signing_key = wrapped_signing_key
+                        .parse()
+                        .map_err(|_| WrappedAccountCryptographicStateError::InvalidSigningKey)?;
+
+                    // Get private key - prefer from account_keys, fall back to profile.private_key
+                    let private_key = account_keys
+                        .public_key_encryption_key_pair
+                        .wrapped_private_key
+                        .as_ref()
+                        .or(profile.private_key.as_ref())
+                        .ok_or(WrappedAccountCryptographicStateError::MissingPrivateKey)?
+                        .parse()
+                        .map_err(|_| WrappedAccountCryptographicStateError::InvalidPrivateKey)?;
+
+                    // Get signed public key (optional for backwards compatibility)
+                    let signed_public_key = account_keys
+                        .public_key_encryption_key_pair
+                        .signed_public_key
+                        .as_ref()
+                        .map(|spk| spk.parse())
+                        .transpose()
+                        .map_err(|_| {
+                            WrappedAccountCryptographicStateError::InvalidSignedPublicKey
+                        })?;
+
+                    // Get security state (required for V2)
+                    let security_state = account_keys
+                        .security_state
+                        .as_ref()
+                        .and_then(|ss| ss.security_state.as_ref())
+                        .ok_or(WrappedAccountCryptographicStateError::MissingSecurityState)?
+                        .parse()
+                        .map_err(|_| WrappedAccountCryptographicStateError::InvalidSecurityState)?;
+
+                    return Ok(WrappedAccountCryptographicState::V2 {
+                        private_key,
+                        signed_public_key,
+                        signing_key,
+                        security_state,
+                    });
+                }
+            }
+        }
+
+        // V1 user - only has private key
+        let private_key = profile
+            .private_key
+            .as_ref()
+            .ok_or(WrappedAccountCryptographicStateError::MissingPrivateKey)?
+            .parse()
+            .map_err(|_| WrappedAccountCryptographicStateError::InvalidPrivateKey)?;
+
+        Ok(WrappedAccountCryptographicState::V1 { private_key })
+    }
 }
 
 impl WrappedAccountCryptographicState {

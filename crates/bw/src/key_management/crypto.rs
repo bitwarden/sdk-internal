@@ -73,47 +73,8 @@ pub fn extract_from_sync(sync: &SyncResponseModel) -> Option<PersistedCryptoStat
         .and_then(|mpu| MasterPasswordUnlockData::try_from(mpu.as_ref()).ok());
 
     // Extract wrapped account cryptographic state from profile
-    let wrapped_account_cryptographic_state = profile
-        .private_key
-        .as_ref()
-        .and_then(|pk_str| pk_str.parse().ok())
-        .map(|private_key| {
-            // Check if this is a V2 user by looking for account_keys
-            if let Some(account_keys) = &profile.account_keys {
-                // V2 user - has signing key and security state
-                if let Some(signature_key_pair) = &account_keys.signature_key_pair {
-                    if let Some(signing_key_str) = &signature_key_pair.wrapped_signing_key {
-                        if let Ok(signing_key) = signing_key_str.parse() {
-                            // Get signed public key from public_key_encryption_key_pair
-                            let signed_public_key = account_keys
-                                .public_key_encryption_key_pair
-                                .signed_public_key
-                                .as_ref()
-                                .and_then(|spk_str| spk_str.parse().ok());
-
-                            // Get security state
-                            if let Some(security_state_model) = &account_keys.security_state {
-                                if let Some(security_state_str) =
-                                    &security_state_model.security_state
-                                {
-                                    if let Ok(security_state) = security_state_str.parse() {
-                                        return WrappedAccountCryptographicState::V2 {
-                                            private_key,
-                                            signed_public_key,
-                                            signing_key,
-                                            security_state,
-                                        };
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // V1 user - only has private key
-            WrappedAccountCryptographicState::V1 { private_key }
-        });
+    let wrapped_account_cryptographic_state =
+        WrappedAccountCryptographicState::try_from(profile.as_ref()).ok();
 
     // Return Some only if we have at least one field
     if master_password_unlock.is_some() || wrapped_account_cryptographic_state.is_some() {
