@@ -69,10 +69,7 @@ reqwest = { version = ">=0.12.5, <0.13", features = [
     "multipart",
     "http2",
 ], default-features = false }
-reqwest-middleware = { version = ">=0.4.2, <0.5", features = [
-    "json",
-    "multipart",
-] }
+reqwest-middleware = { version = ">=0.4.2, <0.5", features = ["json", "multipart"] }
 rsa = ">=0.9.2, <0.10"
 schemars = { version = ">=1.0.0, <2.0", features = ["uuid1", "chrono04"] }
 serde = { version = ">=1.0, <2.0", features = ["derive"] }
