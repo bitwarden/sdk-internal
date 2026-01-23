@@ -9,23 +9,30 @@ use rand::{
 };
 use zeroize::{Zeroize, Zeroizing};
 
-use crate::{CryptoError, Result};
+use crate::Result;
 
 pub(crate) type PbkdfSha256Hmac = hmac::Hmac<sha2::Sha256>;
 pub(crate) const PBKDF_SHA256_HMAC_OUT_SIZE: usize =
     <<PbkdfSha256Hmac as OutputSizeUser>::OutputSize as Unsigned>::USIZE;
 
+#[derive(Debug)]
+pub(crate) enum HkdfExpandError {
+    InvalidInputLegth,
+    InvalidOutputLength,
+}
+
 /// [RFC5869](https://datatracker.ietf.org/doc/html/rfc5869) HKDF-Expand operation
 pub(crate) fn hkdf_expand<T: ArrayLength<u8>>(
     prk: &[u8],
     info: Option<&str>,
-) -> Result<Pin<Box<GenericArray<u8, T>>>> {
-    let hkdf = hkdf::Hkdf::<sha2::Sha256>::from_prk(prk).map_err(|_| CryptoError::InvalidKeyLen)?;
+) -> Result<Pin<Box<GenericArray<u8, T>>>, HkdfExpandError> {
+    let hkdf = hkdf::Hkdf::<sha2::Sha256>::from_prk(prk)
+        .map_err(|_| HkdfExpandError::InvalidInputLegth)?;
     let mut key = Box::<GenericArray<u8, T>>::default();
 
     let i = info.map(|i| i.as_bytes()).unwrap_or(&[]);
     hkdf.expand(i, &mut key)
-        .map_err(|_| CryptoError::InvalidKeyLen)?;
+        .map_err(|_| HkdfExpandError::InvalidOutputLength)?;
 
     Ok(Box::into_pin(key))
 }
@@ -77,5 +84,33 @@ mod tests {
         ];
 
         assert_eq!(result.as_slice(), expected_output);
+    }
+
+    #[test]
+    fn test_hkdf_expand_invalid_input_length() {
+        // PRK must be at least HashLen (32 bytes for SHA-256), using a too-short key
+        let prk = &[1, 2, 3, 4, 5];
+        let info = Some("info");
+
+        let result: Result<Pin<Box<GenericArray<u8, U64>>>, HkdfExpandError> =
+            hkdf_expand(prk, info);
+
+        assert!(matches!(result, Err(HkdfExpandError::InvalidInputLegth)));
+    }
+
+    #[test]
+    fn test_hkdf_expand_invalid_output_length() {
+        let prk = &[
+            23, 152, 120, 41, 214, 16, 156, 133, 71, 226, 178, 135, 208, 255, 66, 101, 189, 70,
+            173, 30, 39, 215, 175, 236, 38, 180, 180, 62, 196, 4, 159, 70,
+        ];
+        let info = Some("info");
+
+        // HKDF-SHA256 can produce at most 255 * 32 = 8160 bytes, requesting more should fail
+        type TooLarge = typenum::U8192;
+        let result: Result<Pin<Box<GenericArray<u8, TooLarge>>>, HkdfExpandError> =
+            hkdf_expand(prk, info);
+
+        assert!(matches!(result, Err(HkdfExpandError::InvalidOutputLength)));
     }
 }

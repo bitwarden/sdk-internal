@@ -243,6 +243,7 @@ impl From<ImportingCipher> for CipherView {
             view_password: true,
             local_data: None,
             attachments: None,
+            attachment_decryption_failures: None,
             fields: {
                 let fields: Vec<FieldView> = value.fields.into_iter().map(Into::into).collect();
                 if fields.is_empty() {

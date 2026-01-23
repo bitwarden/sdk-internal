@@ -7,7 +7,7 @@ use bitwarden_encoding::B64;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{MissingPrivateKeyError, key_management::AsymmetricKeyId};
+use crate::{MissingPrivateKeyError, key_management::PrivateKeyId};
 
 /// Request to generate a fingerprint.
 #[derive(Serialize, Deserialize, Debug)]
@@ -66,7 +66,7 @@ pub(crate) fn generate_user_fingerprint(
     // FIXME: [PM-18110] This should be removed once the key store can handle public keys and
     // fingerprints
     #[allow(deprecated)]
-    let private_key = ctx.dangerous_get_asymmetric_key(AsymmetricKeyId::UserPrivateKey)?;
+    let private_key = ctx.dangerous_get_private_key(PrivateKeyId::UserPrivateKey)?;
 
     let public_key = private_key.to_public_key().to_der()?;
     let fingerprint = fingerprint(&fingerprint_material, &public_key)?;
@@ -78,11 +78,14 @@ pub(crate) fn generate_user_fingerprint(
 mod tests {
     use std::num::NonZeroU32;
 
-    use bitwarden_crypto::{Kdf, MasterKey};
+    use bitwarden_crypto::Kdf;
 
     use super::*;
     use crate::{
-        Client, key_management::account_cryptographic_state::WrappedAccountCryptographicState,
+        Client,
+        key_management::{
+            MasterPasswordUnlockData, account_cryptographic_state::WrappedAccountCryptographicState,
+        },
     };
 
     #[test]
@@ -93,20 +96,17 @@ mod tests {
 
         let client = Client::new(None);
 
-        let master_key = MasterKey::derive(
-            "asdfasdfasdf",
-            "robb@stark.com",
-            &Kdf::PBKDF2 {
-                iterations: NonZeroU32::new(600_000).unwrap(),
-            },
-        )
-        .unwrap();
-
         client
             .internal
-            .initialize_user_crypto_master_key(
-                master_key,
-                user_key.parse().unwrap(),
+            .initialize_user_crypto_master_password_unlock(
+                "asdfasdfasdf".to_string(),
+                MasterPasswordUnlockData {
+                    kdf: Kdf::PBKDF2 {
+                        iterations: NonZeroU32::new(600_000).unwrap(),
+                    },
+                    master_key_wrapped_user_key: user_key.parse().unwrap(),
+                    salt: "robb@stark.com".to_string(),
+                },
                 WrappedAccountCryptographicState::V1 {
                     private_key: private_key.parse().unwrap(),
                 },

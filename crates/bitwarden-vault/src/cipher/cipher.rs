@@ -1,13 +1,10 @@
-use bitwarden_api_api::{
-    apis::ciphers_api::{PutShareError, PutShareManyError},
-    models::{
-        CipherDetailsResponseModel, CipherRequestModel, CipherResponseModel,
-        CipherWithIdRequestModel,
-    },
+use bitwarden_api_api::models::{
+    CipherDetailsResponseModel, CipherMiniDetailsResponseModel, CipherMiniResponseModel,
+    CipherRequestModel, CipherResponseModel, CipherWithIdRequestModel,
 };
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
-    MissingFieldError, OrganizationId, UserId,
+    ApiError, MissingFieldError, OrganizationId, UserId,
     key_management::{KeyIds, MINIMUM_ENFORCE_ICON_URI_HASH_VERSION, SymmetricKeyId},
     require,
 };
@@ -64,15 +61,19 @@ pub enum CipherError {
     #[error("This cipher cannot be moved to the specified organization")]
     OrganizationAlreadySet,
     #[error(transparent)]
-    PutShare(#[from] bitwarden_api_api::apis::Error<PutShareError>),
-    #[error(transparent)]
-    PutShareMany(#[from] bitwarden_api_api::apis::Error<PutShareManyError>),
-    #[error(transparent)]
     Repository(#[from] RepositoryError),
     #[error(transparent)]
     Chrono(#[from] chrono::ParseError),
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
+    #[error(transparent)]
+    Api(#[from] ApiError),
+}
+
+impl<T> From<bitwarden_api_api::apis::Error<T>> for CipherError {
+    fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
+        Self::Api(value.into())
+    }
 }
 
 /// Helper trait for operations on cipher types.
@@ -344,9 +345,11 @@ pub struct CipherView {
     pub local_data: Option<LocalDataView>,
 
     pub attachments: Option<Vec<attachment::AttachmentView>>,
+    /// Attachments that failed to decrypt. Only present when there are decryption failures.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attachment_decryption_failures: Option<Vec<attachment::AttachmentView>>,
     pub fields: Option<Vec<field::FieldView>>,
     pub password_history: Option<Vec<password_history::PasswordHistoryView>>,
-
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
@@ -521,6 +524,14 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
     ) -> Result<CipherView, CryptoError> {
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
+        // Separate successful and failed attachment decryptions
+        let (attachments, attachment_decryption_failures) =
+            attachment::decrypt_attachments_with_failures(
+                self.attachments.as_deref().unwrap_or_default(),
+                ctx,
+                ciphers_key,
+            );
+
         let mut cipher = CipherView {
             id: self.id,
             organization_id: self.organization_id,
@@ -542,7 +553,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
             permissions: self.permissions,
             view_password: self.view_password,
             local_data: self.local_data.decrypt(ctx, ciphers_key).ok().flatten(),
-            attachments: self.attachments.decrypt(ctx, ciphers_key).ok().flatten(),
+            attachments: Some(attachments),
+            attachment_decryption_failures: Some(attachment_decryption_failures),
             fields: self.fields.decrypt(ctx, ciphers_key).ok().flatten(),
             password_history: self
                 .password_history
@@ -638,6 +650,11 @@ impl Cipher {
             crate::CipherType::SshKey => self.ssh_key = serde_json::from_str(data)?,
         }
         Ok(())
+    }
+
+    /// Marks the cipher as soft deleted by setting `deletion_date` to now.
+    pub(crate) fn soft_delete(&mut self) {
+        self.deleted_date = Some(Utc::now());
     }
 }
 impl CipherView {
@@ -973,6 +990,15 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
     }
 }
 
+impl PartialCipher for CipherDetailsResponseModel {
+    fn merge_with_cipher(self, cipher: Option<Cipher>) -> Result<Cipher, VaultParseError> {
+        Ok(Cipher {
+            local_data: cipher.and_then(|c| c.local_data),
+            ..self.try_into()?
+        })
+    }
+}
+
 impl From<bitwarden_api_api::models::CipherType> for CipherType {
     fn from(t: bitwarden_api_api::models::CipherType) -> Self {
         match t {
@@ -992,6 +1018,13 @@ impl From<bitwarden_api_api::models::CipherRepromptType> for CipherRepromptType 
             bitwarden_api_api::models::CipherRepromptType::Password => CipherRepromptType::Password,
         }
     }
+}
+
+/// A trait for merging partial cipher data into a full cipher.
+/// Used to convert from API response models to full Cipher structs,
+/// without losing local data that may not be present in the API response.
+pub(crate) trait PartialCipher {
+    fn merge_with_cipher(self, cipher: Option<Cipher>) -> Result<Cipher, VaultParseError>;
 }
 
 impl From<CipherType> for bitwarden_api_api::models::CipherType {
@@ -1064,6 +1097,123 @@ impl TryFrom<CipherResponseModel> for Cipher {
     }
 }
 
+impl PartialCipher for CipherMiniResponseModel {
+    fn merge_with_cipher(self, cipher: Option<Cipher>) -> Result<Cipher, VaultParseError> {
+        let cipher = cipher.as_ref();
+        Ok(Cipher {
+            id: self.id.map(CipherId::new),
+            organization_id: self.organization_id.map(OrganizationId::new),
+            key: EncString::try_from_optional(self.key)?,
+            name: require!(EncString::try_from_optional(self.name)?),
+            notes: EncString::try_from_optional(self.notes)?,
+            r#type: require!(self.r#type).into(),
+            login: self.login.map(|l| (*l).try_into()).transpose()?,
+            identity: self.identity.map(|i| (*i).try_into()).transpose()?,
+            card: self.card.map(|c| (*c).try_into()).transpose()?,
+            secure_note: self.secure_note.map(|s| (*s).try_into()).transpose()?,
+            ssh_key: self.ssh_key.map(|s| (*s).try_into()).transpose()?,
+            reprompt: self
+                .reprompt
+                .map(|r| r.into())
+                .unwrap_or(CipherRepromptType::None),
+            organization_use_totp: self.organization_use_totp.unwrap_or(true),
+            attachments: self
+                .attachments
+                .map(|a| a.into_iter().map(|a| a.try_into()).collect())
+                .transpose()?,
+            fields: self
+                .fields
+                .map(|f| f.into_iter().map(|f| f.try_into()).collect())
+                .transpose()?,
+            password_history: self
+                .password_history
+                .map(|p| p.into_iter().map(|p| p.try_into()).collect())
+                .transpose()?,
+            creation_date: require!(self.creation_date)
+                .parse()
+                .map_err(Into::<VaultParseError>::into)?,
+            deleted_date: self
+                .deleted_date
+                .map(|d| d.parse())
+                .transpose()
+                .map_err(Into::<VaultParseError>::into)?,
+            revision_date: require!(self.revision_date)
+                .parse()
+                .map_err(Into::<VaultParseError>::into)?,
+            archived_date: cipher.map_or(Default::default(), |c| c.archived_date),
+            folder_id: cipher.map_or(Default::default(), |c| c.folder_id),
+            favorite: cipher.map_or(Default::default(), |c| c.favorite),
+            edit: cipher.map_or(Default::default(), |c| c.edit),
+            permissions: cipher.map_or(Default::default(), |c| c.permissions),
+            view_password: cipher.map_or(Default::default(), |c| c.view_password),
+            local_data: cipher.map_or(Default::default(), |c| c.local_data.clone()),
+            data: cipher.map_or(Default::default(), |c| c.data.clone()),
+            collection_ids: cipher.map_or(Default::default(), |c| c.collection_ids.clone()),
+        })
+    }
+}
+
+impl PartialCipher for CipherMiniDetailsResponseModel {
+    fn merge_with_cipher(self, cipher: Option<Cipher>) -> Result<Cipher, VaultParseError> {
+        let cipher = cipher.as_ref();
+        Ok(Cipher {
+            id: self.id.map(CipherId::new),
+            organization_id: self.organization_id.map(OrganizationId::new),
+            key: EncString::try_from_optional(self.key)?,
+            name: require!(EncString::try_from_optional(self.name)?),
+            notes: EncString::try_from_optional(self.notes)?,
+            r#type: require!(self.r#type).into(),
+            login: self.login.map(|l| (*l).try_into()).transpose()?,
+            identity: self.identity.map(|i| (*i).try_into()).transpose()?,
+            card: self.card.map(|c| (*c).try_into()).transpose()?,
+            secure_note: self.secure_note.map(|s| (*s).try_into()).transpose()?,
+            ssh_key: self.ssh_key.map(|s| (*s).try_into()).transpose()?,
+            reprompt: self
+                .reprompt
+                .map(|r| r.into())
+                .unwrap_or(CipherRepromptType::None),
+            organization_use_totp: self.organization_use_totp.unwrap_or(true),
+            attachments: self
+                .attachments
+                .map(|a| a.into_iter().map(|a| a.try_into()).collect())
+                .transpose()?,
+            fields: self
+                .fields
+                .map(|f| f.into_iter().map(|f| f.try_into()).collect())
+                .transpose()?,
+            password_history: self
+                .password_history
+                .map(|p| p.into_iter().map(|p| p.try_into()).collect())
+                .transpose()?,
+            creation_date: require!(self.creation_date)
+                .parse()
+                .map_err(Into::<VaultParseError>::into)?,
+            deleted_date: self
+                .deleted_date
+                .map(|d| d.parse())
+                .transpose()
+                .map_err(Into::<VaultParseError>::into)?,
+            revision_date: require!(self.revision_date)
+                .parse()
+                .map_err(Into::<VaultParseError>::into)?,
+            collection_ids: self
+                .collection_ids
+                .into_iter()
+                .flatten()
+                .map(CollectionId::new)
+                .collect(),
+            archived_date: cipher.map_or(Default::default(), |c| c.archived_date),
+            folder_id: cipher.map_or(Default::default(), |c| c.folder_id),
+            favorite: cipher.map_or(Default::default(), |c| c.favorite),
+            edit: cipher.map_or(Default::default(), |c| c.edit),
+            permissions: cipher.map_or(Default::default(), |c| c.permissions),
+            view_password: cipher.map_or(Default::default(), |c| c.view_password),
+            data: cipher.map_or(Default::default(), |c| c.data.clone()),
+            local_data: cipher.map_or(Default::default(), |c| c.local_data.clone()),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -1117,6 +1267,7 @@ mod tests {
             view_password: true,
             local_data: None,
             attachments: None,
+            attachment_decryption_failures: None,
             fields: None,
             password_history: None,
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
@@ -2118,5 +2269,103 @@ mod tests {
         let result = cipher.populate_cipher_types();
 
         assert!(matches!(result, Err(VaultParseError::SerdeJson(_))));
+    }
+
+    #[test]
+    fn test_decrypt_cipher_with_mixed_attachments() {
+        let user_key: SymmetricCryptoKey = "w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string().try_into().unwrap();
+        let key_store = create_test_crypto_with_user_key(user_key);
+
+        // Create properly encrypted attachments
+        let mut ctx = key_store.context();
+        let valid1 = "valid_file_1.txt"
+            .encrypt(&mut ctx, SymmetricKeyId::User)
+            .unwrap();
+        let valid2 = "valid_file_2.txt"
+            .encrypt(&mut ctx, SymmetricKeyId::User)
+            .unwrap();
+
+        // Create corrupted attachment by encrypting with a random different key
+        let wrong_key: SymmetricCryptoKey = "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQQ==".to_string().try_into().unwrap();
+        let wrong_key_store = create_test_crypto_with_user_key(wrong_key);
+        let mut wrong_ctx = wrong_key_store.context();
+        let corrupted = "corrupted_file.txt"
+            .encrypt(&mut wrong_ctx, SymmetricKeyId::User)
+            .unwrap();
+
+        let cipher = Cipher {
+            id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            key: None,
+            name: TEST_CIPHER_NAME.parse().unwrap(),
+            notes: None,
+            r#type: CipherType::Login,
+            login: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: false,
+            edit: true,
+            permissions: None,
+            view_password: true,
+            local_data: None,
+            attachments: Some(vec![
+                // Valid attachment
+                attachment::Attachment {
+                    id: Some("valid-attachment".to_string()),
+                    url: Some("https://example.com/valid".to_string()),
+                    size: Some("100".to_string()),
+                    size_name: Some("100 Bytes".to_string()),
+                    file_name: Some(valid1),
+                    key: None,
+                },
+                // Corrupted attachment
+                attachment::Attachment {
+                    id: Some("corrupted-attachment".to_string()),
+                    url: Some("https://example.com/corrupted".to_string()),
+                    size: Some("200".to_string()),
+                    size_name: Some("200 Bytes".to_string()),
+                    file_name: Some(corrupted),
+                    key: None,
+                },
+                // Another valid attachment
+                attachment::Attachment {
+                    id: Some("valid-attachment-2".to_string()),
+                    url: Some("https://example.com/valid2".to_string()),
+                    size: Some("150".to_string()),
+                    size_name: Some("150 Bytes".to_string()),
+                    file_name: Some(valid2),
+                    key: None,
+                },
+            ]),
+            fields: None,
+            password_history: None,
+            creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
+            data: None,
+        };
+
+        let view: CipherView = key_store.decrypt(&cipher).unwrap();
+
+        // Should have 2 successful attachments
+        assert!(view.attachments.is_some());
+        let successes = view.attachments.as_ref().unwrap();
+        assert_eq!(successes.len(), 2);
+        assert_eq!(successes[0].id, Some("valid-attachment".to_string()));
+        assert_eq!(successes[1].id, Some("valid-attachment-2".to_string()));
+
+        // Should have 1 failed attachment
+        assert!(view.attachment_decryption_failures.is_some());
+        let failures = view.attachment_decryption_failures.as_ref().unwrap();
+        assert_eq!(failures.len(), 1);
+        assert_eq!(failures[0].id, Some("corrupted-attachment".to_string()));
+        assert_eq!(failures[0].file_name, None);
     }
 }
