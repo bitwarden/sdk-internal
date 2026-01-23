@@ -12,7 +12,7 @@
 use bitwarden_crypto::{
     CoseSerializable, KeyStore, KeyStoreContext, PublicKeyEncryptionAlgorithm, SignatureAlgorithm,
     SymmetricKeyAlgorithm, key_ids,
-    safe::{KeyProtectedKeyEnvelope, KeyProtectedKeyEnvelopeError},
+    safe::{KeyProtectedKeyEnvelope, KeyProtectedKeyEnvelopeNamespace},
 };
 
 fn main() {
@@ -28,7 +28,7 @@ fn main() {
 
     // Seal the vault key with the wrapping key
     // This uses direct encryption with XChaCha20-Poly1305
-    let envelope = KeyProtectedKeyEnvelope::seal_symmetric(vault_key, wrapping_key, &ctx)
+    let envelope = KeyProtectedKeyEnvelope::seal_symmetric(vault_key, wrapping_key, KeyProtectedKeyEnvelopeNamespace::DeviceProtectedKey, &ctx)
         .expect("Sealing should work");
 
     // Persist the envelope to disk
@@ -42,7 +42,7 @@ fn main() {
     .expect("Deserializing envelope should work");
 
     let unsealed_vault_key = deserialized
-        .unseal_symmetric(wrapping_key, &mut ctx)
+        .unseal_symmetric(wrapping_key, KeyProtectedKeyEnvelopeNamespace::DeviceProtectedKey, &mut ctx)
         .expect("Unsealing should work");
 
     assert_symmetric_keys_equal(&ctx, unsealed_vault_key, vault_key);
@@ -51,7 +51,7 @@ fn main() {
     let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
     // Seal the private key with the wrapping key (reusing from scenario 1)
-    let envelope = KeyProtectedKeyEnvelope::seal_private(private_key, wrapping_key, &ctx)
+    let envelope = KeyProtectedKeyEnvelope::seal_private(private_key, wrapping_key, KeyProtectedKeyEnvelopeNamespace::DeviceProtectedKey, &ctx)
         .expect("Sealing should work");
 
     disk.save("private_key_envelope", (&envelope).into());
@@ -64,7 +64,7 @@ fn main() {
     .expect("Deserializing envelope should work");
 
     let unsealed_private_key = deserialized
-        .unseal_private(wrapping_key, &mut ctx)
+        .unseal_private(wrapping_key, KeyProtectedKeyEnvelopeNamespace::DeviceProtectedKey, &mut ctx)
         .expect("Unsealing should work");
 
     assert_private_keys_equal(&ctx, unsealed_private_key, private_key);
@@ -73,7 +73,7 @@ fn main() {
     let signing_key = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
 
     // Seal the signing key with the wrapping key (reusing from scenario 1)
-    let envelope = KeyProtectedKeyEnvelope::seal_signing(signing_key, wrapping_key, &ctx)
+    let envelope = KeyProtectedKeyEnvelope::seal_signing(signing_key, wrapping_key, KeyProtectedKeyEnvelopeNamespace::DeviceProtectedKey, &ctx)
         .expect("Sealing should work");
 
     disk.save("signing_key_envelope", (&envelope).into());
@@ -86,7 +86,7 @@ fn main() {
     .expect("Deserializing envelope should work");
 
     let unsealed_signing_key = deserialized
-        .unseal_signing(wrapping_key, &mut ctx)
+        .unseal_signing(wrapping_key, KeyProtectedKeyEnvelopeNamespace::DeviceProtectedKey, &mut ctx)
         .expect("Unsealing should work");
 
     assert_signing_keys_equal(&ctx, unsealed_signing_key, signing_key);

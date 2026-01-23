@@ -30,11 +30,14 @@ use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, EncodedSymmetricKey, KeyIds,
     KeyStoreContext, Pkcs8PrivateKeyBytes, PrivateKey, SigningKey, SymmetricCryptoKey,
     cose::{
-        CoseSerializable, KEY_PROTECTED_KEY_TYPE, KEY_PROTECTED_KEY_TYPE_PRIVATE,
-        KEY_PROTECTED_KEY_TYPE_SIGNING, KEY_PROTECTED_KEY_TYPE_SYMMETRIC,
+        CoseSerializable, KEY_PROTECTED_KEY_ENVELOPE_NAMESPACE, KEY_PROTECTED_KEY_TYPE,
+        KEY_PROTECTED_KEY_TYPE_PRIVATE, KEY_PROTECTED_KEY_TYPE_SIGNING,
+        KEY_PROTECTED_KEY_TYPE_SYMMETRIC,
     },
     xchacha20,
 };
+
+use super::KeyProtectedKeyEnvelopeNamespace;
 
 /// A key-protected key envelope can seal a cryptographic key and protect it with a symmetric key
 /// from the key store. This does not use a Key Derivation Function (KDF), and is suitable for
@@ -85,6 +88,7 @@ impl KeyProtectedKeyEnvelope {
     pub fn seal_symmetric<Ids: KeyIds>(
         key_to_seal: Ids::Symmetric,
         wrapping_key: Ids::Symmetric,
+        namespace: KeyProtectedKeyEnvelopeNamespace,
         ctx: &KeyStoreContext<Ids>,
     ) -> Result<Self, KeyProtectedKeyEnvelopeError> {
         #[allow(deprecated)]
@@ -97,12 +101,13 @@ impl KeyProtectedKeyEnvelope {
             .dangerous_get_symmetric_key(wrapping_key)
             .map_err(|_| KeyProtectedKeyEnvelopeError::KeyMissing)?;
 
-        Self::seal_symmetric_ref(key_to_seal_ref, wrapping_key_ref)
+        Self::seal_symmetric_ref(key_to_seal_ref, wrapping_key_ref, namespace)
     }
 
     fn seal_symmetric_ref(
         key_to_seal: &SymmetricCryptoKey,
         wrapping_key: &SymmetricCryptoKey,
+        namespace: KeyProtectedKeyEnvelopeNamespace,
     ) -> Result<Self, KeyProtectedKeyEnvelopeError> {
         let (content_format, key_to_seal_bytes) = match key_to_seal.to_encoded_raw() {
             EncodedSymmetricKey::BitwardenLegacyKey(key_bytes) => {
@@ -116,6 +121,7 @@ impl KeyProtectedKeyEnvelope {
             content_format,
             wrapping_key,
             KeyProtectedEnvelopeType::Symmetric,
+            namespace,
         )
     }
 
@@ -124,6 +130,7 @@ impl KeyProtectedKeyEnvelope {
     pub fn unseal_symmetric<Ids: KeyIds>(
         &self,
         wrapping_key: Ids::Symmetric,
+        namespace: KeyProtectedKeyEnvelopeNamespace,
         ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<Ids::Symmetric, KeyProtectedKeyEnvelopeError> {
         #[allow(deprecated)]
@@ -131,15 +138,16 @@ impl KeyProtectedKeyEnvelope {
             .dangerous_get_symmetric_key(wrapping_key)
             .map_err(|_| KeyProtectedKeyEnvelopeError::KeyMissing)?;
 
-        let key = self.unseal_symmetric_ref(wrapping_key_ref)?;
+        let key = self.unseal_symmetric_ref(wrapping_key_ref, namespace)?;
         Ok(ctx.add_local_symmetric_key(key))
     }
 
     fn unseal_symmetric_ref(
         &self,
         wrapping_key: &SymmetricCryptoKey,
+        namespace: KeyProtectedKeyEnvelopeNamespace,
     ) -> Result<SymmetricCryptoKey, KeyProtectedKeyEnvelopeError> {
-        let (key_bytes, content_format, envelope_type) = self.unseal_ref_internal(wrapping_key)?;
+        let (key_bytes, content_format, envelope_type) = self.unseal_ref_internal(wrapping_key, namespace)?;
 
         if envelope_type != KeyProtectedEnvelopeType::Symmetric {
             return Err(KeyProtectedKeyEnvelopeError::WrongKeyType);
@@ -165,6 +173,7 @@ impl KeyProtectedKeyEnvelope {
     pub fn seal_private<Ids: KeyIds>(
         key_to_seal: Ids::Private,
         wrapping_key: Ids::Symmetric,
+        namespace: KeyProtectedKeyEnvelopeNamespace,
         ctx: &KeyStoreContext<Ids>,
     ) -> Result<Self, KeyProtectedKeyEnvelopeError> {
         #[allow(deprecated)]
@@ -177,12 +186,13 @@ impl KeyProtectedKeyEnvelope {
             .dangerous_get_symmetric_key(wrapping_key)
             .map_err(|_| KeyProtectedKeyEnvelopeError::KeyMissing)?;
 
-        Self::seal_private_ref(key_to_seal_ref, wrapping_key_ref)
+        Self::seal_private_ref(key_to_seal_ref, wrapping_key_ref, namespace)
     }
 
     fn seal_private_ref(
         key_to_seal: &PrivateKey,
         wrapping_key: &SymmetricCryptoKey,
+        namespace: KeyProtectedKeyEnvelopeNamespace,
     ) -> Result<Self, KeyProtectedKeyEnvelopeError> {
         let key_to_seal_bytes = key_to_seal.to_der().map_err(|_| {
             KeyProtectedKeyEnvelopeError::Parsing("Failed to encode private key".to_string())
@@ -193,6 +203,7 @@ impl KeyProtectedKeyEnvelope {
             ContentFormat::Pkcs8PrivateKey,
             wrapping_key,
             KeyProtectedEnvelopeType::Private,
+            namespace,
         )
     }
 
@@ -201,6 +212,7 @@ impl KeyProtectedKeyEnvelope {
     pub fn unseal_private<Ids: KeyIds>(
         &self,
         wrapping_key: Ids::Symmetric,
+        namespace: KeyProtectedKeyEnvelopeNamespace,
         ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<Ids::Private, KeyProtectedKeyEnvelopeError> {
         #[allow(deprecated)]
@@ -208,15 +220,16 @@ impl KeyProtectedKeyEnvelope {
             .dangerous_get_symmetric_key(wrapping_key)
             .map_err(|_| KeyProtectedKeyEnvelopeError::KeyMissing)?;
 
-        let key = self.unseal_private_ref(wrapping_key_ref)?;
+        let key = self.unseal_private_ref(wrapping_key_ref, namespace)?;
         Ok(ctx.add_local_private_key(key))
     }
 
     fn unseal_private_ref(
         &self,
         wrapping_key: &SymmetricCryptoKey,
+        namespace: KeyProtectedKeyEnvelopeNamespace,
     ) -> Result<PrivateKey, KeyProtectedKeyEnvelopeError> {
-        let (key_bytes, content_format, envelope_type) = self.unseal_ref_internal(wrapping_key)?;
+        let (key_bytes, content_format, envelope_type) = self.unseal_ref_internal(wrapping_key, namespace)?;
 
         if envelope_type != KeyProtectedEnvelopeType::Private {
             return Err(KeyProtectedKeyEnvelopeError::WrongKeyType);
@@ -237,6 +250,7 @@ impl KeyProtectedKeyEnvelope {
     pub fn seal_signing<Ids: KeyIds>(
         key_to_seal: Ids::Signing,
         wrapping_key: Ids::Symmetric,
+        namespace: KeyProtectedKeyEnvelopeNamespace,
         ctx: &KeyStoreContext<Ids>,
     ) -> Result<Self, KeyProtectedKeyEnvelopeError> {
         #[allow(deprecated)]
@@ -249,12 +263,13 @@ impl KeyProtectedKeyEnvelope {
             .dangerous_get_symmetric_key(wrapping_key)
             .map_err(|_| KeyProtectedKeyEnvelopeError::KeyMissing)?;
 
-        Self::seal_signing_ref(key_to_seal_ref, wrapping_key_ref)
+        Self::seal_signing_ref(key_to_seal_ref, wrapping_key_ref, namespace)
     }
 
     fn seal_signing_ref(
         key_to_seal: &SigningKey,
         wrapping_key: &SymmetricCryptoKey,
+        namespace: KeyProtectedKeyEnvelopeNamespace,
     ) -> Result<Self, KeyProtectedKeyEnvelopeError> {
         let key_to_seal_bytes = key_to_seal.to_cose();
 
@@ -263,6 +278,7 @@ impl KeyProtectedKeyEnvelope {
             ContentFormat::CoseKey,
             wrapping_key,
             KeyProtectedEnvelopeType::Signing,
+            namespace,
         )
     }
 
@@ -271,6 +287,7 @@ impl KeyProtectedKeyEnvelope {
     pub fn unseal_signing<Ids: KeyIds>(
         &self,
         wrapping_key: Ids::Symmetric,
+        namespace: KeyProtectedKeyEnvelopeNamespace,
         ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<Ids::Signing, KeyProtectedKeyEnvelopeError> {
         #[allow(deprecated)]
@@ -278,15 +295,16 @@ impl KeyProtectedKeyEnvelope {
             .dangerous_get_symmetric_key(wrapping_key)
             .map_err(|_| KeyProtectedKeyEnvelopeError::KeyMissing)?;
 
-        let key = self.unseal_signing_ref(wrapping_key_ref)?;
+        let key = self.unseal_signing_ref(wrapping_key_ref, namespace)?;
         Ok(ctx.add_local_signing_key(key))
     }
 
     fn unseal_signing_ref(
         &self,
         wrapping_key: &SymmetricCryptoKey,
+        namespace: KeyProtectedKeyEnvelopeNamespace,
     ) -> Result<SigningKey, KeyProtectedKeyEnvelopeError> {
-        let (key_bytes, content_format, envelope_type) = self.unseal_ref_internal(wrapping_key)?;
+        let (key_bytes, content_format, envelope_type) = self.unseal_ref_internal(wrapping_key, namespace)?;
 
         if envelope_type != KeyProtectedEnvelopeType::Signing {
             return Err(KeyProtectedKeyEnvelopeError::WrongKeyType);
@@ -307,6 +325,7 @@ impl KeyProtectedKeyEnvelope {
         content_format: ContentFormat,
         wrapping_key: &SymmetricCryptoKey,
         envelope_type: KeyProtectedEnvelopeType,
+        namespace: KeyProtectedKeyEnvelopeNamespace,
     ) -> Result<Self, KeyProtectedKeyEnvelopeError> {
         // Extract the XChaCha20Poly1305 key from the wrapping key
         let wrapping_key_inner = match wrapping_key {
@@ -324,6 +343,10 @@ impl KeyProtectedKeyEnvelope {
             .value(
                 KEY_PROTECTED_KEY_TYPE,
                 Value::Integer(Integer::from(envelope_type.as_label() as i64)),
+            )
+            .value(
+                KEY_PROTECTED_KEY_ENVELOPE_NAMESPACE,
+                Value::Integer(Integer::from(namespace.as_i64())),
             )
             .build();
 
@@ -348,6 +371,7 @@ impl KeyProtectedKeyEnvelope {
     fn unseal_ref_internal(
         &self,
         wrapping_key: &SymmetricCryptoKey,
+        expected_namespace: KeyProtectedKeyEnvelopeNamespace,
     ) -> Result<(Vec<u8>, ContentFormat, KeyProtectedEnvelopeType), KeyProtectedKeyEnvelopeError>
     {
         // Extract the XChaCha20Poly1305 key from the wrapping key
@@ -376,6 +400,12 @@ impl KeyProtectedKeyEnvelope {
         let envelope_type = self.key_type().map_err(|_| {
             KeyProtectedKeyEnvelopeError::Parsing("Invalid envelope type".to_string())
         })?;
+
+        // Extract and validate namespace
+        let envelope_namespace = self.extract_namespace()?;
+        if envelope_namespace != expected_namespace {
+            return Err(KeyProtectedKeyEnvelopeError::InvalidNamespace);
+        }
 
         let key_bytes = self
             .cose_encrypt0
@@ -434,6 +464,26 @@ impl KeyProtectedKeyEnvelope {
                 Err(KeyProtectedKeyEnvelopeError::Parsing(
                     "Missing or invalid envelope type".to_string(),
                 ))
+            })
+    }
+
+    /// Returns the namespace of the key protected key envelope.
+    fn extract_namespace(&self) -> Result<KeyProtectedKeyEnvelopeNamespace, KeyProtectedKeyEnvelopeError> {
+        self.cose_encrypt0
+            .protected
+            .header
+            .rest
+            .iter()
+            .find_map(|(label, value)| match (label, value) {
+                (coset::Label::Int(key), Value::Integer(int))
+                    if *key == KEY_PROTECTED_KEY_ENVELOPE_NAMESPACE => {
+                    let decoded: i128 = (*int).into();
+                    Some(KeyProtectedKeyEnvelopeNamespace::try_from(decoded))
+                }
+                _ => None,
+            })
+            .unwrap_or_else(|| {
+                Err(KeyProtectedKeyEnvelopeError::InvalidNamespace)
             })
     }
 }
@@ -507,6 +557,9 @@ pub enum KeyProtectedKeyEnvelopeError {
     /// The wrong unseal method was used for the key type
     #[error("Wrong key type")]
     WrongKeyType,
+    /// The key protected key envelope namespace is invalid.
+    #[error("Invalid namespace")]
+    InvalidNamespace,
 }
 
 #[cfg(feature = "wasm")]
@@ -551,7 +604,7 @@ mod tests {
 
         // Seal the key
         let envelope =
-            KeyProtectedKeyEnvelope::seal_symmetric(key_to_seal, wrapping_key, &ctx).unwrap();
+            KeyProtectedKeyEnvelope::seal_symmetric(key_to_seal, wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &ctx).unwrap();
 
         assert_eq!(
             envelope.key_type().unwrap(),
@@ -564,7 +617,7 @@ mod tests {
 
         // Unseal the key
         let unsealed_key = deserialized
-            .unseal_symmetric(wrapping_key, &mut ctx)
+            .unseal_symmetric(wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &mut ctx)
             .unwrap();
 
         // Verify that the unsealed key matches the original key
@@ -591,7 +644,7 @@ mod tests {
 
         // Seal the key
         let envelope =
-            KeyProtectedKeyEnvelope::seal_symmetric(key_to_seal, wrapping_key, &ctx).unwrap();
+            KeyProtectedKeyEnvelope::seal_symmetric(key_to_seal, wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &ctx).unwrap();
 
         assert_eq!(
             envelope.key_type().unwrap(),
@@ -599,7 +652,7 @@ mod tests {
         );
 
         // Unseal the key
-        let unsealed_key = envelope.unseal_symmetric(wrapping_key, &mut ctx).unwrap();
+        let unsealed_key = envelope.unseal_symmetric(wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &mut ctx).unwrap();
 
         // Verify that the unsealed key matches the original key
         #[allow(deprecated)]
@@ -625,7 +678,7 @@ mod tests {
 
         // Seal the key
         let envelope =
-            KeyProtectedKeyEnvelope::seal_private(key_to_seal, wrapping_key, &ctx).unwrap();
+            KeyProtectedKeyEnvelope::seal_private(key_to_seal, wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &ctx).unwrap();
 
         assert_eq!(
             envelope.key_type().unwrap(),
@@ -633,7 +686,7 @@ mod tests {
         );
 
         // Unseal the key
-        let unsealed_key = envelope.unseal_private(wrapping_key, &mut ctx).unwrap();
+        let unsealed_key = envelope.unseal_private(wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &mut ctx).unwrap();
 
         // Verify that the unsealed key matches the original key by comparing DER encoding
         #[allow(deprecated)]
@@ -662,7 +715,7 @@ mod tests {
 
         // Seal the key
         let envelope =
-            KeyProtectedKeyEnvelope::seal_signing(key_to_seal, wrapping_key, &ctx).unwrap();
+            KeyProtectedKeyEnvelope::seal_signing(key_to_seal, wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &ctx).unwrap();
 
         assert_eq!(
             envelope.key_type().unwrap(),
@@ -670,7 +723,7 @@ mod tests {
         );
 
         // Unseal the key
-        let unsealed_key = envelope.unseal_signing(wrapping_key, &mut ctx).unwrap();
+        let unsealed_key = envelope.unseal_signing(wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &mut ctx).unwrap();
 
         // Verify that the unsealed key matches the original key by comparing COSE encoding
         #[allow(deprecated)]
@@ -693,11 +746,11 @@ mod tests {
 
         // Seal the key
         let envelope =
-            KeyProtectedKeyEnvelope::seal_symmetric(key_to_seal, wrapping_key, &ctx).unwrap();
+            KeyProtectedKeyEnvelope::seal_symmetric(key_to_seal, wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &ctx).unwrap();
 
         // Attempt to unseal with the wrong key
         assert!(matches!(
-            envelope.unseal_symmetric(wrong_key, &mut ctx),
+            envelope.unseal_symmetric(wrong_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &mut ctx),
             Err(KeyProtectedKeyEnvelopeError::WrongKey)
         ));
     }
@@ -712,11 +765,11 @@ mod tests {
 
         // Seal a symmetric key
         let envelope =
-            KeyProtectedKeyEnvelope::seal_symmetric(key_to_seal, wrapping_key, &ctx).unwrap();
+            KeyProtectedKeyEnvelope::seal_symmetric(key_to_seal, wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &ctx).unwrap();
 
         // Attempt to unseal as private key
         assert!(matches!(
-            envelope.unseal_private(wrapping_key, &mut ctx),
+            envelope.unseal_private(wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &mut ctx),
             Err(KeyProtectedKeyEnvelopeError::WrongKeyType)
         ));
     }
@@ -731,11 +784,11 @@ mod tests {
 
         // Seal a private key
         let envelope =
-            KeyProtectedKeyEnvelope::seal_private(key_to_seal, wrapping_key, &ctx).unwrap();
+            KeyProtectedKeyEnvelope::seal_private(key_to_seal, wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &ctx).unwrap();
 
         // Attempt to unseal as symmetric key
         assert!(matches!(
-            envelope.unseal_symmetric(wrapping_key, &mut ctx),
+            envelope.unseal_symmetric(wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &mut ctx),
             Err(KeyProtectedKeyEnvelopeError::WrongKeyType)
         ));
     }
@@ -750,11 +803,11 @@ mod tests {
 
         // Seal a signing key
         let envelope =
-            KeyProtectedKeyEnvelope::seal_signing(key_to_seal, wrapping_key, &ctx).unwrap();
+            KeyProtectedKeyEnvelope::seal_signing(key_to_seal, wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &ctx).unwrap();
 
         // Attempt to unseal as symmetric key
         assert!(matches!(
-            envelope.unseal_symmetric(wrapping_key, &mut ctx),
+            envelope.unseal_symmetric(wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &mut ctx),
             Err(KeyProtectedKeyEnvelopeError::WrongKeyType)
         ));
     }
@@ -769,7 +822,7 @@ mod tests {
 
         // Seal the key
         let envelope =
-            KeyProtectedKeyEnvelope::seal_symmetric(key_to_seal, wrapping_key, &ctx).unwrap();
+            KeyProtectedKeyEnvelope::seal_symmetric(key_to_seal, wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &ctx).unwrap();
 
         // Serialize to string
         let serialized: String = envelope.into();
@@ -779,7 +832,7 @@ mod tests {
 
         // Unseal and verify
         let unsealed_key = deserialized
-            .unseal_symmetric(wrapping_key, &mut ctx)
+            .unseal_symmetric(wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &mut ctx)
             .unwrap();
 
         #[allow(deprecated)]
@@ -793,5 +846,62 @@ mod tests {
             .expect("Key should exist in the key store");
 
         assert_eq!(unsealed_key_ref, original_key_ref);
+    }
+
+    #[test]
+    fn test_wrong_namespace_symmetric() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        // Seal with ExampleNamespace
+        let envelope =
+            KeyProtectedKeyEnvelope::seal_symmetric(key_to_seal, wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &ctx).unwrap();
+
+        // Attempt to unseal with ExampleNamespace2
+        assert!(matches!(
+            envelope.unseal_symmetric(wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace2, &mut ctx),
+            Err(KeyProtectedKeyEnvelopeError::InvalidNamespace)
+        ));
+    }
+
+    #[test]
+    fn test_wrong_namespace_private() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        let key_to_seal = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        // Seal with ExampleNamespace
+        let envelope =
+            KeyProtectedKeyEnvelope::seal_private(key_to_seal, wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &ctx).unwrap();
+
+        // Attempt to unseal with ExampleNamespace2
+        assert!(matches!(
+            envelope.unseal_private(wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace2, &mut ctx),
+            Err(KeyProtectedKeyEnvelopeError::InvalidNamespace)
+        ));
+    }
+
+    #[test]
+    fn test_wrong_namespace_signing() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        let key_to_seal = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
+        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        // Seal with ExampleNamespace
+        let envelope =
+            KeyProtectedKeyEnvelope::seal_signing(key_to_seal, wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace, &ctx).unwrap();
+
+        // Attempt to unseal with ExampleNamespace2
+        assert!(matches!(
+            envelope.unseal_signing(wrapping_key, KeyProtectedKeyEnvelopeNamespace::ExampleNamespace2, &mut ctx),
+            Err(KeyProtectedKeyEnvelopeError::InvalidNamespace)
+        ));
     }
 }

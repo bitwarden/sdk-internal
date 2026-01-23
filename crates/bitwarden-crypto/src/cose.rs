@@ -56,6 +56,8 @@ const CONTENT_TYPE_SPKI_PUBLIC_KEY: &str = "application/x.bitwarden.spki-public-
 pub(crate) const SIGNING_NAMESPACE: i64 = -80000;
 /// The label used for the namespace ensuring strong domain separation when using data envelopes.
 pub(crate) const DATA_ENVELOPE_NAMESPACE: i64 = -80001;
+/// The label used for the namespace ensuring strong domain separation when using key protected key envelopes.
+pub(crate) const KEY_PROTECTED_KEY_ENVELOPE_NAMESPACE: i64 = -80002;
 
 const XCHACHA20_TEXT_PAD_BLOCK_SIZE: usize = 32;
 
