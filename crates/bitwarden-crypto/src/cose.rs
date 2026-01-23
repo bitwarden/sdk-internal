@@ -38,6 +38,11 @@ pub(crate) const ARGON2_PARALLELISM: i64 = -71004;
 /// Indicates for any object containing a key (wrapped key, password protected key envelope) which
 /// key ID that contained key has
 pub(crate) const CONTAINED_KEY_ID: i64 = -71005;
+/// Indicates what type of key is contained in a protected key envelope
+pub(crate) const KEY_PROTECTED_KEY_TYPE: i64 = -71006;
+pub(crate) const KEY_PROTECTED_KEY_TYPE_SYMMETRIC: i128 = -71007;
+pub(crate) const KEY_PROTECTED_KEY_TYPE_PRIVATE: i128 = -71008;
+pub(crate) const KEY_PROTECTED_KEY_TYPE_SIGNING: i128 = -71009;
 
 // Note: These are in the "unregistered" tree: https://datatracker.ietf.org/doc/html/rfc6838#section-3.4
 // These are only used within Bitwarden, and not meant for exchange with other systems.

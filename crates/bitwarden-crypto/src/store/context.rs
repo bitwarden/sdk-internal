@@ -547,6 +547,19 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         self.get_private_key(key_id)
     }
 
+    /// Return a reference to a signing key stored in the context.
+    ///
+    /// Deprecated: intended only for internal use and tests. This exposes the underlying
+    /// `SigningKey` reference directly and should not be used by external code. Prefer
+    /// using the verifying key via `get_verifying_key` or other higher-level APIs instead.
+    ///
+    /// # Errors
+    /// Returns [`CryptoError::MissingKeyId`] if the key id does not exist in the context.
+    #[deprecated(note = "This function should ideally never be used outside this crate")]
+    pub fn dangerous_get_signing_key(&self, key_id: Ids::Signing) -> Result<&SigningKey> {
+        self.get_signing_key(key_id)
+    }
+
     /// Makes a signed public key from a private key and signing key stored in context.
     /// Signing a public key asserts ownership, and makes the claim to other users that if they want
     /// to share with you, they can use this public key.

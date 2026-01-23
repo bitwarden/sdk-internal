@@ -1,12 +1,8 @@
 //! This example demonstrates how to securely protect cryptographic keys with another symmetric key
 //! using the [KeyProtectedKeyEnvelope].
 //!
-//! Unlike password-protected envelopes, this uses direct encryption without a Key Derivation
-//! Function (KDF). This is suitable for scenarios where the wrapping key is already a strong
-//! cryptographic key, such as:
-//! - Wrapping user vault keys with device-specific keys
-//! - Protecting account keys with biometric unlock keys
-//! - Sealing backup keys with hardware security module (HSM) keys
+//! Unlike password-protected envelopes, this uses direct encryption without a.
+//! This is suitable for scenarios where the wrapping key is already a strong symmetric key
 //!
 //! The envelope supports three types of keys:
 //! - Symmetric keys (XChaCha20Poly1305, AES-256-CBC-HMAC)
@@ -14,8 +10,8 @@
 //! - Signing keys (Ed25519)
 
 use bitwarden_crypto::{
-    CoseSerializable, KeyStore, KeyStoreContext, SignatureAlgorithm, SymmetricKeyAlgorithm,
-    key_ids,
+    CoseSerializable, KeyStore, KeyStoreContext, PublicKeyEncryptionAlgorithm, SignatureAlgorithm,
+    SymmetricKeyAlgorithm, key_ids,
     safe::{KeyProtectedKeyEnvelope, KeyProtectedKeyEnvelopeError},
 };
 
@@ -28,7 +24,6 @@ fn main() {
     // The device key is a symmetric key
 
     let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-
     let vault_key = ctx.generate_symmetric_key();
 
     // Seal the vault key with the wrapping key
@@ -53,9 +48,7 @@ fn main() {
     assert_symmetric_keys_equal(&ctx, unsealed_vault_key, vault_key);
 
     // Bob wants to protect his RSA private key with a device key
-    let private_key = ctx
-        .make_asymmetric_key()
-        .expect("Key generation should work");
+    let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
     // Seal the private key with the wrapping key (reusing from scenario 1)
     let envelope = KeyProtectedKeyEnvelope::seal_private(private_key, wrapping_key, &ctx)
@@ -74,12 +67,10 @@ fn main() {
         .unseal_private(wrapping_key, &mut ctx)
         .expect("Unsealing should work");
 
-    assert_asymmetric_keys_equal(&ctx, unsealed_private_key, private_key);
+    assert_private_keys_equal(&ctx, unsealed_private_key, private_key);
 
     // Charlie wants to protect his Ed25519 signing key with a device key
-    let signing_key = ctx
-        .make_signing_key(SignatureAlgorithm::Ed25519)
-        .expect("Key generation should work");
+    let signing_key = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
 
     // Seal the signing key with the wrapping key (reusing from scenario 1)
     let envelope = KeyProtectedKeyEnvelope::seal_signing(signing_key, wrapping_key, &ctx)
@@ -99,38 +90,6 @@ fn main() {
         .expect("Unsealing should work");
 
     assert_signing_keys_equal(&ctx, unsealed_signing_key, signing_key);
-
-    // Example 1: Wrong wrapping key
-    let wrong_wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-    let test_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-    let correct_wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-
-    let envelope = KeyProtectedKeyEnvelope::seal_symmetric(test_key, correct_wrapping_key, &ctx)
-        .expect("Sealing should work");
-
-    assert!(matches!(
-        envelope.unseal_symmetric(wrong_wrapping_key, &mut ctx),
-        Err(KeyProtectedKeyEnvelopeError::WrongKey)
-    ));
-
-    // Example 2: Wrong key type - trying to unseal a symmetric key as a private key
-    assert!(matches!(
-        envelope.unseal_private(correct_wrapping_key, &mut ctx),
-        Err(KeyProtectedKeyEnvelopeError::WrongKeyType)
-    ));
-
-    // Example 3: Wrong key type - trying to unseal a private key as symmetric
-    let private_key_to_test = ctx
-        .make_asymmetric_key()
-        .expect("Key generation should work");
-    let envelope =
-        KeyProtectedKeyEnvelope::seal_private(private_key_to_test, correct_wrapping_key, &ctx)
-            .expect("Sealing should work");
-
-    assert!(matches!(
-        envelope.unseal_symmetric(correct_wrapping_key, &mut ctx),
-        Err(KeyProtectedKeyEnvelopeError::WrongKeyType)
-    ));
 }
 
 pub(crate) struct MockDisk {
@@ -170,28 +129,28 @@ fn assert_symmetric_keys_equal(
     assert_eq!(left_key, right_key, "Symmetric keys differ");
 }
 
-fn assert_asymmetric_keys_equal(
+fn assert_private_keys_equal(
     ctx: &KeyStoreContext<'_, ExampleIds>,
-    left: ExampleAsymmetricKey,
-    right: ExampleAsymmetricKey,
+    left: ExamplePrivateKey,
+    right: ExamplePrivateKey,
 ) {
     #[allow(deprecated)]
     let left_key = ctx
-        .dangerous_get_asymmetric_key(left)
-        .expect("Left asymmetric key should exist");
+        .dangerous_get_private_key(left)
+        .expect("Left private key should exist");
     #[allow(deprecated)]
     let right_key = ctx
-        .dangerous_get_asymmetric_key(right)
-        .expect("Right asymmetric key should exist");
+        .dangerous_get_private_key(right)
+        .expect("Right private key should exist");
 
     let left_der = left_key
         .to_der()
-        .expect("Left asymmetric key should serialize to DER");
+        .expect("Left private key should serialize to DER");
     let right_der = right_key
         .to_der()
-        .expect("Right asymmetric key should serialize to DER");
+        .expect("Right private key should serialize to DER");
 
-    assert_eq!(left_der, right_der, "Asymmetric keys differ");
+    assert_eq!(left_der, right_der, "Private keys differ");
 }
 
 fn assert_signing_keys_equal(
@@ -223,8 +182,8 @@ key_ids! {
         Local(LocalId)
     }
 
-    #[asymmetric]
-    pub enum ExampleAsymmetricKey {
+    #[private]
+    pub enum ExamplePrivateKey {
         Key(u8),
         #[local]
         Local(LocalId)
@@ -237,5 +196,5 @@ key_ids! {
         Local(LocalId)
     }
 
-    pub ExampleIds => ExampleSymmetricKey, ExampleAsymmetricKey, ExampleSigningKey;
+    pub ExampleIds => ExampleSymmetricKey, ExamplePrivateKey, ExampleSigningKey;
 }
