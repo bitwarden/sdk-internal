@@ -4,5 +4,5 @@ category: applications
 
 # Bitwarden Password Manager
 
-PasswordManagerClient wrapping core Client, exposes sub-clients for auth, vault, crypto, sends,
-generators, and exporters.
+Unified application interface aggregating sub-clients to serve as a single entry point for Password
+Manager applications.

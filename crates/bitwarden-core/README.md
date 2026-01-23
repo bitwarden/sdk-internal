@@ -5,8 +5,11 @@ category: core
 
 # Bitwarden Core
 
-Contains core functionality used by the feature crates. For an introduction to the Bitwarden SDK and
-the `bitwarden-core` crate please refer to the
+The central orchestrator providing the main `Client` struct with HTTP client configurations,
+authentication protocols (password/API key/auth request login), key management, and optional state
+registry for persisted data.
+
+For an introduction to the Bitwarden SDK and the `bitwarden-core` crate please refer to the
 [SDK Architecture](https://contributing.bitwarden.com/architecture/sdk/) documentation.
 
 <div class="warning">

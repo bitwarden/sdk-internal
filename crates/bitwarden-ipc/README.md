@@ -4,4 +4,6 @@ category: core
 
 # bitwarden-ipc
 
-Type-safe IPC framework with pluggable encryption and transport.
+Type-safe inter-process communication framework enabling request-response messaging with pluggable
+encryption, session management, and transport backends through a unified `IpcClient` interface for
+native and WASM targets.

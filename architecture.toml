@@ -1,25 +1,14 @@
 description = """
-Crates in the project fall into one of these categories.
-
-* Application Interfaces
-* Language bindings
-* API Bindings
-* Core and Utilities
-* Features
+The internal SDK is structured as a single Git repository with multiple internal crates. This
+document describes the general structure of the project. Please review the individual `README`s in
+the repository for information about the specific crates or implementation details.
 
 We generally strive towards extracting features into separate crates to keep the `bitwarden-core`
 crate as lean as possible. This has multiple benefits such as faster compile-time and clear ownership of features.
+
+> This document was auto-generated and should not be edited directly.
 """
 
-[[categories]]
-category = "applications"
-title = "Application Interfaces"
-description = "An application interface collects the various features relevant for a given Bitwarden product, e.g. Password Manager, or Secrets Manager, into a single easy-to-use crate for that particular product."
-
-[[categories]]
-category = "bindings"
-title = "Language bindings"
-description = "Bindings provide bindings for other projects by targeting `wasm`, `iOS`, and `Android`. The two mobile targets are built using UniFFI."
 
 [[categories]]
 category = "apis"
@@ -35,3 +24,13 @@ description = "Foundational modules and helpers."
 category = "features"
 title = "Features"
 description = "Core business logic split into separate feature oriented crates. When adding new functionality it should be added to an existing feature crate or a new feature crate should be created."
+
+[[categories]]
+category = "applications"
+title = "Application Interfaces"
+description = "An application interface collects the various features relevant for a given Bitwarden product, e.g. Password Manager, or Secrets Manager, into a single easy-to-use crate for that particular product."
+
+[[categories]]
+category = "bindings"
+title = "Language bindings"
+description = "Language bindings target `wasm`, `iOS`, and `Android`. The two mobile targets are built using UniFFI."

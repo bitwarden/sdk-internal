@@ -4,4 +4,6 @@ category: applications
 
 # Bitwarden CLI (testing)
 
-A work-in-progress rust rewrite of the Bitwarden CLI.
+Work-in-progress Rust CLI for Bitwarden Password Manager providing command-line access to
+authentication, vault operations, password generation, imports/exports, and admin functions with
+multiple output formats.

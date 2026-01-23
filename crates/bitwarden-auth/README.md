@@ -4,7 +4,9 @@ category: features
 
 # Bitwarden Auth
 
-Contains the implementation of the auth functionality for the Bitwarden Password Manager.
+Authentication functionality including identity token management, user registration with account
+cryptography initialization (SSO, master password, TDE, key-connector flows), and send access token
+requests for password/email-protected sends.
 
 ## Send Access
 

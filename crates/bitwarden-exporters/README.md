@@ -4,4 +4,6 @@ category: features
 
 # Bitwarden Exporters
 
-Export and import support for Bitwarden Password Manager through various formats.
+Vault data export/import in multiple formats (CSV, JSON, password-encrypted JSON) with support for
+Apple's Credential Exchange Format (CXF) for credential transfer between Bitwarden and native iOS
+applications.

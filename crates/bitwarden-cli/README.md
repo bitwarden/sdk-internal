@@ -4,5 +4,5 @@ category: core
 
 # Bitwarden Cli
 
-Common utilities for the Bitwarden Password Manager CLI and Secrets Manager CLI. Any code shared
-between `bw` and `bws` should go here.
+Provides shared CLI utilities including terminal color configuration, color_eyre error formatting,
+and interactive text prompts for the `bw` Password Manager CLI and `bws` Secrets Manager CLI.
