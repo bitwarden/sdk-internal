@@ -5,29 +5,32 @@
 //!
 //! # Persisted Keys
 //!
-//! - **Master Key Encrypted User Key**: Needed for master password unlock
+//! - **Master Password Unlock Data**: KDF, salt, and encrypted user key for master password unlock
 //! - **Wrapped Account Cryptographic State**: V1/V2 private keys and signing keys
 
 use bitwarden_api_api::models::SyncResponseModel;
 use bitwarden_core::{
-    Client, client::PersistedCryptoState,
-    key_management::account_cryptographic_state::WrappedAccountCryptographicState,
+    Client,
+    key_management::{
+        MasterPasswordUnlockData, account_cryptographic_state::WrappedAccountCryptographicState,
+    },
 };
-use bitwarden_crypto::EncString;
 use bitwarden_state::{Setting, register_setting_key};
 use tracing::debug;
 
 use crate::platform::StateError;
 
-register_setting_key!(const MASTER_KEY_ENCRYPTED_USER_KEY: EncString = "master_key_encrypted_user_key");
+register_setting_key!(const MASTER_PASSWORD_UNLOCK: MasterPasswordUnlockData = "master_password_unlock");
 register_setting_key!(const WRAPPED_ACCOUNT_CRYPTO_STATE: WrappedAccountCryptographicState = "wrapped_account_crypto_state");
 
 /// Store for persisted crypto state.
 ///
-/// Provides access to master key encrypted user key and wrapped account crypto state
+/// Provides access to master password unlock data and wrapped account crypto state
 /// settings needed for vault unlock after CLI restart.
 pub struct CryptoStateStore {
-    pub master_key: Setting<EncString>,
+    /// Master password unlock data (KDF, salt, encrypted user key)
+    pub master_password_unlock: Setting<MasterPasswordUnlockData>,
+    /// Wrapped account cryptographic state (private keys, signing keys)
     pub wrapped_state: Setting<WrappedAccountCryptographicState>,
 }
 
@@ -37,10 +40,23 @@ impl CryptoStateStore {
         let state = client.platform().state();
 
         Ok(Self {
-            master_key: state.setting(MASTER_KEY_ENCRYPTED_USER_KEY)?,
+            master_password_unlock: state.setting(MASTER_PASSWORD_UNLOCK)?,
             wrapped_state: state.setting(WRAPPED_ACCOUNT_CRYPTO_STATE)?,
         })
     }
+}
+
+/// Persisted crypto state for CLI sessions.
+///
+/// Contains the encrypted key material needed to restore vault crypto across CLI restarts.
+pub struct PersistedCryptoState {
+    /// Master password unlock data (KDF, salt, encrypted user key).
+    /// Optional because some login methods (e.g., device-only auth) may not have this.
+    pub master_password_unlock: Option<MasterPasswordUnlockData>,
+
+    /// Wrapped account cryptographic state (V1 or V2).
+    /// Contains encrypted private keys and signing keys.
+    pub wrapped_account_cryptographic_state: Option<WrappedAccountCryptographicState>,
 }
 
 /// Extract crypto state from sync response for CLI persistence.
@@ -49,13 +65,12 @@ impl CryptoStateStore {
 pub fn extract_from_sync(sync: &SyncResponseModel) -> Option<PersistedCryptoState> {
     let profile = sync.profile.as_ref()?;
 
-    // Extract master key encrypted user key from user decryption options
-    let master_key_encrypted_user_key = sync
+    // Extract master password unlock data from user decryption options
+    let master_password_unlock = sync
         .user_decryption
         .as_ref()
         .and_then(|ud| ud.master_password_unlock.as_ref())
-        .and_then(|mpu| mpu.master_key_encrypted_user_key.as_ref())
-        .and_then(|key_str| key_str.parse().ok());
+        .and_then(|mpu| MasterPasswordUnlockData::try_from(mpu.as_ref()).ok());
 
     // Extract wrapped account cryptographic state from profile
     let wrapped_account_cryptographic_state = profile
@@ -101,9 +116,9 @@ pub fn extract_from_sync(sync: &SyncResponseModel) -> Option<PersistedCryptoStat
         });
 
     // Return Some only if we have at least one field
-    if master_key_encrypted_user_key.is_some() || wrapped_account_cryptographic_state.is_some() {
+    if master_password_unlock.is_some() || wrapped_account_cryptographic_state.is_some() {
         Some(PersistedCryptoState {
-            master_key_encrypted_user_key,
+            master_password_unlock,
             wrapped_account_cryptographic_state,
         })
     } else {
@@ -118,9 +133,12 @@ pub async fn persist(client: &Client, sync: &SyncResponseModel) -> Result<(), St
     if let Some(crypto_state) = extract_from_sync(sync) {
         let store = CryptoStateStore::new(client)?;
 
-        // Persist master key encrypted user key if available
-        if let Some(master_key_encrypted) = crypto_state.master_key_encrypted_user_key {
-            store.master_key.update(master_key_encrypted).await?;
+        // Persist master password unlock data if available
+        if let Some(master_password_unlock) = crypto_state.master_password_unlock {
+            store
+                .master_password_unlock
+                .update(master_password_unlock)
+                .await?;
         }
 
         // Persist wrapped account crypto state if available

@@ -48,24 +48,6 @@ pub struct PersistedAuthState {
     pub login_method: UserLoginMethod,
 }
 
-/// Persisted cryptographic state for CLI session restoration.
-///
-/// Contains encrypted key material necessary to restore vault crypto across CLI restarts.
-/// Both fields are optional to handle various login methods and authentication scenarios.
-#[cfg(feature = "cli")]
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct PersistedCryptoState {
-    /// Master key wrapped user key - needed for master password unlock.
-    /// Optional because some login methods (e.g., device-only auth) may not have this.
-    pub master_key_encrypted_user_key: Option<bitwarden_crypto::EncString>,
-
-    /// Wrapped account cryptographic state (V1 or V2).
-    /// Contains encrypted private keys and signing keys.
-    /// Optional to handle cases where it's not available.
-    #[cfg(feature = "internal")]
-    pub wrapped_account_cryptographic_state: Option<WrappedAccountCryptographicState>,
-}
-
 #[allow(missing_docs)]
 pub struct ApiConfigurations {
     pub identity_client: bitwarden_api_identity::apis::ApiClient,
@@ -411,7 +393,7 @@ impl InternalClient {
 
     #[cfg(feature = "internal")]
     #[instrument(err, skip_all)]
-    pub fn initialize_user_crypto_key_connector_key(
+    pub(crate) fn initialize_user_crypto_key_connector_key(
         &self,
         master_key: MasterKey,
         user_key: EncString,
@@ -499,7 +481,7 @@ impl InternalClient {
 
     #[cfg(feature = "internal")]
     #[instrument(err, skip_all)]
-    pub(crate) fn initialize_user_crypto_master_password_unlock(
+    pub fn initialize_user_crypto_master_password_unlock(
         &self,
         password: String,
         master_password_unlock: MasterPasswordUnlockData,

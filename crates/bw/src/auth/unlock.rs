@@ -1,4 +1,4 @@
-use bitwarden_core::{Client, client::UserLoginMethod};
+use bitwarden_core::Client;
 use bitwarden_crypto::{SymmetricCryptoKey, SymmetricKeyAlgorithm};
 use color_eyre::eyre::bail;
 use inquire::Password;
@@ -14,19 +14,18 @@ pub(crate) async fn unlock(client: &Client, args: UnlockArgs) -> CommandResult {
         bail!("You are not logged in. Please run `bw login` first.");
     }
 
-    // Load auth state
-    let auth_state = super::state::load(client)
-        .await?
-        .ok_or_else(|| color_eyre::eyre::eyre!("Not logged in. Please run 'bw login'"))?;
-
     // Load crypto state components
     let crypto_store = CryptoStateStore::new(client)?;
 
-    let master_key_encrypted = crypto_store.master_key.get().await?.ok_or_else(|| {
-        color_eyre::eyre::eyre!(
-            "Master key encrypted user key not available. Please run 'bw login' again"
-        )
-    })?;
+    let master_password_unlock = crypto_store
+        .master_password_unlock
+        .get()
+        .await?
+        .ok_or_else(|| {
+            color_eyre::eyre::eyre!(
+                "Master password unlock data not available. Please run 'bw login' again"
+            )
+        })?;
 
     let wrapped_crypto_state = crypto_store.wrapped_state.get().await?.ok_or_else(|| {
         color_eyre::eyre::eyre!(
@@ -39,20 +38,14 @@ pub(crate) async fn unlock(client: &Client, args: UnlockArgs) -> CommandResult {
         .without_confirmation()
         .prompt()?;
 
-    // Get KDF and email from login method
-    let (email, kdf) = match &auth_state.login_method {
-        UserLoginMethod::Username { email, kdf, .. } => (email.clone(), kdf.clone()),
-        UserLoginMethod::ApiKey { email, kdf, .. } => (email.clone(), kdf.clone()),
-    };
-
-    // Derive master key and initialize crypto
-    let master_key = bitwarden_crypto::MasterKey::derive(&password, &email, &kdf)?;
-
-    client.internal.initialize_user_crypto_key_connector_key(
-        master_key,
-        master_key_encrypted,
-        wrapped_crypto_state,
-    )?;
+    // Initialize crypto using master password unlock data
+    client
+        .internal
+        .initialize_user_crypto_master_password_unlock(
+            password,
+            master_password_unlock,
+            wrapped_crypto_state,
+        )?;
 
     // Generate session key (64 random bytes using AES256-CBC-HMAC)
     let session_key = SymmetricCryptoKey::make(SymmetricKeyAlgorithm::Aes256CbcHmac);

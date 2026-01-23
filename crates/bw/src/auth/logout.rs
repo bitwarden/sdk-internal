@@ -13,10 +13,10 @@ pub(crate) async fn logout(client: Client) -> Result<()> {
     // Clear auth state from repository
     super::state::clear(&client).await?;
 
-    // Clear crypto state (master key and wrapped account state)
+    // Clear crypto state (master password unlock data and wrapped account state)
     if let Ok(crypto_store) = CryptoStateStore::new(&client) {
-        if let Err(e) = crypto_store.master_key.delete().await {
-            tracing::warn!("Failed to clear master key encrypted user key: {}", e);
+        if let Err(e) = crypto_store.master_password_unlock.delete().await {
+            tracing::warn!("Failed to clear master password unlock data: {}", e);
         }
         if let Err(e) = crypto_store.wrapped_state.delete().await {
             tracing::warn!("Failed to clear wrapped account crypto state: {}", e);

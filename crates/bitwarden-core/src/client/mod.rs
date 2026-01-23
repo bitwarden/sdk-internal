@@ -10,7 +10,7 @@ pub mod encryption_settings;
 pub mod internal;
 pub use internal::ApiConfigurations;
 #[cfg(feature = "cli")]
-pub use internal::{PersistedAuthState, PersistedCryptoState};
+pub use internal::PersistedAuthState;
 #[allow(missing_docs)]
 pub mod login_method;
 pub(crate) use login_method::LoginMethod;

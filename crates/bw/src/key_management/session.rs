@@ -3,11 +3,9 @@
 //! The session key is a 64-byte random value that encrypts the user's encryption key,
 //! allowing vault access without re-entering the master password.
 
-use std::str::FromStr;
-
 use bitwarden_core::{Client, UserId};
 use bitwarden_crypto::{
-    SymmetricCryptoKey,
+    EncString, SymmetricCryptoKey,
     safe::{DataEnvelope, DataEnvelopeNamespace, SealableData, SealableVersionedData},
 };
 use bitwarden_encoding::B64;
@@ -22,9 +20,9 @@ register_setting_key!(const ENCRYPTED_USER_KEY: EncryptedUserKeyData = "encrypte
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EncryptedUserKeyData {
     /// DataEnvelope containing encrypted user key (base64-encoded)
-    pub envelope: String,
+    pub envelope: DataEnvelope,
     /// Wrapped content encryption key
-    pub wrapped_cek: String,
+    pub wrapped_cek: EncString,
     /// User ID this key belongs to
     pub user_id: UserId,
 }
@@ -64,8 +62,8 @@ pub async fn encrypt_and_store(
     let user_id = client.internal.get_user_id().ok_or(StateError::NoUserId)?;
 
     let encrypted_data = EncryptedUserKeyData {
-        envelope: envelope.to_string(),
-        wrapped_cek: wrapped_cek.to_string(),
+        envelope,
+        wrapped_cek,
         user_id,
     };
 
@@ -105,13 +103,12 @@ pub async fn decrypt_user_key(client: &Client, session_key_b64: B64) -> Result<B
     let mut ctx = key_store.context_mut();
     let wrapping_key_id = ctx.add_local_symmetric_key(session_sym_key);
 
-    // Parse wrapped CEK and envelope
-    let wrapped_cek = bitwarden_crypto::EncString::from_str(&encrypted_data.wrapped_cek)?;
-    let envelope = DataEnvelope::from_str(&encrypted_data.envelope)?;
-
     // Unseal with DataEnvelope
-    let payload: UserKeyPayload =
-        envelope.unseal_with_wrapping_key(&wrapping_key_id, &wrapped_cek, &mut ctx)?;
+    let payload: UserKeyPayload = encrypted_data.envelope.unseal_with_wrapping_key(
+        &wrapping_key_id,
+        &encrypted_data.wrapped_cek,
+        &mut ctx,
+    )?;
 
     Ok(payload.user_key)
 }
