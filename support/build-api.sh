@@ -10,7 +10,8 @@ mkdir -p ./artifacts
 cp ../server/api.json ./artifacts/api.json
 cp ../server/identity.json ./artifacts/identity.json
 
-./support/build-api-ci.sh
+./support/generate-api-bindings-ci.sh
+./support/generate-identity-bindings-ci.sh
 
 rustup toolchain install nightly
 cargo +nightly fmt

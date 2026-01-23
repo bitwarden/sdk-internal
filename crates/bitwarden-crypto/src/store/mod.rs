@@ -175,7 +175,6 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     ///   If you want to access the key material to encrypt it or derive a new key from it, we
     ///   provide functions for that:
     ///     - [KeyStoreContext::wrap_symmetric_key]
-    ///     - [KeyStoreContext::encapsulate_key_unsigned]
     ///     - [KeyStoreContext::derive_shareable_key]
     pub fn context(&'_ self) -> KeyStoreContext<'_, Ids> {
         let data = self.inner.read().expect("RwLock is poisoned");
