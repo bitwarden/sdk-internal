@@ -15,7 +15,7 @@ Cross-platform Rust SDK implementing Bitwarden's core business logic.
 **Crate documentation**: Before working in any crate, read available documentation: `CLAUDE.md` for
 critical rules, `README.md` for architecture, `examples/` for usage patterns, and `tests/` for
 integration tests. **Before making changes or reviewing code, review relevant examples and tests for
-the specific functionality you're modifying.**
+the specific functionality you're modifying.** **Crypto-related changes require integration tests per the Integration Testing Requirements section.**
 
 ## Architecture Overview
 
@@ -68,6 +68,9 @@ Monorepo crates organized in **four architectural layers**:
 
 ### Cryptography (bitwarden-crypto)
 
+- **ALL cryptographic operations MUST live in bitwarden-crypto** - Never implement encryption,
+  decryption, hashing, key derivation, or any other cryptographic primitives outside this crate.
+  Feature crates should only consume bitwarden-crypto APIs.
 - **DO NOT modify** without careful consideration - backward compatibility is critical
 - **KeyStoreContext**: Never hold across await points
 - Naming: `derive_` for deterministic key derivation, `make_` for non-deterministic generation
@@ -76,6 +79,204 @@ Monorepo crates organized in **four architectural layers**:
 - IMPORTANT: Use constant time equality checks
 - Do not expose low-level / hazmat functions from the crypto crate.
 - Do not expose key material from the crypto crate, use key references in the key store instead
+
+### Integration Testing Requirements
+
+**CRITICAL**: Changes to cryptographic operations MUST include integration tests that exercise the complete flow across crate boundaries. Integration tests verify that components work together correctly, not just in isolation.
+
+#### Definition: Integration vs Unit Tests
+
+- **Unit tests** (`#[cfg(test)] mod tests` in source files): Test individual functions or modules in isolation, often using mocks
+- **Integration tests** (separate `tests/` directory): Test complete workflows that span multiple modules or crates, using real implementations
+
+**Important**: Integration tests for crypto operations test SDK component integration (crypto + core + auth crates working together), NOT integration with external services. These tests run without a live server.
+
+Integration tests MUST:
+- Live in a `tests/` directory at the crate root (not in `src/`)
+- Import crates as external dependencies (e.g., `use bitwarden_core::Client;`)
+- **Test ONLY public APIs** - Never test internal/private functions or implementation details
+- Exercise the full API surface as clients would use it (e.g., `client.auth().make_register_keys()`, `client.crypto().initialize_user_crypto()`)
+- Test complete workflows from initialization through execution
+- Include both success and failure cases
+- Document what they're testing with clear comments
+- **Use `Client::new(None)` for crypto-only tests** (no server needed)
+- **Use `wiremock` mocks for API tests** (from `bitwarden-test` crate) when server responses are needed
+
+Integration tests MUST NOT:
+- Test private functions, internal helpers, or implementation details
+- Bypass public APIs to access internals
+- Import crate internals with `use crate_name::internal::*;`
+
+#### Required Integration Tests
+
+The following crypto operations REQUIRE integration tests before merging:
+
+**1. User Registration & Key Generation**
+- User registration with password (`make_register_keys`)
+- TDE (Trust Device Encryption) registration (`make_user_tde_registration`)
+- Key pair generation and verification
+- Example: `crates/bitwarden-core/tests/register.rs`
+
+**2. User Crypto Initialization**
+- All `InitUserCryptoMethod` variants:
+  - Password-based initialization
+  - Master password unlock
+  - Decrypted key (biometric/never lock)
+  - PIN unlock (legacy)
+  - PIN envelope unlock (password-protected envelope)
+  - Auth request (passwordless)
+  - Device key (TDE)
+  - Key connector
+- Organization crypto initialization
+
+**3. PIN Operations**
+- PIN enrollment (`enroll_pin`)
+- PIN-protected key envelope creation and unsealing
+- PIN unlock flow (complete: enroll → lock → unlock with PIN)
+- PIN validation against encrypted user keys
+
+**4. Password & KDF Operations**
+- Password hash generation and validation
+- KDF updates (`make_update_kdf`) with both PBKDF2 and Argon2id
+- Password changes (`make_update_password`)
+- Master password re-encryption flows
+
+**5. Key Rotation & Crypto V2**
+- User crypto V2 key generation (`make_v2_keys_for_v1_user`)
+- Account key rotation (`get_v2_rotated_account_keys`)
+- Migration paths between crypto versions
+
+**6. Device Trust & Authentication**
+- Device key generation (`trust_device` flag in registration)
+- Device key verification
+- Auth request flows with device keys
+
+**7. Safe Module Operations**
+- `PasswordProtectedKeyEnvelope`: seal, unseal, reseal operations
+- `DataEnvelope`: seal, unseal with content encryption keys
+- These demonstrate proper usage patterns for crypto abstractions
+
+**8. Admin Password Reset & Organization Keys**
+- Admin password reset enrollment
+- Organization key wrapping and unwrapping
+- Key sharing with organization public keys
+
+#### When Integration Tests Are Required
+
+Integration tests are MANDATORY when:
+
+1. **Modifying crypto primitives** in `bitwarden-crypto` that are used by higher-level crates
+2. **Adding new cryptographic operations** or authentication methods
+3. **Changing key derivation, encryption, or decryption logic** that affects stored data
+4. **Modifying the KeyStore** or key management system
+5. **Updating serialization formats** for encrypted data or keys
+6. **Implementing new authentication flows** or unlock methods
+7. **Changing backward compatibility** of cryptographic operations
+
+#### Integration Test Patterns
+
+**Pattern 1: Crypto-Only Integration Test (No Server)**
+
+Most crypto integration tests don't need external dependencies. They test SDK components working together:
+
+```rust
+//! Integration tests for [feature description]
+
+/// Tests [specific workflow] end-to-end
+#[cfg(feature = "internal")]
+#[tokio::test]
+async fn test_complete_workflow() {
+    use bitwarden_core::{Client, ...};
+    use bitwarden_crypto::{Kdf, ...};
+
+    // 1. Setup: Create client WITHOUT server connection
+    let client = Client::new(None); // <-- No HTTP client needed
+    let email = "test@bitwarden.com";
+    let password = "secure_password";
+
+    // 2. Execute: Run the complete workflow (crypto operations only)
+    let result = client.crypto().operation().execute().await.unwrap();
+
+    // 3. Verify: Check that state is correct
+    assert!(result.field.is_some());
+
+    // 4. Test dependent operations
+    let next_result = client.crypto().dependent_operation().await.unwrap();
+}
+```
+
+**Pattern 2: Integration Test with Mocked API**
+
+When tests need to verify API communication, use `wiremock` to mock server responses:
+
+```rust
+use bitwarden_test::start_api_mock;
+use wiremock::{Mock, ResponseTemplate};
+
+#[cfg(feature = "internal")]
+#[tokio::test]
+async fn test_operation_with_api() {
+    // Setup mock server
+    let mock = Mock::given(wiremock::matchers::method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(/* response */));
+
+    let (server, config) = start_api_mock(vec![mock]).await;
+
+    // Create client with mocked API
+    let client = Client::new(Some(config));
+
+    // Test operation that calls API
+    let result = client.operation().execute().await.unwrap();
+
+    // Verify behavior
+    assert!(result.is_ok());
+
+    // MockServer is automatically dropped and verifies all expected calls were made
+}
+```
+
+**Key Principles**:
+- **Test through public APIs only** - Integration tests verify public functionality that clients use, not internal implementation
+- **Component integration, not service integration** - Tests verify SDK crates work together, not external service communication
+- **Client perspective** - Write tests as if you're a client consuming the SDK
+
+See examples:
+- `crates/bitwarden-core/tests/register.rs` - Crypto-only integration test (no server)
+- `crates/bitwarden-test/src/api.rs` - Helper for mocking API when needed
+- `crates/bitwarden-crypto/examples/` - Usage patterns for crypto operations
+
+#### Enforcement
+
+- **Code Review**: Reviewers MUST verify integration tests exist for crypto changes
+- **Claude Code**: When detecting crypto changes, Claude should proactively ask: "This change affects cryptographic operations. According to CLAUDE.md, integration tests are required. Should I help create integration tests?"
+- **PR Checklist**: PRs affecting crypto operations must include:
+  - [ ] Integration tests added or updated
+  - [ ] Tests cover success and failure cases
+  - [ ] Tests verify backward compatibility where applicable
+
+#### What Does NOT Require Integration Tests
+
+- Pure documentation changes
+- Refactoring that doesn't change behavior (proven by existing tests passing)
+- Changes confined to single functions with unit test coverage
+- Non-crypto feature changes in other crates
+- **Internal/private implementation changes** that don't affect public APIs
+
+#### Integration Test Do's and Don'ts
+
+**DO:**
+✅ Test through public client APIs (`client.auth()`, `client.crypto()`, etc.)
+✅ Test workflows that clients will actually use
+✅ Test from the perspective of an SDK consumer
+✅ Import only public types and traits
+✅ Verify end-to-end behavior across crate boundaries
+
+**DON'T:**
+❌ Test private functions or internal helpers (use unit tests for those)
+❌ Bypass public APIs to access internals
+❌ Test implementation details that could change without affecting behavior
+❌ Import internal modules (e.g., `use bitwarden_crypto::internal::*;`)
+❌ Make assertions about internal state that isn't exposed publicly
 
 ### State Management (bitwarden-state)
 
@@ -142,6 +343,7 @@ the rust generator.
 - `cargo nextest run --all-features` - Faster parallel test runner (requires separate installation:
   `cargo install cargo-nextest --locked`)
 - Run tests for specific package: `cargo test -p bitwarden-crypto --all-features`
+- **Integration test requirement**: Changes to crypto operations require integration tests in `tests/` directories - see "Integration Testing Requirements" section
 
 **Format & Lint:**
 
