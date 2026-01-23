@@ -1,3 +1,8 @@
+---
+category: bindings
+---
+
 # Bitwarden Uniffi
 
-Contains mobile bindings for the Bitwarden Password Manager.
+Mobile bindings for iOS (swift) and Android (kotlin) which exposes the Bitwarden Password Manager to
+our mobile applications using UniFFI.

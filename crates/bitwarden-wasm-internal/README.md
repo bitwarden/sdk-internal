@@ -1,10 +1,16 @@
+---
+category: bindings
+---
+
 # bitwarden-wasm-internal
+
+WebAssembly bindings for the Bitwarden SDK, consumed by the internal Bitwarden web clients. Thin
+bindings only - no business logic.
 
 **Note:** This is only for internal use. Bitwarden will not provide any support for this crate.
 
-Bitwarden WASM internal exposes WebAssembly bindings for the Bitwarden SDK. This crate should
-contain no logic but rather only handle WASM unique conversions and bindings. Business logic
-**MUST** be placed in the relevant feature crates.
+This crate should contain no logic but rather only handle WASM unique conversions and bindings.
+Business logic **MUST** be placed in the relevant feature crates.
 
 ## Getting Started
 

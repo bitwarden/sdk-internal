@@ -1,3 +1,7 @@
+---
+category: features
+---
+
 # Bitwarden Collections
 
 Defines the data model for collections both encrypted and decrypted. It also handles conversions
