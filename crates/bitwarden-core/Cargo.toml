@@ -55,6 +55,7 @@ chrono = { workspace = true, features = ["std"] }
 getrandom = { version = ">=0.2.9, <0.3", features = ["js"] }
 rand = ">=0.8.5, <0.9"
 reqwest = { workspace = true }
+reqwest-middleware = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde_bytes = { workspace = true }

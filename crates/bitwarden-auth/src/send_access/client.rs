@@ -48,7 +48,7 @@ impl SendAccessClient {
             &configurations.identity_config.base_path
         );
 
-        let request: reqwest::RequestBuilder = configurations
+        let request: reqwest_middleware::RequestBuilder = configurations
             .identity_config
             .client
             .post(&url)

@@ -76,6 +76,7 @@
         "quote",
         "rand",
         "reqwest",
+        "reqwest-middleware",
         "rsa",
         "schemars",
         "serde",

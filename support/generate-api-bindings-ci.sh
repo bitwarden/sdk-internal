@@ -18,6 +18,6 @@ npx openapi-generator-cli generate \
     -o crates/bitwarden-api-api \
     --package-name bitwarden-api-api \
     -t ./support/openapi-template \
-    --additional-properties=library=reqwest-trait,mockall,topLevelApiClient,packageVersion=$VERSION,packageDescription=\"API bindings for the Bitwarden API.\"
+    --additional-properties=library=reqwest-trait,mockall,topLevelApiClient,supportMiddleware=true,packageVersion=$VERSION,packageDescription=\"API bindings for the Bitwarden API.\"
 
 npm run prettier
