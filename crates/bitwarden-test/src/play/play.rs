@@ -22,21 +22,22 @@ fn generate_play_id() -> String {
 /// # Example
 ///
 /// ```ignore
-/// use bitwarden_test::play::{Play, SingleUserScene, SingleUserBuilder};
+/// use bitwarden_test::play::{Play, SingleUserArgs, SingleUserScene};
 ///
 /// #[tokio::test]
 /// async fn test_user_login() {
 ///     let play = Play::new();
 ///
 ///     // Provide base email - the seeder mangles it server-side
-///     let args = SingleUserBuilder::new("test@example.com")
-///         .verified(true)
-///         .build();
+///     let args = SingleUserArgs {
+///         email: "test@example.com".to_string(),
+///         verified: true,
+///         ..Default::default()
+///     };
 ///     let scene = play.scene::<SingleUserScene>(&args).await.unwrap();
 ///
-///     // Use scene.inner() to access mangled user data from server
-///     let user = scene.inner();
-///     let (client_id, client_secret) = user.api_key();
+///     // Use scene.get_mangled() to look up mangled values
+///     let client_id = scene.get_mangled("client_id");
 ///
 ///     // All scenes are automatically cleaned up when `play` is dropped
 /// }
@@ -140,9 +141,10 @@ impl Drop for Play {
         let play_id = client.play_id().to_string();
 
         // Use the current runtime to run cleanup synchronously
-        let handle = tokio::runtime::Handle::current();
-        let _ = tokio::task::block_in_place(|| {
-            handle.block_on(async { client.delete_seeder(&format!("/seed/{}", play_id)).await })
+        let _ = tokio::runtime::Handle::try_current().map(|handle| {
+            tokio::task::block_in_place(|| {
+                handle.block_on(async { client.delete_seeder(&format!("/seed/{}", play_id)).await })
+            })
         });
     }
 }
