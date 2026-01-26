@@ -945,7 +945,6 @@ dependencies = [
  "async-trait",
  "bitwarden-api-api",
  "bitwarden-state",
- "once_cell",
  "reqwest",
  "serde",
  "serde_json",
