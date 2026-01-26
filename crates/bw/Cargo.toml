@@ -14,6 +14,9 @@ homepage.workspace = true
 repository.workspace = true
 license-file.workspace = true
 
+[features]
+integration = [] # Integration tests
+
 [dependencies]
 base64 = ">=0.22.1, <0.23"
 bat = { version = "0.26.0", features = [

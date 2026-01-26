@@ -21,5 +21,14 @@ bitwarden-state = { workspace = true }
 reqwest = { workspace = true }
 wiremock = { workspace = true }
 
+# Play framework dependencies
+once_cell = "1.19"
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt", "rt-multi-thread", "sync"] }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
 [lints]
 workspace = true
