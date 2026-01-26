@@ -36,11 +36,9 @@ async fn test_api_key_login() {
     // Build credentials from the mangled scene data
     let client_id = format!(
         "user.{}",
-        scene
-            .get_mangled("378538f1-2426-4788-87c5-df39a78618c1")
-            .unwrap()
+        scene.get_mangled("378538f1-2426-4788-87c5-df39a78618c1")
     );
-    let client_secret = scene.get_mangled("api_key").unwrap();
+    let client_secret = scene.get_mangled("api_key");
 
     let output = bw()
         .args(["login", "api-key", &client_id, client_secret])

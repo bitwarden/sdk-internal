@@ -15,8 +15,9 @@ the server side `SeederApi` to generate data.
 
 1. Each `Play` instance generates a unique `play_id` (UUID)
 2. All HTTP requests include an `x-play-id` header for server-side test isolation
-3. The seeder API creates test data (users, etc.) associated with that `play_id`
-4. When the `Play` instance is dropped, all test data is automatically cleaned up
+3. Any db entry created through a request associated with an `x-play-id` (users, etc.) are saved as
+   associated with that `play_id`
+4. When the `Play` instance is dropped, associated data is automatically cleaned up
 
 ### Usage
 
@@ -37,7 +38,7 @@ async fn test_example() {
     let scene = play.scene::<SingleUserScene>(&args).await.unwrap();
 
     // Access the created user data (email is mangled server-side)
-    let client_id = scene.get_mangled("client_id").unwrap();
+    let client_id = scene.get_mangled("client_id");
 
     // Use credentials for testing...
 

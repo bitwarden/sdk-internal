@@ -29,8 +29,8 @@ impl<T: SceneTemplate> Scene<T> {
         &self.template
     }
 
-    /// Get the mangled value for a given key
-    pub fn get_mangled(&self, key: &str) -> Option<&str> {
-        self.mangle_map.get(key).map(|s| s.as_str())
+    /// Get the mangled value for a given key, or return the key if not found
+    pub fn get_mangled<'a>(&'a self, key: &'a str) -> &'a str {
+        self.mangle_map.get(key).map(|s| s.as_str()).unwrap_or(key)
     }
 }
