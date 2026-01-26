@@ -27,6 +27,7 @@ impl PlayConfig {
         let identity_url = env::var("BITWARDEN_IDENTITY_URL")
             .unwrap_or_else(|_| "https://localhost:8080/identity".to_string());
 
+        // TODO: Should use the web proxy once available
         let seeder_url = env::var("BITWARDEN_SEEDER_URL")
             .unwrap_or_else(|_| "http://localhost:5047".to_string());
 
