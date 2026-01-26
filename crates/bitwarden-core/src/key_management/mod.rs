@@ -45,6 +45,11 @@ pub use user_decryption::UserDecryptionData;
 #[cfg(all(feature = "internal", feature = "wasm"))]
 mod wasm_unlock_state;
 
+#[cfg(feature = "internal")]
+mod account_keys;
+#[cfg(feature = "internal")]
+pub use account_keys::{AccountKeysData, AccountKeysError};
+
 use crate::OrganizationId;
 
 /// Represents the decrypted symmetric user-key of a user. This is held in ephemeral state of the

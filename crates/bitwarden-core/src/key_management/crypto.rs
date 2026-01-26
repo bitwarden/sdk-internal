@@ -1056,6 +1056,52 @@ pub(crate) fn make_user_jit_master_password_registration(
     })
 }
 
+/// Response from `make_user_password_registration`
+pub struct MakeUserMasterPasswordRegistrationResponse {
+    /// The wrapped account cryptographic state
+    pub account_cryptographic_state: WrappedAccountCryptographicState,
+    /// The master password unlock data
+    pub master_password_unlock_data: MasterPasswordUnlockData,
+    /// The master password authentication data
+    pub master_password_authentication_data: MasterPasswordAuthenticationData,
+    /// The request model for account cryptographic key state
+    pub account_keys_request: AccountKeysRequestModel,
+}
+
+/// Creates cryptographic data needed for user master password registration
+pub(crate) fn make_user_password_registration(
+    client: &Client,
+    user_id: UserId,
+    master_password: String,
+    salt: String,
+) -> Result<MakeUserMasterPasswordRegistrationResponse, MakeKeysError> {
+    // make_user_v2_crypto_state() - Creates user key (xchacha20-poly1305), RSA keypair, ed25519 signature keypair, and signed security state
+    let mut ctx = client.internal.get_key_store().context_mut();
+    let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx, user_id)
+        .map_err(MakeKeysError::AccountCryptographyInitialization)?;
+
+    let kdf = Kdf::default_argon2();
+
+    let master_password_unlock_data =
+        MasterPasswordUnlockData::derive(&master_password, &kdf, &salt, user_key_id, &ctx)
+            .map_err(MakeKeysError::MasterPasswordDerivation)?;
+
+    let master_password_authentication_data =
+        MasterPasswordAuthenticationData::derive(&master_password, &kdf, &salt)
+            .map_err(MakeKeysError::MasterPasswordDerivation)?;
+
+    let account_keys_request = wrapped_state
+        .to_request_model(&user_key_id, &mut ctx)
+        .map_err(|_| MakeKeysError::RequestModelCreation)?;
+
+    Ok(MakeUserMasterPasswordRegistrationResponse {
+        account_cryptographic_state: wrapped_state,
+        master_password_unlock_data,
+        master_password_authentication_data,
+        account_keys_request,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use std::num::NonZeroU32;
@@ -2012,5 +2058,63 @@ mod tests {
             .key_connector_key
             .decrypt_user_key(make_keys_response.key_connector_key_wrapped_user_key);
         assert_eq!(retrieved_symmetric_key, decrypted_user_key.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_make_user_password_registration() {
+        let user_id = UserId::new_v4();
+        let registration_client = Client::new(None);
+
+        let make_keys_response = registration_client
+            .crypto()
+            .make_user_password_registration(
+                user_id,
+                TEST_USER_PASSWORD.to_string(),
+                TEST_USER_EMAIL.to_string(),
+            )
+            .expect("user password registration should succeed");
+
+        let unlock_client = Client::new(None);
+        unlock_client
+            .crypto()
+            .initialize_user_crypto(InitUserCryptoRequest {
+                user_id: Some(user_id),
+                kdf_params: Kdf::default_argon2(),
+                email: TEST_USER_EMAIL.to_string(),
+                account_cryptographic_state: make_keys_response.account_cryptographic_state,
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
+                    password: TEST_USER_PASSWORD.to_string(),
+                    master_password_unlock: make_keys_response.master_password_unlock_data.clone(),
+                },
+            })
+            .await
+            .expect("initializing user crypto with master password should succeed");
+
+        let retrieved_key = unlock_client
+            .crypto()
+            .get_user_encryption_key()
+            .await
+            .expect("should be able to get user encryption key");
+
+        let retrieved_symmetric_key = SymmetricCryptoKey::try_from(retrieved_key)
+            .expect("retrieved key should be valid symmetric key");
+
+        let master_key = MasterKey::derive(
+            TEST_USER_PASSWORD,
+            TEST_USER_EMAIL,
+            &make_keys_response.master_password_unlock_data.kdf,
+        )
+        .expect("master key should derive");
+
+        let decrypted_user_key = master_key
+            .decrypt_user_key(
+                make_keys_response
+                    .master_password_unlock_data
+                    .master_key_wrapped_user_key
+                    .clone(),
+            )
+            .expect("should decrypt user key");
+
+        assert_eq!(retrieved_symmetric_key, decrypted_user_key);
     }
 }

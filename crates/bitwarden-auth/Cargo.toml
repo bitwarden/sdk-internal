@@ -58,6 +58,7 @@ wasm-bindgen-futures = { workspace = true, optional = true }
 
 [dev-dependencies]
 bitwarden-api-api = { workspace = true, features = ["mockall"] }
+bitwarden-api-identity = { workspace = true, features = ["mockall"] }
 bitwarden-test = { workspace = true }
 serde_json = { workspace = true }
 serde_urlencoded = ">=0.7.1, <0.8"

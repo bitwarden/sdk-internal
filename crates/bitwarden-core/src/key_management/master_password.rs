@@ -141,7 +141,19 @@ impl TryFrom<&MasterPasswordUnlockResponseModel> for MasterPasswordUnlockData {
 impl From<&MasterPasswordUnlockData> for MasterPasswordUnlockDataRequestModel {
     fn from(data: &MasterPasswordUnlockData) -> Self {
         Self {
-            kdf: Box::new(kdf_to_kdf_request_model(&data.kdf)),
+            kdf: Box::new(kdf_to_api_kdf_request_model(&data.kdf)),
+            master_key_wrapped_user_key: data.master_key_wrapped_user_key.to_string(),
+            salt: data.salt.to_owned(),
+        }
+    }
+}
+
+impl From<&MasterPasswordUnlockData>
+    for bitwarden_api_identity::models::MasterPasswordUnlockDataRequestModel
+{
+    fn from(data: &MasterPasswordUnlockData) -> Self {
+        Self {
+            kdf: Box::new(kdf_to_identity_kdf_request_model(&data.kdf)),
             master_key_wrapped_user_key: data.master_key_wrapped_user_key.to_string(),
             salt: data.salt.to_owned(),
         }
@@ -158,7 +170,7 @@ fn kdf_parse_nonzero_u32(value: impl TryInto<u32>) -> Result<NonZeroU32, MasterP
 
 /// Represents the data required to authenticate with the master password.
 #[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(
@@ -195,7 +207,7 @@ impl MasterPasswordAuthenticationData {
 impl From<&MasterPasswordAuthenticationData> for MasterPasswordAuthenticationDataRequestModel {
     fn from(data: &MasterPasswordAuthenticationData) -> Self {
         Self {
-            kdf: Box::new(kdf_to_kdf_request_model(&data.kdf)),
+            kdf: Box::new(kdf_to_api_kdf_request_model(&data.kdf)),
             master_password_authentication_hash: data
                 .master_password_authentication_hash
                 .to_string(),
@@ -204,7 +216,21 @@ impl From<&MasterPasswordAuthenticationData> for MasterPasswordAuthenticationDat
     }
 }
 
-fn kdf_to_kdf_request_model(kdf: &Kdf) -> KdfRequestModel {
+impl From<&MasterPasswordAuthenticationData>
+    for bitwarden_api_identity::models::MasterPasswordAuthenticationDataRequestModel
+{
+    fn from(data: &MasterPasswordAuthenticationData) -> Self {
+        Self {
+            kdf: Box::new(kdf_to_identity_kdf_request_model(&data.kdf)),
+            master_password_authentication_hash: data
+                .master_password_authentication_hash
+                .to_string(),
+            salt: data.salt.to_owned(),
+        }
+    }
+}
+
+fn kdf_to_api_kdf_request_model(kdf: &Kdf) -> KdfRequestModel {
     match kdf {
         Kdf::PBKDF2 { iterations } => KdfRequestModel {
             kdf_type: KdfType::PBKDF2_SHA256,
@@ -218,6 +244,27 @@ fn kdf_to_kdf_request_model(kdf: &Kdf) -> KdfRequestModel {
             parallelism,
         } => KdfRequestModel {
             kdf_type: KdfType::Argon2id,
+            iterations: iterations.get() as i32,
+            memory: Some(memory.get() as i32),
+            parallelism: Some(parallelism.get() as i32),
+        },
+    }
+}
+
+fn kdf_to_identity_kdf_request_model(kdf: &Kdf) -> bitwarden_api_identity::models::KdfRequestModel {
+    match kdf {
+        Kdf::PBKDF2 { iterations } => bitwarden_api_identity::models::KdfRequestModel {
+            kdf_type: bitwarden_api_identity::models::KdfType::PBKDF2_SHA256,
+            iterations: iterations.get() as i32,
+            memory: None,
+            parallelism: None,
+        },
+        Kdf::Argon2id {
+            iterations,
+            memory,
+            parallelism,
+        } => bitwarden_api_identity::models::KdfRequestModel {
+            kdf_type: bitwarden_api_identity::models::KdfType::Argon2id,
             iterations: iterations.get() as i32,
             memory: Some(memory.get() as i32),
             parallelism: Some(parallelism.get() as i32),
