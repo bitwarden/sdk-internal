@@ -37,8 +37,7 @@ async fn test_example() {
     };
     let scene = play.scene::<SingleUserScene>(&args).await.unwrap();
 
-    // Access the created user data (email is mangled server-side)
-    let client_id = scene.get_mangled("client_id");
+    let email = scene.get_mangled("test@example.com");
 
     // Use credentials for testing...
 
