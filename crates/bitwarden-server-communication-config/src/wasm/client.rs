@@ -20,7 +20,8 @@ pub struct JsServerCommunicationConfigClient {
 impl JsServerCommunicationConfigClient {
     /// Creates a new ServerCommunicationConfigClient with a JavaScript repository
     ///
-    /// The repository should be backed by the State Provider for persistence.
+    /// The repository should be backed by StateProvider (or equivalent
+    /// storage mechanism) for persistence.
     ///
     /// # Arguments
     ///
@@ -50,9 +51,6 @@ impl JsServerCommunicationConfigClient {
     }
 
     /// Determines if cookie bootstrapping is needed for this hostname
-    ///
-    /// Always returns `false` in WASM environments since Browser/Web clients
-    /// share the browser's cookie store.
     ///
     /// # Arguments
     ///
