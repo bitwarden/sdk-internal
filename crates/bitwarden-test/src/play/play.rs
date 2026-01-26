@@ -179,7 +179,7 @@ mod tests {
         let config = PlayConfig::new(
             "https://api.example.com",
             "https://identity.example.com",
-            &server.uri(),
+            server.uri(),
         );
         (Play::new_with_config(config), server)
     }
@@ -337,7 +337,7 @@ mod tests {
         let config = PlayConfig::new(
             "https://api.example.com",
             "https://identity.example.com",
-            &server.uri(),
+            server.uri(),
         );
         let play = Play::new_with_config(config);
 
