@@ -43,7 +43,7 @@ async fn test_api_key_login() {
     let client_secret = scene.get_mangled("api_key").unwrap();
 
     let output = bw()
-        .args(["login", "api-key", &client_id, &client_secret])
+        .args(["login", "api-key", &client_id, client_secret])
         .args(["--server", &server])
         .env("BW_PASSWORD", "asdfasdfasdf")
         .output()
