@@ -146,3 +146,202 @@ impl Drop for Play {
         });
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::mem::ManuallyDrop;
+
+    use serde::{Deserialize, Serialize};
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{method, path},
+    };
+
+    use super::*;
+
+    /// Test helper that wraps Play and prevents Drop cleanup.
+    fn test_play(seeder_url: &str) -> ManuallyDrop<Play> {
+        let config = PlayConfig::new(
+            "https://api.example.com",
+            "https://identity.example.com",
+            seeder_url,
+        );
+        ManuallyDrop::new(Play::new_with_config(config))
+    }
+
+    /// Creates a Play instance connected to a mock server with DELETE pre-configured.
+    async fn play_with_mock_server() -> (Play, MockServer) {
+        let server = MockServer::start().await;
+        Mock::given(method("DELETE"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+        let config = PlayConfig::new(
+            "https://api.example.com",
+            "https://identity.example.com",
+            &server.uri(),
+        );
+        (Play::new_with_config(config), server)
+    }
+
+    #[test]
+    fn test_play_instances() {
+        let play1 = test_play("http://localhost:5047");
+        let play2 = test_play("http://localhost:5047");
+
+        // Each instance has a valid, unique UUID
+        assert!(Uuid::parse_str(play1.play_id()).is_ok());
+        assert!(Uuid::parse_str(play2.play_id()).is_ok());
+        assert_ne!(play1.play_id(), play2.play_id());
+
+        // Accessors work correctly
+        assert_eq!(play1.config().seeder_url, "http://localhost:5047");
+        assert_eq!(play1.http_client().play_id(), play1.play_id());
+    }
+
+    // Mock types for testing scene/query functionality
+    #[derive(Debug, Clone)]
+    struct MockScene {
+        data: String,
+    }
+
+    #[derive(Clone, Serialize)]
+    struct MockSceneArgs {
+        name: String,
+    }
+
+    impl SceneTemplate for MockScene {
+        type Arguments = MockSceneArgs;
+        type Result = MockSceneResult;
+
+        fn template_name() -> &'static str {
+            "MockScene"
+        }
+
+        fn from_result(result: Self::Result) -> Self {
+            Self { data: result.data }
+        }
+    }
+
+    #[derive(Deserialize)]
+    struct MockSceneResult {
+        data: String,
+    }
+
+    #[derive(Debug, Clone)]
+    struct MockQuery {
+        args: MockQueryArgs,
+        value: i32,
+    }
+
+    #[derive(Debug, Clone, Serialize)]
+    struct MockQueryArgs {
+        id: String,
+    }
+
+    impl Query for MockQuery {
+        type Args = MockQueryArgs;
+        type Result = MockQueryResult;
+
+        fn template_name() -> &'static str {
+            "MockQuery"
+        }
+
+        fn args(&self) -> &Self::Args {
+            &self.args
+        }
+
+        fn from_result(result: Self::Result) -> Self {
+            Self {
+                args: MockQueryArgs { id: String::new() },
+                value: result.value,
+            }
+        }
+    }
+
+    #[derive(Deserialize)]
+    struct MockQueryResult {
+        value: i32,
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn test_scene_and_query() {
+        let (play, server) = play_with_mock_server().await;
+
+        // Test scene creation
+        Mock::given(method("POST"))
+            .and(path("/seed/"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "result": { "data": "test-data" },
+                "mangleMap": { "email": "mangled@example.com" }
+            })))
+            .mount(&server)
+            .await;
+
+        let scene = play
+            .scene::<MockScene>(&MockSceneArgs {
+                name: "test".into(),
+            })
+            .await
+            .unwrap();
+        assert_eq!(scene.inner().data, "test-data");
+        assert_eq!(scene.get_mangled("email"), Some("mangled@example.com"));
+
+        // Test query execution
+        Mock::given(method("POST"))
+            .and(path("/seed/query"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!({ "value": 42 })),
+            )
+            .mount(&server)
+            .await;
+
+        let result = play
+            .query::<MockQuery>(&MockQueryArgs { id: "test".into() })
+            .await
+            .unwrap();
+        assert_eq!(result.value, 42);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn test_server_error_handling() {
+        let (play, server) = play_with_mock_server().await;
+
+        Mock::given(method("POST"))
+            .and(path("/seed/"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&server)
+            .await;
+
+        let result = play
+            .scene::<MockScene>(&MockSceneArgs {
+                name: "test".into(),
+            })
+            .await;
+
+        assert!(matches!(
+            result,
+            Err(super::super::PlayError::ServerError { status: 500, .. })
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_clean() {
+        let server = MockServer::start().await;
+        Mock::given(method("DELETE"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let config = PlayConfig::new(
+            "https://api.example.com",
+            "https://identity.example.com",
+            &server.uri(),
+        );
+        let play = Play::new_with_config(config);
+
+        assert!(play.clean().await.is_ok());
+        std::mem::forget(play); // Avoid double cleanup in Drop
+    }
+}

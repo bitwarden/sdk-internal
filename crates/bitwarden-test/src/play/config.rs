@@ -56,3 +56,21 @@ impl Default for PlayConfig {
         Self::from_env()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_creates_config_with_custom_urls() {
+        let config = PlayConfig::new(
+            String::from("https://api.example.com"),
+            "https://identity.example.com",
+            "http://seeder.example.com",
+        );
+
+        assert_eq!(config.api_url, "https://api.example.com");
+        assert_eq!(config.identity_url, "https://identity.example.com");
+        assert_eq!(config.seeder_url, "http://seeder.example.com");
+    }
+}

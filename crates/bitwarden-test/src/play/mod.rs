@@ -7,7 +7,7 @@
 //! The Play framework enables E2E testing by:
 //! - Creating test data via a seeder API
 //! - Providing test isolation through unique play IDs
-//! - Automatic cleanup when scenes are dropped
+//! - Automatic cleanup when play instances are dropped
 
 mod config;
 mod error;
