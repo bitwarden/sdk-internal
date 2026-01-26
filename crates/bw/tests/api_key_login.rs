@@ -14,7 +14,7 @@ use common::bw;
 /// 4. Verifies authentication succeeds
 /// 5. Automatically cleans up the test user when play is dropped
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-#[cfg(feature = "integration")]
+#[ignore = "Integration test requires running Bitwarden server with seeder API"]
 async fn test_api_key_login() {
     let play = Play::new();
 
@@ -59,7 +59,7 @@ async fn test_api_key_login() {
 
 /// Test API key login with invalid credentials fails appropriately
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-#[cfg(feature = "integration")]
+#[ignore = "Integration test requires running Bitwarden server with seeder API"]
 async fn test_api_key_login_invalid_credentials() {
     let _play = Play::new();
 
