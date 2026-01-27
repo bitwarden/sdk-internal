@@ -33,42 +33,19 @@ where
 {
     fn on_event(&self, event: &tracing::Event<'_>, _ctx: Context<'_, S>) {
         let metadata = event.metadata();
-        // Filter out our own error messages to prevent infinite callback loop
-        if metadata.target() == "bitwarden_uniffi::log_callback" {
-            return; // Platform loggers still receive this for debugging
-        }
         let level = metadata.level().to_string();
         let target = metadata.target().to_string();
-        // Format event message
-        let mut visitor = MessageVisitor::default();
+
+        let mut message = String::new();
+        let writer = tracing_subscriber::fmt::format::Writer::new(&mut message);
+        let mut visitor = tracing_subscriber::fmt::format::DefaultVisitor::new(writer, false);
         event.record(&mut visitor);
-        let message = visitor.message;
-        // Forward to UNIFFI callback with error handling
-        if let Err(e) = self.callback.on_log(level, target, message) {
-            tracing::error!(target: "bitwarden_uniffi::log_callback", "Logging callback failed: {:?}", e);
-        }
+
+        // Forward to UNIFFI callback - errors are silently ignored
+        let _ = self.callback.on_log(level, target, message);
     }
 }
-/// Visitor to extract message from tracing event
-///
-/// **Why only record_debug is implemented:**
-///
-/// The tracing::field::Visit trait provides default implementations for all record
-/// methods (record_str, record_i64, record_bool, etc.) that forward to record_debug.
-/// This means implementing only record_debug captures all field types. The SDK's
-/// logging patterns (including % and ? format specifiers) all route through this
-/// single method via tracing's default implementations.
-#[derive(Default)]
-struct MessageVisitor {
-    message: String,
-}
-impl tracing::field::Visit for MessageVisitor {
-    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
-        if field.name() == "message" {
-            self.message = format!("{:?}", value);
-        }
-    }
-}
+
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, Mutex};
