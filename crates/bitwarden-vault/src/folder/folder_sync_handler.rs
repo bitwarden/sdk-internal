@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use bitwarden_core::{Client, require};
-use bitwarden_state::repository::Repository;
 use bitwarden_sync::{SyncHandler, SyncHandlerError};
 
 use crate::{Folder, FolderId};
@@ -28,7 +27,7 @@ impl SyncHandler for FolderSyncHandler {
         response: &bitwarden_api_api::models::SyncResponseModel,
     ) -> Result<(), SyncHandlerError> {
         let state = self.client.platform().state();
-        let repo = state.get_sdk_managed::<Folder>()?;
+        let repo = state.get::<Folder>()?;
 
         // Get existing folders for revision_date comparison
         let mut existing: HashMap<FolderId, Folder> = repo
