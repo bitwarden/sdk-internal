@@ -9,8 +9,9 @@ use wasm_bindgen::prelude::*;
 
 use super::crypto::{
     DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError,
-    MakeKeyConnectorRegistrationResponse, MakeKeyPairResponse, VerifyAsymmetricKeysRequest,
-    VerifyAsymmetricKeysResponse, derive_key_connector, make_key_pair,
+    MakeJitMasterPasswordRegistrationResponse, MakeKeyConnectorRegistrationResponse,
+    MakeKeyPairResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
+    derive_key_connector, make_key_pair, make_user_jit_master_password_registration,
     make_user_key_connector_registration, verify_asymmetric_keys,
 };
 #[cfg(feature = "internal")]
@@ -22,6 +23,7 @@ use crate::key_management::{
         initialize_org_crypto, initialize_user_crypto, make_prf_user_key_set,
     },
 };
+#[expect(deprecated)]
 use crate::{
     Client, UserId,
     client::encryption_settings::EncryptionSettingsError,
@@ -80,6 +82,7 @@ impl CryptoClient {
     pub fn make_keys_for_user_crypto_v2(
         &self,
     ) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
+        #[expect(deprecated)]
         make_v2_keys_for_v1_user(&self.client)
     }
 
@@ -87,6 +90,7 @@ impl CryptoClient {
     pub fn get_v2_rotated_account_keys(
         &self,
     ) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
+        #[expect(deprecated)]
         get_v2_rotated_account_keys(&self.client)
     }
 
@@ -215,6 +219,25 @@ impl CryptoClient {
         user_id: UserId,
     ) -> Result<MakeKeyConnectorRegistrationResponse, MakeKeysError> {
         make_user_key_connector_registration(&self.client, user_id)
+    }
+
+    /// Creates a new V2 account cryptographic state for SSO JIT master password registration.
+    /// This generates fresh cryptographic keys (private key, signing key, signed public key,
+    /// and security state) wrapped with a new user key.
+    pub fn make_user_jit_master_password_registration(
+        &self,
+        user_id: UserId,
+        master_password: String,
+        salt: String,
+        org_public_key: B64,
+    ) -> Result<MakeJitMasterPasswordRegistrationResponse, MakeKeysError> {
+        make_user_jit_master_password_registration(
+            &self.client,
+            user_id,
+            master_password,
+            salt,
+            org_public_key,
+        )
     }
 }
 

@@ -12,11 +12,9 @@ pub use symmetric_crypto_key::{
     Aes256CbcHmacKey, Aes256CbcKey, EncodedSymmetricKey, SymmetricCryptoKey, SymmetricKeyAlgorithm,
     XChaCha20Poly1305Key,
 };
-mod asymmetric_crypto_key;
-pub use asymmetric_crypto_key::{
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, PublicKeyEncryptionAlgorithm,
-};
-pub(crate) use asymmetric_crypto_key::{RawPrivateKey, RawPublicKey};
+mod public_key_encryption;
+pub use public_key_encryption::{PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm};
+pub(crate) use public_key_encryption::{RawPrivateKey, RawPublicKey};
 mod signed_public_key;
 pub use signed_public_key::{SignedPublicKey, SignedPublicKeyMessage};
 mod user_key;
@@ -29,10 +27,7 @@ mod kdf;
 #[allow(deprecated)]
 pub use kdf::dangerous_derive_kdf_material;
 mod key_id;
-pub use kdf::{
-    Kdf, default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
-    default_pbkdf2_iterations,
-};
+pub use kdf::Kdf;
 pub(crate) use key_id::{KEY_ID_SIZE, KeyId};
 mod prf;
 mod rotateable_key_set;

@@ -117,7 +117,7 @@ mod tests {
         let configuration = Configuration {
             base_path: format!("http://{}", server.address()),
             user_agent: Some("Bitwarden Rust-SDK [TEST]".to_string()),
-            client: reqwest::Client::new(),
+            client: reqwest::Client::new().into(),
             oauth_access_token: Some(ACCESS_TOKEN.to_string()),
         };
 

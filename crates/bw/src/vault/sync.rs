@@ -281,7 +281,7 @@ mod tests {
     fn make_user_crypto_request() -> InitUserCryptoRequest {
         InitUserCryptoRequest {
             user_id: Some(TEST_USER_ID.parse().unwrap()),
-            kdf_params: Kdf::default(),
+            kdf_params: Kdf::default_pbkdf2(),
             email: TEST_USER_EMAIL.to_string(),
             account_cryptographic_state: WrappedAccountCryptographicState::V1 {
                 private_key: TEST_ACCOUNT_PRIVATE_KEY.parse().unwrap(),
@@ -289,7 +289,7 @@ mod tests {
             method: InitUserCryptoMethod::MasterPasswordUnlock {
                 password: TEST_USER_PASSWORD.to_string(),
                 master_password_unlock: MasterPasswordUnlockData {
-                    kdf: Kdf::default(),
+                    kdf: Kdf::default_pbkdf2(),
                     master_key_wrapped_user_key: TEST_ACCOUNT_USER_KEY.parse().unwrap(),
                     salt: TEST_USER_EMAIL.to_string(),
                 },

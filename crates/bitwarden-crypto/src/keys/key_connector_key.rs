@@ -3,6 +3,7 @@ use std::pin::Pin;
 use bitwarden_encoding::B64;
 use generic_array::GenericArray;
 use rand::Rng;
+use tracing::instrument;
 use typenum::U32;
 
 use crate::{
@@ -25,16 +26,20 @@ impl KeyConnectorKey {
     }
 
     /// Wraps the user key with this key connector key.
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
+    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
     pub fn encrypt_user_key(
         &self,
         user_key: &SymmetricCryptoKey,
     ) -> crate::error::Result<EncString> {
-        let stretched_key = stretch_key(&self.0)?;
+        let stretched_key = stretch_key(&self.0);
         let user_key_bytes = user_key.to_encoded();
         EncString::encrypt_aes256_hmac(user_key_bytes.as_ref(), &stretched_key)
     }
 
     /// Unwraps the user key with this key connector key.
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err))]
+    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
     pub fn decrypt_user_key(
         &self,
         user_key: EncString,
@@ -45,10 +50,11 @@ impl KeyConnectorKey {
             // decrypting these old keys.
             EncString::Aes256Cbc_B64 { iv, ref data } => {
                 let legacy_key = Box::pin(GenericArray::clone_from_slice(&self.0));
-                crate::aes::decrypt_aes256(&iv, data.clone(), &legacy_key)?
+                crate::aes::decrypt_aes256(&iv, data.clone(), &legacy_key)
+                    .map_err(|_| CryptoError::Decrypt)?
             }
             EncString::Aes256Cbc_HmacSha256_B64 { .. } => {
-                let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(&self.0)?);
+                let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(&self.0));
                 user_key.decrypt_with_key(&stretched_key)?
             }
             _ => {
@@ -64,7 +70,10 @@ impl KeyConnectorKey {
 
 impl std::fmt::Debug for KeyConnectorKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("KeyConnectorKey").finish()
+        let mut debug_struct = f.debug_struct("KeyConnectorKey");
+        #[cfg(feature = "dangerous-crypto-debug")]
+        debug_struct.field("key", &self.0.as_slice());
+        debug_struct.finish()
     }
 }
 

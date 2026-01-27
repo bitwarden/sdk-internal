@@ -211,6 +211,9 @@ impl Decryptable<KeyIds, SymmetricKeyId, AttachmentView> for Attachment {
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<AttachmentView, CryptoError> {
+        // Decrypt the file name or return an error if decryption fails
+        let file_name = self.file_name.decrypt(ctx, key)?;
+
         #[cfg(feature = "wasm")]
         let decrypted_key = if let Some(attachment_key) = &self.key {
             let content_key_id = ctx.unwrap_symmetric_key(key, attachment_key)?;
@@ -228,12 +231,45 @@ impl Decryptable<KeyIds, SymmetricKeyId, AttachmentView> for Attachment {
             url: self.url.clone(),
             size: self.size.clone(),
             size_name: self.size_name.clone(),
-            file_name: self.file_name.decrypt(ctx, key)?,
+            file_name,
             key: self.key.clone(),
             #[cfg(feature = "wasm")]
             decrypted_key: decrypted_key.map(|k| k.to_string()),
         })
     }
+}
+
+/// Decrypts a list of attachments, separating successful decryptions from failures.
+///
+/// Returns a tuple of (successful_attachments, failed_attachments).
+pub(crate) fn decrypt_attachments_with_failures(
+    attachments: &[Attachment],
+    ctx: &mut KeyStoreContext<KeyIds>,
+    key: SymmetricKeyId,
+) -> (Vec<AttachmentView>, Vec<AttachmentView>) {
+    let mut successes = Vec::new();
+    let mut failures = Vec::new();
+
+    for attachment in attachments {
+        match attachment.decrypt(ctx, key) {
+            Ok(decrypted) => successes.push(decrypted),
+            Err(e) => {
+                tracing::warn!(attachment_id = ?attachment.id, error = %e, "Failed to decrypt attachment");
+                failures.push(AttachmentView {
+                    id: attachment.id.clone(),
+                    url: attachment.url.clone(),
+                    size: attachment.size.clone(),
+                    size_name: attachment.size_name.clone(),
+                    file_name: None,
+                    key: attachment.key.clone(),
+                    #[cfg(feature = "wasm")]
+                    decrypted_key: None,
+                });
+            }
+        }
+    }
+
+    (successes, failures)
 }
 
 impl TryFrom<bitwarden_api_api::models::AttachmentResponseModel> for Attachment {
