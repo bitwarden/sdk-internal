@@ -17,18 +17,17 @@ the server side `SeederApi` to generate data.
 2. All HTTP requests include an `x-play-id` header for server-side test isolation
 3. Any db entry created through a request associated with an `x-play-id` (users, etc.) are saved as
    associated with that `play_id`
-4. When the `Play` instance is dropped, associated data is automatically cleaned up
+4. When the test closure completes, associated data is automatically cleaned up
 
 ### Usage
 
+Use the `#[play_test]` macro for the most ergonomic experience:
+
 ```rust
-use bitwarden_test::play::{Play, SingleUserArgs, SingleUserScene};
+use bitwarden_test::play::{play_test, Play, SingleUserArgs, SingleUserScene};
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn test_example() {
-    // Create a Play instance - generates unique play_id
-    let play = Play::new();
-
+#[play_test]
+async fn test_example(play: Play) {
     // Create a test user via the seeder API
     let args = SingleUserArgs {
         email: "test@example.com".to_string(),
@@ -41,7 +40,30 @@ async fn test_example() {
 
     // Use credentials for testing...
 
-    // Cleanup happens automatically when `play` is dropped
+    // Cleanup happens automatically when the test completes
+}
+```
+
+Or use the builder pattern directly for more control:
+
+```rust
+use bitwarden_test::play::{Play, PlayConfig, SingleUserArgs, SingleUserScene};
+
+#[tokio::test]
+async fn test_example() {
+    Play::builder()
+        .config(PlayConfig::new("https://api", "https://identity", "http://seeder"))
+        .run(|play| async move {
+            let args = SingleUserArgs {
+                email: "test@example.com".to_string(),
+                verified: true,
+                ..Default::default()
+            };
+            let scene = play.scene::<SingleUserScene>(&args).await.unwrap();
+
+            // Use credentials for testing...
+        })
+        .await;
 }
 ```
 

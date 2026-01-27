@@ -1,6 +1,6 @@
 //! E2E test for API key login using the Play test framework
 
-use bitwarden_test::play::{Play, SingleUserArgs, SingleUserScene};
+use bitwarden_test::play::{Play, SingleUserArgs, SingleUserScene, play_test};
 
 mod common;
 use common::bw;
@@ -12,12 +12,10 @@ use common::bw;
 /// 2. Retrieves API key credentials
 /// 3. Performs API key login via the bw CLI
 /// 4. Verifies authentication succeeds
-/// 5. Automatically cleans up the test user when play is dropped
-#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+/// 5. Automatically cleans up the test user when the test completes
+#[play_test]
 #[ignore = "Integration test requires running Bitwarden server with seeder API"]
-async fn test_api_key_login() {
-    let play = Play::new();
-
+async fn test_api_key_login(play: Play) {
     let args = SingleUserArgs {
         email: "e2e-apikey@bitwarden.test".to_string(),
         verified: true,
@@ -56,11 +54,9 @@ async fn test_api_key_login() {
 }
 
 /// Test API key login with invalid credentials fails appropriately
-#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[play_test]
 #[ignore = "Integration test requires running Bitwarden server with seeder API"]
-async fn test_api_key_login_invalid_credentials() {
-    let _play = Play::new();
-
+async fn test_api_key_login_invalid_credentials(_play: Play) {
     let server = common::server_base();
 
     let output = bw()
