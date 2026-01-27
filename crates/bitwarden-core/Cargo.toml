@@ -17,7 +17,7 @@ keywords.workspace = true
 [features]
 internal = ["dep:zxcvbn"]
 no-memory-hardening = [
-    "bitwarden-crypto/no-memory-hardening"
+    "bitwarden-crypto/no-memory-hardening",
 ] # Disable memory hardening features
 secrets = [] # Secrets manager API
 uniffi = [
@@ -25,21 +25,27 @@ uniffi = [
     "bitwarden-crypto/uniffi",
     "bitwarden-encoding/uniffi",
     "dep:bitwarden-uniffi-error",
-    "dep:uniffi"
+    "dep:uniffi",
 ] # Uniffi bindings
 wasm = [
     "bitwarden-crypto/wasm",
     "bitwarden-encoding/wasm",
     "bitwarden-error/wasm",
+    "bitwarden-state/wasm",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
-    "dep:tsify"
+    "dep:tsify",
 ] # WASM support
+# WARNING: This feature is for debugging purposes only and should never be enabled in production.
+# It disables compile-time debug prevention for cryptographic keys, exposing sensitive key material
+# in debug output, and adds tracing debug logs to encrypt/decrypt operations.
+dangerous-crypto-debug = ["bitwarden-crypto/dangerous-crypto-debug"]
 
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-api-api = { workspace = true }
 bitwarden-api-identity = { workspace = true }
+bitwarden-api-key-connector = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
@@ -51,6 +57,7 @@ chrono = { workspace = true, features = ["std"] }
 getrandom = { version = ">=0.2.9, <0.3", features = ["js"] }
 rand = ">=0.8.5, <0.9"
 reqwest = { workspace = true }
+reqwest-middleware = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde_bytes = { workspace = true }

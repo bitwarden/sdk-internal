@@ -61,39 +61,160 @@ are:
 - [`bitwarden-uniffi`](./crates/bitwarden-uniffi): Mobile bindings for swift and kotlin using
   [UniFFI](https://github.com/mozilla/uniffi-rs/).
 
-## API Bindings
+## Server API Bindings
 
-We autogenerate the server bindings using
-[openapi-generator](https://github.com/OpenAPITools/openapi-generator). To do this, we first need to
-build the internal swagger documentation.
+We auto-generate the server bindings using
+[openapi-generator](https://github.com/OpenAPITools/openapi-generator), which creates Rust bindings
+from the server OpenAPI specifications. These bindings are
+[regularly updated](https://github.com/bitwarden/sdk-internal/actions/workflows/update-api-bindings.yml)
+to ensure they stay in sync with the server.
 
-### Swagger generation
+The bindings are exposed as multiple crates, one for each backend service:
 
-The first step is to generate the swagger documents from the root of the server repository.
+- [`bitwarden-api-api`](./crates//bitwarden-api-api/README.md): For the `Api` service that contains
+  most of the server side functionality.
+- [`bitwarden-api-identity`](./crates/bitwarden-api-identity/README.md): For the `Identity` service
+  that is used for authentication.
+
+When performing any API calls the goal is to use the generated bindings as much as possible. This
+ensures any changes to the server are accurately reflected in the SDK. The generated bindings are
+stateless, and always expects to be provided a `Configuration` instance. The SDK exposes these under
+the `get_api_configurations` function on the `Client` struct.
+
+You should not expose the request and response models of the auto-generated bindings and should
+instead define and use your own models. This ensures the server request / response models are
+decoupled from the SDK models and allows for easier changes in the future without breaking backwards
+compatibility.
+
+We recommend using either the `From` or `TryFrom` conversion traits depending on if the conversion
+requires error handling or not. Below are two examples of how this can be done:
+
+```rust
+# use bitwarden_crypto::EncString;
+# use serde::{Serialize, Deserialize};
+# use serde_repr::{Serialize_repr, Deserialize_repr};
+#
+# #[derive(Serialize, Deserialize, Debug, Clone)]
+# struct LoginUri {
+#     pub uri: Option<EncString>,
+#     pub r#match: Option<UriMatchType>,
+#     pub uri_checksum: Option<EncString>,
+# }
+#
+# #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
+# #[repr(u8)]
+# pub enum UriMatchType {
+#     Domain = 0,
+#     Host = 1,
+#     StartsWith = 2,
+#     Exact = 3,
+#     RegularExpression = 4,
+#     Never = 5,
+# }
+#
+# #[derive(Debug)]
+# struct VaultParseError;
+#
+impl TryFrom<bitwarden_api_api::models::CipherLoginUriModel> for LoginUri {
+    type Error = VaultParseError;
+
+    fn try_from(uri: bitwarden_api_api::models::CipherLoginUriModel) -> Result<Self, Self::Error> {
+        Ok(Self {
+            uri: EncString::try_from_optional(uri.uri)
+                .map_err(|_| VaultParseError)?,
+            r#match: uri.r#match.map(|m| m.into()),
+            uri_checksum: EncString::try_from_optional(uri.uri_checksum)
+                .map_err(|_| VaultParseError)?,
+        })
+    }
+}
+
+impl From<bitwarden_api_api::models::UriMatchType> for UriMatchType {
+    fn from(value: bitwarden_api_api::models::UriMatchType) -> Self {
+        match value {
+            bitwarden_api_api::models::UriMatchType::Domain => Self::Domain,
+            bitwarden_api_api::models::UriMatchType::Host => Self::Host,
+            bitwarden_api_api::models::UriMatchType::StartsWith => Self::StartsWith,
+            bitwarden_api_api::models::UriMatchType::Exact => Self::Exact,
+            bitwarden_api_api::models::UriMatchType::RegularExpression => Self::RegularExpression,
+            bitwarden_api_api::models::UriMatchType::Never => Self::Never,
+        }
+    }
+}
+```
+
+### Updating bindings after a server API change
+
+When the API exposed by the server changes, new bindings will need to be generated to reflect this
+change for consumption in the SDK. Examples of such changes include adding new fields to server
+request / response models, removing fields from models, or changing types of models.
+
+A GitHub workflow exists to
+[update the API bindings](https://github.com/bitwarden/sdk-internal/actions/workflows/update-api-bindings.yml).
+This workflow should always be used to merge any binding changes to `main`, to ensure that there are
+not conflicts with the auto-generated bindings in the future. Binding changes should **not** be
+included as a part of the PR to consume them.
+
+There are two ways to run the workflow:
+
+1. Manually run the `Update API Bindings`
+   [workflow](https://github.com/bitwarden/sdk-internal/actions/workflows/update-api-bindings.yml)
+   in the `sdk-internal` repo. You can choose whether to update the bindings for the API, Identity,
+   or both. You will likely only need to update the API bindings for the majority of changes.
+
+2. Wait for an automatic binding update to run, which is scheduled every 2 weeks. This update will
+   generate bindings for both API and Identity and create two PRs.
+
+A suggested workflow for incorporating server API changes into the SDK would be:
+
+1. Make changes in `server` repo to expose the new API.
+2. Merge `server` changes to `main`.
+3. Trigger the `Update API Bindings` workflow in `sdk-internal` to open a pull request with the
+   updated API bindings.
+4. Review and merge that pull request to `sdk-internal` `main` branch.
+5. Pull in `sdk-internal` `main` into your feature branch for SDK work.
+6. Consume new API models in SDK code.
+
+#### Local binding updates
+
+> [!IMPORTANT] Use the [workflow](#updating-bindings-after-a-server-api-change) to make any merged
+> binding changes. Running the scripts below can be helpful during local development, but please
+> ensure that any changes to the bindings in `bitwarden-api-api` and `bitwarden-api-identity` are
+> **not** checked into any pull request.
+
+In order to update the bindings locally, we first need to build the internal Swagger documentation.
+This code should not be directly modified. Instead use the instructions below to generate Swagger
+documents and use these to generate the OpenApi bindings.
+
+#### Swagger generation
+
+The first step is to generate the Swagger documents from the root of the
+[server repository](https://github.com/bitwarden/server).
 
 ```bash
 pwsh ./dev/generate_openapi_files.ps1
 ```
 
-### OpenApi Generator
+#### OpenApi Generator
 
 To generate a new version of the bindings, run the following script from the root of the SDK
-project.
+project. This requires a Java Runtime Environment, and also assumes the repositories `server` and
+`sdk-internal` have the same parent directory.
 
 ```bash
 ./support/build-api.sh
 ```
 
 This project uses customized templates that live in the `support/openapi-templates` directory. These
-templates resolve some outstanding issues we've experienced with the rust generator. But we strive
+templates resolve some outstanding issues we've experienced with the Rust generator. But we strive
 towards modifying the templates as little as possible to ease future upgrades.
 
-### Note
+:::note
 
-- If you don't have the nightly toolchain installed, the `build-api.sh` script will install it for
-  you.
-- This process also changes the `Cargo.toml` file. When creating a PR updating the bindings, please
-  revert (do not include) the updates to the `Cargo.toml` file.
+If you don't have the nightly toolchain installed, the `build-api.sh` script will install it for
+you.
+
+:::
 
 ## Developer tools
 
@@ -142,7 +263,7 @@ cargo +nightly fmt --check
 cargo +nightly udeps --workspace --all-features
 cargo clippy --all-features --all-targets
 cargo dylint --all -- --all-features --all-targets
-cargo sort --workspace --check
+cargo sort --workspace --grouped --check
 npm run lint
 ```
 

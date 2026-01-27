@@ -1,12 +1,12 @@
 use bitwarden_crypto::{
-    AsymmetricPublicCryptoKey, DeviceKey, EncString, Kdf, SpkiPublicKeyBytes, SymmetricCryptoKey,
+    DeviceKey, EncString, Kdf, PublicKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
     TrustDeviceResponse, UnsignedSharedKey, UserKey,
 };
 use bitwarden_encoding::B64;
 
 use crate::{
-    Client,
-    client::{encryption_settings::EncryptionSettingsError, internal::UserKeyState},
+    Client, client::encryption_settings::EncryptionSettingsError,
+    key_management::account_cryptographic_state::WrappedAccountCryptographicState,
 };
 
 /// This function generates a new user key and key pair, initializes the client's crypto with the
@@ -18,12 +18,12 @@ pub(super) fn make_register_tde_keys(
     org_public_key: B64,
     remember_device: bool,
 ) -> Result<RegisterTdeKeyResponse, EncryptionSettingsError> {
-    let public_key =
-        AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))?;
+    let public_key = PublicKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))?;
 
     let user_key = UserKey::new(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
     let key_pair = user_key.make_key_pair()?;
 
+    #[expect(deprecated)]
     let admin_reset = UnsignedSharedKey::encapsulate_key_unsigned(&user_key.0, &public_key)?;
 
     let device_key = if remember_device {
@@ -34,12 +34,10 @@ pub(super) fn make_register_tde_keys(
 
     client.internal.initialize_user_crypto_decrypted_key(
         user_key.0,
-        UserKeyState {
+        // TODO (https://bitwarden.atlassian.net/browse/PM-21771) Signing keys are not supported on registration yet. This needs to be changed as
+        // soon as registration is supported.
+        WrappedAccountCryptographicState::V1 {
             private_key: key_pair.private.clone(),
-            // TODO (https://bitwarden.atlassian.net/browse/PM-21771) Signing keys are not supported on registration yet. This needs to be changed as
-            // soon as registration is supported.
-            signing_key: None,
-            security_state: None,
         },
     )?;
 
@@ -49,7 +47,7 @@ pub(super) fn make_register_tde_keys(
             crate::client::UserLoginMethod::Username {
                 client_id: "".to_owned(),
                 email,
-                kdf: Kdf::default(),
+                kdf: Kdf::default_pbkdf2(),
             },
         ));
 

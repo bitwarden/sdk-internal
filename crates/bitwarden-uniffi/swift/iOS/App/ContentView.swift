@@ -194,12 +194,14 @@ struct ContentView: View {
                 userId: nil,
                 kdfParams: kdf,
                 email: EMAIL,
-                privateKey: loginData.PrivateKey,
-                signingKey: nil,
-                securityState: nil,
-                method: InitUserCryptoMethod.password(
+                accountCryptographicState: WrappedAccountCryptographicState.v1(privateKey: loginData.PrivateKey),
+                method: InitUserCryptoMethod.masterPasswordUnlock(
                     password: PASSWORD,
-                    userKey: loginData.Key
+                    masterPasswordUnlock: MasterPasswordUnlockData(
+                        kdf: kdf,
+                        masterKeyWrappedUserKey: loginData.Key,
+                        salt: EMAIL
+                    )
                 )
             ))
 
@@ -254,9 +256,7 @@ struct ContentView: View {
             userId: nil,
             kdfParams: kdf,
             email: EMAIL,
-            privateKey: privateKey,
-            signingKey: nil,
-            securityState: nil,
+            accountCryptographicState: WrappedAccountCryptographicState.v1(privateKey: privateKey),
             method: InitUserCryptoMethod.decryptedKey(
                 decryptedUserKey: key
             )
@@ -283,9 +283,7 @@ struct ContentView: View {
             userId: nil,
             kdfParams: kdf,
             email: EMAIL,
-            privateKey: privateKey,
-            signingKey: nil,
-            securityState: nil,
+            accountCryptographicState: WrappedAccountCryptographicState.v1(privateKey: privateKey),
             method: InitUserCryptoMethod.pin(pin: PIN, pinProtectedUserKey: pinProtectedUserKey)
         ))
     }
@@ -369,7 +367,7 @@ struct ContentView: View {
             extensions: nil
         ))
 
-        let _ = try await authenticator.silentlyDiscoverCredentials(rpId: "")
+        let _ = try await authenticator.silentlyDiscoverCredentials(rpId: "", userHandle: nil)
     }
 
 }
@@ -414,7 +412,7 @@ class Fido2UserInterfaceImpl: Fido2UserInterface {
         return CheckUserResult(userPresent: true, userVerified: true)
     }
 
-    func isVerificationEnabled() async  -> Bool {
+    func isVerificationEnabled() -> Bool {
         true
     }
 }
@@ -424,7 +422,7 @@ class Fido2CredentialStoreImpl: Fido2CredentialStore {
         abort()
     }
 
-    func findCredentials(ids: [Data]?, ripId: String) async throws -> [BitwardenSdk.CipherView] {
+    func findCredentials(ids: [Data]?, ripId: String, userHandle: Data?) async throws -> [BitwardenSdk.CipherView] {
         abort()
     }
 

@@ -24,11 +24,11 @@ bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-vault = { workspace = true }
 chrono = { workspace = true }
-coset = ">=0.3.7, <0.4"
+coset = ">=0.3.7, <0.5"
 itertools = ">=0.13.0, <0.15"
 p256 = ">=0.13.2, <0.14"
-passkey = { git = "https://github.com/bitwarden/passkey-rs", rev = "3b764633ebc6576c07bdd12ee14d8e5c87b494ed" }
-passkey-client = { git = "https://github.com/bitwarden/passkey-rs", rev = "3b764633ebc6576c07bdd12ee14d8e5c87b494ed", features = [
+passkey = { git = "https://github.com/bitwarden/passkey-rs", rev = "043279e92e2eb5f509bf87eb7fa50987fd377e32" }
+passkey-client = { git = "https://github.com/bitwarden/passkey-rs", rev = "043279e92e2eb5f509bf87eb7fa50987fd377e32", features = [
     "android-asset-validation",
 ] }
 reqwest = { workspace = true }

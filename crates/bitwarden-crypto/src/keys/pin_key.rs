@@ -4,7 +4,8 @@ use super::{
     utils::stretch_key,
 };
 use crate::{
-    EncString, KeyEncryptable, Result, SymmetricCryptoKey, keys::key_encryptable::CryptoKey,
+    EncString, KeyDecryptable, KeyEncryptable, Result, SymmetricCryptoKey,
+    keys::key_encryptable::CryptoKey,
 };
 
 /// Pin Key.
@@ -33,7 +34,7 @@ impl CryptoKey for PinKey {}
 
 impl KeyEncryptable<PinKey, EncString> for &SymmetricCryptoKey {
     fn encrypt_with_key(self, key: &PinKey) -> Result<EncString> {
-        let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(&key.0.0)?);
+        let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(&key.0.0));
         // The (stretched) pin key is currently always an AES-256-CBC-HMAC key, and wraps a
         // bitwarden legacy encoded symmetric key
         self.to_encoded().encrypt_with_key(&stretched_key)
@@ -42,8 +43,13 @@ impl KeyEncryptable<PinKey, EncString> for &SymmetricCryptoKey {
 
 impl KeyEncryptable<PinKey, EncString> for String {
     fn encrypt_with_key(self, key: &PinKey) -> Result<EncString> {
-        self.encrypt_with_key(&SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(
-            &key.0.0,
-        )?))
+        self.encrypt_with_key(&SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(&key.0.0)))
+    }
+}
+
+impl KeyDecryptable<PinKey, String> for EncString {
+    fn decrypt_with_key(&self, key: &PinKey) -> Result<String> {
+        let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(&key.0.0));
+        self.decrypt_with_key(&stretched_key)
     }
 }

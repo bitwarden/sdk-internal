@@ -43,15 +43,15 @@ fi
 # Build with MVP CPU target, two reasons:
 # 1. It is required for wasm2js support
 # 2. While webpack supports it, it has some compatibility issues that lead to strange results
-# Note that this requirest build-std which is an unstable feature,
+# Note that this requires build-std which is an unstable feature,
 # this normally requires a nightly build, but we can also use the
 # RUSTC_BOOTSTRAP hack to use the same stable version as the normal build
-RUSTFLAGS=-Ctarget-cpu=mvp RUSTC_BOOTSTRAP=1 cargo build -p bitwarden-wasm-internal -Zbuild-std=panic_abort,std --target wasm32-unknown-unknown ${RELEASE_FLAG} ${ENABLE_LICENSE_FEATURE}
+RUSTFLAGS='-Ctarget-cpu=mvp --cfg getrandom_backend="wasm_js"' RUSTC_BOOTSTRAP=1 cargo build -p bitwarden-wasm-internal -Zbuild-std=panic_abort,std --target wasm32-unknown-unknown ${RELEASE_FLAG} ${ENABLE_LICENSE_FEATURE}
 cargo run -p wasm-bindgen-cli-runner --bin wasm-bindgen-runner -- --target bundler --out-dir crates/bitwarden-wasm-internal/${NPM_FOLDER} ./target/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
 cargo run -p wasm-bindgen-cli-runner --bin wasm-bindgen-runner -- --target nodejs --out-dir crates/bitwarden-wasm-internal/${NPM_FOLDER}/node ./target/wasm32-unknown-unknown/${BUILD_FOLDER}/bitwarden_wasm_internal.wasm
 
-# Format
-npx prettier --write ./crates/bitwarden-wasm-internal/${NPM_FOLDER}
+# Format TypeScript definition files only (skip generated .wasm.js files)
+npx prettier --write "./crates/bitwarden-wasm-internal/${NPM_FOLDER}/**/*.ts"
 
 # Optimize size
 wasm-opt -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm

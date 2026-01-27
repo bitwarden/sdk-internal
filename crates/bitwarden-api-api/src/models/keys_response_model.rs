@@ -20,6 +20,8 @@ pub struct KeysResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub object: Option<String>,
+    /// The master key wrapped user key. The master key can either be a master-password master key
+    /// or a key-connector master key.
     #[serde(rename = "key", alias = "Key", skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
     #[serde(
@@ -34,6 +36,12 @@ pub struct KeysResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub private_key: Option<String>,
+    #[serde(
+        rename = "accountKeys",
+        alias = "AccountKeys",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub account_keys: Option<Box<models::PrivateKeysResponseModel>>,
 }
 
 impl KeysResponseModel {
@@ -43,6 +51,7 @@ impl KeysResponseModel {
             key: None,
             public_key: None,
             private_key: None,
+            account_keys: None,
         }
     }
 }

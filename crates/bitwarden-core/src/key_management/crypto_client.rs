@@ -1,6 +1,6 @@
 #[cfg(feature = "wasm")]
 use bitwarden_crypto::safe::PasswordProtectedKeyEnvelope;
-use bitwarden_crypto::{CryptoError, Decryptable, Kdf};
+use bitwarden_crypto::{CryptoError, Decryptable, Kdf, RotateableKeySet};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use bitwarden_encoding::B64;
@@ -9,8 +9,10 @@ use wasm_bindgen::prelude::*;
 
 use super::crypto::{
     DeriveKeyConnectorError, DeriveKeyConnectorRequest, EnrollAdminPasswordResetError,
+    MakeJitMasterPasswordRegistrationResponse, MakeKeyConnectorRegistrationResponse,
     MakeKeyPairResponse, VerifyAsymmetricKeysRequest, VerifyAsymmetricKeysResponse,
-    derive_key_connector, make_key_pair, verify_asymmetric_keys,
+    derive_key_connector, make_key_pair, make_user_jit_master_password_registration,
+    make_user_key_connector_registration, verify_asymmetric_keys,
 };
 #[cfg(feature = "internal")]
 use crate::key_management::{
@@ -18,16 +20,18 @@ use crate::key_management::{
     crypto::{
         DerivePinKeyResponse, InitOrgCryptoRequest, InitUserCryptoRequest, UpdatePasswordResponse,
         derive_pin_key, derive_pin_user_key, enroll_admin_password_reset, get_user_encryption_key,
-        initialize_org_crypto, initialize_user_crypto,
+        initialize_org_crypto, initialize_user_crypto, make_prf_user_key_set,
     },
 };
+#[expect(deprecated)]
 use crate::{
-    Client,
+    Client, UserId,
     client::encryption_settings::EncryptionSettingsError,
     error::StatefulCryptoError,
     key_management::crypto::{
-        CryptoClientError, EnrollPinResponse, UpdateKdfResponse, UserCryptoV2KeysResponse,
-        enroll_pin, get_v2_rotated_account_keys, make_update_kdf, make_update_password,
+        CryptoClientError, EnrollPinResponse, MakeKeysError, MakeTdeRegistrationResponse,
+        UpdateKdfResponse, UserCryptoV2KeysResponse, enroll_pin, get_v2_rotated_account_keys,
+        make_update_kdf, make_update_password, make_user_tde_registration,
         make_v2_keys_for_v1_user,
     },
 };
@@ -78,6 +82,7 @@ impl CryptoClient {
     pub fn make_keys_for_user_crypto_v2(
         &self,
     ) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
+        #[expect(deprecated)]
         make_v2_keys_for_v1_user(&self.client)
     }
 
@@ -85,6 +90,7 @@ impl CryptoClient {
     pub fn get_v2_rotated_account_keys(
         &self,
     ) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
+        #[expect(deprecated)]
         get_v2_rotated_account_keys(&self.client)
     }
 
@@ -171,6 +177,12 @@ impl CryptoClient {
         derive_pin_user_key(&self.client, encrypted_pin)
     }
 
+    /// Creates a new rotateable key set for the current user key protected
+    /// by a key derived from the given PRF.
+    pub fn make_prf_user_key_set(&self, prf: B64) -> Result<RotateableKeySet, CryptoClientError> {
+        make_prf_user_key_set(&self.client, prf)
+    }
+
     /// Prepares the account for being enrolled in the admin password reset feature. This encrypts
     /// the users [UserKey][bitwarden_crypto::UserKey] with the organization's public key.
     pub fn enroll_admin_password_reset(
@@ -186,6 +198,46 @@ impl CryptoClient {
         request: DeriveKeyConnectorRequest,
     ) -> Result<B64, DeriveKeyConnectorError> {
         derive_key_connector(request)
+    }
+
+    /// Creates a new V2 account cryptographic state for TDE registration.
+    /// This generates fresh cryptographic keys (private key, signing key, signed public key,
+    /// and security state) wrapped with a new user key.
+    pub fn make_user_tde_registration(
+        &self,
+        user_id: UserId,
+        org_public_key: B64,
+    ) -> Result<MakeTdeRegistrationResponse, MakeKeysError> {
+        make_user_tde_registration(&self.client, user_id, org_public_key)
+    }
+
+    /// Creates a new V2 account cryptographic state for Key Connector registration.
+    /// This generates fresh cryptographic keys (private key, signing key, signed public key,
+    /// and security state) wrapped with a new user key.
+    pub fn make_user_key_connector_registration(
+        &self,
+        user_id: UserId,
+    ) -> Result<MakeKeyConnectorRegistrationResponse, MakeKeysError> {
+        make_user_key_connector_registration(&self.client, user_id)
+    }
+
+    /// Creates a new V2 account cryptographic state for SSO JIT master password registration.
+    /// This generates fresh cryptographic keys (private key, signing key, signed public key,
+    /// and security state) wrapped with a new user key.
+    pub fn make_user_jit_master_password_registration(
+        &self,
+        user_id: UserId,
+        master_password: String,
+        salt: String,
+        org_public_key: B64,
+    ) -> Result<MakeJitMasterPasswordRegistrationResponse, MakeKeysError> {
+        make_user_jit_master_password_registration(
+            &self.client,
+            user_id,
+            master_password,
+            salt,
+            org_public_key,
+        )
     }
 }
 
@@ -230,7 +282,7 @@ mod tests {
                 )
                 .unwrap(),
         );
-        let user_key_final = SymmetricCryptoKey::try_from(&secret).unwrap();
+        let user_key_final = SymmetricCryptoKey::try_from(&secret).expect("valid user key");
         assert_eq!(user_key_initial, user_key_final);
     }
 }

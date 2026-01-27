@@ -26,12 +26,13 @@ use thiserror::Error;
 use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
-    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KeyIds,
-    KeyStoreContext, SymmetricCryptoKey,
+    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, EncodedSymmetricKey,
+    KEY_ID_SIZE, KeyIds, KeyStoreContext, SymmetricCryptoKey,
     cose::{
         ALG_ARGON2ID13, ARGON2_ITERATIONS, ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
-        CoseExtractError, extract_bytes, extract_integer,
+        CONTAINED_KEY_ID, CoseExtractError, extract_bytes, extract_integer,
     },
+    keys::KeyId,
     xchacha20,
 };
 
@@ -121,7 +122,13 @@ impl PasswordProtectedKeyEnvelope {
                 recipient.protected.header.alg = Some(coset::Algorithm::PrivateUse(ALG_ARGON2ID13));
                 recipient
             })
-            .protected(HeaderBuilder::from(content_format).build())
+            .protected({
+                let mut hdr = HeaderBuilder::from(content_format);
+                if let Some(key_id) = key_to_seal.key_id() {
+                    hdr = hdr.value(CONTAINED_KEY_ID, Value::from(Vec::from(&key_id)));
+                }
+                hdr.build()
+            })
             .create_ciphertext(&key_to_seal_bytes, &[], |data, aad| {
                 let ciphertext = xchacha20::encrypt_xchacha20_poly1305(&envelope_key, data, aad);
                 nonce.copy_from_slice(&ciphertext.nonce());
@@ -185,9 +192,11 @@ impl PasswordProtectedKeyEnvelope {
 
         let key_bytes = self
             .cose_encrypt
-            .decrypt(&[], |data, aad| {
-                xchacha20::decrypt_xchacha20_poly1305(&nonce, &envelope_key, data, aad)
-            })
+            .decrypt_ciphertext(
+                &[],
+                || CryptoError::MissingField("ciphertext"),
+                |data, aad| xchacha20::decrypt_xchacha20_poly1305(&nonce, &envelope_key, data, aad),
+            )
             // If decryption fails, the envelope-key is incorrect and thus the password is incorrect
             // since the KDF parameters & salt are guaranteed to be correct
             .map_err(|_| PasswordProtectedKeyEnvelopeError::WrongPassword)?;
@@ -220,6 +229,25 @@ impl PasswordProtectedKeyEnvelope {
     ) -> Result<Self, PasswordProtectedKeyEnvelopeError> {
         let unsealed = self.unseal_ref(password)?;
         Self::seal_ref(&unsealed, new_password)
+    }
+
+    /// Get the key ID of the contained key, if the key ID is stored on the envelope headers.
+    /// Only COSE keys have a key ID, legacy keys do not.
+    pub fn contained_key_id(&self) -> Result<Option<KeyId>, PasswordProtectedKeyEnvelopeError> {
+        let key_id_bytes = extract_bytes(
+            &self.cose_encrypt.protected.header,
+            CONTAINED_KEY_ID,
+            "key id",
+        );
+
+        if let Ok(bytes) = key_id_bytes {
+            let key_id_array: [u8; KEY_ID_SIZE] = bytes.as_slice().try_into().map_err(|_| {
+                PasswordProtectedKeyEnvelopeError::Parsing("Invalid key id".to_string())
+            })?;
+            Ok(Some(KeyId::from(key_id_array)))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -465,10 +493,7 @@ impl FromWasmAbi for PasswordProtectedKeyEnvelope {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        KeyStore,
-        traits::tests::{TestIds, TestSymmKey},
-    };
+    use crate::{KeyStore, SymmetricKeyAlgorithm, traits::tests::TestIds};
 
     const TEST_UNSEALED_COSEKEY_ENCODED: &[u8] = &[
         165, 1, 4, 2, 80, 63, 208, 189, 183, 204, 37, 72, 170, 179, 236, 190, 208, 22, 65, 227,
@@ -553,7 +578,7 @@ mod tests {
     fn test_make_envelope() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
-        let test_key = ctx.make_cose_symmetric_key(TestSymmKey::A(0)).unwrap();
+        let test_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         let password = "test_password";
 
@@ -637,7 +662,7 @@ mod tests {
     fn test_wrong_password() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
-        let test_key = ctx.make_cose_symmetric_key(TestSymmKey::A(0)).unwrap();
+        let test_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         let password = "test_password";
         let wrong_password = "wrong_password";
@@ -652,5 +677,39 @@ mod tests {
             deserialized.unseal(wrong_password, &mut ctx),
             Err(PasswordProtectedKeyEnvelopeError::WrongPassword)
         ));
+    }
+
+    #[test]
+    fn test_key_id() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
+        let test_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        #[allow(deprecated)]
+        let key_id = ctx
+            .dangerous_get_symmetric_key(test_key)
+            .unwrap()
+            .key_id()
+            .unwrap();
+
+        let password = "test_password";
+
+        // Seal the key with a password
+        let envelope = PasswordProtectedKeyEnvelope::seal(test_key, password, &ctx).unwrap();
+        let contained_key_id = envelope.contained_key_id().unwrap();
+        assert_eq!(Some(key_id), contained_key_id);
+    }
+
+    #[test]
+    fn test_no_key_id() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
+        let test_key = ctx.generate_symmetric_key();
+
+        let password = "test_password";
+
+        // Seal the key with a password
+        let envelope = PasswordProtectedKeyEnvelope::seal(test_key, password, &ctx).unwrap();
+        let contained_key_id = envelope.contained_key_id().unwrap();
+        assert_eq!(None, contained_key_id);
     }
 }

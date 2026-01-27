@@ -57,8 +57,8 @@ pub use key_rotation::*;
 ///         #[local]
 ///         Local(LocalId),
 ///     }
-///     #[asymmetric]
-///     pub enum AsymmKeyId {
+///     #[private]
+///     pub enum PrivateKeyId {
 ///         UserPrivate,
 ///         #[local]
 ///         Local(LocalId),
@@ -69,7 +69,7 @@ pub use key_rotation::*;
 ///        #[local]
 ///        Local(LocalId),
 ///     }
-///     pub Ids => SymmKeyId, AsymmKeyId, SigningKeyId;
+///     pub Ids => SymmKeyId, PrivateKeyId, SigningKeyId;
 /// }
 ///
 /// // Initialize the store and insert a test key
@@ -111,7 +111,7 @@ impl<Ids: KeyIds> std::fmt::Debug for KeyStore<Ids> {
 
 struct KeyStoreInner<Ids: KeyIds> {
     symmetric_keys: Box<dyn StoreBackend<Ids::Symmetric>>,
-    asymmetric_keys: Box<dyn StoreBackend<Ids::Asymmetric>>,
+    private_keys: Box<dyn StoreBackend<Ids::Private>>,
     signing_keys: Box<dyn StoreBackend<Ids::Signing>>,
     security_state_version: u64,
 }
@@ -122,7 +122,7 @@ impl<Ids: KeyIds> Default for KeyStore<Ids> {
         Self {
             inner: Arc::new(RwLock::new(KeyStoreInner {
                 symmetric_keys: create_store(),
-                asymmetric_keys: create_store(),
+                private_keys: create_store(),
                 signing_keys: create_store(),
                 security_state_version: 1,
             })),
@@ -136,7 +136,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     pub fn clear(&self) {
         let mut keys = self.inner.write().expect("RwLock is poisoned");
         keys.symmetric_keys.clear();
-        keys.asymmetric_keys.clear();
+        keys.private_keys.clear();
         keys.signing_keys.clear();
     }
 
@@ -175,7 +175,6 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     ///   If you want to access the key material to encrypt it or derive a new key from it, we
     ///   provide functions for that:
     ///     - [KeyStoreContext::wrap_symmetric_key]
-    ///     - [KeyStoreContext::encapsulate_key_unsigned]
     ///     - [KeyStoreContext::derive_shareable_key]
     pub fn context(&'_ self) -> KeyStoreContext<'_, Ids> {
         let data = self.inner.read().expect("RwLock is poisoned");
@@ -183,7 +182,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         KeyStoreContext {
             global_keys: GlobalKeys::ReadOnly(data),
             local_symmetric_keys: create_store(),
-            local_asymmetric_keys: create_store(),
+            local_private_keys: create_store(),
             local_signing_keys: create_store(),
             security_state_version,
             _phantom: std::marker::PhantomData,
@@ -216,7 +215,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         KeyStoreContext {
             global_keys: GlobalKeys::ReadWrite(inner),
             local_symmetric_keys: create_store(),
-            local_asymmetric_keys: create_store(),
+            local_private_keys: create_store(),
             local_signing_keys: create_store(),
             security_state_version,
             _phantom: std::marker::PhantomData,
@@ -380,7 +379,7 @@ fn batch_chunk_size(len: usize) -> usize {
 #[cfg(test)]
 pub(crate) mod tests {
     use crate::{
-        EncString, PrimitiveEncryptable, SymmetricCryptoKey,
+        EncString, PrimitiveEncryptable, SymmetricKeyAlgorithm,
         store::{KeyStore, KeyStoreContext},
         traits::tests::{TestIds, TestSymmKey},
     };
@@ -426,13 +425,9 @@ pub(crate) mod tests {
 
         // Create a bunch of random keys
         for n in 0..15 {
-            #[allow(deprecated)]
-            store
-                .context_mut()
-                .set_symmetric_key(
-                    TestSymmKey::A(n),
-                    SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-                )
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, TestSymmKey::A(n))
                 .unwrap();
         }
 

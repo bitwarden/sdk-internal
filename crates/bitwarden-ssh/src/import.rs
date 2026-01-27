@@ -22,8 +22,8 @@ pub fn import_key(
         .map_err(|_| SshKeyImportError::Parsing)?;
 
     match label {
-        pkcs8::PrivateKeyInfo::PEM_LABEL => import_pkcs8_key(encoded_key, None),
-        pkcs8::EncryptedPrivateKeyInfo::PEM_LABEL => import_pkcs8_key(
+        pkcs8::PrivateKeyInfo::<(), (), ()>::PEM_LABEL => import_pkcs8_key(encoded_key, None),
+        pkcs8::EncryptedPrivateKeyInfo::<()>::PEM_LABEL => import_pkcs8_key(
             encoded_key,
             Some(password.ok_or(SshKeyImportError::PasswordRequired)?),
         ),
@@ -199,26 +199,22 @@ mod tests {
         assert_eq!(result.unwrap_err(), SshKeyImportError::UnsupportedKeyType);
     }
 
-    // Putty-exported keys should be supported, but are not due to a parser incompatibility.
-    // Should this test start failing, please change it to expect a correct key, and
-    // make sure the documentation support for putty-exported keys this is updated.
-    // https://bitwarden.atlassian.net/browse/PM-14989
     #[test]
     fn import_key_ed25519_putty() {
         let private_key = include_str!("../resources/import/ed25519_putty_openssh_unencrypted");
-        let result = import_key(private_key.to_string(), Some("".to_string()));
-        assert_eq!(result.unwrap_err(), SshKeyImportError::Parsing);
+        let public_key =
+            include_str!("../resources/import/ed25519_putty_openssh_unencrypted.pub").trim();
+        let result = import_key(private_key.to_string(), Some("".to_string())).unwrap();
+        assert_eq!(result.public_key, public_key);
     }
 
-    // Putty-exported keys should be supported, but are not due to a parser incompatibility.
-    // Should this test start failing, please change it to expect a correct key, and
-    // make sure the documentation support for putty-exported keys this is updated.
-    // https://bitwarden.atlassian.net/browse/PM-14989
     #[test]
     fn import_key_rsa_openssh_putty() {
         let private_key = include_str!("../resources/import/rsa_putty_openssh_unencrypted");
-        let result = import_key(private_key.to_string(), Some("".to_string()));
-        assert_eq!(result.unwrap_err(), SshKeyImportError::Parsing);
+        let public_key =
+            include_str!("../resources/import/rsa_putty_openssh_unencrypted.pub").trim();
+        let result = import_key(private_key.to_string(), Some("".to_string())).unwrap();
+        assert_eq!(result.public_key, public_key);
     }
 
     #[test]
@@ -226,5 +222,14 @@ mod tests {
         let private_key = include_str!("../resources/import/rsa_putty_pkcs1_unencrypted");
         let result = import_key(private_key.to_string(), Some("".to_string()));
         assert_eq!(result.unwrap_err(), SshKeyImportError::UnsupportedKeyType);
+    }
+
+    #[test]
+    fn import_ed25519_key_regression_17028() {
+        // https://github.com/bitwarden/clients/issues/17028#issuecomment-3455975763
+        let private_key = include_str!("../resources/import/ed25519_regression_17028");
+        let public_key = include_str!("../resources/import/ed25519_regression_17028.pub").trim();
+        let result = import_key(private_key.to_string(), None).unwrap();
+        assert_eq!(result.public_key, public_key);
     }
 }

@@ -10,6 +10,7 @@ use crate::send_access::api::{SendAccessTokenApiErrorResponse, SendAccessTokenAp
     derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(Debug)]
 pub struct SendAccessTokenResponse {
     /// The actual token string.
@@ -58,6 +59,11 @@ impl From<reqwest::Error> for SendAccessTokenError {
         Self::Unexpected(UnexpectedIdentityError(format!("{value:?}")))
     }
 }
+impl From<reqwest_middleware::Error> for SendAccessTokenError {
+    fn from(value: reqwest_middleware::Error) -> Self {
+        Self::Unexpected(UnexpectedIdentityError(format!("{value:?}")))
+    }
+}
 
 /// Any unexpected error that occurs when making requests to identity. This could be
 /// local/transport/decoding failure from the HTTP client (DNS/TLS/connect/read timeout,
@@ -73,3 +79,7 @@ impl From<reqwest::Error> for SendAccessTokenError {
     tsify(into_wasm_abi, from_wasm_abi)
 )]
 pub struct UnexpectedIdentityError(pub String);
+
+// Newtype wrapper for unexpected identity errors for uniffi compatibility.
+#[cfg(feature = "uniffi")] // only compile this when uniffi feature is enabled
+uniffi::custom_newtype!(UnexpectedIdentityError, String);

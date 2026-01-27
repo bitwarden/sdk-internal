@@ -48,7 +48,7 @@ impl SendAccessClient {
             &configurations.identity_config.base_path
         );
 
-        let request: reqwest::RequestBuilder = configurations
+        let request: reqwest_middleware::RequestBuilder = configurations
             .identity_config
             .client
             .post(&url)
@@ -124,7 +124,9 @@ mod tests {
             api_url: format!("http://{}/api", mock_server.address()),
             user_agent: "Bitwarden Rust-SDK [TEST]".into(),
             device_type: DeviceType::SDK,
+            device_identifier: None,
             bitwarden_client_version: None,
+            bitwarden_package_type: None,
         };
         let core_client = CoreClient::new(Some(settings));
         core_client.auth_new().send_access()

@@ -28,6 +28,8 @@ import com.bitwarden.vault.Folder
 import com.bitwarden.core.InitOrgCryptoRequest
 import com.bitwarden.core.InitUserCryptoMethod
 import com.bitwarden.core.InitUserCryptoRequest
+import com.bitwarden.core.MasterPasswordUnlockData
+import com.bitwarden.core.WrappedAccountCryptographicState
 import com.bitwarden.core.Uuid
 import com.bitwarden.crypto.HashPurpose
 import com.bitwarden.crypto.Kdf
@@ -259,11 +261,14 @@ class MainActivity : FragmentActivity() {
                 userId = null,
                 kdfParams = kdf,
                 email = EMAIL,
-                privateKey = loginBody.PrivateKey,
-                signingKey = null,
-                securityState = null,
-                method = InitUserCryptoMethod.Password(
-                    password = PASSWORD, userKey = loginBody.Key
+                accountCryptographicState = WrappedAccountCryptographicState.V1(privateKey = loginBody.PrivateKey),
+                method = InitUserCryptoMethod.MasterPasswordUnlock(
+                    password = PASSWORD,
+                    masterPasswordUnlock = MasterPasswordUnlockData(
+                        kdf = kdf,
+                        masterKeyWrappedUserKey = loginBody.Key,
+                        salt = EMAIL
+                    )
                 )
             )
         )
@@ -346,9 +351,7 @@ class MainActivity : FragmentActivity() {
                         userId = null,
                         kdfParams = kdf,
                         email = EMAIL,
-                        privateKey = privateKey!!,
-                        signingKey = null,
-                        securityState = null,
+                        accountCryptographicState = WrappedAccountCryptographicState.V1(privateKey = privateKey!!),
                         method = InitUserCryptoMethod.DecryptedKey(decryptedUserKey = key)
                     )
                 )
@@ -386,9 +389,7 @@ class MainActivity : FragmentActivity() {
                     userId = null,
                     kdfParams = kdf,
                     email = EMAIL,
-                    privateKey = privateKey!!,
-                    signingKey = null,
-                    securityState = null,
+                    accountCryptographicState = WrappedAccountCryptographicState.V1(privateKey = privateKey!!),
                     method = InitUserCryptoMethod.Pin(
                         pinProtectedUserKey = pinProtectedUserKey, pin = PIN
                     )

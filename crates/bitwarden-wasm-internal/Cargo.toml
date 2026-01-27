@@ -12,11 +12,15 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
-[features]
-bitwarden-license = ["bitwarden-pm/bitwarden-license", "dep:bitwarden-commercial-vault"]
-
 [lib]
 crate-type = ["cdylib"]
+
+[features]
+bitwarden-license = ["bitwarden-pm/bitwarden-license", "dep:bitwarden-commercial-vault"]
+# WARNING: This feature is for debugging purposes only and should never be enabled in production.
+# It disables compile-time debug prevention for cryptographic keys, exposing sensitive key material
+# in debug output, and adds tracing debug logs to encrypt/decrypt operations.
+dangerous-crypto-debug = ["bitwarden-core/dangerous-crypto-debug"]
 
 [dependencies]
 async-trait = { workspace = true }
@@ -33,7 +37,10 @@ bitwarden-state = { workspace = true, features = ["wasm"] }
 bitwarden-threading = { workspace = true }
 bitwarden-vault = { workspace = true, features = ["wasm"] }
 console_error_panic_hook = "0.1.7"
+rand = { workspace = true }
+rsa = { workspace = true }
 serde = { workspace = true }
+sha1 = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-web = { version = "0.1.3" }

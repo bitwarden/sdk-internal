@@ -15,6 +15,7 @@ macro_rules! impl_bitwarden_error {
             fn from(e: $name<T>) -> Self {
                 match e {
                     $name::Reqwest(e) => Self::Reqwest(e),
+                    $name::ReqwestMiddleware(e) => Self::ReqwestMiddleware(e),
                     $name::ResponseError(e) => Self::ResponseContent {
                         status: e.status,
                         message: e.content,
@@ -35,6 +36,8 @@ pub enum ApiError {
     #[error(transparent)]
     Reqwest(#[from] reqwest::Error),
     #[error(transparent)]
+    ReqwestMiddleware(#[from] reqwest_middleware::Error),
+    #[error(transparent)]
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -52,7 +55,7 @@ impl_bitwarden_error!(IdentityError, ApiError);
 pub struct NotAuthenticatedError;
 
 /// Client's user ID is already set.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, serde::Serialize, serde::Deserialize, Clone)]
 #[error("The client user ID is already set")]
 pub struct UserIdAlreadySetError;
 

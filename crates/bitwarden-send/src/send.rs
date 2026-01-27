@@ -64,6 +64,21 @@ pub enum SendType {
     File = 1,
 }
 
+/// Indicates the authentication strategy to use when accessing a Send
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+pub enum AuthType {
+    /// Email-based OTP authentication
+    Email = 0,
+
+    /// Password-based authentication
+    Password = 1,
+
+    /// No authentication required
+    None = 2,
+}
+
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -89,6 +104,12 @@ pub struct Send {
     pub revision_date: DateTime<Utc>,
     pub deletion_date: DateTime<Utc>,
     pub expiration_date: Option<DateTime<Utc>>,
+
+    /// Email addresses for OTP authentication.
+    /// **Note**: Mutually exclusive with `new_password`. If both are set,
+    /// only password authentication will be used.
+    pub emails: Option<String>,
+    pub auth_type: AuthType,
 }
 
 #[allow(missing_docs)]
@@ -123,6 +144,12 @@ pub struct SendView {
     pub revision_date: DateTime<Utc>,
     pub deletion_date: DateTime<Utc>,
     pub expiration_date: Option<DateTime<Utc>>,
+
+    /// Email addresses for OTP authentication.
+    /// **Note**: Mutually exclusive with `new_password`. If both are set,
+    /// only password authentication will be used.
+    pub emails: Vec<String>,
+    pub auth_type: AuthType,
 }
 
 #[allow(missing_docs)]
@@ -265,6 +292,17 @@ impl Decryptable<KeyIds, SymmetricKeyId, SendView> for Send {
             revision_date: self.revision_date,
             deletion_date: self.deletion_date,
             expiration_date: self.expiration_date,
+
+            emails: self
+                .emails
+                .as_deref()
+                .unwrap_or_default()
+                .split(',')
+                .map(|e| e.trim())
+                .filter(|e| !e.is_empty())
+                .map(String::from)
+                .collect(),
+            auth_type: self.auth_type,
         })
     }
 }
@@ -345,6 +383,9 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Send> for SendView {
             revision_date: self.revision_date,
             deletion_date: self.deletion_date,
             expiration_date: self.expiration_date,
+
+            emails: (!self.emails.is_empty()).then(|| self.emails.join(",")),
+            auth_type: self.auth_type,
         })
     }
 }
@@ -353,6 +394,18 @@ impl TryFrom<SendResponseModel> for Send {
     type Error = SendParseError;
 
     fn try_from(send: SendResponseModel) -> Result<Self, Self::Error> {
+        let auth_type = match send.auth_type {
+            Some(t) => t.into(),
+            None => {
+                if send.password.is_some() {
+                    AuthType::Password
+                } else if send.emails.is_some() {
+                    AuthType::Email
+                } else {
+                    AuthType::None
+                }
+            }
+        };
         Ok(Send {
             id: send.id,
             access_id: send.access_id,
@@ -370,6 +423,8 @@ impl TryFrom<SendResponseModel> for Send {
             revision_date: require!(send.revision_date).parse()?,
             deletion_date: require!(send.deletion_date).parse()?,
             expiration_date: send.expiration_date.map(|s| s.parse()).transpose()?,
+            emails: send.emails,
+            auth_type,
         })
     }
 }
@@ -379,6 +434,16 @@ impl From<bitwarden_api_api::models::SendType> for SendType {
         match t {
             bitwarden_api_api::models::SendType::Text => SendType::Text,
             bitwarden_api_api::models::SendType::File => SendType::File,
+        }
+    }
+}
+
+impl From<bitwarden_api_api::models::AuthType> for AuthType {
+    fn from(value: bitwarden_api_api::models::AuthType) -> Self {
+        match value {
+            bitwarden_api_api::models::AuthType::Email => AuthType::Email,
+            bitwarden_api_api::models::AuthType::Password => AuthType::Password,
+            bitwarden_api_api::models::AuthType::None => AuthType::None,
         }
     }
 }
@@ -462,6 +527,8 @@ mod tests {
             expiration_date: None,
             deletion_date: "2024-01-14T23:56:48Z".parse().unwrap(),
             hide_email: false,
+            emails: None,
+            auth_type: AuthType::None,
         };
 
         let view: SendView = crypto.decrypt(&send).unwrap();
@@ -487,6 +554,8 @@ mod tests {
             revision_date: "2024-01-07T23:56:48.207363Z".parse().unwrap(),
             deletion_date: "2024-01-14T23:56:48Z".parse().unwrap(),
             expiration_date: None,
+            emails: Vec::new(),
+            auth_type: AuthType::None,
         };
 
         assert_eq!(view, expected);
@@ -518,6 +587,8 @@ mod tests {
             revision_date: "2024-01-07T23:56:48.207363Z".parse().unwrap(),
             deletion_date: "2024-01-14T23:56:48Z".parse().unwrap(),
             expiration_date: None,
+            emails: Vec::new(),
+            auth_type: AuthType::None,
         };
 
         // Re-encrypt and decrypt again to ensure encrypt works
@@ -553,6 +624,8 @@ mod tests {
             revision_date: "2024-01-07T23:56:48.207363Z".parse().unwrap(),
             deletion_date: "2024-01-14T23:56:48Z".parse().unwrap(),
             expiration_date: None,
+            emails: Vec::new(),
+            auth_type: AuthType::None,
         };
 
         // Re-encrypt and decrypt again to ensure encrypt works
@@ -591,6 +664,8 @@ mod tests {
             revision_date: "2024-01-07T23:56:48.207363Z".parse().unwrap(),
             deletion_date: "2024-01-14T23:56:48Z".parse().unwrap(),
             expiration_date: None,
+            emails: Vec::new(),
+            auth_type: AuthType::Password,
         };
 
         let send: Send = crypto.encrypt(view).unwrap();
@@ -599,9 +674,63 @@ mod tests {
             send.password,
             Some("vTIDfdj3FTDbejmMf+mJWpYdMXsxfeSd1Sma3sjCtiQ=".to_owned())
         );
+        assert_eq!(send.auth_type, AuthType::Password);
 
         let v: SendView = crypto.decrypt(&send).unwrap();
         assert_eq!(v.new_password, None);
         assert!(v.has_password);
+        assert_eq!(v.auth_type, AuthType::Password);
+    }
+
+    #[test]
+    pub fn test_create_email_otp() {
+        let user_key: SymmetricCryptoKey = "bYCsk857hl8QJJtxyRK65tjUrbxKC4aDifJpsml+NIv4W9cVgFvi3qVD+yJTUU2T4UwNKWYtt9pqWf7Q+2WCCg==".to_string().try_into().unwrap();
+        let crypto = create_test_crypto_with_user_key(user_key);
+
+        let view = SendView {
+            id: None,
+            access_id: Some("ct2APRQtJk-BLLDwAYqhRA".to_owned()),
+            name: "Test".to_owned(),
+            notes: None,
+            key: Some("Pgui0FK85cNhBGWHAlBHBw".to_owned()),
+            new_password: None,
+            has_password: false,
+            r#type: SendType::Text,
+            file: None,
+            text: Some(SendTextView {
+                text: Some("This is a test".to_owned()),
+                hidden: false,
+            }),
+            max_access_count: None,
+            access_count: 0,
+            disabled: false,
+            hide_email: false,
+            revision_date: "2024-01-07T23:56:48.207363Z".parse().unwrap(),
+            deletion_date: "2024-01-14T23:56:48Z".parse().unwrap(),
+            expiration_date: None,
+            emails: vec![
+                String::from("test1@mail.com"),
+                String::from("test2@mail.com"),
+            ],
+            auth_type: AuthType::Email,
+        };
+
+        let send: Send = crypto.encrypt(view).unwrap();
+
+        assert_eq!(
+            send.emails,
+            Some("test1@mail.com,test2@mail.com".to_string())
+        );
+        assert_eq!(send.auth_type, AuthType::Email);
+
+        let v: SendView = crypto.decrypt(&send).unwrap();
+        assert_eq!(
+            v.emails,
+            vec!(
+                String::from("test1@mail.com"),
+                String::from("test2@mail.com")
+            )
+        );
+        assert_eq!(v.auth_type, AuthType::Email);
     }
 }

@@ -169,27 +169,24 @@ impl<Ids: KeyIds, Key: KeyId, T: PrimitiveEncryptableWithContentType<Ids, Key, O
 #[cfg(test)]
 mod tests {
     use crate::{
-        AsymmetricCryptoKey, ContentFormat, Decryptable, KeyStore, PrimitiveEncryptable,
-        PublicKeyEncryptionAlgorithm, SymmetricCryptoKey,
+        ContentFormat, Decryptable, KeyStore, PrimitiveEncryptable, PrivateKey,
+        PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm,
         traits::{encryptable::PrimitiveEncryptableWithContentType, tests::*},
     };
 
     fn test_store() -> KeyStore<TestIds> {
         let store = KeyStore::<TestIds>::default();
 
-        let symm_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let asymm_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let private_key = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
-        #[allow(deprecated)]
-        store
-            .context_mut()
-            .set_symmetric_key(TestSymmKey::A(0), symm_key.clone())
+        let mut ctx = store.context_mut();
+        let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+        ctx.persist_symmetric_key(local_key_id, TestSymmKey::A(0))
             .unwrap();
         #[allow(deprecated)]
-        store
-            .context_mut()
-            .set_asymmetric_key(TestAsymmKey::A(0), asymm_key.clone())
+        ctx.set_private_key(TestPrivateKey::A(0), private_key.clone())
             .unwrap();
+        drop(ctx);
 
         store
     }

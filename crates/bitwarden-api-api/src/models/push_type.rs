@@ -43,6 +43,7 @@ pub enum PushType {
     RefreshSecurityTasks = 22,
     OrganizationBankAccountVerified = 23,
     ProviderBankAccountVerified = 24,
+    PolicyChanged = 25,
 }
 
 impl std::fmt::Display for PushType {
@@ -76,6 +77,7 @@ impl std::fmt::Display for PushType {
                 Self::RefreshSecurityTasks => "22",
                 Self::OrganizationBankAccountVerified => "23",
                 Self::ProviderBankAccountVerified => "24",
+                Self::PolicyChanged => "25",
             }
         )
     }
