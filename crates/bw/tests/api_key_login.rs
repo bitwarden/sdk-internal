@@ -41,7 +41,7 @@ async fn test_api_key_login(play: Play) {
     let output = bw()
         .args(["login", "api-key", &client_id, client_secret])
         .args(["--server", &server])
-        .env("BW_PASSWORD", "asdfasdfasdf")
+        .env("BW_PASSWORD", scene.get_mangled("asdfasdfasdf"))
         .output()
         .expect("Failed to execute bw command");
 
