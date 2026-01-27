@@ -1,23 +1,23 @@
 # bitwarden-sync
 
-Centralized sync system for the Bitwarden SDK with a hookable event interface.
+Centralized sync system for the Bitwarden SDK with a hookable handler interface.
 
 ## Overview
 
-This crate provides sync functionality with an extensible event system that allows other crates and
-applications to respond to sync operations. It follows the observer pattern with async support.
+This crate provides sync functionality with an extensible handler system that allows other crates
+and applications to respond to sync operations. It follows the observer pattern with async support.
 
 ## Architecture
 
 ### Core Components
 
 - **SyncClient**: Main client for performing sync operations
-- **SyncEventHandler**: Trait for implementing custom sync handlers
-- **SyncEventRegistry**: Manages handler registration and event dispatch
+- **SyncHandler**: Trait for implementing custom sync handlers
+- **SyncRegistry**: Manages handler registration and sync dispatch
 
-### Event System
+### Handlers
 
-Handlers implement the `SyncEventHandler` trait which provides a single lifecycle hook:
+Handlers implement the `SyncHandler` trait which provides a single lifecycle hook:
 
 - `on_sync_complete()` - Called after successful sync with raw API response data
 
@@ -26,7 +26,7 @@ stops immediately and the error is propagated.
 
 #### Transactional Semantics
 
-**Important:** The event system does NOT provide transactional guarantees across handlers or within
+**Important:** The system does NOT provide transactional guarantees across handlers or within
 individual handler operations:
 
 - If a handler fails mid-execution, partial changes persist in storage

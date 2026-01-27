@@ -1,7 +1,9 @@
 #![doc = include_str!("../README.md")]
 
-mod events;
+mod handler;
+mod registry;
 mod sync_client;
 
-pub use events::{SyncEventHandler, SyncEventRegistry, SyncHandlerError};
+pub use handler::{SyncHandler, SyncHandlerError};
+pub use registry::SyncRegistry;
 pub use sync_client::{SyncClient, SyncClientExt, SyncError, SyncRequest};

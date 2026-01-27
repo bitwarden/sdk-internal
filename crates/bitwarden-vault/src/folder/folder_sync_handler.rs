@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use bitwarden_core::{Client, require};
 use bitwarden_state::repository::Repository;
-use bitwarden_sync::{SyncEventHandler, SyncHandlerError};
+use bitwarden_sync::{SyncHandler, SyncHandlerError};
 
 use crate::{Folder, FolderId};
 
@@ -22,7 +22,7 @@ impl FolderSyncHandler {
 }
 
 #[async_trait::async_trait]
-impl SyncEventHandler for FolderSyncHandler {
+impl SyncHandler for FolderSyncHandler {
     async fn on_sync_complete(
         &self,
         response: &bitwarden_api_api::models::SyncResponseModel,

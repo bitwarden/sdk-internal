@@ -1,54 +1,66 @@
-//! Event system for sync operations
+//! Registry for managing sync handlers.
 //!
-//! This module provides a trait-based event system that allows other crates
-//! to respond to sync operations by implementing the `SyncEventHandler` trait.
+//! This module provides [`SyncRegistry`], a thread-safe registry that manages
+//! [`SyncHandler`] implementations. The registry follows an observer pattern,
+//! allowing multiple handlers to be notified when sync operations complete.
+//!
+//! # Architecture
+//!
+//! The registry uses interior mutability via `Arc<RwLock<...>>` to allow
+//! handler registration without requiring mutable access. This enables
+//! sharing the registry across async boundaries and multiple components.
+//!
+//! # Execution Model
+//!
+//! Handlers are executed **sequentially** in registration order. This design:
+//! - Provides predictable, deterministic execution
+//! - Allows handlers to depend on side effects from earlier handlers
+//! - Simplifies error handling with fail-fast semantics
+//!
+//! If any handler returns an error, execution stops immediately and the error
+//! is propagated to the caller. Subsequent handlers are **not** called.
+//!
+//! # Example
+//!
+//! ```ignore
+//! use std::sync::Arc;
+//! use bitwarden_sync::{SyncRegistry, SyncHandler};
+//!
+//! let registry = SyncRegistry::new();
+//!
+//! // Register handlers - they will be called in this order
+//! registry.register(Arc::new(FolderSyncHandler::new()));
+//! registry.register(Arc::new(CipherSyncHandler::new()));
+//!
+//! // Later, during sync:
+//! registry.trigger_sync_complete(&response).await?;
+//! ```
 
 use std::sync::{Arc, RwLock};
 
 use bitwarden_api_api::models::SyncResponseModel;
 
-use crate::SyncError;
-
-/// Type alias for sync handler error results
-pub type SyncHandlerError = Box<dyn std::error::Error + Send + Sync>;
-
-/// Trait for handling sync events
-///
-/// Implementors can register themselves with a SyncClient to receive notifications
-/// when sync operations complete successfully. All handlers are called sequentially
-/// in registration order.
-///
-/// If any handler returns an error, subsequent handlers are not called and the
-/// error is propagated to the caller.
-#[async_trait::async_trait]
-pub trait SyncEventHandler: Send + Sync {
-    /// Called after a successful sync operation
-    ///
-    /// The sync response contains raw API models from the server. Handlers are responsible
-    /// for converting these to domain types as needed and persisting data to local storage.
-    async fn on_sync_complete(&self, response: &SyncResponseModel) -> Result<(), SyncHandlerError>;
-}
+use crate::{SyncError, SyncHandler};
 
 /// Registry for managing sync event handlers
 ///
 /// Handlers are called sequentially in the order they were registered.
 /// If any handler fails, execution stops immediately and the error is propagated.
-pub struct SyncEventRegistry {
-    handlers: Arc<RwLock<Vec<Arc<dyn SyncEventHandler>>>>,
+#[derive(Default)]
+pub struct SyncRegistry {
+    handlers: Arc<RwLock<Vec<Arc<dyn SyncHandler>>>>,
 }
 
-impl SyncEventRegistry {
+impl SyncRegistry {
     /// Create a new empty event registry
     pub fn new() -> Self {
-        Self {
-            handlers: Arc::new(RwLock::new(Vec::new())),
-        }
+        Self::default()
     }
 
     /// Register a new event handler
     ///
     /// Handlers are called in registration order during sync operations.
-    pub fn register(&self, handler: Arc<dyn SyncEventHandler>) {
+    pub fn register(&self, handler: Arc<dyn SyncHandler>) {
         self.handlers
             .write()
             .expect("Handler registry lock poisoned")
@@ -79,17 +91,12 @@ impl SyncEventRegistry {
     }
 }
 
-impl Default for SyncEventRegistry {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, Mutex};
 
     use super::*;
+    use crate::SyncHandlerError;
 
     struct TestHandler {
         name: String,
@@ -98,7 +105,7 @@ mod tests {
     }
 
     #[async_trait::async_trait]
-    impl SyncEventHandler for TestHandler {
+    impl SyncHandler for TestHandler {
         async fn on_sync_complete(
             &self,
             _response: &SyncResponseModel,
@@ -114,7 +121,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_handlers_execute_in_registration_order() {
-        let registry = SyncEventRegistry::new();
+        let registry = SyncRegistry::new();
         let log = Arc::new(Mutex::new(Vec::new()));
 
         registry.register(Arc::new(TestHandler {
@@ -145,7 +152,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_handler_error_stops_subsequent_handlers() {
-        let registry = SyncEventRegistry::new();
+        let registry = SyncRegistry::new();
         let log = Arc::new(Mutex::new(Vec::new()));
 
         registry.register(Arc::new(TestHandler {
@@ -180,7 +187,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_empty_registry_succeeds() {
-        let registry = SyncEventRegistry::new();
+        let registry = SyncRegistry::new();
         let response = SyncResponseModel::default();
 
         let result = registry.trigger_sync_complete(&response).await;
@@ -193,7 +200,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_single_handler_success() {
-        let registry = SyncEventRegistry::new();
+        let registry = SyncRegistry::new();
         let log = Arc::new(Mutex::new(Vec::new()));
 
         registry.register(Arc::new(TestHandler {
@@ -214,7 +221,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_single_handler_failure() {
-        let registry = SyncEventRegistry::new();
+        let registry = SyncRegistry::new();
         let log = Arc::new(Mutex::new(Vec::new()));
 
         registry.register(Arc::new(TestHandler {

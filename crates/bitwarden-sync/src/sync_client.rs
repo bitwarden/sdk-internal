@@ -5,7 +5,7 @@ use bitwarden_core::Client;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{SyncEventHandler, SyncEventRegistry, SyncHandlerError};
+use crate::{SyncHandler, SyncHandlerError, SyncRegistry};
 
 #[allow(missing_docs)]
 #[derive(Debug, Error)]
@@ -31,7 +31,7 @@ pub struct SyncRequest {
 /// for registering event handlers that can respond to sync operations.
 pub struct SyncClient {
     client: Client,
-    event_registry: Arc<SyncEventRegistry>,
+    registry: Arc<SyncRegistry>,
 }
 
 impl SyncClient {
@@ -39,7 +39,7 @@ impl SyncClient {
     pub fn new(client: Client) -> Self {
         Self {
             client,
-            event_registry: Arc::new(SyncEventRegistry::new()),
+            registry: Arc::new(SyncRegistry::new()),
         }
     }
 
@@ -47,8 +47,8 @@ impl SyncClient {
     ///
     /// Handlers are called in registration order. If any handler returns an error,
     /// the sync operation is aborted immediately and subsequent handlers are not called.
-    pub fn register_handler(&self, handler: Arc<dyn SyncEventHandler>) {
-        self.event_registry.register(handler);
+    pub fn register_handler(&self, handler: Arc<dyn SyncHandler>) {
+        self.registry.register(handler);
     }
 
     /// Perform a full sync operation
@@ -67,7 +67,7 @@ impl SyncClient {
         let response = perform_sync(&self.client, &request).await?;
 
         // Trigger post-sync events with response (stop on error)
-        self.event_registry.trigger_sync_complete(&response).await?;
+        self.registry.trigger_sync_complete(&response).await?;
 
         Ok(response)
     }
