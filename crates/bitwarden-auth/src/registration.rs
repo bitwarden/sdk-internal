@@ -1006,7 +1006,7 @@ mod tests {
                                 kdf_type: KdfType::Argon2id,
                                 iterations: 6,
                                 memory: Some(32),
-                                parallelism: Some(3),
+                                parallelism: Some(4),
                             })
                         );
                         assert!(req.master_password_authentication.is_some());
@@ -1022,7 +1022,7 @@ mod tests {
                                 kdf_type: KdfType::Argon2id,
                                 iterations: 6,
                                 memory: Some(32),
-                                parallelism: Some(3),
+                                parallelism: Some(4),
                             })
                         );
                         true
@@ -1082,7 +1082,7 @@ mod tests {
             Kdf::Argon2id {
                 iterations: NonZeroU32::new(6).unwrap(),
                 memory: NonZeroU32::new(32).unwrap(),
-                parallelism: NonZeroU32::new(3).unwrap(),
+                parallelism: NonZeroU32::new(4).unwrap(),
             }
         );
 
