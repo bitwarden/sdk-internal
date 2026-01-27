@@ -265,7 +265,7 @@ mod tests {
             .and(path("/seed/"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "result": { "data": "test-data" },
-                "mangleMap": { "email": "mangled@example.com" }
+                "mangleMap": { "email@example.com": "mangled@example.com" }
             })))
             .mount(&server)
             .await;
