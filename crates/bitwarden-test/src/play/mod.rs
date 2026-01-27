@@ -22,7 +22,7 @@ pub mod scenes;
 
 pub use config::PlayConfig;
 pub use error::{PlayError, PlayResult};
-pub use http_client::PlayHttpClient;
+pub(crate) use http_client::PlayHttpClient;
 pub use play::Play;
 pub use query::Query;
 pub(crate) use query::QueryRequest;

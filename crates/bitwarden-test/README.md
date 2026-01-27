@@ -24,7 +24,7 @@ the server side `SeederApi` to generate data.
 ```rust
 use bitwarden_test::play::{Play, SingleUserArgs, SingleUserScene};
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_example() {
     // Create a Play instance - generates unique play_id
     let play = Play::new();

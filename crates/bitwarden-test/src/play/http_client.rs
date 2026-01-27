@@ -8,7 +8,7 @@ use super::{PlayConfig, PlayError, PlayResult};
 
 /// HTTP client wrapper that adds the x-play-id header to all requests
 #[derive(Debug, Clone)]
-pub struct PlayHttpClient {
+pub(crate) struct PlayHttpClient {
     client: Client,
     play_id: String,
     config: PlayConfig,
@@ -16,7 +16,7 @@ pub struct PlayHttpClient {
 
 impl PlayHttpClient {
     /// Create a new HTTP client with the given play_id
-    pub fn new(play_id: String, config: PlayConfig) -> Self {
+    pub(crate) fn new(play_id: String, config: PlayConfig) -> Self {
         let client = Client::builder()
             .build()
             .expect("Failed to build HTTP client");
@@ -29,12 +29,12 @@ impl PlayHttpClient {
     }
 
     /// Get the play_id for this client
-    pub fn play_id(&self) -> &str {
+    pub(crate) fn play_id(&self) -> &str {
         &self.play_id
     }
 
     /// Get the configuration
-    pub fn config(&self) -> &PlayConfig {
+    pub(crate) fn config(&self) -> &PlayConfig {
         &self.config
     }
 
@@ -44,7 +44,7 @@ impl PlayHttpClient {
     }
 
     /// POST JSON to the seeder API and parse JSON response
-    pub async fn post_seeder<T: Serialize, R: DeserializeOwned>(
+    pub(crate) async fn post_seeder<T: Serialize, R: DeserializeOwned>(
         &self,
         path: &str,
         body: &T,
@@ -69,7 +69,7 @@ impl PlayHttpClient {
     }
 
     /// DELETE to the seeder API
-    pub async fn delete_seeder(&self, path: &str) -> PlayResult<()> {
+    pub(crate) async fn delete_seeder(&self, path: &str) -> PlayResult<()> {
         let url = format!("{}{}", self.config.seeder_url, path);
 
         debug!(

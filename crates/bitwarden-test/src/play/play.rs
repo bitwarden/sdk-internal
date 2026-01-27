@@ -24,7 +24,7 @@ fn generate_play_id() -> String {
 /// ```ignore
 /// use bitwarden_test::play::{Play, SingleUserArgs, SingleUserScene};
 ///
-/// #[tokio::test]
+/// #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 /// async fn test_user_login() {
 ///     let play = Play::new();
 ///
@@ -52,11 +52,7 @@ impl Play {
     /// Configuration is loaded from environment variables.
     /// All test data created through this instance will be cleaned up when dropped.
     pub fn new() -> Self {
-        let play_id = generate_play_id();
-        let config = PlayConfig::from_env();
-        let client = Arc::new(PlayHttpClient::new(play_id, config));
-
-        Play { client }
+        Self::new_with_config(PlayConfig::from_env())
     }
 
     /// Create a new Play instance with custom configuration
@@ -116,11 +112,6 @@ impl Play {
     /// Get the play_id for this instance
     pub fn play_id(&self) -> &str {
         self.client.play_id()
-    }
-
-    /// Get the HTTP client for advanced operations
-    pub fn http_client(&self) -> Arc<PlayHttpClient> {
-        self.client.clone()
     }
 
     /// Get the configuration
@@ -198,7 +189,6 @@ mod tests {
 
         // Accessors work correctly
         assert_eq!(play1.config().seeder_url, "http://localhost:5047");
-        assert_eq!(play1.http_client().play_id(), play1.play_id());
     }
 
     // Mock types for testing scene/query functionality
