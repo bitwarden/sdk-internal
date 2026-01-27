@@ -54,9 +54,19 @@ fn main() {
     println!("Emitting SDK logs at different levels...\n");
 
     // Emit logs that will be captured by callback
-    tracing::info!("User authentication started");
-    tracing::warn!("API rate limit approaching");
-    tracing::error!("Network request failed");
+    // These examples demonstrate both simple messages and structured fields
+    tracing::info!("Hello world");
+
+    let user_id = 123;
+    tracing::info!(user_id, "User authentication started");
+
+    let remaining_requests = 50;
+    let limit = 1000;
+    tracing::warn!(remaining_requests, limit, "API rate limit approaching");
+
+    let error_code = "TIMEOUT";
+    let retry_count = 3;
+    tracing::error!(error_code, retry_count, "Network request failed");
 
     println!("\n📊 Summary:");
     let captured = logs.lock().expect("Failed to lock logs mutex");
