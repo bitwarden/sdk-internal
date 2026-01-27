@@ -43,7 +43,11 @@ Feature crates extend `Client` via extension traits. This allows the underlying 
 internal to the crate with only the public API exposed through the `Client` struct. Below is an
 example of a generator extension for the `Client` struct.
 
-> [!IMPORTANT] Do not add feature functionality to `Client` itself.
+<div class="warning">
+
+<b>IMPORTANT:</b> Do not add feature functionality to `Client` itself.
+
+</div>
 
 ```rust,ignore
 use bitwarden_core::Client;
@@ -65,23 +69,23 @@ impl GeneratorClient {
     /// Example method that uses the underlying Client
     pub fn password(&self, input: PasswordGeneratorRequest) -> Result<String, PasswordError> {
         // Implementation details...
-        password(input)
+        self.client.internal.do_something(input)
     }
 }
 
 /// Extension trait which exposes `generator()` method on the `Client` struct
 pub trait GeneratorClientsExt {
-    fn generators(&self) -> GeneratorClient;
+    fn generator(&self) -> GeneratorClient;
 }
 
 impl GeneratorClientsExt for Client {
-    fn generators(&self) -> GeneratorClient {
+    fn generator(&self) -> GeneratorClient {
         GeneratorClient::new(self.clone())
     }
 }
 
 // Usage:
-// let password = client.generators().password(request)?;
+// let password = client.generator().password(request)?;
 ```
 
 ## API requests
@@ -104,7 +108,7 @@ let response = api_config.api_client.ciphers_api().get_all().await?;
 ```
 
 <div class="warning">
-Need to update bindings for an API request? See [documentation](../../README.md#api-bindings) for instructions.
+Need to update bindings for an API request? See <a href="https://github.com/bitwarden/sdk-internal/blob/main/README.md">documentation</a> for instructions.
 </div>
 
 ## Features
