@@ -287,7 +287,10 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(scene.inner().data, "test-data");
-        assert_eq!(scene.get_mangled("email@example.com"), "mangled@example.com");
+        assert_eq!(
+            scene.get_mangled("email@example.com"),
+            "mangled@example.com"
+        );
 
         // Test query execution
         Mock::given(method("POST"))
