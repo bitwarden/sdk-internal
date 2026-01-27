@@ -901,7 +901,7 @@ version = "2.0.0"
 dependencies = [
  "bitwarden-error",
  "bitwarden-vault",
- "block-padding 0.4.1",
+ "block-padding 0.4.2",
  "ed25519 3.0.0-rc.2",
  "ed25519-dalek 3.0.0-pre.2",
  "getrandom 0.3.3",
@@ -1132,9 +1132,9 @@ dependencies = [
 
 [[package]]
 name = "block-padding"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41d28ed5f5f65056148fd25e1a596b5b6d9e772270abf9a9085d7cbfbf26c563"
+checksum = "710f1dd022ef4e93f8a438b4ba958de7f64308434fa6a87104481645cc30068b"
 dependencies = [
  "hybrid-array",
 ]
@@ -3080,7 +3080,7 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7357b6e7aa75618c7864ebd0634b115a7218b0615f4cb1df33ac3eca23943d4"
 dependencies = [
- "block-padding 0.4.1",
+ "block-padding 0.4.2",
  "hybrid-array",
 ]
 
