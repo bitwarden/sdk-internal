@@ -11,15 +11,13 @@ This repository houses the internal Bitwarden SDKs. We also provide a public
 > state we will re-evaluate the possibility of publishing stable bindings for the public. **The
 > password manager interface is unstable and will change without warning.**
 
-## Getting Started
-
-### Requirements
+## Requirements
 
 - [Rust](https://www.rust-lang.org/tools/install) latest stable version - (preferably installed via
   [rustup](https://rustup.rs/)).
 - NodeJS and NPM.
 
-### Setup instructions
+## Setup instructions
 
 1.  Clone the repository:
 
@@ -34,28 +32,28 @@ This repository houses the internal Bitwarden SDKs. We also provide a public
     npm ci
     ```
 
-### Building
+## Building
 
-#### On Linux / Mac / Windows
+Run the following command:
 
 ```bash
 cargo build
 ```
 
-#### Windows on ARM
+### Special considerations for Windows on ARM
 
-To build, you will need the following in your PATH:
+For Windows on ARM, you will need the following in your `PATH`:
 
 - [Python](https://www.python.org)
 - [Clang](https://clang.llvm.org)
   - We recommend installing this via the
     [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022)
 
-### Integrating into client applications
+## Integrating into client applications
 
-#### Building for client application consumption
+### Building for client application consumption
 
-The SDK is built for different client platforms, each of which have their own build instructions to
+Each of the different client platforms have their own build instructions for `sdk-internal`, to
 ensure that the proper bindings are included. For more information on how to build for a specific
 platform, refer to the `README`s for the different crates:
 
@@ -66,7 +64,7 @@ platform, refer to the `README`s for the different crates:
 - **Android**:
   [`crates/bitwarden-uniffi/kotlin`](https://github.com/bitwarden/sdk-internal/tree/main/crates/bitwarden-uniffi/kotlin)
 
-#### Linking to clients
+### Linking to clients
 
 Once `sdk-internal` has been built with the appropriate bindings for your test platform, you will
 need to update the reference to link to this new version.
@@ -82,12 +80,12 @@ android/
 
 If your repository directory structure differs you will need to adjust the commands accordingly.
 
-##### Web clients
+#### Web clients
 
 The web clients use NPM to install `sdk-internal` as a dependency. NPM offers a dedicated command
 [`link`][npm-link] which can be used to temporarily replace the packages with a local version.
 
-When building the web `sdk-internal` artifacts, you chose whether to build the OSS or the
+When building the web `sdk-internal` artifacts, you have the option to build the OSS or the
 Bitwarden-licensed version, or both. You will need to adjust your `npm link` command according to
 which version of the SDK you built, and which you intend to make available to the client application
 for your local development:
@@ -110,7 +108,7 @@ in the last run command will be linked.
 >
 > Running `npm ci` or `npm install` will replace the linked packages with the published version.
 
-##### Android
+#### Android
 
 1. Build and publish the SDK to the local Maven repository:
 
@@ -120,7 +118,7 @@ in the last run command will be linked.
 
 2. Set the user property `localSdk=true` in the `user.properties` file.
 
-##### iOS
+#### iOS
 
 Run the bootstrap script with the `LOCAL_SDK` environment variable set to true in order to use the
 local SDK build:
