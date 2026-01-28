@@ -210,6 +210,7 @@ mod tests {
                     rp_name: None,
                     user_display_name: None,
                     discoverable: "true".to_string(),
+                    hmac_secret: Some("AAECAwQFBg".to_string()),
                     creation_date: "2024-06-07T14:12:36.150Z".parse().unwrap(),
                 }]),
             })),

@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use bitwarden_core::{Client, OrganizationId};
-use bitwarden_crypto::IdentifyKey;
 #[cfg(feature = "wasm")]
-use bitwarden_crypto::{CompositeEncryptable, SymmetricCryptoKey};
+use bitwarden_crypto::CompositeEncryptable;
+use bitwarden_crypto::{BitwardenLegacyKeyBytes, IdentifyKey, SymmetricCryptoKey};
 #[cfg(feature = "wasm")]
 use bitwarden_encoding::B64;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -142,9 +142,16 @@ impl CiphersClient {
     pub fn decrypt_fido2_credentials(
         &self,
         cipher_view: CipherView,
+        encryption_key: Option<Vec<u8>>,
     ) -> Result<Vec<crate::Fido2CredentialView>, DecryptError> {
         let key_store = self.client.internal.get_key_store();
-        let credentials = cipher_view.decrypt_fido2_credentials(&mut key_store.context())?;
+        let mut ctx = key_store.context();
+        let key_id = encryption_key
+            .map(|key| SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(key)))
+            .transpose()?
+            .map(|key| ctx.add_local_symmetric_key(key));
+
+        let credentials = cipher_view.decrypt_fido2_credentials(&mut ctx, key_id)?;
         Ok(credentials)
     }
 
@@ -158,10 +165,21 @@ impl CiphersClient {
         &self,
         mut cipher_view: CipherView,
         fido2_credentials: Vec<Fido2CredentialFullView>,
+        encryption_key: Option<Vec<u8>>,
     ) -> Result<CipherView, CipherError> {
         let key_store = self.client.internal.get_key_store();
 
-        cipher_view.set_new_fido2_credentials(&mut key_store.context(), fido2_credentials)?;
+        let mut ctx = key_store.context();
+        let key_id = encryption_key
+            .map(|key| SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(key)))
+            .transpose()?
+            .map(|key| ctx.add_local_symmetric_key(key));
+
+        cipher_view.set_new_fido2_credentials(
+            &mut key_store.context(),
+            key_id,
+            fido2_credentials,
+        )?;
 
         Ok(cipher_view)
     }
@@ -182,9 +200,15 @@ impl CiphersClient {
     pub fn decrypt_fido2_private_key(
         &self,
         cipher_view: CipherView,
+        key: Option<Vec<u8>>,
     ) -> Result<String, CipherError> {
         let key_store = self.client.internal.get_key_store();
-        let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut key_store.context())?;
+        let mut ctx = key_store.context();
+        let key_id = key
+            .map(|k| SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(k)))
+            .transpose()?
+            .map(|k| ctx.add_local_symmetric_key(k));
+        let decrypted_key = cipher_view.decrypt_fido2_private_key(&mut ctx, key_id)?;
         Ok(decrypted_key)
     }
 
