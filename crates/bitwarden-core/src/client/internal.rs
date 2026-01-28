@@ -33,6 +33,21 @@ use crate::{
     },
 };
 
+/// Persisted authentication state for CLI session restoration.
+///
+/// Contains all data necessary to restore an authenticated session across CLI restarts.
+/// This struct is serialized to disk and loaded on startup to provide a seamless user
+/// experience without requiring re-authentication.
+#[cfg(feature = "cli")]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct PersistedAuthState {
+    pub user_id: UserId,
+    pub access_token: String,
+    pub refresh_token: Option<String>,
+    pub expires_on: Option<i64>,
+    pub login_method: UserLoginMethod,
+}
+
 #[allow(missing_docs)]
 pub struct ApiConfigurations {
     pub identity_client: bitwarden_api_identity::apis::ApiClient,
@@ -198,14 +213,62 @@ impl InternalClient {
         *self.login_method.write().expect("RwLock is not poisoned") = Some(Arc::new(login_method));
     }
 
-    pub(crate) fn set_tokens(&self, token: String, refresh_token: Option<String>, expires_in: u64) {
+    /// Restore complete authentication state from persistence (CLI use only).
+    ///
+    /// This method atomically restores the user_id, tokens, and login method from a previously
+    /// persisted authentication state. It should be called during CLI startup to restore the
+    /// user's session from disk.
+    ///
+    /// # ⚠️ WARNING
+    /// This method is intended ONLY for CLI persistence restoration. Do not use in other contexts.
+    #[cfg(feature = "cli")]
+    pub fn restore_persisted_auth_state(
+        &self,
+        state: &PersistedAuthState,
+    ) -> Result<(), UserIdAlreadySetError> {
+        self.init_user_id(state.user_id)?;
+        self.set_login_method(LoginMethod::User(state.login_method.clone()));
+        self.set_tokens_impl(
+            state.access_token.clone(),
+            state.refresh_token.clone(),
+            state.expires_on,
+        );
+
+        Ok(())
+    }
+
+    fn set_tokens_impl(
+        &self,
+        token: String,
+        refresh_token: Option<String>,
+        expires_on: Option<i64>,
+    ) {
         *self.tokens.write().expect("RwLock is not poisoned") =
             Tokens::SdkManaged(SdkManagedTokens {
                 access_token: Some(token.clone()),
-                expires_on: Some(Utc::now().timestamp() + expires_in as i64),
+                expires_on,
                 refresh_token,
             });
         self.set_api_tokens_internal(token);
+    }
+
+    /// Extract user_id from a JWT access token
+    pub(crate) fn extract_user_id_from_token(
+        &self,
+        token: &str,
+    ) -> Result<UserId, crate::auth::jwt_token::JwtTokenParseError> {
+        use std::str::FromStr;
+
+        let jwt = crate::auth::jwt_token::JwtToken::from_str(token)?;
+        let uuid = uuid::Uuid::parse_str(&jwt.sub)
+            .map_err(|_| crate::auth::jwt_token::JwtTokenParseError::InvalidParts)?;
+        Ok(UserId::new(uuid))
+    }
+
+    /// Set tokens for the client (internal use within bitwarden-core).
+    pub(crate) fn set_tokens(&self, token: String, refresh_token: Option<String>, expires_in: u64) {
+        let expires_on = Some(Utc::now().timestamp() + expires_in as i64);
+        self.set_tokens_impl(token, refresh_token, expires_on);
     }
 
     /// Sets api tokens for only internal API clients, use `set_tokens` for SdkManagedTokens.
@@ -214,6 +277,39 @@ impl InternalClient {
             .write()
             .expect("RwLock is not poisoned")
             .set_tokens(token);
+    }
+
+    /// Extract authentication state for persistence (CLI use only).
+    ///
+    /// Creates a snapshot of the current authentication state that can be serialized
+    /// and persisted to disk for session restoration.
+    ///
+    /// # ⚠️ WARNING
+    /// This method is intended ONLY for CLI persistence. Do not use in other contexts.
+    #[cfg(feature = "cli")]
+    pub fn get_persisted_auth_state(&self) -> Option<PersistedAuthState> {
+        let user_id = *self.user_id.get()?;
+        let tokens = self.tokens.read().ok()?;
+        let login_method_guard = self.login_method.read().ok()?;
+        let login_method = login_method_guard.as_ref()?;
+
+        // Only persist UserLoginMethod, not ServiceAccount methods
+        let user_login_method = match login_method.as_ref() {
+            LoginMethod::User(user_method) => user_method.clone(),
+            #[cfg(feature = "secrets")]
+            LoginMethod::ServiceAccount(_) => return None,
+        };
+
+        match &*tokens {
+            Tokens::SdkManaged(sdk_tokens) => Some(PersistedAuthState {
+                user_id,
+                access_token: sdk_tokens.access_token.clone()?,
+                refresh_token: sdk_tokens.refresh_token.clone(),
+                expires_on: sdk_tokens.expires_on,
+                login_method: user_login_method,
+            }),
+            _ => None,
+        }
     }
 
     #[allow(missing_docs)]
@@ -385,7 +481,7 @@ impl InternalClient {
 
     #[cfg(feature = "internal")]
     #[instrument(err, skip_all)]
-    pub(crate) fn initialize_user_crypto_master_password_unlock(
+    pub fn initialize_user_crypto_master_password_unlock(
         &self,
         password: String,
         master_password_unlock: MasterPasswordUnlockData,

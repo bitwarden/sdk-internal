@@ -12,6 +12,32 @@ use tracing::{debug, error, info};
 
 use crate::vault::{SyncRequest, sync};
 
+/// Save authentication state to disk after successful login.
+///
+/// This helper function initializes the database if needed and persists the current
+/// authentication state (tokens, user_id, login method) to allow session restoration
+/// across CLI restarts.
+async fn save_session_after_login(client: &Client) -> Result<()> {
+    if client.internal.get_user_id().is_some() {
+        // Initialize database if not already initialized
+        crate::platform::state::initialize_database(client).await?;
+
+        // Save auth state (extracts tokens internally)
+        super::state::save(client).await?;
+
+        crate::vault::sync(
+            client,
+            &crate::vault::SyncRequest {
+                exclude_subdomains: None,
+            },
+        )
+        .await?;
+
+        info!("Session saved to disk");
+    }
+    Ok(())
+}
+
 pub(crate) async fn login_password(client: Client, email: Option<String>) -> Result<()> {
     let email = text_prompt_when_none("Email", email)?;
 
@@ -107,6 +133,8 @@ pub(crate) async fn login_api_key(
         .await?;
 
     debug!(?result);
+
+    save_session_after_login(&client).await?;
 
     Ok(())
 }

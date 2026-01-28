@@ -1,9 +1,13 @@
 use bitwarden_core::ClientSettings;
 use clap::{Args, Subcommand};
 
+use crate::render::CommandResult;
+
 mod login;
 
-use crate::render::CommandResult;
+pub(crate) mod logout;
+pub(crate) mod state;
+pub(crate) mod unlock;
 
 // TODO(CLI): This is incompatible with the current node CLI
 #[derive(Args, Clone)]
