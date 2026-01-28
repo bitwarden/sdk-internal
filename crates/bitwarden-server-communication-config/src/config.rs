@@ -2,8 +2,11 @@ use serde::{Deserialize, Serialize};
 
 /// Server communication configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "wasm", derive(tsify::Tsify))]
-#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
 pub struct ServerCommunicationConfig {
     /// Bootstrap configuration determining how to establish server communication
     pub bootstrap: BootstrapConfig,
@@ -11,8 +14,11 @@ pub struct ServerCommunicationConfig {
 
 /// Bootstrap configuration for server communication
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "wasm", derive(tsify::Tsify))]
-#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum BootstrapConfig {
     /// Direct connection with no special authentication requirements
@@ -25,8 +31,11 @@ pub enum BootstrapConfig {
 ///
 /// This configuration is provided by the server.
 #[derive(Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "wasm", derive(tsify::Tsify))]
-#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
 pub struct SsoCookieVendorConfig {
     /// Identity provider login URL for browser redirect during bootstrap
     pub idp_login_url: String,
