@@ -19,13 +19,36 @@ are currently open as well as what it's like to work at Bitwarden.
 
 ## Getting Started
 
-### Linux / Mac / Windows
+### Requirements
+
+- [Rust](https://www.rust-lang.org/tools/install) latest stable version - (preferably installed via
+  [rustup](https://rustup.rs/)).
+- NodeJS and NPM.
+
+### Setup instructions
+
+1.  Clone the repository:
+
+    ```bash
+    git clone https://github.com/bitwarden/sdk-internal.git
+    cd sdk
+    ```
+
+2.  Install the dependencies:
+
+    ```bash
+    npm ci
+    ```
+
+### Building
+
+#### On Linux / Mac / Windows
 
 ```bash
 cargo build
 ```
 
-### Windows on ARM
+#### Windows on ARM
 
 To build, you will need the following in your PATH:
 
@@ -33,6 +56,86 @@ To build, you will need the following in your PATH:
 - [Clang](https://clang.llvm.org)
   - We recommend installing this via the
     [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022)
+
+### Integrating into client applications
+
+#### Building for client application consumption
+
+The SDK is built for different client platforms, each of which have their own build instructions to
+ensure that the proper bindings are included. For more information on how to build for a specific
+platform, refer to the `README`s for the different crates:
+
+- **Web**:
+  [`crates/bitwarden-wasm-internal`](https://github.com/bitwarden/sdk-internal/tree/main/crates/bitwarden-wasm-internal)
+- **iOS**:
+  [`crates/bitwarden-uniffi/swift`](https://github.com/bitwarden/sdk-internal/tree/main/crates/bitwarden-uniffi/swift)
+- **Android**:
+  [`crates/bitwarden-uniffi/kotlin`](https://github.com/bitwarden/sdk-internal/tree/main/crates/bitwarden-uniffi/kotlin)
+
+#### Linking to clients
+
+Once `sdk-internal` has been built with the appropriate bindings for your test platform, you will
+need to update the reference to link to this new version.
+
+These instructions assume a directory structure similar to:
+
+```text
+sdk-internal/
+clients/
+ios/
+android/
+```
+
+If your repository directory structure differs you will need to adjust the commands accordingly.
+
+##### Web clients
+
+The web clients use NPM to install `sdk-internal` as a dependency. NPM offers a dedicated command
+[`link`][npm-link] which can be used to temporarily replace the packages with a local version.
+
+When building the web `sdk-internal` artifacts, you chose whether to build the OSS or the
+Bitwarden-licensed version, or both. You will need to adjust your `npm link` command according to
+which version of the SDK you built, and which you intend to make available to the client application
+for your local development:
+
+```bash
+# Link only the OSS version of the internal SDK
+npm link ../sdk-internal/crates/bitwarden-wasm-internal/npm
+
+# Link only the Bitwarden license version of the internal SDK
+npm link ../sdk-internal/crates/bitwarden-wasm-internal/bitwarden_license/npm
+
+# Link both versions
+npm link ../sdk-internal/crates/bitwarden-wasm-internal/npm ../sdk-internal/crates/bitwarden-wasm-internal/bitwarden_license/npm
+```
+
+Keep in mind that running `npm link` will restore any previously linked packages, so only the paths
+in the last run command will be linked.
+
+:::warning
+
+Running `npm ci` or `npm install` will replace the linked packages with the published version.
+
+:::
+
+##### Android
+
+1. Build and publish the SDK to the local Maven repository:
+
+   ```bash
+   ../sdk-internal/crates/bitwarden-uniffi/kotlin/publish-local.sh
+   ```
+
+2. Set the user property `localSdk=true` in the `user.properties` file.
+
+##### iOS
+
+Run the bootstrap script with the `LOCAL_SDK` environment variable set to true in order to use the
+local SDK build:
+
+```bash
+LOCAL_SDK=true ./Scripts/bootstrap.sh
+```
 
 ## Documentation
 
@@ -283,3 +386,7 @@ No grant of any rights in the trademarks, service marks, or logos of Bitwarden i
 may be necessary to comply with the notice requirements as applicable), and use of any Bitwarden
 trademarks must comply with
 [Bitwarden Trademark Guidelines](https://github.com/bitwarden/server/blob/main/TRADEMARK_GUIDELINES.md).
+
+[npm-link]: https://docs.npmjs.com/cli/v9/commands/npm-link
+[sm]: https://bitwarden.com/products/secrets-manager/
+[pm]: https://bitwarden.com/
