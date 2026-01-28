@@ -49,11 +49,11 @@ impl LoginClient {
 
 #[cfg(test)]
 mod tests {
-    use std::num::NonZeroU32;
     use bitwarden_api_identity::models::KdfType;
     use bitwarden_core::{ClientSettings, DeviceType};
     use bitwarden_crypto::Kdf;
     use bitwarden_test::start_api_mock;
+    use std::num::NonZeroU32;
     use wiremock::{Mock, ResponseTemplate, matchers};
 
     use super::*;
@@ -83,7 +83,12 @@ mod tests {
     }
 
     fn mock_default_argon2_params() -> (NonZeroU32, NonZeroU32, NonZeroU32) {
-        let Kdf::Argon2id { iterations, memory, parallelism } = Kdf::default_argon2() else {
+        let Kdf::Argon2id {
+            iterations,
+            memory,
+            parallelism,
+        } = Kdf::default_argon2()
+        else {
             panic!("Expected Argon2 KDF");
         };
         (iterations, memory, parallelism)
@@ -127,7 +132,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_password_prelogin_argon2id_success() {
-        let (default_iterations, default_memory, default_parallelism) = mock_default_argon2_params();
+        let (default_iterations, default_memory, default_parallelism) =
+            mock_default_argon2_params();
 
         // Create a mock success response with Argon2id
         let raw_success = serde_json::json!({
