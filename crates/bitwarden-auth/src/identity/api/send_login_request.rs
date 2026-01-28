@@ -18,7 +18,7 @@ pub(crate) async fn send_login_request(
 ) -> Result<LoginResponse, LoginErrorApiResponse> {
     let url: String = format!("{}/connect/token", &identity_config.base_path);
 
-    let request: reqwest::RequestBuilder = identity_config
+    let request: reqwest_middleware::RequestBuilder = identity_config
         .client
         .post(url)
         .header(reqwest::header::ACCEPT, "application/json")
@@ -135,9 +135,12 @@ mod tests {
     }
 
     fn create_identity_config(mock_server: &wiremock::MockServer) -> Configuration {
+        let reqwest_client = reqwest::Client::new();
+        let client = reqwest_middleware::ClientBuilder::new(reqwest_client).build();
+
         Configuration {
             base_path: format!("http://{}/identity", mock_server.address()),
-            client: reqwest::Client::new(),
+            client,
             ..Default::default()
         }
     }
@@ -340,11 +343,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_send_login_request_network_error() {
+        let reqwest_client = reqwest::Client::new();
+        let client = reqwest_middleware::ClientBuilder::new(reqwest_client).build();
+
         // Verify that network errors are propagated as UnexpectedError.
         // This test confirms the error conversion mechanism works.
         let identity_config = Configuration {
             base_path: "http://127.0.0.1:1/identity".to_string(), // Port 1 will refuse connections
-            client: reqwest::Client::new(),
+            client,
             ..Default::default()
         };
 

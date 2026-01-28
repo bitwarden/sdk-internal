@@ -132,6 +132,12 @@ impl From<reqwest::Error> for LoginErrorApiResponse {
     }
 }
 
+impl From<reqwest_middleware::Error> for LoginErrorApiResponse {
+    fn from(value: reqwest_middleware::Error) -> Self {
+        Self::UnexpectedError(format!("{value:?}"))
+    }
+}
+
 impl From<MasterPasswordError> for LoginErrorApiResponse {
     fn from(value: MasterPasswordError) -> Self {
         Self::UnexpectedError(format!("{value:?}"))
