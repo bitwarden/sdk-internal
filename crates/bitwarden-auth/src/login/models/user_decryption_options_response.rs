@@ -112,7 +112,7 @@ mod tests {
         const TDE_ENCRYPTED_USER_KEY: &str = "2.kTtIypq9OLzd5iMMbU11pQ==|J4i3hTtGVdg7EZ+AQv/ujg==|QJpSpotQVpIW8j8dR/8l015WJzAIxBaOmrz4Uj/V1JA=";
         const KEY_CONNECTOR_URL: &str = "https://key-connector.bitwarden.com";
         const WEBAUTHN_ENCRYPTED_PRIVATE_KEY: &str = "2.fkvl0+sL1lwtiOn1eewsvQ==|dT0TynLl8YERZ8x7dxC+DQ==|cWhiRSYHOi/AA2LiV/JBJWbO9C7pbUpOM6TMAcV47hE=";
-        const WEBAUTHN_ENCRYPTED_USER_KEY: &str = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
+        const WEBAUTHN_ENCRYPTED_USER_KEY: &str = "4.DMD1D5r6BsDDd7C/FE1eZbMCKrmryvAsCKj6+bO54gJNUxisOI7SDcpPLRXf+JdhqY15pT+wimQ5cD9C+6OQ6s71LFQHewXPU29l9Pa1JxGeiKqp37KLYf+1IS6UB2K3ANN35C52ZUHh2TlzIS5RuntxnpCw7APbcfpcnmIdLPJBtuj/xbFd6eBwnI3GSe5qdS6/Ixdd0dgsZcpz3gHJBKmIlSo0YN60SweDq3kTJwox9xSqdCueIDg5U4khc7RhjYx8b33HXaNJj3DwgIH8iLj+lqpDekogr630OhHG3XRpvl4QzYO45bmHb8wAh67Dj70nsZcVg6bAEFHdSFohww==";
 
         let api = UserDecryptionOptionsApiResponse {
             master_password_unlock: Some(MasterPasswordUnlockResponseModel {
@@ -255,7 +255,7 @@ mod tests {
     #[test]
     fn test_user_decryption_options_with_webauthn_prf_only() {
         const WEBAUTHN_ENCRYPTED_PRIVATE_KEY: &str = "2.fkvl0+sL1lwtiOn1eewsvQ==|dT0TynLl8YERZ8x7dxC+DQ==|cWhiRSYHOi/AA2LiV/JBJWbO9C7pbUpOM6TMAcV47hE=";
-        const WEBAUTHN_ENCRYPTED_USER_KEY: &str = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
+        const WEBAUTHN_ENCRYPTED_USER_KEY: &str = "4.DMD1D5r6BsDDd7C/FE1eZbMCKrmryvAsCKj6+bO54gJNUxisOI7SDcpPLRXf+JdhqY15pT+wimQ5cD9C+6OQ6s71LFQHewXPU29l9Pa1JxGeiKqp37KLYf+1IS6UB2K3ANN35C52ZUHh2TlzIS5RuntxnpCw7APbcfpcnmIdLPJBtuj/xbFd6eBwnI3GSe5qdS6/Ixdd0dgsZcpz3gHJBKmIlSo0YN60SweDq3kTJwox9xSqdCueIDg5U4khc7RhjYx8b33HXaNJj3DwgIH8iLj+lqpDekogr630OhHG3XRpvl4QzYO45bmHb8wAh67Dj70nsZcVg6bAEFHdSFohww==";
 
         let api = UserDecryptionOptionsApiResponse {
             master_password_unlock: None,
@@ -371,7 +371,7 @@ mod tests {
     #[test]
     fn test_user_decryption_options_with_master_password_and_webauthn_prf() {
         const WEBAUTHN_ENCRYPTED_PRIVATE_KEY: &str = "2.fkvl0+sL1lwtiOn1eewsvQ==|dT0TynLl8YERZ8x7dxC+DQ==|cWhiRSYHOi/AA2LiV/JBJWbO9C7pbUpOM6TMAcV47hE=";
-        const WEBAUTHN_ENCRYPTED_USER_KEY: &str = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
+        const WEBAUTHN_ENCRYPTED_USER_KEY: &str = "4.DMD1D5r6BsDDd7C/FE1eZbMCKrmryvAsCKj6+bO54gJNUxisOI7SDcpPLRXf+JdhqY15pT+wimQ5cD9C+6OQ6s71LFQHewXPU29l9Pa1JxGeiKqp37KLYf+1IS6UB2K3ANN35C52ZUHh2TlzIS5RuntxnpCw7APbcfpcnmIdLPJBtuj/xbFd6eBwnI3GSe5qdS6/Ixdd0dgsZcpz3gHJBKmIlSo0YN60SweDq3kTJwox9xSqdCueIDg5U4khc7RhjYx8b33HXaNJj3DwgIH8iLj+lqpDekogr630OhHG3XRpvl4QzYO45bmHb8wAh67Dj70nsZcVg6bAEFHdSFohww==";
 
         let api = UserDecryptionOptionsApiResponse {
             master_password_unlock: Some(MasterPasswordUnlockResponseModel {
