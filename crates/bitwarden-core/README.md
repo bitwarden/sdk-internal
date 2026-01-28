@@ -1,7 +1,7 @@
 # Bitwarden Core
 
 Contains core functionality used by the feature crates. For an introduction to the Bitwarden SDK and
-the `bitwarden-core` create please refer to the
+the `bitwarden-core` crate please refer to the
 [SDK Architecture](https://contributing.bitwarden.com/architecture/sdk/) documentation.
 
 <div class="warning">

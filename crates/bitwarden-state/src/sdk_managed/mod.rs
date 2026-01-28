@@ -1,5 +1,6 @@
+use std::sync::Arc;
+
 use bitwarden_error::bitwarden_error;
-use serde::{de::DeserializeOwned, ser::Serialize};
 use thiserror::Error;
 
 use crate::repository::{Repository, RepositoryError, RepositoryItem, RepositoryMigrations};
@@ -48,25 +49,13 @@ pub trait Database {
     where
         Self: Sized;
 
-    async fn get<T: Serialize + DeserializeOwned + RepositoryItem>(
-        &self,
-        key: &str,
-    ) -> Result<Option<T>, DatabaseError>;
+    async fn get<T: RepositoryItem>(&self, key: &str) -> Result<Option<T>, DatabaseError>;
 
-    async fn list<T: Serialize + DeserializeOwned + RepositoryItem>(
-        &self,
-    ) -> Result<Vec<T>, DatabaseError>;
+    async fn list<T: RepositoryItem>(&self) -> Result<Vec<T>, DatabaseError>;
 
-    async fn set<T: Serialize + DeserializeOwned + RepositoryItem>(
-        &self,
-        key: &str,
-        value: T,
-    ) -> Result<(), DatabaseError>;
+    async fn set<T: RepositoryItem>(&self, key: &str, value: T) -> Result<(), DatabaseError>;
 
-    async fn remove<T: Serialize + DeserializeOwned + RepositoryItem>(
-        &self,
-        key: &str,
-    ) -> Result<(), DatabaseError>;
+    async fn remove<T: RepositoryItem>(&self, key: &str) -> Result<(), DatabaseError>;
 }
 
 struct DBRepository<T: RepositoryItem> {
@@ -75,7 +64,7 @@ struct DBRepository<T: RepositoryItem> {
 }
 
 #[async_trait::async_trait]
-impl<V: RepositoryItem + Serialize + DeserializeOwned> Repository<V> for DBRepository<V> {
+impl<V: RepositoryItem> Repository<V> for DBRepository<V> {
     async fn get(&self, key: String) -> Result<Option<V>, RepositoryError> {
         let value = self.database.get::<V>(&key).await?;
         Ok(value)
@@ -93,10 +82,8 @@ impl<V: RepositoryItem + Serialize + DeserializeOwned> Repository<V> for DBRepos
 }
 
 impl SystemDatabase {
-    pub(super) fn get_repository<V: RepositoryItem + Serialize + DeserializeOwned>(
-        &self,
-    ) -> Result<impl Repository<V>, DatabaseError> {
-        Ok(DBRepository {
+    pub(super) fn get_repository<V: RepositoryItem>(&self) -> Arc<dyn Repository<V>> {
+        Arc::new(DBRepository {
             database: self.clone(),
             _marker: std::marker::PhantomData,
         })

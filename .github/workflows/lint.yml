@@ -42,7 +42,7 @@ jobs:
           echo "RUST_NIGHTLY_TOOLCHAIN=${RUST_NIGHTLY_TOOLCHAIN}" | tee -a "${GITHUB_OUTPUT}"
 
       - name: Install rust
-        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e # stable
+        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561 # stable
         with:
           toolchain: "${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}"
           components: clippy, rustfmt
@@ -55,7 +55,7 @@ jobs:
           rustup component add rustfmt --toolchain "${RUST_NIGHTLY_TOOLCHAIN}"-x86_64-unknown-linux-gnu
 
       - name: Cache cargo registry
-        uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
 
       - name: Cargo fmt
         env:
@@ -72,7 +72,7 @@ jobs:
           RUSTFLAGS: "-D warnings"
 
       - name: Upload Clippy results to GitHub
-        uses: github/codeql-action/upload-sarif@0499de31b99561a6d14a36a5f662c2a54f91beee # v4.31.2
+        uses: github/codeql-action/upload-sarif@5d4e8d1aca955e8d8589aabd499c5cae939e33c7 # v4.31.9
         with:
           sarif_file: clippy_result.sarif
           sha: ${{ contains(github.event_name, 'pull_request') && github.event.pull_request.head.sha || github.sha }}
@@ -116,7 +116,7 @@ jobs:
           fi
 
       - name: Set up Node
-        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           cache: "npm"
           cache-dependency-path: "package-lock.json"
@@ -124,6 +124,9 @@ jobs:
 
       - name: NPM setup
         run: npm ci
+
+      - name: Lint unowned dependencies
+        run: npm run lint:dep-ownership
 
       - name: Node Lint
         run: npm run lint

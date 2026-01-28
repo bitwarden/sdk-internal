@@ -19,6 +19,7 @@ src/apis/hibp_api.rs
 src/apis/import_ciphers_api.rs
 src/apis/info_api.rs
 src/apis/installations_api.rs
+src/apis/licenses_api.rs
 src/apis/mod.rs
 src/apis/notifications_api.rs
 src/apis/organization_auth_requests_api.rs
@@ -90,6 +91,7 @@ src/models/auth_request_response_model.rs
 src/models/auth_request_response_model_list_response_model.rs
 src/models/auth_request_type.rs
 src/models/auth_request_update_request_model.rs
+src/models/auth_type.rs
 src/models/authentication_extensions_client_inputs.rs
 src/models/authentication_extensions_client_outputs.rs
 src/models/authenticator_assertion_raw_response.rs
@@ -144,6 +146,7 @@ src/models/cipher_permissions_response_model.rs
 src/models/cipher_reprompt_type.rs
 src/models/cipher_request_model.rs
 src/models/cipher_response_model.rs
+src/models/cipher_response_model_list_response_model.rs
 src/models/cipher_secure_note_model.rs
 src/models/cipher_share_request_model.rs
 src/models/cipher_ssh_key_model.rs
@@ -457,6 +460,7 @@ src/models/security_tasks_response_model.rs
 src/models/security_tasks_response_model_list_response_model.rs
 src/models/selection_read_only_request_model.rs
 src/models/selection_read_only_response_model.rs
+src/models/self_hosted_organization_license_request_model.rs
 src/models/send_access_request_model.rs
 src/models/send_file_model.rs
 src/models/send_file_upload_data_response_model.rs
@@ -478,8 +482,8 @@ src/models/service_account_response_model.rs
 src/models/service_account_secrets_details_response_model.rs
 src/models/service_account_secrets_details_response_model_list_response_model.rs
 src/models/service_account_update_request_model.rs
+src/models/set_initial_password_request_model.rs
 src/models/set_key_connector_key_request_model.rs
-src/models/set_password_request_model.rs
 src/models/set_verify_devices_request_model.rs
 src/models/setup_business_unit_request_body.rs
 src/models/signature_key_pair_request_model.rs
@@ -491,6 +495,7 @@ src/models/sso_configuration_data_request.rs
 src/models/sso_type.rs
 src/models/sso_urls.rs
 src/models/storage_request_model.rs
+src/models/storage_update_request.rs
 src/models/subscription_cancellation_request_model.rs
 src/models/subscription_response_model.rs
 src/models/sync_response_model.rs
@@ -530,6 +535,7 @@ src/models/update_two_factor_authenticator_request_model.rs
 src/models/update_two_factor_duo_request_model.rs
 src/models/update_two_factor_email_request_model.rs
 src/models/update_two_factor_yubico_otp_request_model.rs
+src/models/upgrade_premium_to_organization_request.rs
 src/models/uri_match_type.rs
 src/models/user_access_policy_response_model.rs
 src/models/user_decryption_response_model.rs

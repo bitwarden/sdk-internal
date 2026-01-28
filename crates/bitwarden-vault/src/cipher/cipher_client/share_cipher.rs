@@ -118,11 +118,10 @@ async fn share_ciphers_bulk(
             revision_date: require!(cipher_mini.revision_date)
                 .parse()
                 .map_err(Into::<VaultParseError>::into)?,
-            archived_date: cipher_mini
-                .archived_date
-                .map(|d| d.parse())
-                .transpose()
-                .map_err(Into::<VaultParseError>::into)?,
+            archived_date: orig_cipher
+                .as_ref()
+                .map(|c| c.archived_date)
+                .unwrap_or_default(),
             edit: orig_cipher.as_ref().map(|c| c.edit).unwrap_or_default(),
             favorite: orig_cipher.as_ref().map(|c| c.favorite).unwrap_or_default(),
             folder_id: orig_cipher
@@ -345,6 +344,7 @@ mod tests {
             view_password: true,
             local_data: None,
             attachments: None,
+            attachment_decryption_failures: None,
             fields: None,
             password_history: None,
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),

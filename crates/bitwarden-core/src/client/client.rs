@@ -52,6 +52,8 @@ impl Client {
             .build()
             .expect("Bw HTTP Client build should not fail");
 
+        let bw_http_client = reqwest_middleware::ClientBuilder::new(bw_http_client).build();
+
         let identity = bitwarden_api_identity::apis::configuration::Configuration {
             base_path: settings.identity_url,
             user_agent: Some(settings.user_agent.clone()),

@@ -499,6 +499,7 @@ dependencies = [
  "async-trait",
  "mockall",
  "reqwest",
+ "reqwest-middleware",
  "serde",
  "serde_json",
  "serde_repr",
@@ -514,6 +515,7 @@ dependencies = [
  "async-trait",
  "mockall",
  "reqwest",
+ "reqwest-middleware",
  "serde",
  "serde_json",
  "serde_repr",
@@ -523,11 +525,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-api-key-connector"
+version = "2.0.0"
+dependencies = [
+ "async-trait",
+ "mockall",
+ "reqwest",
+ "reqwest-middleware",
+ "serde",
+ "serde_json",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
 name = "bitwarden-auth"
 version = "2.0.0"
 dependencies = [
  "bitwarden-api-api",
  "bitwarden-api-identity",
+ "bitwarden-api-key-connector",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-encoding",
@@ -536,6 +553,7 @@ dependencies = [
  "bitwarden-test",
  "chrono",
  "reqwest",
+ "reqwest-middleware",
  "rustls",
  "rustls-platform-verifier",
  "serde",
@@ -604,6 +622,7 @@ dependencies = [
  "async-trait",
  "bitwarden-api-api",
  "bitwarden-api-identity",
+ "bitwarden-api-key-connector",
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
@@ -615,6 +634,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "reqwest",
+ "reqwest-middleware",
  "rustls",
  "rustls-platform-verifier",
  "schemars 1.0.0",
@@ -659,7 +679,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "rayon",
- "rsa 0.9.9",
+ "rsa 0.9.10",
  "schemars 1.0.0",
  "serde",
  "serde_bytes",
@@ -891,7 +911,7 @@ version = "2.0.0"
 dependencies = [
  "bitwarden-error",
  "bitwarden-vault",
- "block-padding 0.4.1",
+ "block-padding 0.4.2",
  "ed25519 3.0.0-rc.2",
  "ed25519-dalek 3.0.0-pre.2",
  "getrandom 0.3.3",
@@ -1072,7 +1092,7 @@ dependencies = [
  "bitwarden-vault",
  "console_error_panic_hook",
  "rand 0.8.5",
- "rsa 0.9.9",
+ "rsa 0.9.10",
  "serde",
  "sha1",
  "tracing",
@@ -1122,9 +1142,9 @@ dependencies = [
 
 [[package]]
 name = "block-padding"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41d28ed5f5f65056148fd25e1a596b5b6d9e772270abf9a9085d7cbfbf26c563"
+checksum = "710f1dd022ef4e93f8a438b4ba958de7f64308434fa6a87104481645cc30068b"
 dependencies = [
  "hybrid-array",
 ]
@@ -3070,7 +3090,7 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7357b6e7aa75618c7864ebd0634b115a7218b0615f4cb1df33ac3eca23943d4"
 dependencies = [
- "block-padding 0.4.1",
+ "block-padding 0.4.2",
  "hybrid-array",
 ]
 
@@ -3494,11 +3514,10 @@ dependencies = [
 
 [[package]]
 name = "num-bigint-dig"
-version = "0.8.4"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc84195820f291c7697304f3cbdadd1cb7199c0efc917ff5eafd71225c136151"
+checksum = "e661dda6640fad38e827a6d4a310ff4763082116fe217f279885c97f511bb0b7"
 dependencies = [
- "byteorder",
  "lazy_static",
  "libm",
  "num-integer",
@@ -4343,6 +4362,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "reqwest-middleware"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57f17d28a6e6acfe1733fe24bcd30774d13bffa4b8a22535b4c8c98423088d4e"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "http",
+ "reqwest",
+ "serde",
+ "thiserror 1.0.69",
+ "tower-service",
+]
+
+[[package]]
 name = "rfc6979"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4399,9 +4433,9 @@ dependencies = [
 
 [[package]]
 name = "rsa"
-version = "0.9.9"
+version = "0.9.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40a0376c50d0358279d9d643e4bf7b7be212f1f4ff1da9070a7b54d22ef75c88"
+checksum = "b8573f03f5883dcaebdfcf4725caa1ecb9c15b2ef50c43a07b816e06799bb12d"
 dependencies = [
  "const-oid 0.9.6",
  "digest 0.10.7",
@@ -5638,9 +5672,9 @@ dependencies = [
 
 [[package]]
 name = "tower-http"
-version = "0.6.6"
+version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "adc82fd73de2a9722ac5da747f12383d2bfdb93591ee6c58486e0097890f05f2"
+checksum = "d4e6559d53cc268e5031cd8429d05415bc4cb4aefc4aa5d6cc35fbf5b924a1f8"
 dependencies = [
  "bitflags 2.9.1",
  "bytes",
@@ -5910,7 +5944,7 @@ dependencies = [
  "serde",
  "tempfile",
  "textwrap",
- "toml 0.8.23",
+ "toml 0.9.9+spec-1.0.0",
  "uniffi_internal_macros",
  "uniffi_meta",
  "uniffi_pipeline",
@@ -5963,7 +5997,7 @@ dependencies = [
  "quote",
  "serde",
  "syn",
- "toml 0.8.23",
+ "toml 0.9.9+spec-1.0.0",
  "uniffi_meta",
 ]
 

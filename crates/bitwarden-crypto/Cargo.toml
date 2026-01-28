@@ -24,6 +24,10 @@ uniffi = [
     "dep:uniffi",
 ] # Uniffi bindings
 wasm = ["dep:tsify", "dep:wasm-bindgen"] # WASM support
+# WARNING: This feature is for debugging purposes only and should never be enabled in production.
+# It disables compile-time debug prevention for cryptographic keys, exposing sensitive key material
+# in debug output, and adds tracing debug logs to encrypt/decrypt operations.
+dangerous-crypto-debug = []
 
 [dependencies]
 aes = { version = ">=0.8.2, <0.9", features = ["zeroize"] }
@@ -37,7 +41,7 @@ bitwarden-uniffi-error = { workspace = true, optional = true }
 cbc = { version = ">=0.1.2, <0.2", features = ["alloc", "zeroize"] }
 chacha20poly1305 = { version = "0.10.1" }
 ciborium = { version = ">=0.2.2, <0.3" }
-coset = { version = ">=0.3.8, <0.5" }
+coset = { version = ">=0.4.0, <0.5" }
 ed25519-dalek = { workspace = true, features = ["rand_core"] }
 generic-array = { version = ">=0.14.7, <1.0", features = ["zeroize"] }
 hkdf = ">=0.12.3, <0.13"
