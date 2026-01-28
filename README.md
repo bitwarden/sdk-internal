@@ -3,49 +3,129 @@
 This repository houses the internal Bitwarden SDKs. We also provide a public
 [Secrets Manager SDK](https://github.com/bitwarden/sdk-sm).
 
-### Disclaimer
+> [!WARNING]
+>
+> The password manager SDK is not intended for public use and is not supported by Bitwarden at this
+> stage. It is solely intended to centralize the business logic and to provide a single source of
+> truth for the internal applications. As the SDK evolves into a more stable and feature complete
+> state we will re-evaluate the possibility of publishing stable bindings for the public. **The
+> password manager interface is unstable and will change without warning.**
 
-The password manager SDK is not intended for public use and is not supported by Bitwarden at this
-stage. It is solely intended to centralize the business logic and to provide a single source of
-truth for the internal applications. As the SDK evolves into a more stable and feature complete
-state we will re-evaluate the possibility of publishing stable bindings for the public. **The
-password manager interface is unstable and will change without warning.**
+## Requirements
 
-# We're Hiring!
+- [Rust](https://www.rust-lang.org/tools/install) latest stable version - (preferably installed via
+  [rustup](https://rustup.rs/)).
+- NodeJS and NPM.
 
-Interested in contributing in a big way? Consider joining our team! We're hiring for many positions.
-Please take a look at our [Careers page](https://bitwarden.com/careers/) to see what opportunities
-are currently open as well as what it's like to work at Bitwarden.
+## Setup instructions
 
-## Getting Started
+1.  Clone the repository:
 
-### Linux / Mac / Windows
+    ```bash
+    git clone https://github.com/bitwarden/sdk-internal.git
+    cd sdk
+    ```
+
+2.  Install the dependencies:
+
+    ```bash
+    npm ci
+    ```
+
+## Building
+
+Run the following command:
 
 ```bash
 cargo build
 ```
 
-### Windows on ARM
+### Special considerations for Windows on ARM
 
-To build, you will need the following in your PATH:
+For Windows on ARM, you will need the following in your `PATH`:
 
 - [Python](https://www.python.org)
 - [Clang](https://clang.llvm.org)
   - We recommend installing this via the
     [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022)
 
-## Documentation
+## Integrating into client applications
 
-Please refer to our [Contributing Docs](https://contributing.bitwarden.com/) for
-[getting started](https://contributing.bitwarden.com/getting-started/sdk/) instructions and
-[architectural documentation](https://contributing.bitwarden.com/architecture/sdk/).
+### Building for client application consumption
 
-You can also browse the latest published documentation:
+Each of the different client platforms have their own build instructions for `sdk-internal`, to
+ensure that the proper bindings are included. For more information on how to build for a specific
+platform, refer to the `README`s for the different crates:
 
-- [docs.rs](https://docs.rs/bitwarden/latest/bitwarden/) for the public SDK.
-- Or for developers of the SDK, view the internal
-  [API documentation](https://sdk-api-docs.bitwarden.com/bitwarden_core/index.html) which includes
-  private items.
+- **Web**:
+  [`crates/bitwarden-wasm-internal`](https://github.com/bitwarden/sdk-internal/tree/main/crates/bitwarden-wasm-internal)
+- **iOS**:
+  [`crates/bitwarden-uniffi/swift`](https://github.com/bitwarden/sdk-internal/tree/main/crates/bitwarden-uniffi/swift)
+- **Android**:
+  [`crates/bitwarden-uniffi/kotlin`](https://github.com/bitwarden/sdk-internal/tree/main/crates/bitwarden-uniffi/kotlin)
+
+### Linking to clients
+
+Once `sdk-internal` has been built with the appropriate bindings for your test platform, you will
+need to update the reference to link to this new version.
+
+These instructions assume a directory structure similar to:
+
+```text
+sdk-internal/
+clients/
+ios/
+android/
+```
+
+If your repository directory structure differs you will need to adjust the commands accordingly.
+
+#### Web clients
+
+The web clients use NPM to install `sdk-internal` as a dependency. NPM offers a dedicated command
+[`link`][npm-link] which can be used to temporarily replace the packages with a local version.
+
+When building the web `sdk-internal` artifacts, you have the option to build the OSS or the
+Bitwarden-licensed version, or both. You will need to adjust your `npm link` command according to
+which version of the SDK you built, and which you intend to make available to the client application
+for your local development:
+
+```bash
+# Link only the OSS version of the internal SDK
+npm link ../sdk-internal/crates/bitwarden-wasm-internal/npm
+
+# Link only the Bitwarden license version of the internal SDK
+npm link ../sdk-internal/crates/bitwarden-wasm-internal/bitwarden_license/npm
+
+# Link both versions
+npm link ../sdk-internal/crates/bitwarden-wasm-internal/npm ../sdk-internal/crates/bitwarden-wasm-internal/bitwarden_license/npm
+```
+
+Keep in mind that running `npm link` will restore any previously linked packages, so only the paths
+in the last run command will be linked.
+
+> [!WARNING]
+>
+> Running `npm ci` or `npm install` will replace the linked packages with the published version.
+
+#### Android
+
+1. Build and publish the SDK to the local Maven repository:
+
+   ```bash
+   ../sdk-internal/crates/bitwarden-uniffi/kotlin/publish-local.sh
+   ```
+
+2. Set the user property `localSdk=true` in the `user.properties` file.
+
+#### iOS
+
+Run the bootstrap script with the `LOCAL_SDK` environment variable set to true in order to use the
+local SDK build:
+
+```bash
+LOCAL_SDK=true ./Scripts/bootstrap.sh
+```
 
 ## Crates
 
@@ -209,12 +289,10 @@ This project uses customized templates that live in the `support/openapi-templat
 templates resolve some outstanding issues we've experienced with the Rust generator. But we strive
 towards modifying the templates as little as possible to ease future upgrades.
 
-:::note
-
-If you don't have the nightly toolchain installed, the `build-api.sh` script will install it for
-you.
-
-:::
+> [!NOTE]
+>
+> If you don't have the nightly toolchain installed, the `build-api.sh` script will install it for
+> you.
 
 ## Developer tools
 
@@ -267,6 +345,18 @@ cargo sort --workspace --grouped --check
 npm run lint
 ```
 
+## Documentation
+
+Please refer to our [Contributing Docs](https://contributing.bitwarden.com/) for
+[architectural documentation](https://contributing.bitwarden.com/architecture/sdk/).
+
+You can also browse the latest published documentation:
+
+- [docs.rs](https://docs.rs/bitwarden/latest/bitwarden/) for the public SDK.
+- Or for developers of the SDK, view the internal
+  [API documentation](https://sdk-api-docs.bitwarden.com/bitwarden_core/index.html) which includes
+  private items.
+
 ## Contribute
 
 Code contributions are welcome! Please commit any pull requests against the `main` branch. Learn
@@ -283,3 +373,13 @@ No grant of any rights in the trademarks, service marks, or logos of Bitwarden i
 may be necessary to comply with the notice requirements as applicable), and use of any Bitwarden
 trademarks must comply with
 [Bitwarden Trademark Guidelines](https://github.com/bitwarden/server/blob/main/TRADEMARK_GUIDELINES.md).
+
+## We're Hiring!
+
+Interested in contributing in a big way? Consider joining our team! We're hiring for many positions.
+Please take a look at our [Careers page](https://bitwarden.com/careers/) to see what opportunities
+are currently open as well as what it's like to work at Bitwarden.
+
+[npm-link]: https://docs.npmjs.com/cli/v9/commands/npm-link
+[sm]: https://bitwarden.com/products/secrets-manager/
+[pm]: https://bitwarden.com/
