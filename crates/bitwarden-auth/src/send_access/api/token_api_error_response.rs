@@ -38,9 +38,6 @@ pub enum SendAccessTokenInvalidGrantError {
     PasswordHashB64Invalid,
 
     #[allow(missing_docs)]
-    EmailInvalid,
-
-    #[allow(missing_docs)]
     OtpInvalid,
 
     #[allow(missing_docs)]
@@ -325,10 +322,6 @@ mod tests {
                 (
                     SendAccessTokenInvalidGrantError::PasswordHashB64Invalid,
                     "\"password_hash_b64_invalid\"",
-                ),
-                (
-                    SendAccessTokenInvalidGrantError::EmailInvalid,
-                    "\"email_invalid\"",
                 ),
                 (
                     SendAccessTokenInvalidGrantError::OtpInvalid,

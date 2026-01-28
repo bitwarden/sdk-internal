@@ -661,11 +661,11 @@ mod tests {
         #[tokio::test]
         async fn request_send_access_token_invalid_grant_invalid_email_error() {
             // Create a mock error response
-            let error_description = "email is invalid.".into();
+            let error_description = "email and otp are required.".into();
             let raw_error = serde_json::json!({
                 "error": "invalid_grant",
                 "error_description": error_description,
-                "send_access_error_type": "email_invalid"
+                "send_access_error_type": "email_and_otp_required"
             });
 
             // Register the mock for the request
@@ -698,9 +698,9 @@ mod tests {
                     // Now assert the inner enum:
                     assert_eq!(
                         api_err,
-                        SendAccessTokenApiErrorResponse::InvalidGrant {
+                        SendAccessTokenApiErrorResponse::InvalidRequest {
                             send_access_error_type: Some(
-                                SendAccessTokenInvalidGrantError::EmailInvalid
+                                SendAccessTokenInvalidRequestError::EmailAndOtpRequired
                             ),
                             error_description: Some(error_description),
                         }
