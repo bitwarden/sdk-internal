@@ -1,4 +1,4 @@
-use bitwarden_crypto::EncString;
+use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use serde::{Deserialize, Serialize};
 
 /// Trusted Device User Decryption Option API response.
@@ -30,5 +30,5 @@ pub(crate) struct TrustedDeviceUserDecryptionOptionApiResponse {
 
     /// The device private key encrypted user key. Only present if the device is trusted.
     #[serde(rename = "EncryptedUserKey", skip_serializing_if = "Option::is_none")]
-    pub encrypted_user_key: Option<EncString>,
+    pub encrypted_user_key: Option<UnsignedSharedKey>,
 }

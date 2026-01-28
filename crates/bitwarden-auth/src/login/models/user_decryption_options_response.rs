@@ -109,7 +109,7 @@ mod tests {
         const SALT: &str = "test@example.com";
         const KDF_ITERATIONS: u32 = 600000;
         const TDE_ENCRYPTED_PRIVATE_KEY: &str = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
-        const TDE_ENCRYPTED_USER_KEY: &str = "2.kTtIypq9OLzd5iMMbU11pQ==|J4i3hTtGVdg7EZ+AQv/ujg==|QJpSpotQVpIW8j8dR/8l015WJzAIxBaOmrz4Uj/V1JA=";
+        const TDE_ENCRYPTED_USER_KEY: &str = "4.ZheRb3PCfAunyFdQYPfyrFqpuvmln9H9w5nDjt88i5A7ug1XE0LJdQHCIYJl0YOZ1gCOGkhFu/CRY2StiLmT3iRKrrVBbC1+qRMjNNyDvRcFi91LWsmRXhONVSPjywzrJJXglsztDqGkLO93dKXNhuKpcmtBLsvgkphk/aFvxbaOvJ/FHdK/iV0dMGNhc/9tbys8laTdwBlI5xIChpRcrfH+XpSFM88+Bu03uK67N9G6eU1UmET+pISJwJvMuIDMqH+qkT7OOzgL3t6I0H2LDj+CnsumnQmDsvQzDiNfTR0IgjpoE9YH2LvPXVP2wVUkiTwXD9cG/E7XeoiduHyHjw==";
         const KEY_CONNECTOR_URL: &str = "https://key-connector.bitwarden.com";
         const WEBAUTHN_ENCRYPTED_PRIVATE_KEY: &str = "2.fkvl0+sL1lwtiOn1eewsvQ==|dT0TynLl8YERZ8x7dxC+DQ==|cWhiRSYHOi/AA2LiV/JBJWbO9C7pbUpOM6TMAcV47hE=";
         const WEBAUTHN_ENCRYPTED_USER_KEY: &str = "4.DMD1D5r6BsDDd7C/FE1eZbMCKrmryvAsCKj6+bO54gJNUxisOI7SDcpPLRXf+JdhqY15pT+wimQ5cD9C+6OQ6s71LFQHewXPU29l9Pa1JxGeiKqp37KLYf+1IS6UB2K3ANN35C52ZUHh2TlzIS5RuntxnpCw7APbcfpcnmIdLPJBtuj/xbFd6eBwnI3GSe5qdS6/Ixdd0dgsZcpz3gHJBKmIlSo0YN60SweDq3kTJwox9xSqdCueIDg5U4khc7RhjYx8b33HXaNJj3DwgIH8iLj+lqpDekogr630OhHG3XRpvl4QzYO45bmHb8wAh67Dj70nsZcVg6bAEFHdSFohww==";
@@ -192,7 +192,7 @@ mod tests {
     #[test]
     fn test_user_decryption_options_with_trusted_device_only() {
         const TDE_ENCRYPTED_PRIVATE_KEY: &str = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
-        const TDE_ENCRYPTED_USER_KEY: &str = "2.kTtIypq9OLzd5iMMbU11pQ==|J4i3hTtGVdg7EZ+AQv/ujg==|QJpSpotQVpIW8j8dR/8l015WJzAIxBaOmrz4Uj/V1JA=";
+        const TDE_ENCRYPTED_USER_KEY: &str = "4.ZheRb3PCfAunyFdQYPfyrFqpuvmln9H9w5nDjt88i5A7ug1XE0LJdQHCIYJl0YOZ1gCOGkhFu/CRY2StiLmT3iRKrrVBbC1+qRMjNNyDvRcFi91LWsmRXhONVSPjywzrJJXglsztDqGkLO93dKXNhuKpcmtBLsvgkphk/aFvxbaOvJ/FHdK/iV0dMGNhc/9tbys8laTdwBlI5xIChpRcrfH+XpSFM88+Bu03uK67N9G6eU1UmET+pISJwJvMuIDMqH+qkT7OOzgL3t6I0H2LDj+CnsumnQmDsvQzDiNfTR0IgjpoE9YH2LvPXVP2wVUkiTwXD9cG/E7XeoiduHyHjw==";
 
         let api = UserDecryptionOptionsApiResponse {
             master_password_unlock: None,
@@ -305,7 +305,7 @@ mod tests {
     #[test]
     fn test_user_decryption_options_with_master_password_and_trusted_device() {
         const TDE_ENCRYPTED_PRIVATE_KEY: &str = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
-        const TDE_ENCRYPTED_USER_KEY: &str = "2.kTtIypq9OLzd5iMMbU11pQ==|J4i3hTtGVdg7EZ+AQv/ujg==|QJpSpotQVpIW8j8dR/8l015WJzAIxBaOmrz4Uj/V1JA=";
+        const TDE_ENCRYPTED_USER_KEY: &str = "4.ZheRb3PCfAunyFdQYPfyrFqpuvmln9H9w5nDjt88i5A7ug1XE0LJdQHCIYJl0YOZ1gCOGkhFu/CRY2StiLmT3iRKrrVBbC1+qRMjNNyDvRcFi91LWsmRXhONVSPjywzrJJXglsztDqGkLO93dKXNhuKpcmtBLsvgkphk/aFvxbaOvJ/FHdK/iV0dMGNhc/9tbys8laTdwBlI5xIChpRcrfH+XpSFM88+Bu03uK67N9G6eU1UmET+pISJwJvMuIDMqH+qkT7OOzgL3t6I0H2LDj+CnsumnQmDsvQzDiNfTR0IgjpoE9YH2LvPXVP2wVUkiTwXD9cG/E7XeoiduHyHjw==";
 
         let api = UserDecryptionOptionsApiResponse {
             master_password_unlock: Some(MasterPasswordUnlockResponseModel {

@@ -1,4 +1,4 @@
-use bitwarden_crypto::EncString;
+use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use serde::{Deserialize, Serialize};
 
 use crate::login::api::response::TrustedDeviceUserDecryptionOptionApiResponse;
@@ -31,7 +31,7 @@ pub struct TrustedDeviceUserDecryptionOption {
 
     /// The device private key encrypted user key. Only present if the device is trusted.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub encrypted_user_key: Option<EncString>,
+    pub encrypted_user_key: Option<UnsignedSharedKey>,
 }
 
 impl From<TrustedDeviceUserDecryptionOptionApiResponse> for TrustedDeviceUserDecryptionOption {
@@ -59,7 +59,7 @@ mod tests {
             has_manage_reset_password_permission: true,
             is_tde_offboarding: false,
             encrypted_private_key: Some("2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=".parse().unwrap()),
-            encrypted_user_key: Some("2.kTtIypq9OLzd5iMMbU11pQ==|J4i3hTtGVdg7EZ+AQv/ujg==|QJpSpotQVpIW8j8dR/8l015WJzAIxBaOmrz4Uj/V1JA=".parse().unwrap()),
+            encrypted_user_key: Some("4.ZheRb3PCfAunyFdQYPfyrFqpuvmln9H9w5nDjt88i5A7ug1XE0LJdQHCIYJl0YOZ1gCOGkhFu/CRY2StiLmT3iRKrrVBbC1+qRMjNNyDvRcFi91LWsmRXhONVSPjywzrJJXglsztDqGkLO93dKXNhuKpcmtBLsvgkphk/aFvxbaOvJ/FHdK/iV0dMGNhc/9tbys8laTdwBlI5xIChpRcrfH+XpSFM88+Bu03uK67N9G6eU1UmET+pISJwJvMuIDMqH+qkT7OOzgL3t6I0H2LDj+CnsumnQmDsvQzDiNfTR0IgjpoE9YH2LvPXVP2wVUkiTwXD9cG/E7XeoiduHyHjw==".parse().unwrap()),
         };
 
         let domain: TrustedDeviceUserDecryptionOption = api.clone().into();
