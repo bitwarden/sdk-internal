@@ -3,11 +3,13 @@
 This repository houses the internal Bitwarden SDKs. We also provide a public
 [Secrets Manager SDK](https://github.com/bitwarden/sdk-sm).
 
-> [!WARNING] The password manager SDK is not intended for public use and is not supported by
-> Bitwarden at this stage. It is solely intended to centralize the business logic and to provide a
-> single source of truth for the internal applications. As the SDK evolves into a more stable and
-> feature complete state we will re-evaluate the possibility of publishing stable bindings for the
-> public. **The password manager interface is unstable and will change without warning.**
+> [!WARNING]
+>
+> The password manager SDK is not intended for public use and is not supported by Bitwarden at this
+> stage. It is solely intended to centralize the business logic and to provide a single source of
+> truth for the internal applications. As the SDK evolves into a more stable and feature complete
+> state we will re-evaluate the possibility of publishing stable bindings for the public. **The
+> password manager interface is unstable and will change without warning.**
 
 ## Getting Started
 
@@ -104,8 +106,9 @@ npm link ../sdk-internal/crates/bitwarden-wasm-internal/npm ../sdk-internal/crat
 Keep in mind that running `npm link` will restore any previously linked packages, so only the paths
 in the last run command will be linked.
 
-> [!WARNING] Running `npm ci` or `npm install` will replace the linked packages with the published
-> version.
+> [!WARNING]
+>
+> Running `npm ci` or `npm install` will replace the linked packages with the published version.
 
 ##### Android
 
@@ -301,8 +304,10 @@ This project uses customized templates that live in the `support/openapi-templat
 templates resolve some outstanding issues we've experienced with the Rust generator. But we strive
 towards modifying the templates as little as possible to ease future upgrades.
 
-> [!NOTE] If you don't have the nightly toolchain installed, the `build-api.sh` script will install
-> it for you.
+> [!NOTE]
+>
+> If you don't have the nightly toolchain installed, the `build-api.sh` script will install it for
+> you.
 
 ## Developer tools
 
