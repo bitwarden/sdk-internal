@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`d8379d34746e5f662151b6e578015878ce1a200f`](https://github.com/bitwarden/server/commit/d8379d34746e5f662151b6e578015878ce1a200f)
+  [`d9e849a44da734c3d210d96151fed6f405a23587`](https://github.com/bitwarden/server/commit/d9e849a44da734c3d210d96151fed6f405a23587)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -319,6 +319,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationUsersApi_                    | [**reinvite**](docs/OrganizationUsersApi.md#organization_users_reinvite)                                                                                         | **POST** /organizations/{orgId}/users/{id}/reinvite                                                      |
 | _OrganizationUsersApi_                    | [**remove**](docs/OrganizationUsersApi.md#organization_users_remove)                                                                                             | **DELETE** /organizations/{orgId}/users/{id}                                                             |
 | _OrganizationUsersApi_                    | [**restore**](docs/OrganizationUsersApi.md#organization_users_restore)                                                                                           | **PUT** /organizations/{orgId}/users/{id}/restore                                                        |
+| _OrganizationUsersApi_                    | [**restore_async_v_next**](docs/OrganizationUsersApi.md#organization_users_restore_async_v_next)                                                                 | **PUT** /organizations/{orgId}/users/{id}/restore/vnext                                                  |
 | _OrganizationUsersApi_                    | [**revoke**](docs/OrganizationUsersApi.md#organization_users_revoke)                                                                                             | **PUT** /organizations/{orgId}/users/{id}/revoke                                                         |
 | _OrganizationUsersApi_                    | [**revoke_self**](docs/OrganizationUsersApi.md#organization_users_revoke_self)                                                                                   | **PUT** /organizations/{orgId}/users/revoke-self                                                         |
 | _OrganizationUsersApi_                    | [**user_public_keys**](docs/OrganizationUsersApi.md#organization_users_user_public_keys)                                                                         | **POST** /organizations/{orgId}/users/public-keys                                                        |
@@ -765,6 +766,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [OrganizationUserResetPasswordDetailsResponseModelListResponseModel](docs/OrganizationUserResetPasswordDetailsResponseModelListResponseModel.md)
 - [OrganizationUserResetPasswordEnrollmentRequestModel](docs/OrganizationUserResetPasswordEnrollmentRequestModel.md)
 - [OrganizationUserResetPasswordRequestModel](docs/OrganizationUserResetPasswordRequestModel.md)
+- [OrganizationUserRestoreRequest](docs/OrganizationUserRestoreRequest.md)
 - [OrganizationUserStatusType](docs/OrganizationUserStatusType.md)
 - [OrganizationUserType](docs/OrganizationUserType.md)
 - [OrganizationUserUpdateRequestModel](docs/OrganizationUserUpdateRequestModel.md)
@@ -998,6 +1000,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [WebAuthnLoginCredentialCreateRequestModel](docs/WebAuthnLoginCredentialCreateRequestModel.md)
 - [WebAuthnLoginCredentialUpdateRequestModel](docs/WebAuthnLoginCredentialUpdateRequestModel.md)
 - [WebAuthnLoginRotateKeyRequestModel](docs/WebAuthnLoginRotateKeyRequestModel.md)
+- [WebAuthnPrfDecryptionOption](docs/WebAuthnPrfDecryptionOption.md)
 - [WebAuthnPrfStatus](docs/WebAuthnPrfStatus.md)
 - [WebPushAuthRequestModel](docs/WebPushAuthRequestModel.md)
 
