@@ -945,8 +945,25 @@ dependencies = [
  "async-trait",
  "bitwarden-api-api",
  "bitwarden-state",
+ "bitwarden-test-macro",
+ "futures",
  "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uuid",
  "wiremock",
+]
+
+[[package]]
+name = "bitwarden-test-macro"
+version = "2.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
