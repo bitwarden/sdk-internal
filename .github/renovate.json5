@@ -120,7 +120,7 @@
         "husky",
         "json5",
         "lint-staged",
-        "prettier",
+        "oxfmt",
         "tsx",
       ],
       commitMessagePrefix: "[deps] Platform (npm):",

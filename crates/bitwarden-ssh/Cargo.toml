@@ -16,12 +16,7 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-wasm = [
-    "bitwarden-error/wasm",
-    "dep:tsify",
-    "dep:wasm-bindgen",
-    "getrandom/wasm_js",
-] # WASM support
+wasm = ["bitwarden-error/wasm", "dep:tsify", "dep:wasm-bindgen", "getrandom/wasm_js"] # WASM support
 uniffi = ["dep:uniffi"] # Uniffi bindings
 
 [dependencies]
@@ -35,7 +30,7 @@ pem-rfc7468 = "1.0.0-rc.3"
 pkcs8 = { version = "=0.11.0-rc.8", features = ["encryption"] }
 rand = "0.10.0-rc.5"
 rand_core = "0.10.0-rc.2"
-rsa =  "0.10.0-rc.10"
+rsa = "0.10.0-rc.10"
 serde.workspace = true
 ssh-cipher = "0.3.0-rc.4"
 ssh-key = { version = "0.7.0-rc.4", features = [

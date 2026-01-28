@@ -1,5 +1,5 @@
 export default {
-  "*": "prettier --cache --ignore-unknown --write",
+  "*": "oxfmt",
   "*.rs": (stagedFiles) => [
     "cargo +nightly fmt",
     "cargo clippy --all-features --all-targets",
@@ -8,6 +8,6 @@ export default {
   "Cargo.toml": (stagedFiles) => [
     "cargo +nightly fmt",
     "cargo +nightly udeps --workspace --all-features",
-    "cargo sort --workspace --grouped",
+    "cargo sort --workspace --grouped --no-format",
   ],
 };

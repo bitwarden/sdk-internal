@@ -31,10 +31,7 @@ dangerous-crypto-debug = []
 
 [dependencies]
 aes = { version = ">=0.8.2, <0.9", features = ["zeroize"] }
-argon2 = { version = "=0.6.0-rc.2", features = [
-    "std",
-    "zeroize",
-], default-features = false }
+argon2 = { version = "=0.6.0-rc.2", features = ["std", "zeroize"], default-features = false }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-uniffi-error = { workspace = true, optional = true }

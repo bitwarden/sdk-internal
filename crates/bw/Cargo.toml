@@ -16,9 +16,7 @@ license-file.workspace = true
 
 [dependencies]
 base64 = ">=0.22.1, <0.23"
-bat = { version = "0.26.0", features = [
-    "regex-fancy",
-], default-features = false }
+bat = { version = "0.26.0", features = ["regex-fancy"], default-features = false }
 bitwarden-api-api = { workspace = true }
 bitwarden-cli = { workspace = true }
 bitwarden-collections = { workspace = true }
