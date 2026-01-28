@@ -42,15 +42,18 @@ impl LogCallback for DemoLogCallback {
 
 fn main() {
     println!("🚀 SDK Logging Callback Demonstration\n");
-    println!("Creating SDK client with logging callback...\n");
-
+    
     let logs = Arc::new(Mutex::new(Vec::new()));
     let callback = Arc::new(DemoLogCallback { logs: logs.clone() });
 
-    // Create client with callback
-    let _client = Client::new(Arc::new(DemoTokenProvider), None, Some(callback));
+    // Initialize logger with callback BEFORE creating any clients
+    println!("Step 1: Initialize SDK logger with callback...\n");
+    bitwarden_uniffi::init_logger(Some(callback));
+    
+    println!("Step 2: Create SDK client...\n");
+    let _client = Client::new(Arc::new(DemoTokenProvider), None);
 
-    println!("✅ Client initialized with callback\n");
+    println!("✅ Client created - callback is receiving logs\n");
     println!("Emitting SDK logs at different levels...\n");
 
     // Emit logs that will be captured by callback

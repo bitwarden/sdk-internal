@@ -99,6 +99,24 @@ pub trait LogCallback: Send + Sync {
 }
 ```
 
+## Quick Start
+
+Call `initLogger()` once before creating clients:
+
+```kotlin
+// Kotlin
+initLogger(FlightRecorderCallback())
+val client = Client(tokenProvider, settings)
+```
+
+```swift
+// Swift
+initLogger(callback: FlightRecorderCallback())
+let client = try Client(tokenProvider: tokenProvider, settings: settings)
+```
+
+Skip `initLogger()` to use only platform loggers (oslog/logcat).
+
 ### Thread Safety Requirements
 
 The `Send + Sync` bounds are mandatory. The SDK invokes callbacks from arbitrary background threads,

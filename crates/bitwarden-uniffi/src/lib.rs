@@ -39,13 +39,12 @@ pub struct Client(pub(crate) bitwarden_pm::PasswordManagerClient);
 #[uniffi::export(async_runtime = "tokio")]
 impl Client {
     /// Initialize a new instance of the SDK client
-    #[uniffi::constructor(default(log_callback))]
+    #[uniffi::constructor]
     pub fn new(
         token_provider: Arc<dyn ClientManagedTokens>,
         settings: Option<ClientSettings>,
-        log_callback: Option<Arc<dyn LogCallback>>,
     ) -> Self {
-        init_logger(log_callback);
+        init_logger(None);
         setup_error_converter();
 
         #[cfg(target_os = "android")]
@@ -117,7 +116,29 @@ impl Client {
 
 static INIT: Once = Once::new();
 
-fn init_logger(callback: Option<Arc<dyn LogCallback>>) {
+/// Initialize the SDK logger
+///
+/// This function should be called once before creating any SDK clients.
+/// It initializes the tracing infrastructure for the SDK and optionally
+/// registers a callback to receive log events.
+///
+/// # Parameters
+/// - `callback`: Optional callback to receive SDK log events. Pass `None` to use
+///   only platform loggers (oslog on iOS, logcat on Android).
+///
+/// # Example
+/// ```kotlin
+/// // Initialize with callback before creating clients
+/// initLogger(FlightRecorderCallback())
+/// val client = Client(tokenProvider, settings)
+/// ```
+///
+/// # Notes
+/// - This function can only be called once - subsequent calls are ignored
+/// - If not called explicitly, logging is auto-initialized when first client is created
+/// - Platform loggers (oslog/logcat) are always enabled regardless of callback
+#[uniffi::export]
+pub fn init_logger(callback: Option<Arc<dyn LogCallback>>) {
     use tracing_subscriber::{EnvFilter, layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
     INIT.call_once(|| {
@@ -219,8 +240,11 @@ mod tests {
         let logs = Arc::new(Mutex::new(Vec::new()));
         let callback = Arc::new(TestLogCallback { logs: logs.clone() });
 
-        // Create client with callback
-        let _client = Client::new(Arc::new(MockTokenProvider), None, Some(callback));
+        // Initialize logger with callback before creating client
+        init_logger(Some(callback));
+        
+        // Create client
+        let _client = Client::new(Arc::new(MockTokenProvider), None);
 
         // Trigger a log
         tracing::info!("test message from SDK");
