@@ -2,7 +2,7 @@ use bitwarden_core::key_management::MasterPasswordError;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 
-use crate::identity::api::response::{
+use crate::login::api::response::{
     InvalidGrantError, LoginErrorApiResponse, OAuth2ErrorApiResponse, PasswordInvalidGrantError,
 };
 

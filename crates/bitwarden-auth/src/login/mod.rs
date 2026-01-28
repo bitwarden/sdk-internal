@@ -6,11 +6,11 @@ mod login_client;
 
 pub use login_client::LoginClient;
 
-/// Models used by the identity module
+/// Models used by the login module
 pub mod models;
 
 /// Login via password functionality
 pub mod login_via_password;
 
-// API models should be private to the identity module as they are only used internally.
+// API models should be private to the login module as they are only used internally.
 pub(crate) mod api;

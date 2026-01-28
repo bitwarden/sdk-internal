@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::identity::{login_via_password::PasswordPreloginResponse, models::LoginRequest};
+use crate::login::{login_via_password::PasswordPreloginResponse, models::LoginRequest};
 
 /// Public SDK request model for logging in via password
 #[derive(Serialize, Deserialize)]

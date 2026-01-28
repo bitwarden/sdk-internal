@@ -3,7 +3,7 @@ use bitwarden_core::Client;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    identity::LoginClient, registration::RegistrationClient, send_access::SendAccessClient,
+    login::LoginClient, registration::RegistrationClient, send_access::SendAccessClient,
 };
 
 /// Subclient containing auth functionality.
@@ -28,7 +28,7 @@ impl AuthClient {
     // TODO: in a future PR, we need to figure out a consistent mechanism for CoreClient
     // vs ClientSettings instantiation across all subclients.
 
-    /// Client for identity functionality
+    /// Client for login functionality
     pub fn login(&self, client_settings: bitwarden_core::ClientSettings) -> LoginClient {
         LoginClient::new(client_settings)
     }

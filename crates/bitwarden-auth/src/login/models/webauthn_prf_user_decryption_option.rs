@@ -1,7 +1,7 @@
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use serde::{Deserialize, Serialize};
 
-use crate::identity::api::response::WebAuthnPrfUserDecryptionOptionApiResponse;
+use crate::login::api::response::WebAuthnPrfUserDecryptionOptionApiResponse;
 
 /// SDK domain model for WebAuthn PRF user decryption option.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

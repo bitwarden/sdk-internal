@@ -1,7 +1,7 @@
 use bitwarden_crypto::EncString;
 use serde::{Deserialize, Serialize};
 
-use crate::identity::api::response::TrustedDeviceUserDecryptionOptionApiResponse;
+use crate::login::api::response::TrustedDeviceUserDecryptionOptionApiResponse;
 
 /// SDK domain model for Trusted Device user decryption option.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

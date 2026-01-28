@@ -1,7 +1,7 @@
 use bitwarden_core::key_management::{MasterPasswordError, MasterPasswordUnlockData};
 use serde::{Deserialize, Serialize};
 
-use crate::identity::{
+use crate::login::{
     api::response::UserDecryptionOptionsApiResponse,
     models::{
         KeyConnectorUserDecryptionOption, TrustedDeviceUserDecryptionOption,
@@ -62,7 +62,7 @@ mod tests {
     use bitwarden_crypto::Kdf;
 
     use super::*;
-    use crate::identity::api::response::{
+    use crate::login::api::response::{
         KeyConnectorUserDecryptionOptionApiResponse, TrustedDeviceUserDecryptionOptionApiResponse,
         WebAuthnPrfUserDecryptionOptionApiResponse,
     };

@@ -5,7 +5,7 @@ use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::identity::{LoginClient, login_via_password::PasswordPreloginResponse};
+use crate::login::{LoginClient, login_via_password::PasswordPreloginResponse};
 
 /// Error type for password prelogin operations
 #[bitwarden_error(flat)]

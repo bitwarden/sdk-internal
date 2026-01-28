@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use bitwarden_core::{key_management::MasterPasswordError, require};
 use bitwarden_policies::MasterPasswordPolicyResponse;
 
-use crate::identity::{
+use crate::login::{
     api::response::LoginSuccessApiResponse, models::UserDecryptionOptionsResponse,
 };
 

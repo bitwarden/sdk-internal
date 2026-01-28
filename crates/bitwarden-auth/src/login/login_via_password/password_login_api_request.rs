@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     api::enums::GrantType,
-    identity::{api::request::LoginApiRequest, login_via_password::PasswordLoginRequest},
+    login::{api::request::LoginApiRequest, login_via_password::PasswordLoginRequest},
 };
 
 /// Internal API request model for logging in via password.
@@ -69,7 +69,7 @@ mod tests {
     use bitwarden_crypto::Kdf;
 
     use super::*;
-    use crate::identity::{
+    use crate::login::{
         login_via_password::PasswordPreloginResponse,
         models::{LoginDeviceRequest, LoginRequest},
     };
@@ -159,7 +159,7 @@ mod tests {
 
     #[test]
     fn test_password_login_api_request_serialization() {
-        use crate::{api::enums::scopes_to_string, identity::api::request::STANDARD_USER_SCOPES};
+        use crate::{api::enums::scopes_to_string, login::api::request::STANDARD_USER_SCOPES};
 
         // Create a complete API request with all fields
         let request = make_test_password_login_request(true);

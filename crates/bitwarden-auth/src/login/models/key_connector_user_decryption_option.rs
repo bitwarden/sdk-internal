@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::identity::api::response::KeyConnectorUserDecryptionOptionApiResponse;
+use crate::login::api::response::KeyConnectorUserDecryptionOptionApiResponse;
 
 /// SDK domain model for Key Connector user decryption option.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

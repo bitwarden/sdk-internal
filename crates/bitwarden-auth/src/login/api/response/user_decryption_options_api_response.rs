@@ -1,7 +1,7 @@
 use bitwarden_api_api::models::MasterPasswordUnlockResponseModel;
 use serde::{Deserialize, Serialize};
 
-use crate::identity::api::response::{
+use crate::login::api::response::{
     KeyConnectorUserDecryptionOptionApiResponse, TrustedDeviceUserDecryptionOptionApiResponse,
     WebAuthnPrfUserDecryptionOptionApiResponse,
 };

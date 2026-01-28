@@ -26,8 +26,8 @@
 //!
 //! ```rust,no_run
 //! # use bitwarden_auth::{AuthClient, AuthClientExt};
-//! # use bitwarden_auth::identity::login_via_password::PasswordLoginRequest;
-//! # use bitwarden_auth::identity::models::{LoginRequest, LoginDeviceRequest, LoginResponse};
+//! # use bitwarden_auth::login::login_via_password::PasswordLoginRequest;
+//! # use bitwarden_auth::login::models::{LoginRequest, LoginDeviceRequest, LoginResponse};
 //! # use bitwarden_core::{Client, ClientSettings, DeviceType};
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create the core client
@@ -78,8 +78,8 @@
 //! # }
 //! ```
 //!
-//! [`LoginClient::get_password_prelogin`]: crate::identity::LoginClient::get_password_prelogin
-//! [`LoginClient::login_via_password`]: crate::identity::LoginClient::login_via_password
+//! [`LoginClient::get_password_prelogin`]: crate::login::LoginClient::get_password_prelogin
+//! [`LoginClient::login_via_password`]: crate::login::LoginClient::login_via_password
 
 mod login_via_password_impl;
 mod password_login_api_request;

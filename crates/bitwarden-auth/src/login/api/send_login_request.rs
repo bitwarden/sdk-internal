@@ -1,6 +1,6 @@
 use serde::{Serialize, de::DeserializeOwned};
 
-use crate::identity::{
+use crate::login::{
     api::{
         request::LoginApiRequest,
         response::{LoginErrorApiResponse, LoginSuccessApiResponse},
@@ -102,7 +102,7 @@ mod tests {
     use super::*;
     use crate::{
         api::enums::GrantType,
-        identity::{api::request::LoginApiRequest, models::LoginResponse},
+        login::{api::request::LoginApiRequest, models::LoginResponse},
     };
 
     // Test constants
@@ -268,7 +268,7 @@ mod tests {
             LoginErrorApiResponse::OAuth2Error(oauth_error) => {
                 assert!(matches!(
                     oauth_error,
-                    crate::identity::api::response::OAuth2ErrorApiResponse::InvalidGrant { .. }
+                    crate::login::api::response::OAuth2ErrorApiResponse::InvalidGrant { .. }
                 ));
             }
             _ => panic!("Expected OAuth2Error variant"),
@@ -298,7 +298,7 @@ mod tests {
             LoginErrorApiResponse::OAuth2Error(oauth_error) => {
                 assert!(matches!(
                     oauth_error,
-                    crate::identity::api::response::OAuth2ErrorApiResponse::InvalidRequest { .. }
+                    crate::login::api::response::OAuth2ErrorApiResponse::InvalidRequest { .. }
                 ));
             }
             _ => panic!("Expected OAuth2Error variant"),
@@ -328,7 +328,7 @@ mod tests {
             LoginErrorApiResponse::OAuth2Error(oauth_error) => {
                 assert!(matches!(
                     oauth_error,
-                    crate::identity::api::response::OAuth2ErrorApiResponse::InvalidClient { .. }
+                    crate::login::api::response::OAuth2ErrorApiResponse::InvalidClient { .. }
                 ));
             }
             _ => panic!("Expected OAuth2Error variant"),

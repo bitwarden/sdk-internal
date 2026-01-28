@@ -6,7 +6,7 @@ Contains the implementation of the auth functionality for the Bitwarden Password
 
 - Manages obtaining send access tokens for accessing secured send endpoints.
 
-## Identity / Login
+## Login
 
 **LoginClient**: Authenticates Bitwarden users to obtain access tokens.
 
@@ -14,15 +14,15 @@ Contains the implementation of the auth functionality for the Bitwarden Password
 
 - **Password**: Email and master password authentication (2FA not yet supported)
   - See
-    [`login_via_password`](https://docs.rs/bitwarden-auth/latest/bitwarden_auth/identity/login_via_password/index.html)
+    [`login_via_password`](https://docs.rs/bitwarden-auth/latest/bitwarden_auth/login/login_via_password/index.html)
     module for details and examples
 - **Future**: SSO, device-based, etc.
 
 ### Quick Example
 
 ```rust,no_run
-# use bitwarden_auth::{AuthClient, identity::login_via_password::PasswordLoginRequest};
-# use bitwarden_auth::identity::models::{LoginRequest, LoginDeviceRequest, LoginResponse};
+# use bitwarden_auth::{AuthClient, login::login_via_password::PasswordLoginRequest};
+# use bitwarden_auth::login::models::{LoginRequest, LoginDeviceRequest, LoginResponse};
 # use bitwarden_core::{Client, ClientSettings, DeviceType};
 # async fn example(email: String, password: String) -> Result<(), Box<dyn std::error::Error>> {
 # let client = Client::new(None);

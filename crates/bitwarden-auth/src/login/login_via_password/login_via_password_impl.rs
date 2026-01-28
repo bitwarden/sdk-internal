@@ -2,7 +2,7 @@ use bitwarden_core::key_management::MasterPasswordAuthenticationData;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::identity::{
+use crate::login::{
     LoginClient,
     api::{request::LoginApiRequest, send_login_request},
     login_via_password::{PasswordLoginApiRequest, PasswordLoginError, PasswordLoginRequest},
@@ -45,7 +45,7 @@ mod tests {
     use wiremock::{Mock, ResponseTemplate, matchers};
 
     use super::*;
-    use crate::identity::{
+    use crate::login::{
         login_via_password::{PasswordLoginRequest, PasswordPreloginResponse},
         models::{LoginDeviceRequest, LoginRequest, LoginResponse},
     };
