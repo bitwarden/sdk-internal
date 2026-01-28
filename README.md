@@ -3,7 +3,7 @@
 This repository houses the internal Bitwarden SDKs. We also provide a public
 [Secrets Manager SDK](https://github.com/bitwarden/sdk-sm).
 
-### Disclaimer
+::: warning
 
 The password manager SDK is not intended for public use and is not supported by Bitwarden at this
 stage. It is solely intended to centralize the business logic and to provide a single source of
@@ -11,11 +11,7 @@ truth for the internal applications. As the SDK evolves into a more stable and f
 state we will re-evaluate the possibility of publishing stable bindings for the public. **The
 password manager interface is unstable and will change without warning.**
 
-# We're Hiring!
-
-Interested in contributing in a big way? Consider joining our team! We're hiring for many positions.
-Please take a look at our [Careers page](https://bitwarden.com/careers/) to see what opportunities
-are currently open as well as what it's like to work at Bitwarden.
+:::
 
 ## Getting Started
 
@@ -386,6 +382,12 @@ No grant of any rights in the trademarks, service marks, or logos of Bitwarden i
 may be necessary to comply with the notice requirements as applicable), and use of any Bitwarden
 trademarks must comply with
 [Bitwarden Trademark Guidelines](https://github.com/bitwarden/server/blob/main/TRADEMARK_GUIDELINES.md).
+
+# We're Hiring!
+
+Interested in contributing in a big way? Consider joining our team! We're hiring for many positions.
+Please take a look at our [Careers page](https://bitwarden.com/careers/) to see what opportunities
+are currently open as well as what it's like to work at Bitwarden.
 
 [npm-link]: https://docs.npmjs.com/cli/v9/commands/npm-link
 [sm]: https://bitwarden.com/products/secrets-manager/
