@@ -2,9 +2,7 @@ use bitwarden_core::Client;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::{
-    login::LoginClient, registration::RegistrationClient, send_access::SendAccessClient,
-};
+use crate::{login::LoginClient, registration::RegistrationClient, send_access::SendAccessClient};
 
 /// Subclient containing auth functionality.
 #[derive(Clone)]

@@ -3,9 +3,7 @@ use std::fmt::Debug;
 use bitwarden_core::{key_management::MasterPasswordError, require};
 use bitwarden_policies::MasterPasswordPolicyResponse;
 
-use crate::login::{
-    api::response::LoginSuccessApiResponse, models::UserDecryptionOptionsResponse,
-};
+use crate::login::{api::response::LoginSuccessApiResponse, models::UserDecryptionOptionsResponse};
 
 /// SDK response model for a successful login.
 /// This is the model that will be exposed to consuming applications.
