@@ -40,10 +40,7 @@ impl LoginClient {
 #[cfg(test)]
 mod tests {
     use bitwarden_core::{ClientSettings, DeviceType};
-    use bitwarden_crypto::{
-        Kdf, default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
-        default_pbkdf2_iterations,
-    };
+    use bitwarden_crypto::Kdf;
     use bitwarden_test::start_api_mock;
     use wiremock::{Mock, ResponseTemplate, matchers};
 
@@ -94,14 +91,8 @@ mod tests {
 
     fn make_password_login_request(kdf_type: TestKdfType) -> PasswordLoginRequest {
         let kdf = match kdf_type {
-            TestKdfType::Pbkdf2 => Kdf::PBKDF2 {
-                iterations: default_pbkdf2_iterations(),
-            },
-            TestKdfType::Argon2id => Kdf::Argon2id {
-                iterations: default_argon2_iterations(),
-                memory: default_argon2_memory(),
-                parallelism: default_argon2_parallelism(),
-            },
+            TestKdfType::Pbkdf2 => Kdf::default_pbkdf2(),
+            TestKdfType::Argon2id => Kdf::default_argon2(),
         };
 
         PasswordLoginRequest {

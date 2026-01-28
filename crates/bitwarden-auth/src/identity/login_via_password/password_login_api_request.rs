@@ -66,7 +66,7 @@ impl From<(PasswordLoginRequest, MasterPasswordAuthenticationData)>
 #[cfg(test)]
 mod tests {
     use bitwarden_core::DeviceType;
-    use bitwarden_crypto::{Kdf, default_pbkdf2_iterations};
+    use bitwarden_crypto::Kdf;
 
     use super::*;
     use crate::identity::{
@@ -100,9 +100,7 @@ mod tests {
             email: TEST_EMAIL.to_string(),
             password: TEST_PASSWORD.to_string(),
             prelogin_response: PasswordPreloginResponse {
-                kdf: Kdf::PBKDF2 {
-                    iterations: default_pbkdf2_iterations(),
-                },
+                kdf: Kdf::default_pbkdf2(),
                 salt: TEST_SALT.to_string(),
             },
         }

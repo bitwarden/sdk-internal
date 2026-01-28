@@ -49,12 +49,10 @@ impl LoginClient {
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZeroU32;
     use bitwarden_api_identity::models::KdfType;
     use bitwarden_core::{ClientSettings, DeviceType};
-    use bitwarden_crypto::{
-        Kdf, default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
-        default_pbkdf2_iterations,
-    };
+    use bitwarden_crypto::Kdf;
     use bitwarden_test::start_api_mock;
     use wiremock::{Mock, ResponseTemplate, matchers};
 
@@ -77,13 +75,27 @@ mod tests {
         LoginClient::new(settings)
     }
 
+    fn mock_default_pbkdf2_iterations() -> NonZeroU32 {
+        let Kdf::PBKDF2 { iterations } = Kdf::default_pbkdf2() else {
+            panic!("Expected PBKDF2 KDF");
+        };
+        iterations
+    }
+
+    fn mock_default_argon2_params() -> (NonZeroU32, NonZeroU32, NonZeroU32) {
+        let Kdf::Argon2id { iterations, memory, parallelism } = Kdf::default_argon2() else {
+            panic!("Expected Argon2 KDF");
+        };
+        (iterations, memory, parallelism)
+    }
+
     #[tokio::test]
     async fn test_get_password_prelogin_pbkdf2_success() {
         // Create a mock success response with PBKDF2
         let raw_success = serde_json::json!({
             "kdfSettings": {
                 "kdfType": KdfType::PBKDF2_SHA256 as i32,
-                "iterations": default_pbkdf2_iterations().get()
+                "iterations": mock_default_pbkdf2_iterations().get()
             },
             "salt": TEST_SALT_PBKDF2
         });
@@ -107,7 +119,7 @@ mod tests {
         assert_eq!(result.salt, TEST_SALT_PBKDF2);
         match result.kdf {
             Kdf::PBKDF2 { iterations } => {
-                assert_eq!(iterations, default_pbkdf2_iterations());
+                assert_eq!(iterations, mock_default_pbkdf2_iterations());
             }
             _ => panic!("Expected PBKDF2 KDF type"),
         }
@@ -115,13 +127,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_password_prelogin_argon2id_success() {
+        let (default_iterations, default_memory, default_parallelism) = mock_default_argon2_params();
+
         // Create a mock success response with Argon2id
         let raw_success = serde_json::json!({
             "kdfSettings": {
                 "kdfType": KdfType::Argon2id as i32,
-                "iterations": default_argon2_iterations().get(),
-                "memory": default_argon2_memory().get(),
-                "parallelism": default_argon2_parallelism().get()
+                "iterations": default_iterations.get(),
+                "memory": default_memory.get(),
+                "parallelism": default_parallelism.get(),
             },
             "salt": TEST_SALT_ARGON2
         });
@@ -149,9 +163,9 @@ mod tests {
                 memory,
                 parallelism,
             } => {
-                assert_eq!(iterations, default_argon2_iterations());
-                assert_eq!(memory, default_argon2_memory());
-                assert_eq!(parallelism, default_argon2_parallelism());
+                assert_eq!(iterations, default_iterations);
+                assert_eq!(memory, default_memory);
+                assert_eq!(parallelism, default_parallelism);
             }
             _ => panic!("Expected Argon2id KDF type"),
         }
@@ -190,7 +204,7 @@ mod tests {
         let raw_response = serde_json::json!({
             "kdfSettings": {
                 "kdfType": KdfType::PBKDF2_SHA256 as i32,
-                "iterations": default_pbkdf2_iterations().get()
+                "iterations": mock_default_pbkdf2_iterations().get(),
             }
         });
 

@@ -2,10 +2,7 @@ use std::num::NonZeroU32;
 
 use bitwarden_api_identity::models::{KdfType, PasswordPreloginResponseModel};
 use bitwarden_core::{MissingFieldError, require};
-use bitwarden_crypto::{
-    Kdf, default_argon2_iterations, default_argon2_memory, default_argon2_parallelism,
-    default_pbkdf2_iterations,
-};
+use bitwarden_crypto::Kdf;
 use serde::{Deserialize, Serialize};
 
 /// Response containing the data required before password-based authentication
@@ -35,19 +32,15 @@ impl TryFrom<PasswordPreloginResponseModel> for PasswordPreloginResponse {
         let kdf = match kdf_settings.kdf_type {
             KdfType::PBKDF2_SHA256 => Kdf::PBKDF2 {
                 iterations: NonZeroU32::new(kdf_settings.iterations as u32)
-                    .unwrap_or_else(default_pbkdf2_iterations),
+                    .expect("Non-zero number"),
             },
             KdfType::Argon2id => Kdf::Argon2id {
                 iterations: NonZeroU32::new(kdf_settings.iterations as u32)
-                    .unwrap_or_else(default_argon2_iterations),
-                memory: kdf_settings
-                    .memory
-                    .and_then(|e| NonZeroU32::new(e as u32))
-                    .unwrap_or_else(default_argon2_memory),
-                parallelism: kdf_settings
-                    .parallelism
-                    .and_then(|e| NonZeroU32::new(e as u32))
-                    .unwrap_or_else(default_argon2_parallelism),
+                    .expect("Non-zero number"),
+                memory: NonZeroU32::new(require!(kdf_settings.memory) as u32)
+                    .expect("Non-zero number"),
+                parallelism: NonZeroU32::new(require!(kdf_settings.parallelism) as u32)
+                    .expect("Non-zero number"),
             },
         };
 
@@ -96,35 +89,6 @@ mod tests {
     }
 
     #[test]
-    fn test_try_from_pbkdf2_default_iterations() {
-        let kdf_settings = KdfSettings {
-            kdf_type: KdfType::PBKDF2_SHA256,
-            iterations: 0, // Zero will trigger default
-            memory: None,
-            parallelism: None,
-        };
-
-        let response = PasswordPreloginResponseModel {
-            kdf: None,
-            kdf_iterations: None,
-            kdf_memory: None,
-            kdf_parallelism: None,
-            kdf_settings: Some(Box::new(kdf_settings)),
-            salt: Some(TEST_SALT.to_string()),
-        };
-
-        let result = PasswordPreloginResponse::try_from(response).unwrap();
-
-        assert_eq!(
-            result.kdf,
-            Kdf::PBKDF2 {
-                iterations: default_pbkdf2_iterations()
-            }
-        );
-        assert_eq!(result.salt, TEST_SALT);
-    }
-
-    #[test]
     fn test_try_from_argon2id_with_all_params() {
         let kdf_settings = KdfSettings {
             kdf_type: KdfType::Argon2id,
@@ -150,37 +114,6 @@ mod tests {
                 iterations: NonZeroU32::new(4).unwrap(),
                 memory: NonZeroU32::new(64).unwrap(),
                 parallelism: NonZeroU32::new(4).unwrap(),
-            }
-        );
-        assert_eq!(result.salt, TEST_SALT);
-    }
-
-    #[test]
-    fn test_try_from_argon2id_default_params() {
-        let kdf_settings = KdfSettings {
-            kdf_type: KdfType::Argon2id,
-            iterations: 0,     // Zero will trigger default
-            memory: None,      // None will trigger default
-            parallelism: None, // None will trigger default
-        };
-
-        let response = PasswordPreloginResponseModel {
-            kdf: None,
-            kdf_iterations: None,
-            kdf_memory: None,
-            kdf_parallelism: None,
-            kdf_settings: Some(Box::new(kdf_settings)),
-            salt: Some(TEST_SALT.to_string()),
-        };
-
-        let result = PasswordPreloginResponse::try_from(response).unwrap();
-
-        assert_eq!(
-            result.kdf,
-            Kdf::Argon2id {
-                iterations: default_argon2_iterations(),
-                memory: default_argon2_memory(),
-                parallelism: default_argon2_parallelism(),
             }
         );
         assert_eq!(result.salt, TEST_SALT);
@@ -225,67 +158,5 @@ mod tests {
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), MissingFieldError { .. }));
-    }
-
-    #[test]
-    fn test_try_from_zero_iterations_uses_default() {
-        // When the server returns 0, NonZeroU32::new returns None, so defaults should be used
-        let kdf_settings = KdfSettings {
-            kdf_type: KdfType::PBKDF2_SHA256,
-            iterations: 0,
-            memory: None,
-            parallelism: None,
-        };
-
-        let response = PasswordPreloginResponseModel {
-            kdf: None,
-            kdf_iterations: None,
-            kdf_memory: None,
-            kdf_parallelism: None,
-            kdf_settings: Some(Box::new(kdf_settings)),
-            salt: Some(TEST_SALT.to_string()),
-        };
-
-        let result = PasswordPreloginResponse::try_from(response).unwrap();
-
-        assert_eq!(
-            result.kdf,
-            Kdf::PBKDF2 {
-                iterations: default_pbkdf2_iterations()
-            }
-        );
-        assert_eq!(result.salt, TEST_SALT);
-    }
-
-    #[test]
-    fn test_try_from_argon2id_partial_zero_values() {
-        // Test that zero values fall back to defaults for Argon2id
-        let kdf_settings = KdfSettings {
-            kdf_type: KdfType::Argon2id,
-            iterations: 0,   // Zero will trigger default
-            memory: Some(0), // Zero will trigger default
-            parallelism: Some(4),
-        };
-
-        let response = PasswordPreloginResponseModel {
-            kdf: None,
-            kdf_iterations: None,
-            kdf_memory: None,
-            kdf_parallelism: None,
-            kdf_settings: Some(Box::new(kdf_settings)),
-            salt: Some(TEST_SALT.to_string()),
-        };
-
-        let result = PasswordPreloginResponse::try_from(response).unwrap();
-
-        assert_eq!(
-            result.kdf,
-            Kdf::Argon2id {
-                iterations: default_argon2_iterations(),
-                memory: default_argon2_memory(),
-                parallelism: NonZeroU32::new(4).unwrap(),
-            }
-        );
-        assert_eq!(result.salt, TEST_SALT);
     }
 }
