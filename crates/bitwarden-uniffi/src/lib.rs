@@ -242,7 +242,7 @@ mod tests {
 
         // Initialize logger with callback before creating client
         init_logger(Some(callback));
-        
+
         // Create client
         let _client = Client::new(Arc::new(MockTokenProvider), None);
 
@@ -252,13 +252,13 @@ mod tests {
         // Verify callback received it
         let captured = logs.lock().expect("Failed to lock logs mutex");
         assert!(!captured.is_empty(), "Callback should receive logs");
-        
+
         // Find our specific test log (there may be other SDK logs during init)
         let test_log = captured
             .iter()
             .find(|(_, _, msg)| msg.contains("test message"))
             .expect("Should find our test log message");
-        
+
         assert_eq!(test_log.0, "INFO");
         assert!(test_log.2.contains("test message"));
     }
