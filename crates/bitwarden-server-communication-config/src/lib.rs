@@ -5,7 +5,6 @@
 //! used in self-hosted environments.
 
 #![deny(missing_docs)]
-#![allow(clippy::disallowed_macros)] // For wasm_bindgen macro usage
 
 mod client;
 mod config;
