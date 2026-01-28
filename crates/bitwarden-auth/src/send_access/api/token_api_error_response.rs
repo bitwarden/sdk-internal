@@ -18,7 +18,7 @@ pub enum SendAccessTokenInvalidRequestError {
     EmailRequired,
 
     #[allow(missing_docs)]
-    EmailAndOtpRequiredOtpSent,
+    EmailAndOtpRequired,
 
     /// Fallback for unknown variants for forward compatibility
     #[serde(other)]
@@ -157,8 +157,8 @@ mod tests {
                     "\"email_required\"",
                 ),
                 (
-                    SendAccessTokenInvalidRequestError::EmailAndOtpRequiredOtpSent,
-                    "\"email_and_otp_required_otp_sent\"",
+                    SendAccessTokenInvalidRequestError::EmailAndOtpRequired,
+                    "\"email_and_otp_required\"",
                 ),
             ];
 

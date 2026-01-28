@@ -539,7 +539,7 @@ mod tests {
                         api_err,
                         SendAccessTokenApiErrorResponse::InvalidRequest {
                             send_access_error_type: Some(
-                                SendAccessTokenInvalidRequestError::EmailAndOtpRequiredOtpSent
+                                SendAccessTokenInvalidRequestError::EmailAndOtpRequired
                             ),
                             error_description: Some(error_description),
                         }
