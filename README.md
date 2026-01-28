@@ -127,19 +127,6 @@ local SDK build:
 LOCAL_SDK=true ./Scripts/bootstrap.sh
 ```
 
-## Documentation
-
-Please refer to our [Contributing Docs](https://contributing.bitwarden.com/) for
-[getting started](https://contributing.bitwarden.com/getting-started/sdk/) instructions and
-[architectural documentation](https://contributing.bitwarden.com/architecture/sdk/).
-
-You can also browse the latest published documentation:
-
-- [docs.rs](https://docs.rs/bitwarden/latest/bitwarden/) for the public SDK.
-- Or for developers of the SDK, view the internal
-  [API documentation](https://sdk-api-docs.bitwarden.com/bitwarden_core/index.html) which includes
-  private items.
-
 ## Crates
 
 The project is structured as a monorepo using cargo workspaces. Some of the more noteworthy crates
@@ -358,6 +345,18 @@ cargo sort --workspace --grouped --check
 npm run lint
 ```
 
+## Documentation
+
+Please refer to our [Contributing Docs](https://contributing.bitwarden.com/) for
+[architectural documentation](https://contributing.bitwarden.com/architecture/sdk/).
+
+You can also browse the latest published documentation:
+
+- [docs.rs](https://docs.rs/bitwarden/latest/bitwarden/) for the public SDK.
+- Or for developers of the SDK, view the internal
+  [API documentation](https://sdk-api-docs.bitwarden.com/bitwarden_core/index.html) which includes
+  private items.
+
 ## Contribute
 
 Code contributions are welcome! Please commit any pull requests against the `main` branch. Learn
@@ -375,7 +374,7 @@ may be necessary to comply with the notice requirements as applicable), and use 
 trademarks must comply with
 [Bitwarden Trademark Guidelines](https://github.com/bitwarden/server/blob/main/TRADEMARK_GUIDELINES.md).
 
-# We're Hiring!
+## We're Hiring!
 
 Interested in contributing in a big way? Consider joining our team! We're hiring for many positions.
 Please take a look at our [Careers page](https://bitwarden.com/careers/) to see what opportunities
