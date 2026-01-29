@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -30,7 +28,7 @@ impl JsServerCommunicationConfigClient {
     pub fn new(repository: RawJsServerCommunicationConfigRepository) -> Self {
         let js_repository = JsServerCommunicationConfigRepository::new(repository);
         Self {
-            client: ServerCommunicationConfigClient::new(Arc::new(js_repository)),
+            client: ServerCommunicationConfigClient::new(js_repository),
         }
     }
 

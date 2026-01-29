@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::{BootstrapConfig, ServerCommunicationConfig, ServerCommunicationConfigRepository};
 
 /// Server communication configuration client
@@ -7,7 +5,7 @@ pub struct ServerCommunicationConfigClient<R>
 where
     R: ServerCommunicationConfigRepository,
 {
-    repository: Arc<R>,
+    repository: R,
 }
 
 impl<R> ServerCommunicationConfigClient<R>
@@ -19,7 +17,7 @@ where
     /// # Arguments
     ///
     /// * `repository` - Repository implementation for storing configuration
-    pub fn new(repository: Arc<R>) -> Self {
+    pub fn new(repository: R) -> Self {
         Self { repository }
     }
 
@@ -72,7 +70,7 @@ mod tests {
     /// Mock in-memory repository for testing
     #[derive(Default, Clone)]
     struct MockRepository {
-        storage: Arc<RwLock<HashMap<String, ServerCommunicationConfig>>>,
+        storage: std::sync::Arc<RwLock<HashMap<String, ServerCommunicationConfig>>>,
     }
 
     impl ServerCommunicationConfigRepository for MockRepository {
@@ -95,7 +93,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_config_returns_direct_when_not_found() {
-        let repo = Arc::new(MockRepository::default());
+        let repo = MockRepository::default();
         let client = ServerCommunicationConfigClient::new(repo);
 
         let config = client
@@ -108,7 +106,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_config_returns_saved_config() {
-        let repo = Arc::new(MockRepository::default());
+        let repo = MockRepository::default();
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: "https://example.com".to_string(),
@@ -122,7 +120,7 @@ mod tests {
             .await
             .unwrap();
 
-        let client = ServerCommunicationConfigClient::new(repo);
+        let client = ServerCommunicationConfigClient::new(repo.clone());
         let retrieved = client
             .get_config("vault.example.com".to_string())
             .await
@@ -136,7 +134,7 @@ mod tests {
 
     #[tokio::test]
     async fn needs_bootstrap_true_when_cookie_missing() {
-        let repo = Arc::new(MockRepository::default());
+        let repo = MockRepository::default();
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: "https://example.com".to_string(),
@@ -150,7 +148,7 @@ mod tests {
             .await
             .unwrap();
 
-        let client = ServerCommunicationConfigClient::new(repo);
+        let client = ServerCommunicationConfigClient::new(repo.clone());
         assert!(
             client
                 .needs_bootstrap("vault.example.com".to_string())
@@ -160,7 +158,7 @@ mod tests {
 
     #[tokio::test]
     async fn needs_bootstrap_false_when_cookie_present() {
-        let repo = Arc::new(MockRepository::default());
+        let repo = MockRepository::default();
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: "https://example.com".to_string(),
@@ -174,7 +172,7 @@ mod tests {
             .await
             .unwrap();
 
-        let client = ServerCommunicationConfigClient::new(repo);
+        let client = ServerCommunicationConfigClient::new(repo.clone());
         assert!(
             !client
                 .needs_bootstrap("vault.example.com".to_string())
@@ -184,7 +182,7 @@ mod tests {
 
     #[tokio::test]
     async fn needs_bootstrap_false_for_direct() {
-        let repo = Arc::new(MockRepository::default());
+        let repo = MockRepository::default();
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::Direct,
         };
@@ -193,7 +191,7 @@ mod tests {
             .await
             .unwrap();
 
-        let client = ServerCommunicationConfigClient::new(repo);
+        let client = ServerCommunicationConfigClient::new(repo.clone());
         assert!(
             !client
                 .needs_bootstrap("vault.example.com".to_string())
@@ -203,7 +201,7 @@ mod tests {
 
     #[tokio::test]
     async fn cookies_returns_empty_for_direct() {
-        let repo = Arc::new(MockRepository::default());
+        let repo = MockRepository::default();
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::Direct,
         };
@@ -212,7 +210,7 @@ mod tests {
             .await
             .unwrap();
 
-        let client = ServerCommunicationConfigClient::new(repo);
+        let client = ServerCommunicationConfigClient::new(repo.clone());
         let cookies = client.cookies("vault.example.com".to_string()).await;
 
         assert!(cookies.is_empty());
@@ -220,7 +218,7 @@ mod tests {
 
     #[tokio::test]
     async fn cookies_returns_empty_when_value_none() {
-        let repo = Arc::new(MockRepository::default());
+        let repo = MockRepository::default();
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: "https://example.com".to_string(),
@@ -234,7 +232,7 @@ mod tests {
             .await
             .unwrap();
 
-        let client = ServerCommunicationConfigClient::new(repo);
+        let client = ServerCommunicationConfigClient::new(repo.clone());
         let cookies = client.cookies("vault.example.com".to_string()).await;
 
         assert!(cookies.is_empty());
@@ -242,7 +240,7 @@ mod tests {
 
     #[tokio::test]
     async fn cookies_returns_cookie_when_present() {
-        let repo = Arc::new(MockRepository::default());
+        let repo = MockRepository::default();
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: "https://example.com".to_string(),
@@ -256,7 +254,7 @@ mod tests {
             .await
             .unwrap();
 
-        let client = ServerCommunicationConfigClient::new(repo);
+        let client = ServerCommunicationConfigClient::new(repo.clone());
         let cookies = client.cookies("vault.example.com".to_string()).await;
 
         assert_eq!(cookies.len(), 1);
@@ -266,7 +264,7 @@ mod tests {
 
     #[tokio::test]
     async fn cookies_returns_empty_when_no_config() {
-        let repo = Arc::new(MockRepository::default());
+        let repo = MockRepository::default();
         let client = ServerCommunicationConfigClient::new(repo);
         let cookies = client.cookies("vault.example.com".to_string()).await;
 
