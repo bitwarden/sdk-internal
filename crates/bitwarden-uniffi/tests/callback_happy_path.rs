@@ -55,8 +55,14 @@ fn test_callback_happy_path() {
     let captured = logs.lock().expect("Failed to lock logs mutex");
     assert!(!captured.is_empty(), "Callback should receive logs");
 
+    // Find our specific log message (tests run in parallel so may have logs from other tests)
+    let our_log = captured
+        .iter()
+        .find(|(_, _, msg)| msg.contains("integration test message"))
+        .expect("Should find our integration test message");
+
     // Validate log data structure
-    let (level, target, message) = &captured[0];
+    let (level, target, message) = our_log;
     assert_eq!(level, "INFO", "Log level should be INFO");
     assert!(!target.is_empty(), "Target should not be empty");
     assert!(

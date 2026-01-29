@@ -57,28 +57,44 @@ fn test_message_visitor_captures_message_field() {
 
     let captured = logs.lock().expect("Failed to lock logs mutex");
 
-    // Verify all messages captured
-    assert_eq!(captured.len(), 3, "All log entries should be captured");
+    // Verify all messages captured (tests run in parallel so may have logs from other tests)
+    assert!(captured.len() >= 3, "Should capture at least our 3 log entries");
+
+    // Find our specific log messages
+    let info_log = captured
+        .iter()
+        .find(|(lvl, _, msg)| lvl == "INFO" && msg.contains("info message"))
+        .expect("INFO message should be captured");
+    
+    let warn_log = captured
+        .iter()
+        .find(|(lvl, _, msg)| lvl == "WARN" && msg.contains("warn message"))
+        .expect("WARN message should be captured");
+    
+    let error_log = captured
+        .iter()
+        .find(|(lvl, _, msg)| lvl == "ERROR" && msg.contains("error message"))
+        .expect("ERROR message should be captured");
 
     // Validate message field extraction
     assert!(
-        captured[0].2.contains("info message"),
+        info_log.2.contains("info message"),
         "INFO message should be captured, got: {}",
-        captured[0].2
+        info_log.2
     );
     assert!(
-        captured[1].2.contains("warn message"),
+        warn_log.2.contains("warn message"),
         "WARN message should be captured, got: {}",
-        captured[1].2
+        warn_log.2
     );
     assert!(
-        captured[2].2.contains("error message"),
+        error_log.2.contains("error message"),
         "ERROR message should be captured, got: {}",
-        captured[2].2
+        error_log.2
     );
 
     // Validate levels
-    assert_eq!(captured[0].0, "INFO");
-    assert_eq!(captured[1].0, "WARN");
-    assert_eq!(captured[2].0, "ERROR");
+    assert_eq!(info_log.0, "INFO");
+    assert_eq!(warn_log.0, "WARN");
+    assert_eq!(error_log.0, "ERROR");
 }

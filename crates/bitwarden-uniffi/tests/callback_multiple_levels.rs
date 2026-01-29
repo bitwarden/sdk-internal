@@ -52,17 +52,33 @@ fn test_callback_receives_multiple_log_levels() {
     tracing::warn!("warn message");
     tracing::error!("error message");
 
-    // Verify all levels captured
+    // Verify all levels captured (tests run in parallel so may have logs from other tests)
     let captured = logs.lock().expect("Failed to lock logs mutex");
-    assert_eq!(captured.len(), 3, "Should capture all 3 log levels");
+    assert!(captured.len() >= 3, "Should capture at least our 3 log levels");
+
+    // Find our specific log messages
+    let info_log = captured
+        .iter()
+        .find(|(lvl, _, msg)| lvl == "INFO" && msg.contains("info message"))
+        .expect("Should find INFO log");
+    
+    let warn_log = captured
+        .iter()
+        .find(|(lvl, _, msg)| lvl == "WARN" && msg.contains("warn message"))
+        .expect("Should find WARN log");
+    
+    let error_log = captured
+        .iter()
+        .find(|(lvl, _, msg)| lvl == "ERROR" && msg.contains("error message"))
+        .expect("Should find ERROR log");
 
     // Validate each level
-    assert_eq!(captured[0].0, "INFO");
-    assert!(captured[0].2.contains("info message"));
+    assert_eq!(info_log.0, "INFO");
+    assert!(info_log.2.contains("info message"));
 
-    assert_eq!(captured[1].0, "WARN");
-    assert!(captured[1].2.contains("warn message"));
+    assert_eq!(warn_log.0, "WARN");
+    assert!(warn_log.2.contains("warn message"));
 
-    assert_eq!(captured[2].0, "ERROR");
-    assert!(captured[2].2.contains("error message"));
+    assert_eq!(error_log.0, "ERROR");
+    assert!(error_log.2.contains("error message"));
 }
