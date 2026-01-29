@@ -18,9 +18,11 @@
 # Bindings for our API do not have an owner as the API is shared between teams.
 crates/bitwarden-api-api/src/**
 crates/bitwarden-api-api/README.md
+crates/bitwarden-api-api/.openapi-generator/**
 # Bindings for Identity are owned by Auth.
 crates/bitwarden-api-identity/src/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
 crates/bitwarden-api-identity/README.md @bitwarden/team-auth-dev @bitwarden/team-platform-dev
+crates/bitwarden-api-identity/.openapi-generator/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
 # Bindings for Key Connector are owned by Key Management.
 crates/bitwarden-api-key-connector/src/** @bitwarden/team-key-management-dev
 
