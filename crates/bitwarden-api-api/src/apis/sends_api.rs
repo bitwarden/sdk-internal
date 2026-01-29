@@ -33,6 +33,9 @@ pub trait SendsApi: Send + Sync {
         send_access_request_model: Option<models::SendAccessRequestModel>,
     ) -> Result<(), Error<AccessError>>;
 
+    /// POST /sends/access
+    async fn access_using_auth(&self) -> Result<(), Error<AccessUsingAuthError>>;
+
     /// POST /sends/file/validate/azure
     async fn azure_validate_file(&self) -> Result<(), Error<AzureValidateFileError>>;
 
@@ -54,6 +57,12 @@ pub trait SendsApi: Send + Sync {
         file_id: &'a str,
         send_access_request_model: Option<models::SendAccessRequestModel>,
     ) -> Result<(), Error<GetSendFileDownloadDataError>>;
+
+    /// POST /sends/access/file/{fileId}
+    async fn get_send_file_download_data_using_auth<'a>(
+        &self,
+        file_id: &'a str,
+    ) -> Result<(), Error<GetSendFileDownloadDataUsingAuthError>>;
 
     /// POST /sends
     async fn post<'a>(
@@ -80,6 +89,12 @@ pub trait SendsApi: Send + Sync {
         id: &'a str,
         send_request_model: Option<models::SendRequestModel>,
     ) -> Result<models::SendResponseModel, Error<PutError>>;
+
+    /// PUT /sends/{id}/remove-auth
+    async fn put_remove_auth<'a>(
+        &self,
+        id: &'a str,
+    ) -> Result<models::SendResponseModel, Error<PutRemoveAuthError>>;
 
     /// PUT /sends/{id}/remove-password
     async fn put_remove_password<'a>(
@@ -144,6 +159,43 @@ impl SendsApi for SendsApiClient {
             Ok(())
         } else {
             let local_var_entity: Option<AccessError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
+    }
+
+    async fn access_using_auth(&self) -> Result<(), Error<AccessUsingAuthError>> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!("{}/sends/access", local_var_configuration.base_path);
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+            local_var_req_builder = local_var_req_builder
+                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+        }
+        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+        };
+
+        let local_var_req = local_var_req_builder.build()?;
+        let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<AccessUsingAuthError> =
                 serde_json::from_str(&local_var_content).ok();
             let local_var_error = ResponseContent {
                 status: local_var_status,
@@ -398,6 +450,50 @@ impl SendsApi for SendsApiClient {
         }
     }
 
+    async fn get_send_file_download_data_using_auth<'a>(
+        &self,
+        file_id: &'a str,
+    ) -> Result<(), Error<GetSendFileDownloadDataUsingAuthError>> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/sends/access/file/{fileId}",
+            local_var_configuration.base_path,
+            fileId = crate::apis::urlencode(file_id)
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+            local_var_req_builder = local_var_req_builder
+                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+        }
+        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+        };
+
+        let local_var_req = local_var_req_builder.build()?;
+        let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<GetSendFileDownloadDataUsingAuthError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
+    }
+
     async fn post<'a>(
         &self,
         send_request_model: Option<models::SendRequestModel>,
@@ -624,6 +720,68 @@ impl SendsApi for SendsApiClient {
         }
     }
 
+    async fn put_remove_auth<'a>(
+        &self,
+        id: &'a str,
+    ) -> Result<models::SendResponseModel, Error<PutRemoveAuthError>> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/sends/{id}/remove-auth",
+            local_var_configuration.base_path,
+            id = crate::apis::urlencode(id)
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+
+        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
+            local_var_req_builder = local_var_req_builder
+                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
+        }
+        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
+            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
+        };
+
+        let local_var_req = local_var_req_builder.build()?;
+        let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::SendResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SendResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<PutRemoveAuthError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
+    }
+
     async fn put_remove_password<'a>(
         &self,
         id: &'a str,
@@ -757,6 +915,12 @@ impl SendsApi for SendsApiClient {
 pub enum AccessError {
     UnknownValue(serde_json::Value),
 }
+/// struct for typed errors of method [`SendsApi::access_using_auth`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AccessUsingAuthError {
+    UnknownValue(serde_json::Value),
+}
 /// struct for typed errors of method [`SendsApi::azure_validate_file`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -787,6 +951,12 @@ pub enum GetAllError {
 pub enum GetSendFileDownloadDataError {
     UnknownValue(serde_json::Value),
 }
+/// struct for typed errors of method [`SendsApi::get_send_file_download_data_using_auth`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetSendFileDownloadDataUsingAuthError {
+    UnknownValue(serde_json::Value),
+}
 /// struct for typed errors of method [`SendsApi::post`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -809,6 +979,12 @@ pub enum PostFileForExistingSendError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum PutError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`SendsApi::put_remove_auth`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PutRemoveAuthError {
     UnknownValue(serde_json::Value),
 }
 /// struct for typed errors of method [`SendsApi::put_remove_password`]
