@@ -123,8 +123,8 @@ static INIT: Once = Once::new();
 /// registers a callback to receive log events.
 ///
 /// # Parameters
-/// - `callback`: Optional callback to receive SDK log events. Pass `None` to use
-///   only platform loggers (oslog on iOS, logcat on Android).
+/// - `callback`: Optional callback to receive SDK log events. Pass `None` to use only platform
+///   loggers (oslog on iOS, logcat on Android).
 ///
 /// # Example
 /// ```kotlin
