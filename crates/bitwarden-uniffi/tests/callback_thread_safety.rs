@@ -64,16 +64,21 @@ fn test_callback_thread_safety() {
         handle.join().expect("Thread should not panic");
     }
 
-    // Verify all logs captured without data races (tests run in parallel so may have logs from other tests)
+    // Verify all logs captured without data races (tests run in parallel so may have logs from
+    // other tests)
     let captured = logs.lock().expect("Failed to lock logs mutex");
-    
+
     // Find our specific thread messages
     let our_logs: Vec<_> = captured
         .iter()
         .filter(|(lvl, _, msg)| lvl == "INFO" && msg.contains("thread") && msg.contains("message"))
         .collect();
-    
-    assert_eq!(our_logs.len(), 10, "All 10 threaded logs should be captured");
+
+    assert_eq!(
+        our_logs.len(),
+        10,
+        "All 10 threaded logs should be captured"
+    );
 
     // Verify no corrupted entries (all should be INFO level with thread messages)
     for (level, _target, message) in our_logs.iter() {

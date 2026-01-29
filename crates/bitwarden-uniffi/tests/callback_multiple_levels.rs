@@ -54,19 +54,22 @@ fn test_callback_receives_multiple_log_levels() {
 
     // Verify all levels captured (tests run in parallel so may have logs from other tests)
     let captured = logs.lock().expect("Failed to lock logs mutex");
-    assert!(captured.len() >= 3, "Should capture at least our 3 log levels");
+    assert!(
+        captured.len() >= 3,
+        "Should capture at least our 3 log levels"
+    );
 
     // Find our specific log messages
     let info_log = captured
         .iter()
         .find(|(lvl, _, msg)| lvl == "INFO" && msg.contains("info message"))
         .expect("Should find INFO log");
-    
+
     let warn_log = captured
         .iter()
         .find(|(lvl, _, msg)| lvl == "WARN" && msg.contains("warn message"))
         .expect("Should find WARN log");
-    
+
     let error_log = captured
         .iter()
         .find(|(lvl, _, msg)| lvl == "ERROR" && msg.contains("error message"))

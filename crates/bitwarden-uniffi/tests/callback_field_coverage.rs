@@ -58,19 +58,22 @@ fn test_message_visitor_captures_message_field() {
     let captured = logs.lock().expect("Failed to lock logs mutex");
 
     // Verify all messages captured (tests run in parallel so may have logs from other tests)
-    assert!(captured.len() >= 3, "Should capture at least our 3 log entries");
+    assert!(
+        captured.len() >= 3,
+        "Should capture at least our 3 log entries"
+    );
 
     // Find our specific log messages
     let info_log = captured
         .iter()
         .find(|(lvl, _, msg)| lvl == "INFO" && msg.contains("info message"))
         .expect("INFO message should be captured");
-    
+
     let warn_log = captured
         .iter()
         .find(|(lvl, _, msg)| lvl == "WARN" && msg.contains("warn message"))
         .expect("WARN message should be captured");
-    
+
     let error_log = captured
         .iter()
         .find(|(lvl, _, msg)| lvl == "ERROR" && msg.contains("error message"))
