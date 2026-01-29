@@ -45,7 +45,10 @@ fn test_callback_thread_safety() {
     let logs = Arc::new(Mutex::new(Vec::new()));
     let callback = Arc::new(TestCallback { logs: logs.clone() });
 
-    let _client = Client::new(Arc::new(MockTokenProvider), None, Some(callback));
+    // Initialize logger with callback
+    init_logger(Some(callback));
+
+    let _client = Client::new(Arc::new(MockTokenProvider), None);
 
     // Spawn multiple threads logging simultaneously
     let handles: Vec<_> = (0..10)

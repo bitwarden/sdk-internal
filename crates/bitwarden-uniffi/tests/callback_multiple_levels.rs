@@ -42,7 +42,10 @@ fn test_callback_receives_multiple_log_levels() {
     let logs = Arc::new(Mutex::new(Vec::new()));
     let callback = Arc::new(TestCallback { logs: logs.clone() });
 
-    let _client = Client::new(Arc::new(MockTokenProvider), None, Some(callback));
+    // Initialize logger with callback
+    init_logger(Some(callback));
+
+    let _client = Client::new(Arc::new(MockTokenProvider), None);
 
     // Emit logs at multiple levels
     tracing::info!("info message");

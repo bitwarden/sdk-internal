@@ -42,8 +42,11 @@ fn test_callback_happy_path() {
     let logs = Arc::new(Mutex::new(Vec::new()));
     let callback = Arc::new(TestCallback { logs: logs.clone() });
 
-    // Create client with callback
-    let _client = Client::new(Arc::new(MockTokenProvider), None, Some(callback));
+    // Initialize logger with callback
+    init_logger(Some(callback));
+
+    // Create client
+    let _client = Client::new(Arc::new(MockTokenProvider), None);
 
     // Trigger SDK logging
     tracing::info!("integration test message");

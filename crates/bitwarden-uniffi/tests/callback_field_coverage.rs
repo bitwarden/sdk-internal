@@ -45,7 +45,10 @@ fn test_message_visitor_captures_message_field() {
     let logs = Arc::new(Mutex::new(Vec::new()));
     let callback = Arc::new(TestCallback { logs: logs.clone() });
 
-    let _client = Client::new(Arc::new(MockTokenProvider), None, Some(callback));
+    // Initialize logger with callback
+    init_logger(Some(callback));
+
+    let _client = Client::new(Arc::new(MockTokenProvider), None);
 
     // Emit logs at different levels with message text
     tracing::info!("info message");
