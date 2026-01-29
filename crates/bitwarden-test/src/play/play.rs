@@ -160,9 +160,7 @@ impl Play {
         let response: CreateSceneResponse<T::Result> =
             self.client.post_seeder("/seed/", &request).await?;
 
-        let template_instance = T::from_result(response.result);
-
-        Ok(Scene::new(template_instance, response.mangle_map))
+        Ok(Scene::new(response.result, response.mangle_map))
     }
 
     /// Execute a query
@@ -280,14 +278,16 @@ mod tests {
     }
 
     // Mock types for testing scene/query functionality
-    #[derive(Debug, Clone)]
-    struct MockScene {
-        data: String,
-    }
+    struct MockScene;
 
     #[derive(Clone, Serialize)]
     struct MockSceneArgs {
         name: String,
+    }
+
+    #[derive(Deserialize)]
+    struct MockSceneResult {
+        data: String,
     }
 
     impl SceneTemplate for MockScene {
@@ -297,15 +297,6 @@ mod tests {
         fn template_name() -> &'static str {
             "MockScene"
         }
-
-        fn from_result(result: Self::Result) -> Self {
-            Self { data: result.data }
-        }
-    }
-
-    #[derive(Deserialize)]
-    struct MockSceneResult {
-        data: String,
     }
 
     #[derive(Debug, Clone)]
@@ -364,7 +355,7 @@ mod tests {
             })
             .await
             .expect("scene creation should succeed");
-        assert_eq!(scene.inner().data, "test-data");
+        assert_eq!(scene.result().data, "test-data");
         assert_eq!(
             scene.get_mangled("email@example.com"),
             "mangled@example.com"
