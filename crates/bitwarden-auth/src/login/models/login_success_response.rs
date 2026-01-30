@@ -62,6 +62,10 @@ pub struct LoginSuccessResponse {
     /// If the user is subject to an organization master password policy,
     /// this field contains the requirements of that policy.
     pub master_password_policy: Option<MasterPasswordPolicyResponse>,
+    // TODO: PM-30222 we can expose this once we have a trait to convert PrivateKeysResponseModel
+    // to WrappedAccountCryptographicState
+    // The user's account cryptographic keys (wrapped with the user key).
+    // pub wrapped_account_crypto_state: Option<WrappedAccountCryptographicState>,
 }
 
 impl TryFrom<LoginSuccessApiResponse> for LoginSuccessResponse {
@@ -88,6 +92,9 @@ impl TryFrom<LoginSuccessApiResponse> for LoginSuccessResponse {
             // User decryption options are required on successful login responses
             user_decryption_options: require!(response.user_decryption_options).try_into()?,
             master_password_policy: response.master_password_policy.map(|policy| policy.into()),
+            // TODO: PM-30222 - we can expose this once we have a trait to convert
+            // PrivateKeysResponseModel to WrappedAccountCryptographicState
+            // wrapped_account_crypto_state: response.account_keys.map(|keys| keys.into()),
         })
     }
 }
