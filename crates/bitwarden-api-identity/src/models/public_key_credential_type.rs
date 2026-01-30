@@ -13,16 +13,21 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 ///
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum PublicKeyCredentialType {
     #[serde(rename = "public-key")]
     PublicKey,
+
+    /// Unknown value returned from the server. This is used to handle forward compatibility.
+    #[serde(untagged)]
+    __Unknown(String),
 }
 
 impl std::fmt::Display for PublicKeyCredentialType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Self::PublicKey => write!(f, "public-key"),
+            Self::__Unknown(s) => write!(f, "{}", s),
         }
     }
 }
