@@ -1110,6 +1110,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-ipc",
  "bitwarden-pm",
+ "bitwarden-server-communication-config",
  "bitwarden-ssh",
  "bitwarden-state",
  "bitwarden-threading",

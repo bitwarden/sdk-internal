@@ -32,6 +32,7 @@ bitwarden-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-error = { workspace = true }
 bitwarden-ipc = { workspace = true, features = ["wasm"] }
 bitwarden-pm = { workspace = true, features = ["wasm"] }
+bitwarden-server-communication-config = { workspace = true, features = ["wasm"] }
 bitwarden-ssh = { workspace = true, features = ["wasm"] }
 bitwarden-state = { workspace = true, features = ["wasm"] }
 bitwarden-threading = { workspace = true }
