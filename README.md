@@ -75,7 +75,7 @@ The instructions are different depending on the client that will be consuming th
 
 #### Building
 
-Build the SDK to expose WASM bindings, which will be consumed by our web clients. Follow the
+Build the SDK to expose WASM bindings, which will be consumed by our web clients, by following the
 instructions in
 [`crates/bitwarden-wasm-internal`](https://github.com/bitwarden/sdk-internal/tree/main/crates/bitwarden-wasm-internal).
 
@@ -89,10 +89,10 @@ The web clients use NPM to install `sdk-internal` as a dependency. NPM offers a 
 [`link`][npm-link] which can be used to temporarily replace the packages with a locally-built
 version.
 
-When building the web `sdk-internal` artifacts, you have the option to build the OSS or the
-commercially-licensed version, or both. You will need to adjust your `npm link` command according to
-which version of the SDK you built, and which you intend to make available to the client application
-for your local development.
+When building the web `sdk-internal` artifacts, you had the option to build the OSS or the
+commercially-licensed version. You will need to adjust your `npm link` command according to which
+one you built, and which one you intend to make available to the client application for your local
+development.
 
 | I want to...                                                   | Build script you ran | SDK artifact built                                        | Link command                                                                    | Result                                                               |
 | -------------------------------------------------------------- | -------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
