@@ -15,12 +15,7 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-wasm = [
-    "bitwarden-error-macro/wasm",
-    "dep:js-sys",
-    "dep:tsify",
-    "dep:wasm-bindgen",
-]
+wasm = ["bitwarden-error-macro/wasm", "dep:js-sys", "dep:tsify", "dep:wasm-bindgen"]
 
 [dependencies]
 bitwarden-error-macro = { workspace = true }

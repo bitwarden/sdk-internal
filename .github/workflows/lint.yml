@@ -90,7 +90,7 @@ jobs:
         run: cargo install cargo-sort --version 2.0.2 --locked
 
       - name: Cargo sort
-        run: cargo sort --workspace --grouped --check
+        run: cargo sort --workspace --grouped --check --no-format
 
       - name: Install cargo-udeps
         run: cargo install cargo-udeps --version 0.1.57 --locked
@@ -120,7 +120,7 @@ jobs:
         with:
           cache: "npm"
           cache-dependency-path: "package-lock.json"
-          node-version: "16"
+          node-version: "22"
 
       - name: NPM setup
         run: npm ci
