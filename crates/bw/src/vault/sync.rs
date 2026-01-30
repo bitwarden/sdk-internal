@@ -399,6 +399,7 @@ mod tests {
                     salt: Some(TEST_USER_EMAIL.to_string()),
                     master_key_encrypted_user_key: Some(user_key.to_string()),
                 })),
+                web_authn_prf_options: None,
             })),
             ..create_sync_response(user_id)
         };

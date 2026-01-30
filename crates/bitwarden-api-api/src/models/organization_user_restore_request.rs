@@ -13,9 +13,8 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct OrganizationUserBulkRequestModel {
-    #[serde(rename = "ids", alias = "Ids")]
-    pub ids: Vec<uuid::Uuid>,
+pub struct OrganizationUserRestoreRequest {
+    /// This is the encrypted default collection name to be used for restored users if required
     #[serde(
         rename = "defaultUserCollectionName",
         alias = "DefaultUserCollectionName",
@@ -24,10 +23,9 @@ pub struct OrganizationUserBulkRequestModel {
     pub default_user_collection_name: Option<String>,
 }
 
-impl OrganizationUserBulkRequestModel {
-    pub fn new(ids: Vec<uuid::Uuid>) -> OrganizationUserBulkRequestModel {
-        OrganizationUserBulkRequestModel {
-            ids,
+impl OrganizationUserRestoreRequest {
+    pub fn new() -> OrganizationUserRestoreRequest {
+        OrganizationUserRestoreRequest {
             default_user_collection_name: None,
         }
     }
