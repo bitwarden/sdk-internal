@@ -4,5 +4,5 @@
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
 
-mod key_rotation;
-pub use key_rotation::{UserCryptoManagementClient, UserCryptoManagementClientExt};
+mod client;
+pub use client::{UserCryptoManagementClient, UserCryptoManagementClientExt};
