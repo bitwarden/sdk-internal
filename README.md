@@ -88,18 +88,12 @@ The web clients use NPM to install `sdk-internal` as a dependency. NPM offers a 
 When building the web `sdk-internal` artifacts, you have the option to build the OSS or the
 Bitwarden-licensed version, or both. You will need to adjust your `npm link` command according to
 which version of the SDK you built, and which you intend to make available to the client application
-for your local development:
+for your local development.
 
-```bash
-# Link only the OSS version of the internal SDK
-npm link ../sdk-internal/crates/bitwarden-wasm-internal/npm
-
-# Link only the Bitwarden license version of the internal SDK
-npm link ../sdk-internal/crates/bitwarden-wasm-internal/bitwarden_license/npm
-
-# Link both versions
-npm link ../sdk-internal/crates/bitwarden-wasm-internal/npm ../sdk-internal/crates/bitwarden-wasm-internal/bitwarden_license/npm
-```
+| I want to...                                      | Build script you ran | SDK artifact built                                        | Link command                                                                    | Result                                                               |
+| ------------------------------------------------- | -------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Develop in web clients against the OSS SDK        | `./build.sh`         | Artifact with OSS-licensed code                           | `npm link ../sdk-internal/crates/bitwarden-wasm-internal/npm`                   | SDK with OSS-licensed code linked to `clients`                       |
+| Develop in web clients against the Commercial SDK | `./build.sh -b`      | Artifact with **both** OSS and Commercially-licensed code | `npm link ../sdk-internal/crates/bitwarden-wasm-internal/bitwarden_license/npm` | SDK with both OSS and Commercially-licensed code linked to `clients` |
 
 Keep in mind that running `npm link` will restore any previously linked packages, so only the paths
 in the last run command will be linked.
