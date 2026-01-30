@@ -333,7 +333,9 @@ A suggested workflow for incorporating server API changes into the SDK would be:
 
 #### Local binding updates
 
-> [!IMPORTANT] Use the [workflow](#updating-bindings-after-a-server-api-change) to make any merged
+> [!IMPORTANT]
+>
+> Use the [workflow](#updating-bindings-after-a-server-api-change) to make any merged
 > binding changes. Running the scripts below can be helpful during local development, but please
 > ensure that any changes to the bindings in `bitwarden-api-api` and `bitwarden-api-identity` are
 > **not** checked into any pull request.
