@@ -185,8 +185,10 @@ For example:
 0.1.0-main.470
 ```
 
-> [!INFO] To see what version is published to `npm` for a given publish action, you can check the
-> Summary of the publish action in Github.
+> [!TIP]
+>
+> To see what version is published to `npm` for a given publish action, you can check the Summary of
+> the publish action in Github.
 
 When you have completed development of changes in the SDK and need to reference them in the client
 application, you can:
