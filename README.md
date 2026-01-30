@@ -94,10 +94,10 @@ commercially-licensed version, or both. You will need to adjust your `npm link` 
 which version of the SDK you built, and which you intend to make available to the client application
 for your local development.
 
-| I want to...                                               | Build script you ran | SDK artifact built                                        | Link command                                                                    | Result                                                               |
-| ---------------------------------------------------------- | -------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| Develop in web clients OSS-licensed code with SDK          | `./build.sh`         | Artifact with OSS-licensed code                           | `npm link ../sdk-internal/crates/bitwarden-wasm-internal/npm`                   | SDK with OSS-licensed code linked to `clients`                       |
-| Develop in web clients commercially-licensed code with SDK | `./build.sh -b`      | Artifact with **both** OSS and commercially-licensed code | `npm link ../sdk-internal/crates/bitwarden-wasm-internal/bitwarden_license/npm` | SDK with both OSS and commercially-licensed code linked to `clients` |
+| I want to...                                                   | Build script you ran | SDK artifact built                                        | Link command                                                                    | Result                                                               |
+| -------------------------------------------------------------- | -------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Develop in clients using OSS-licensed code in the SDK          | `./build.sh`         | Artifact with OSS-licensed code                           | `npm link ../sdk-internal/crates/bitwarden-wasm-internal/npm`                   | SDK with OSS-licensed code linked to `clients`                       |
+| Develop in clients using commercially-licensed code in the SDK | `./build.sh -b`      | Artifact with **both** OSS and commercially-licensed code | `npm link ../sdk-internal/crates/bitwarden-wasm-internal/bitwarden_license/npm` | SDK with both OSS and commercially-licensed code linked to `clients` |
 
 Keep in mind that running `npm link` will restore any previously linked packages, so only the paths
 in the last run command will be linked.
