@@ -32,6 +32,7 @@ wasm = [
 ] # WASM support
 
 [dependencies]
+async-trait = { workspace = true }
 bitwarden-api-api = { workspace = true }
 bitwarden-collections = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
@@ -39,6 +40,7 @@ bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-state = { workspace = true }
+bitwarden-sync = { workspace = true }
 bitwarden-uuid = { workspace = true }
 chrono = { workspace = true }
 data-encoding = { workspace = true }
