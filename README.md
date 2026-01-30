@@ -11,6 +11,20 @@ This repository houses the internal Bitwarden SDKs. We also provide a public
 > state we will re-evaluate the possibility of publishing stable bindings for the public. **The
 > password manager interface is unstable and will change without warning.**
 
+## Crates
+
+The project is structured as a monorepo using cargo workspaces. Some of the more noteworthy crates
+are:
+
+- [`bitwarden-api-api`](./crates/bitwarden-api-api): Auto-generated API bindings for the API server.
+- [`bitwarden-api-identity`](./crates/bitwarden-api-identity): Auto-generated API bindings for the
+  Identity server.
+- [`bitwarden-core`](./crates/bitwarden-core): The core functionality consumed by the other crates.
+- [`bitwarden-crypto`](./crates/bitwarden-crypto): Crypto library.
+- [`bitwarden-wasm-internal`](./crates/bitwarden-wasm-internal): WASM bindings for the internal SDK.
+- [`bitwarden-uniffi`](./crates/bitwarden-uniffi): Mobile bindings for swift and kotlin using
+  [UniFFI](https://github.com/mozilla/uniffi-rs/).
+
 ## Requirements
 
 - [Rust](https://www.rust-lang.org/tools/install) latest stable version - (preferably installed via
@@ -49,7 +63,7 @@ For Windows on ARM, you will need the following in your `PATH`:
   - We recommend installing this via the
     [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022)
 
-## Integrating into client applications
+## Integrating builds into client applications for local development
 
 Integrating the SDK into client applications for local development requires two steps:
 
@@ -141,19 +155,65 @@ local SDK build:
 LOCAL_SDK=true ./Scripts/bootstrap.sh
 ```
 
-## Crates
+## Integrating into clients from published artifacts
 
-The project is structured as a monorepo using cargo workspaces. Some of the more noteworthy crates
-are:
+In addition to
+[linking to local builds](#integrating-builds-into-client-applications-for-local-development) during
+development, you will need to be able to integrate your `sdk-internal` changes into published
+artifacts.
 
-- [`bitwarden-api-api`](./crates/bitwarden-api-api): Auto-generated API bindings for the API server.
-- [`bitwarden-api-identity`](./crates/bitwarden-api-identity): Auto-generated API bindings for the
-  Identity server.
-- [`bitwarden-core`](./crates/bitwarden-core): The core functionality consumed by the other crates.
-- [`bitwarden-crypto`](./crates/bitwarden-crypto): Crypto library.
-- [`bitwarden-wasm-internal`](./crates/bitwarden-wasm-internal): WASM bindings for the internal SDK.
-- [`bitwarden-uniffi`](./crates/bitwarden-uniffi): Mobile bindings for swift and kotlin using
-  [UniFFI](https://github.com/mozilla/uniffi-rs/).
+The process for doing so varies based on the client, as the method by which the `sdk-internal`
+package is consumed differs.
+
+### Web clients
+
+For our web clients, the `sdk-internal` package with its WebAssembly bindings is published to npm at
+https://www.npmjs.com/package/@bitwarden/sdk-internal, and this npm package is referenced as a
+[dependency](https://github.com/bitwarden/clients/blob/main/package.json) in our `clients` repo.
+
+Every commit to `main` in `sdk-internal` will trigger a
+[publish](https://github.com/bitwarden/sdk-internal/blob/main/.github/workflows/publish-wasm-internal.yml)
+of this package, with a version as follows:
+
+```
+{SemanticVersion}-main.{actionRunNumber}
+```
+
+For example:
+
+```
+0.1.0-main.470
+```
+
+> [!INFO] To see what version is published to `npm` for a given publish action, you can check the
+> Summary of the publish action in Github.
+
+When you have completed development of changes in the SDK and need to reference them in the client
+application, you can:
+
+1. Merge the `sdk-internal` pull request. This will trigger a publish of the latest changes to npm.
+2. Update the version of the `sdk-internal` dependency in `clients` to reference this version. You
+   can do this either:
+
+- By updating to the latest version using `npm install @bitwarden/sdk-internal@latest`, or
+- By referencing the specific `sdk-internal` published version, using
+  `npm install @bitwarden/sdk-internal@{version}`.
+
+3. Open a `clients` pull request to merge the client application changes that include this new
+   `sdk-internal` version.
+
+### Mobile clients
+
+The iOS and Android applications use an automated, reactive approach to integrating `sdk-internal`
+changes into their repositories.
+
+When you need to integrate `sdk-internal` changes into the iOS or Android applications, you should
+use the automatically-generated pull requests for each repository:
+
+| Client  | SDK workflow                                                                            | Client workflow                                                            |
+| ------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Android | https://github.com/bitwarden/sdk-internal/blob/main/.github/workflows/build-android.yml | https://github.com/bitwarden/android/actions/workflows/sdlc-sdk-update.yml |
+| iOS     | https://github.com/bitwarden/sdk-internal/blob/main/.github/workflows/build-swift.yml   | https://github.com/bitwarden/ios/actions/workflows/sdlc-sdk-update.yml     |
 
 ## Server API Bindings
 
