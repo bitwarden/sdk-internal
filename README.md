@@ -23,7 +23,7 @@ This repository houses the internal Bitwarden SDKs. We also provide a public
 
     ```bash
     git clone https://github.com/bitwarden/sdk-internal.git
-    cd sdk
+    cd sdk-internal
     ```
 
 2.  Install the dependencies:
@@ -51,42 +51,46 @@ For Windows on ARM, you will need the following in your `PATH`:
 
 ## Integrating into client applications
 
-### Building for client application consumption
+Integrating the SDK into client applications for local development requires two steps:
 
-Each of the different client platforms have their own build instructions for `sdk-internal`, to
-ensure that the proper bindings are included. For more information on how to build for a specific
-platform, refer to the `README`s for the different crates:
+1. Building `sdk-internal` with bindings specific to the client application, and
+2. Linking the build with your client for consumption there.
 
-- **Web**:
-  [`crates/bitwarden-wasm-internal`](https://github.com/bitwarden/sdk-internal/tree/main/crates/bitwarden-wasm-internal)
-- **iOS**:
-  [`crates/bitwarden-uniffi/swift`](https://github.com/bitwarden/sdk-internal/tree/main/crates/bitwarden-uniffi/swift)
-- **Android**:
-  [`crates/bitwarden-uniffi/kotlin`](https://github.com/bitwarden/sdk-internal/tree/main/crates/bitwarden-uniffi/kotlin)
+The instructions are different depending on the client that will be consuming the SDK.
 
-### Linking to clients
+> [!NOTE]
+>
+> These instructions assume a directory structure similar to:
+>
+> ```text
+> sdk-internal/
+> clients/
+> ios/
+> android/
+> ```
+>
+> If your repository directory structure differs you will need to adjust the commands accordingly.
 
-Once `sdk-internal` has been built with the appropriate bindings for your test platform, you will
-need to update the reference to link to this new version.
+### Web clients
 
-These instructions assume a directory structure similar to:
+#### Building
 
-```text
-sdk-internal/
-clients/
-ios/
-android/
-```
+Build the SDK to expose WASM bindings, which will be consumed by our web clients. Follow the
+instructions in
+[`crates/bitwarden-wasm-internal`](https://github.com/bitwarden/sdk-internal/tree/main/crates/bitwarden-wasm-internal).
 
-If your repository directory structure differs you will need to adjust the commands accordingly.
+After completing these instructions, you'll have built an SDK artifact that includes either
+OSS-licensed code, or both OSS- and commercially-licensed code, based on your choice of build
+script.
 
-#### Web clients
+#### Linking
 
 The web clients use NPM to install `sdk-internal` as a dependency. NPM offers a dedicated command
-[`link`][npm-link] which can be used to temporarily replace the packages with a local version.
+[`link`][npm-link] which can be used to temporarily replace the packages with a locally-built
+version.
 
 When building the web `sdk-internal` artifacts, you have the option to build the OSS or the
-Bitwarden-licensed version, or both. You will need to adjust your `npm link` command according to
+commercially-licensed version, or both. You will need to adjust your `npm link` command according to
 which version of the SDK you built, and which you intend to make available to the client application
 for your local development.
 
@@ -102,7 +106,15 @@ in the last run command will be linked.
 >
 > Running `npm ci` or `npm install` will replace the linked packages with the published version.
 
-#### Android
+### Android
+
+#### Building
+
+Build the SDK to expose Kotlin bindings through UniFFI, which will be consumed by our Android mobile
+app. Follow the instructions in
+[`crates/bitwarden-uniffi/kotlin`](https://github.com/bitwarden/sdk-internal/tree/main/crates/bitwarden-uniffi/kotlin).
+
+#### Linking
 
 1. Build and publish the SDK to the local Maven repository:
 
@@ -112,7 +124,15 @@ in the last run command will be linked.
 
 2. Set the user property `localSdk=true` in the `user.properties` file.
 
-#### iOS
+### iOS
+
+#### Building
+
+Build the SDK to expose iOS bindings through UniFFI, which will be consumed by our iOS mobile app.
+Follow the instructions in
+[`crates/bitwarden-uniffi/swift`](https://github.com/bitwarden/sdk-internal/tree/main/crates/bitwarden-uniffi/swift).
+
+#### Linking
 
 Run the bootstrap script with the `LOCAL_SDK` environment variable set to true in order to use the
 local SDK build:
