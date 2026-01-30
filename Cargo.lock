@@ -877,6 +877,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-server-communication-config"
+version = "2.0.0"
+dependencies = [
+ "bitwarden-error",
+ "bitwarden-threading",
+ "js-sys",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tsify",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "bitwarden-sm"
 version = "2.0.0"
 dependencies = [
@@ -945,8 +962,25 @@ dependencies = [
  "async-trait",
  "bitwarden-api-api",
  "bitwarden-state",
+ "bitwarden-test-macro",
+ "futures",
  "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uuid",
  "wiremock",
+]
+
+[[package]]
+name = "bitwarden-test-macro"
+version = "2.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
