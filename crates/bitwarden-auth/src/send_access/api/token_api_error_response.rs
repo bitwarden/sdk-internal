@@ -18,7 +18,7 @@ pub enum SendAccessTokenInvalidRequestError {
     EmailRequired,
 
     #[allow(missing_docs)]
-    EmailAndOtpRequiredOtpSent,
+    EmailAndOtpRequired,
 
     /// Fallback for unknown variants for forward compatibility
     #[serde(other)]
@@ -36,9 +36,6 @@ pub enum SendAccessTokenInvalidGrantError {
 
     #[allow(missing_docs)]
     PasswordHashB64Invalid,
-
-    #[allow(missing_docs)]
-    EmailInvalid,
 
     #[allow(missing_docs)]
     OtpInvalid,
@@ -157,8 +154,8 @@ mod tests {
                     "\"email_required\"",
                 ),
                 (
-                    SendAccessTokenInvalidRequestError::EmailAndOtpRequiredOtpSent,
-                    "\"email_and_otp_required_otp_sent\"",
+                    SendAccessTokenInvalidRequestError::EmailAndOtpRequired,
+                    "\"email_and_otp_required\"",
                 ),
             ];
 
@@ -325,10 +322,6 @@ mod tests {
                 (
                     SendAccessTokenInvalidGrantError::PasswordHashB64Invalid,
                     "\"password_hash_b64_invalid\"",
-                ),
-                (
-                    SendAccessTokenInvalidGrantError::EmailInvalid,
-                    "\"email_invalid\"",
                 ),
                 (
                     SendAccessTokenInvalidGrantError::OtpInvalid,

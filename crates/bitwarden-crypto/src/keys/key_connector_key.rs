@@ -32,7 +32,7 @@ impl KeyConnectorKey {
         &self,
         user_key: &SymmetricCryptoKey,
     ) -> crate::error::Result<EncString> {
-        let stretched_key = stretch_key(&self.0)?;
+        let stretched_key = stretch_key(&self.0);
         let user_key_bytes = user_key.to_encoded();
         EncString::encrypt_aes256_hmac(user_key_bytes.as_ref(), &stretched_key)
     }
@@ -54,7 +54,7 @@ impl KeyConnectorKey {
                     .map_err(|_| CryptoError::Decrypt)?
             }
             EncString::Aes256Cbc_HmacSha256_B64 { .. } => {
-                let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(&self.0)?);
+                let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(&self.0));
                 user_key.decrypt_with_key(&stretched_key)?
             }
             _ => {

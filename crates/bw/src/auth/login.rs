@@ -15,7 +15,10 @@ use crate::vault::{SyncRequest, sync};
 pub(crate) async fn login_password(client: Client, email: Option<String>) -> Result<()> {
     let email = text_prompt_when_none("Email", email)?;
 
-    let password = Password::new("Password").without_confirmation().prompt()?;
+    let password = match std::env::var("BW_PASSWORD") {
+        Ok(pw) => pw,
+        Err(_) => Password::new("Password").without_confirmation().prompt()?,
+    };
 
     let result = client
         .auth()
@@ -95,7 +98,10 @@ pub(crate) async fn login_api_key(
     let client_id = text_prompt_when_none("Client ID", client_id)?;
     let client_secret = text_prompt_when_none("Client Secret", client_secret)?;
 
-    let password = Password::new("Password").without_confirmation().prompt()?;
+    let password = match std::env::var("BW_PASSWORD") {
+        Ok(pw) => pw,
+        Err(_) => Password::new("Password").without_confirmation().prompt()?,
+    };
 
     let result = client
         .auth()

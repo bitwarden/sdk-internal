@@ -287,6 +287,12 @@ pub struct OrganizationSubscriptionResponseModel {
     )]
     pub use_automatic_user_confirmation: Option<bool>,
     #[serde(
+        rename = "useDisableSmAdsForUsers",
+        alias = "UseDisableSmAdsForUsers",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_disable_sm_ads_for_users: Option<bool>,
+    #[serde(
         rename = "usePhishingBlocker",
         alias = "UsePhishingBlocker",
         skip_serializing_if = "Option::is_none"
@@ -387,6 +393,7 @@ impl OrganizationSubscriptionResponseModel {
             use_organization_domains: None,
             use_admin_sponsored_families: None,
             use_automatic_user_confirmation: None,
+            use_disable_sm_ads_for_users: None,
             use_phishing_blocker: None,
             storage_name: None,
             storage_gb: None,

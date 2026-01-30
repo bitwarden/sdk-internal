@@ -999,26 +999,22 @@ mod tests {
                         assert_eq!(security_state.security_version, 2);
                         assert!(req.master_password_unlock.is_some());
                         let master_password_unlock = req.master_password_unlock.as_ref().unwrap();
-                        assert_eq!(
-                            master_password_unlock.salt,
-                            Some("test@example.com".to_string())
-                        );
+                        assert_eq!(master_password_unlock.salt, "test@example.com".to_string());
                         assert_eq!(
                             master_password_unlock.kdf,
                             Box::new(KdfRequestModel {
                                 kdf_type: KdfType::Argon2id,
                                 iterations: 6,
                                 memory: Some(32),
-                                parallelism: Some(3),
+                                parallelism: Some(4),
                             })
                         );
-                        assert!(master_password_unlock.master_key_wrapped_user_key.is_some());
                         assert!(req.master_password_authentication.is_some());
                         let master_password_authentication =
                             req.master_password_authentication.as_ref().unwrap();
                         assert_eq!(
                             master_password_authentication.salt,
-                            Some("test@example.com".to_string())
+                            "test@example.com".to_string()
                         );
                         assert_eq!(
                             master_password_authentication.kdf,
@@ -1026,13 +1022,8 @@ mod tests {
                                 kdf_type: KdfType::Argon2id,
                                 iterations: 6,
                                 memory: Some(32),
-                                parallelism: Some(3),
+                                parallelism: Some(4),
                             })
-                        );
-                        assert!(
-                            master_password_authentication
-                                .master_password_authentication_hash
-                                .is_some()
                         );
                         true
                     } else {
@@ -1091,7 +1082,7 @@ mod tests {
             Kdf::Argon2id {
                 iterations: NonZeroU32::new(6).unwrap(),
                 memory: NonZeroU32::new(32).unwrap(),
-                parallelism: NonZeroU32::new(3).unwrap(),
+                parallelism: NonZeroU32::new(4).unwrap(),
             }
         );
 
