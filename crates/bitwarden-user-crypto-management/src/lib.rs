@@ -4,5 +4,7 @@
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
 
-mod client;
-pub use client::{UserCryptoManagementClient, UserCryptoManagementClientExt};
+mod user_crypto_management_client;
+pub use user_crypto_management_client::{
+    UserCryptoManagementClient, UserCryptoManagementClientExt,
+};
