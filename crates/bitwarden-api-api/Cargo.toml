@@ -19,6 +19,7 @@ mockall = ["dep:mockall"]
 async-trait = { workspace = true }
 mockall = { workspace = true, optional = true }
 reqwest = { workspace = true }
+reqwest-middleware = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_repr = { workspace = true }

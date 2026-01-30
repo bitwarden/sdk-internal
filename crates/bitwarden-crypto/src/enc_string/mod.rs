@@ -4,7 +4,7 @@
 //! encrypted string. They are are used together with the [KeyDecryptable][crate::KeyDecryptable]
 //! and [KeyEncryptable][crate::KeyEncryptable] traits to encrypt and decrypt data using
 //! [SymmetricCryptoKey][crate::SymmetricCryptoKey] and
-//! [AsymmetricCryptoKey][crate::AsymmetricCryptoKey]s.
+//! [PrivateKey][crate::PrivateKey]s.
 
 mod asymmetric;
 mod symmetric;

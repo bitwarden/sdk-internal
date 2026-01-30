@@ -2,7 +2,7 @@
 pub struct Configuration {
     pub base_path: String,
     pub user_agent: Option<String>,
-    pub client: reqwest::Client,
+    pub client: reqwest_middleware::ClientWithMiddleware,
     pub oauth_access_token: Option<String>,
 }
 
@@ -17,7 +17,7 @@ impl Default for Configuration {
         Configuration {
             base_path: "https://key-connector.bitwarden.com".to_owned(),
             user_agent: Some("api/key-connector/rust".to_owned()),
-            client: reqwest::Client::new(),
+            client: reqwest::Client::new().into(),
             oauth_access_token: None,
         }
     }

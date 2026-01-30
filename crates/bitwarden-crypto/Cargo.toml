@@ -41,7 +41,7 @@ bitwarden-uniffi-error = { workspace = true, optional = true }
 cbc = { version = ">=0.1.2, <0.2", features = ["alloc", "zeroize"] }
 chacha20poly1305 = { version = "0.10.1" }
 ciborium = { version = ">=0.2.2, <0.3" }
-coset = { version = ">=0.3.8, <0.5" }
+coset = { version = ">=0.4.0, <0.5" }
 ed25519-dalek = { workspace = true, features = ["rand_core"] }
 generic-array = { version = ">=0.14.7, <1.0", features = ["zeroize"] }
 hkdf = ">=0.12.3, <0.13"
@@ -63,7 +63,7 @@ subtle = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tsify = { workspace = true, optional = true }
-typenum = ">=1.18.0, <1.19.0"
+typenum = ">=1.18.0, <1.20.0"
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }

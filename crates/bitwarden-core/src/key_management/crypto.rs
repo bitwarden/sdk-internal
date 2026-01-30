@@ -7,13 +7,13 @@
 use std::collections::HashMap;
 
 use bitwarden_api_api::models::AccountKeysRequestModel;
+#[expect(deprecated)]
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, CoseSerializable, CryptoError, DeviceKey,
-    EncString, Kdf, KeyConnectorKey, KeyDecryptable, KeyEncryptable, MasterKey,
-    Pkcs8PrivateKeyBytes, PrimitiveEncryptable, RotateableKeySet, SignatureAlgorithm,
-    SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey, TrustDeviceResponse,
-    UnsignedSharedKey, UserKey, dangerous_get_v2_rotated_account_keys,
-    derive_symmetric_key_from_prf,
+    CoseSerializable, CryptoError, DeviceKey, EncString, Kdf, KeyConnectorKey, KeyDecryptable,
+    KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, PrivateKey, PublicKey,
+    RotateableKeySet, SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes,
+    SymmetricCryptoKey, TrustDeviceResponse, UnsignedSharedKey, UserKey,
+    dangerous_get_v2_rotated_account_keys, derive_symmetric_key_from_prf,
     safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError},
 };
 use bitwarden_encoding::B64;
@@ -29,7 +29,7 @@ use crate::{
     client::{LoginMethod, UserLoginMethod, encryption_settings::EncryptionSettingsError},
     error::StatefulCryptoError,
     key_management::{
-        AsymmetricKeyId, MasterPasswordError, SecurityState, SignedSecurityState, SigningKeyId,
+        MasterPasswordError, PrivateKeyId, SecurityState, SignedSecurityState, SigningKeyId,
         SymmetricKeyId,
         account_cryptographic_state::{
             AccountCryptographyInitializationError, WrappedAccountCryptographicState,
@@ -51,6 +51,8 @@ pub enum CryptoClientError {
     InvalidKdfSettings,
     #[error(transparent)]
     PasswordProtectedKeyEnvelope(#[from] PasswordProtectedKeyEnvelopeError),
+    #[error("Invalid PRF input")]
+    InvalidPrfInput,
 }
 
 /// State used for initializing the user cryptographic state.
@@ -324,9 +326,6 @@ pub(super) fn make_update_kdf(
 ) -> Result<UpdateKdfResponse, CryptoClientError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
-    // FIXME: [PM-18099] Once MasterKey deals with KeyIds, this should be updated
-    #[allow(deprecated)]
-    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     let login_method = client
         .internal
@@ -342,8 +341,9 @@ pub(super) fn make_update_kdf(
 
     let authentication_data = MasterPasswordAuthenticationData::derive(password, new_kdf, email)
         .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
-    let unlock_data = MasterPasswordUnlockData::derive(password, new_kdf, email, user_key)
-        .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
+    let unlock_data =
+        MasterPasswordUnlockData::derive(password, new_kdf, email, SymmetricKeyId::User, &ctx)
+            .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
     let old_authentication_data = MasterPasswordAuthenticationData::derive(
         password,
         &client
@@ -515,7 +515,8 @@ pub(super) fn make_prf_user_key_set(
     client: &Client,
     prf: B64,
 ) -> Result<RotateableKeySet, CryptoClientError> {
-    let prf_key = derive_symmetric_key_from_prf(prf.as_bytes())?;
+    let prf_key = derive_symmetric_key_from_prf(prf.as_bytes())
+        .map_err(|_| CryptoClientError::InvalidPrfInput)?;
     let ctx = client.internal.get_key_store().context();
     let key_set = RotateableKeySet::new(&ctx, &prf_key, SymmetricKeyId::User)?;
     Ok(key_set)
@@ -533,15 +534,16 @@ pub(super) fn enroll_admin_password_reset(
     client: &Client,
     public_key: B64,
 ) -> Result<UnsignedSharedKey, EnrollAdminPasswordResetError> {
-    use bitwarden_crypto::AsymmetricPublicCryptoKey;
+    use bitwarden_crypto::PublicKey;
 
-    let public_key = AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&public_key))?;
+    let public_key = PublicKey::from_der(&SpkiPublicKeyBytes::from(&public_key))?;
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18110] This should be removed once the key store can handle public key encryption
     #[allow(deprecated)]
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
+    #[expect(deprecated)]
     Ok(UnsignedSharedKey::encapsulate_key_unsigned(
         key,
         &public_key,
@@ -660,8 +662,8 @@ pub(super) fn verify_asymmetric_keys(
             .map_err(VerifyError::DecryptFailed)?;
 
         let decrypted_private_key = Pkcs8PrivateKeyBytes::from(decrypted_private_key);
-        let private_key = AsymmetricCryptoKey::from_der(&decrypted_private_key)
-            .map_err(VerifyError::ParseFailed)?;
+        let private_key =
+            PrivateKey::from_der(&decrypted_private_key).map_err(VerifyError::ParseFailed)?;
 
         let derived_public_key_vec = private_key
             .to_public_key()
@@ -724,6 +726,7 @@ pub struct UserCryptoV2KeysResponse {
 /// Creates the user's cryptographic state for v2 users. This includes ensuring signature key pair
 /// is present, a signed public key is present, a security state is present and signed, and the user
 /// key is a Cose key.
+#[deprecated(note = "Use AccountCryptographicState::rotate instead")]
 pub(crate) fn make_v2_keys_for_v1_user(
     client: &Client,
 ) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
@@ -731,7 +734,7 @@ pub(crate) fn make_v2_keys_for_v1_user(
     let mut ctx = key_store.context();
 
     // Re-use existing private key
-    let private_key_id = AsymmetricKeyId::UserPrivateKey;
+    let private_key_id = PrivateKeyId::UserPrivateKey;
 
     // Ensure that the function is only called for a V1 user.
     if client.internal.get_security_version() != 1 {
@@ -744,14 +747,14 @@ pub(crate) fn make_v2_keys_for_v1_user(
     // Ensure the user has a private key.
     // V1 user must have a private key to upgrade. This should be ensured by the client before
     // calling the upgrade function.
-    if !ctx.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey) {
+    if !ctx.has_private_key(PrivateKeyId::UserPrivateKey) {
         return Err(StatefulCryptoError::Crypto(CryptoError::MissingKeyId(
             "UserPrivateKey".to_string(),
         )));
     }
 
     #[allow(deprecated)]
-    let private_key = ctx.dangerous_get_asymmetric_key(private_key_id)?.clone();
+    let private_key = ctx.dangerous_get_private_key(private_key_id)?.clone();
 
     // New user key
     let user_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
@@ -792,6 +795,7 @@ pub(crate) fn make_v2_keys_for_v1_user(
 ///
 /// In the current implementation, it just re-encrypts any existing keys. This function expects a
 /// user to be a v2 user; that is, they have a signing key, a cose user-key, and a private key
+#[deprecated(note = "Use AccountCryptographicState::rotate instead")]
 pub(crate) fn get_v2_rotated_account_keys(
     client: &Client,
 ) -> Result<UserCryptoV2KeysResponse, StatefulCryptoError> {
@@ -817,8 +821,9 @@ pub(crate) fn get_v2_rotated_account_keys(
         // security state is present.
         .ok_or(StatefulCryptoError::MissingSecurityState)?;
 
+    #[expect(deprecated)]
     let rotated_keys = dangerous_get_v2_rotated_account_keys(
-        AsymmetricKeyId::UserPrivateKey,
+        PrivateKeyId::UserPrivateKey,
         SigningKeyId::UserSigningKey,
         &ctx,
     )?;
@@ -900,9 +905,8 @@ pub(crate) fn make_user_tde_registration(
     let device_key = DeviceKey::trust_device(ctx.dangerous_get_symmetric_key(user_key_id)?)?;
 
     // Account recovery enrollment
-    let public_key =
-        AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))
-            .map_err(MakeKeysError::Crypto)?;
+    let public_key = PublicKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))
+        .map_err(MakeKeysError::Crypto)?;
     #[expect(deprecated)]
     let admin_reset = UnsignedSharedKey::encapsulate_key_unsigned(
         ctx.dangerous_get_symmetric_key(user_key_id)?,
@@ -988,7 +992,7 @@ pub(crate) fn make_user_jit_master_password_registration(
     let user_key = ctx.dangerous_get_symmetric_key(user_key_id)?.to_owned();
 
     let master_password_unlock_data =
-        MasterPasswordUnlockData::derive(&master_password, &kdf, &salt, &user_key)
+        MasterPasswordUnlockData::derive(&master_password, &kdf, &salt, user_key_id, &ctx)
             .map_err(MakeKeysError::MasterPasswordDerivation)?;
 
     let master_password_authentication_data =
@@ -1000,10 +1004,9 @@ pub(crate) fn make_user_jit_master_password_registration(
         .map_err(|_| MakeKeysError::RequestModelCreation)?;
 
     // Account recovery enrollment
-    let public_key =
-        AsymmetricPublicCryptoKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))
-            .map_err(MakeKeysError::Crypto)?;
-    let admin_reset_key = UnsignedSharedKey::encapsulate_key_unsigned(&user_key, &public_key)
+    let public_key = PublicKey::from_der(&SpkiPublicKeyBytes::from(&org_public_key))
+        .map_err(MakeKeysError::Crypto)?;
+    let admin_reset_key = UnsignedSharedKey::encapsulate(user_key_id, &public_key, &ctx)
         .map_err(MakeKeysError::Crypto)?;
 
     Ok(MakeJitMasterPasswordRegistrationResponse {
@@ -1020,7 +1023,9 @@ pub(crate) fn make_user_jit_master_password_registration(
 mod tests {
     use std::num::NonZeroU32;
 
-    use bitwarden_crypto::{PublicKeyEncryptionAlgorithm, RsaKeyPair, SymmetricKeyAlgorithm};
+    use bitwarden_crypto::{
+        PrivateKey, PublicKeyEncryptionAlgorithm, RsaKeyPair, SymmetricKeyAlgorithm,
+    };
 
     use super::*;
     use crate::Client;
@@ -1436,7 +1441,8 @@ mod tests {
         let private_key: B64 = "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCzLtEUdxfcLxDj84yaGFsVF5hZ8Hjlb08NMQDy1RnBma06I3ZESshLYzVz4r/gegMn9OOltfV/Yxlyvida8oW6qdlfJ7AVz6Oa8pV7BiL40C7b76+oqraQpyYw2HChANB1AhXL9SqWngKmLZwjA7qiCrmcc0kZHeOb4KnKtp9iVvPVs+8veFvKgYO4ba2AAOHKFdR0W55/agXfAy+fWUAkC8mc9ikyJdQWaPV6OZvC2XFkOseBQm9Rynudh3BQpoWiL6w620efe7t5k+02/EyOFJL9f/XEEjM/+Yo0t3LAfkuhHGeKiRST59Xc9hTEmyJTeVXROtz+0fjqOp3xkaObAgMBAAECggEACs4xhnO0HaZhh1/iH7zORMIRXKeyxP2LQiTR8xwN5JJ9wRWmGAR9VasS7EZFTDidIGVME2u/h4s5EqXnhxfO+0gGksVvgNXJ/qw87E8K2216g6ZNo6vSGA7H1GH2voWwejJ4/k/cJug6dz2S402rRAKh2Wong1arYHSkVlQp3diiMa5FHAOSE+Cy09O2ZsaF9IXQYUtlW6AVXFrBEPYH2kvkaPXchh8VETMijo6tbvoKLnUHe+wTaDMls7hy8exjtVyI59r3DNzjy1lNGaGb5QSnFMXR+eHhPZc844Wv02MxC15zKABADrl58gpJyjTl6XpDdHCYGsmGpVGH3X9TQQKBgQDz/9beFjzq59ve6rGwn+EtnQfSsyYT+jr7GN8lNEXb3YOFXBgPhfFIcHRh2R00Vm9w2ApfAx2cd8xm2I6HuvQ1Os7g26LWazvuWY0Qzb+KaCLQTEGH1RnTq6CCG+BTRq/a3J8M4t38GV5TWlzv8wr9U4dl6FR4efjb65HXs1GQ4QKBgQC7/uHfrOTEHrLeIeqEuSl0vWNqEotFKdKLV6xpOvNuxDGbgW4/r/zaxDqt0YBOXmRbQYSEhmO3oy9J6XfE1SUln0gbavZeW0HESCAmUIC88bDnspUwS9RxauqT5aF8ODKN/bNCWCnBM1xyonPOs1oT1nyparJVdQoG//Y7vkB3+wKBgBqLqPq8fKAp3XfhHLfUjREDVoiLyQa/YI9U42IOz9LdxKNLo6p8rgVthpvmnRDGnpUuS+KOWjhdqDVANjF6G3t3DG7WNl8Rh5Gk2H4NhFswfSkgQrjebFLlBy9gjQVCWXt8KSmjvPbiY6q52Aaa8IUjA0YJAregvXxfopxO+/7BAoGARicvEtDp7WWnSc1OPoj6N14VIxgYcI7SyrzE0d/1x3ffKzB5e7qomNpxKzvqrVP8DzG7ydh8jaKPmv1MfF8tpYRy3AhmN3/GYwCnPqT75YYrhcrWcVdax5gmQVqHkFtIQkRSCIftzPLlpMGKha/YBV8c1fvC4LD0NPh/Ynv0gtECgYEAyOZg95/kte0jpgUEgwuMrzkhY/AaUJULFuR5MkyvReEbtSBQwV5tx60+T95PHNiFooWWVXiLMsAgyI2IbkxVR1Pzdri3gWK5CTfqb7kLuaj/B7SGvBa2Sxo478KS5K8tBBBWkITqo+wLC0mn3uZi1dyMWO1zopTA+KtEGF2dtGQ=".parse().unwrap();
 
         let private_key = Pkcs8PrivateKeyBytes::from(private_key.as_bytes());
-        let private_key = AsymmetricCryptoKey::from_der(&private_key).unwrap();
+        let private_key = PrivateKey::from_der(&private_key).unwrap();
+        #[expect(deprecated)]
         let decrypted: SymmetricCryptoKey =
             encrypted.decapsulate_key_unsigned(&private_key).unwrap();
 
@@ -1601,6 +1607,7 @@ mod tests {
             },
         )
         .unwrap();
+        #[expect(deprecated)]
         let enrollment_response = make_v2_keys_for_v1_user(&client).unwrap();
         let encrypted_userkey_v2 = master_key
             .encrypt_user_key(
@@ -1664,6 +1671,7 @@ mod tests {
         .await
         .unwrap();
 
+        #[expect(deprecated)]
         let result = make_v2_keys_for_v1_user(&client);
         assert!(matches!(
             result,
@@ -1683,6 +1691,7 @@ mod tests {
             .unwrap();
         drop(ctx);
 
+        #[expect(deprecated)]
         let result = get_v2_rotated_account_keys(&client);
         assert!(matches!(
             result,
@@ -1718,7 +1727,9 @@ mod tests {
         .await
         .unwrap();
 
-        assert!(get_v2_rotated_account_keys(&client).is_ok());
+        #[expect(deprecated)]
+        let result = get_v2_rotated_account_keys(&client);
+        assert!(result.is_ok());
     }
 
     #[tokio::test]
@@ -1754,7 +1765,7 @@ mod tests {
         let key_store = client.internal.get_key_store();
         let context = key_store.context();
         assert!(context.has_symmetric_key(SymmetricKeyId::User));
-        assert!(context.has_asymmetric_key(AsymmetricKeyId::UserPrivateKey));
+        assert!(context.has_private_key(PrivateKeyId::UserPrivateKey));
         let login_method = client.internal.get_login_method().unwrap();
         if let LoginMethod::User(UserLoginMethod::Username {
             email,
@@ -1785,7 +1796,7 @@ mod tests {
         };
 
         // Generate a mock organization public key for TDE enrollment
-        let org_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let org_key = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let org_public_key_der = org_key
             .to_public_key()
             .to_der()
@@ -1837,6 +1848,7 @@ mod tests {
 
         // Verify that the org key can decrypt the admin_reset_key UnsignedSharedKey
         // and that the decrypted key matches the user's encryption key
+        #[expect(deprecated)]
         let decrypted_user_key = make_keys_response
             .reset_password_key
             .decapsulate_key_unsigned(&org_key)

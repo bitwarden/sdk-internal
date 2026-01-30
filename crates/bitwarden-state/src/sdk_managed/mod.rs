@@ -82,12 +82,10 @@ impl<V: RepositoryItem> Repository<V> for DBRepository<V> {
 }
 
 impl SystemDatabase {
-    pub(super) fn get_repository<V: RepositoryItem>(
-        &self,
-    ) -> Result<Arc<dyn Repository<V>>, DatabaseError> {
-        Ok(Arc::new(DBRepository {
+    pub(super) fn get_repository<V: RepositoryItem>(&self) -> Arc<dyn Repository<V>> {
+        Arc::new(DBRepository {
             database: self.clone(),
             _marker: std::marker::PhantomData,
-        }))
+        })
     }
 }

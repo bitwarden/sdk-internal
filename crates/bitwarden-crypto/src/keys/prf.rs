@@ -1,19 +1,22 @@
-use crate::{CryptoError, SymmetricCryptoKey, utils::stretch_key};
+use crate::{SymmetricCryptoKey, utils::stretch_key};
+
+#[derive(Debug)]
+pub struct InvalidInputError;
 
 /// Takes the output of a PRF and derives a symmetric key.
 ///
 /// The PRF output must be at least 32 bytes long. If longer, only the first 32
 /// bytes will be used, and the remainder is discarded.
-pub fn derive_symmetric_key_from_prf(prf: &[u8]) -> Result<SymmetricCryptoKey, CryptoError> {
-    let (secret, _) = prf.split_at_checked(32).ok_or(CryptoError::InvalidKeyLen)?;
+pub fn derive_symmetric_key_from_prf(prf: &[u8]) -> Result<SymmetricCryptoKey, InvalidInputError> {
+    let (secret, _) = prf.split_at_checked(32).ok_or(InvalidInputError)?;
     let secret: [u8; 32] = secret.try_into().expect("length to be 32 bytes");
     // Don't allow uninitialized PRFs
     if secret.iter().all(|b| *b == b'\0') {
-        return Err(CryptoError::ZeroNumber);
+        return Err(InvalidInputError);
     }
     Ok(SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(
         &Box::pin(secret.into()),
-    )?))
+    )))
 }
 
 #[cfg(test)]
@@ -31,14 +34,14 @@ mod tests {
     fn test_zero_key_fails() {
         let prf: Vec<u8> = (0..32).map(|_| 0).collect();
         let err = derive_symmetric_key_from_prf(&prf).unwrap_err();
-        assert!(matches!(err, CryptoError::ZeroNumber));
+        assert!(matches!(err, InvalidInputError));
     }
 
     #[test]
     fn test_short_prf_fails() {
         let prf = pseudorandom_bytes(9);
         let err = derive_symmetric_key_from_prf(&prf).unwrap_err();
-        assert!(matches!(err, CryptoError::InvalidKeyLen));
+        assert!(matches!(err, InvalidInputError));
     }
 
     #[test]
