@@ -20,10 +20,6 @@ pub struct LoginClient {
 impl LoginClient {
     /// Creates a new `LoginClient` with the given client settings.
     ///
-    /// # Arguments
-    ///
-    /// * `settings` - Configuration for API endpoints, user agent, and device information
-    ///
     /// # Note
     ///
     /// This method is `pub(crate)` because `LoginClient` instances should be obtained through
