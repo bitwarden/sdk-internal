@@ -167,13 +167,17 @@ package is consumed differs.
 
 ### Web clients
 
-For our web clients, the `sdk-internal` package with its WebAssembly bindings is published to npm at
-https://www.npmjs.com/package/@bitwarden/sdk-internal, and this npm package is referenced as a
-[dependency](https://github.com/bitwarden/clients/blob/main/package.json) in our `clients` repo.
+For our web clients, the `sdk-internal` packages for our OSS- and commercially-licensed SDK verions
+with their WebAssembly bindings is published to npm at:
+
+- https://www.npmjs.com/package/@bitwarden/sdk-internal and
+- https://www.npmjs.com/package/@bitwarden/commercial-sdk-internal These npm packages are referenced
+  as [dependencies](https://github.com/bitwarden/clients/blob/main/package.json) in our `clients`
+  repo.
 
 Every commit to `main` in `sdk-internal` will trigger a
 [publish](https://github.com/bitwarden/sdk-internal/blob/main/.github/workflows/publish-wasm-internal.yml)
-of this package, with a version as follows:
+of these packages, with versions structured as follows:
 
 ```
 {SemanticVersion}-main.{actionRunNumber}
@@ -194,12 +198,14 @@ When you have completed development of changes in the SDK and need to reference 
 application, you can:
 
 1. Merge the `sdk-internal` pull request. This will trigger a publish of the latest changes to npm.
-2. Update the version of the `sdk-internal` dependency in `clients` to reference this version. You
-   can do this either:
+2. Update the versions of the `sdk-internal` dependencies in `clients` to reference this version.
+   You can do this either:
 
-- By updating to the latest version using `npm install @bitwarden/sdk-internal@latest`, or
-- By referencing the specific `sdk-internal` published version, using
-  `npm install @bitwarden/sdk-internal@{version}`.
+- By updating to the latest version using `npm install @bitwarden/sdk-internal@latest` and
+  `npm install @bitwarden/commercial-sdk-internal@latest`, or
+- By referencing the specific published version, using
+  `npm install @bitwarden/sdk-internal@{version}` and
+  `npm install @bitwarden/commercial-sdk-internal@{version}`.
 
 3. Open a `clients` pull request to merge the client application changes that include this new
    `sdk-internal` version.
@@ -335,10 +341,10 @@ A suggested workflow for incorporating server API changes into the SDK would be:
 
 > [!IMPORTANT]
 >
-> Use the [workflow](#updating-bindings-after-a-server-api-change) to make any merged
-> binding changes. Running the scripts below can be helpful during local development, but please
-> ensure that any changes to the bindings in `bitwarden-api-api` and `bitwarden-api-identity` are
-> **not** checked into any pull request.
+> Use the [workflow](#updating-bindings-after-a-server-api-change) to make any merged binding
+> changes. Running the scripts below can be helpful during local development, but please ensure that
+> any changes to the bindings in `bitwarden-api-api` and `bitwarden-api-identity` are **not**
+> checked into any pull request.
 
 In order to update the bindings locally, we first need to build the internal Swagger documentation.
 This code should not be directly modified. Instead use the instructions below to generate Swagger
