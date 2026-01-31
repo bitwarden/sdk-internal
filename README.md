@@ -194,21 +194,50 @@ For example:
 > To see what version is published to `npm` for a given publish action, you can check the Summary of
 > the publish action in Github.
 
-When you have completed development of changes in the SDK and need to reference them in the client
-application, you can:
+#### Automated Updates
 
-1. Merge the `sdk-internal` pull request. This will trigger a publish of the latest changes to npm.
-2. Update the versions of the `sdk-internal` dependencies in `clients` to reference this version.
-   You can do this either:
+When you have completed development of changes in the SDK and need to integrate them into the client
+application, the process is now automated similar to iOS and Android:
 
-- By updating to the latest version using `npm install @bitwarden/sdk-internal@latest` and
-  `npm install @bitwarden/commercial-sdk-internal@latest`, or
-- By referencing the specific published version, using
-  `npm install @bitwarden/sdk-internal@{version}` and
-  `npm install @bitwarden/commercial-sdk-internal@{version}`.
+**For Production (main branch):**
 
-3. Open a `clients` pull request to merge the client application changes that include this new
-   `sdk-internal` version.
+1. Merge the `sdk-internal` pull request to `main`.
+2. Manually trigger the `Publish @bitwarden/sdk-internal`
+   [workflow](https://github.com/bitwarden/sdk-internal/actions/workflows/publish-wasm-internal.yml).
+3. Select "Release" to publish to npm.
+4. Leave "Client branch" as default (`main`).
+5. **Automated:** A pull request is automatically created in the `clients` repository with updated
+   SDK versions.
+6. Review and merge the auto-generated PR.
+
+The automated PR includes:
+
+- Updated `package.json` with both `@bitwarden/sdk-internal` and
+  `@bitwarden/commercial-sdk-internal` packages
+- CI validation (build + tests)
+- Links to SDK changes
+
+**For Feature Branch Testing:**
+
+To test SDK changes in a feature branch before merging to main:
+
+1. Create a feature branch in the `clients` repository (e.g., `feature/test-new-sdk`).
+2. Trigger the `Publish @bitwarden/sdk-internal` workflow.
+3. Select "Dry Run" (or "Release" for pre-release testing).
+4. Set "Client branch" to your feature branch name (e.g., `feature/test-new-sdk`).
+5. **Automated:** A PR is created in `clients` targeting your feature branch.
+6. Test the SDK integration in isolation on your feature branch.
+7. When satisfied, merge SDK changes to main for the production update.
+
+#### Manual Updates (Legacy)
+
+If the automated workflow is unavailable, you can still update manually:
+
+1. Merge the `sdk-internal` pull request (triggers npm publish).
+2. Update versions manually:
+   - `npm install @bitwarden/sdk-internal@{version}`
+   - `npm install @bitwarden/commercial-sdk-internal@{version}`
+3. Open a `clients` pull request with the changes.
 
 ### Mobile clients
 
