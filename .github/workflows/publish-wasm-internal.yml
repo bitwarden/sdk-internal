@@ -15,6 +15,10 @@ on:
       version:
         description: "Release Version"
         required: false
+      client-branch:
+        description: "Target branch in clients repo (for feature branch testing)"
+        type: string
+        default: "main"
 
 jobs:
   setup:
@@ -105,3 +109,55 @@ jobs:
         if: ${{ inputs.release_type != 'Dry Run' }}
         working-directory: crates/bitwarden-wasm-internal/${{ matrix.license_type.npm_folder }}
         run: npm publish --access public --tag latest
+
+  update-clients:
+    name: Trigger Clients Update
+    runs-on: ubuntu-24.04
+    if: inputs.release_type == 'Release'
+    needs: [setup, npm]
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Log in to Azure
+        uses: bitwarden/gh-actions/azure-login@main
+        with:
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
+
+      - name: Get Azure Key Vault secrets
+        id: get-kv-secrets
+        uses: bitwarden/gh-actions/get-keyvault-secrets@main
+        with:
+          keyvault: gh-org-bitwarden
+          secrets: "BW-GHAPP-ID,BW-GHAPP-KEY"
+
+      - name: Log out from Azure
+        uses: bitwarden/gh-actions/azure-logout@main
+
+      - name: Generate GH App token
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        id: app-token
+        with:
+          app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
+          private-key: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-KEY }}
+          owner: bitwarden
+          repositories: clients
+          permission-actions: write
+
+      - name: Call SDLC SDK Update workflow in Clients repo
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          _SDK_VERSION: ${{ needs.setup.outputs.release-version }}
+          _CLIENT_BRANCH: ${{ inputs.client-branch || 'main' }}
+        run: |
+          echo "🚀 Triggering sdlc-sdk-update.yml workflow in bitwarden/clients repo..."
+          echo "   Target branch: $_CLIENT_BRANCH"
+          echo "   SDK version: $_SDK_VERSION"
+          gh workflow run sdlc-sdk-update.yml \
+            --repo bitwarden/clients \
+            --ref $_CLIENT_BRANCH \
+            -f run-mode=Update \
+            -f sdk-version=$_SDK_VERSION \
+            -f base-branch=$_CLIENT_BRANCH
