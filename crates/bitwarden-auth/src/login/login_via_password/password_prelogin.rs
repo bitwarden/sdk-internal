@@ -24,12 +24,6 @@ pub enum PasswordPreloginError {
 impl LoginClient {
     /// Retrieves the data required before authenticating with a password.
     /// This includes the user's KDF configuration needed to properly derive the master key.
-    ///
-    /// # Arguments
-    /// * `email` - The user's email address
-    ///
-    /// # Returns
-    /// * `PasswordPreloginResponse` - Contains the KDF configuration for the user
     pub async fn get_password_prelogin(
         &self,
         email: String,
@@ -49,11 +43,12 @@ impl LoginClient {
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZeroU32;
+
     use bitwarden_api_identity::models::KdfType;
     use bitwarden_core::{ClientSettings, DeviceType};
     use bitwarden_crypto::Kdf;
     use bitwarden_test::start_api_mock;
-    use std::num::NonZeroU32;
     use wiremock::{Mock, ResponseTemplate, matchers};
 
     use super::*;
