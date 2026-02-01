@@ -182,9 +182,11 @@ For our web clients, the `sdk-internal` packages for our OSS- and commercially-l
 with their WebAssembly bindings is published to npm at:
 
 - https://www.npmjs.com/package/@bitwarden/sdk-internal and
-- https://www.npmjs.com/package/@bitwarden/commercial-sdk-internal These npm packages are referenced
-  as [dependencies](https://github.com/bitwarden/clients/blob/main/package.json) in our `clients`
-  repo.
+- https://www.npmjs.com/package/@bitwarden/commercial-sdk-internal
+
+These npm packages are referenced bas
+[dependencies](https://github.com/bitwarden/clients/blob/main/package.json) in our `clients` repo.
+See [Licensing](#licensing) for details on why we have multiple packages.
 
 Every commit to `main` in `sdk-internal` will trigger a
 [publish](https://github.com/bitwarden/sdk-internal/blob/main/.github/workflows/publish-wasm-internal.yml)
@@ -211,7 +213,7 @@ the new SDK version:
 
 1. Merge the `sdk-internal` pull request. This will trigger a publish of the latest changes to npm.
 2. Update the versions of the `sdk-internal` dependencies in `clients` to reference this version.
-   See [Licensing](#licensing) to understand why we have multiple packages. You can do this either:
+   You can do this either:
 
 - By updating to the latest version using `npm install @bitwarden/sdk-internal@latest` and
   `npm install @bitwarden/commercial-sdk-internal@latest`, or
