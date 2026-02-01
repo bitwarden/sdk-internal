@@ -104,9 +104,11 @@ The web clients use NPM to install `sdk-internal` as a dependency. NPM offers a 
 version.
 
 When building the web `sdk-internal` artifacts, you had the option to build the OSS or the
-commercially-licensed version. You will need to adjust your `npm link` command according to which
-one you built, and which one you intend to make available to the client application for your local
-development.
+commercially-licensed version. See [Licensing](#licensing) for details on why we have multiple
+packages and determine which one(s) you need to build.
+
+You will need to adjust your `npm link` command according to which one you built, and which one you
+intend to make available to the client application for your local development.
 
 | I want to...                                                   | Build script you ran | SDK artifact built                                        | Link command                                                                    | Result                                                               |
 | -------------------------------------------------------------- | -------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
@@ -165,7 +167,7 @@ LOCAL_SDK=true ./Scripts/bootstrap.sh
 > includes breaking changes **you must be prepared to address them as as soon as they merge with a
 > corresponding PR in the client application repository**. If not, any subsequent `sdk-internal`
 > integrations into clients will be blocked, as those other teams will not know how best to resolve
-> the breaking API contracts that you itroduced.
+> the breaking API contracts that you introduced.
 
 In addition to
 [linking to local builds](#integrating-builds-into-client-applications-for-local-development) during
