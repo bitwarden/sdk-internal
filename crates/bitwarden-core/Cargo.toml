@@ -44,6 +44,7 @@ dangerous-crypto-debug = ["bitwarden-crypto/dangerous-crypto-debug"]
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-api-api = { workspace = true }
+bitwarden-api-base = { workspace = true }
 bitwarden-api-identity = { workspace = true }
 bitwarden-api-key-connector = { workspace = true }
 bitwarden-crypto = { workspace = true }
