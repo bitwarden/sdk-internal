@@ -157,10 +157,21 @@ LOCAL_SDK=true ./Scripts/bootstrap.sh
 
 ## Integrating into clients from published artifacts
 
+> [!WARNING]
+>
+> **BREAKING CHANGES** When a pull request is opened to merge changes from `sdk-internal` into
+> `main`, a [Breaking Change Detection ](./.github/workflows/detect-breaking-changes.yml) workflow
+> will run and comment on the PR if breaking changes are detected on any clients. If your PR
+> includes breaking changes **you must be prepared to address them as as soon as they merge with a
+> corresponding PR in the client application repository**. If not, any subsequent `sdk-internal`
+> integrations into clients will be blocked, as those other teams will not know how best to resolve
+> the breaking API contracts that you itroduced.
+
 In addition to
 [linking to local builds](#integrating-builds-into-client-applications-for-local-development) during
 development, you will need to be able to integrate your `sdk-internal` changes into published
-artifacts.
+artifacts, so that the client applications can be tested and published with the requisite SDK
+changes included.
 
 The process for doing so varies based on the client, as the method by which the `sdk-internal`
 package is consumed differs.
@@ -194,12 +205,13 @@ For example:
 > To see what version is published to `npm` for a given publish action, you can check the Summary of
 > the publish action in Github.
 
-When you have completed development of changes in the SDK and need to reference them in the client
-application, you can:
+When you have completed development of changes in `sdk-internal` and need to consume them in the
+client application, you will need to update the npm dependency in your feature branch to reference
+the new SDK version:
 
 1. Merge the `sdk-internal` pull request. This will trigger a publish of the latest changes to npm.
 2. Update the versions of the `sdk-internal` dependencies in `clients` to reference this version.
-   You can do this either:
+   See [Licensing](#licensing) to understand why we have multiple packages. You can do this either:
 
 - By updating to the latest version using `npm install @bitwarden/sdk-internal@latest` and
   `npm install @bitwarden/commercial-sdk-internal@latest`, or
@@ -377,6 +389,20 @@ towards modifying the templates as little as possible to ease future upgrades.
 >
 > If you don't have the nightly toolchain installed, the `build-api.sh` script will install it for
 > you.
+
+## Licensing
+
+The Bitwarden internal SDK includes both OSS- and commercially-licensed code. This allows shared
+code to exist in our SDK to support commercially-licensed (also known as Bitwarden-licensed)
+clients.
+
+The OSS-licensed packages that are published from `sdk-internal` include only code licensed under
+the [GPL](./LICENSE_GPL.txt) license. The commercially-licensed packages that are published from
+`sdk-internal` include the OSS-licensed code, as well as code that is licensed under our
+[commercial](./LICENSE_SDK.txt) license.
+
+If you are developing in a client that needs both licensing models, you should be aware of the two
+and ensure that they are both updated when integrating new SDK changes into the client application.
 
 ## Developer tools
 
