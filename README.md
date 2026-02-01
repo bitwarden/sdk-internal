@@ -95,7 +95,8 @@ instructions in
 
 After completing these instructions, you'll have built an SDK artifact that includes either
 OSS-licensed code, or both OSS- and commercially-licensed code, based on your choice of build
-script.
+script. See [Licensing](#licensing) for details on why we have multiple packages and determine which
+one(s) you need to build.
 
 #### Linking
 
@@ -104,11 +105,9 @@ The web clients use NPM to install `sdk-internal` as a dependency. NPM offers a 
 version.
 
 When building the web `sdk-internal` artifacts, you had the option to build the OSS or the
-commercially-licensed version. See [Licensing](#licensing) for details on why we have multiple
-packages and determine which one(s) you need to build.
-
-You will need to adjust your `npm link` command according to which one you built, and which one you
-intend to make available to the client application for your local development.
+commercially-licensed version. You will need to adjust your `npm link` command according to which
+one you built, and which one you intend to make available to the client application for your local
+development.
 
 | I want to...                                                   | Build script you ran | SDK artifact built                                        | Link command                                                                    | Result                                                               |
 | -------------------------------------------------------------- | -------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
