@@ -6,7 +6,7 @@ mod commercial;
 use std::sync::Arc;
 
 use bitwarden_auth::AuthClientExt as _;
-use bitwarden_core::client::internal::ClientManagedTokens;
+use bitwarden_core::auth::{ClientManagedTokenHandler, ClientManagedTokens};
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_send::SendClientExt as _;
@@ -44,8 +44,9 @@ impl PasswordManagerClient {
         settings: Option<bitwarden_core::ClientSettings>,
         tokens: Arc<dyn ClientManagedTokens>,
     ) -> Self {
-        Self(bitwarden_core::Client::new_with_client_tokens(
-            settings, tokens,
+        Self(bitwarden_core::Client::new_with_token_handler(
+            settings,
+            ClientManagedTokenHandler::new(tokens),
         ))
     }
 

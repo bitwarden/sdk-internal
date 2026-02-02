@@ -516,7 +516,7 @@ dependencies = [
  "reqwest",
  "reqwest-middleware",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "url",
 ]
 
@@ -640,6 +640,7 @@ dependencies = [
  "bitwarden-uuid",
  "chrono",
  "getrandom 0.2.16",
+ "http",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "reqwest",
@@ -902,7 +903,7 @@ dependencies = [
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tsify",
  "wasm-bindgen",
@@ -914,6 +915,7 @@ name = "bitwarden-sm"
 version = "2.0.0"
 dependencies = [
  "bitwarden-api-api",
+ "bitwarden-auth",
  "bitwarden-core",
  "bitwarden-crypto",
  "chrono",
@@ -984,7 +986,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
  "uuid",
@@ -2839,12 +2841,11 @@ dependencies = [
 
 [[package]]
 name = "http"
-version = "1.3.1"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4a85d31aea989eead29a3aaf9e1115a180df8282431156e533de47660892565"
+checksum = "e3ba2a386d7f85a81f119ad7498ebe444d2e22c2af0b86b069416ace48b3311a"
 dependencies = [
  "bytes",
- "fnv",
  "itoa",
 ]
 
