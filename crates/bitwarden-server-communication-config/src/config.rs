@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
     derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct ServerCommunicationConfig {
     /// Bootstrap configuration determining how to establish server communication
     pub bootstrap: BootstrapConfig,
@@ -19,6 +20,7 @@ pub struct ServerCommunicationConfig {
     derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum BootstrapConfig {
     /// Direct connection with no special authentication requirements
@@ -36,6 +38,7 @@ pub enum BootstrapConfig {
     derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SsoCookieVendorConfig {
     /// Identity provider login URL for browser redirect during bootstrap
     pub idp_login_url: String,

@@ -20,7 +20,7 @@ pub enum ServerCommunicationConfigRepositoryError {
 ///
 /// This trait abstracts storage to allow TypeScript implementations via State Provider
 /// in WASM contexts, while also supporting in-memory implementations for testing.
-pub trait ServerCommunicationConfigRepository: Send + Sync + 'static {
+pub trait ServerCommunicationConfigRepository: Send + Sync {
     /// Error type returned by `get()` operations
     type GetError: std::fmt::Debug + Send + Sync + 'static;
     /// Error type returned by `save()` operations

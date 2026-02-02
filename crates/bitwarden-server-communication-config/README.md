@@ -26,7 +26,9 @@ The crate follows the architecture pattern of other foundation layer SDK exports
 - **`ServerCommunicationConfig`**: Data structures for bootstrap configuration and SSO cookie
   settings
 - **`ServerCommunicationConfigRepository`**: Storage abstraction trait for WASM interop with
-  TypeScript
+  TypeScript (implemented by the platform)
+- **`ServerCommunicationConfigPlatformApi`**: Platform-specific operations trait for cookie
+  acquisition (implemented by the platform)
 - **`ServerCommunicationConfigClient`**: High-level client for retrieving configuration and cookies
   by hostname
 
@@ -36,6 +38,17 @@ Configuration is stored per-hostname and supports two bootstrap modes:
 
 1. **Direct**: Standard direct connection (no special cookies required)
 2. **SSO Cookie Vendor**: Load balancer requires SSO authentication cookies for session affinity
+
+### Integration Pattern
+
+SDK platforms inject logic for platform-specific operations:
+
+- **Repository**: The platform provides a storage implementation (e.g., State Provider)
+- **Platform API**: The platform provides cookie acquisition implementation (e.g., browser
+  redirects, WebView handling)
+
+This allows the SDK to remain platform-agnostic while delegating browser/WebView operations to the
+client application.
 
 ## Usage
 
@@ -58,6 +71,7 @@ await client.cookies("vault.example.com");
 ## Features
 
 - `wasm`: Enables WebAssembly bindings for TypeScript integration
+- `uniffi`: Enables UniFFI bindings for mobile platforms
 
 ## Non-Goals
 

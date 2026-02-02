@@ -1,0 +1,9 @@
+[bindings.kotlin]
+package_name = "com.bitwarden.server_communication_config"
+generate_immutable_records = true
+android = true
+
+[bindings.swift]
+ffi_module_name = "BitwardenServerCommunicationConfigFFI"
+module_name = "BitwardenServerCommunicationConfig"
+generate_immutable_records = true
