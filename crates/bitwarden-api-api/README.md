@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`d9e849a44da734c3d210d96151fed6f405a23587`](https://github.com/bitwarden/server/commit/d9e849a44da734c3d210d96151fed6f405a23587)
+  [`51aa4195852dc52e8cdaad47906405b75c7f4621`](https://github.com/bitwarden/server/commit/51aa4195852dc52e8cdaad47906405b75c7f4621)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -797,10 +797,10 @@ All URIs are relative to *https://api.bitwarden.com*
 - [PlanResponseModelListResponseModel](docs/PlanResponseModelListResponseModel.md)
 - [PlanSponsorshipType](docs/PlanSponsorshipType.md)
 - [PlanType](docs/PlanType.md)
-- [PolicyDetailResponseModel](docs/PolicyDetailResponseModel.md)
 - [PolicyRequestModel](docs/PolicyRequestModel.md)
 - [PolicyResponseModel](docs/PolicyResponseModel.md)
 - [PolicyResponseModelListResponseModel](docs/PolicyResponseModelListResponseModel.md)
+- [PolicyStatusResponseModel](docs/PolicyStatusResponseModel.md)
 - [PolicyType](docs/PolicyType.md)
 - [PotentialGranteeResponseModel](docs/PotentialGranteeResponseModel.md)
 - [PotentialGranteeResponseModelListResponseModel](docs/PotentialGranteeResponseModelListResponseModel.md)

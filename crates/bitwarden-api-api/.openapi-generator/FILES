@@ -352,10 +352,10 @@ src/models/plan_response_model.rs
 src/models/plan_response_model_list_response_model.rs
 src/models/plan_sponsorship_type.rs
 src/models/plan_type.rs
-src/models/policy_detail_response_model.rs
 src/models/policy_request_model.rs
 src/models/policy_response_model.rs
 src/models/policy_response_model_list_response_model.rs
+src/models/policy_status_response_model.rs
 src/models/policy_type.rs
 src/models/potential_grantee_response_model.rs
 src/models/potential_grantee_response_model_list_response_model.rs
