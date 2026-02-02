@@ -9,9 +9,12 @@ pub mod projects;
 #[allow(missing_docs)]
 pub mod secrets;
 
-pub use bitwarden_core::auth::{
-    AccessToken,
-    login::{AccessTokenLoginRequest, AccessTokenLoginResponse},
+pub use bitwarden_core::{
+    DeviceType,
+    auth::{
+        AccessToken,
+        login::{AccessTokenLoginRequest, AccessTokenLoginResponse},
+    },
 };
 pub use client::{ClientSettings, SecretsManagerClient};
 pub use client_projects::ProjectsClient;
