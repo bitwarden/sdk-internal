@@ -306,11 +306,9 @@ impl Decryptable<KeyIds, SymmetricKeyId, SendView> for Send {
             emails: self
                 .emails
                 .as_ref()
-                .and_then(|enc| {
-                    Decryptable::<KeyIds, SymmetricKeyId, String>::decrypt(enc, ctx, key).ok()
-                })
+                .and_then(|enc| -> Option<String> { enc.decrypt(ctx, key).ok() })
                 .as_deref()
-                .unwrap_or("")
+                .unwrap_or_default()
                 .split(',')
                 .map(|e| e.trim())
                 .filter(|e| !e.is_empty())
@@ -408,9 +406,9 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Send> for SendView {
                     .iter()
                     .map(|email| {
                         let hash = sha2::Sha256::new()
-                            .chain_update(email.to_lowercase().as_bytes())
+                            .chain_update(email.to_lowercase().trim().as_bytes())
                             .finalize();
-                        format!("{:X}", hash)
+                        format!("{hash:X}")
                     })
                     .collect::<Vec<_>>()
                     .join(",")
