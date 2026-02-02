@@ -1,6 +1,5 @@
 README.md
 src/apis/accounts_api.rs
-src/apis/configuration.rs
 src/apis/info_api.rs
 src/apis/mod.rs
 src/apis/sso_api.rs
