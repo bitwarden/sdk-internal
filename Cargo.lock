@@ -840,6 +840,7 @@ dependencies = [
  "bitwarden-generators",
  "bitwarden-send",
  "bitwarden-state",
+ "bitwarden-user-crypto-management",
  "bitwarden-vault",
  "tsify",
  "uniffi",
@@ -1043,6 +1044,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-user-crypto-management"
+version = "2.0.0"
+dependencies = [
+ "bitwarden-api-api",
+ "bitwarden-core",
+ "bitwarden-crypto",
+ "bitwarden-encoding",
+ "bitwarden-error",
+ "bitwarden-test",
+ "chrono",
+ "reqwest",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "thiserror 2.0.12",
+ "tokio",
+ "tracing",
+ "tsify",
+ "uniffi",
+ "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wiremock",
+]
+
+[[package]]
 name = "bitwarden-uuid"
 version = "2.0.0"
 dependencies = [
@@ -1113,6 +1140,7 @@ dependencies = [
  "bitwarden-ssh",
  "bitwarden-state",
  "bitwarden-threading",
+ "bitwarden-user-crypto-management",
  "bitwarden-vault",
  "console_error_panic_hook",
  "rand 0.8.5",
