@@ -370,7 +370,9 @@ impl KeyEncryptable<SymmetricCryptoKey, EncString> for &str {
 }
 
 impl KeyDecryptable<SymmetricCryptoKey, String> for EncString {
-    #[instrument(err, skip_all)]
+    // Moved behind dangerous crypto debug flag for performance, not safety reasons
+    // This is slow for the browser, when spans are created in the performance API.
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err, skip_all))]
     fn decrypt_with_key(&self, key: &SymmetricCryptoKey) -> Result<String> {
         let dec: Vec<u8> = self.decrypt_with_key(key)?;
         String::from_utf8(dec).map_err(|_| CryptoError::InvalidUtf8String)

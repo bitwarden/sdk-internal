@@ -11,7 +11,9 @@ pub trait Decryptable<Ids: KeyIds, Key: KeyId, Output> {
 }
 
 impl<Ids: KeyIds> Decryptable<Ids, Ids::Symmetric, Vec<u8>> for EncString {
-    #[instrument(err, skip_all)]
+    // Moved behind dangerous crypto debug flag for performance, not safety reasons
+    // This is slow for the browser, when spans are created in the performance API.
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err, skip_all))]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
@@ -22,7 +24,9 @@ impl<Ids: KeyIds> Decryptable<Ids, Ids::Symmetric, Vec<u8>> for EncString {
 }
 
 impl<Ids: KeyIds> Decryptable<Ids, Ids::Symmetric, String> for EncString {
-    #[instrument(err, skip_all)]
+    // Moved behind dangerous crypto debug flag for performance, not safety reasons
+    // This is slow for the browser, when spans are created in the performance API.
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(err, skip_all))]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
