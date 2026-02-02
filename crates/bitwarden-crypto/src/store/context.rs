@@ -203,7 +203,6 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
     ///   will be overwritten
     /// * `wrapped_key` - The key to decrypt
-    ///
     // Moved behind dangerous crypto debug flag for performance, not safety reasons
     // This is slow for the browser, when spans are created in the performance API.
     #[cfg_attr(

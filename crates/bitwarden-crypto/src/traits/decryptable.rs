@@ -1,3 +1,4 @@
+#[cfg(feature = "dangerous-crypto-debug")]
 use tracing::instrument;
 
 use crate::{CryptoError, EncString, KeyId, KeyIds, store::KeyStoreContext};
