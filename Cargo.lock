@@ -497,6 +497,7 @@ name = "bitwarden-api-api"
 version = "2.0.0"
 dependencies = [
  "async-trait",
+ "bitwarden-api-base",
  "mockall",
  "reqwest",
  "reqwest-middleware",
@@ -509,10 +510,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-api-base"
+version = "2.0.0"
+dependencies = [
+ "reqwest",
+ "reqwest-middleware",
+ "serde_json",
+ "thiserror 1.0.69",
+ "url",
+]
+
+[[package]]
 name = "bitwarden-api-identity"
 version = "2.0.0"
 dependencies = [
  "async-trait",
+ "bitwarden-api-base",
  "mockall",
  "reqwest",
  "reqwest-middleware",
@@ -621,6 +634,7 @@ version = "2.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
+ "bitwarden-api-base",
  "bitwarden-api-identity",
  "bitwarden-api-key-connector",
  "bitwarden-crypto",
@@ -846,6 +860,7 @@ dependencies = [
  "bitwarden-generators",
  "bitwarden-send",
  "bitwarden-state",
+ "bitwarden-user-crypto-management",
  "bitwarden-vault",
  "tsify",
  "uniffi",
@@ -884,6 +899,23 @@ dependencies = [
  "uniffi",
  "uuid",
  "zeroize",
+]
+
+[[package]]
+name = "bitwarden-server-communication-config"
+version = "2.0.0"
+dependencies = [
+ "bitwarden-error",
+ "bitwarden-threading",
+ "js-sys",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tsify",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -954,9 +986,27 @@ version = "2.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
+ "bitwarden-crypto",
  "bitwarden-state",
+ "bitwarden-test-macro",
+ "futures",
  "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uuid",
  "wiremock",
+]
+
+[[package]]
+name = "bitwarden-test-macro"
+version = "2.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -1016,6 +1066,32 @@ name = "bitwarden-uniffi-error"
 version = "2.0.0"
 dependencies = [
  "anyhow",
+]
+
+[[package]]
+name = "bitwarden-user-crypto-management"
+version = "2.0.0"
+dependencies = [
+ "bitwarden-api-api",
+ "bitwarden-core",
+ "bitwarden-crypto",
+ "bitwarden-encoding",
+ "bitwarden-error",
+ "bitwarden-test",
+ "chrono",
+ "reqwest",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "thiserror 2.0.12",
+ "tokio",
+ "tracing",
+ "tsify",
+ "uniffi",
+ "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wiremock",
 ]
 
 [[package]]
@@ -1089,6 +1165,7 @@ dependencies = [
  "bitwarden-ssh",
  "bitwarden-state",
  "bitwarden-threading",
+ "bitwarden-user-crypto-management",
  "bitwarden-vault",
  "console_error_panic_hook",
  "rand 0.8.5",
@@ -5869,9 +5946,9 @@ checksum = "bc7d623258602320d5c55d1bc22793b57daff0ec7efc270ea7d55ce1d5f5471c"
 
 [[package]]
 name = "typenum"
-version = "1.18.0"
+version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1dccffe3ce07af9386bfd29e80c0ab1a8205a2fc34e4bcd40364df902cfa8f3f"
+checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 
 [[package]]
 name = "unicase"

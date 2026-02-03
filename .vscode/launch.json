@@ -6,6 +6,13 @@
   "configurations": [
     {
       "type": "lldb",
+      "request": "attach",
+      "name": "Attach to Process...",
+      "pid": "${command:pickMyProcess}",
+      "sourceLanguages": ["rust"]
+    },
+    {
+      "type": "lldb",
       "request": "launch",
       "name": "Debug unit tests in library 'bitwardensdk'",
       "cargo": {
