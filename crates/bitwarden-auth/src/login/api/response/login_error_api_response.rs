@@ -66,8 +66,8 @@ pub enum OAuth2ErrorApiResponse {
     InvalidRequest {
         // we need default b/c we don't want deserialization to fail if error_description is
         // missing. we want it to be None in that case.
-        #[serde(default)]
         /// The optional error description for invalid request errors.
+		#[serde(default)]
         error_description: Option<String>,
     },
 
