@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 /// Response containing the data required before password-based authentication
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))] // add mobile support
 #[cfg_attr(
     feature = "wasm",

@@ -8,7 +8,7 @@ use crate::login::{api::response::LoginSuccessApiResponse, models::UserDecryptio
 /// SDK response model for a successful login.
 /// This is the model that will be exposed to consuming applications.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(
     feature = "wasm",
