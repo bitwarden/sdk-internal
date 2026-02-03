@@ -65,9 +65,13 @@ pub(super) fn reencrypt_data(
             reencrypted_sends
                 .into_iter()
                 .map(|send| {
-                    (send)
-                        .try_into()
-                        .map_err(|_| DataReencryptionError::DataConversion)
+                    Ok(SendWithIdRequestModel {
+                        id: send.id.ok_or(DataReencryptionError::DataConversion)?,
+                        key: send.key.to_string(),
+                        // During key-rotation only the "key" (encrypted seed) and id are used, since we only
+                        // re-encrypt the "key"
+                        ..Default::default()
+                    })
                 })
                 .collect::<Result<Vec<SendWithIdRequestModel>, DataReencryptionError>>()?,
         ),
@@ -179,6 +183,7 @@ mod tests {
             identity: None,
             secure_note: None,
             attachments: None,
+            attachment_decryption_failures: None,
             organization_use_totp: false,
             collection_ids: vec![],
             reprompt: bitwarden_vault::CipherRepromptType::None,
@@ -264,7 +269,7 @@ mod tests {
             access_id: None,
             name: "Test Send".to_string(),
             notes: Some("Some notes".to_string()),
-            key: None,
+            key: Some("Pgui0FK85cNhBGWHAlBHBw".to_owned()),
             text: Some(bitwarden_send::SendTextView {
                 text: Some("This is a test send".to_string()),
                 hidden: false,
@@ -280,6 +285,8 @@ mod tests {
             new_password: None,
             has_password: false,
             file: None,
+            emails: vec![],
+            auth_type: bitwarden_send::AuthType::None,
         };
         let encrypted_send = send.encrypt_composite(&mut ctx, user_key_old).unwrap();
 
@@ -292,7 +299,8 @@ mod tests {
         let decrypted_send: SendView = reencrypted_sends[0]
             .decrypt(&mut ctx, user_key_new)
             .unwrap();
-        assert_eq!(send.name, decrypted_send.name);
-        assert_eq!(send.notes, decrypted_send.notes);
+
+        // The send seed must be the same
+        assert_eq!(send.key, decrypted_send.key);
     }
 }

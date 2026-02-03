@@ -48,19 +48,25 @@ pub struct SendText {
     pub hidden: bool,
 }
 
+/// View model for decrypted SendText
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SendTextView {
+    /// The text content of the send
     pub text: Option<String>,
+    /// Whether the text is hidden (e.g., password field)
     pub hidden: bool,
 }
 
+/// The type of Send, either text or file
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum SendType {
+    /// Text-based send
     Text = 0,
+    /// File-based send
     File = 1,
 }
 
