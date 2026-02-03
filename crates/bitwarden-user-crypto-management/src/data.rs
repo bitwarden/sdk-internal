@@ -24,11 +24,13 @@ pub(crate) enum DataReencryptionError {
     DataConversion,
 }
 
+/// Re-encrypts all user data (folders, ciphers, sends) with the new user key for the purpose of key-rotation. Note: Ciphers
+/// must be filtered to just contain the user's ciphers, not organization ciphers.
 #[allow(unused)]
-#[instrument(name = "reencrypt_data", skip(folders, cipher, sends, ctx))]
+#[instrument(name = "reencrypt_data", skip(folders, ciphers, sends, ctx))]
 pub(super) fn reencrypt_data(
     folders: &[bitwarden_vault::Folder],
-    cipher: &[bitwarden_vault::Cipher],
+    ciphers: &[bitwarden_vault::Cipher],
     sends: &[bitwarden_send::Send],
     current_user_key_id: SymmetricKeyId,
     new_user_key_id: SymmetricKeyId,
@@ -37,7 +39,8 @@ pub(super) fn reencrypt_data(
     // Fully re-encrypt all user data with the new user key
     let reencrypted_folders =
         reencrypt_folders(folders, current_user_key_id, new_user_key_id, ctx)?;
-    let reencrypted_ciphers = reencrypt_ciphers(cipher, current_user_key_id, new_user_key_id, ctx)?;
+    let reencrypted_ciphers =
+        reencrypt_ciphers(ciphers, current_user_key_id, new_user_key_id, ctx)?;
     let reencrypted_sends = reencrypt_sends(sends, current_user_key_id, new_user_key_id, ctx)?;
     Ok(AccountDataRequestModel {
         folders: Some(
