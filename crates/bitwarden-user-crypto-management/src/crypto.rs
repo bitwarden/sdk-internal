@@ -163,7 +163,8 @@ mod tests {
 
         // Note: The actual cryptographic correctness of these values (signatures, key material)
         // is verified in the account_cryptographic_state tests. This test only asserts that
-        // the conversion to AccountKeysRequestModel is reasonable (i.e., expected fields are present).
+        // the conversion to AccountKeysRequestModel is reasonable (i.e., expected fields are
+        // present).
 
         // Assert signature_key_pair (verifying key) is present
         let signature_key_pair = model
