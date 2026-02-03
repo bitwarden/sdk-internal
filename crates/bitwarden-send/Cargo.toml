@@ -29,6 +29,7 @@ bitwarden-encoding = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }
 serde_repr = { workspace = true }
+sha2 = { version = ">=0.10.6, <0.11" }
 thiserror = { workspace = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
