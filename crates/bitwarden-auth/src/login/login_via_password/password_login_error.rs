@@ -67,7 +67,7 @@ impl From<LoginErrorApiResponse> for PasswordLoginError {
                             PasswordInvalidGrantError::InvalidUsernameOrPassword,
                         )) => Self::InvalidUsernameOrPassword,
                         Some(InvalidGrantError::Unknown(error_code)) => {
-                            Self::Unknown(format!("Invalid grant - unknown error: {}", error_code))
+                            Self::Unknown(format!("Invalid grant - unknown error: {error_code}"))
                         }
                         None => {
                             Self::Unknown("Invalid grant with no error description".to_string())
@@ -75,44 +75,32 @@ impl From<LoginErrorApiResponse> for PasswordLoginError {
                     }
                 }
                 OAuth2ErrorApiResponse::InvalidRequest { error_description } => {
-                    Self::Unknown(format!(
-                        "Invalid request: {}",
-                        error_description.unwrap_or("no error description".to_string())
-                    ))
+                    let desc = error_description.unwrap_or("no error description".to_string());
+                    Self::Unknown(format!("Invalid request: {desc}"))
                 }
                 OAuth2ErrorApiResponse::InvalidClient { error_description } => {
-                    Self::Unknown(format!(
-                        "Invalid client: {}",
-                        error_description.unwrap_or("no error description".to_string())
-                    ))
+                    let desc = error_description.unwrap_or("no error description".to_string());
+                    Self::Unknown(format!("Invalid client: {desc}"))
                 }
                 OAuth2ErrorApiResponse::UnauthorizedClient { error_description } => {
-                    Self::Unknown(format!(
-                        "Unauthorized client: {}",
-                        error_description.unwrap_or("no error description".to_string())
-                    ))
+                    let desc = error_description.unwrap_or("no error description".to_string());
+                    Self::Unknown(format!("Unauthorized client: {desc}"))
                 }
                 OAuth2ErrorApiResponse::UnsupportedGrantType { error_description } => {
-                    Self::Unknown(format!(
-                        "Unsupported grant type: {}",
-                        error_description.unwrap_or("no error description".to_string())
-                    ))
+                    let desc = error_description.unwrap_or("no error description".to_string());
+                    Self::Unknown(format!("Unsupported grant type: {desc}"))
                 }
                 OAuth2ErrorApiResponse::InvalidScope { error_description } => {
-                    Self::Unknown(format!(
-                        "Invalid scope: {}",
-                        error_description.unwrap_or("no error description".to_string())
-                    ))
+                    let desc = error_description.unwrap_or("no error description".to_string());
+                    Self::Unknown(format!("Invalid scope: {desc}"))
                 }
                 OAuth2ErrorApiResponse::InvalidTarget { error_description } => {
-                    Self::Unknown(format!(
-                        "Invalid target: {}",
-                        error_description.unwrap_or("no error description".to_string())
-                    ))
+                    let desc = error_description.unwrap_or("no error description".to_string());
+                    Self::Unknown(format!("Invalid target: {desc}"))
                 }
             },
             LoginErrorApiResponse::UnexpectedError(msg) => {
-                Self::Unknown(format!("Unexpected error: {}", msg))
+                Self::Unknown(format!("Unexpected error: {msg}"))
             }
         }
     }
@@ -193,7 +181,7 @@ mod tests {
 
             match result {
                 PasswordLoginError::Unknown(msg) => {
-                    assert_eq!(msg, format!("Invalid request: {}", TEST_ERROR_DESC));
+                    assert_eq!(msg, format!("Invalid request: {TEST_ERROR_DESC}"));
                 }
                 _ => panic!("Expected Unknown variant"),
             }
@@ -210,10 +198,7 @@ mod tests {
 
             match result {
                 PasswordLoginError::Unknown(msg) => {
-                    assert_eq!(
-                        msg,
-                        format!("Invalid request: {}", ERROR_DESC_NO_DESCRIPTION)
-                    );
+                    assert_eq!(msg, format!("Invalid request: {ERROR_DESC_NO_DESCRIPTION}"));
                 }
                 _ => panic!("Expected Unknown variant"),
             }
@@ -230,7 +215,7 @@ mod tests {
 
             match result {
                 PasswordLoginError::Unknown(msg) => {
-                    assert_eq!(msg, format!("Invalid client: {}", TEST_ERROR_DESC));
+                    assert_eq!(msg, format!("Invalid client: {TEST_ERROR_DESC}"));
                 }
                 _ => panic!("Expected Unknown variant"),
             }
@@ -247,10 +232,7 @@ mod tests {
 
             match result {
                 PasswordLoginError::Unknown(msg) => {
-                    assert_eq!(
-                        msg,
-                        format!("Invalid client: {}", ERROR_DESC_NO_DESCRIPTION)
-                    );
+                    assert_eq!(msg, format!("Invalid client: {ERROR_DESC_NO_DESCRIPTION}"));
                 }
                 _ => panic!("Expected Unknown variant"),
             }
@@ -267,7 +249,7 @@ mod tests {
 
             match result {
                 PasswordLoginError::Unknown(msg) => {
-                    assert_eq!(msg, format!("Unauthorized client: {}", TEST_ERROR_DESC));
+                    assert_eq!(msg, format!("Unauthorized client: {TEST_ERROR_DESC}"));
                 }
                 _ => panic!("Expected Unknown variant"),
             }
@@ -286,7 +268,7 @@ mod tests {
                 PasswordLoginError::Unknown(msg) => {
                     assert_eq!(
                         msg,
-                        format!("Unauthorized client: {}", ERROR_DESC_NO_DESCRIPTION)
+                        format!("Unauthorized client: {ERROR_DESC_NO_DESCRIPTION}")
                     );
                 }
                 _ => panic!("Expected Unknown variant"),
@@ -304,7 +286,7 @@ mod tests {
 
             match result {
                 PasswordLoginError::Unknown(msg) => {
-                    assert_eq!(msg, format!("Unsupported grant type: {}", TEST_ERROR_DESC));
+                    assert_eq!(msg, format!("Unsupported grant type: {TEST_ERROR_DESC}"));
                 }
                 _ => panic!("Expected Unknown variant"),
             }
@@ -323,7 +305,7 @@ mod tests {
                 PasswordLoginError::Unknown(msg) => {
                     assert_eq!(
                         msg,
-                        format!("Unsupported grant type: {}", ERROR_DESC_NO_DESCRIPTION)
+                        format!("Unsupported grant type: {ERROR_DESC_NO_DESCRIPTION}")
                     );
                 }
                 _ => panic!("Expected Unknown variant"),
@@ -341,7 +323,7 @@ mod tests {
 
             match result {
                 PasswordLoginError::Unknown(msg) => {
-                    assert_eq!(msg, format!("Invalid scope: {}", TEST_ERROR_DESC));
+                    assert_eq!(msg, format!("Invalid scope: {TEST_ERROR_DESC}"));
                 }
                 _ => panic!("Expected Unknown variant"),
             }
@@ -358,7 +340,7 @@ mod tests {
 
             match result {
                 PasswordLoginError::Unknown(msg) => {
-                    assert_eq!(msg, format!("Invalid scope: {}", ERROR_DESC_NO_DESCRIPTION));
+                    assert_eq!(msg, format!("Invalid scope: {ERROR_DESC_NO_DESCRIPTION}"));
                 }
                 _ => panic!("Expected Unknown variant"),
             }
@@ -375,7 +357,7 @@ mod tests {
 
             match result {
                 PasswordLoginError::Unknown(msg) => {
-                    assert_eq!(msg, format!("Invalid target: {}", TEST_ERROR_DESC));
+                    assert_eq!(msg, format!("Invalid target: {TEST_ERROR_DESC}"));
                 }
                 _ => panic!("Expected Unknown variant"),
             }
@@ -392,10 +374,7 @@ mod tests {
 
             match result {
                 PasswordLoginError::Unknown(msg) => {
-                    assert_eq!(
-                        msg,
-                        format!("Invalid target: {}", ERROR_DESC_NO_DESCRIPTION)
-                    );
+                    assert_eq!(msg, format!("Invalid target: {ERROR_DESC_NO_DESCRIPTION}"));
                 }
                 _ => panic!("Expected Unknown variant"),
             }

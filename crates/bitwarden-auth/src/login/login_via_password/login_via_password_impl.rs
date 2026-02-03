@@ -227,7 +227,7 @@ mod tests {
             let request = make_password_login_request(kdf_type);
             let result = identity_client.login_via_password(request).await;
 
-            assert!(result.is_ok(), "Failed for KDF type: {:?}", kdf_type);
+            assert!(result.is_ok(), "Failed for KDF type: {kdf_type:?}");
             let login_response = result.unwrap();
             assert_login_success_response(&login_response);
         }

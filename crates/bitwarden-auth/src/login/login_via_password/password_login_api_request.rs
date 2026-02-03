@@ -179,36 +179,29 @@ mod tests {
                 .expect("Failed to serialize GrantType");
         assert!(
             serialized.contains(&expected_grant_type),
-            "Should contain {}, got: {}",
-            expected_grant_type,
-            serialized
+            "Should contain {expected_grant_type}, got: {serialized}",
         );
         assert!(
-            serialized.contains(&format!("client_id={}", TEST_CLIENT_ID)),
-            "Should contain client_id, got: {}",
-            serialized
+            serialized.contains(&format!("client_id={TEST_CLIENT_ID}")),
+            "Should contain client_id, got: {serialized}",
         );
         // Verify scope matches the standard scopes (space becomes + in URL encoding)
         let expected_scope = scopes_to_string(STANDARD_USER_SCOPES).replace(' ', "+");
         assert!(
-            serialized.contains(&format!("scope={}", expected_scope)),
-            "Should contain scope={}, got: {}",
-            expected_scope,
-            serialized
+            serialized.contains(&format!("scope={expected_scope}")),
+            "Should contain scope={expected_scope}, got: {serialized}",
         );
 
         // Verify password-specific fields use snake_case (OAuth2 convention)
         // Email is URL-encoded (@ becomes %40)
         let url_encoded_email = TEST_EMAIL.replace('@', "%40");
         assert!(
-            serialized.contains(&format!("username={}", url_encoded_email)),
-            "Email should be serialized as 'username' per OAuth2 convention, got: {}",
-            serialized
+            serialized.contains(&format!("username={url_encoded_email}")),
+            "Email should be serialized as 'username' per OAuth2 convention, got: {serialized}",
         );
         assert!(
             serialized.contains("password="),
-            "Should contain password field with hash, got: {}",
-            serialized
+            "Should contain password field with hash, got: {serialized}",
         );
         // Verify the actual hash is present (check for the hash in the serialized output)
         // The hash may be URL-encoded, so we just verify the field exists with content
@@ -217,8 +210,7 @@ mod tests {
             .any(|pair| pair.starts_with("password=") && pair.len() > "password=".len());
         assert!(
             password_field_present,
-            "Should contain password field with hash value, got: {}",
-            serialized
+            "Should contain password field with hash value, got: {serialized}",
         );
 
         // Verify Bitwarden custom fields use camelCase
@@ -226,44 +218,35 @@ mod tests {
         let expected_device_type = format!("deviceType={:?}", DeviceType::SDK);
         assert!(
             serialized.contains(&expected_device_type),
-            "Should contain {}, got: {}",
-            expected_device_type,
-            serialized
+            "Should contain {expected_device_type}, got: {serialized}",
         );
         assert!(
-            serialized.contains(&format!("deviceIdentifier={}", TEST_DEVICE_IDENTIFIER)),
-            "Should contain deviceIdentifier field, got: {}",
-            serialized
+            serialized.contains(&format!("deviceIdentifier={TEST_DEVICE_IDENTIFIER}")),
+            "Should contain deviceIdentifier field, got: {serialized}",
         );
         // Device name is URL-encoded (space becomes +)
         let url_encoded_device_name = TEST_DEVICE_NAME.replace(' ', "+");
         assert!(
-            serialized.contains(&format!("deviceName={}", url_encoded_device_name)),
-            "Should contain deviceName={}, got: {}",
-            url_encoded_device_name,
-            serialized
+            serialized.contains(&format!("deviceName={url_encoded_device_name}")),
+            "Should contain deviceName={url_encoded_device_name}, got: {serialized}",
         );
         assert!(
-            serialized.contains(&format!("devicePushToken={}", TEST_DEVICE_PUSH_TOKEN)),
-            "Should contain devicePushToken field, got: {}",
-            serialized
+            serialized.contains(&format!("devicePushToken={TEST_DEVICE_PUSH_TOKEN}")),
+            "Should contain devicePushToken field, got: {serialized}",
         );
 
         // Verify optional fields are not present when None
         assert!(
             !serialized.contains("twoFactorToken"),
-            "Should not contain twoFactorToken when None, got: {}",
-            serialized
+            "Should not contain twoFactorToken when None, got: {serialized}",
         );
         assert!(
             !serialized.contains("twoFactorProvider"),
-            "Should not contain twoFactorProvider when None, got: {}",
-            serialized
+            "Should not contain twoFactorProvider when None, got: {serialized}",
         );
         assert!(
             !serialized.contains("twoFactorRemember"),
-            "Should not contain twoFactorRemember when None, got: {}",
-            serialized
+            "Should not contain twoFactorRemember when None, got: {serialized}",
         );
     }
 }
