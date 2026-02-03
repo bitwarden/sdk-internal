@@ -1,5 +1,5 @@
 use bitwarden_api_identity::models::PasswordPreloginRequestModel;
-use bitwarden_core::{ApiError, MissingFieldError};
+use bitwarden_core::ApiError;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -14,9 +14,21 @@ pub enum PasswordPreloginError {
     /// API error occurred during the prelogin request
     #[error(transparent)]
     Api(#[from] ApiError),
-    /// A required field was missing in the response
-    #[error(transparent)]
-    MissingField(#[from] MissingFieldError),
+
+    /// An unknown error occurred
+    /// This variant ensures the SDK can handle new error types introduced by the server
+    /// without breaking existing client code.
+    #[error("Unknown password prelogin error: {0}")]
+    Unknown(String),
+}
+
+/// Converts MissingFieldError into PasswordPreloginError::Unknown
+/// We need this because we use the !require macro which returns MissingFieldError
+/// to enforce that salt and kdf_settings are present in the response.
+impl From<bitwarden_core::MissingFieldError> for PasswordPreloginError {
+    fn from(err: bitwarden_core::MissingFieldError) -> Self {
+        PasswordPreloginError::Unknown(err.to_string())
+    }
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -192,8 +204,11 @@ mod tests {
 
         assert!(result.is_err());
         match result.unwrap_err() {
-            PasswordPreloginError::MissingField(err) => {
-                assert_eq!(err.0, "response.kdf_settings");
+            PasswordPreloginError::Unknown(err) => {
+                assert_eq!(
+                    err,
+                    "The response received was missing a required field: response.kdf_settings"
+                );
             }
             other => panic!("Expected MissingField error, got {:?}", other),
         }
@@ -222,8 +237,11 @@ mod tests {
 
         assert!(result.is_err());
         match result.unwrap_err() {
-            PasswordPreloginError::MissingField(err) => {
-                assert_eq!(err.0, "response.salt");
+            PasswordPreloginError::Unknown(err) => {
+                assert_eq!(
+                    err,
+                    "The response received was missing a required field: response.salt"
+                );
             }
             other => panic!("Expected MissingField error, got {:?}", other),
         }
