@@ -121,9 +121,9 @@ mod tests {
 
         // Get the public key before rotation
         let private_key_id = match &wrapped_state {
-            WrappedAccountCryptographicState::V2 { private_key, .. } => {
-                ctx.unwrap_private_key(old_user_key_id, private_key).unwrap()
-            }
+            WrappedAccountCryptographicState::V2 { private_key, .. } => ctx
+                .unwrap_private_key(old_user_key_id, private_key)
+                .unwrap(),
             _ => panic!("Expected V2 state"),
         };
         let public_key = ctx.get_public_key(private_key_id).unwrap();
@@ -141,15 +141,56 @@ mod tests {
         .expect("rotate_account_cryptographic_state should succeed");
 
         let actual_public_key: B64 = public_key.to_der().unwrap().into();
-        let model_public_key = model
+        let public_key_encryption_key_pair = model
             .public_key_encryption_key_pair
-            .expect("public_key_encryption_key_pair should be present")
+            .as_ref()
+            .expect("public_key_encryption_key_pair should be present");
+        let model_public_key = public_key_encryption_key_pair
             .public_key
+            .as_ref()
             .expect("public_key should be present");
         assert_eq!(
             actual_public_key.to_string(),
-            model_public_key,
+            *model_public_key,
             "Public key should be correctly included in the model"
+        );
+
+        // Assert signed_public_key is present
+        assert!(
+            public_key_encryption_key_pair.signed_public_key.is_some(),
+            "signed_public_key should be present for V2 state"
+        );
+
+        // Note: The actual cryptographic correctness of these values (signatures, key material)
+        // is verified in the account_cryptographic_state tests. This test only asserts that
+        // the conversion to AccountKeysRequestModel is reasonable (i.e., expected fields are present).
+
+        // Assert signature_key_pair (verifying key) is present
+        let signature_key_pair = model
+            .signature_key_pair
+            .as_ref()
+            .expect("signature_key_pair should be present for V2 state");
+        assert!(
+            signature_key_pair.verifying_key.is_some(),
+            "verifying_key should be present"
+        );
+        assert!(
+            signature_key_pair.wrapped_signing_key.is_some(),
+            "wrapped_signing_key should be present"
+        );
+        assert!(
+            signature_key_pair.signature_algorithm.is_some(),
+            "signature_algorithm should be present"
+        );
+
+        // Assert security_state is present
+        let security_state = model
+            .security_state
+            .as_ref()
+            .expect("security_state should be present for V2 state");
+        assert!(
+            security_state.security_state.is_some(),
+            "security_state content should be present"
         );
     }
 }
