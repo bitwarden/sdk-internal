@@ -55,7 +55,7 @@ pub struct SendText {
 pub struct SendTextView {
     /// The text content of the send
     pub text: Option<String>,
-    /// Whether the text is hidden (e.g., password field)
+    /// Whether the text is hidden-by-default (masked as ********).
     pub hidden: bool,
 }
 
