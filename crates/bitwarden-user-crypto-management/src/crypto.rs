@@ -19,8 +19,8 @@ pub(super) fn rotate_account_cryptographic_state(
     ctx: &mut bitwarden_crypto::KeyStoreContext<KeyIds>,
 ) -> Result<bitwarden_api_api::models::AccountKeysRequestModel, ()> {
     debug!(
-        "Rotating account cryptographic state for user_id={} from key_id={:?} to key_id={:?}",
-        user_id, current_user_key_id, new_user_key_id
+        %user_id, ?current_user_key_id, ?new_user_key_id,
+        "Rotating account cryptographic state",
     );
 
     // We can't really handle the error variants here. Either the provided account cryptographic
@@ -35,9 +35,10 @@ pub(super) fn rotate_account_cryptographic_state(
     .map_err(|_| ())?;
 
     debug!(
-        "Converting rotated account cryptographic state to request model for user_id={}",
-        user_id
+        %user_id,
+        "Converting rotated account cryptographic state to request model",
     );
+
     // Rotate the account keys for the user
     let account_keys_model = rotated_account_cryptographic_state
         .to_request_model(new_user_key_id, ctx)
