@@ -23,7 +23,7 @@ impl LoginClient {
         let master_password_authentication = MasterPasswordAuthenticationData::derive(
             &request.password,
             &request.prelogin_response.kdf,
-            &request.email,
+            &request.prelogin_response.salt,
         )?;
 
         let api_request: LoginApiRequest<PasswordLoginApiRequest> =
