@@ -542,6 +542,7 @@ name = "bitwarden-api-key-connector"
 version = "2.0.0"
 dependencies = [
  "async-trait",
+ "bitwarden-api-base",
  "mockall",
  "reqwest",
  "reqwest-middleware",
@@ -893,6 +894,7 @@ dependencies = [
  "chrono",
  "serde",
  "serde_repr",
+ "sha2 0.10.9",
  "thiserror 2.0.12",
  "uniffi",
  "uuid",
@@ -923,6 +925,7 @@ dependencies = [
  "bitwarden-api-api",
  "bitwarden-core",
  "bitwarden-crypto",
+ "bitwarden-generators",
  "chrono",
  "schemars 1.0.0",
  "serde",
@@ -1160,6 +1163,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-ipc",
  "bitwarden-pm",
+ "bitwarden-server-communication-config",
  "bitwarden-ssh",
  "bitwarden-state",
  "bitwarden-threading",
