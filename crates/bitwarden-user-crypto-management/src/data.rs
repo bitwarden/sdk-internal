@@ -68,8 +68,8 @@ pub(super) fn reencrypt_data(
                     Ok(SendWithIdRequestModel {
                         id: send.id.ok_or(DataReencryptionError::DataConversion)?,
                         key: send.key.to_string(),
-                        // During key-rotation only the "key" (encrypted seed) and id are used, since we only
-                        // re-encrypt the "key"
+                        // During key-rotation only the "key" (encrypted seed) and id are used,
+                        // since we only re-encrypt the "key"
                         ..Default::default()
                     })
                 })
