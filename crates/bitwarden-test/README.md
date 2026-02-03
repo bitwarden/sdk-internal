@@ -36,6 +36,11 @@ async fn test_example(play: Play) {
     };
     let scene = play.scene::<SingleUserScene>(&args).await.unwrap();
 
+    // Access user data from the scene result
+    let user_id = &scene.result().user_id;
+    let api_key = &scene.result().api_key;
+
+    // Use mangled values for test isolation
     let email = scene.get_mangled("test@example.com");
 
     // Use credentials for testing...

@@ -33,7 +33,7 @@ pub(crate) async fn send_identity_connect_request(
 ) -> Result<IdentityTokenResponse, LoginError> {
     let config = &configurations.identity_config;
 
-    let mut request = config
+    let response = config
         .client
         .post(format!("{}/connect/token", &config.base_path))
         .header(
@@ -41,13 +41,7 @@ pub(crate) async fn send_identity_connect_request(
             "application/x-www-form-urlencoded; charset=utf-8",
         )
         .header(reqwest::header::ACCEPT, "application/json")
-        .header("Device-Type", configurations.device_type as usize);
-
-    if let Some(ref user_agent) = config.user_agent {
-        request = request.header(reqwest::header::USER_AGENT, user_agent.clone());
-    }
-
-    let response = request
+        .header("Device-Type", configurations.device_type as usize)
         .body(serde_qs::to_string(&body).expect("Serialize should be infallible"))
         .send()
         .await

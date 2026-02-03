@@ -36,6 +36,7 @@ bitwarden-server-communication-config = { workspace = true, features = ["wasm"] 
 bitwarden-ssh = { workspace = true, features = ["wasm"] }
 bitwarden-state = { workspace = true, features = ["wasm"] }
 bitwarden-threading = { workspace = true }
+bitwarden-user-crypto-management = { workspace = true, features = ["wasm"] }
 bitwarden-vault = { workspace = true, features = ["wasm"] }
 console_error_panic_hook = "0.1.7"
 rand = { workspace = true }
