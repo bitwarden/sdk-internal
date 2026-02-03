@@ -17,6 +17,7 @@ keywords.workspace = true
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-api-api.workspace = true
+bitwarden-crypto = { workspace = true }
 bitwarden-state = { workspace = true }
 bitwarden-test-macro = { workspace = true }
 futures = { workspace = true }
