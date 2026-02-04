@@ -109,7 +109,7 @@ pub struct Send {
     /// Email addresses for OTP authentication.
     /// **Note**: Mutually exclusive with `new_password`. If both are set,
     /// only password authentication will be used.
-    pub emails: Option<EncString>,
+    pub emails: Option<String>,
     pub auth_type: AuthType,
 }
 
@@ -298,8 +298,6 @@ impl Decryptable<KeyIds, SymmetricKeyId, SendView> for Send {
 
             emails: self
                 .emails
-                .as_ref()
-                .and_then(|enc| -> Option<String> { enc.decrypt(ctx, key).ok() })
                 .as_deref()
                 .unwrap_or_default()
                 .split(',')
@@ -391,9 +389,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Send> for SendView {
             deletion_date: self.deletion_date,
             expiration_date: self.expiration_date,
 
-            emails: (!self.emails.is_empty())
-                .then(|| self.emails.join(","))
-                .encrypt(ctx, send_key)?,
+            emails: (!self.emails.is_empty()).then(|| self.emails.join(",")),
             auth_type: self.auth_type,
         })
     }
@@ -432,7 +428,7 @@ impl TryFrom<SendResponseModel> for Send {
             revision_date: require!(send.revision_date).parse()?,
             deletion_date: require!(send.deletion_date).parse()?,
             expiration_date: send.expiration_date.map(|s| s.parse()).transpose()?,
-            emails: send.emails.map(|s| s.parse()).transpose()?,
+            emails: send.emails,
             auth_type,
         })
     }
@@ -730,8 +726,5 @@ mod tests {
         let v: SendView = crypto.decrypt(&send).unwrap();
 
         assert_eq!(v, view);
-
-        // Verify auth_type was preserved
-        assert_eq!(v.auth_type, AuthType::Email);
     }
 }
