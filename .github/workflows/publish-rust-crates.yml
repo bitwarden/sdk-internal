@@ -18,11 +18,15 @@ on:
         required: true
         type: string
         default: latest
+
+      # List of packages to publish
+      # Default includes all Bitwarden crates required to publish the SM `bitwarden` crate. To obtain this list, you can use the following command:
+      # cargo tree -p bitwarden-cli -p bitwarden-sm --prefix none | cut -d' ' -f1 | sort -u | grep bitwarden | tr '\n' ' '
       packages:
         description: "Space-separated list of packages to publish"
         required: false
         type: string
-        default: "bitwarden-api-api bitwarden-api-identity bitwarden-cli bitwarden-core bitwarden-crypto bitwarden-encoding bitwarden-error bitwarden-error-macro bitwarden-generators bitwarden-sm bitwarden-state bitwarden-threading bitwarden-uuid bitwarden-uuid-macro"
+        default: "bitwarden-api-api bitwarden-api-base bitwarden-api-identity bitwarden-api-key-connector bitwarden-cli bitwarden-core bitwarden-crypto bitwarden-encoding bitwarden-error bitwarden-error-macro bitwarden-generators bitwarden-sm bitwarden-state bitwarden-threading bitwarden-uuid bitwarden-uuid-macro"
 
 jobs:
   setup:

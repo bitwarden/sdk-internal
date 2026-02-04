@@ -93,7 +93,16 @@ pub enum BitwardenError {
     SshGeneration(#[from] bitwarden_ssh::error::KeyGenerationError),
     #[error(transparent)]
     SshImport(#[from] bitwarden_ssh::error::SshKeyImportError),
+    #[error("Callback invocation failed")]
+    CallbackError,
 
     #[error("A conversion error occurred: {0}")]
     Conversion(String),
+}
+/// Required From implementation for UNIFFI callback error handling
+/// Converts unexpected mobile exceptions into BitwardenError
+impl From<uniffi::UnexpectedUniFFICallbackError> for BitwardenError {
+    fn from(_: uniffi::UnexpectedUniFFICallbackError) -> Self {
+        Self::CallbackError
+    }
 }

@@ -17,6 +17,7 @@ mockall = ["dep:mockall"]
 
 [dependencies]
 async-trait = { workspace = true }
+bitwarden-api-base = { workspace = true }
 mockall = { workspace = true, optional = true }
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }

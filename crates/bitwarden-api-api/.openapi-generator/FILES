@@ -8,7 +8,6 @@ src/apis/auth_requests_api.rs
 src/apis/ciphers_api.rs
 src/apis/collections_api.rs
 src/apis/config_api.rs
-src/apis/configuration.rs
 src/apis/counts_api.rs
 src/apis/devices_api.rs
 src/apis/emergency_access_api.rs
@@ -321,6 +320,7 @@ src/models/organization_user_reset_password_details_response_model.rs
 src/models/organization_user_reset_password_details_response_model_list_response_model.rs
 src/models/organization_user_reset_password_enrollment_request_model.rs
 src/models/organization_user_reset_password_request_model.rs
+src/models/organization_user_restore_request.rs
 src/models/organization_user_status_type.rs
 src/models/organization_user_type.rs
 src/models/organization_user_update_request_model.rs
@@ -554,5 +554,6 @@ src/models/web_authn_login_assertion_options_response_model.rs
 src/models/web_authn_login_credential_create_request_model.rs
 src/models/web_authn_login_credential_update_request_model.rs
 src/models/web_authn_login_rotate_key_request_model.rs
+src/models/web_authn_prf_decryption_option.rs
 src/models/web_authn_prf_status.rs
 src/models/web_push_auth_request_model.rs
