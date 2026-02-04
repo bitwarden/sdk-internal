@@ -61,7 +61,9 @@ where
     pub async fn cookies(&self, hostname: String) -> Vec<(String, String)> {
         if let Ok(Some(config)) = self.repository.get(hostname).await {
             if let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap {
-                if let Some(cookie_value) = vendor_config.cookie_value {
+                if let Some(cookie_value_shards) = vendor_config.cookie_value {
+                    // Concatenate all cookie shards into a single value
+                    let cookie_value = cookie_value_shards.join("");
                     return vec![(vendor_config.cookie_name, cookie_value)];
                 }
             }
@@ -212,7 +214,7 @@ mod tests {
                 idp_login_url: "https://example.com".to_string(),
                 cookie_name: "TestCookie".to_string(),
                 cookie_domain: "example.com".to_string(),
-                cookie_value: Some("value123".to_string()),
+                cookie_value: Some(vec!["value123".to_string()]),
             }),
         };
 
@@ -266,7 +268,7 @@ mod tests {
                 idp_login_url: "https://example.com".to_string(),
                 cookie_name: "TestCookie".to_string(),
                 cookie_domain: "example.com".to_string(),
-                cookie_value: Some("value123".to_string()),
+                cookie_value: Some(vec!["value123".to_string()]),
             }),
         };
 
@@ -352,7 +354,7 @@ mod tests {
                 idp_login_url: "https://example.com".to_string(),
                 cookie_name: "AELBAuthSessionCookie".to_string(),
                 cookie_domain: "example.com".to_string(),
-                cookie_value: Some("eyJhbGciOiJFUzI1NiIsImtpZCI6Im...".to_string()),
+                cookie_value: Some(vec!["eyJhbGciOiJFUzI1NiIsImtpZCI6Im...".to_string()]),
             }),
         };
 
@@ -380,6 +382,36 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn cookies_concatenates_shards() {
+        let repo = MockRepository::default();
+        let config = ServerCommunicationConfig {
+            bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
+                idp_login_url: "https://example.com".to_string(),
+                cookie_name: "ShardedCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                cookie_value: Some(vec![
+                    "shard1".to_string(),
+                    "shard2".to_string(),
+                    "shard3".to_string(),
+                ]),
+            }),
+        };
+
+        repo.save("vault.example.com".to_string(), config)
+            .await
+            .unwrap();
+
+        let platform_api = MockPlatformApi::new();
+        let client = ServerCommunicationConfigClient::new(repo, platform_api);
+        let cookies = client.cookies("vault.example.com".to_string()).await;
+
+        assert_eq!(cookies.len(), 1);
+        assert_eq!(cookies[0].0, "ShardedCookie");
+        // Verify shards are concatenated
+        assert_eq!(cookies[0].1, "shard1shard2shard3");
+    }
+
+    #[tokio::test]
     async fn acquire_cookie_saves_when_cookie_returned() {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
@@ -401,7 +433,7 @@ mod tests {
         platform_api
             .set_cookie(Some(AcquiredCookie {
                 name: "TestCookie".to_string(),
-                value: "acquired-cookie-value".to_string(),
+                value: vec!["acquired-cookie-value".to_string()],
             }))
             .await;
 
@@ -420,7 +452,7 @@ mod tests {
         if let BootstrapConfig::SsoCookieVendor(vendor_config) = saved_config.bootstrap {
             assert_eq!(
                 vendor_config.cookie_value,
-                Some("acquired-cookie-value".to_string())
+                Some(vec!["acquired-cookie-value".to_string()])
             );
         } else {
             panic!("Expected SsoCookieVendor config");
@@ -472,7 +504,7 @@ mod tests {
         platform_api
             .set_cookie(Some(AcquiredCookie {
                 name: "TestCookie".to_string(),
-                value: "cookie-value".to_string(),
+                value: vec!["cookie-value".to_string()],
             }))
             .await;
 
@@ -509,7 +541,7 @@ mod tests {
         platform_api
             .set_cookie(Some(AcquiredCookie {
                 name: "WrongCookie".to_string(),
-                value: "some-value".to_string(),
+                value: vec!["some-value".to_string()],
             }))
             .await;
 

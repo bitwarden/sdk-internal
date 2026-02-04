@@ -13,8 +13,11 @@ use thiserror::Error;
 pub struct AcquiredCookie {
     /// Cookie name
     pub name: String,
-    /// Cookie value
-    pub value: String,
+    /// Cookie value shards
+    ///
+    /// IdP cookies can be sharded across multiple values. Each shard should be
+    /// preserved in order to properly reconstruct the cookie for HTTP requests.
+    pub value: Vec<String>,
 }
 
 /// Errors that can occur during cookie acquisition

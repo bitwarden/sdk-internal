@@ -49,7 +49,10 @@ impl UniffiServerCommunicationConfigClient {
             .cookies(hostname)
             .await
             .into_iter()
-            .map(|(name, value)| AcquiredCookie { name, value })
+            .map(|(name, value)| AcquiredCookie {
+                name,
+                value: vec![value],
+            })
             .collect()
     }
 

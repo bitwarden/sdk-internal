@@ -110,7 +110,7 @@ mod tests {
                 idp_login_url: "https://example.com/login".to_string(),
                 cookie_name: "TestCookie".to_string(),
                 cookie_domain: "example.com".to_string(),
-                cookie_value: Some("cookie-value-123".to_string()),
+                cookie_value: Some(vec!["cookie-value-123".to_string()]),
             }),
         };
 
@@ -130,7 +130,7 @@ mod tests {
             assert_eq!(vendor_config.cookie_name, "TestCookie");
             assert_eq!(
                 vendor_config.cookie_value,
-                Some("cookie-value-123".to_string())
+                Some(vec!["cookie-value-123".to_string()])
             );
         } else {
             panic!("Expected SsoCookieVendor");

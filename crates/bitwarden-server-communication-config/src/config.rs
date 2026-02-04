@@ -46,8 +46,11 @@ pub struct SsoCookieVendorConfig {
     pub cookie_name: String,
     /// Cookie domain for validation
     pub cookie_domain: String,
-    /// Cookie value
-    pub cookie_value: Option<String>,
+    /// Cookie value shards
+    ///
+    /// IdP cookies can be sharded across multiple values. When present, all shards
+    /// should be concatenated when setting the cookie for HTTP requests.
+    pub cookie_value: Option<Vec<String>>,
 }
 
 // We manually implement Debug to make sure we don't print sensitive cookie values
@@ -123,19 +126,43 @@ mod tests {
         let deserialized_none: SsoCookieVendorConfig = serde_json::from_str(&json_none).unwrap();
         assert!(deserialized_none.cookie_value.is_none());
 
-        // Test with Some
+        // Test with Some - single shard
         let config_some = SsoCookieVendorConfig {
             idp_login_url: "https://example.com".to_string(),
             cookie_name: "TestCookie".to_string(),
             cookie_domain: "example.com".to_string(),
-            cookie_value: Some("eyJhbGciOiJFUzI1NiIsImtpZCI6Im...".to_string()),
+            cookie_value: Some(vec!["eyJhbGciOiJFUzI1NiIsImtpZCI6Im...".to_string()]),
         };
 
         let json_some = serde_json::to_string(&config_some).unwrap();
         let deserialized_some: SsoCookieVendorConfig = serde_json::from_str(&json_some).unwrap();
         assert_eq!(
             deserialized_some.cookie_value,
-            Some("eyJhbGciOiJFUzI1NiIsImtpZCI6Im...".to_string())
+            Some(vec!["eyJhbGciOiJFUzI1NiIsImtpZCI6Im...".to_string()])
+        );
+
+        // Test with multiple shards
+        let config_sharded = SsoCookieVendorConfig {
+            idp_login_url: "https://example.com".to_string(),
+            cookie_name: "TestCookie".to_string(),
+            cookie_domain: "example.com".to_string(),
+            cookie_value: Some(vec![
+                "shard1".to_string(),
+                "shard2".to_string(),
+                "shard3".to_string(),
+            ]),
+        };
+
+        let json_sharded = serde_json::to_string(&config_sharded).unwrap();
+        let deserialized_sharded: SsoCookieVendorConfig =
+            serde_json::from_str(&json_sharded).unwrap();
+        assert_eq!(
+            deserialized_sharded.cookie_value,
+            Some(vec![
+                "shard1".to_string(),
+                "shard2".to_string(),
+                "shard3".to_string()
+            ])
         );
     }
 
@@ -160,7 +187,7 @@ mod tests {
             idp_login_url: "https://example.com/login".to_string(),
             cookie_name: "SessionCookie".to_string(),
             cookie_domain: "example.com".to_string(),
-            cookie_value: Some("super-secret-cookie-value-abc123".to_string()),
+            cookie_value: Some(vec!["super-secret-cookie-value-abc123".to_string()]),
         };
 
         let debug_output = format!("{:?}", config_with_cookie);
