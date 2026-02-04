@@ -556,6 +556,7 @@ dependencies = [
 name = "bitwarden-auth"
 version = "2.0.0"
 dependencies = [
+ "async-trait",
  "bitwarden-api-api",
  "bitwarden-api-key-connector",
  "bitwarden-core",
@@ -564,6 +565,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-test",
  "chrono",
+ "http",
  "reqwest",
  "reqwest-middleware",
  "serde",

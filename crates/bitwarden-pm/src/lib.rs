@@ -36,7 +36,11 @@ pub struct PasswordManagerClient(pub bitwarden_core::Client);
 impl PasswordManagerClient {
     /// Initialize a new instance of the SDK client
     pub fn new(settings: Option<bitwarden_core::ClientSettings>) -> Self {
-        Self(bitwarden_core::Client::new(settings))
+        let token_handler = Arc::new(bitwarden_auth::renew::AuthTokenHandler::default());
+        Self(bitwarden_core::Client::new_with_token_handler(
+            settings,
+            token_handler,
+        ))
     }
 
     /// Initialize a new instance of the SDK client with client-managed tokens

@@ -9,7 +9,7 @@ use super::internal::InternalClient;
 #[cfg(feature = "internal")]
 use crate::client::flags::Flags;
 use crate::{
-    auth::auth_tokens::{AuthTokenHandler, TokenHandler},
+    auth::auth_tokens::{NoopTokenHandler, TokenHandler},
     client::{
         client_settings::{ClientName, ClientSettings},
         internal::ApiConfigurations,
@@ -28,12 +28,13 @@ pub struct Client {
 }
 
 impl Client {
-    /// Create a new Bitwarden client with SDK-managed tokens.
+    /// Create a new Bitwarden client with default settings and a no-op token handler.
     pub fn new(settings: Option<ClientSettings>) -> Self {
-        Self::new_internal(settings, Arc::new(AuthTokenHandler::default()))
+        Self::new_internal(settings, Arc::new(NoopTokenHandler))
     }
 
-    /// Create a new Bitwarden client with client-managed tokens.
+    /// Create a new Bitwarden client with the specified token handler for managing authentication
+    /// tokens.
     pub fn new_with_token_handler(
         settings: Option<ClientSettings>,
         token_handler: Arc<dyn TokenHandler>,
@@ -53,14 +54,14 @@ impl Client {
 
         let headers = build_default_headers(&settings);
 
+        let login_method = Arc::new(RwLock::new(None));
+        let key_store = KeyStore::default();
+
+        // Create the HTTP client for the Identity service, without authentication middleware.
         let bw_http_client = new_http_client_builder()
             .default_headers(headers)
             .build()
             .expect("Bw HTTP Client build should not fail");
-
-        let login_method = Arc::new(RwLock::new(None));
-        let key_store = KeyStore::default();
-
         let identity = bitwarden_api_identity::Configuration {
             base_path: settings.identity_url,
             user_agent: Some(settings.user_agent.clone()),
@@ -68,7 +69,7 @@ impl Client {
             oauth_access_token: None,
         };
 
-        // Create the client for the API service with authentication middleware.
+        // Create the client for the API service, with authentication middleware.
         let auth_middleware = token_handler.create_middleware(
             login_method.clone(),
             identity.clone(),
@@ -77,7 +78,6 @@ impl Client {
         let bw_http_client = reqwest_middleware::ClientBuilder::new(bw_http_client)
             .with_arc(auth_middleware)
             .build();
-
         let api = bitwarden_api_api::Configuration {
             base_path: settings.api_url,
             user_agent: Some(settings.user_agent),
