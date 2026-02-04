@@ -11,7 +11,6 @@ use bitwarden_encoding::{B64, B64Url};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use sha2::Digest;
 use uuid::Uuid;
 use zeroize::Zeroizing;
 
