@@ -15,8 +15,9 @@ pub struct AcquiredCookie {
     pub name: String,
     /// Cookie value shards
     ///
-    /// IdP cookies can be sharded across multiple values. Each shard should be
-    /// preserved in order to properly reconstruct the cookie for HTTP requests.
+    /// IdP cookies can be sharded across multiple values to work around browser
+    /// 4KB cookie size limits. Each shard should be sent as a separate cookie with
+    /// the same cookie name. The load balancer automatically reassembles them.
     pub value: Vec<String>,
 }
 

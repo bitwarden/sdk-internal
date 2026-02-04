@@ -48,8 +48,9 @@ pub struct SsoCookieVendorConfig {
     pub cookie_domain: String,
     /// Cookie value shards
     ///
-    /// IdP cookies can be sharded across multiple values. When present, all shards
-    /// should be concatenated when setting the cookie for HTTP requests.
+    /// IdP cookies can be sharded across multiple values to work around browser
+    /// 4KB cookie size limits. Each shard should be set as a separate cookie with
+    /// the same cookie name. The load balancer automatically reassembles them.
     pub cookie_value: Option<Vec<String>>,
 }
 

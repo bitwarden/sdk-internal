@@ -58,13 +58,18 @@ where
     }
 
     /// Returns cookies to include in HTTP requests
+    ///
+    /// For sharded cookies, returns multiple tuples with the same cookie name.
+    /// The browser will send all shards in the HTTP request, and the load balancer
+    /// will reassemble them automatically.
     pub async fn cookies(&self, hostname: String) -> Vec<(String, String)> {
         if let Ok(Some(config)) = self.repository.get(hostname).await {
             if let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap {
                 if let Some(cookie_value_shards) = vendor_config.cookie_value {
-                    // Concatenate all cookie shards into a single value
-                    let cookie_value = cookie_value_shards.join("");
-                    return vec![(vendor_config.cookie_name, cookie_value)];
+                    return cookie_value_shards
+                        .into_iter()
+                        .map(|shard| (vendor_config.cookie_name.clone(), shard))
+                        .collect();
                 }
             }
         }
@@ -382,7 +387,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn cookies_concatenates_shards() {
+    async fn cookies_returns_shards_separately() {
         let repo = MockRepository::default();
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
@@ -405,10 +410,20 @@ mod tests {
         let client = ServerCommunicationConfigClient::new(repo, platform_api);
         let cookies = client.cookies("vault.example.com".to_string()).await;
 
-        assert_eq!(cookies.len(), 1);
-        assert_eq!(cookies[0].0, "ShardedCookie");
-        // Verify shards are concatenated
-        assert_eq!(cookies[0].1, "shard1shard2shard3");
+        // Each shard should be returned as a separate cookie with the same name
+        assert_eq!(cookies.len(), 3);
+        assert_eq!(
+            cookies[0],
+            ("ShardedCookie".to_string(), "shard1".to_string())
+        );
+        assert_eq!(
+            cookies[1],
+            ("ShardedCookie".to_string(), "shard2".to_string())
+        );
+        assert_eq!(
+            cookies[2],
+            ("ShardedCookie".to_string(), "shard3".to_string())
+        );
     }
 
     #[tokio::test]
