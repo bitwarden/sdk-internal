@@ -6,14 +6,6 @@ use crate::{AcquiredCookie, ServerCommunicationConfigPlatformApi};
 #[wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
 /**
- * Acquired cookie structure
- */
-export interface AcquiredCookie {
-    name: string;
-    value: string;
-}
-
-/**
  * Platform API interface for acquiring SSO cookies.
  * 
  * Platform clients implement this interface to handle cookie acquisition

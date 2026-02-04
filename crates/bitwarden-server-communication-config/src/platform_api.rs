@@ -4,6 +4,11 @@ use thiserror::Error;
 
 /// A cookie acquired from the platform
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct AcquiredCookie {
     /// Cookie name
