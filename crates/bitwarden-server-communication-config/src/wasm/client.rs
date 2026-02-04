@@ -82,6 +82,28 @@ impl JsServerCommunicationConfigClient {
         serde_wasm_bindgen::to_value(&cookies).map_err(|e| JsError::new(&e.to_string()))
     }
 
+    /// Sets the server communication configuration for a hostname
+    ///
+    /// This method saves the provided communication configuration to the repository.
+    /// Typically called when receiving the `/api/config` response from the server.
+    ///
+    /// # Arguments
+    ///
+    /// * `hostname` - The server hostname (e.g., "vault.acme.com")
+    /// * `config` - The server communication configuration to store
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the repository save operation fails
+    #[wasm_bindgen(js_name = setCommunicationType)]
+    pub async fn set_communication_type(
+        &self,
+        hostname: String,
+        config: ServerCommunicationConfig,
+    ) -> Result<(), String> {
+        self.client.set_communication_type(hostname, config).await
+    }
+
     /// Acquires a cookie from the platform and saves it to the repository
     ///
     /// This method calls the platform API to trigger cookie acquisition (e.g., browser
