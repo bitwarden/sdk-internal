@@ -50,7 +50,7 @@ pub(super) fn rotate_account_cryptographic_state(
 mod tests {
     use bitwarden_core::key_management::account_cryptographic_state::WrappedAccountCryptographicState;
     use bitwarden_crypto::{
-        KeyStore, PublicKey, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm,
+        CoseSerializable, KeyStore, PublicKey, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm,
     };
     use bitwarden_encoding::B64;
 
@@ -107,6 +107,39 @@ mod tests {
             model_public_key,
             "Public key should be correctly included in the model"
         );
+
+        // Note: The actual cryptographic correctness of these values (signatures, key material)
+        // is verified in the account_cryptographic_state tests. This test only asserts that
+        // the conversion to AccountKeysRequestModel is reasonable (i.e., expected fields are
+        // present).
+
+        // Assert signature_key_pair (verifying key) is present
+        let signature_key_pair = model
+            .signature_key_pair
+            .as_ref()
+            .expect("signature_key_pair should be present for V2 state");
+        assert!(
+            signature_key_pair.verifying_key.is_some(),
+            "verifying_key should be present"
+        );
+        assert!(
+            signature_key_pair.wrapped_signing_key.is_some(),
+            "wrapped_signing_key should be present"
+        );
+        assert!(
+            signature_key_pair.signature_algorithm.is_some(),
+            "signature_algorithm should be present"
+        );
+
+        // Assert security_state is present
+        let security_state = model
+            .security_state
+            .as_ref()
+            .expect("security_state should be present for V2 state");
+        assert!(
+            security_state.security_state.is_some(),
+            "security_state content should be present"
+        );
     }
 
     #[test]
@@ -127,7 +160,16 @@ mod tests {
                 .unwrap(),
             _ => panic!("Expected V2 state"),
         };
+        let signing_key_id = match &wrapped_state {
+            WrappedAccountCryptographicState::V2 { signing_key, .. } => ctx
+                .unwrap_signing_key(old_user_key_id, signing_key)
+                .unwrap(),
+            _ => panic!("Expected V2 state"),
+        };
         let public_key = ctx.get_public_key(private_key_id).unwrap();
+        let verifying_key = ctx
+            .get_verifying_key(signing_key_id)
+            .expect("verifying key should be obtainable");
 
         // Create a new user key for rotation
         let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
@@ -167,15 +209,22 @@ mod tests {
         // the conversion to AccountKeysRequestModel is reasonable (i.e., expected fields are
         // present).
 
-        // Assert signature_key_pair (verifying key) is present
+        // Assert signature_key_pair (verifying key) is present and equal to the old key
         let signature_key_pair = model
             .signature_key_pair
             .as_ref()
             .expect("signature_key_pair should be present for V2 state");
-        assert!(
-            signature_key_pair.verifying_key.is_some(),
-            "verifying_key should be present"
+        let actual_verifying_key: B64 = verifying_key.to_cose().into();
+        let model_verifying_key = signature_key_pair
+            .verifying_key
+            .as_ref()
+            .expect("verifying_key should be present");
+        assert_eq!(
+            actual_verifying_key.to_string(),
+            *model_verifying_key,
+            "Verifying key should be correctly included in the model"
         );
+
         assert!(
             signature_key_pair.wrapped_signing_key.is_some(),
             "wrapped_signing_key should be present"
