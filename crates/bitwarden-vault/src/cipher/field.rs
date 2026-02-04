@@ -75,6 +75,36 @@ pub struct FieldView {
     pub linked_id: Option<LinkedIdType>,
 }
 
+/// Minimal field view for list/search operations.
+/// Contains only the fields needed for search indexing.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct FieldListView {
+    /// Only populated if the field has a name.
+    pub name: Option<String>,
+    /// Only populated for [FieldType::Text] fields.
+    pub value: Option<String>,
+    /// The field type.
+    pub r#type: FieldType,
+}
+
+#[cfg(feature = "wasm")]
+impl From<FieldView> for FieldListView {
+    fn from(field: FieldView) -> Self {
+        Self {
+            name: field.name,
+            value: if field.r#type == FieldType::Text {
+                field.value
+            } else {
+                None
+            },
+            r#type: field.r#type,
+        }
+    }
+}
+
 impl CompositeEncryptable<KeyIds, SymmetricKeyId, Field> for FieldView {
     fn encrypt_composite(
         &self,
