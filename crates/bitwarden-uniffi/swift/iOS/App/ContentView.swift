@@ -370,6 +370,33 @@ struct ContentView: View {
         let _ = try await authenticator.silentlyDiscoverCredentials(rpId: "", userHandle: nil)
     }
 
+    func serverCommunicationConfigTest() {
+        // Test ServerCommunicationConfig types compilation
+        let directConfig = ServerCommunicationConfig(
+            bootstrap: BootstrapConfig.direct
+        )
+        print("Direct config: \(directConfig)")
+
+        let ssoCookieConfig = ServerCommunicationConfig(
+            bootstrap: BootstrapConfig.ssoCookieVendor(
+                SsoCookieVendorConfig(
+                    idpLoginUrl: "https://example.com/login",
+                    cookieName: "TestCookie",
+                    cookieDomain: "example.com",
+                    cookieValue: nil
+                )
+            )
+        )
+        print("SSO cookie config: \(ssoCookieConfig)")
+
+        // Test AcquiredCookie type
+        let cookie = AcquiredCookie(
+            name: "TestCookie",
+            value: ["shard1", "shard2"]
+        )
+        print("Acquired cookie: \(cookie)")
+    }
+
 }
 
 struct ContentView_Previews: PreviewProvider {

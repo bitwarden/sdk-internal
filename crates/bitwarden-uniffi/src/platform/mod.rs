@@ -13,6 +13,14 @@ mod fido2;
 mod repository;
 mod server_communication_config;
 
+// Re-export ServerCommunicationConfig types for UniFFI bindings
+pub use bitwarden_server_communication_config::{
+    AcquiredCookie, BootstrapConfig, ServerCommunicationConfig, SsoCookieVendorConfig,
+};
+pub use server_communication_config::{
+    ServerCommunicationConfigRepositoryTrait, UniffiServerCommunicationConfigClient,
+};
+
 #[derive(uniffi::Object)]
 pub struct PlatformClient(pub(crate) bitwarden_core::Client);
 
