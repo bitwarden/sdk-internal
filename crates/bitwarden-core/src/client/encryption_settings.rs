@@ -86,15 +86,21 @@ impl EncryptionSettings {
             let _span =
                 tracing::span!(tracing::Level::INFO, "decapsulate_org_key", org_id = %org_id)
                     .entered();
-            if let Err(e) = ctx.decapsulate_key_unsigned(
-                PrivateKeyId::UserPrivateKey,
-                SymmetricKeyId::Organization(org_id),
-                &org_enc_key,
-            ) {
-                tracing::error!("Failed to decapsulate organization key: {}", e);
-                return Err(e.into());
-            } else {
-                tracing::info!("Successfully decapsulated organization key");
+            match org_enc_key.decapsulate(PrivateKeyId::UserPrivateKey, &mut ctx) {
+                Err(e) => {
+                    tracing::error!("Failed to decapsulate organization key: {}", e);
+                    return Err(e.into());
+                }
+                Ok(org_symmetric_key) => {
+                    tracing::info!(
+                        org_id = %org_id,
+                        "Successfully decapsulated organization key for org",
+                    );
+                    ctx.persist_symmetric_key(
+                        org_symmetric_key,
+                        SymmetricKeyId::Organization(org_id),
+                    )?;
+                }
             }
         }
 

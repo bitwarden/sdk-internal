@@ -167,7 +167,7 @@ fn default_argon2_memory() -> NonZeroU32 {
 }
 /// Default Argon2 parallelism
 fn default_argon2_parallelism() -> NonZeroU32 {
-    NonZeroU32::new(3).expect("Non-zero number")
+    NonZeroU32::new(4).expect("Non-zero number")
 }
 
 #[cfg(test)]

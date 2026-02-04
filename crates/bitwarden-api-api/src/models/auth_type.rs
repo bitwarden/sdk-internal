@@ -9,31 +9,34 @@
  */
 
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::models;
-
 /// AuthType : Specifies the authentication method required to access a Send.
 /// Specifies the authentication method required to access a Send.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[repr(i64)]
+#[derive(
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize_repr, Deserialize_repr,
+)]
 pub enum AuthType {
-    #[serde(rename = "Email")]
-    Email,
-    #[serde(rename = "Password")]
-    Password,
-    #[serde(rename = "None")]
-    None,
+    Email = 0,
+    Password = 1,
+    None = 2,
 }
 
 impl std::fmt::Display for AuthType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Email => write!(f, "Email"),
-            Self::Password => write!(f, "Password"),
-            Self::None => write!(f, "None"),
-        }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Email => "0",
+                Self::Password => "1",
+                Self::None => "2",
+            }
+        )
     }
 }
-
 impl Default for AuthType {
     fn default() -> AuthType {
         Self::Email

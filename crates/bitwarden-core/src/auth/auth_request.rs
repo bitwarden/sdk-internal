@@ -53,6 +53,7 @@ pub(crate) fn auth_request_decrypt_user_key(
     user_key: UnsignedSharedKey,
 ) -> Result<SymmetricCryptoKey, EncryptionSettingsError> {
     let key = PrivateKey::from_der(&private_key.as_bytes().into())?;
+    #[expect(deprecated)]
     let key: SymmetricCryptoKey = user_key.decapsulate_key_unsigned(&key)?;
     Ok(key)
 }
@@ -67,6 +68,7 @@ pub(crate) fn auth_request_decrypt_master_key(
     use bitwarden_crypto::MasterKey;
 
     let key = PrivateKey::from_der(&private_key.as_bytes().into())?;
+    #[expect(deprecated)]
     let master_key: SymmetricCryptoKey = master_key.decapsulate_key_unsigned(&key)?;
     let master_key = MasterKey::try_from(&master_key)?;
 
@@ -97,6 +99,7 @@ pub(crate) fn approve_auth_request(
     #[allow(deprecated)]
     let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
+    #[expect(deprecated)]
     Ok(UnsignedSharedKey::encapsulate_key_unsigned(
         key,
         &public_key,
@@ -133,6 +136,7 @@ mod tests {
         let private_key = PrivateKey::from_der(&request.private_key.as_bytes().into()).unwrap();
 
         let secret = BitwardenLegacyKeyBytes::from(secret);
+        #[expect(deprecated)]
         let encrypted = UnsignedSharedKey::encapsulate_key_unsigned(
             &SymmetricCryptoKey::try_from(&secret).unwrap(),
             &private_key.to_public_key(),

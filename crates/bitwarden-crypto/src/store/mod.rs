@@ -95,11 +95,19 @@ pub use key_rotation::*;
 /// let decrypted = Data("Hello, World!".to_string());
 /// let encrypted = store.encrypt(decrypted).unwrap();
 /// ```
-#[derive(Clone)]
 pub struct KeyStore<Ids: KeyIds> {
     // We use an Arc<> to make it easier to pass this store around, as we can
     // clone it instead of passing references
     inner: Arc<RwLock<KeyStoreInner<Ids>>>,
+}
+
+// Manually implement Clone to avoid requiring Ids: Clone
+impl<Ids: KeyIds> Clone for KeyStore<Ids> {
+    fn clone(&self) -> Self {
+        KeyStore {
+            inner: Arc::clone(&self.inner),
+        }
+    }
 }
 
 /// [KeyStore] contains sensitive data, provide a dummy [Debug] implementation.
@@ -175,7 +183,6 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     ///   If you want to access the key material to encrypt it or derive a new key from it, we
     ///   provide functions for that:
     ///     - [KeyStoreContext::wrap_symmetric_key]
-    ///     - [KeyStoreContext::encapsulate_key_unsigned]
     ///     - [KeyStoreContext::derive_shareable_key]
     pub fn context(&'_ self) -> KeyStoreContext<'_, Ids> {
         let data = self.inner.read().expect("RwLock is poisoned");

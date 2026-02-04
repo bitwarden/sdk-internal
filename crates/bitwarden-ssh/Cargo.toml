@@ -27,7 +27,7 @@ uniffi = ["dep:uniffi"] # Uniffi bindings
 [dependencies]
 bitwarden-error = { workspace = true }
 bitwarden-vault = { workspace = true }
-block-padding = { version = "=0.4.1" }
+block-padding = { version = "=0.4.2" }
 ed25519 = { version = "3.0.0-rc.2", features = ["pkcs8"] }
 ed25519-dalek = { version = "=3.0.0-pre.2", features = ["alloc", "pkcs8"] }
 getrandom = { version = "=0.3.3" }

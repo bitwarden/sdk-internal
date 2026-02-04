@@ -29,3 +29,6 @@ git_push.sh
 
 # We handle dependency updates with renovate, so we don't want to overwrite Cargo.toml
 Cargo.toml
+
+# This code is extracted to bitwarden-api-base
+src/apis/configuration.rs

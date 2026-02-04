@@ -37,8 +37,8 @@ use crate::{
 pub struct ApiConfigurations {
     pub identity_client: bitwarden_api_identity::apis::ApiClient,
     pub api_client: bitwarden_api_api::apis::ApiClient,
-    pub identity_config: bitwarden_api_identity::apis::configuration::Configuration,
-    pub api_config: bitwarden_api_api::apis::configuration::Configuration,
+    pub identity_config: bitwarden_api_identity::Configuration,
+    pub api_config: bitwarden_api_api::Configuration,
     pub device_type: DeviceType,
 }
 
@@ -52,8 +52,8 @@ impl std::fmt::Debug for ApiConfigurations {
 
 impl ApiConfigurations {
     pub(crate) fn new(
-        identity_config: bitwarden_api_identity::apis::configuration::Configuration,
-        api_config: bitwarden_api_api::apis::configuration::Configuration,
+        identity_config: bitwarden_api_identity::Configuration,
+        api_config: bitwarden_api_api::Configuration,
         device_type: DeviceType,
     ) -> Arc<Self> {
         let identity = Arc::new(identity_config.clone());
