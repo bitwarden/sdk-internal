@@ -114,8 +114,10 @@ development.
 | Develop in clients using OSS-licensed code in the SDK          | `./build.sh`         | Artifact with OSS-licensed code                           | `npm link ../sdk-internal/crates/bitwarden-wasm-internal/npm`                   | SDK with OSS-licensed code linked to `clients`                       |
 | Develop in clients using commercially-licensed code in the SDK | `./build.sh -b`      | Artifact with **both** OSS and commercially-licensed code | `npm link ../sdk-internal/crates/bitwarden-wasm-internal/bitwarden_license/npm` | SDK with both OSS and commercially-licensed code linked to `clients` |
 
-Keep in mind that running `npm link` will restore any previously linked packages, so only the paths
-in the last run command will be linked.
+Running `npm link` will restore any previously linked packages, so only the paths in the last run
+command will be linked. If you want to bind multiple packages (e.g. if you are building OSS-licensed
+and commercially-licensed code), you will need to run `npm link` with **both** packages in the
+command.
 
 > [!WARNING]
 >
