@@ -21,7 +21,7 @@ pub async fn renew_token_sdk_managed(
     refresh_token: Option<String>,
     login_method: Arc<LoginMethod>,
     identity_config: bitwarden_api_api::Configuration,
-    key_store: KeyStore<KeyIds>,
+    #[allow(unused)] key_store: KeyStore<KeyIds>,
 ) -> Result<(String, Option<String>, u64), LoginError> {
     let config = &identity_config;
 

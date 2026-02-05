@@ -9,6 +9,7 @@ use bitwarden_crypto::{
 };
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
+#[cfg(any(feature = "internal", feature = "secrets"))]
 use chrono::Utc;
 #[cfg(feature = "internal")]
 use tracing::{info, instrument};
@@ -89,6 +90,10 @@ impl ApiConfigurations {
 #[allow(missing_docs)]
 pub struct InternalClient {
     pub(crate) user_id: OnceLock<UserId>,
+    #[allow(
+        unused,
+        reason = "This is not used directly by SM, but it's used via the middleware"
+    )]
     pub(crate) token_handler: Arc<dyn TokenHandler>,
     pub(crate) login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
 
@@ -156,9 +161,10 @@ impl InternalClient {
         *self.login_method.write().expect("RwLock is not poisoned") = Some(Arc::new(login_method));
     }
 
+    #[cfg(any(feature = "internal", feature = "secrets"))]
     pub(crate) fn set_tokens(&self, token: String, refresh_token: Option<String>, expires_in: u64) {
         self.token_handler.set_tokens(
-            token.clone(),
+            token,
             refresh_token,
             Utc::now().timestamp() as u64 + expires_in,
         );

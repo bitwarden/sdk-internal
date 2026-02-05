@@ -6,9 +6,11 @@ use bitwarden_crypto::{
 #[cfg(feature = "internal")]
 use bitwarden_encoding::B64;
 
+use crate::Client;
+#[cfg(any(feature = "internal", feature = "secrets"))]
+use crate::auth::login::LoginError;
 #[cfg(feature = "secrets")]
 use crate::auth::login::{AccessTokenLoginRequest, AccessTokenLoginResponse, login_access_token};
-use crate::{Client, auth::login::LoginError};
 #[cfg(feature = "internal")]
 use crate::{
     auth::{
@@ -33,6 +35,7 @@ use crate::{
 
 #[allow(missing_docs)]
 pub struct AuthClient {
+    #[allow(unused)]
     pub(crate) client: crate::Client,
 }
 
