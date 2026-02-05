@@ -150,8 +150,7 @@ impl AuthTokenHandler {
             )
             .await?;
 
-        self.set_tokens(access_token, refresh_token, expires_on);
-
-        Err(NotAuthenticatedError)?
+        self.set_tokens(access_token.clone(), refresh_token, expires_on);
+        Ok(Some(access_token))
     }
 }
