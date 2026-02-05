@@ -119,10 +119,10 @@ impl AuthTokenHandler {
         // If not, we clone the content of the RwLock to avoid holding it across an await point.
         let inner: PasswordManagerTokenHandlerInner = {
             let inner = self.inner.read().expect("RwLock is not poisoned");
-            if let Some(expires) = inner.expires_on
-                && Utc::now().timestamp() < expires - TOKEN_RENEW_MARGIN_SECONDS
-            {
-                return Ok(inner.access_token.clone());
+            if let Some(expires) = inner.expires_on {
+                if Utc::now().timestamp() < expires - TOKEN_RENEW_MARGIN_SECONDS {
+                    return Ok(inner.access_token.clone());
+                }
             }
             inner.clone()
         };
