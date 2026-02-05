@@ -70,7 +70,7 @@ impl Client {
         };
 
         // Create the client for the API service, with authentication middleware.
-        let auth_middleware = token_handler.create_middleware(
+        let auth_middleware = token_handler.initialize_middleware(
             login_method.clone(),
             identity.clone(),
             key_store.clone(),

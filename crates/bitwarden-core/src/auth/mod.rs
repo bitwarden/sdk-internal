@@ -24,6 +24,8 @@ pub mod password;
 #[allow(missing_docs)]
 #[cfg(feature = "internal")]
 pub mod pin;
+#[doc(hidden)]
+pub mod renew;
 pub use access_token::{AccessToken, AccessTokenInvalidError};
 pub use auth_tokens::{ClientManagedTokenHandler, ClientManagedTokens, TokenHandler};
 pub use jwt_token::*;

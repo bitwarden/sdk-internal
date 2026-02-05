@@ -7,11 +7,11 @@ use crate::{client::LoginMethod, key_management::KeyIds};
 
 /// Trait for handling token usage an renewal.
 pub trait TokenHandler: 'static + Send + Sync {
-    /// Create middleware that handles token attachment and renewal.
+    /// Initialize middleware that handles token attachment and renewal.
     /// This middleware should look for the presence of the [bitwarden_api_base::AuthRequired]
     /// extension to decide when to attach tokens. It's then free to attach tokens as it sees fit,
     /// including pausing and retrying requests to renew tokens.
-    fn create_middleware(
+    fn initialize_middleware(
         &self,
         login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
         identity_config: bitwarden_api_base::Configuration,
@@ -45,7 +45,7 @@ impl ClientManagedTokenHandler {
 }
 
 impl TokenHandler for ClientManagedTokenHandler {
-    fn create_middleware(
+    fn initialize_middleware(
         &self,
         _login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
         _identity_config: bitwarden_api_base::Configuration,
@@ -89,7 +89,7 @@ impl reqwest_middleware::Middleware for ClientManagedTokenHandler {
 pub struct NoopTokenHandler;
 
 impl TokenHandler for NoopTokenHandler {
-    fn create_middleware(
+    fn initialize_middleware(
         &self,
         _login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
         _identity_config: bitwarden_api_base::Configuration,
