@@ -97,15 +97,24 @@ mod tests {
         .expect("rotate_account_cryptographic_state should succeed");
 
         let actual_public_key: B64 = public_key.to_der().unwrap().into();
-        let model_public_key = model
+        let public_key_encryption_key_pair = model
             .public_key_encryption_key_pair
-            .expect("public_key_encryption_key_pair should be present")
+            .as_ref()
+            .expect("public_key_encryption_key_pair should be present");
+        let model_public_key = public_key_encryption_key_pair
             .public_key
+            .as_ref()
             .expect("public_key should be present");
         assert_eq!(
             actual_public_key.to_string(),
-            model_public_key,
+            *model_public_key,
             "Public key should be correctly included in the model"
+        );
+
+        // Assert signed_public_key is present
+        assert!(
+            public_key_encryption_key_pair.signed_public_key.is_some(),
+            "signed_public_key should be present for V2 state"
         );
 
         // Note: The actual cryptographic correctness of these values (signatures, key material)
