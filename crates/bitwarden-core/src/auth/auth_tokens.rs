@@ -19,7 +19,10 @@ pub trait TokenHandler: 'static + Send + Sync {
     ) -> Arc<dyn reqwest_middleware::Middleware>;
 
     /// This method is available only as a backwards compatibility measure until all the
-    /// auth-related code is moved out of core. Once that is done, it is
+    /// auth-related code is moved out of core. Once that is done, setting tokens should be always
+    /// done either during renewal (as part of the middleware) or during registration/login, in
+    /// which case it would be up to the auth crate to internally set those tokens when initializing
+    /// the client.
     fn set_tokens(&self, token: String, refresh_token: Option<String>, expires_on: u64);
 }
 
@@ -70,12 +73,15 @@ impl reqwest_middleware::Middleware for ClientManagedTokenHandler {
     ) -> Result<reqwest::Response, reqwest_middleware::Error> {
         if ext.get::<bitwarden_api_base::AuthRequired>().is_some() {
             if let Some(token) = self.tokens.get_access_token().await {
-                req.headers_mut().insert(
-                    http::header::AUTHORIZATION,
-                    format!("Bearer {}", token)
-                        .parse()
-                        .expect("Valid header value"),
-                );
+                match format!("Bearer {}", token).parse() {
+                    Ok(header_value) => {
+                        req.headers_mut()
+                            .insert(http::header::AUTHORIZATION, header_value);
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to parse auth token for header: {e}");
+                    }
+                }
             }
         }
 
