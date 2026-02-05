@@ -3,6 +3,10 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// A cookie acquired from the platform
+///
+/// Represents a single cookie name/value pair as received from the browser or HTTP client.
+/// For sharded cookies (AWS ALB pattern), each shard is a separate `AcquiredCookie` with
+/// its own name including the `-{N}` suffix (e.g., `AWSELBAuthSessionCookie-0`).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(
     feature = "wasm",
@@ -12,13 +16,12 @@ use thiserror::Error;
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct AcquiredCookie {
     /// Cookie name
-    pub name: String,
-    /// Cookie value shards
     ///
-    /// IdP cookies can be sharded across multiple values to work around browser
-    /// 4KB cookie size limits. Each shard should be sent as a separate cookie with
-    /// the same cookie name. The load balancer automatically reassembles them.
-    pub value: Vec<String>,
+    /// For sharded cookies, this includes the shard suffix (e.g., `AWSELBAuthSessionCookie-0`)
+    /// For unsharded cookies, this is the cookie name without any suffix.
+    pub name: String,
+    /// Cookie value
+    pub value: String,
 }
 
 /// Errors that can occur during cookie acquisition
@@ -60,11 +63,14 @@ pub enum AcquireCookieError {
 #[cfg_attr(feature = "uniffi", uniffi::export(with_foreign))]
 #[async_trait::async_trait]
 pub trait ServerCommunicationConfigPlatformApi: Send + Sync {
-    /// Acquires a cookie for the given hostname
+    /// Acquires cookies for the given hostname
     ///
     /// The platform client should trigger any necessary user interaction
-    /// (e.g., browser redirect to IdP) to acquire the cookie from the
+    /// (e.g., browser redirect to IdP) to acquire cookies from the
     /// load balancer.
+    ///
+    /// For sharded cookies, the platform should return multiple `AcquiredCookie`
+    /// entries, each with its full name including the `-{N}` suffix.
     ///
     /// # Arguments
     ///
@@ -72,7 +78,7 @@ pub trait ServerCommunicationConfigPlatformApi: Send + Sync {
     ///
     /// # Returns
     ///
-    /// - `Some(cookie)` - Cookie was successfully acquired
+    /// - `Some(cookies)` - Cookies were successfully acquired
     /// - `None` - Cookie acquisition failed or was cancelled
-    async fn acquire_cookie(&self, hostname: String) -> Option<AcquiredCookie>;
+    async fn acquire_cookies(&self, hostname: String) -> Option<Vec<AcquiredCookie>>;
 }

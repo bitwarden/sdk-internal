@@ -1,5 +1,5 @@
 [bindings.kotlin]
-package_name = "com.bitwarden.server_communication_config"
+package_name = "com.bitwarden.servercommunicationconfig"
 generate_immutable_records = true
 android = true
 

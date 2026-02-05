@@ -49,10 +49,7 @@ impl UniffiServerCommunicationConfigClient {
             .cookies(hostname)
             .await
             .into_iter()
-            .map(|(name, value)| AcquiredCookie {
-                name,
-                value: vec![value],
-            })
+            .map(|(name, value)| AcquiredCookie { name, value })
             .collect()
     }
 
@@ -125,7 +122,7 @@ impl<T: std::fmt::Debug> std::fmt::Debug for UniffiPlatformApiBridge<T> {
 impl<'a> ServerCommunicationConfigPlatformApi
     for UniffiPlatformApiBridge<Arc<dyn ServerCommunicationConfigPlatformApi + 'a>>
 {
-    async fn acquire_cookie(&self, hostname: String) -> Option<AcquiredCookie> {
-        self.0.acquire_cookie(hostname).await
+    async fn acquire_cookies(&self, hostname: String) -> Option<Vec<AcquiredCookie>> {
+        self.0.acquire_cookies(hostname).await
     }
 }

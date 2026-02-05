@@ -13,15 +13,16 @@ const TS_CUSTOM_TYPES: &'static str = r#"
  */
 export interface ServerCommunicationConfigPlatformApi {
     /**
-     * Acquires a cookie for the given hostname.
+     * Acquires cookies for the given hostname.
      * 
      * This typically involves redirecting to an IdP login page and extracting
-     * the cookie from the load balancer response.
+     * cookies from the load balancer response. For sharded cookies, returns
+     * multiple entries with names like "CookieName-0", "CookieName-1", etc.
      * 
      * @param hostname The server hostname (e.g., "vault.acme.com")
-     * @returns An AcquiredCookie object, or undefined if acquisition failed or was cancelled
+     * @returns An array of AcquiredCookie objects, or undefined if acquisition failed or was cancelled
      */
-    acquireCookie(hostname: string): Promise<AcquiredCookie | undefined>;
+    acquireCookies(hostname: string): Promise<AcquiredCookie[] | undefined>;
 }
 "#;
 
@@ -34,9 +35,9 @@ extern "C" {
     )]
     pub type RawJsServerCommunicationConfigPlatformApi;
 
-    /// Acquires a cookie for a hostname
-    #[wasm_bindgen(catch, method, structural, js_name = acquireCookie)]
-    pub async fn acquire_cookie(
+    /// Acquires cookies for a hostname
+    #[wasm_bindgen(catch, method, structural, js_name = acquireCookies)]
+    pub async fn acquire_cookies(
         this: &RawJsServerCommunicationConfigPlatformApi,
         hostname: String,
     ) -> Result<JsValue, JsValue>;
@@ -67,11 +68,11 @@ impl Clone for JsServerCommunicationConfigPlatformApi {
 
 #[async_trait::async_trait]
 impl ServerCommunicationConfigPlatformApi for JsServerCommunicationConfigPlatformApi {
-    async fn acquire_cookie(&self, hostname: String) -> Option<AcquiredCookie> {
+    async fn acquire_cookies(&self, hostname: String) -> Option<Vec<AcquiredCookie>> {
         self.0
             .run_in_thread(move |platform_api| async move {
                 let js_value = platform_api
-                    .acquire_cookie(hostname)
+                    .acquire_cookies(hostname)
                     .await
                     .map_err(|e| format!("{e:?}"))?;
 
@@ -79,13 +80,13 @@ impl ServerCommunicationConfigPlatformApi for JsServerCommunicationConfigPlatfor
                     return Ok(None);
                 }
 
-                let cookie: AcquiredCookie =
+                let cookies: Vec<AcquiredCookie> =
                     serde_wasm_bindgen::from_value(js_value).map_err(|e| e.to_string())?;
-                Ok(Some(cookie))
+                Ok(Some(cookies))
             })
             .await
             .ok()
-            .and_then(|result: Result<Option<AcquiredCookie>, String>| result.ok())
+            .and_then(|result: Result<Option<Vec<AcquiredCookie>>, String>| result.ok())
             .flatten()
     }
 }

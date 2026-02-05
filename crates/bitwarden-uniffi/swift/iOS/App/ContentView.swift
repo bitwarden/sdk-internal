@@ -389,12 +389,19 @@ struct ContentView: View {
         )
         print("SSO cookie config: \(ssoCookieConfig)")
 
-        // Test AcquiredCookie type
-        let cookie = AcquiredCookie(
+        // Test AcquiredCookie type - single name/value pair
+        let unshardedCookie = AcquiredCookie(
             name: "TestCookie",
-            value: ["shard1", "shard2"]
+            value: "cookie-value"
         )
-        print("Acquired cookie: \(cookie)")
+        print("Unsharded cookie: \(unshardedCookie)")
+
+        // Test sharded cookies - multiple AcquiredCookie objects with -N suffix
+        let shardedCookies = [
+            AcquiredCookie(name: "TestCookie-0", value: "shard1"),
+            AcquiredCookie(name: "TestCookie-1", value: "shard2")
+        ]
+        print("Sharded cookies: \(shardedCookies)")
     }
 
 }

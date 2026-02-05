@@ -59,16 +59,15 @@ where
 
     /// Returns cookies to include in HTTP requests
     ///
-    /// For sharded cookies, returns multiple tuples with the same cookie name.
-    /// The browser will send all shards in the HTTP request, and the load balancer
-    /// will reassemble them automatically.
+    /// Returns the stored cookies as-is. For sharded cookies, each entry includes
+    /// the full cookie name with its `-{N}` suffix (e.g., `AWSELBAuthSessionCookie-0`).
     pub async fn cookies(&self, hostname: String) -> Vec<(String, String)> {
         if let Ok(Some(config)) = self.repository.get(hostname).await {
             if let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap {
-                if let Some(cookie_value_shards) = vendor_config.cookie_value {
-                    return cookie_value_shards
+                if let Some(acquired_cookies) = vendor_config.cookie_value {
+                    return acquired_cookies
                         .into_iter()
-                        .map(|shard| (vendor_config.cookie_name.clone(), shard))
+                        .map(|cookie| (cookie.name, cookie.value))
                         .collect();
                 }
             }
@@ -111,23 +110,49 @@ where
 
         let expected_cookie_name = &vendor_config.cookie_name;
 
-        // Call platform API to acquire the cookie
-        let cookie = self
+        // Call platform API to acquire cookies
+        let cookies = self
             .platform_api
-            .acquire_cookie(hostname.to_string())
+            .acquire_cookies(hostname.to_string())
             .await
             .ok_or(AcquireCookieError::Cancelled)?;
 
-        // Validate the cookie name matches what we expect
-        if cookie.name != *expected_cookie_name {
+        // Validate that all cookies match the expected base name
+        // Cookie names should either:
+        // 1. Exactly match the expected name (unsharded cookie)
+        // 2. Match the pattern {expected_name}-{N} where N is a digit (sharded cookies)
+        //
+        // AWS ALB shards cookies > 4KB with naming pattern: {base_name}-{N}
+        // where N starts at 0 (e.g., AWSELBAuthSessionCookie-0, AWSELBAuthSessionCookie-1)
+        let all_cookies_match = cookies.iter().all(|cookie| {
+            cookie.name == *expected_cookie_name
+                || cookie
+                    .name
+                    .strip_prefix(&format!("{}-", expected_cookie_name))
+                    .is_some_and(|suffix| suffix.chars().all(|c| c.is_ascii_digit()))
+        });
+
+        if !all_cookies_match {
+            // Find the first mismatched cookie for error reporting
+            let mismatched = cookies
+                .iter()
+                .find(|cookie| {
+                    cookie.name != *expected_cookie_name
+                        && !cookie
+                            .name
+                            .strip_prefix(&format!("{}-", expected_cookie_name))
+                            .is_some_and(|suffix| suffix.chars().all(|c| c.is_ascii_digit()))
+                })
+                .expect("all_cookies_match is false, so at least one cookie must not match");
+
             return Err(AcquireCookieError::CookieNameMismatch {
                 expected: expected_cookie_name.clone(),
-                actual: cookie.name,
+                actual: mismatched.name.clone(),
             });
         }
 
-        // Update the cookie value using the mutable reference we already have
-        vendor_config.cookie_value = Some(cookie.value);
+        // Update the cookie values using the mutable reference we already have
+        vendor_config.cookie_value = Some(cookies);
 
         // Save the updated config
         self.repository
@@ -175,25 +200,25 @@ mod tests {
     /// Mock platform API for testing
     #[derive(Clone)]
     struct MockPlatformApi {
-        cookie_to_return: std::sync::Arc<RwLock<Option<AcquiredCookie>>>,
+        cookies_to_return: std::sync::Arc<RwLock<Option<Vec<AcquiredCookie>>>>,
     }
 
     impl MockPlatformApi {
         fn new() -> Self {
             Self {
-                cookie_to_return: std::sync::Arc::new(RwLock::new(None)),
+                cookies_to_return: std::sync::Arc::new(RwLock::new(None)),
             }
         }
 
-        async fn set_cookie(&self, cookie: Option<AcquiredCookie>) {
-            *self.cookie_to_return.write().await = cookie;
+        async fn set_cookies(&self, cookies: Option<Vec<AcquiredCookie>>) {
+            *self.cookies_to_return.write().await = cookies;
         }
     }
 
     #[async_trait::async_trait]
     impl ServerCommunicationConfigPlatformApi for MockPlatformApi {
-        async fn acquire_cookie(&self, _hostname: String) -> Option<AcquiredCookie> {
-            self.cookie_to_return.read().await.clone()
+        async fn acquire_cookies(&self, _hostname: String) -> Option<Vec<AcquiredCookie>> {
+            self.cookies_to_return.read().await.clone()
         }
     }
 
@@ -219,7 +244,10 @@ mod tests {
                 idp_login_url: "https://example.com".to_string(),
                 cookie_name: "TestCookie".to_string(),
                 cookie_domain: "example.com".to_string(),
-                cookie_value: Some(vec!["value123".to_string()]),
+                cookie_value: Some(vec![AcquiredCookie {
+                    name: "TestCookie".to_string(),
+                    value: "value123".to_string(),
+                }]),
             }),
         };
 
@@ -273,7 +301,10 @@ mod tests {
                 idp_login_url: "https://example.com".to_string(),
                 cookie_name: "TestCookie".to_string(),
                 cookie_domain: "example.com".to_string(),
-                cookie_value: Some(vec!["value123".to_string()]),
+                cookie_value: Some(vec![AcquiredCookie {
+                    name: "TestCookie".to_string(),
+                    value: "value123".to_string(),
+                }]),
             }),
         };
 
@@ -352,14 +383,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn cookies_returns_cookie_when_present() {
+    async fn cookies_returns_unsharded_cookie_without_suffix() {
         let repo = MockRepository::default();
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: "https://example.com".to_string(),
-                cookie_name: "AELBAuthSessionCookie".to_string(),
+                cookie_name: "AWSELBAuthSessionCookie".to_string(),
                 cookie_domain: "example.com".to_string(),
-                cookie_value: Some(vec!["eyJhbGciOiJFUzI1NiIsImtpZCI6Im...".to_string()]),
+                cookie_value: Some(vec![AcquiredCookie {
+                    name: "AWSELBAuthSessionCookie".to_string(),
+                    value: "eyJhbGciOiJFUzI1NiIsImtpZCI6Im...".to_string(),
+                }]),
             }),
         };
 
@@ -371,8 +405,9 @@ mod tests {
         let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
         let cookies = client.cookies("vault.example.com".to_string()).await;
 
+        // Single cookie without suffix
         assert_eq!(cookies.len(), 1);
-        assert_eq!(cookies[0].0, "AELBAuthSessionCookie");
+        assert_eq!(cookies[0].0, "AWSELBAuthSessionCookie");
         assert_eq!(cookies[0].1, "eyJhbGciOiJFUzI1NiIsImtpZCI6Im...");
     }
 
@@ -387,17 +422,26 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn cookies_returns_shards_separately() {
+    async fn cookies_returns_shards_with_numbered_suffixes() {
         let repo = MockRepository::default();
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: "https://example.com".to_string(),
-                cookie_name: "ShardedCookie".to_string(),
+                cookie_name: "AWSELBAuthSessionCookie".to_string(),
                 cookie_domain: "example.com".to_string(),
                 cookie_value: Some(vec![
-                    "shard1".to_string(),
-                    "shard2".to_string(),
-                    "shard3".to_string(),
+                    AcquiredCookie {
+                        name: "AWSELBAuthSessionCookie-0".to_string(),
+                        value: "shard0value".to_string(),
+                    },
+                    AcquiredCookie {
+                        name: "AWSELBAuthSessionCookie-1".to_string(),
+                        value: "shard1value".to_string(),
+                    },
+                    AcquiredCookie {
+                        name: "AWSELBAuthSessionCookie-2".to_string(),
+                        value: "shard2value".to_string(),
+                    },
                 ]),
             }),
         };
@@ -410,19 +454,28 @@ mod tests {
         let client = ServerCommunicationConfigClient::new(repo, platform_api);
         let cookies = client.cookies("vault.example.com".to_string()).await;
 
-        // Each shard should be returned as a separate cookie with the same name
+        // Each shard is returned as stored with -N suffix
         assert_eq!(cookies.len(), 3);
         assert_eq!(
             cookies[0],
-            ("ShardedCookie".to_string(), "shard1".to_string())
+            (
+                "AWSELBAuthSessionCookie-0".to_string(),
+                "shard0value".to_string()
+            )
         );
         assert_eq!(
             cookies[1],
-            ("ShardedCookie".to_string(), "shard2".to_string())
+            (
+                "AWSELBAuthSessionCookie-1".to_string(),
+                "shard1value".to_string()
+            )
         );
         assert_eq!(
             cookies[2],
-            ("ShardedCookie".to_string(), "shard3".to_string())
+            (
+                "AWSELBAuthSessionCookie-2".to_string(),
+                "shard2value".to_string()
+            )
         );
     }
 
@@ -446,10 +499,10 @@ mod tests {
 
         // Configure platform API to return a cookie with correct name
         platform_api
-            .set_cookie(Some(AcquiredCookie {
+            .set_cookies(Some(vec![AcquiredCookie {
                 name: "TestCookie".to_string(),
-                value: vec!["acquired-cookie-value".to_string()],
-            }))
+                value: "acquired-cookie-value".to_string(),
+            }]))
             .await;
 
         let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
@@ -465,9 +518,14 @@ mod tests {
             .unwrap();
 
         if let BootstrapConfig::SsoCookieVendor(vendor_config) = saved_config.bootstrap {
+            assert_eq!(vendor_config.cookie_value.as_ref().unwrap().len(), 1);
             assert_eq!(
-                vendor_config.cookie_value,
-                Some(vec!["acquired-cookie-value".to_string()])
+                vendor_config.cookie_value.as_ref().unwrap()[0].name,
+                "TestCookie"
+            );
+            assert_eq!(
+                vendor_config.cookie_value.as_ref().unwrap()[0].value,
+                "acquired-cookie-value"
             );
         } else {
             panic!("Expected SsoCookieVendor config");
@@ -493,7 +551,7 @@ mod tests {
             .unwrap();
 
         // Platform API returns None (user cancelled)
-        platform_api.set_cookie(None).await;
+        platform_api.set_cookies(None).await;
 
         let client = ServerCommunicationConfigClient::new(repo, platform_api);
 
@@ -517,10 +575,10 @@ mod tests {
 
         // Platform API returns a cookie
         platform_api
-            .set_cookie(Some(AcquiredCookie {
+            .set_cookies(Some(vec![AcquiredCookie {
                 name: "TestCookie".to_string(),
-                value: vec!["cookie-value".to_string()],
-            }))
+                value: "cookie-value".to_string(),
+            }]))
             .await;
 
         let client = ServerCommunicationConfigClient::new(repo, platform_api);
@@ -554,10 +612,10 @@ mod tests {
 
         // Platform API returns wrong cookie name
         platform_api
-            .set_cookie(Some(AcquiredCookie {
+            .set_cookies(Some(vec![AcquiredCookie {
                 name: "WrongCookie".to_string(),
-                value: vec!["some-value".to_string()],
-            }))
+                value: "some-value".to_string(),
+            }]))
             .await;
 
         let client = ServerCommunicationConfigClient::new(repo, platform_api);
@@ -590,5 +648,125 @@ mod tests {
             result,
             Err(AcquireCookieError::UnsupportedConfiguration)
         ));
+    }
+
+    #[tokio::test]
+    async fn acquire_cookie_accepts_sharded_cookies_with_numbered_suffixes() {
+        let repo = MockRepository::default();
+        let platform_api = MockPlatformApi::new();
+
+        // Setup config expecting "AWSELBAuthSessionCookie"
+        let config = ServerCommunicationConfig {
+            bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
+                idp_login_url: "https://example.com".to_string(),
+                cookie_name: "AWSELBAuthSessionCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                cookie_value: None,
+            }),
+        };
+        repo.save("vault.example.com".to_string(), config)
+            .await
+            .unwrap();
+
+        // Platform API returns multiple shards with -N suffixes
+        platform_api
+            .set_cookies(Some(vec![
+                AcquiredCookie {
+                    name: "AWSELBAuthSessionCookie-0".to_string(),
+                    value: "shard0value".to_string(),
+                },
+                AcquiredCookie {
+                    name: "AWSELBAuthSessionCookie-1".to_string(),
+                    value: "shard1value".to_string(),
+                },
+                AcquiredCookie {
+                    name: "AWSELBAuthSessionCookie-2".to_string(),
+                    value: "shard2value".to_string(),
+                },
+            ]))
+            .await;
+
+        let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
+
+        // Should succeed
+        client.acquire_cookie("vault.example.com").await.unwrap();
+
+        // Verify all shards were saved
+        let saved_config = repo
+            .get("vault.example.com".to_string())
+            .await
+            .unwrap()
+            .unwrap();
+
+        if let BootstrapConfig::SsoCookieVendor(vendor_config) = saved_config.bootstrap {
+            assert_eq!(vendor_config.cookie_value.as_ref().unwrap().len(), 3);
+            assert_eq!(
+                vendor_config.cookie_value.as_ref().unwrap()[0].name,
+                "AWSELBAuthSessionCookie-0"
+            );
+            assert_eq!(
+                vendor_config.cookie_value.as_ref().unwrap()[1].name,
+                "AWSELBAuthSessionCookie-1"
+            );
+            assert_eq!(
+                vendor_config.cookie_value.as_ref().unwrap()[2].name,
+                "AWSELBAuthSessionCookie-2"
+            );
+        } else {
+            panic!("Expected SsoCookieVendor config");
+        }
+    }
+
+    #[tokio::test]
+    async fn acquire_cookie_accepts_unsharded_cookie_without_suffix() {
+        let repo = MockRepository::default();
+        let platform_api = MockPlatformApi::new();
+
+        // Setup config
+        let config = ServerCommunicationConfig {
+            bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
+                idp_login_url: "https://example.com".to_string(),
+                cookie_name: "SessionCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                cookie_value: None,
+            }),
+        };
+        repo.save("vault.example.com".to_string(), config)
+            .await
+            .unwrap();
+
+        // Platform API returns single cookie without suffix
+        platform_api
+            .set_cookies(Some(vec![AcquiredCookie {
+                name: "SessionCookie".to_string(),
+                value: "single-cookie-value".to_string(),
+            }]))
+            .await;
+
+        let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
+
+        // Should succeed
+        client.acquire_cookie("vault.example.com").await.unwrap();
+
+        // Verify value was saved
+        let saved_config = repo
+            .get("vault.example.com".to_string())
+            .await
+            .unwrap()
+            .unwrap();
+
+        if let BootstrapConfig::SsoCookieVendor(vendor_config) = saved_config.bootstrap {
+            assert_eq!(vendor_config.cookie_value.as_ref().unwrap().len(), 1);
+            assert_eq!(
+                vendor_config.cookie_value.as_ref().unwrap()[0].name,
+                "SessionCookie"
+            );
+            assert_eq!(
+                vendor_config.cookie_value.as_ref().unwrap()[0].value,
+                "single-cookie-value"
+            );
+        } else {
+            panic!("Expected SsoCookieVendor config");
+        }
     }
 }

@@ -42,16 +42,16 @@ pub enum BootstrapConfig {
 pub struct SsoCookieVendorConfig {
     /// Identity provider login URL for browser redirect during bootstrap
     pub idp_login_url: String,
-    /// Cookie name
+    /// Cookie name (base name, without shard suffix)
     pub cookie_name: String,
     /// Cookie domain for validation
     pub cookie_domain: String,
-    /// Cookie value shards
+    /// Acquired cookies
     ///
-    /// IdP cookies can be sharded across multiple values to work around browser
-    /// 4KB cookie size limits. Each shard should be set as a separate cookie with
-    /// the same cookie name. The load balancer automatically reassembles them.
-    pub cookie_value: Option<Vec<String>>,
+    /// For sharded cookies, this contains multiple entries with names like
+    /// `AWSELBAuthSessionCookie-0`, `AWSELBAuthSessionCookie-1`, etc.
+    /// For unsharded cookies, this contains a single entry with the base name.
+    pub cookie_value: Option<Vec<crate::AcquiredCookie>>,
 }
 
 // We manually implement Debug to make sure we don't print sensitive cookie values
@@ -115,6 +115,8 @@ mod tests {
 
     #[test]
     fn cookie_value_some_and_none() {
+        use crate::AcquiredCookie;
+
         // Test with None
         let config_none = SsoCookieVendorConfig {
             idp_login_url: "https://example.com".to_string(),
@@ -127,19 +129,23 @@ mod tests {
         let deserialized_none: SsoCookieVendorConfig = serde_json::from_str(&json_none).unwrap();
         assert!(deserialized_none.cookie_value.is_none());
 
-        // Test with Some - single shard
+        // Test with Some - single cookie
         let config_some = SsoCookieVendorConfig {
             idp_login_url: "https://example.com".to_string(),
             cookie_name: "TestCookie".to_string(),
             cookie_domain: "example.com".to_string(),
-            cookie_value: Some(vec!["eyJhbGciOiJFUzI1NiIsImtpZCI6Im...".to_string()]),
+            cookie_value: Some(vec![AcquiredCookie {
+                name: "TestCookie".to_string(),
+                value: "eyJhbGciOiJFUzI1NiIsImtpZCI6Im...".to_string(),
+            }]),
         };
 
         let json_some = serde_json::to_string(&config_some).unwrap();
         let deserialized_some: SsoCookieVendorConfig = serde_json::from_str(&json_some).unwrap();
+        assert_eq!(deserialized_some.cookie_value.as_ref().unwrap().len(), 1);
         assert_eq!(
-            deserialized_some.cookie_value,
-            Some(vec!["eyJhbGciOiJFUzI1NiIsImtpZCI6Im...".to_string()])
+            deserialized_some.cookie_value.as_ref().unwrap()[0].name,
+            "TestCookie"
         );
 
         // Test with multiple shards
@@ -148,22 +154,28 @@ mod tests {
             cookie_name: "TestCookie".to_string(),
             cookie_domain: "example.com".to_string(),
             cookie_value: Some(vec![
-                "shard1".to_string(),
-                "shard2".to_string(),
-                "shard3".to_string(),
+                AcquiredCookie {
+                    name: "TestCookie-0".to_string(),
+                    value: "shard1".to_string(),
+                },
+                AcquiredCookie {
+                    name: "TestCookie-1".to_string(),
+                    value: "shard2".to_string(),
+                },
+                AcquiredCookie {
+                    name: "TestCookie-2".to_string(),
+                    value: "shard3".to_string(),
+                },
             ]),
         };
 
         let json_sharded = serde_json::to_string(&config_sharded).unwrap();
         let deserialized_sharded: SsoCookieVendorConfig =
             serde_json::from_str(&json_sharded).unwrap();
+        assert_eq!(deserialized_sharded.cookie_value.as_ref().unwrap().len(), 3);
         assert_eq!(
-            deserialized_sharded.cookie_value,
-            Some(vec![
-                "shard1".to_string(),
-                "shard2".to_string(),
-                "shard3".to_string()
-            ])
+            deserialized_sharded.cookie_value.as_ref().unwrap()[0].name,
+            "TestCookie-0"
         );
     }
 
@@ -183,12 +195,17 @@ mod tests {
 
     #[test]
     fn debug_output_redacts_cookie_value() {
+        use crate::AcquiredCookie;
+
         // Test that cookie values are not exposed in Debug output
         let config_with_cookie = SsoCookieVendorConfig {
             idp_login_url: "https://example.com/login".to_string(),
             cookie_name: "SessionCookie".to_string(),
             cookie_domain: "example.com".to_string(),
-            cookie_value: Some(vec!["super-secret-cookie-value-abc123".to_string()]),
+            cookie_value: Some(vec![AcquiredCookie {
+                name: "SessionCookie".to_string(),
+                value: "super-secret-cookie-value-abc123".to_string(),
+            }]),
         };
 
         let debug_output = format!("{:?}", config_with_cookie);

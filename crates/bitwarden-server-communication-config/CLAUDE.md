@@ -50,11 +50,11 @@ for self-hosted environments requiring session affinity.
    │       └─ acquire_cookie(hostname) → Result<(), E>        │
    └───────────────────────────────────────────────────────────┘
          ↓                                    ↓
-   ┌─────────────────────────┐  ┌────────────────────────────────┐
-   │ Repository (storage)    │  │ PlatformApi (acquisition)      │
-   │  ├─ get(hostname)       │  │  └─ acquire_cookie(hostname)   │
-   │  └─ save(hostname, cfg) │  │       → Option<AcquiredCookie>│
-   └─────────────────────────┘  └────────────────────────────────┘
+   ┌─────────────────────────┐  ┌─────────────────────────────────────┐
+   │ Repository (storage)    │  │ PlatformApi (acquisition)           │
+   │  ├─ get(hostname)       │  │  └─ acquire_cookies(hostname)       │
+   │  └─ save(hostname, cfg) │  │       → Option<Vec<AcquiredCookie>>│
+   └─────────────────────────┘  └─────────────────────────────────────┘
          ↓                                    ↓
    Platform Storage               Platform WebView/Browser API
 ```
@@ -144,17 +144,26 @@ cross-platform (WebView cookie flows, browser APIs, native UI)
 
 ```rust
 /// Cookie acquired from platform
+///
+/// Represents a single cookie name/value pair. For sharded cookies (AWS ALB pattern),
+/// each shard is a separate AcquiredCookie with its own name including the -{N} suffix.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct AcquiredCookie {
+    /// Cookie name (includes -N suffix for sharded cookies)
     pub name: String,
+    /// Cookie value
     pub value: String,
 }
 
 #[cfg_attr(feature = "uniffi", uniffi::export(with_foreign))]
 #[async_trait::async_trait]
 pub trait ServerCommunicationConfigPlatformApi: Send + Sync {
-    async fn acquire_cookie(&self, hostname: String) -> Option<AcquiredCookie>;
+    /// Acquires cookies for the given hostname.
+    ///
+    /// Platform returns all cookies as a Vec, where each entry has the full
+    /// name (with -N suffix for sharded cookies) and value.
+    async fn acquire_cookies(&self, hostname: String) -> Option<Vec<AcquiredCookie>>;
 }
 ```
 
@@ -171,13 +180,19 @@ bindings.
 **Cookie Acquisition Flow**:
 
 1. SDK calls `client.acquire_cookie(hostname)`
-2. SDK retrieves expected cookie name from stored configuration
-3. SDK invokes `platform_api.acquire_cookie(hostname)` to trigger UI flow
+2. SDK retrieves expected cookie name (base name) from stored configuration
+3. SDK invokes `platform_api.acquire_cookies(hostname)` to trigger UI flow
 4. Platform opens IDP login URL in WebView/browser
 5. User authenticates with identity provider
-6. Platform extracts cookie from browser/WebView and returns `AcquiredCookie { name, value }`
-7. SDK validates cookie name matches expected name from configuration
-8. SDK saves cookie value to repository
+6. Platform extracts all relevant cookies from browser/WebView
+   - For unsharded cookies: Returns `[AcquiredCookie { name: "CookieName", value: "..." }]`
+   - For sharded cookies: Returns
+     `[AcquiredCookie { name: "CookieName-0", value: "..." }, AcquiredCookie { name: "CookieName-1", value: "..." }, ...]`
+7. SDK validates all cookie names match the expected pattern:
+   - Either exact match with base name (unsharded)
+   - Or match pattern `{base_name}-{N}` where N is a digit (sharded)
+8. SDK saves all cookies to repository exactly as received
+9. When returning cookies via `cookies()`, SDK passes them through unchanged
 
 **Error Handling**:
 
@@ -291,14 +306,18 @@ pub struct SsoCookieVendorConfig {
     /// IDP login URL for browser redirect
     pub idp_login_url: String,
 
-    /// Cookie name (e.g., "ALBAuthSessionCookie")
+    /// Cookie name - base name without shard suffix (e.g., "AWSELBAuthSessionCookie")
     pub cookie_name: String,
 
     /// Cookie domain for validation
     pub cookie_domain: String,
 
-    /// Cookie value (populated after bootstrap flow)
-    pub cookie_value: Option<String>,
+    /// Acquired cookies (populated after bootstrap flow)
+    ///
+    /// For sharded cookies, contains multiple entries with names like
+    /// "AWSELBAuthSessionCookie-0", "AWSELBAuthSessionCookie-1", etc.
+    /// For unsharded cookies, contains a single entry with the base name.
+    pub cookie_value: Option<Vec<AcquiredCookie>>,
 }
 ```
 
