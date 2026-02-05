@@ -623,6 +623,9 @@ mod tests {
         apis::ApiClient,
         models::{DeviceResponseModel, KdfRequestModel, KdfType, KeysResponseModel},
     };
+    use bitwarden_api_identity::{
+        apis::ApiClient as IdentityApiClient, models::RegisterFinishResponseModel,
+    };
     use bitwarden_core::Client;
     use bitwarden_crypto::Kdf;
 
@@ -1355,6 +1358,192 @@ mod tests {
         if let ApiClient::Mock(mut mock) = api_client {
             mock.accounts_api.checkpoint();
             mock.organization_users_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_post_user_password_registration_success() {
+        let client = Client::new(None);
+        let registration_client = RegistrationClient::new(client);
+
+        let test_email = "test@example.com";
+        let test_hint = "test hint";
+        let test_password = "test-password-123";
+
+        let identity_client = IdentityApiClient::new_mocked(|mock| {
+            mock.accounts_api
+                .expect_post_register_finish()
+                .once()
+                .withf(|body| {
+                    if let Some(req) = body {
+                        // standard user entity information
+                        assert_eq!(req.email, Some(test_email.to_string()));
+                        assert_eq!(req.master_password_hint, Some(test_hint.to_string()));
+
+                        // verifying new cryptographic data structures
+                        assert!(req.account_keys.is_some());
+                        let account_keys = req.account_keys.as_ref().unwrap();
+                        assert!(
+                            account_keys
+                                .user_key_encrypted_account_private_key
+                                .is_some()
+                        );
+                        assert!(account_keys.account_public_key.is_some());
+                        assert!(account_keys.public_key_encryption_key_pair.is_some());
+                        let public_key_encryption_key_pair = account_keys
+                            .public_key_encryption_key_pair
+                            .as_ref()
+                            .unwrap();
+                        assert!(public_key_encryption_key_pair.public_key.is_some());
+                        assert!(public_key_encryption_key_pair.signed_public_key.is_some());
+                        assert!(public_key_encryption_key_pair.wrapped_private_key.is_some());
+                        assert!(account_keys.signature_key_pair.is_some());
+                        let signature_key_pair = account_keys.signature_key_pair.as_ref().unwrap();
+                        assert_eq!(
+                            signature_key_pair.signature_algorithm,
+                            Some("ed25519".to_string())
+                        );
+                        assert!(signature_key_pair.verifying_key.is_some());
+                        assert!(signature_key_pair.wrapped_signing_key.is_some());
+                        assert!(account_keys.security_state.is_some());
+                        let security_state = account_keys.security_state.as_ref().unwrap();
+                        assert!(security_state.security_state.is_some());
+                        assert_eq!(security_state.security_version, 2);
+                        assert!(req.master_password_unlock.is_some());
+                        let master_password_unlock = req.master_password_unlock.as_ref().unwrap();
+                        assert_eq!(master_password_unlock.salt, test_email.to_string());
+                        assert_eq!(
+                            master_password_unlock.kdf,
+                            Box::new(bitwarden_api_identity::models::KdfRequestModel {
+                                kdf_type: bitwarden_api_identity::models::KdfType::Argon2id,
+                                iterations: 6,
+                                memory: Some(32),
+                                parallelism: Some(4),
+                            })
+                        );
+                        assert!(req.master_password_authentication.is_some());
+                        let master_password_authentication =
+                            req.master_password_authentication.as_ref().unwrap();
+                        assert_eq!(master_password_authentication.salt, test_email.to_string());
+                        assert_eq!(
+                            master_password_authentication.kdf,
+                            Box::new(bitwarden_api_identity::models::KdfRequestModel {
+                                kdf_type: bitwarden_api_identity::models::KdfType::Argon2id,
+                                iterations: 6,
+                                memory: Some(32),
+                                parallelism: Some(4),
+                            })
+                        );
+
+                        // verify old cryptographic structures aren't set
+                        assert!(req.user_asymmetric_keys.is_none());
+                        assert!(req.kdf.is_none());
+                        assert!(req.kdf_iterations.is_none());
+                        assert!(req.kdf_memory.is_none());
+                        assert!(req.kdf_parallelism.is_none());
+
+                        // verify master password registration specific information
+                        assert!(req.email_verification_token.is_none());
+                        assert!(req.organization_user_id.is_none());
+                        assert!(req.org_invite_token.is_none());
+                        assert!(req.org_sponsored_free_family_plan_token.is_none());
+                        assert!(req.accept_emergency_access_invite_token.is_none());
+                        assert!(req.accept_emergency_access_id.is_none());
+                        assert!(req.provider_invite_token.is_none());
+                        assert!(req.provider_user_id.is_none());
+                        true
+                    } else {
+                        false
+                    }
+                })
+                .returning(move |_body| {
+                    Ok(RegisterFinishResponseModel {
+                        object: None,
+                        captcha_bypass_token: None,
+                    })
+                });
+        });
+
+        let request = UserMasterPasswordRegistrationRequest {
+            user_id: TEST_USER_ID.parse().unwrap(),
+            email: test_email.to_string(),
+            salt: test_email.to_string(),
+            master_password: test_password.to_string(),
+            master_password_hint: Some(test_hint.to_string()),
+            email_verification_token: None,
+            organization_user_id: None,
+            org_invite_token: None,
+            org_sponsored_free_family_plan_token: None,
+            accept_emergency_access_invite_token: None,
+            accept_emergency_access_id: None,
+            provider_invite_token: None,
+            provider_user_id: None,
+        };
+
+        let result = internal_post_user_password_registration(
+            &registration_client,
+            &identity_client,
+            request,
+        )
+        .await;
+
+        assert!(result.is_ok());
+
+        // check that mock expectations were met
+        if let IdentityApiClient::Mock(mut mock) = identity_client {
+            mock.accounts_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_post_user_password_registration_failure() {
+        let client = Client::new(None);
+        let registration_client = RegistrationClient::new(client);
+
+        let test_email = "test@example.com";
+        let test_hint = "test hint";
+        let test_password = "test-password-123";
+
+        let identity_client = IdentityApiClient::new_mocked(|mock| {
+            mock.accounts_api
+                .expect_post_register_finish()
+                .once()
+                .returning(move |_body| {
+                    Err(bitwarden_api_api::apis::Error::Serde(
+                        serde_json::Error::io(std::io::Error::other("API error")),
+                    ))
+                });
+        });
+
+        let request = UserMasterPasswordRegistrationRequest {
+            user_id: TEST_USER_ID.parse().unwrap(),
+            email: test_email.to_string(),
+            salt: test_email.to_string(),
+            master_password: test_password.to_string(),
+            master_password_hint: Some(test_hint.to_string()),
+            email_verification_token: None,
+            organization_user_id: None,
+            org_invite_token: None,
+            org_sponsored_free_family_plan_token: None,
+            accept_emergency_access_invite_token: None,
+            accept_emergency_access_id: None,
+            provider_invite_token: None,
+            provider_user_id: None,
+        };
+
+        let result = internal_post_user_password_registration(
+            &registration_client,
+            &identity_client,
+            request,
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), RegistrationError::Api));
+
+        // check that mock expectations were met
+        if let IdentityApiClient::Mock(mut mock) = identity_client {
+            mock.accounts_api.checkpoint();
         }
     }
 }

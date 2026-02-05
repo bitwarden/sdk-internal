@@ -1075,7 +1075,8 @@ pub(crate) fn make_user_password_registration(
     master_password: String,
     salt: String,
 ) -> Result<MakeUserMasterPasswordRegistrationResponse, MakeKeysError> {
-    // make_user_v2_crypto_state() - Creates user key (xchacha20-poly1305), RSA keypair, ed25519 signature keypair, and signed security state
+    // make_user_v2_crypto_state() - Creates user key (xchacha20-poly1305), RSA keypair, ed25519
+    // signature keypair, and signed security state
     let mut ctx = client.internal.get_key_store().context_mut();
     let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx, user_id)
         .map_err(MakeKeysError::AccountCryptographyInitialization)?;
