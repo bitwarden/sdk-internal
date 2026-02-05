@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`d9e849a44da734c3d210d96151fed6f405a23587`](https://github.com/bitwarden/server/commit/d9e849a44da734c3d210d96151fed6f405a23587)
+  [`c0266493797e8c5d010e4ebe68a5a018ca9308a2`](https://github.com/bitwarden/server/commit/c0266493797e8c5d010e4ebe68a5a018ca9308a2)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -359,6 +359,11 @@ All URIs are relative to *https://api.bitwarden.com*
 | _PoliciesApi_                             | [**get_master_password_policy**](docs/PoliciesApi.md#policies_get_master_password_policy)                                                                        | **GET** /organizations/{orgId}/policies/master-password                                                  |
 | _PoliciesApi_                             | [**put**](docs/PoliciesApi.md#policies_put)                                                                                                                      | **PUT** /organizations/{orgId}/policies/{type}                                                           |
 | _PoliciesApi_                             | [**put_v_next**](docs/PoliciesApi.md#policies_put_v_next)                                                                                                        | **PUT** /organizations/{orgId}/policies/{type}/vnext                                                     |
+| _PreviewInvoiceApi_                       | [**preview_organization_subscription_plan_change_tax**](docs/PreviewInvoiceApi.md#preview_invoice_preview_organization_subscription_plan_change_tax)             | **POST** /billing/preview-invoice/organizations/{organizationId}/subscription/plan-change                |
+| _PreviewInvoiceApi_                       | [**preview_organization_subscription_purchase_tax**](docs/PreviewInvoiceApi.md#preview_invoice_preview_organization_subscription_purchase_tax)                   | **POST** /billing/preview-invoice/organizations/subscriptions/purchase                                   |
+| _PreviewInvoiceApi_                       | [**preview_organization_subscription_update_tax**](docs/PreviewInvoiceApi.md#preview_invoice_preview_organization_subscription_update_tax)                       | **PUT** /billing/preview-invoice/organizations/{organizationId}/subscription/update                      |
+| _PreviewInvoiceApi_                       | [**preview_premium_subscription_purchase_tax**](docs/PreviewInvoiceApi.md#preview_invoice_preview_premium_subscription_purchase_tax)                             | **POST** /billing/preview-invoice/premium/subscriptions/purchase                                         |
+| _PreviewInvoiceApi_                       | [**preview_premium_upgrade_proration**](docs/PreviewInvoiceApi.md#preview_invoice_preview_premium_upgrade_proration)                                             | **POST** /billing/preview-invoice/premium/subscriptions/upgrade                                          |
 | _ProjectsApi_                             | [**bulk_delete**](docs/ProjectsApi.md#projects_bulk_delete)                                                                                                      | **POST** /projects/delete                                                                                |
 | _ProjectsApi_                             | [**create**](docs/ProjectsApi.md#projects_create)                                                                                                                | **POST** /organizations/{organizationId}/projects                                                        |
 | _ProjectsApi_                             | [**get**](docs/ProjectsApi.md#projects_get)                                                                                                                      | **GET** /projects/{id}                                                                                   |
@@ -472,10 +477,6 @@ All URIs are relative to *https://api.bitwarden.com*
 | _StripeApi_                               | [**create_setup_intent_for_card**](docs/StripeApi.md#stripe_create_setup_intent_for_card)                                                                        | **POST** /setup-intent/card                                                                              |
 | _StripeApi_                               | [**is_country_supported**](docs/StripeApi.md#stripe_is_country_supported)                                                                                        | **GET** /tax/is-country-supported                                                                        |
 | _SyncApi_                                 | [**get**](docs/SyncApi.md#sync_get)                                                                                                                              | **GET** /sync                                                                                            |
-| _TaxApi_                                  | [**preview_organization_subscription_plan_change_tax**](docs/TaxApi.md#tax_preview_organization_subscription_plan_change_tax)                                    | **POST** /billing/tax/organizations/{organizationId}/subscription/plan-change                            |
-| _TaxApi_                                  | [**preview_organization_subscription_purchase_tax**](docs/TaxApi.md#tax_preview_organization_subscription_purchase_tax)                                          | **POST** /billing/tax/organizations/subscriptions/purchase                                               |
-| _TaxApi_                                  | [**preview_organization_subscription_update_tax**](docs/TaxApi.md#tax_preview_organization_subscription_update_tax)                                              | **PUT** /billing/tax/organizations/{organizationId}/subscription/update                                  |
-| _TaxApi_                                  | [**preview_premium_subscription_purchase_tax**](docs/TaxApi.md#tax_preview_premium_subscription_purchase_tax)                                                    | **POST** /billing/tax/premium/subscriptions/purchase                                                     |
 | _TeamsIntegrationApi_                     | [**create**](docs/TeamsIntegrationApi.md#teams_integration_create)                                                                                               | **GET** /organizations/integrations/teams/create                                                         |
 | _TeamsIntegrationApi_                     | [**incoming_post**](docs/TeamsIntegrationApi.md#teams_integration_incoming_post)                                                                                 | **POST** /organizations/integrations/teams/incoming                                                      |
 | _TeamsIntegrationApi_                     | [**redirect**](docs/TeamsIntegrationApi.md#teams_integration_redirect)                                                                                           | **GET** /organizations/{organizationId}/integrations/teams/redirect                                      |
@@ -797,10 +798,10 @@ All URIs are relative to *https://api.bitwarden.com*
 - [PlanResponseModelListResponseModel](docs/PlanResponseModelListResponseModel.md)
 - [PlanSponsorshipType](docs/PlanSponsorshipType.md)
 - [PlanType](docs/PlanType.md)
-- [PolicyDetailResponseModel](docs/PolicyDetailResponseModel.md)
 - [PolicyRequestModel](docs/PolicyRequestModel.md)
 - [PolicyResponseModel](docs/PolicyResponseModel.md)
 - [PolicyResponseModelListResponseModel](docs/PolicyResponseModelListResponseModel.md)
+- [PolicyStatusResponseModel](docs/PolicyStatusResponseModel.md)
 - [PolicyType](docs/PolicyType.md)
 - [PotentialGranteeResponseModel](docs/PotentialGranteeResponseModel.md)
 - [PotentialGranteeResponseModelListResponseModel](docs/PotentialGranteeResponseModelListResponseModel.md)
@@ -810,6 +811,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [PreviewOrganizationSubscriptionPurchaseTaxRequest](docs/PreviewOrganizationSubscriptionPurchaseTaxRequest.md)
 - [PreviewOrganizationSubscriptionUpdateTaxRequest](docs/PreviewOrganizationSubscriptionUpdateTaxRequest.md)
 - [PreviewPremiumSubscriptionPurchaseTaxRequest](docs/PreviewPremiumSubscriptionPurchaseTaxRequest.md)
+- [PreviewPremiumUpgradeProrationRequest](docs/PreviewPremiumUpgradeProrationRequest.md)
 - [Priority](docs/Priority.md)
 - [PrivateKeysResponseModel](docs/PrivateKeysResponseModel.md)
 - [ProductTierType](docs/ProductTierType.md)
