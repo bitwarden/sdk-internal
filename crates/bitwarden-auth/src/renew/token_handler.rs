@@ -111,7 +111,6 @@ fn set_token(req: &mut reqwest::Request, token: &str) {
 }
 
 impl AuthTokenHandler {
-    #[allow(clippy::unused_async)]
     async fn get_token(&self) -> Result<Option<String>, LoginError> {
         const TOKEN_RENEW_MARGIN_SECONDS: i64 = 5 * 60;
 
