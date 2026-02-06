@@ -22,9 +22,12 @@ bat = { version = "0.26.0", features = [
 bitwarden-api-api = { workspace = true }
 bitwarden-cli = { workspace = true }
 bitwarden-collections = { workspace = true }
-bitwarden-core = { workspace = true }
+bitwarden-core = { workspace = true, features = ["cli"] }
+bitwarden-crypto = { workspace = true }
+bitwarden-encoding = { workspace = true }
 bitwarden-generators = { workspace = true }
 bitwarden-pm = { workspace = true }
+bitwarden-state = { workspace = true }
 bitwarden-vault = { workspace = true }
 clap = { version = "4.5.4", features = ["derive", "env"] }
 clap_complete = "4.5.55"
