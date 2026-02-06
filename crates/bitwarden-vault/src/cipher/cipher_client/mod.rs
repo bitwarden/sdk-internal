@@ -134,12 +134,14 @@ impl CiphersClient {
             .get_flags()
             .enable_cipher_key_encryption;
 
+        let mut ctx = key_store.context();
+
         let prepared_views: Vec<CipherView> = cipher_views
             .into_iter()
             .map(|mut cv| {
                 if cv.key.is_none() && enable_cipher_key {
                     let key = cv.key_identifier();
-                    cv.generate_cipher_key(&mut key_store.context(), key)?;
+                    cv.generate_cipher_key(&mut ctx, key)?;
                 }
                 Ok(cv)
             })
