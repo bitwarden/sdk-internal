@@ -15,7 +15,8 @@ use super::EncryptionContext;
 use crate::Fido2CredentialFullView;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
-    cipher::cipher::DecryptCipherListResult, cipher_client::admin::CipherAdminClient,
+    cipher::cipher::{DecryptCipherListResult, DecryptCipherResult},
+    cipher_client::admin::CipherAdminClient,
 };
 
 mod admin;
@@ -133,6 +134,19 @@ impl CiphersClient {
         let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
 
         DecryptCipherListResult {
+            successes,
+            failures: failures.into_iter().cloned().collect(),
+        }
+    }
+
+    /// Decrypt full cipher list
+    /// Returns both successfully fully decrypted ciphers and any that failed to decrypt
+    #[cfg(feature = "wasm")]
+    pub fn decrypt_list_full_with_failures(&self, ciphers: Vec<Cipher>) -> DecryptCipherResult {
+        let key_store = self.client.internal.get_key_store();
+        let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
+
+        DecryptCipherResult {
             successes,
             failures: failures.into_iter().cloned().collect(),
         }
@@ -544,6 +558,80 @@ mod tests {
             .unwrap();
 
         assert_eq!(content, b"Hello");
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "wasm")]
+    async fn test_decrypt_list_full_with_failures_all_success() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let valid_cipher = test_cipher();
+
+        let result = client
+            .vault()
+            .ciphers()
+            .decrypt_list_full_with_failures(vec![valid_cipher]);
+
+        assert_eq!(result.successes.len(), 1);
+        assert!(result.failures.is_empty());
+        assert_eq!(result.successes[0].name, "234234");
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "wasm")]
+    async fn test_decrypt_list_full_with_failures_mixed_results() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let valid_cipher = test_cipher();
+        let mut invalid_cipher = test_cipher();
+        // Set an invalid encrypted key to cause decryption failure
+        invalid_cipher.key = Some("2.Gg8yCM4IIgykCZyq0O4+cA==|GJLBtfvSJTDJh/F7X4cJPkzI6ccnzJm5DYl3yxOW2iUn7DgkkmzoOe61sUhC5dgVdV0kFqsZPcQ0yehlN1DDsFIFtrb4x7LwzJNIkMgxNyg=|1rGkGJ8zcM5o5D0aIIwAyLsjMLrPsP3EWm3CctBO3Fw=".parse().unwrap());
+
+        let ciphers = vec![valid_cipher, invalid_cipher.clone()];
+
+        let result = client
+            .vault()
+            .ciphers()
+            .decrypt_list_full_with_failures(ciphers);
+
+        assert_eq!(result.successes.len(), 1);
+        assert_eq!(result.failures.len(), 1);
+
+        assert_eq!(result.successes[0].name, "234234");
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "wasm")]
+    async fn test_decrypt_list_full_with_failures_all_failures() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let mut invalid_cipher1 = test_cipher();
+        let mut invalid_cipher2 = test_cipher();
+        // Set invalid encrypted keys to cause decryption failures
+        invalid_cipher1.key = Some("2.Gg8yCM4IIgykCZyq0O4+cA==|GJLBtfvSJTDJh/F7X4cJPkzI6ccnzJm5DYl3yxOW2iUn7DgkkmzoOe61sUhC5dgVdV0kFqsZPcQ0yehlN1DDsFIFtrb4x7LwzJNIkMgxNyg=|1rGkGJ8zcM5o5D0aIIwAyLsjMLrPsP3EWm3CctBO3Fw=".parse().unwrap());
+        invalid_cipher2.key = Some("2.Gg8yCM4IIgykCZyq0O4+cA==|GJLBtfvSJTDJh/F7X4cJPkzI6ccnzJm5DYl3yxOW2iUn7DgkkmzoOe61sUhC5dgVdV0kFqsZPcQ0yehlN1DDsFIFtrb4x7LwzJNIkMgxNyg=|1rGkGJ8zcM5o5D0aIIwAyLsjMLrPsP3EWm3CctBO3Fw=".parse().unwrap());
+
+        let ciphers = vec![invalid_cipher1, invalid_cipher2];
+
+        let result = client
+            .vault()
+            .ciphers()
+            .decrypt_list_full_with_failures(ciphers);
+
+        assert!(result.successes.is_empty());
+        assert_eq!(result.failures.len(), 2);
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "wasm")]
+    async fn test_decrypt_list_full_with_failures_empty_list() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let result = client
+            .vault()
+            .ciphers()
+            .decrypt_list_full_with_failures(vec![]);
+
+        assert!(result.successes.is_empty());
+        assert!(result.failures.is_empty());
     }
 
     #[tokio::test]

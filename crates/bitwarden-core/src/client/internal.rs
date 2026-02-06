@@ -85,7 +85,7 @@ impl ApiConfigurations {
     ) -> bitwarden_api_key_connector::apis::ApiClient {
         let api = self.api_config.clone();
 
-        let key_connector = bitwarden_api_key_connector::apis::configuration::Configuration {
+        let key_connector = bitwarden_api_base::Configuration {
             base_path: key_connector_url,
             user_agent: api.user_agent,
             client: api.client,

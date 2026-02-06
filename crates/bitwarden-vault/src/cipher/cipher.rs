@@ -428,6 +428,17 @@ pub struct CipherListView {
     pub copyable_fields: Vec<CopyableCipherFields>,
 
     pub local_data: Option<LocalDataView>,
+
+    /// Decrypted cipher notes for search indexing.
+    #[cfg(feature = "wasm")]
+    pub notes: Option<String>,
+    /// Decrypted cipher fields for search indexing.
+    /// Only includes name and value (for text fields only).
+    #[cfg(feature = "wasm")]
+    pub fields: Option<Vec<field::FieldListView>>,
+    /// Decrypted attachment filenames for search indexing.
+    #[cfg(feature = "wasm")]
+    pub attachment_names: Option<Vec<String>>,
 }
 
 /// Represents the result of decrypting a list of ciphers.
@@ -442,6 +453,21 @@ pub struct CipherListView {
 pub struct DecryptCipherListResult {
     /// The decrypted `CipherListView` objects.
     pub successes: Vec<CipherListView>,
+    /// The original `Cipher` objects that failed to decrypt.
+    pub failures: Vec<Cipher>,
+}
+
+/// Represents the result of decrypting a list of ciphers.
+///
+/// This struct contains two vectors: `successes` and `failures`.
+/// `successes` contains the decrypted `CipherView` objects,
+/// while `failures` contains the original `Cipher` objects that failed to decrypt.
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct DecryptCipherResult {
+    /// The decrypted `CipherView` objects.
+    pub successes: Vec<CipherView>,
     /// The original `Cipher` objects that failed to decrypt.
     pub failures: Vec<Cipher>,
 }
@@ -905,6 +931,26 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             copyable_fields: self.get_copyable_fields(),
             local_data: self.local_data.decrypt(ctx, ciphers_key)?,
             archived_date: self.archived_date,
+            #[cfg(feature = "wasm")]
+            notes: self.notes.decrypt(ctx, ciphers_key).ok().flatten(),
+            #[cfg(feature = "wasm")]
+            fields: self.fields.as_ref().map(|fields| {
+                fields
+                    .iter()
+                    .filter_map(|f| {
+                        f.decrypt(ctx, ciphers_key)
+                            .ok()
+                            .map(field::FieldListView::from)
+                    })
+                    .collect()
+            }),
+            #[cfg(feature = "wasm")]
+            attachment_names: self.attachments.as_ref().map(|attachments| {
+                attachments
+                    .iter()
+                    .filter_map(|a| a.file_name.decrypt(ctx, ciphers_key).ok().flatten())
+                    .collect()
+            }),
         })
     }
 }
@@ -1386,6 +1432,12 @@ mod tests {
                 ],
                 local_data: None,
                 archived_date: cipher.archived_date,
+                #[cfg(feature = "wasm")]
+                notes: None,
+                #[cfg(feature = "wasm")]
+                fields: None,
+                #[cfg(feature = "wasm")]
+                attachment_names: None,
             }
         )
     }
