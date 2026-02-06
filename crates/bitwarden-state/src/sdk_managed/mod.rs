@@ -65,7 +65,8 @@ struct DBRepository<T: RepositoryItem> {
 
 #[async_trait::async_trait]
 impl<V: RepositoryItem> Repository<V> for DBRepository<V> {
-    async fn get(&self, key: String) -> Result<Option<V>, RepositoryError> {
+    async fn get(&self, key: V::Key) -> Result<Option<V>, RepositoryError> {
+        let key = key.to_string();
         let value = self.database.get::<V>(&key).await?;
         Ok(value)
     }
@@ -73,10 +74,12 @@ impl<V: RepositoryItem> Repository<V> for DBRepository<V> {
         let values = self.database.list::<V>().await?;
         Ok(values)
     }
-    async fn set(&self, key: String, value: V) -> Result<(), RepositoryError> {
+    async fn set(&self, key: V::Key, value: V) -> Result<(), RepositoryError> {
+        let key = key.to_string();
         Ok(self.database.set::<V>(&key, value).await?)
     }
-    async fn remove(&self, key: String) -> Result<(), RepositoryError> {
+    async fn remove(&self, key: V::Key) -> Result<(), RepositoryError> {
+        let key = key.to_string();
         Ok(self.database.remove::<V>(&key).await?)
     }
 }

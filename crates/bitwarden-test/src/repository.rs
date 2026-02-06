@@ -18,11 +18,12 @@ impl<V: RepositoryItem + Clone> Default for MemoryRepository<V> {
 
 #[async_trait::async_trait]
 impl<V: RepositoryItem + Clone> Repository<V> for MemoryRepository<V> {
-    async fn get(&self, key: String) -> Result<Option<V>, RepositoryError> {
+    async fn get(&self, key: V::Key) -> Result<Option<V>, RepositoryError> {
         let store = self
             .store
             .lock()
             .map_err(|e| RepositoryError::Internal(e.to_string()))?;
+        let key = key.to_string();
         Ok(store.get(&key).cloned())
     }
 
@@ -34,20 +35,22 @@ impl<V: RepositoryItem + Clone> Repository<V> for MemoryRepository<V> {
         Ok(store.values().cloned().collect())
     }
 
-    async fn set(&self, key: String, value: V) -> Result<(), RepositoryError> {
+    async fn set(&self, key: V::Key, value: V) -> Result<(), RepositoryError> {
         let mut store = self
             .store
             .lock()
             .map_err(|e| RepositoryError::Internal(e.to_string()))?;
+        let key = key.to_string();
         store.insert(key, value);
         Ok(())
     }
 
-    async fn remove(&self, key: String) -> Result<(), RepositoryError> {
+    async fn remove(&self, key: V::Key) -> Result<(), RepositoryError> {
         let mut store = self
             .store
             .lock()
             .map_err(|e| RepositoryError::Internal(e.to_string()))?;
+        let key = key.to_string();
         store.remove(&key);
         Ok(())
     }

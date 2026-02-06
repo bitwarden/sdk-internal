@@ -92,8 +92,9 @@ macro_rules! create_uniffi_repositories {
             {
                 async fn get(
                     &self,
-                    key: String,
+                    key: <$qualified_type_name as bitwarden_state::repository::RepositoryItem>::Key,
                 ) -> Result<Option<$qualified_type_name>, bitwarden_state::repository::RepositoryError> {
+                    let key = key.to_string();
                     self.0.get(key).await.map_err(Into::into)
                 }
                 async fn list(&self) -> Result<Vec<$qualified_type_name>, bitwarden_state::repository::RepositoryError> {
@@ -101,15 +102,17 @@ macro_rules! create_uniffi_repositories {
                 }
                 async fn set(
                     &self,
-                    key: String,
+                    key: <$qualified_type_name as bitwarden_state::repository::RepositoryItem>::Key,
                     value: $qualified_type_name,
                 ) -> Result<(), bitwarden_state::repository::RepositoryError> {
+                    let key = key.to_string();
                     self.0.set(key, value).await.map_err(Into::into)
                 }
                 async fn remove(
                     &self,
-                    key: String,
+                    key: <$qualified_type_name as bitwarden_state::repository::RepositoryItem>::Key,
                 ) -> Result<(), bitwarden_state::repository::RepositoryError> {
+                    let key = key.to_string();
                     self.0.remove(key).await.map_err(Into::into)
                 }
             }

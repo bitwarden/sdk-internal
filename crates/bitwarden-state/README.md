@@ -17,7 +17,7 @@ struct Cipher {
 
 // Register `Cipher` for use with a `Repository`.
 // This should be done in the crate where `Cipher` is defined.
-bitwarden_state::register_repository_item!(Cipher, "Cipher");
+bitwarden_state::register_repository_item!(String => Cipher, "Cipher");
 ```
 
 With the registration complete, the next important decision is to select where will the data be
