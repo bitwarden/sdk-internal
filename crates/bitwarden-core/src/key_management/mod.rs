@@ -18,6 +18,7 @@ pub mod account_cryptographic_state;
 pub mod crypto;
 #[cfg(feature = "internal")]
 mod crypto_client;
+use bitwarden_encoding::B64;
 #[cfg(feature = "internal")]
 pub use crypto_client::CryptoClient;
 
@@ -35,10 +36,23 @@ pub use security_state::{
 };
 #[cfg(feature = "internal")]
 mod user_decryption;
+use serde::{Deserialize, Serialize};
+use tsify::Tsify;
 #[cfg(feature = "internal")]
 pub use user_decryption::UserDecryptionData;
 
 use crate::OrganizationId;
+
+/// Represents the decrypted symmetric user-key of a user. This is held in ephemeral state of the client.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[repr(transparent)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct UserKeyState {
+    pub decrypted_user_key: B64,
+}
+
+bitwarden_state::register_repository_item!(UserKeyState, "UserKey");
 
 key_ids! {
     #[symmetric]

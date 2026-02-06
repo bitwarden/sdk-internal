@@ -29,7 +29,7 @@ use crate::{
     client::{LoginMethod, UserLoginMethod, encryption_settings::EncryptionSettingsError},
     error::StatefulCryptoError,
     key_management::{
-        MasterPasswordError, PrivateKeyId, SecurityState, SignedSecurityState, SigningKeyId,
+        self, MasterPasswordError, PrivateKeyId, SecurityState, SignedSecurityState, SigningKeyId,
         SymmetricKeyId,
         account_cryptographic_state::{
             AccountCryptographyInitializationError, WrappedAccountCryptographicState,
@@ -153,6 +153,41 @@ pub enum AuthRequestMethod {
     },
 }
 
+/// Error indicating inability to set the user key into state
+struct UnableToSetError;
+/// Sets the decrypted user key into the client-managed state, so that it survives re-creation of the SDK
+async fn set_user_key_to_state(client: &Client) -> Result<(), UnableToSetError> {
+    // The repository pattern requires us to specify a key. Here we use an empty string as the only key for this repository map.
+    const USER_KEY_REPOSITORY_KEY: &str = "";
+
+    // Read the user-key from key-store. There should be no other reason to do this in other parts of the SDK. Do not use this as an example.
+    let user_key = {
+        let key_store = client.internal.get_key_store();
+        let ctx = key_store.context();
+        #[expect(deprecated)]
+        ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+            .map_err(|_| UnableToSetError)?
+            .clone()
+    };
+
+    // Set the user-key into the state repository.
+    let state_client = client.platform().state();
+    let state = (&state_client)
+        .get::<key_management::UserKeyState>()
+        .map_err(|_| UnableToSetError)?;
+    state
+        .set(
+            USER_KEY_REPOSITORY_KEY.to_string(),
+            key_management::UserKeyState {
+                decrypted_user_key: user_key.to_base64(),
+            },
+        )
+        .await
+        .map_err(|_| UnableToSetError)?;
+
+    Ok(())
+}
+
 /// Initialize the user's cryptographic state.
 pub(super) async fn initialize_user_crypto(
     client: &Client,
@@ -185,6 +220,9 @@ pub(super) async fn initialize_user_crypto(
                     master_password_unlock,
                     account_crypto_state,
                 )?;
+            set_user_key_to_state(client)
+                .await
+                .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
         }
         InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
             let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
@@ -212,6 +250,9 @@ pub(super) async fn initialize_user_crypto(
                 pin_protected_user_key_envelope,
                 account_crypto_state,
             )?;
+            set_user_key_to_state(client)
+                .await
+                .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
         }
         InitUserCryptoMethod::AuthRequest {
             request_private_key,
@@ -233,6 +274,9 @@ pub(super) async fn initialize_user_crypto(
             client
                 .internal
                 .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
+            set_user_key_to_state(client)
+                .await
+                .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
         }
         InitUserCryptoMethod::DeviceKey {
             device_key,
@@ -246,6 +290,9 @@ pub(super) async fn initialize_user_crypto(
             client
                 .internal
                 .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
+            set_user_key_to_state(client)
+                .await
+                .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
         }
         InitUserCryptoMethod::KeyConnector {
             master_key,
@@ -259,6 +306,9 @@ pub(super) async fn initialize_user_crypto(
                 user_key,
                 account_crypto_state,
             )?;
+            set_user_key_to_state(client)
+                .await
+                .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
         }
     }
 

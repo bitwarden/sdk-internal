@@ -8,7 +8,7 @@ use bitwarden_user_crypto_management::{UserCryptoManagementClient, UserCryptoMan
 use wasm_bindgen::prelude::*;
 
 use crate::platform::{
-    PlatformClient,
+    CipherRepository, PlatformClient,
     token_provider::{JsTokenProvider, WasmClientManagedTokens},
 };
 
