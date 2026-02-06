@@ -6,12 +6,17 @@
 
 #![deny(missing_docs)]
 
+#[cfg(feature = "uniffi")]
+uniffi::setup_scaffolding!();
+
 mod client;
 mod config;
+mod platform_api;
 mod repository;
 
 pub use client::ServerCommunicationConfigClient;
 pub use config::{BootstrapConfig, ServerCommunicationConfig, SsoCookieVendorConfig};
+pub use platform_api::{AcquireCookieError, AcquiredCookie, ServerCommunicationConfigPlatformApi};
 pub use repository::{
     ServerCommunicationConfigRepository, ServerCommunicationConfigRepositoryError,
 };

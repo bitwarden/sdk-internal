@@ -11,6 +11,7 @@ use bitwarden_encoding::{B64, B64Url};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use sha2::Digest;
 use uuid::Uuid;
 use zeroize::Zeroizing;
 
@@ -48,19 +49,25 @@ pub struct SendText {
     pub hidden: bool,
 }
 
+/// View model for decrypted SendText
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SendTextView {
+    /// The text content of the send
     pub text: Option<String>,
+    /// Whether the text is hidden-by-default (masked as ********).
     pub hidden: bool,
 }
 
+/// The type of Send, either text or file
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum SendType {
+    /// Text-based send
     Text = 0,
+    /// File-based send
     File = 1,
 }
 
@@ -108,7 +115,14 @@ pub struct Send {
     /// Email addresses for OTP authentication.
     /// **Note**: Mutually exclusive with `new_password`. If both are set,
     /// only password authentication will be used.
-    pub emails: Option<String>,
+    pub emails: Option<EncString>,
+
+    /// Email address hashes, a comma-separated list of SHA256 hex digests
+    /// for each email in `emails`:
+    ///  - plaintext email is lower-cased
+    ///  - lowercase plaintext email is hashed using SHA256
+    ///  - resulting digest is represented as upper-case hex
+    pub email_hashes: Option<String>,
     pub auth_type: AuthType,
 }
 
@@ -168,6 +182,8 @@ pub struct SendListView {
     pub revision_date: DateTime<Utc>,
     pub deletion_date: DateTime<Utc>,
     pub expiration_date: Option<DateTime<Utc>>,
+
+    pub auth_type: AuthType,
 }
 
 impl Send {
@@ -295,6 +311,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, SendView> for Send {
 
             emails: self
                 .emails
+                .as_ref()
+                .and_then(|enc| -> Option<String> { enc.decrypt(ctx, key).ok() })
                 .as_deref()
                 .unwrap_or_default()
                 .split(',')
@@ -330,6 +348,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, SendListView> for Send {
             revision_date: self.revision_date,
             deletion_date: self.deletion_date,
             expiration_date: self.expiration_date,
+
+            auth_type: self.auth_type,
         })
     }
 }
@@ -384,7 +404,21 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Send> for SendView {
             deletion_date: self.deletion_date,
             expiration_date: self.expiration_date,
 
-            emails: (!self.emails.is_empty()).then(|| self.emails.join(",")),
+            emails: (!self.emails.is_empty())
+                .then(|| self.emails.join(","))
+                .encrypt(ctx, send_key)?,
+            email_hashes: (!self.emails.is_empty()).then(|| {
+                self.emails
+                    .iter()
+                    .map(|email| {
+                        let hash = sha2::Sha256::new()
+                            .chain_update(email.to_lowercase().trim().as_bytes())
+                            .finalize();
+                        format!("{hash:X}")
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",")
+            }),
             auth_type: self.auth_type,
         })
     }
@@ -423,7 +457,8 @@ impl TryFrom<SendResponseModel> for Send {
             revision_date: require!(send.revision_date).parse()?,
             deletion_date: require!(send.deletion_date).parse()?,
             expiration_date: send.expiration_date.map(|s| s.parse()).transpose()?,
-            emails: send.emails,
+            emails: send.emails.map(|s| s.parse()).transpose()?,
+            email_hashes: None,
             auth_type,
         })
     }
@@ -528,6 +563,7 @@ mod tests {
             deletion_date: "2024-01-14T23:56:48Z".parse().unwrap(),
             hide_email: false,
             emails: None,
+            email_hashes: None,
             auth_type: AuthType::None,
         };
 
@@ -715,22 +751,20 @@ mod tests {
             auth_type: AuthType::Email,
         };
 
-        let send: Send = crypto.encrypt(view).unwrap();
+        let send: Send = crypto.encrypt(view.clone()).unwrap();
 
+        // Verify email_hashes are computed correctly for sending to server as plaintext digests
         assert_eq!(
-            send.emails,
-            Some("test1@mail.com,test2@mail.com".to_string())
+            send.email_hashes,
+            Some("78310D2DD727B704FF9D9C4742D01941B1217B89F45AB71D1E9BF5A010144048,0B9E4A8314C2C737F3B466764FD4E5A50BFFCC8229B2D71931D940A8EE639D8D".to_string())
         );
-        assert_eq!(send.auth_type, AuthType::Email);
 
+        // Verify decrypted view matches original prior to encrypting
         let v: SendView = crypto.decrypt(&send).unwrap();
-        assert_eq!(
-            v.emails,
-            vec!(
-                String::from("test1@mail.com"),
-                String::from("test2@mail.com")
-            )
-        );
+
+        assert_eq!(v, view);
+
+        // Verify auth_type was preserved
         assert_eq!(v.auth_type, AuthType::Email);
     }
 }

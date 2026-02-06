@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use crate::apis::configuration::Configuration;
+use bitwarden_api_base::Configuration;
 
-pub mod configuration;
 pub mod user_keys_api;
 
 #[derive(Debug, Clone)]
