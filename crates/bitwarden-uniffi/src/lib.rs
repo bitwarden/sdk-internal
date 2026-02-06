@@ -5,7 +5,7 @@ uniffi::setup_scaffolding!();
 use std::sync::{Arc, Once};
 
 use auth::AuthClient;
-use bitwarden_core::{ClientSettings, client::internal::ClientManagedTokens};
+use bitwarden_core::{ClientSettings, auth::ClientManagedTokens};
 
 #[allow(missing_docs)]
 pub mod auth;

@@ -1,4 +1,4 @@
-use bitwarden_core::client::internal::ClientManagedTokens;
+use bitwarden_core::auth::ClientManagedTokens;
 use bitwarden_threading::ThreadBoundRunner;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 

@@ -18,7 +18,7 @@ type Result<T> = std::result::Result<T, bitwarden_uniffi::error::BitwardenError>
 struct MockTokenProvider;
 
 #[async_trait::async_trait]
-impl bitwarden_core::client::internal::ClientManagedTokens for MockTokenProvider {
+impl bitwarden_core::auth::ClientManagedTokens for MockTokenProvider {
     async fn get_access_token(&self) -> Option<String> {
         Some("mock_token".to_string())
     }
