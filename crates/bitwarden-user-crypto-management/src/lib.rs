@@ -6,6 +6,7 @@ uniffi::setup_scaffolding!();
 
 mod crypto;
 mod data;
+mod key_rotation;
 mod user_crypto_management_client;
 pub use user_crypto_management_client::{
     UserCryptoManagementClient, UserCryptoManagementClientExt,
