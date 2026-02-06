@@ -204,7 +204,7 @@ async fn run_convert<T: 'static, Func, Fut, Ret>(
     f: Func,
 ) -> Result<Ret, RepositoryError>
 where
-    Func: FnOnce(Rc<T>) -> Fut + Send + 'static,
+    Func: FnOnce(Rc<T>) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = Result<JsValue, JsValue>>,
     Ret: serde::de::DeserializeOwned + Send + Sync + 'static,
 {

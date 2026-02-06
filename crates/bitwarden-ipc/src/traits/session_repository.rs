@@ -12,16 +12,16 @@ pub trait SessionRepository<Session>: Send + Sync + 'static {
     fn get(
         &self,
         destination: Endpoint,
-    ) -> impl std::future::Future<Output = Result<Option<Session>, Self::GetError>>;
+    ) -> impl std::future::Future<Output = Result<Option<Session>, Self::GetError>> + Send + Sync;
     fn save(
         &self,
         destination: Endpoint,
         session: Session,
-    ) -> impl std::future::Future<Output = Result<(), Self::SaveError>>;
+    ) -> impl std::future::Future<Output = Result<(), Self::SaveError>> + Send + Sync;
     fn remove(
         &self,
         destination: Endpoint,
-    ) -> impl std::future::Future<Output = Result<(), Self::RemoveError>>;
+    ) -> impl std::future::Future<Output = Result<(), Self::RemoveError>> + Send + Sync;
 }
 
 pub type InMemorySessionRepository<Session> = RwLock<HashMap<Endpoint, Session>>;
