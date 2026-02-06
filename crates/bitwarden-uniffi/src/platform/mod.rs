@@ -11,6 +11,15 @@ use crate::error::Result;
 
 mod fido2;
 mod repository;
+mod server_communication_config;
+
+// Re-export ServerCommunicationConfig types for UniFFI bindings
+pub use bitwarden_server_communication_config::{
+    AcquiredCookie, BootstrapConfig, ServerCommunicationConfig, SsoCookieVendorConfig,
+};
+pub use server_communication_config::{
+    ServerCommunicationConfigRepositoryTrait, UniffiServerCommunicationConfigClient,
+};
 
 #[derive(uniffi::Object)]
 pub struct PlatformClient(pub(crate) bitwarden_core::Client);
@@ -40,6 +49,20 @@ impl PlatformClient {
 
     pub fn state(&self) -> StateClient {
         StateClient(self.0.clone())
+    }
+
+    /// Server communication configuration operations
+    pub fn server_communication_config(
+        &self,
+        repository: Arc<dyn server_communication_config::ServerCommunicationConfigRepositoryTrait>,
+        platform_api: Arc<
+            dyn bitwarden_server_communication_config::ServerCommunicationConfigPlatformApi,
+        >,
+    ) -> Arc<server_communication_config::UniffiServerCommunicationConfigClient> {
+        server_communication_config::UniffiServerCommunicationConfigClient::new(
+            repository,
+            platform_api,
+        )
     }
 }
 
