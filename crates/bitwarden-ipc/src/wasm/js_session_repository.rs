@@ -41,6 +41,9 @@ extern "C" {
 /// Thread safe JavaScript implementation of the `SessionRepository` trait for IPC sessions.
 pub struct JsSessionRepository(ThreadBoundRunner<RawJsSessionRepository>);
 
+unsafe impl Send for RawJsSessionRepository {}
+unsafe impl Sync for RawJsSessionRepository {}
+
 impl JsSessionRepository {
     /// Creates a new `JsSessionRepository` instance wrapping the raw JavaScript repository.
     pub fn new(repository: RawJsSessionRepository) -> Self {
