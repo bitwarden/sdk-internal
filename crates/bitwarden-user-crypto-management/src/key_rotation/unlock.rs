@@ -68,7 +68,7 @@ pub(super) enum ReencryptError {
     /// Failed to update the unlock data for TDE/PRF-Passkey
     KeysetUnlockDataReencryption,
     /// Failed to update the unlock data for emergency access or organization membership
-    KeysharingError,
+    KeySharingError,
 }
 
 #[allow(unused)]
@@ -198,7 +198,7 @@ fn reencrypt_emergency_access_keys(
                     id: ea.id,
                     key_encrypted: reencrypted_key.to_string().into(),
                 }),
-                Err(_) => Err(ReencryptError::KeysharingError),
+                Err(_) => Err(ReencryptError::KeySharingError),
             }
         })
         .collect()
@@ -224,7 +224,7 @@ fn reencrypt_organization_memberships(
                     master_password_hash: None,
                     organization_id: org_membership.organization_id,
                 }),
-                Err(_) => Err(ReencryptError::KeysharingError),
+                Err(_) => Err(ReencryptError::KeySharingError),
             }
         })
         .collect()
