@@ -2,6 +2,8 @@
 //! During key-rotation, a new user-key is sampled. The unlock module then creates a set of newly
 //! encrypted copies, one for each decryption/unlock method.
 
+use core::panic;
+
 use bitwarden_api_api::models::{
     self, EmergencyAccessWithIdRequestModel, MasterPasswordUnlockAndAuthenticationDataModel,
     OtherDeviceKeysUpdateRequestModel, ResetPasswordWithOrgIdRequestModel, UnlockDataRequestModel,
@@ -92,13 +94,25 @@ pub(super) fn reencrypt_unlock(
     new_user_key_id: SymmetricKeyId,
     ctx: &mut KeyStoreContext<KeyIds>,
 ) -> Result<UnlockDataRequestModel, ReencryptError> {
-    let master_password_unlock_data = reencrypt_userkey_for_masterpassword_unlock(
-        input.master_key_unlock_method,
-        new_user_key_id,
-        ctx,
-    )?
-    // This is safe for now until we support key-connector or no-master-key based rotation.
-    .expect("master-password based unlock data must be present");
+    let master_password_unlock_data = match input.master_key_unlock_method {
+        MasterkeyUnlockMethod::Password {
+            password,
+            hint,
+            kdf,
+            salt,
+        } => reencrypt_userkey_for_masterpassword_unlock(
+            password,
+            hint,
+            kdf,
+            salt,
+            new_user_key_id,
+            ctx,
+        )?,
+        MasterkeyUnlockMethod::KeyConnector => {
+            panic!("KeyConnector based masterkey unlock method is not supported yet")
+        }
+        MasterkeyUnlockMethod::None => panic!("None masterkey unlock method is not supported yet"),
+    };
 
     let tde_device_unlock_data = reencrypt_tde_devices(
         &input.trusted_devices,
@@ -217,38 +231,23 @@ fn reencrypt_organization_memberships(
 }
 
 fn reencrypt_userkey_for_masterpassword_unlock(
-    masterkey_unlock_method: MasterkeyUnlockMethod,
+    password: String,
+    hint: Option<String>,
+    kdf: Kdf,
+    salt: String,
     new_user_key_id: SymmetricKeyId,
     ctx: &mut KeyStoreContext<KeyIds>,
-) -> Result<Option<MasterPasswordUnlockAndAuthenticationDataModel>, ReencryptError> {
-    Ok(match masterkey_unlock_method {
-        MasterkeyUnlockMethod::Password {
-            password,
-            hint,
-            kdf,
-            salt,
-        } => {
-            let _span = debug_span!("derive_master_password_unlock_data").entered();
-            let unlock_data =
-                MasterPasswordUnlockData::derive(&password, &kdf, &salt, new_user_key_id, ctx)
-                    .map_err(|_| ReencryptError::MasterPasswordDerivation)?;
-            let authentication_data =
-                MasterPasswordAuthenticationData::derive(&password, &kdf, &salt)
-                    .map_err(|_| ReencryptError::MasterPasswordDerivation)?;
-            Some(
-                to_authentication_and_unlock_data(unlock_data, authentication_data, hint)
-                    .map_err(|_| ReencryptError::MasterPasswordDerivation)?,
-            )
-        }
-        MasterkeyUnlockMethod::KeyConnector => {
-            tracing::error!("Key-connector based key rotation is not yet implemented");
-            None
-        }
-        MasterkeyUnlockMethod::None => {
-            tracing::error!("Key-rotation without master-key based unlock is not supported yet");
-            None
-        }
-    })
+) -> Result<MasterPasswordUnlockAndAuthenticationDataModel, ReencryptError> {
+    let _span = debug_span!("derive_master_password_unlock_data").entered();
+    let unlock_data =
+        MasterPasswordUnlockData::derive(&password, &kdf, &salt, new_user_key_id, ctx)
+            .map_err(|_| ReencryptError::MasterPasswordDerivation)?;
+    let authentication_data = MasterPasswordAuthenticationData::derive(&password, &kdf, &salt)
+        .map_err(|_| ReencryptError::MasterPasswordDerivation)?;
+    Ok(
+        to_authentication_and_unlock_data(unlock_data, authentication_data, hint)
+            .map_err(|_| ReencryptError::MasterPasswordDerivation)?,
+    )
 }
 
 #[derive(Debug)]
