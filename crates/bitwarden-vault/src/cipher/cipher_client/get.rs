@@ -7,7 +7,7 @@ use thiserror::Error;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::CiphersClient;
-use crate::{Cipher, CipherView, ItemNotFoundError, cipher::cipher::DecryptCipherListResult};
+use crate::{Cipher, CipherView, ItemNotFoundError, cipher::cipher::DecryptCipherResult};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -37,10 +37,10 @@ async fn get_cipher(
 async fn list_ciphers(
     store: &KeyStore<KeyIds>,
     repository: &dyn Repository<Cipher>,
-) -> Result<DecryptCipherListResult, GetCipherError> {
+) -> Result<DecryptCipherResult, GetCipherError> {
     let ciphers = repository.list().await?;
     let (successes, failures) = store.decrypt_list_with_failures(&ciphers);
-    Ok(DecryptCipherListResult {
+    Ok(DecryptCipherResult {
         successes,
         failures: failures.into_iter().cloned().collect(),
     })
@@ -51,7 +51,7 @@ impl CiphersClient {
     /// Get all ciphers from state and decrypt them, returning both successes and failures.
     /// This method will not fail when some ciphers fail to decrypt, allowing for graceful
     /// handling of corrupted or problematic cipher data.
-    pub async fn list(&self) -> Result<DecryptCipherListResult, GetCipherError> {
+    pub async fn list(&self) -> Result<DecryptCipherResult, GetCipherError> {
         let key_store = self.client.internal.get_key_store();
         let repository = self.get_repository()?;
 
