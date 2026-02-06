@@ -26,9 +26,9 @@ use crate::{ContentFormat, CryptoError, EncString, KeyId, KeyIds, store::KeyStor
 pub trait CompositeEncryptable<Ids: KeyIds, Key: KeyId, Output> {
     /// # ⚠️ IMPORTANT NOTE ⚠️
     /// This is not intended to be used for new designs, and only meant to support old designs.
-    /// Composite encryption does not provide integrity over the entire document, just individual parts of it
-    /// and is subject to specific tampering attacks where fields can be rearranged or replaced with fields from other documents.
-    /// Use [`crate::safe::DataEnvelope`] instead!
+    /// Composite encryption does not provide integrity over the entire document, just individual
+    /// parts of it and is subject to specific tampering attacks where fields can be rearranged
+    /// or replaced with fields from other documents. Use [`crate::safe::DataEnvelope`] instead!
     ///
     /// For a struct made up of many small encstrings, such as a cipher, this takes the struct
     /// and recursively encrypts all the fields / sub-structs.
@@ -71,7 +71,8 @@ impl<Ids: KeyIds, Key: KeyId, T: CompositeEncryptable<Ids, Key, Output>, Output>
 /// it into the output value. The implementation decides the content format.
 pub trait PrimitiveEncryptable<Ids: KeyIds, Key: KeyId, Output> {
     /// # ⚠️ IMPORTANT NOTE ⚠️
-    /// Most likely, you do not want to use this but want to use [`crate::safe::DataEnvelope`] instead.
+    /// Most likely, you do not want to use this but want to use [`crate::safe::DataEnvelope`]
+    /// instead.
     ///
     /// Encrypts a primitive without requiring an externally provided content type
     fn encrypt(&self, ctx: &mut KeyStoreContext<Ids>, key: Key) -> Result<Output, CryptoError>;
@@ -115,7 +116,8 @@ impl<Ids: KeyIds> PrimitiveEncryptable<Ids, Ids::Symmetric, EncString> for Strin
 /// encrypts it into the output value. The caller must specify the content format.
 pub(crate) trait PrimitiveEncryptableWithContentType<Ids: KeyIds, Key: KeyId, Output> {
     /// # ⚠️ IMPORTANT NOTE ⚠️
-    /// Most likely, you do not want to use this but want to use [`crate::safe::DataEnvelope`] instead.
+    /// Most likely, you do not want to use this but want to use [`crate::safe::DataEnvelope`]
+    /// instead.
     ///
     /// Encrypts a primitive, given an externally provided content type
     fn encrypt(
