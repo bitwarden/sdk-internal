@@ -36,6 +36,7 @@ src/apis/organization_users_api.rs
 src/apis/organizations_api.rs
 src/apis/plans_api.rs
 src/apis/policies_api.rs
+src/apis/preview_invoice_api.rs
 src/apis/projects_api.rs
 src/apis/provider_billing_api.rs
 src/apis/provider_billing_v_next_api.rs
@@ -59,9 +60,9 @@ src/apis/sends_api.rs
 src/apis/service_accounts_api.rs
 src/apis/settings_api.rs
 src/apis/slack_integration_api.rs
+src/apis/sso_cookie_vendor_api.rs
 src/apis/stripe_api.rs
 src/apis/sync_api.rs
-src/apis/tax_api.rs
 src/apis/teams_integration_api.rs
 src/apis/trash_api.rs
 src/apis/two_factor_api.rs
@@ -162,6 +163,8 @@ src/models/collection_response_model.rs
 src/models/collection_response_model_list_response_model.rs
 src/models/collection_type.rs
 src/models/collection_with_id_request_model.rs
+src/models/communication_bootstrap_settings.rs
+src/models/communication_settings.rs
 src/models/config_response_model.rs
 src/models/create_client_organization_request_body.rs
 src/models/create_collection_request_model.rs
@@ -365,6 +368,7 @@ src/models/preview_organization_subscription_plan_change_tax_request.rs
 src/models/preview_organization_subscription_purchase_tax_request.rs
 src/models/preview_organization_subscription_update_tax_request.rs
 src/models/preview_premium_subscription_purchase_tax_request.rs
+src/models/preview_premium_upgrade_proration_request.rs
 src/models/priority.rs
 src/models/private_keys_response_model.rs
 src/models/product_tier_type.rs
