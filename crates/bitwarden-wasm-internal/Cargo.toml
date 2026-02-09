@@ -16,6 +16,7 @@ keywords.workspace = true
 crate-type = ["cdylib"]
 
 [features]
+default = ["non-fips-crypto"]
 bitwarden-license = ["bitwarden-pm/bitwarden-license", "dep:bitwarden-commercial-vault"]
 # WARNING: This feature is for debugging purposes only and should never be enabled in production.
 # It disables compile-time debug prevention for cryptographic keys, exposing sensitive key material
@@ -24,6 +25,8 @@ dangerous-crypto-debug = ["bitwarden-core/dangerous-crypto-debug"]
 # WARNING: There are a lot of traces emitted to give context for operations. This is quite slow and may slow down decryption
 # and other bulk data operations, and should only be enabled for debugging purposes.
 performance-tracing = []
+non-fips-crypto = ["bitwarden-crypto/non-fips-crypto"]
+fips-crypto = ["bitwarden-crypto/fips-crypto"]
 
 [dependencies]
 async-trait = { workspace = true }

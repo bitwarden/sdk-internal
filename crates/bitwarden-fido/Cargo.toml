@@ -16,6 +16,8 @@ keywords.workspace = true
 
 [features]
 uniffi = ["dep:uniffi", "bitwarden-core/uniffi", "bitwarden-vault/uniffi"]
+non-fips-crypto = ["bitwarden-crypto/non-fips-crypto"]
+fips-crypto = ["bitwarden-crypto/fips-crypto"]
 
 [dependencies]
 async-trait = { workspace = true }

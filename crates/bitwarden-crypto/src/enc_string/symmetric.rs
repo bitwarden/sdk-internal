@@ -10,9 +10,13 @@ use wasm_bindgen::convert::FromWasmAbi;
 use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
     Aes256CbcHmacKey, ContentFormat, CoseEncrypt0Bytes, KeyDecryptable, KeyEncryptable,
-    KeyEncryptableWithContentType, SymmetricCryptoKey, Utf8Bytes, XChaCha20Poly1305Key,
+    KeyEncryptableWithContentType, SymmetricCryptoKey, Utf8Bytes,
     error::{CryptoError, EncStringParseError, Result, UnsupportedOperationError},
 };
+#[cfg(feature = "non-fips-crypto")]
+use crate::XChaCha20Poly1305Key;
+#[cfg(feature = "fips-crypto")]
+use crate::Aes256GcmKey;
 
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
@@ -285,12 +289,25 @@ impl EncString {
         Ok(EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data })
     }
 
+    #[cfg(feature = "non-fips-crypto")]
     pub(crate) fn encrypt_xchacha20_poly1305(
         data_dec: &[u8],
         key: &XChaCha20Poly1305Key,
         content_format: ContentFormat,
     ) -> Result<EncString> {
         let data = crate::cose::encrypt_xchacha20_poly1305(data_dec, key, content_format)?;
+        Ok(EncString::Cose_Encrypt0_B64 {
+            data: data.to_vec(),
+        })
+    }
+
+    #[cfg(feature = "fips-crypto")]
+    pub(crate) fn encrypt_aes256_gcm(
+        data_dec: &[u8],
+        key: &Aes256GcmKey,
+        content_format: ContentFormat,
+    ) -> Result<EncString> {
+        let data = crate::cose::encrypt_aes256_gcm(data_dec, key, content_format)?;
         Ok(EncString::Cose_Encrypt0_B64 {
             data: data.to_vec(),
         })
@@ -314,6 +331,7 @@ impl KeyEncryptableWithContentType<SymmetricCryptoKey, EncString> for &[u8] {
     ) -> Result<EncString> {
         match key {
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(self, key),
+            #[cfg(feature = "non-fips-crypto")]
             SymmetricCryptoKey::XChaCha20Poly1305Key(inner_key) => {
                 if !inner_key
                     .supported_operations
@@ -322,6 +340,16 @@ impl KeyEncryptableWithContentType<SymmetricCryptoKey, EncString> for &[u8] {
                     return Err(CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt));
                 }
                 EncString::encrypt_xchacha20_poly1305(self, inner_key, content_format)
+            }
+            #[cfg(feature = "fips-crypto")]
+            SymmetricCryptoKey::Aes256GcmKey(inner_key) => {
+                if !inner_key
+                    .supported_operations
+                    .contains(&KeyOperation::Encrypt)
+                {
+                    return Err(CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt));
+                }
+                EncString::encrypt_aes256_gcm(self, inner_key, content_format)
             }
             SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(
                 UnsupportedOperationError::EncryptionNotImplementedForKey,
@@ -342,11 +370,23 @@ impl KeyDecryptable<SymmetricCryptoKey, Vec<u8>> for EncString {
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
             ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)
                 .map_err(|_| CryptoError::Decrypt),
+            #[cfg(feature = "non-fips-crypto")]
             (
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
                 let (decrypted_message, _) = crate::cose::decrypt_xchacha20_poly1305(
+                    &CoseEncrypt0Bytes::from(data.as_slice()),
+                    key,
+                )?;
+                Ok(decrypted_message)
+            }
+            #[cfg(feature = "fips-crypto")]
+            (
+                EncString::Cose_Encrypt0_B64 { data },
+                SymmetricCryptoKey::Aes256GcmKey(key),
+            ) => {
+                let (decrypted_message, _) = crate::cose::decrypt_aes256_gcm(
                     &CoseEncrypt0Bytes::from(data.as_slice()),
                     key,
                 )?;
@@ -391,15 +431,18 @@ impl schemars::JsonSchema for EncString {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "non-fips-crypto")]
     use coset::iana::KeyOperation;
     use schemars::schema_for;
 
     use super::EncString;
     use crate::{
-        CryptoError, KEY_ID_SIZE, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey,
-        derive_symmetric_key,
+        CryptoError, KeyDecryptable, KeyEncryptable, SymmetricCryptoKey, derive_symmetric_key,
     };
+    #[cfg(feature = "non-fips-crypto")]
+    use crate::KEY_ID_SIZE;
 
+    #[cfg(feature = "non-fips-crypto")]
     fn encrypt_with_xchacha20(plaintext: &str) -> EncString {
         let key_id = [0u8; KEY_ID_SIZE];
         let enc_key = [0u8; 32];
@@ -421,6 +464,7 @@ mod tests {
     /// encstring length does not reveal more than the 32-byte range of lengths that the contained
     /// string falls into.
     #[test]
+    #[cfg(feature = "non-fips-crypto")]
     fn test_xchacha20_encstring_string_padding_block_sizes() {
         let cases = [
             ("", 32),              // empty string, padded to 32
@@ -445,6 +489,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "non-fips-crypto")]
     fn test_enc_roundtrip_xchacha20() {
         let key_id = [0u8; KEY_ID_SIZE];
         let enc_key = [0u8; 32];
@@ -477,6 +522,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "non-fips-crypto")]
     fn test_enc_roundtrip_xchacha20_empty() {
         let key_id = [0u8; KEY_ID_SIZE];
         let enc_key = [0u8; 32];
@@ -613,6 +659,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "non-fips-crypto")]
     fn test_encrypt_fails_when_operation_not_allowed() {
         // Key with only Decrypt allowed
         let key_id = [0u8; KEY_ID_SIZE];

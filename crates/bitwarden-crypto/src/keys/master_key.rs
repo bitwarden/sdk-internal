@@ -229,6 +229,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "non-fips-crypto")]
     fn test_password_hash_argon2id() {
         let password = "asdfasdf";
         let salt = "test_salt";

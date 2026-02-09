@@ -63,6 +63,20 @@ dependencies = [
 
 [[package]]
 name = "aes-gcm"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "831010a0f742e1209b3bcea8fab6a8e149051ba6099432c8cb2cc117dec3ead1"
+dependencies = [
+ "aead 0.5.2",
+ "aes 0.8.4",
+ "cipher 0.4.4",
+ "ctr 0.9.2",
+ "ghash 0.5.1",
+ "subtle",
+]
+
+[[package]]
+name = "aes-gcm"
 version = "0.11.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f5c07f414d7dc0755870f84c7900425360288d24e0eae4836f9dee19a30fa5f"
@@ -70,8 +84,8 @@ dependencies = [
  "aead 0.6.0-rc.3",
  "aes 0.9.0-rc.2",
  "cipher 0.5.0-rc.2",
- "ctr",
- "ghash",
+ "ctr 0.10.0-rc.2",
+ "ghash 0.6.0-rc.3",
  "subtle",
  "zeroize",
 ]
@@ -516,7 +530,7 @@ dependencies = [
  "reqwest",
  "reqwest-middleware",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "url",
 ]
 
@@ -669,6 +683,7 @@ name = "bitwarden-crypto"
 version = "2.0.0"
 dependencies = [
  "aes 0.8.4",
+ "aes-gcm 0.10.3",
  "argon2",
  "bitwarden-encoding",
  "bitwarden-error",
@@ -904,7 +919,7 @@ dependencies = [
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tsify",
  "uniffi",
@@ -988,7 +1003,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
  "uuid",
@@ -1925,6 +1940,15 @@ dependencies = [
 
 [[package]]
 name = "ctr"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0369ee1ad671834580515889b80f2ea915f23b8be8d0daa4bbaf2ac5c7590835"
+dependencies = [
+ "cipher 0.4.4",
+]
+
+[[package]]
+name = "ctr"
 version = "0.10.0-rc.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d0ec605a95e78815a4c4b8040217d56d5a1ab37043851ee9e7e65b89afa00e3"
@@ -2643,11 +2667,21 @@ dependencies = [
 
 [[package]]
 name = "ghash"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0d8a4362ccb29cb0b265253fb0a2728f592895ee6854fd9bc13f2ffda266ff1"
+dependencies = [
+ "opaque-debug",
+ "polyval 0.6.2",
+]
+
+[[package]]
+name = "ghash"
 version = "0.6.0-rc.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "333de57ed9494a40df4bbb866752b100819dde0d18f2264c48f5a08a85fe673d"
 dependencies = [
- "polyval",
+ "polyval 0.7.0-rc.3",
 ]
 
 [[package]]
@@ -3910,7 +3944,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b52c64cc0eb74e9baf61c3b7ead2c19b0d6c922e33d0c790f6afb95240a07ae8"
 dependencies = [
  "aes 0.9.0-rc.2",
- "aes-gcm",
+ "aes-gcm 0.11.0-rc.2",
  "cbc 0.2.0-rc.2",
  "der 0.8.0-rc.9",
  "pbkdf2 0.13.0-rc.2",
@@ -4015,6 +4049,18 @@ dependencies = [
  "cpufeatures",
  "universal-hash 0.6.0-rc.3",
  "zeroize",
+]
+
+[[package]]
+name = "polyval"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d1fe60d06143b2430aa532c94cfe9e29783047f06c0d7fd359a9a51b729fa25"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "opaque-debug",
+ "universal-hash 0.5.1",
 ]
 
 [[package]]
@@ -5218,11 +5264,11 @@ checksum = "361de425e489d5fe3f1ecfd91531c8fe91ededbbc567e24b77a560d503309bf9"
 dependencies = [
  "aead 0.6.0-rc.3",
  "aes 0.9.0-rc.2",
- "aes-gcm",
+ "aes-gcm 0.11.0-rc.2",
  "cbc 0.2.0-rc.2",
  "chacha20 0.10.0-rc.5",
  "cipher 0.5.0-rc.2",
- "ctr",
+ "ctr 0.10.0-rc.2",
  "des",
  "poly1305 0.9.0-rc.3",
  "ssh-encoding",

@@ -21,6 +21,8 @@ wasm = [
     "dep:tsify",
     "dep:wasm-bindgen",
 ] # WebAssembly bindings
+non-fips-crypto = ["bitwarden-crypto/non-fips-crypto"]
+fips-crypto = ["bitwarden-crypto/fips-crypto"]
 
 [dependencies]
 bitwarden-core = { workspace = true, features = ["internal"] }

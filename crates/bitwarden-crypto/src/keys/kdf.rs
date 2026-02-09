@@ -3,6 +3,7 @@ use std::{num::NonZeroU32, pin::Pin};
 use generic_array::GenericArray;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "non-fips-crypto")]
 use sha2::Digest;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
@@ -13,8 +14,11 @@ use crate::CryptoError;
 
 const PBKDF2_MIN_ITERATIONS: u32 = 5000;
 
+#[cfg(feature = "non-fips-crypto")]
 const ARGON2ID_MIN_MEMORY: u32 = 16 * 1024;
+#[cfg(feature = "non-fips-crypto")]
 const ARGON2ID_MIN_ITERATIONS: u32 = 2;
+#[cfg(feature = "non-fips-crypto")]
 const ARGON2ID_MIN_PARALLELISM: u32 = 1;
 
 /// Holding struct for key material derived from a KDF.
@@ -48,6 +52,7 @@ impl KdfDerivedKeyMaterial {
                 hash.zeroize();
                 Ok(KdfDerivedKeyMaterial(key_material))
             }
+            #[cfg(feature = "non-fips-crypto")]
             Kdf::Argon2id {
                 iterations,
                 memory,
@@ -128,6 +133,7 @@ pub enum Kdf {
     PBKDF2 {
         iterations: NonZeroU32,
     },
+    #[cfg(feature = "non-fips-crypto")]
     Argon2id {
         iterations: NonZeroU32,
         memory: NonZeroU32,
@@ -144,6 +150,7 @@ impl Kdf {
     }
 
     /// Default KDF for new encryption V2 accounts.
+    #[cfg(feature = "non-fips-crypto")]
     pub fn default_argon2() -> Kdf {
         Kdf::Argon2id {
             iterations: default_argon2_iterations(),
@@ -158,14 +165,17 @@ fn default_pbkdf2_iterations() -> NonZeroU32 {
     NonZeroU32::new(600_000).expect("Non-zero number")
 }
 /// Default Argon2 iterations
+#[cfg(feature = "non-fips-crypto")]
 fn default_argon2_iterations() -> NonZeroU32 {
     NonZeroU32::new(6).expect("Non-zero number")
 }
 /// Default Argon2 memory
+#[cfg(feature = "non-fips-crypto")]
 fn default_argon2_memory() -> NonZeroU32 {
     NonZeroU32::new(32).expect("Non-zero number")
 }
 /// Default Argon2 parallelism
+#[cfg(feature = "non-fips-crypto")]
 fn default_argon2_parallelism() -> NonZeroU32 {
     NonZeroU32::new(4).expect("Non-zero number")
 }
@@ -177,7 +187,29 @@ mod tests {
     use crate::keys::kdf::{Kdf, KdfDerivedKeyMaterial};
 
     #[test]
-    fn test_derive_kdf_minimums() {
+    fn test_derive_kdf_minimums_pbkdf2() {
+        fn nz(n: u32) -> NonZero<u32> {
+            NonZero::new(n).unwrap()
+        }
+
+        let secret = [0u8; 32];
+        let salt = [0u8; 32];
+
+        let kdf = Kdf::PBKDF2 {
+            iterations: nz(4999),
+        };
+        assert_eq!(
+            KdfDerivedKeyMaterial::derive_kdf_key(&secret, &salt, &kdf)
+                .err()
+                .unwrap()
+                .to_string(),
+            "Insufficient KDF parameters"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "non-fips-crypto")]
+    fn test_derive_kdf_minimums_argon2() {
         fn nz(n: u32) -> NonZero<u32> {
             NonZero::new(n).unwrap()
         }
@@ -186,9 +218,6 @@ mod tests {
         let salt = [0u8; 32];
 
         for kdf in [
-            Kdf::PBKDF2 {
-                iterations: nz(4999),
-            },
             Kdf::Argon2id {
                 iterations: nz(1),
                 memory: nz(16),
@@ -236,6 +265,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "non-fips-crypto")]
     fn test_master_key_derive_argon2() {
         let kdf_key = KdfDerivedKeyMaterial::derive(
             "67t9b5g67$%Dh89n",

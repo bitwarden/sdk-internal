@@ -118,7 +118,7 @@ string_slice = "warn"
 [workspace.lints.rust]
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = [
-    'cfg(feature, values("uniffi", "wasm"))',
+    'cfg(feature, values("uniffi", "wasm", "fips-crypto", "non-fips-crypto"))',
 ] }
 
 [workspace.metadata.dylint]

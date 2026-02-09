@@ -86,11 +86,14 @@ impl From<KeyConnectorKey> for B64 {
 #[cfg(test)]
 mod tests {
     use bitwarden_encoding::B64;
+    #[cfg(feature = "non-fips-crypto")]
     use coset::iana::KeyOperation;
     use rand_chacha::rand_core::SeedableRng;
 
     use super::KeyConnectorKey;
-    use crate::{BitwardenLegacyKeyBytes, EncString, SymmetricCryptoKey, UserKey};
+    #[cfg(feature = "non-fips-crypto")]
+    use crate::BitwardenLegacyKeyBytes;
+    use crate::{EncString, SymmetricCryptoKey, UserKey};
 
     const KEY_CONNECTOR_KEY_BYTES: [u8; 32] = [
         31, 79, 104, 226, 150, 71, 177, 90, 194, 80, 172, 209, 17, 129, 132, 81, 138, 167, 69, 167,
@@ -187,6 +190,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "non-fips-crypto")]
     fn test_encrypt_decrypt_user_key_xchacha20_poly1305() {
         let key_connector_key = KeyConnectorKey(Box::pin(KEY_CONNECTOR_KEY_BYTES.into()));
 

@@ -51,7 +51,7 @@ pub enum CryptoError {
     Fingerprint(#[from] FingerprintError),
 
     #[error("Argon2 error, {0}")]
-    Argon(#[from] argon2::Error),
+    Argon(String),
 
     #[error("Number is zero")]
     ZeroNumber,
@@ -76,6 +76,13 @@ pub enum CryptoError {
 
     #[error("Encoding error, {0}")]
     Encoding(#[from] EncodingError),
+}
+
+#[cfg(feature = "non-fips-crypto")]
+impl From<argon2::Error> for CryptoError {
+    fn from(e: argon2::Error) -> Self {
+        CryptoError::Argon(e.to_string())
+    }
 }
 
 #[derive(Debug, Error)]

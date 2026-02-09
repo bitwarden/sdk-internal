@@ -18,7 +18,9 @@ use super::{
     key_encryptable::CryptoKey,
     key_id::{KEY_ID_SIZE, KeyId},
 };
-use crate::{BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, cose};
+use crate::{BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError};
+#[cfg(feature = "non-fips-crypto")]
+use crate::cose;
 
 /// The symmetric key algorithm to use when generating a new symmetric key.
 #[derive(Debug, PartialEq)]
@@ -26,7 +28,11 @@ pub enum SymmetricKeyAlgorithm {
     /// Used for V1 user keys and data encryption
     Aes256CbcHmac,
     /// Used for V2 user keys and data envelopes
+    #[cfg(feature = "non-fips-crypto")]
     XChaCha20Poly1305,
+    /// Used for FIPS-compliant data encryption
+    #[cfg(feature = "fips-crypto")]
+    Aes256Gcm,
 }
 
 /// [Aes256CbcKey] is a symmetric encryption key, consisting of one 256-bit key,
@@ -76,6 +82,7 @@ impl PartialEq for Aes256CbcHmacKey {
 /// of one 256-bit key, and contains a key id. In contrast to the
 /// [Aes256CbcKey] and [Aes256CbcHmacKey], this key type is used to create
 /// CoseEncrypt0 messages.
+#[cfg(feature = "non-fips-crypto")]
 #[derive(Zeroize, Clone)]
 pub struct XChaCha20Poly1305Key {
     pub(crate) key_id: [u8; KEY_ID_SIZE],
@@ -88,6 +95,7 @@ pub struct XChaCha20Poly1305Key {
     pub(crate) supported_operations: Vec<KeyOperation>,
 }
 
+#[cfg(feature = "non-fips-crypto")]
 impl XChaCha20Poly1305Key {
     /// Creates a new XChaCha20Poly1305Key with a securely sampled cryptographic key and key id.
     pub fn make() -> Self {
@@ -115,15 +123,77 @@ impl XChaCha20Poly1305Key {
     }
 }
 
+#[cfg(feature = "non-fips-crypto")]
 impl ConstantTimeEq for XChaCha20Poly1305Key {
     fn ct_eq(&self, other: &Self) -> Choice {
         self.enc_key.ct_eq(&other.enc_key) & self.key_id.ct_eq(&other.key_id)
     }
 }
 
+#[cfg(feature = "non-fips-crypto")]
 impl PartialEq for XChaCha20Poly1305Key {
     fn eq(&self, other: &Self) -> bool {
         self.ct_eq(other).into()
+    }
+}
+
+/// [Aes256GcmKey] is a FIPS-compliant symmetric encryption key consisting
+/// of one 256-bit key, and contains a key id. This key type is used to create
+/// CoseEncrypt0 messages using AES-256-GCM.
+#[cfg(feature = "fips-crypto")]
+#[derive(Zeroize, Clone)]
+pub struct Aes256GcmKey {
+    pub(crate) key_id: [u8; KEY_ID_SIZE],
+    pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
+    #[zeroize(skip)]
+    pub(crate) supported_operations: Vec<KeyOperation>,
+}
+
+#[cfg(feature = "fips-crypto")]
+impl Aes256GcmKey {
+    /// Creates a new Aes256GcmKey with a securely sampled cryptographic key and key id.
+    pub fn make() -> Self {
+        let mut rng = rand::thread_rng();
+        let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
+        rng.fill(enc_key.as_mut_slice());
+        let mut key_id = [0u8; KEY_ID_SIZE];
+        rng.fill(&mut key_id);
+
+        Self {
+            enc_key,
+            key_id,
+            supported_operations: vec![
+                KeyOperation::Decrypt,
+                KeyOperation::Encrypt,
+                KeyOperation::WrapKey,
+                KeyOperation::UnwrapKey,
+            ],
+        }
+    }
+}
+
+#[cfg(feature = "fips-crypto")]
+impl ConstantTimeEq for Aes256GcmKey {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.enc_key.ct_eq(&other.enc_key) & self.key_id.ct_eq(&other.key_id)
+    }
+}
+
+#[cfg(feature = "fips-crypto")]
+impl PartialEq for Aes256GcmKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.ct_eq(other).into()
+    }
+}
+
+#[cfg(feature = "fips-crypto")]
+impl std::fmt::Debug for Aes256GcmKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut debug_struct = f.debug_struct("Aes256GcmKey");
+        debug_struct.field("key_id", &self.key_id);
+        #[cfg(feature = "dangerous-crypto-debug")]
+        debug_struct.field("enc_key", &self.enc_key.as_slice());
+        debug_struct.finish()
     }
 }
 
@@ -136,7 +206,12 @@ pub enum SymmetricCryptoKey {
     Aes256CbcHmacKey(Aes256CbcHmacKey),
     /// Data encrypted by XChaCha20Poly1305Key keys has type
     /// [`Cose_Encrypt0_B64`](crate::EncString::Cose_Encrypt0_B64)
+    #[cfg(feature = "non-fips-crypto")]
     XChaCha20Poly1305Key(XChaCha20Poly1305Key),
+    /// Data encrypted by Aes256GcmKey keys has type
+    /// [`Cose_Encrypt0_B64`](crate::EncString::Cose_Encrypt0_B64)
+    #[cfg(feature = "fips-crypto")]
+    Aes256GcmKey(Aes256GcmKey),
 }
 
 impl SymmetricCryptoKey {
@@ -166,7 +241,10 @@ impl SymmetricCryptoKey {
     pub fn make(algorithm: SymmetricKeyAlgorithm) -> Self {
         match algorithm {
             SymmetricKeyAlgorithm::Aes256CbcHmac => Self::make_aes256_cbc_hmac_key(),
+            #[cfg(feature = "non-fips-crypto")]
             SymmetricKeyAlgorithm::XChaCha20Poly1305 => Self::make_xchacha20_poly1305_key(),
+            #[cfg(feature = "fips-crypto")]
+            SymmetricKeyAlgorithm::Aes256Gcm => Self::make_aes256_gcm_key(),
         }
     }
 
@@ -177,6 +255,7 @@ impl SymmetricCryptoKey {
     }
 
     /// Generate a new random XChaCha20Poly1305 [SymmetricCryptoKey]
+    #[cfg(feature = "non-fips-crypto")]
     pub fn make_xchacha20_poly1305_key() -> Self {
         let mut rng = rand::thread_rng();
         let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
@@ -191,6 +270,12 @@ impl SymmetricCryptoKey {
                 KeyOperation::UnwrapKey,
             ],
         })
+    }
+
+    /// Generate a new random AES-256-GCM [SymmetricCryptoKey]
+    #[cfg(feature = "fips-crypto")]
+    pub fn make_aes256_gcm_key() -> Self {
+        Self::Aes256GcmKey(Aes256GcmKey::make())
     }
 
     /// Encodes the key to a byte array representation, that is separated by size.
@@ -253,6 +338,7 @@ impl SymmetricCryptoKey {
                 buf.extend_from_slice(&key.mac_key);
                 EncodedSymmetricKey::BitwardenLegacyKey(buf.into())
             }
+            #[cfg(feature = "non-fips-crypto")]
             Self::XChaCha20Poly1305Key(key) => {
                 let builder = coset::CoseKeyBuilder::new_symmetric_key(key.enc_key.to_vec());
                 let mut cose_key = builder.key_id(key.key_id.to_vec());
@@ -262,6 +348,24 @@ impl SymmetricCryptoKey {
                 let mut cose_key = cose_key.build();
                 cose_key.alg = Some(RegisteredLabelWithPrivate::PrivateUse(
                     cose::XCHACHA20_POLY1305,
+                ));
+                EncodedSymmetricKey::CoseKey(
+                    cose_key
+                        .to_vec()
+                        .expect("cose key serialization should not fail")
+                        .into(),
+                )
+            }
+            #[cfg(feature = "fips-crypto")]
+            Self::Aes256GcmKey(key) => {
+                let builder = coset::CoseKeyBuilder::new_symmetric_key(key.enc_key.to_vec());
+                let mut cose_key = builder.key_id(key.key_id.to_vec());
+                for op in &key.supported_operations {
+                    cose_key = cose_key.add_key_op(*op);
+                }
+                let mut cose_key = cose_key.build();
+                cose_key.alg = Some(RegisteredLabelWithPrivate::Assigned(
+                    coset::iana::Algorithm::A256GCM,
                 ));
                 EncodedSymmetricKey::CoseKey(
                     cose_key
@@ -287,11 +391,15 @@ impl SymmetricCryptoKey {
 
     /// Returns the key ID of the key, if it has one. Only
     /// [SymmetricCryptoKey::XChaCha20Poly1305Key] has a key ID.
+    #[allow(dead_code)]
     pub(crate) fn key_id(&self) -> Option<KeyId> {
         match self {
             Self::Aes256CbcKey(_) => None,
             Self::Aes256CbcHmacKey(_) => None,
+            #[cfg(feature = "non-fips-crypto")]
             Self::XChaCha20Poly1305Key(key) => Some(KeyId::from(key.key_id)),
+            #[cfg(feature = "fips-crypto")]
+            Self::Aes256GcmKey(key) => Some(KeyId::from(key.key_id)),
         }
     }
 }
@@ -309,8 +417,15 @@ impl ConstantTimeEq for SymmetricCryptoKey {
             (Aes256CbcHmacKey(a), Aes256CbcHmacKey(b)) => a.ct_eq(b),
             (Aes256CbcHmacKey(_), _) => Choice::from(0),
 
+            #[cfg(feature = "non-fips-crypto")]
             (XChaCha20Poly1305Key(a), XChaCha20Poly1305Key(b)) => a.ct_eq(b),
+            #[cfg(feature = "non-fips-crypto")]
             (XChaCha20Poly1305Key(_), _) => Choice::from(0),
+
+            #[cfg(feature = "fips-crypto")]
+            (Aes256GcmKey(a), Aes256GcmKey(b)) => a.ct_eq(b),
+            #[cfg(feature = "fips-crypto")]
+            (Aes256GcmKey(_), _) => Choice::from(0),
         }
     }
 }
@@ -401,9 +516,12 @@ impl std::fmt::Debug for SymmetricCryptoKey {
             .field(
                 "inner_type",
                 match self {
-                    SymmetricCryptoKey::Aes256CbcKey(key) => key,
-                    SymmetricCryptoKey::Aes256CbcHmacKey(key) => key,
-                    SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key,
+                    SymmetricCryptoKey::Aes256CbcKey(key) => key as &dyn std::fmt::Debug,
+                    SymmetricCryptoKey::Aes256CbcHmacKey(key) => key as &dyn std::fmt::Debug,
+                    #[cfg(feature = "non-fips-crypto")]
+                    SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key as &dyn std::fmt::Debug,
+                    #[cfg(feature = "fips-crypto")]
+                    SymmetricCryptoKey::Aes256GcmKey(key) => key as &dyn std::fmt::Debug,
                 },
             )
             .finish()
@@ -430,6 +548,7 @@ impl std::fmt::Debug for Aes256CbcHmacKey {
     }
 }
 
+#[cfg(feature = "non-fips-crypto")]
 impl std::fmt::Debug for XChaCha20Poly1305Key {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut debug_struct = f.debug_struct("XChaCha20Poly1305Key");
@@ -508,16 +627,20 @@ pub fn derive_symmetric_key(name: &str) -> Aes256CbcHmacKey {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "non-fips-crypto")]
     use bitwarden_encoding::B64;
+    #[cfg(feature = "non-fips-crypto")]
     use coset::iana::KeyOperation;
     use generic_array::GenericArray;
     use typenum::U32;
 
     use super::{SymmetricCryptoKey, derive_symmetric_key};
     use crate::{
-        Aes256CbcHmacKey, Aes256CbcKey, BitwardenLegacyKeyBytes, XChaCha20Poly1305Key,
+        Aes256CbcHmacKey, Aes256CbcKey, BitwardenLegacyKeyBytes,
         keys::symmetric_crypto_key::{pad_key, unpad_key},
     };
+    #[cfg(feature = "non-fips-crypto")]
+    use crate::XChaCha20Poly1305Key;
 
     #[test]
     fn test_symmetric_crypto_key() {
@@ -540,6 +663,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "non-fips-crypto")]
     fn test_decode_new_symmetric_crypto_key() {
         let key: B64 = ("pQEEAlDib+JxbqMBlcd3KTUesbufAzoAARFvBIQDBAUGIFggt79surJXmqhPhYuuqi9ZyPfieebmtw2OsmN5SDrb4yUB").parse()
         .unwrap();
@@ -552,6 +676,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "non-fips-crypto")]
     fn test_encode_xchacha20_poly1305_key() {
         let key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
         let encoded = key.to_encoded();
@@ -617,6 +742,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "non-fips-crypto")]
     fn test_eq_xchacha20_poly1305() {
         let key1 = SymmetricCryptoKey::make_xchacha20_poly1305_key();
         let key2 = SymmetricCryptoKey::make_xchacha20_poly1305_key();
@@ -626,6 +752,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "non-fips-crypto")]
     fn test_neq_different_key_types() {
         let key1 = SymmetricCryptoKey::Aes256CbcKey(Aes256CbcKey {
             enc_key: Box::pin(GenericArray::<u8, U32>::default()),
@@ -695,6 +822,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "non-fips-crypto")]
     fn test_eq_variant_xchacha20_poly1305() {
         let key1 = XChaCha20Poly1305Key {
             enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
@@ -737,6 +865,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "non-fips-crypto")]
     fn test_neq_different_key_id() {
         let key1 = XChaCha20Poly1305Key {
             enc_key: Box::pin(GenericArray::<u8, U32>::default()),
