@@ -1019,6 +1019,52 @@ pub(crate) fn make_user_jit_master_password_registration(
     })
 }
 
+/// Response from `make_user_password_registration`
+pub struct MakeUserMasterPasswordRegistrationResponse {
+    /// The wrapped account cryptographic state
+    pub account_cryptographic_state: WrappedAccountCryptographicState,
+    /// The master password unlock data
+    pub master_password_unlock_data: MasterPasswordUnlockData,
+    /// The master password authentication data
+    pub master_password_authentication_data: MasterPasswordAuthenticationData,
+    /// The request model for account cryptographic key state
+    pub account_keys_request: AccountKeysRequestModel,
+}
+
+/// Creates cryptographic data needed for user master password registration
+pub(crate) fn make_user_password_registration(
+    client: &Client,
+    user_id: UserId,
+    master_password: String,
+    salt: String,
+) -> Result<MakeUserMasterPasswordRegistrationResponse, MakeKeysError> {
+    // make_user_v2_crypto_state() - Creates user key (xchacha20-poly1305), RSA keypair, ed25519 signature keypair, and signed security state
+    let mut ctx = client.internal.get_key_store().context_mut();
+    let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx, user_id)
+        .map_err(MakeKeysError::AccountCryptographyInitialization)?;
+
+    let kdf = Kdf::default_argon2();
+
+    let master_password_unlock_data =
+        MasterPasswordUnlockData::derive(&master_password, &kdf, &salt, user_key_id, &ctx)
+            .map_err(MakeKeysError::MasterPasswordDerivation)?;
+
+    let master_password_authentication_data =
+        MasterPasswordAuthenticationData::derive(&master_password, &kdf, &salt)
+            .map_err(MakeKeysError::MasterPasswordDerivation)?;
+
+    let account_keys_request = wrapped_state
+        .to_request_model(&user_key_id, &mut ctx)
+        .map_err(|_| MakeKeysError::RequestModelCreation)?;
+
+    Ok(MakeUserMasterPasswordRegistrationResponse {
+        account_cryptographic_state: wrapped_state,
+        master_password_unlock_data,
+        master_password_authentication_data,
+        account_keys_request,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use std::num::NonZeroU32;
