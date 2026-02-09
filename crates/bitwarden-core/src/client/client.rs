@@ -52,24 +52,20 @@ impl Client {
             .build()
             .expect("Bw HTTP Client build should not fail");
 
-        let identity = bitwarden_api_identity::apis::configuration::Configuration {
+        let bw_http_client = reqwest_middleware::ClientBuilder::new(bw_http_client).build();
+
+        let identity = bitwarden_api_identity::Configuration {
             base_path: settings.identity_url,
             user_agent: Some(settings.user_agent.clone()),
             client: bw_http_client.clone(),
-            basic_auth: None,
             oauth_access_token: None,
-            bearer_access_token: None,
-            api_key: None,
         };
 
-        let api = bitwarden_api_api::apis::configuration::Configuration {
+        let api = bitwarden_api_api::Configuration {
             base_path: settings.api_url,
             user_agent: Some(settings.user_agent),
             client: bw_http_client,
-            basic_auth: None,
             oauth_access_token: None,
-            bearer_access_token: None,
-            api_key: None,
         };
 
         Self {

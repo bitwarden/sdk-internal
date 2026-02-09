@@ -25,6 +25,8 @@ pub use cipher::{
 };
 pub use cipher_client::CiphersClient;
 pub use cipher_view_type::CipherViewType;
+#[cfg(feature = "wasm")]
+pub use field::FieldListView;
 pub use field::{FieldType, FieldView};
 pub use identity::IdentityView;
 pub use login::{

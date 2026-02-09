@@ -345,9 +345,11 @@ pub struct CipherView {
     pub local_data: Option<LocalDataView>,
 
     pub attachments: Option<Vec<attachment::AttachmentView>>,
+    /// Attachments that failed to decrypt. Only present when there are decryption failures.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attachment_decryption_failures: Option<Vec<attachment::AttachmentView>>,
     pub fields: Option<Vec<field::FieldView>>,
     pub password_history: Option<Vec<password_history::PasswordHistoryView>>,
-
     pub creation_date: DateTime<Utc>,
     pub deleted_date: Option<DateTime<Utc>>,
     pub revision_date: DateTime<Utc>,
@@ -426,6 +428,17 @@ pub struct CipherListView {
     pub copyable_fields: Vec<CopyableCipherFields>,
 
     pub local_data: Option<LocalDataView>,
+
+    /// Decrypted cipher notes for search indexing.
+    #[cfg(feature = "wasm")]
+    pub notes: Option<String>,
+    /// Decrypted cipher fields for search indexing.
+    /// Only includes name and value (for text fields only).
+    #[cfg(feature = "wasm")]
+    pub fields: Option<Vec<field::FieldListView>>,
+    /// Decrypted attachment filenames for search indexing.
+    #[cfg(feature = "wasm")]
+    pub attachment_names: Option<Vec<String>>,
 }
 
 /// Represents the result of decrypting a list of ciphers.
@@ -440,6 +453,21 @@ pub struct CipherListView {
 pub struct DecryptCipherListResult {
     /// The decrypted `CipherListView` objects.
     pub successes: Vec<CipherListView>,
+    /// The original `Cipher` objects that failed to decrypt.
+    pub failures: Vec<Cipher>,
+}
+
+/// Represents the result of decrypting a list of ciphers.
+///
+/// This struct contains two vectors: `successes` and `failures`.
+/// `successes` contains the decrypted `CipherView` objects,
+/// while `failures` contains the original `Cipher` objects that failed to decrypt.
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct DecryptCipherResult {
+    /// The decrypted `CipherView` objects.
+    pub successes: Vec<CipherView>,
     /// The original `Cipher` objects that failed to decrypt.
     pub failures: Vec<Cipher>,
 }
@@ -522,6 +550,14 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
     ) -> Result<CipherView, CryptoError> {
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
+        // Separate successful and failed attachment decryptions
+        let (attachments, attachment_decryption_failures) =
+            attachment::decrypt_attachments_with_failures(
+                self.attachments.as_deref().unwrap_or_default(),
+                ctx,
+                ciphers_key,
+            );
+
         let mut cipher = CipherView {
             id: self.id,
             organization_id: self.organization_id,
@@ -543,7 +579,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
             permissions: self.permissions,
             view_password: self.view_password,
             local_data: self.local_data.decrypt(ctx, ciphers_key).ok().flatten(),
-            attachments: self.attachments.decrypt(ctx, ciphers_key).ok().flatten(),
+            attachments: Some(attachments),
+            attachment_decryption_failures: Some(attachment_decryption_failures),
             fields: self.fields.decrypt(ctx, ciphers_key).ok().flatten(),
             password_history: self
                 .password_history
@@ -894,6 +931,26 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             copyable_fields: self.get_copyable_fields(),
             local_data: self.local_data.decrypt(ctx, ciphers_key)?,
             archived_date: self.archived_date,
+            #[cfg(feature = "wasm")]
+            notes: self.notes.decrypt(ctx, ciphers_key).ok().flatten(),
+            #[cfg(feature = "wasm")]
+            fields: self.fields.as_ref().map(|fields| {
+                fields
+                    .iter()
+                    .filter_map(|f| {
+                        f.decrypt(ctx, ciphers_key)
+                            .ok()
+                            .map(field::FieldListView::from)
+                    })
+                    .collect()
+            }),
+            #[cfg(feature = "wasm")]
+            attachment_names: self.attachments.as_ref().map(|attachments| {
+                attachments
+                    .iter()
+                    .filter_map(|a| a.file_name.decrypt(ctx, ciphers_key).ok().flatten())
+                    .collect()
+            }),
         })
     }
 }
@@ -1256,6 +1313,7 @@ mod tests {
             view_password: true,
             local_data: None,
             attachments: None,
+            attachment_decryption_failures: None,
             fields: None,
             password_history: None,
             creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
@@ -1374,6 +1432,12 @@ mod tests {
                 ],
                 local_data: None,
                 archived_date: cipher.archived_date,
+                #[cfg(feature = "wasm")]
+                notes: None,
+                #[cfg(feature = "wasm")]
+                fields: None,
+                #[cfg(feature = "wasm")]
+                attachment_names: None,
             }
         )
     }
@@ -2257,5 +2321,103 @@ mod tests {
         let result = cipher.populate_cipher_types();
 
         assert!(matches!(result, Err(VaultParseError::SerdeJson(_))));
+    }
+
+    #[test]
+    fn test_decrypt_cipher_with_mixed_attachments() {
+        let user_key: SymmetricCryptoKey = "w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string().try_into().unwrap();
+        let key_store = create_test_crypto_with_user_key(user_key);
+
+        // Create properly encrypted attachments
+        let mut ctx = key_store.context();
+        let valid1 = "valid_file_1.txt"
+            .encrypt(&mut ctx, SymmetricKeyId::User)
+            .unwrap();
+        let valid2 = "valid_file_2.txt"
+            .encrypt(&mut ctx, SymmetricKeyId::User)
+            .unwrap();
+
+        // Create corrupted attachment by encrypting with a random different key
+        let wrong_key: SymmetricCryptoKey = "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQQ==".to_string().try_into().unwrap();
+        let wrong_key_store = create_test_crypto_with_user_key(wrong_key);
+        let mut wrong_ctx = wrong_key_store.context();
+        let corrupted = "corrupted_file.txt"
+            .encrypt(&mut wrong_ctx, SymmetricKeyId::User)
+            .unwrap();
+
+        let cipher = Cipher {
+            id: Some("090c19ea-a61a-4df6-8963-262b97bc6266".parse().unwrap()),
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            key: None,
+            name: TEST_CIPHER_NAME.parse().unwrap(),
+            notes: None,
+            r#type: CipherType::Login,
+            login: None,
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: false,
+            edit: true,
+            permissions: None,
+            view_password: true,
+            local_data: None,
+            attachments: Some(vec![
+                // Valid attachment
+                attachment::Attachment {
+                    id: Some("valid-attachment".to_string()),
+                    url: Some("https://example.com/valid".to_string()),
+                    size: Some("100".to_string()),
+                    size_name: Some("100 Bytes".to_string()),
+                    file_name: Some(valid1),
+                    key: None,
+                },
+                // Corrupted attachment
+                attachment::Attachment {
+                    id: Some("corrupted-attachment".to_string()),
+                    url: Some("https://example.com/corrupted".to_string()),
+                    size: Some("200".to_string()),
+                    size_name: Some("200 Bytes".to_string()),
+                    file_name: Some(corrupted),
+                    key: None,
+                },
+                // Another valid attachment
+                attachment::Attachment {
+                    id: Some("valid-attachment-2".to_string()),
+                    url: Some("https://example.com/valid2".to_string()),
+                    size: Some("150".to_string()),
+                    size_name: Some("150 Bytes".to_string()),
+                    file_name: Some(valid2),
+                    key: None,
+                },
+            ]),
+            fields: None,
+            password_history: None,
+            creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
+            data: None,
+        };
+
+        let view: CipherView = key_store.decrypt(&cipher).unwrap();
+
+        // Should have 2 successful attachments
+        assert!(view.attachments.is_some());
+        let successes = view.attachments.as_ref().unwrap();
+        assert_eq!(successes.len(), 2);
+        assert_eq!(successes[0].id, Some("valid-attachment".to_string()));
+        assert_eq!(successes[1].id, Some("valid-attachment-2".to_string()));
+
+        // Should have 1 failed attachment
+        assert!(view.attachment_decryption_failures.is_some());
+        let failures = view.attachment_decryption_failures.as_ref().unwrap();
+        assert_eq!(failures.len(), 1);
+        assert_eq!(failures[0].id, Some("corrupted-attachment".to_string()));
+        assert_eq!(failures[0].file_name, None);
     }
 }

@@ -2,30 +2,11 @@
 
 use std::fmt::Debug;
 
-use bitwarden_api_api::apis::Error as ApiApisError;
-use bitwarden_api_identity::apis::Error as IdentityError;
+use bitwarden_api_base::Error as BaseApiError;
 #[cfg(feature = "internal")]
 use bitwarden_error::bitwarden_error;
 use reqwest::StatusCode;
 use thiserror::Error;
-
-macro_rules! impl_bitwarden_error {
-    ($name:ident, $error:ident) => {
-        impl<T> From<$name<T>> for $error {
-            fn from(e: $name<T>) -> Self {
-                match e {
-                    $name::Reqwest(e) => Self::Reqwest(e),
-                    $name::ResponseError(e) => Self::ResponseContent {
-                        status: e.status,
-                        message: e.content,
-                    },
-                    $name::Serde(e) => Self::Serde(e),
-                    $name::Io(e) => Self::Io(e),
-                }
-            }
-        }
-    };
-}
 
 /// Errors from performing network requests.
 #[allow(missing_docs)]
@@ -35,6 +16,8 @@ pub enum ApiError {
     #[error(transparent)]
     Reqwest(#[from] reqwest::Error),
     #[error(transparent)]
+    ReqwestMiddleware(#[from] reqwest_middleware::Error),
+    #[error(transparent)]
     Serde(#[from] serde_json::Error),
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -43,8 +26,20 @@ pub enum ApiError {
     ResponseContent { status: StatusCode, message: String },
 }
 
-impl_bitwarden_error!(ApiApisError, ApiError);
-impl_bitwarden_error!(IdentityError, ApiError);
+impl<T> From<BaseApiError<T>> for ApiError {
+    fn from(e: BaseApiError<T>) -> Self {
+        match e {
+            BaseApiError::Reqwest(e) => Self::Reqwest(e),
+            BaseApiError::ReqwestMiddleware(e) => Self::ReqwestMiddleware(e),
+            BaseApiError::ResponseError(e) => Self::ResponseContent {
+                status: e.status,
+                message: e.content,
+            },
+            BaseApiError::Serde(e) => Self::Serde(e),
+            BaseApiError::Io(e) => Self::Io(e),
+        }
+    }
+}
 
 /// Client is not authenticated or the session has expired.
 #[derive(Debug, Error)]

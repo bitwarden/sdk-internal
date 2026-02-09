@@ -63,7 +63,7 @@ subtle = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tsify = { workspace = true, optional = true }
-typenum = ">=1.18.0, <1.19.0"
+typenum = ">=1.18.0, <1.20.0"
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }

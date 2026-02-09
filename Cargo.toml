@@ -19,8 +19,12 @@ keywords = ["bitwarden"]
 
 # Define dependencies that are expected to be consistent across all crates
 [workspace.dependencies]
+
+# External crates that are expected to maintain a consistent version across all crates
+async-trait = ">=0.1.80, <0.2"
 bitwarden = { path = "crates/bitwarden", version = "=1.0.0" }
 bitwarden-api-api = { path = "crates/bitwarden-api-api", version = "=2.0.0" }
+bitwarden-api-base = { path = "crates/bitwarden-api-base", version = "=2.0.0" }
 bitwarden-api-identity = { path = "crates/bitwarden-api-identity", version = "=2.0.0" }
 bitwarden-api-key-connector = { path = "crates/bitwarden-api-key-connector", version = "=2.0.0" }
 bitwarden-auth = { path = "crates/bitwarden-auth", version = "=2.0.0" }
@@ -39,18 +43,18 @@ bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=2.0.0" }
 bitwarden-pm = { path = "crates/bitwarden-pm", version = "=2.0.0" }
 bitwarden-policies = { path = "crates/bitwarden-policies", version = "=2.0.0" }
 bitwarden-send = { path = "crates/bitwarden-send", version = "=2.0.0" }
+bitwarden-server-communication-config = { path = "crates/bitwarden-server-communication-config", version = "=2.0.0" }
 bitwarden-sm = { path = "bitwarden_license/bitwarden-sm", version = "=2.0.0" }
 bitwarden-ssh = { path = "crates/bitwarden-ssh", version = "=2.0.0" }
 bitwarden-state = { path = "crates/bitwarden-state", version = "=2.0.0" }
 bitwarden-test = { path = "crates/bitwarden-test", version = "=2.0.0" }
+bitwarden-test-macro = { path = "crates/bitwarden-test-macro", version = "=2.0.0" }
 bitwarden-threading = { path = "crates/bitwarden-threading", version = "=2.0.0" }
 bitwarden-uniffi-error = { path = "crates/bitwarden-uniffi-error", version = "=2.0.0" }
+bitwarden-user-crypto-management = { path = "crates/bitwarden-user-crypto-management", version = "=2.0.0" }
 bitwarden-uuid = { path = "crates/bitwarden-uuid", version = "=2.0.0" }
 bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=2.0.0" }
 bitwarden-vault = { path = "crates/bitwarden-vault", version = "=2.0.0" }
-
-# External crates that are expected to maintain a consistent version across all crates
-async-trait = ">=0.1.80, <0.2"
 chrono = { version = ">=0.4.26, <0.5", features = [
     "clock",
     "serde",
@@ -69,6 +73,10 @@ reqwest = { version = ">=0.12.5, <0.13", features = [
     "multipart",
     "http2",
 ], default-features = false }
+reqwest-middleware = { version = ">=0.4.2, <0.5", features = [
+    "json",
+    "multipart",
+] }
 rsa = ">=0.9.2, <0.10"
 schemars = { version = ">=1.0.0, <2.0", features = ["uuid1", "chrono04"] }
 serde = { version = ">=1.0, <2.0", features = ["derive"] }

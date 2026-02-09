@@ -44,6 +44,7 @@ dangerous-crypto-debug = ["bitwarden-crypto/dangerous-crypto-debug"]
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-api-api = { workspace = true }
+bitwarden-api-base = { workspace = true }
 bitwarden-api-identity = { workspace = true }
 bitwarden-api-key-connector = { workspace = true }
 bitwarden-crypto = { workspace = true }
@@ -57,6 +58,7 @@ chrono = { workspace = true, features = ["std"] }
 getrandom = { version = ">=0.2.9, <0.3", features = ["js"] }
 rand = ">=0.8.5, <0.9"
 reqwest = { workspace = true }
+reqwest-middleware = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde_bytes = { workspace = true }

@@ -9,9 +9,7 @@
     clippy::derivable_impls
 )]
 
-extern crate serde;
-extern crate serde_json;
-extern crate url;
-
 pub mod apis;
 pub mod models;
+
+pub use bitwarden_api_base::{Configuration, ContentType, Error, ResponseContent};
