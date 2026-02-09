@@ -113,6 +113,51 @@ impl CiphersClient {
         })
     }
 
+    /// Encrypt a list of cipher views.
+    ///
+    /// This method attempts to encrypt all ciphers in the list. If any cipher
+    /// fails to encrypt, the entire operation fails and an error is returned.
+    #[cfg(feature = "wasm")]
+    pub fn encrypt_list(
+        &self,
+        cipher_views: Vec<CipherView>,
+    ) -> Result<Vec<EncryptionContext>, EncryptError> {
+        let user_id = self
+            .client
+            .internal
+            .get_user_id()
+            .ok_or(EncryptError::MissingUserId)?;
+        let key_store = self.client.internal.get_key_store();
+        let enable_cipher_key = self
+            .client
+            .internal
+            .get_flags()
+            .enable_cipher_key_encryption;
+
+        let mut ctx = key_store.context();
+
+        let prepared_views: Vec<CipherView> = cipher_views
+            .into_iter()
+            .map(|mut cv| {
+                if cv.key.is_none() && enable_cipher_key {
+                    let key = cv.key_identifier();
+                    cv.generate_cipher_key(&mut ctx, key)?;
+                }
+                Ok(cv)
+            })
+            .collect::<Result<Vec<_>, bitwarden_crypto::CryptoError>>()?;
+
+        let ciphers: Vec<Cipher> = key_store.encrypt_list(&prepared_views)?;
+
+        Ok(ciphers
+            .into_iter()
+            .map(|cipher| EncryptionContext {
+                cipher,
+                encrypted_for: user_id,
+            })
+            .collect())
+    }
+
     #[allow(missing_docs)]
     pub fn decrypt(&self, cipher: Cipher) -> Result<CipherView, DecryptError> {
         let key_store = self.client.internal.get_key_store();
@@ -657,5 +702,71 @@ mod tests {
             client.vault().ciphers().decrypt(ctx.cipher).err(),
             Some(DecryptError::Crypto(CryptoError::Decrypt))
         ));
+    }
+
+    #[tokio::test]
+    async fn test_encrypt_list() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let cipher_views = vec![test_cipher_view(), test_cipher_view()];
+
+        let result = client.vault().ciphers().encrypt_list(cipher_views);
+
+        assert!(result.is_ok());
+        let contexts = result.unwrap();
+        assert_eq!(contexts.len(), 2);
+
+        // Verify each encrypted cipher has a key (cipher key encryption is enabled)
+        for ctx in &contexts {
+            assert!(ctx.cipher.key.is_some());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_encrypt_list_empty() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let result = client.vault().ciphers().encrypt_list(vec![]);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_encrypt_list_roundtrip() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let original_views = vec![test_cipher_view(), test_cipher_view()];
+        let original_names: Vec<_> = original_views.iter().map(|v| v.name.clone()).collect();
+
+        let contexts = client
+            .vault()
+            .ciphers()
+            .encrypt_list(original_views)
+            .unwrap();
+
+        // Decrypt each cipher and verify the name matches
+        for (ctx, original_name) in contexts.iter().zip(original_names.iter()) {
+            let decrypted = client
+                .vault()
+                .ciphers()
+                .decrypt(ctx.cipher.clone())
+                .unwrap();
+            assert_eq!(&decrypted.name, original_name);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_encrypt_list_preserves_user_id() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let expected_user_id = client.internal.get_user_id().unwrap();
+
+        let cipher_views = vec![test_cipher_view(), test_cipher_view(), test_cipher_view()];
+        let contexts = client.vault().ciphers().encrypt_list(cipher_views).unwrap();
+
+        for ctx in contexts {
+            assert_eq!(ctx.encrypted_for, expected_user_id);
+        }
     }
 }
