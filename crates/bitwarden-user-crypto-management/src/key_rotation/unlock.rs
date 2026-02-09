@@ -244,10 +244,8 @@ fn reencrypt_userkey_for_masterpassword_unlock(
             .map_err(|_| ReencryptError::MasterPasswordDerivation)?;
     let authentication_data = MasterPasswordAuthenticationData::derive(&password, &kdf, &salt)
         .map_err(|_| ReencryptError::MasterPasswordDerivation)?;
-    Ok(
-        to_authentication_and_unlock_data(unlock_data, authentication_data, hint)
-            .map_err(|_| ReencryptError::MasterPasswordDerivation)?,
-    )
+    to_authentication_and_unlock_data(unlock_data, authentication_data, hint)
+            .map_err(|_| ReencryptError::MasterPasswordDerivation)
 }
 
 #[derive(Debug)]
