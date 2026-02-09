@@ -122,7 +122,7 @@ impl TryFrom<&MasterPasswordUnlockResponseModel> for MasterPasswordUnlockData {
                 memory: kdf_parse_nonzero_u32(require!(response.kdf.memory))?,
                 parallelism: kdf_parse_nonzero_u32(require!(response.kdf.parallelism))?,
             },
-            KdfType::__Unknown(_) => return Err(MissingFieldError("kdf").into()),
+            KdfType::__Unknown(_) => return Err(MasterPasswordError::KdfMalformed),
         };
 
         let master_key_wrapped_user_key = require!(&response.master_key_encrypted_user_key)
