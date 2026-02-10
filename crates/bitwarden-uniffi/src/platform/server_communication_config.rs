@@ -1,29 +1,31 @@
 use std::sync::Arc;
 
 use bitwarden_server_communication_config::{
-    AcquiredCookie, ServerCommunicationConfig, ServerCommunicationConfigClient,
-    ServerCommunicationConfigPlatformApi, ServerCommunicationConfigRepository,
+    AcquiredCookie, ServerCommunicationConfig, ServerCommunicationConfigPlatformApi,
 };
 
 use crate::error::Result;
 
-type UniffiRepository = UniffiRepositoryBridge<Arc<dyn ServerCommunicationConfigRepositoryTrait>>;
+type UniffiRepository = UniffiRepositoryBridge<Arc<dyn ServerCommunicationConfigRepository>>;
 type UniffiPlatformApi = UniffiPlatformApiBridge<Arc<dyn ServerCommunicationConfigPlatformApi>>;
 
 /// UniFFI wrapper for ServerCommunicationConfigClient
 #[derive(uniffi::Object)]
-pub struct UniffiServerCommunicationConfigClient {
-    client: ServerCommunicationConfigClient<UniffiRepository, UniffiPlatformApi>,
+pub struct ServerCommunicationConfigClient {
+    client: bitwarden_server_communication_config::ServerCommunicationConfigClient<
+        UniffiRepository,
+        UniffiPlatformApi,
+    >,
 }
 
-impl UniffiServerCommunicationConfigClient {
+impl ServerCommunicationConfigClient {
     /// Creates a new server communication configuration client
     pub fn new(
-        repository: Arc<dyn ServerCommunicationConfigRepositoryTrait>,
+        repository: Arc<dyn ServerCommunicationConfigRepository>,
         platform_api: Arc<dyn ServerCommunicationConfigPlatformApi>,
     ) -> Arc<Self> {
         Arc::new(Self {
-            client: ServerCommunicationConfigClient::new(
+            client: bitwarden_server_communication_config::ServerCommunicationConfigClient::new(
                 UniffiRepositoryBridge(repository),
                 UniffiPlatformApiBridge(platform_api),
             ),
@@ -32,7 +34,7 @@ impl UniffiServerCommunicationConfigClient {
 }
 
 #[uniffi::export]
-impl UniffiServerCommunicationConfigClient {
+impl ServerCommunicationConfigClient {
     /// Retrieves the server communication configuration for a hostname
     pub async fn get_config(&self, hostname: String) -> Result<ServerCommunicationConfig> {
         self.client.get_config(hostname).await
@@ -63,7 +65,7 @@ impl UniffiServerCommunicationConfigClient {
 /// UniFFI repository trait for server communication configuration
 #[uniffi::export(with_foreign)]
 #[async_trait::async_trait]
-pub trait ServerCommunicationConfigRepositoryTrait: Send + Sync {
+pub trait ServerCommunicationConfigRepository: Send + Sync {
     /// Get configuration for a hostname
     async fn get(&self, hostname: String) -> Result<Option<ServerCommunicationConfig>>;
 
@@ -87,8 +89,8 @@ impl<T: std::fmt::Debug> std::fmt::Debug for UniffiRepositoryBridge<T> {
     }
 }
 
-impl<'a> ServerCommunicationConfigRepository
-    for UniffiRepositoryBridge<Arc<dyn ServerCommunicationConfigRepositoryTrait + 'a>>
+impl<'a> bitwarden_server_communication_config::ServerCommunicationConfigRepository
+    for UniffiRepositoryBridge<Arc<dyn ServerCommunicationConfigRepository + 'a>>
 {
     type GetError = crate::error::Error;
     type SaveError = crate::error::Error;
