@@ -23,6 +23,7 @@ wasm = [
     "dep:wasm-bindgen-futures",
 ] # WASM support
 uniffi = ["bitwarden-core/uniffi", "dep:uniffi"] # Uniffi bindings
+secrets = ["bitwarden-core/secrets"] # Secrets Manager support
 
 # Note: dependencies must be alphabetized to pass the cargo sort check in the CI pipeline.
 [dependencies]

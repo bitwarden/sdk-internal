@@ -118,3 +118,78 @@ impl MiddlewareExt for SecretsManagerTokenHandler {
         Ok(Some(access_token))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        str::FromStr,
+        sync::{Arc, RwLock},
+    };
+
+    use bitwarden_core::{
+        auth::{AccessToken, TokenHandler},
+        client::login_method::{LoginMethod, ServiceAccountLoginMethod},
+        key_management::KeyIds,
+    };
+    use bitwarden_crypto::KeyStore;
+    use wiremock::MockServer;
+
+    use super::*;
+    use crate::renew::common::test_utils;
+
+    fn service_account_login_method() -> Arc<RwLock<Option<Arc<LoginMethod>>>> {
+        let access_token = AccessToken::from_str(
+            "0.ec2c1d46-6a4b-4751-a310-af9601317f2d.C2IgxjjLF7qSshsbwe8JGcbM075YXw:X8vbvA0bduihIDe/qrzIQQ==",
+        )
+        .unwrap();
+
+        Arc::new(RwLock::new(Some(Arc::new(LoginMethod::ServiceAccount(
+            ServiceAccountLoginMethod::AccessToken {
+                access_token,
+                organization_id: "00000000-0000-0000-0000-000000000001".parse().unwrap(),
+                state_file: None,
+            },
+        )))))
+    }
+
+    #[tokio::test]
+    async fn attaches_existing_token_when_not_expired() {
+        let app_server = test_utils::start_app_server().await;
+        let identity_server = MockServer::start().await;
+
+        let handler = SecretsManagerTokenHandler::default();
+        handler.set_tokens("original-token".to_string(), None, 3600);
+
+        let client = test_utils::build_client(handler.initialize_middleware(
+            service_account_login_method(),
+            test_utils::identity_config(&identity_server.uri()),
+            KeyStore::<KeyIds>::default(),
+        ));
+
+        let auth = test_utils::send_auth_request(&client, &app_server).await;
+        assert_eq!(auth.as_deref(), Some("Bearer original-token"));
+        assert_eq!(identity_server.received_requests().await.unwrap().len(), 0);
+        assert_eq!(app_server.received_requests().await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn renews_expired_token() {
+        let app_server = test_utils::start_app_server().await;
+        let identity_server = test_utils::start_renewal_server("renewed-token").await;
+
+        let handler = SecretsManagerTokenHandler::default();
+        // expires_in=0 means the token is immediately considered expired
+        handler.set_tokens("expired-token".to_string(), None, 0);
+
+        let client = test_utils::build_client(handler.initialize_middleware(
+            service_account_login_method(),
+            test_utils::identity_config(&identity_server.uri()),
+            KeyStore::<KeyIds>::default(),
+        ));
+
+        let auth = test_utils::send_auth_request(&client, &app_server).await;
+        assert_eq!(auth.as_deref(), Some("Bearer renewed-token"));
+        assert_eq!(identity_server.received_requests().await.unwrap().len(), 1);
+        assert_eq!(app_server.received_requests().await.unwrap().len(), 1);
+    }
+}

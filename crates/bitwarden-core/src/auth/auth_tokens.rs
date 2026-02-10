@@ -1,4 +1,3 @@
-use core::panic;
 use std::sync::{Arc, RwLock};
 
 use bitwarden_crypto::KeyStore;
@@ -119,5 +118,96 @@ impl reqwest_middleware::Middleware for NoopTokenHandler {
         next: reqwest_middleware::Next<'_>,
     ) -> Result<reqwest::Response, reqwest_middleware::Error> {
         next.run(req, ext).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use wiremock::MockServer;
+
+    use super::*;
+
+    #[derive(Debug)]
+    struct MockTokenProvider {
+        token: Option<String>,
+    }
+
+    #[async_trait::async_trait]
+    impl ClientManagedTokens for MockTokenProvider {
+        async fn get_access_token(&self) -> Option<String> {
+            self.token.clone()
+        }
+    }
+
+    async fn test_setup(
+        token: Option<String>,
+    ) -> (reqwest_middleware::ClientWithMiddleware, MockServer) {
+        let provider = Arc::new(MockTokenProvider { token });
+        let handler = ClientManagedTokenHandler::new(provider);
+
+        let client = reqwest_middleware::ClientBuilder::new(reqwest::Client::new())
+            .with((*handler).clone())
+            .build();
+
+        let server = MockServer::start().await;
+        wiremock::Mock::given(wiremock::matchers::any())
+            .respond_with(wiremock::ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+
+        (client, server)
+    }
+
+    #[tokio::test]
+    async fn attaches_bearer_token_when_auth_required() {
+        let (client, server) = test_setup(Some("test-token".to_string())).await;
+
+        client
+            .get(format!("{}/test", server.uri()))
+            .with_extension(bitwarden_api_base::AuthRequired::Bearer)
+            .send()
+            .await
+            .unwrap();
+
+        let requests = server.received_requests().await.unwrap();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(
+            requests[0]
+                .headers
+                .get("Authorization")
+                .map(|v| v.to_str().unwrap()),
+            Some("Bearer test-token")
+        );
+    }
+
+    #[tokio::test]
+    async fn does_not_attach_token_without_auth_required() {
+        let (client, server) = test_setup(Some("test-token".to_string())).await;
+
+        client
+            .get(format!("{}/test", server.uri()))
+            .send()
+            .await
+            .unwrap();
+
+        let requests = server.received_requests().await.unwrap();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].headers.get("Authorization"), None);
+    }
+
+    #[tokio::test]
+    async fn does_not_attach_token_when_provider_returns_none() {
+        let (client, server) = test_setup(None).await;
+
+        client
+            .get(format!("{}/test", server.uri()))
+            .with_extension(bitwarden_api_base::AuthRequired::Bearer)
+            .send()
+            .await
+            .unwrap();
+
+        let requests = server.received_requests().await.unwrap();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].headers.get("Authorization"), None);
     }
 }
