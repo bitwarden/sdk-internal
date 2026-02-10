@@ -450,6 +450,7 @@ mod tests {
         },
     };
     use bitwarden_encoding::B64;
+    use bitwarden_vault::{CipherId, FolderId};
 
     use super::*;
 
@@ -677,13 +678,25 @@ mod tests {
         let grantee_id = uuid::Uuid::new_v4();
         let device_id = uuid::Uuid::new_v4();
         let passkey_id = uuid::Uuid::new_v4();
+        let folder_id = uuid::Uuid::new_v4();
+        let cipher_id = uuid::Uuid::new_v4();
+        let send_id = uuid::Uuid::new_v4();
 
         let api_client = ApiClient::new_mocked(|mock| {
             let user_id = user_id;
+            let folder_id = folder_id;
+            let cipher_id = cipher_id;
+            let send_id = send_id;
             mock.sync_api
                 .expect_get()
                 .once()
-                .returning(move |_exclude_domains| Ok(create_test_sync_response(user_id)));
+                .returning(move |_exclude_domains| {
+                    let mut response = create_test_sync_response(user_id);
+                    response.folders = Some(vec![create_test_folder(folder_id)]);
+                    response.ciphers = Some(vec![create_test_cipher(cipher_id)]);
+                    response.sends = Some(vec![create_test_send(send_id)]);
+                    Ok(response)
+                });
 
             let org_id = org_id;
             mock.organizations_api
@@ -725,9 +738,23 @@ mod tests {
         let data = result.unwrap();
 
         assert_eq!(data.user_id, user_id);
+
+        // Verify folders
         assert_eq!(data.folders.len(), 1);
+        assert_eq!(data.folders[0].id, Some(FolderId::new(folder_id)));
+        assert_eq!(data.folders[0].name, TEST_ENC_STRING.parse().unwrap());
+
+        // Verify ciphers
         assert_eq!(data.ciphers.len(), 1);
+        assert_eq!(data.ciphers[0].id, Some(CipherId::new(cipher_id)));
+        assert_eq!(data.ciphers[0].name, TEST_ENC_STRING.parse().unwrap());
+
+        // Verify sends
         assert_eq!(data.sends.len(), 1);
+        assert_eq!(data.sends[0].id, Some(send_id));
+        assert_eq!(data.sends[0].name, TEST_ENC_STRING.parse().unwrap());
+        assert_eq!(data.sends[0].key, KEY_ENC_STRING.parse().unwrap());
+
         assert_eq!(data.organization_memberships.len(), 1);
         assert_eq!(data.organization_memberships[0].organization_id, org_id);
         assert_eq!(data.emergency_access_memberships.len(), 1);
@@ -785,6 +812,604 @@ mod tests {
             mock.users_api.checkpoint();
             mock.devices_api.checkpoint();
             mock.web_authn_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_fetch_organization_public_key_success() {
+        let org_id = uuid::Uuid::new_v4();
+        let expected_public_key_b64 = test_public_key_b64();
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            let expected_public_key_b64 = expected_public_key_b64.clone();
+            mock.organizations_api
+                .expect_get_public_key()
+                .once()
+                .withf(move |id| id == &org_id.to_string())
+                .returning(move |_| {
+                    Ok(OrganizationPublicKeyResponseModel {
+                        object: None,
+                        public_key: Some(expected_public_key_b64.clone()),
+                    })
+                });
+        });
+
+        let result = fetch_organization_public_key(&api_client, org_id).await;
+
+        assert!(result.is_ok());
+        let public_key = result.unwrap();
+
+        // Verify the public key was correctly parsed from DER format
+        let expected_public_key = PublicKey::from_der(&SpkiPublicKeyBytes::from(
+            TEST_RSA_PUBLIC_KEY_BYTES.to_vec(),
+        ))
+        .unwrap();
+        assert_eq!(
+            public_key.to_der().unwrap(),
+            expected_public_key.to_der().unwrap()
+        );
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.organizations_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_fetch_organization_public_key_network_error() {
+        let org_id = uuid::Uuid::new_v4();
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.organizations_api
+                .expect_get_public_key()
+                .once()
+                .returning(move |_| {
+                    Err(bitwarden_api_api::apis::Error::Serde(
+                        serde_json::Error::io(std::io::Error::other("Network error")),
+                    ))
+                });
+        });
+
+        let result = fetch_organization_public_key(&api_client, org_id).await;
+
+        assert!(matches!(result, Err(SyncError::NetworkError)));
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.organizations_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_sync_orgs_success_multiple_orgs() {
+        let org_id1 = uuid::Uuid::new_v4();
+        let org_id2 = uuid::Uuid::new_v4();
+        let org_id3 = uuid::Uuid::new_v4();
+        let org_name1 = "Organization One".to_string();
+        let org_name2 = "Organization Two".to_string();
+        let org_name3 = "Organization Three".to_string();
+        let expected_public_key_b64 = test_public_key_b64();
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            let org_name1 = org_name1.clone();
+            let org_name2 = org_name2.clone();
+            let org_name3 = org_name3.clone();
+            mock.organizations_api
+                .expect_get_user()
+                .once()
+                .returning(move || {
+                    Ok(ProfileOrganizationResponseModelListResponseModel {
+                        object: None,
+                        data: Some(vec![
+                            ProfileOrganizationResponseModel {
+                                id: Some(org_id1),
+                                name: Some(org_name1.clone()),
+                                ..ProfileOrganizationResponseModel::new()
+                            },
+                            ProfileOrganizationResponseModel {
+                                id: Some(org_id2),
+                                name: Some(org_name2.clone()),
+                                ..ProfileOrganizationResponseModel::new()
+                            },
+                            ProfileOrganizationResponseModel {
+                                id: Some(org_id3),
+                                name: Some(org_name3.clone()),
+                                ..ProfileOrganizationResponseModel::new()
+                            },
+                        ]),
+                        continuation_token: None,
+                    })
+                });
+
+            let expected_public_key_b64 = expected_public_key_b64.clone();
+            mock.organizations_api
+                .expect_get_public_key()
+                .times(3)
+                .returning(move |_| {
+                    Ok(OrganizationPublicKeyResponseModel {
+                        object: None,
+                        public_key: Some(expected_public_key_b64.clone()),
+                    })
+                });
+        });
+
+        let result = sync_orgs(&api_client).await;
+        let memberships = result.unwrap();
+
+        assert_eq!(memberships.len(), 3);
+        assert_eq!(memberships[0].organization_id, org_id1);
+        assert_eq!(memberships[0].name, org_name1);
+        assert_eq!(memberships[1].organization_id, org_id2);
+        assert_eq!(memberships[1].name, org_name2);
+        assert_eq!(memberships[2].organization_id, org_id3);
+        assert_eq!(memberships[2].name, org_name3);
+
+        // Verify all public keys are correctly parsed
+        let expected_public_key = PublicKey::from_der(&SpkiPublicKeyBytes::from(
+            TEST_RSA_PUBLIC_KEY_BYTES.to_vec(),
+        ))
+        .unwrap();
+        for membership in &memberships {
+            assert_eq!(
+                membership.public_key.to_der().unwrap(),
+                expected_public_key.to_der().unwrap()
+            );
+        }
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.organizations_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_sync_orgs_network_error() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.organizations_api
+                .expect_get_user()
+                .once()
+                .returning(move || {
+                    Err(bitwarden_api_api::apis::Error::Serde(
+                        serde_json::Error::io(std::io::Error::other("Network error")),
+                    ))
+                });
+
+            mock.organizations_api.expect_get_public_key().never();
+        });
+
+        let result = sync_orgs(&api_client).await;
+
+        assert!(matches!(result, Err(SyncError::NetworkError)));
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.organizations_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_sync_orgs_public_key_fetch_fails() {
+        let org_id = uuid::Uuid::new_v4();
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.organizations_api
+                .expect_get_user()
+                .once()
+                .returning(move || {
+                    Ok(ProfileOrganizationResponseModelListResponseModel {
+                        object: None,
+                        data: Some(vec![ProfileOrganizationResponseModel {
+                            id: Some(org_id),
+                            name: Some("Test Org".to_string()),
+                            ..ProfileOrganizationResponseModel::new()
+                        }]),
+                        continuation_token: None,
+                    })
+                });
+
+            mock.organizations_api
+                .expect_get_public_key()
+                .once()
+                .returning(move |_| {
+                    Err(bitwarden_api_api::apis::Error::Serde(
+                        serde_json::Error::io(std::io::Error::other("Network error")),
+                    ))
+                });
+        });
+
+        let result = sync_orgs(&api_client).await;
+        assert!(matches!(result, Err(SyncError::NetworkError)));
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.organizations_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_sync_passkeys_success_multiple_passkeys() {
+        let passkey_id1 = uuid::Uuid::new_v4();
+        let passkey_id2 = uuid::Uuid::new_v4();
+        let passkey_id3 = uuid::Uuid::new_v4();
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.web_authn_api.expect_get().once().returning(move || {
+                Ok(WebAuthnCredentialResponseModelListResponseModel {
+                    object: None,
+                    data: Some(vec![
+                        WebAuthnCredentialResponseModel {
+                            id: Some(passkey_id1.to_string()),
+                            encrypted_user_key: Some(TEST_UNSIGNED_SHARED_KEY.to_string()),
+                            encrypted_public_key: Some(TEST_ENC_STRING.to_string()),
+                            ..WebAuthnCredentialResponseModel::new()
+                        },
+                        WebAuthnCredentialResponseModel {
+                            id: Some(passkey_id2.to_string()),
+                            encrypted_user_key: Some(TEST_UNSIGNED_SHARED_KEY.to_string()),
+                            encrypted_public_key: Some(TEST_ENC_STRING.to_string()),
+                            ..WebAuthnCredentialResponseModel::new()
+                        },
+                        WebAuthnCredentialResponseModel {
+                            id: Some(passkey_id3.to_string()),
+                            encrypted_user_key: Some(TEST_UNSIGNED_SHARED_KEY.to_string()),
+                            encrypted_public_key: Some(TEST_ENC_STRING.to_string()),
+                            ..WebAuthnCredentialResponseModel::new()
+                        },
+                    ]),
+                    continuation_token: None,
+                })
+            });
+        });
+
+        let result = sync_passkeys(&api_client).await;
+        let passkeys = result.unwrap();
+
+        assert_eq!(passkeys.len(), 3);
+        assert_eq!(passkeys[0].id, passkey_id1);
+        assert_eq!(passkeys[1].id, passkey_id2);
+        assert_eq!(passkeys[2].id, passkey_id3);
+
+        // Verify encrypted data is correctly parsed
+        for passkey in &passkeys {
+            assert_eq!(
+                passkey.encrypted_public_key.to_string(),
+                TEST_ENC_STRING.to_string()
+            );
+            assert_eq!(
+                passkey.encrypted_user_key.to_string(),
+                TEST_UNSIGNED_SHARED_KEY.to_string()
+            );
+        }
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.web_authn_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_sync_passkeys_network_error() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.web_authn_api.expect_get().once().returning(move || {
+                Err(bitwarden_api_api::apis::Error::Serde(
+                    serde_json::Error::io(std::io::Error::other("Network error")),
+                ))
+            });
+        });
+
+        let result = sync_passkeys(&api_client).await;
+
+        assert!(matches!(result, Err(SyncError::NetworkError)));
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.web_authn_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_sync_devices_success_multiple_devices() {
+        let device_id1 = uuid::Uuid::new_v4();
+        let device_id2 = uuid::Uuid::new_v4();
+        let device_id3 = uuid::Uuid::new_v4();
+        let untrusted_device_id = uuid::Uuid::new_v4();
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.devices_api.expect_get_all().once().returning(move || {
+                Ok(DeviceAuthRequestResponseModelListResponseModel {
+                    object: None,
+                    data: Some(vec![
+                        DeviceAuthRequestResponseModel {
+                            id: Some(device_id1),
+                            is_trusted: Some(true),
+                            encrypted_user_key: Some(TEST_UNSIGNED_SHARED_KEY.to_string()),
+                            encrypted_public_key: Some(TEST_ENC_STRING.to_string()),
+                            ..DeviceAuthRequestResponseModel::new()
+                        },
+                        DeviceAuthRequestResponseModel {
+                            id: Some(device_id2),
+                            is_trusted: Some(true),
+                            encrypted_user_key: Some(TEST_UNSIGNED_SHARED_KEY.to_string()),
+                            encrypted_public_key: Some(TEST_ENC_STRING.to_string()),
+                            ..DeviceAuthRequestResponseModel::new()
+                        },
+                        DeviceAuthRequestResponseModel {
+                            id: Some(untrusted_device_id),
+                            is_trusted: Some(false), // Not trusted
+                            encrypted_user_key: Some(TEST_UNSIGNED_SHARED_KEY.to_string()),
+                            encrypted_public_key: Some(TEST_ENC_STRING.to_string()),
+                            ..DeviceAuthRequestResponseModel::new()
+                        },
+                        DeviceAuthRequestResponseModel {
+                            id: Some(device_id3),
+                            is_trusted: Some(true),
+                            encrypted_user_key: Some(TEST_UNSIGNED_SHARED_KEY.to_string()),
+                            encrypted_public_key: Some(TEST_ENC_STRING.to_string()),
+                            ..DeviceAuthRequestResponseModel::new()
+                        },
+                    ]),
+                    continuation_token: None,
+                })
+            });
+        });
+
+        let result = sync_devices(&api_client).await;
+        let devices = result.unwrap();
+
+        // Verify only trusted devices are returned (3 out of 4)
+        assert_eq!(devices.len(), 3);
+        // Verify each device's ID (untrusted device should not be included)
+        assert_eq!(devices[0].id, device_id1);
+        assert_eq!(devices[1].id, device_id2);
+        assert_eq!(devices[2].id, device_id3);
+
+        // Verify encrypted data is correctly parsed
+        for device in &devices {
+            assert_eq!(
+                device.encrypted_public_key.to_string(),
+                TEST_ENC_STRING.to_string()
+            );
+            assert_eq!(
+                device.encrypted_user_key.to_string(),
+                TEST_UNSIGNED_SHARED_KEY.to_string()
+            );
+        }
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.devices_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_sync_devices_network_error() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.devices_api.expect_get_all().once().returning(move || {
+                Err(bitwarden_api_api::apis::Error::Serde(
+                    serde_json::Error::io(std::io::Error::other("Network error")),
+                ))
+            });
+        });
+
+        let result = sync_devices(&api_client).await;
+
+        assert!(matches!(result, Err(SyncError::NetworkError)));
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.devices_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_fetch_user_public_key_success() {
+        let user_id = uuid::Uuid::new_v4();
+        let expected_public_key_b64 = test_public_key_b64();
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            let expected_public_key_b64 = expected_public_key_b64.clone();
+            mock.users_api
+                .expect_get_public_key()
+                .once()
+                .withf(move |id| id == &user_id)
+                .returning(move |_| {
+                    Ok(UserKeyResponseModel {
+                        object: None,
+                        user_id: None,
+                        public_key: Some(expected_public_key_b64.clone()),
+                    })
+                });
+        });
+
+        let result = fetch_user_public_key(&api_client, user_id).await;
+        let public_key = result.unwrap();
+
+        // Verify the public key was correctly parsed from DER format
+        let expected_public_key = PublicKey::from_der(&SpkiPublicKeyBytes::from(
+            TEST_RSA_PUBLIC_KEY_BYTES.to_vec(),
+        ))
+        .unwrap();
+        assert_eq!(
+            public_key.to_der().unwrap(),
+            expected_public_key.to_der().unwrap()
+        );
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.users_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_fetch_user_public_key_network_error() {
+        let user_id = uuid::Uuid::new_v4();
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.users_api
+                .expect_get_public_key()
+                .once()
+                .returning(move |_| {
+                    Err(bitwarden_api_api::apis::Error::Serde(
+                        serde_json::Error::io(std::io::Error::other("Network error")),
+                    ))
+                });
+        });
+
+        let result = fetch_user_public_key(&api_client, user_id).await;
+
+        assert!(matches!(result, Err(SyncError::NetworkError)));
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.users_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_sync_emergency_access_success_multiple_contacts() {
+        let ea_id1 = uuid::Uuid::new_v4();
+        let ea_id2 = uuid::Uuid::new_v4();
+        let ea_id3 = uuid::Uuid::new_v4();
+        let grantee_id1 = uuid::Uuid::new_v4();
+        let grantee_id2 = uuid::Uuid::new_v4();
+        let grantee_id3 = uuid::Uuid::new_v4();
+        let ea_name1 = "Contact One".to_string();
+        let ea_name2 = "Contact Two".to_string();
+        let ea_name3 = "Contact Three".to_string();
+        let expected_public_key_b64 = test_public_key_b64();
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            let ea_name1 = ea_name1.clone();
+            let ea_name2 = ea_name2.clone();
+            let ea_name3 = ea_name3.clone();
+            mock.emergency_access_api
+                .expect_get_contacts()
+                .once()
+                .returning(move || {
+                    Ok(
+                        EmergencyAccessGranteeDetailsResponseModelListResponseModel {
+                            object: None,
+                            data: Some(vec![
+                                EmergencyAccessGranteeDetailsResponseModel {
+                                    id: Some(ea_id1),
+                                    grantee_id: Some(grantee_id1),
+                                    name: Some(ea_name1.clone()),
+                                    ..EmergencyAccessGranteeDetailsResponseModel::new()
+                                },
+                                EmergencyAccessGranteeDetailsResponseModel {
+                                    id: Some(ea_id2),
+                                    grantee_id: Some(grantee_id2),
+                                    name: Some(ea_name2.clone()),
+                                    ..EmergencyAccessGranteeDetailsResponseModel::new()
+                                },
+                                EmergencyAccessGranteeDetailsResponseModel {
+                                    id: Some(ea_id3),
+                                    grantee_id: Some(grantee_id3),
+                                    name: Some(ea_name3.clone()),
+                                    ..EmergencyAccessGranteeDetailsResponseModel::new()
+                                },
+                            ]),
+                            continuation_token: None,
+                        },
+                    )
+                });
+
+            let expected_public_key_b64 = expected_public_key_b64.clone();
+            mock.users_api
+                .expect_get_public_key()
+                .times(3)
+                .returning(move |_| {
+                    Ok(UserKeyResponseModel {
+                        object: None,
+                        user_id: None,
+                        public_key: Some(expected_public_key_b64.clone()),
+                    })
+                });
+        });
+
+        let result = sync_emergency_access(&api_client).await;
+        let memberships = result.unwrap();
+
+        assert_eq!(memberships.len(), 3);
+        assert_eq!(memberships[0].id, ea_id1);
+        assert_eq!(memberships[0].name, ea_name1);
+        assert_eq!(memberships[1].id, ea_id2);
+        assert_eq!(memberships[1].name, ea_name2);
+        assert_eq!(memberships[2].id, ea_id3);
+        assert_eq!(memberships[2].name, ea_name3);
+
+        // Verify all public keys are correctly parsed
+        let expected_public_key = PublicKey::from_der(&SpkiPublicKeyBytes::from(
+            TEST_RSA_PUBLIC_KEY_BYTES.to_vec(),
+        ))
+        .unwrap();
+        for membership in &memberships {
+            assert_eq!(
+                membership.public_key.to_der().unwrap(),
+                expected_public_key.to_der().unwrap()
+            );
+        }
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.emergency_access_api.checkpoint();
+            mock.users_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_sync_emergency_access_network_error() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.emergency_access_api
+                .expect_get_contacts()
+                .once()
+                .returning(move || {
+                    Err(bitwarden_api_api::apis::Error::Serde(
+                        serde_json::Error::io(std::io::Error::other("Network error")),
+                    ))
+                });
+
+            mock.users_api.expect_get_public_key().never();
+        });
+
+        let result = sync_emergency_access(&api_client).await;
+
+        assert!(matches!(result, Err(SyncError::NetworkError)));
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.emergency_access_api.checkpoint();
+            mock.users_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_sync_emergency_access_user_key_fetch_fails() {
+        let ea_id = uuid::Uuid::new_v4();
+        let grantee_id = uuid::Uuid::new_v4();
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.emergency_access_api
+                .expect_get_contacts()
+                .once()
+                .returning(move || {
+                    Ok(
+                        EmergencyAccessGranteeDetailsResponseModelListResponseModel {
+                            object: None,
+                            data: Some(vec![EmergencyAccessGranteeDetailsResponseModel {
+                                id: Some(ea_id),
+                                grantee_id: Some(grantee_id),
+                                name: Some("Test Contact".to_string()),
+                                ..EmergencyAccessGranteeDetailsResponseModel::new()
+                            }]),
+                            continuation_token: None,
+                        },
+                    )
+                });
+
+            mock.users_api
+                .expect_get_public_key()
+                .once()
+                .returning(move |_| {
+                    Err(bitwarden_api_api::apis::Error::Serde(
+                        serde_json::Error::io(std::io::Error::other("Network error")),
+                    ))
+                });
+        });
+
+        let result = sync_emergency_access(&api_client).await;
+        assert!(matches!(result, Err(SyncError::NetworkError)));
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.emergency_access_api.checkpoint();
+            mock.users_api.checkpoint();
         }
     }
 }
