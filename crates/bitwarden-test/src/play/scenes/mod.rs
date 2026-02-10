@@ -2,4 +2,4 @@
 
 mod single_user;
 
-pub use single_user::{SingleUserArgs, SingleUserScene};
+pub use single_user::{SingleUserArgs, SingleUserResult, SingleUserScene};

@@ -9,24 +9,21 @@ use super::SceneTemplate;
 /// The scene wraps a template instance with the server response data.
 /// Cleanup is handled by the owning `Play` instance when it is dropped.
 pub struct Scene<T: SceneTemplate> {
-    /// The template instance with populated data
-    template: T,
+    /// The result data from the server
+    result: T::Result,
     /// Map of original IDs to mangled IDs for test isolation
     mangle_map: HashMap<String, String>,
 }
 
 impl<T: SceneTemplate> Scene<T> {
     /// Create a new scene wrapper
-    pub(crate) fn new(template: T, mangle_map: HashMap<String, String>) -> Self {
-        Self {
-            template,
-            mangle_map,
-        }
+    pub(crate) fn new(result: T::Result, mangle_map: HashMap<String, String>) -> Self {
+        Self { result, mangle_map }
     }
 
-    /// Access the underlying template
-    pub fn inner(&self) -> &T {
-        &self.template
+    /// Access the result data
+    pub fn result(&self) -> &T::Result {
+        &self.result
     }
 
     /// Get the mangled value for a given key, or return the key if not found

@@ -21,6 +21,14 @@
 //!         ..Default::default()
 //!     };
 //!     let scene = play.scene::<SingleUserScene>(&args).await.unwrap();
+//!
+//!     // Access result data directly
+//!     let user_id = &scene.result().user_id;
+//!     let api_key = &scene.result().api_key;
+//!
+//!     // Use mangled values for test isolation
+//!     let email = scene.get_mangled("test@example.com");
+//!
 //!     // Cleanup happens automatically
 //! }
 //! ```
@@ -46,4 +54,4 @@ pub(crate) use query::QueryRequest;
 pub use scene::Scene;
 pub use scene_template::SceneTemplate;
 pub(crate) use scene_template::{CreateSceneRequest, CreateSceneResponse};
-pub use scenes::{SingleUserArgs, SingleUserScene};
+pub use scenes::{SingleUserArgs, SingleUserResult, SingleUserScene};

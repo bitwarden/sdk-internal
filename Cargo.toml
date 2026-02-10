@@ -19,8 +19,12 @@ keywords = ["bitwarden"]
 
 # Define dependencies that are expected to be consistent across all crates
 [workspace.dependencies]
+
+# External crates that are expected to maintain a consistent version across all crates
+async-trait = ">=0.1.80, <0.2"
 bitwarden = { path = "crates/bitwarden", version = "=1.0.0" }
 bitwarden-api-api = { path = "crates/bitwarden-api-api", version = "=2.0.0" }
+bitwarden-api-base = { path = "crates/bitwarden-api-base", version = "=2.0.0" }
 bitwarden-api-identity = { path = "crates/bitwarden-api-identity", version = "=2.0.0" }
 bitwarden-api-key-connector = { path = "crates/bitwarden-api-key-connector", version = "=2.0.0" }
 bitwarden-auth = { path = "crates/bitwarden-auth", version = "=2.0.0" }
@@ -47,12 +51,10 @@ bitwarden-test = { path = "crates/bitwarden-test", version = "=2.0.0" }
 bitwarden-test-macro = { path = "crates/bitwarden-test-macro", version = "=2.0.0" }
 bitwarden-threading = { path = "crates/bitwarden-threading", version = "=2.0.0" }
 bitwarden-uniffi-error = { path = "crates/bitwarden-uniffi-error", version = "=2.0.0" }
+bitwarden-user-crypto-management = { path = "crates/bitwarden-user-crypto-management", version = "=2.0.0" }
 bitwarden-uuid = { path = "crates/bitwarden-uuid", version = "=2.0.0" }
 bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=2.0.0" }
 bitwarden-vault = { path = "crates/bitwarden-vault", version = "=2.0.0" }
-
-# External crates that are expected to maintain a consistent version across all crates
-async-trait = ">=0.1.80, <0.2"
 chrono = { version = ">=0.4.26, <0.5", features = [
     "clock",
     "serde",

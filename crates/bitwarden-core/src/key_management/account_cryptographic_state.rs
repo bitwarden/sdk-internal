@@ -122,6 +122,7 @@ impl WrappedAccountCryptographicState {
     /// Converts to a AccountKeysRequestModel in order to make API requests. Since the
     /// [WrappedAccountCryptographicState] is encrypted, the key store needs to contain the
     /// user key required to unlock this state.
+    #[instrument(skip_all, err)]
     pub fn to_request_model(
         &self,
         user_key: &SymmetricKeyId,

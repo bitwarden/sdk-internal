@@ -8,7 +8,7 @@ use serde::{Serialize, de::DeserializeOwned};
 ///
 /// Scene templates define how to create and tear down test data.
 /// Each template has associated types for input arguments and output results.
-pub trait SceneTemplate: Sized + Send + Sync {
+pub trait SceneTemplate {
     /// The type of arguments passed to create the scene
     type Arguments: Serialize + Clone + Send + Sync;
 
@@ -17,9 +17,6 @@ pub trait SceneTemplate: Sized + Send + Sync {
 
     /// The name of this template (used in API calls)
     fn template_name() -> &'static str;
-
-    /// Create an instance of this template from the creation result
-    fn from_result(result: Self::Result) -> Self;
 }
 
 /// Request body for creating a scene

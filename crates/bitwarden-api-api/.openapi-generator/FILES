@@ -8,7 +8,6 @@ src/apis/auth_requests_api.rs
 src/apis/ciphers_api.rs
 src/apis/collections_api.rs
 src/apis/config_api.rs
-src/apis/configuration.rs
 src/apis/counts_api.rs
 src/apis/devices_api.rs
 src/apis/emergency_access_api.rs
