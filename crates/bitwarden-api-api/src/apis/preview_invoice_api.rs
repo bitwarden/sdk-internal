@@ -1295,13 +1295,10 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("verifyDevices", &param_value.to_string())]);
         }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
         if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
             local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
         };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&preview_premium_upgrade_proration_request);
 
