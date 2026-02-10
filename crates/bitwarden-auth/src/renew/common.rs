@@ -76,14 +76,14 @@ pub(super) mod test_utils {
         let server = MockServer::start().await;
         wiremock::Mock::given(wiremock::matchers::method("POST"))
             .and(wiremock::matchers::path("/connect/token"))
-            .respond_with(wiremock::ResponseTemplate::new(200).set_body_json(
-                serde_json::json!({
+            .respond_with(
+                wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
                     "access_token": renewed_token,
                     "expires_in": 3600,
                     "token_type": "Bearer",
                     "scope": "api"
-                }),
-            ))
+                })),
+            )
             .mount(&server)
             .await;
         server

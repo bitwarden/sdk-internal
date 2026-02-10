@@ -7,7 +7,7 @@ use bitwarden_crypto::KeyStore;
 
 use crate::{client::LoginMethod, key_management::KeyIds};
 
-/// Trait for handling token usage an renewal.
+/// Trait for handling token usage and renewal.
 pub trait TokenHandler: 'static + Send + Sync {
     /// Initialize middleware that handles token attachment and renewal.
     /// This middleware should look for the presence of the [bitwarden_api_base::AuthRequired]
@@ -93,6 +93,7 @@ impl reqwest_middleware::Middleware for ClientManagedTokenHandler {
     }
 }
 
+/// A token handler that does not attach any tokens. Useful for testing or for Clients that do not require authentication.
 #[derive(Clone, Copy)]
 pub struct NoopTokenHandler;
 
