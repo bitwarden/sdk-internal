@@ -13,27 +13,19 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct UpgradePremiumToOrganizationRequest {
-    #[serde(rename = "organizationName", alias = "OrganizationName")]
-    pub organization_name: String,
-    #[serde(rename = "key", alias = "Key")]
-    pub key: String,
+pub struct PreviewPremiumUpgradeProrationRequest {
     #[serde(rename = "targetProductTierType", alias = "TargetProductTierType")]
     pub target_product_tier_type: models::ProductTierType,
     #[serde(rename = "billingAddress", alias = "BillingAddress")]
     pub billing_address: Box<models::MinimalBillingAddressRequest>,
 }
 
-impl UpgradePremiumToOrganizationRequest {
+impl PreviewPremiumUpgradeProrationRequest {
     pub fn new(
-        organization_name: String,
-        key: String,
         target_product_tier_type: models::ProductTierType,
         billing_address: models::MinimalBillingAddressRequest,
-    ) -> UpgradePremiumToOrganizationRequest {
-        UpgradePremiumToOrganizationRequest {
-            organization_name,
-            key,
+    ) -> PreviewPremiumUpgradeProrationRequest {
+        PreviewPremiumUpgradeProrationRequest {
             target_product_tier_type,
             billing_address: Box::new(billing_address),
         }
