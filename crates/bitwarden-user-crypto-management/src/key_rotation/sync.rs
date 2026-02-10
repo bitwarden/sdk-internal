@@ -720,8 +720,6 @@ mod tests {
         });
 
         let result = sync_current_account_data(&api_client).await;
-
-        assert!(result.is_ok());
         let data = result.unwrap();
 
         assert_eq!(data.user_id, user_id);
