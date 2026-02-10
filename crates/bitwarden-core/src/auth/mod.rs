@@ -13,7 +13,6 @@ mod api;
 pub(crate) use api::response::user_decryption_options_response::UserDecryptionOptionsResponseModel;
 #[allow(missing_docs)]
 pub mod auth_client;
-#[allow(missing_docs)]
 pub mod auth_tokens;
 mod jwt_token;
 #[allow(missing_docs)]

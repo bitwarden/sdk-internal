@@ -1,3 +1,6 @@
+//! Trait definitions and basic implementations for handling authentication tokens in the SDK. The
+//! complete implementations are located in the `bitwarden-auth` crate.
+
 use std::sync::{Arc, RwLock};
 
 use bitwarden_crypto::KeyStore;
