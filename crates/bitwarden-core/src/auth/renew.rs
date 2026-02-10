@@ -1,3 +1,4 @@
+#[cfg(feature = "secrets")]
 use bitwarden_crypto::KeyStore;
 
 use super::login::LoginError;
@@ -5,12 +6,12 @@ use crate::{
     NotAuthenticatedError,
     auth::api::{request::ApiTokenRequest, response::IdentityTokenResponse},
     client::UserLoginMethod,
-    key_management::KeyIds,
 };
 #[cfg(feature = "secrets")]
 use crate::{
     auth::api::request::AccessTokenRequest,
     client::ServiceAccountLoginMethod,
+    key_management::KeyIds,
     key_management::SymmetricKeyId,
     secrets_manager::state::{self, ClientState},
 };

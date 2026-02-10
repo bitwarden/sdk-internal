@@ -14,12 +14,12 @@ use chrono::Utc;
 #[cfg(feature = "internal")]
 use tracing::{info, instrument};
 
-#[cfg(any(feature = "internal", feature = "secrets"))]
-use crate::client::encryption_settings::EncryptionSettings;
 use crate::{
-    DeviceType, OrganizationId, UserId, auth::auth_tokens::TokenHandler,
-    client::login_method::LoginMethod, error::UserIdAlreadySetError, key_management::KeyIds,
+    DeviceType, UserId, auth::auth_tokens::TokenHandler, client::login_method::LoginMethod,
+    error::UserIdAlreadySetError, key_management::KeyIds,
 };
+#[cfg(any(feature = "internal", feature = "secrets"))]
+use crate::{OrganizationId, client::encryption_settings::EncryptionSettings};
 #[cfg(feature = "internal")]
 use crate::{
     client::{
@@ -93,6 +93,10 @@ pub struct InternalClient {
         reason = "This is not used directly by SM, but it's used via the middleware"
     )]
     pub(crate) token_handler: Arc<dyn TokenHandler>,
+    #[allow(
+        unused,
+        reason = "This is not used directly by SM, but it's used via the middleware"
+    )]
     pub(crate) login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
 
     #[cfg(feature = "internal")]
