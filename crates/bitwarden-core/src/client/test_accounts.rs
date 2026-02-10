@@ -2,19 +2,26 @@
 use std::collections::HashMap;
 
 use bitwarden_crypto::{EncString, Kdf};
+use bitwarden_test::MemoryRepository;
 
 use crate::{
     Client, UserId,
     key_management::{
-        MasterPasswordUnlockData,
+        MasterPasswordUnlockData, UserKeyState,
         account_cryptographic_state::WrappedAccountCryptographicState,
         crypto::{InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest},
     },
 };
 
 impl Client {
+    #[cfg(feature = "test-fixtures")]
     pub async fn init_test_account(account: TestAccount) -> Self {
         let client = Client::new(None);
+        let repository = MemoryRepository::<UserKeyState>::default();
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
 
         client.internal.load_flags(HashMap::from([(
             "enableCipherKeyEncryption".to_owned(),
