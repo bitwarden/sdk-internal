@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use crate::apis::configuration::Configuration;
+use bitwarden_api_base::Configuration;
 
-pub mod configuration;
 pub mod user_keys_api;
 
 #[derive(Debug, Clone)]
@@ -15,6 +14,7 @@ pub struct ResponseContent {
 #[derive(Debug)]
 pub enum Error {
     Reqwest(reqwest::Error),
+    ReqwestMiddleware(reqwest_middleware::Error),
     Serde(serde_json::Error),
     Io(std::io::Error),
     ResponseError(ResponseContent),
@@ -23,6 +23,12 @@ pub enum Error {
 impl From<reqwest::Error> for Error {
     fn from(e: reqwest::Error) -> Self {
         Error::Reqwest(e)
+    }
+}
+
+impl From<reqwest_middleware::Error> for Error {
+    fn from(e: reqwest_middleware::Error) -> Self {
+        Error::ReqwestMiddleware(e)
     }
 }
 

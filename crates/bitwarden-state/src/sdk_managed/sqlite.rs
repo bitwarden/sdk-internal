@@ -80,7 +80,7 @@ impl Database for SqliteDatabase {
         else {
             return Err(DatabaseError::UnsupportedConfiguration(configuration));
         };
-        path.set_file_name(format!("{db_name}.sqlite"));
+        path.push(format!("{db_name}.sqlite"));
 
         let db = rusqlite::Connection::open(path)?;
         Self::initialize_internal(db, migrations)
@@ -215,5 +215,24 @@ mod tests {
         db.remove::<TestA>("key1").await.unwrap();
 
         assert_eq!(db.get::<TestA>("key1").await.unwrap(), None);
+    }
+
+    #[tokio::test]
+    async fn test_sqlite_database_path_construction() {
+        let temp_dir = std::env::temp_dir().join("bitwarden_state_test");
+        std::fs::create_dir_all(&temp_dir).unwrap();
+
+        let config = DatabaseConfiguration::Sqlite {
+            db_name: "test_db".to_string(),
+            folder_path: temp_dir.clone(),
+        };
+
+        SqliteDatabase::initialize(config, RepositoryMigrations::new(vec![]))
+            .await
+            .unwrap();
+
+        assert!(temp_dir.join("test_db.sqlite").exists());
+
+        std::fs::remove_dir_all(&temp_dir).ok();
     }
 }

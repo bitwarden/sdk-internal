@@ -57,8 +57,8 @@ pub use key_rotation::*;
 ///         #[local]
 ///         Local(LocalId),
 ///     }
-///     #[asymmetric]
-///     pub enum AsymmKeyId {
+///     #[private]
+///     pub enum PrivateKeyId {
 ///         UserPrivate,
 ///         #[local]
 ///         Local(LocalId),
@@ -69,7 +69,7 @@ pub use key_rotation::*;
 ///        #[local]
 ///        Local(LocalId),
 ///     }
-///     pub Ids => SymmKeyId, AsymmKeyId, SigningKeyId;
+///     pub Ids => SymmKeyId, PrivateKeyId, SigningKeyId;
 /// }
 ///
 /// // Initialize the store and insert a test key
@@ -95,11 +95,19 @@ pub use key_rotation::*;
 /// let decrypted = Data("Hello, World!".to_string());
 /// let encrypted = store.encrypt(decrypted).unwrap();
 /// ```
-#[derive(Clone)]
 pub struct KeyStore<Ids: KeyIds> {
     // We use an Arc<> to make it easier to pass this store around, as we can
     // clone it instead of passing references
     inner: Arc<RwLock<KeyStoreInner<Ids>>>,
+}
+
+// Manually implement Clone to avoid requiring Ids: Clone
+impl<Ids: KeyIds> Clone for KeyStore<Ids> {
+    fn clone(&self) -> Self {
+        KeyStore {
+            inner: Arc::clone(&self.inner),
+        }
+    }
 }
 
 /// [KeyStore] contains sensitive data, provide a dummy [Debug] implementation.
@@ -111,7 +119,7 @@ impl<Ids: KeyIds> std::fmt::Debug for KeyStore<Ids> {
 
 struct KeyStoreInner<Ids: KeyIds> {
     symmetric_keys: Box<dyn StoreBackend<Ids::Symmetric>>,
-    asymmetric_keys: Box<dyn StoreBackend<Ids::Asymmetric>>,
+    private_keys: Box<dyn StoreBackend<Ids::Private>>,
     signing_keys: Box<dyn StoreBackend<Ids::Signing>>,
     security_state_version: u64,
 }
@@ -122,7 +130,7 @@ impl<Ids: KeyIds> Default for KeyStore<Ids> {
         Self {
             inner: Arc::new(RwLock::new(KeyStoreInner {
                 symmetric_keys: create_store(),
-                asymmetric_keys: create_store(),
+                private_keys: create_store(),
                 signing_keys: create_store(),
                 security_state_version: 1,
             })),
@@ -136,7 +144,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     pub fn clear(&self) {
         let mut keys = self.inner.write().expect("RwLock is poisoned");
         keys.symmetric_keys.clear();
-        keys.asymmetric_keys.clear();
+        keys.private_keys.clear();
         keys.signing_keys.clear();
     }
 
@@ -175,7 +183,6 @@ impl<Ids: KeyIds> KeyStore<Ids> {
     ///   If you want to access the key material to encrypt it or derive a new key from it, we
     ///   provide functions for that:
     ///     - [KeyStoreContext::wrap_symmetric_key]
-    ///     - [KeyStoreContext::encapsulate_key_unsigned]
     ///     - [KeyStoreContext::derive_shareable_key]
     pub fn context(&'_ self) -> KeyStoreContext<'_, Ids> {
         let data = self.inner.read().expect("RwLock is poisoned");
@@ -183,7 +190,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         KeyStoreContext {
             global_keys: GlobalKeys::ReadOnly(data),
             local_symmetric_keys: create_store(),
-            local_asymmetric_keys: create_store(),
+            local_private_keys: create_store(),
             local_signing_keys: create_store(),
             security_state_version,
             _phantom: std::marker::PhantomData,
@@ -216,7 +223,7 @@ impl<Ids: KeyIds> KeyStore<Ids> {
         KeyStoreContext {
             global_keys: GlobalKeys::ReadWrite(inner),
             local_symmetric_keys: create_store(),
-            local_asymmetric_keys: create_store(),
+            local_private_keys: create_store(),
             local_signing_keys: create_store(),
             security_state_version,
             _phantom: std::marker::PhantomData,

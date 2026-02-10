@@ -98,8 +98,8 @@ key_ids! {
         ItemKey(LocalId)
     }
 
-    #[asymmetric]
-    pub enum ExampleAsymmetricKey {
+    #[private]
+    pub enum ExamplePrivateKey {
         Key(u8),
         #[local]
         Local(LocalId),
@@ -111,5 +111,5 @@ key_ids! {
         #[local]
         Local(LocalId),
     }
-    pub ExampleIds => ExampleSymmetricKey, ExampleAsymmetricKey, ExampleSigningKey;
+    pub ExampleIds => ExampleSymmetricKey, ExamplePrivateKey, ExampleSigningKey;
 }

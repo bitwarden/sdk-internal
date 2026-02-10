@@ -20,16 +20,16 @@ pub struct MasterPasswordAuthenticationDataRequestModel {
         rename = "masterPasswordAuthenticationHash",
         alias = "MasterPasswordAuthenticationHash"
     )]
-    pub master_password_authentication_hash: Option<String>,
+    pub master_password_authentication_hash: String,
     #[serde(rename = "salt", alias = "Salt")]
-    pub salt: Option<String>,
+    pub salt: String,
 }
 
 impl MasterPasswordAuthenticationDataRequestModel {
     pub fn new(
         kdf: models::KdfRequestModel,
-        master_password_authentication_hash: Option<String>,
-        salt: Option<String>,
+        master_password_authentication_hash: String,
+        salt: String,
     ) -> MasterPasswordAuthenticationDataRequestModel {
         MasterPasswordAuthenticationDataRequestModel {
             kdf: Box::new(kdf),

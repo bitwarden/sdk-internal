@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bitwarden_state::{
-    DatabaseConfiguration,
+    DatabaseConfiguration, Key, Setting, SettingItem, SettingsError,
     registry::StateRegistryError,
     repository::{Repository, RepositoryItem, RepositoryMigrations},
 };
@@ -50,5 +50,32 @@ impl StateClient {
         T: RepositoryItem,
     {
         self.client.internal.repository_map.get()
+    }
+
+    /// Get a handle to a setting by its type-safe key.
+    ///
+    /// Returns a [`Setting`] handle that can be used to get, update, or delete the value.
+    ///
+    /// # Example
+    /// ```rust
+    /// use bitwarden_state::register_setting_key;
+    /// use serde::{Deserialize, Serialize};
+    ///
+    /// #[derive(Serialize, Deserialize)]
+    /// struct AppConfig {
+    ///     theme: String,
+    /// }
+    ///
+    /// register_setting_key!(const CONFIG: AppConfig = "app_config");
+    ///
+    /// # async fn example(client: bitwarden_core::Client) -> Result<(), bitwarden_state::SettingsError> {
+    /// let setting = client.platform().state().setting(CONFIG)?;
+    /// let value: Option<AppConfig> = setting.get().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn setting<T>(&self, key: Key<T>) -> Result<Setting<T>, SettingsError> {
+        let repository = self.client.internal.repository_map.get::<SettingItem>()?;
+        Ok(Setting::new(repository, key))
     }
 }

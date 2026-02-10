@@ -3,16 +3,10 @@ use clap::Subcommand;
 use crate::render::{CommandOutput, CommandResult};
 
 mod sync;
+
 pub(crate) use sync::{SyncRequest, sync};
 
-#[derive(Subcommand, Clone)]
-pub enum ItemCommands {
-    Get { id: String },
-    Create {},
-}
-
-#[derive(Subcommand, Clone)]
-
+#[derive(Subcommand, Clone, Debug)]
 pub enum TemplateCommands {
     #[command(name = "item")]
     Item,
@@ -58,4 +52,18 @@ impl TemplateCommands {
             _ => todo!(),
         }
     }
+}
+
+#[derive(clap::Args, Clone)]
+pub struct RestoreArgs {
+    /// Type of object to restore
+    pub object: RestoreObject,
+    /// Object ID to restore
+    pub id: String,
+}
+
+#[derive(clap::ValueEnum, Clone, Debug)]
+#[value(rename_all = "kebab-case")]
+pub enum RestoreObject {
+    Item,
 }
