@@ -101,15 +101,6 @@ pub struct SendRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub emails: Option<String>,
-    /// Comma-separated list of email **hashes**  that may access the send using OTP
-    /// authentication. Mutually exclusive with
-    /// Bit.Api.Tools.Models.Request.SendRequestModel.Password.
-    #[serde(
-        rename = "emailHashes",
-        alias = "EmailHashes",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub email_hashes: Option<String>,
     /// When true, send access is disabled. Defaults to false.
     #[serde(rename = "disabled", alias = "Disabled")]
     pub disabled: bool,
@@ -140,7 +131,6 @@ impl SendRequestModel {
             text: None,
             password: None,
             emails: None,
-            email_hashes: None,
             disabled,
             hide_email: None,
         }
