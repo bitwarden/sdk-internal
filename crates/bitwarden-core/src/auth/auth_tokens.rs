@@ -93,7 +93,8 @@ impl reqwest_middleware::Middleware for ClientManagedTokenHandler {
     }
 }
 
-/// A token handler that does not attach any tokens. Useful for testing or for Clients that do not require authentication.
+/// A token handler that does not attach any tokens. Useful for testing or for Clients that do not
+/// require authentication.
 #[derive(Clone, Copy)]
 pub struct NoopTokenHandler;
 
