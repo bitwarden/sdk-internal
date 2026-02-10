@@ -18,7 +18,7 @@ pub use bitwarden_server_communication_config::{
     AcquiredCookie, BootstrapConfig, ServerCommunicationConfig, SsoCookieVendorConfig,
 };
 pub use server_communication_config::{
-    ServerCommunicationConfigRepositoryTrait, UniffiServerCommunicationConfigClient,
+    ServerCommunicationConfigClient, ServerCommunicationConfigRepository,
 };
 
 #[derive(uniffi::Object)]
@@ -54,15 +54,12 @@ impl PlatformClient {
     /// Server communication configuration operations
     pub fn server_communication_config(
         &self,
-        repository: Arc<dyn server_communication_config::ServerCommunicationConfigRepositoryTrait>,
+        repository: Arc<dyn server_communication_config::ServerCommunicationConfigRepository>,
         platform_api: Arc<
             dyn bitwarden_server_communication_config::ServerCommunicationConfigPlatformApi,
         >,
-    ) -> Arc<server_communication_config::UniffiServerCommunicationConfigClient> {
-        server_communication_config::UniffiServerCommunicationConfigClient::new(
-            repository,
-            platform_api,
-        )
+    ) -> Arc<server_communication_config::ServerCommunicationConfigClient> {
+        server_communication_config::ServerCommunicationConfigClient::new(repository, platform_api)
     }
 }
 
