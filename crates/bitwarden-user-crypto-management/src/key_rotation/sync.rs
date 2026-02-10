@@ -683,10 +683,6 @@ mod tests {
         let send_id = uuid::Uuid::new_v4();
 
         let api_client = ApiClient::new_mocked(|mock| {
-            let user_id = user_id;
-            let folder_id = folder_id;
-            let cipher_id = cipher_id;
-            let send_id = send_id;
             mock.sync_api
                 .expect_get()
                 .once()
@@ -697,8 +693,6 @@ mod tests {
                     response.sends = Some(vec![create_test_send(send_id)]);
                     Ok(response)
                 });
-
-            let org_id = org_id;
             mock.organizations_api
                 .expect_get_user()
                 .once()
@@ -707,9 +701,6 @@ mod tests {
                 .expect_get_public_key()
                 .once()
                 .returning(move |_id| Ok(create_test_org_public_key_response()));
-
-            let ea_id = ea_id;
-            let grantee_id = grantee_id;
             mock.emergency_access_api
                 .expect_get_contacts()
                 .once()
@@ -718,14 +709,10 @@ mod tests {
                 .expect_get_public_key()
                 .once()
                 .returning(move |_user_id| Ok(create_test_user_key_response()));
-
-            let device_id = device_id;
             mock.devices_api
                 .expect_get_all()
                 .once()
                 .returning(move || Ok(create_test_devices_response(device_id)));
-
-            let passkey_id = passkey_id;
             mock.web_authn_api
                 .expect_get()
                 .once()
@@ -825,7 +812,7 @@ mod tests {
             mock.organizations_api
                 .expect_get_public_key()
                 .once()
-                .withf(move |id| id == &org_id.to_string())
+                .withf(move |id| id == org_id.to_string())
                 .returning(move |_| {
                     Ok(OrganizationPublicKeyResponseModel {
                         object: None,
