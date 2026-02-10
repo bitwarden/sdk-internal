@@ -243,9 +243,9 @@ let config = ServerCommunicationConfig {
 // SSO cookie vendor mode
 let config = ServerCommunicationConfig {
     bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
-        idp_login_url: "https://idp.example.com/login".to_string(),
-        cookie_name: "ALBAuthSessionCookie".to_string(),
-        cookie_domain: "vault.example.com".to_string(),
+        idp_login_url: Some("https://idp.example.com/login".to_string()),
+        cookie_name: Some("ALBAuthSessionCookie".to_string()),
+        cookie_domain: Some("vault.example.com".to_string()),
         cookie_value: None, // Populated after bootstrap
     }),
 };
@@ -304,13 +304,13 @@ pub enum BootstrapConfig {
 /// SSO cookie configuration from server /api/config endpoint
 pub struct SsoCookieVendorConfig {
     /// IDP login URL for browser redirect
-    pub idp_login_url: String,
+    pub idp_login_url: Option<String>,
 
     /// Cookie name - base name without shard suffix (e.g., "AWSELBAuthSessionCookie")
-    pub cookie_name: String,
+    pub cookie_name: Option<String>,
 
     /// Cookie domain for validation
-    pub cookie_domain: String,
+    pub cookie_domain: Option<String>,
 
     /// Acquired cookies (populated after bootstrap flow)
     ///

@@ -36,6 +36,7 @@ pub mod organization_users_api;
 pub mod organizations_api;
 pub mod plans_api;
 pub mod policies_api;
+pub mod preview_invoice_api;
 pub mod projects_api;
 pub mod provider_billing_api;
 pub mod provider_billing_v_next_api;
@@ -59,9 +60,9 @@ pub mod sends_api;
 pub mod service_accounts_api;
 pub mod settings_api;
 pub mod slack_integration_api;
+pub mod sso_cookie_vendor_api;
 pub mod stripe_api;
 pub mod sync_api;
-pub mod tax_api;
 pub mod teams_integration_api;
 pub mod trash_api;
 pub mod two_factor_api;
@@ -121,6 +122,7 @@ struct ApiClientReal {
     organizations_api: organizations_api::OrganizationsApiClient,
     plans_api: plans_api::PlansApiClient,
     policies_api: policies_api::PoliciesApiClient,
+    preview_invoice_api: preview_invoice_api::PreviewInvoiceApiClient,
     projects_api: projects_api::ProjectsApiClient,
     provider_billing_api: provider_billing_api::ProviderBillingApiClient,
     provider_billing_v_next_api: provider_billing_v_next_api::ProviderBillingVNextApiClient,
@@ -148,9 +150,9 @@ struct ApiClientReal {
     service_accounts_api: service_accounts_api::ServiceAccountsApiClient,
     settings_api: settings_api::SettingsApiClient,
     slack_integration_api: slack_integration_api::SlackIntegrationApiClient,
+    sso_cookie_vendor_api: sso_cookie_vendor_api::SsoCookieVendorApiClient,
     stripe_api: stripe_api::StripeApiClient,
     sync_api: sync_api::SyncApiClient,
-    tax_api: tax_api::TaxApiClient,
     teams_integration_api: teams_integration_api::TeamsIntegrationApiClient,
     trash_api: trash_api::TrashApiClient,
     two_factor_api: two_factor_api::TwoFactorApiClient,
@@ -199,6 +201,7 @@ pub struct ApiClientMock {
     pub organizations_api: organizations_api::MockOrganizationsApi,
     pub plans_api: plans_api::MockPlansApi,
     pub policies_api: policies_api::MockPoliciesApi,
+    pub preview_invoice_api: preview_invoice_api::MockPreviewInvoiceApi,
     pub projects_api: projects_api::MockProjectsApi,
     pub provider_billing_api: provider_billing_api::MockProviderBillingApi,
     pub provider_billing_v_next_api: provider_billing_v_next_api::MockProviderBillingVNextApi,
@@ -226,9 +229,9 @@ pub struct ApiClientMock {
     pub service_accounts_api: service_accounts_api::MockServiceAccountsApi,
     pub settings_api: settings_api::MockSettingsApi,
     pub slack_integration_api: slack_integration_api::MockSlackIntegrationApi,
+    pub sso_cookie_vendor_api: sso_cookie_vendor_api::MockSsoCookieVendorApi,
     pub stripe_api: stripe_api::MockStripeApi,
     pub sync_api: sync_api::MockSyncApi,
-    pub tax_api: tax_api::MockTaxApi,
     pub teams_integration_api: teams_integration_api::MockTeamsIntegrationApi,
     pub trash_api: trash_api::MockTrashApi,
     pub two_factor_api: two_factor_api::MockTwoFactorApi,
@@ -274,6 +277,7 @@ impl ApiClient {
             organizations_api: organizations_api::OrganizationsApiClient::new(configuration.clone()),
             plans_api: plans_api::PlansApiClient::new(configuration.clone()),
             policies_api: policies_api::PoliciesApiClient::new(configuration.clone()),
+            preview_invoice_api: preview_invoice_api::PreviewInvoiceApiClient::new(configuration.clone()),
             projects_api: projects_api::ProjectsApiClient::new(configuration.clone()),
             provider_billing_api: provider_billing_api::ProviderBillingApiClient::new(configuration.clone()),
             provider_billing_v_next_api: provider_billing_v_next_api::ProviderBillingVNextApiClient::new(configuration.clone()),
@@ -297,9 +301,9 @@ impl ApiClient {
             service_accounts_api: service_accounts_api::ServiceAccountsApiClient::new(configuration.clone()),
             settings_api: settings_api::SettingsApiClient::new(configuration.clone()),
             slack_integration_api: slack_integration_api::SlackIntegrationApiClient::new(configuration.clone()),
+            sso_cookie_vendor_api: sso_cookie_vendor_api::SsoCookieVendorApiClient::new(configuration.clone()),
             stripe_api: stripe_api::StripeApiClient::new(configuration.clone()),
             sync_api: sync_api::SyncApiClient::new(configuration.clone()),
-            tax_api: tax_api::TaxApiClient::new(configuration.clone()),
             teams_integration_api: teams_integration_api::TeamsIntegrationApiClient::new(configuration.clone()),
             trash_api: trash_api::TrashApiClient::new(configuration.clone()),
             two_factor_api: two_factor_api::TwoFactorApiClient::new(configuration.clone()),
@@ -346,6 +350,7 @@ impl ApiClient {
             organizations_api: organizations_api::MockOrganizationsApi::new(),
             plans_api: plans_api::MockPlansApi::new(),
             policies_api: policies_api::MockPoliciesApi::new(),
+            preview_invoice_api: preview_invoice_api::MockPreviewInvoiceApi::new(),
             projects_api: projects_api::MockProjectsApi::new(),
             provider_billing_api: provider_billing_api::MockProviderBillingApi::new(),
             provider_billing_v_next_api: provider_billing_v_next_api::MockProviderBillingVNextApi::new(),
@@ -369,9 +374,9 @@ impl ApiClient {
             service_accounts_api: service_accounts_api::MockServiceAccountsApi::new(),
             settings_api: settings_api::MockSettingsApi::new(),
             slack_integration_api: slack_integration_api::MockSlackIntegrationApi::new(),
+            sso_cookie_vendor_api: sso_cookie_vendor_api::MockSsoCookieVendorApi::new(),
             stripe_api: stripe_api::MockStripeApi::new(),
             sync_api: sync_api::MockSyncApi::new(),
-            tax_api: tax_api::MockTaxApi::new(),
             teams_integration_api: teams_integration_api::MockTeamsIntegrationApi::new(),
             trash_api: trash_api::MockTrashApi::new(),
             two_factor_api: two_factor_api::MockTwoFactorApi::new(),
@@ -650,6 +655,13 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.policies_api,
         }
     }
+    pub fn preview_invoice_api(&self) -> &dyn preview_invoice_api::PreviewInvoiceApi {
+        match self {
+            ApiClient::Real(real) => &real.preview_invoice_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.preview_invoice_api,
+        }
+    }
     pub fn projects_api(&self) -> &dyn projects_api::ProjectsApi {
         match self {
             ApiClient::Real(real) => &real.projects_api,
@@ -828,6 +840,13 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.slack_integration_api,
         }
     }
+    pub fn sso_cookie_vendor_api(&self) -> &dyn sso_cookie_vendor_api::SsoCookieVendorApi {
+        match self {
+            ApiClient::Real(real) => &real.sso_cookie_vendor_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.sso_cookie_vendor_api,
+        }
+    }
     pub fn stripe_api(&self) -> &dyn stripe_api::StripeApi {
         match self {
             ApiClient::Real(real) => &real.stripe_api,
@@ -840,13 +859,6 @@ impl ApiClient {
             ApiClient::Real(real) => &real.sync_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.sync_api,
-        }
-    }
-    pub fn tax_api(&self) -> &dyn tax_api::TaxApi {
-        match self {
-            ApiClient::Real(real) => &real.tax_api,
-            #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.tax_api,
         }
     }
     pub fn teams_integration_api(&self) -> &dyn teams_integration_api::TeamsIntegrationApi {
