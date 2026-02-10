@@ -16,8 +16,6 @@ use tracing::{info, instrument};
 
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::client::encryption_settings::EncryptionSettings;
-#[cfg(feature = "secrets")]
-use crate::client::login_method::ServiceAccountLoginMethod;
 use crate::{
     DeviceType, OrganizationId, UserId, auth::auth_tokens::TokenHandler,
     client::login_method::LoginMethod, error::UserIdAlreadySetError, key_management::KeyIds,
@@ -134,23 +132,6 @@ impl InternalClient {
             .read()
             .expect("RwLock is not poisoned")
             .clone()
-    }
-
-    #[allow(missing_docs)]
-    pub fn get_access_token_organization(&self) -> Option<OrganizationId> {
-        match self
-            .login_method
-            .read()
-            .expect("RwLock is not poisoned")
-            .as_deref()
-        {
-            #[cfg(feature = "secrets")]
-            Some(LoginMethod::ServiceAccount(ServiceAccountLoginMethod::AccessToken {
-                organization_id,
-                ..
-            })) => Some(*organization_id),
-            _ => None,
-        }
     }
 
     #[cfg(any(feature = "internal", feature = "secrets"))]
