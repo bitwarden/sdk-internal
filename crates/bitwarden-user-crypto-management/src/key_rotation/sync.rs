@@ -21,7 +21,6 @@ use crate::key_rotation::{
     unlock::{V1EmergencyAccessMembership, V1OrganizationMembership},
 };
 
-#[allow(unused)]
 pub(super) struct SyncedAccountData {
     pub(super) wrapped_account_cryptographic_state: WrappedAccountCryptographicState,
     pub(super) folders: Vec<Folder>,
@@ -35,7 +34,6 @@ pub(super) struct SyncedAccountData {
     pub(super) user_id: uuid::Uuid,
 }
 
-#[allow(unused)]
 #[derive(Debug, Error)]
 #[bitwarden_error(flat)]
 pub(super) enum SyncError {
@@ -103,7 +101,6 @@ pub(crate) async fn sync_orgs(
     Ok(organization_memberships)
 }
 
-#[allow(unused)]
 /// Fetch the public key for a user (used for emergency access)
 async fn fetch_user_public_key(
     api_client: &ApiClient,
@@ -123,7 +120,6 @@ async fn fetch_user_public_key(
     .map_err(|_| SyncError::DataError)
 }
 
-#[allow(unused)]
 /// Download the emergency access memberships and their public keys
 pub(crate) async fn sync_emergency_access(
     api_client: &ApiClient,
@@ -189,7 +185,6 @@ async fn sync_passkeys(api_client: &ApiClient) -> Result<Vec<PartialRotateableKe
     Ok(passkeys)
 }
 
-#[allow(unused)]
 /// Sync the user's trusted devices
 async fn sync_devices(api_client: &ApiClient) -> Result<Vec<PartialRotateableKeyset>, SyncError> {
     let trusted_devices = api_client
@@ -219,7 +214,6 @@ async fn sync_devices(api_client: &ApiClient) -> Result<Vec<PartialRotateableKey
     Ok(trusted_devices)
 }
 
-#[allow(unused)]
 fn parse_ciphers(
     ciphers: Option<Vec<bitwarden_api_api::models::CipherDetailsResponseModel>>,
 ) -> Result<Vec<Cipher>, SyncError> {
@@ -235,7 +229,6 @@ fn parse_ciphers(
     Ok(ciphers)
 }
 
-#[allow(unused)]
 fn parse_folders(
     folders: Option<Vec<bitwarden_api_api::models::FolderResponseModel>>,
 ) -> Result<Vec<Folder>, SyncError> {
@@ -251,7 +244,6 @@ fn parse_folders(
     Ok(folders)
 }
 
-#[allow(unused)]
 fn parse_sends(
     sends: Option<Vec<bitwarden_api_api::models::SendResponseModel>>,
 ) -> Result<Vec<bitwarden_send::Send>, SyncError> {
@@ -267,7 +259,6 @@ fn parse_sends(
     Ok(sends)
 }
 
-#[allow(unused)]
 fn from_kdf(
     kdf: &bitwarden_api_api::models::MasterPasswordUnlockKdfResponseModel,
 ) -> Result<Kdf, ()> {
@@ -290,7 +281,6 @@ fn from_kdf(
     })
 }
 
-#[allow(unused)]
 #[derive(Debug, Error)]
 #[bitwarden_error(flat)]
 enum PrivateKeysParsingError {
@@ -300,7 +290,6 @@ enum PrivateKeysParsingError {
     InvalidFormat,
 }
 
-#[allow(unused)]
 #[instrument(skip(private_keys_response), err)]
 fn from_private_keys_response(
     private_keys_response: &bitwarden_api_api::models::PrivateKeysResponseModel,
@@ -363,7 +352,6 @@ fn from_private_keys_response(
     }
 }
 
-#[allow(unused)]
 fn parse_kdf_and_salt(
     user_decryption: &Option<Box<bitwarden_api_api::models::UserDecryptionResponseModel>>,
 ) -> Result<Option<(Kdf, String)>, SyncError> {
@@ -380,7 +368,6 @@ fn parse_kdf_and_salt(
     Ok(Some((kdf, salt)))
 }
 
-#[allow(unused)]
 pub(super) async fn sync_current_account_data(
     api_client: &ApiClient,
 ) -> Result<SyncedAccountData, SyncError> {
