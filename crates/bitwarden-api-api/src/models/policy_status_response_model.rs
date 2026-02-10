@@ -13,15 +13,13 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PolicyDetailResponseModel {
+pub struct PolicyStatusResponseModel {
     #[serde(
         rename = "object",
         alias = "Object",
         skip_serializing_if = "Option::is_none"
     )]
     pub object: Option<String>,
-    #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<uuid::Uuid>,
     #[serde(
         rename = "organizationId",
         alias = "OrganizationId",
@@ -46,12 +44,6 @@ pub struct PolicyDetailResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub enabled: Option<bool>,
-    #[serde(
-        rename = "revisionDate",
-        alias = "RevisionDate",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub revision_date: Option<String>,
     /// Indicates whether the Policy can be enabled/disabled
     #[serde(
         rename = "canToggleState",
@@ -61,16 +53,14 @@ pub struct PolicyDetailResponseModel {
     pub can_toggle_state: Option<bool>,
 }
 
-impl PolicyDetailResponseModel {
-    pub fn new() -> PolicyDetailResponseModel {
-        PolicyDetailResponseModel {
+impl PolicyStatusResponseModel {
+    pub fn new() -> PolicyStatusResponseModel {
+        PolicyStatusResponseModel {
             object: None,
-            id: None,
             organization_id: None,
             r#type: None,
             data: None,
             enabled: None,
-            revision_date: None,
             can_toggle_state: None,
         }
     }

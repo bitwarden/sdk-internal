@@ -35,6 +35,7 @@ import com.bitwarden.crypto.HashPurpose
 import com.bitwarden.crypto.Kdf
 import com.bitwarden.myapplication.ui.theme.MyApplicationTheme
 import com.bitwarden.sdk.Client
+import com.bitwarden.servercommunicationconfig.AcquiredCookie
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
@@ -434,6 +435,25 @@ class MainActivity : FragmentActivity() {
         val decryptedFolders = client.vault().folders().decryptList(folders)
         outputText.value = decryptedFolders.toString()
         println(decryptedFolders)
+    }
+
+    private fun serverCommunicationConfigTest() {
+        // Test AcquiredCookie type - single name/value pair
+        val unshardedCookie = AcquiredCookie(
+            name = "TestCookie",
+            value = "cookie-value"
+        )
+        println("Unsharded cookie: ${unshardedCookie.name} = ${unshardedCookie.value}")
+
+        // Test sharded cookies - multiple AcquiredCookie objects with -N suffix
+        val shardedCookies = listOf(
+            AcquiredCookie(name = "TestCookie-0", value = "shard1"),
+            AcquiredCookie(name = "TestCookie-1", value = "shard2")
+        )
+        println("Sharded cookies:")
+        shardedCookies.forEach { cookie ->
+            println("  ${cookie.name} = ${cookie.value}")
+        }
     }
 }
 

@@ -93,6 +93,10 @@ pub enum BitwardenError {
     SshGeneration(#[from] bitwarden_ssh::error::KeyGenerationError),
     #[error(transparent)]
     SshImport(#[from] bitwarden_ssh::error::SshKeyImportError),
+
+    #[error(transparent)]
+    AcquireCookie(#[from] bitwarden_server_communication_config::AcquireCookieError),
+
     #[error("Callback invocation failed")]
     CallbackError,
 
