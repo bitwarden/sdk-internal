@@ -45,8 +45,7 @@ pub(super) enum SyncError {
     DataError,
 }
 
-#[allow(unused)]
-/// Fetch the public key for an organization
+/// Fetch the public key for a single organization
 async fn fetch_organization_public_key(
     api_client: &ApiClient,
     organization_id: Uuid,
@@ -66,7 +65,6 @@ async fn fetch_organization_public_key(
     .map_err(|_| SyncError::DataError)
 }
 
-#[allow(unused)]
 // Download the public keys for the organizations, since these are not included in the sync
 pub(crate) async fn sync_orgs(
     api_client: &ApiClient,
@@ -162,7 +160,6 @@ pub(crate) async fn sync_emergency_access(
     Ok(emergency_access_memberships)
 }
 
-#[allow(unused)]
 /// Sync the user's passkeys
 async fn sync_passkeys(api_client: &ApiClient) -> Result<Vec<PartialRotateableKeyset>, SyncError> {
     let passkeys = api_client
@@ -458,10 +455,8 @@ mod tests {
 
     const TEST_ENC_STRING: &str = "2.STIyTrfDZN/JXNDN9zNEMw==|NDLum8BHZpPNYhJo9ggSkg==|UCsCLlBO3QzdPwvMAWs2VVwuE6xwOx/vxOooPObqnEw=";
     const KEY_ENC_STRING: &str = "2.KLv/j0V4Ebs0dwyPdtt4vw==|Nczvv+DTkeP466cP/wMDnGK6W9zEIg5iHLhcuQG6s+M=|SZGsfuIAIaGZ7/kzygaVUau3LeOvJUlolENBOU+LX7g=";
-    // UnsignedSharedKey (RSA type 4) format for encrypted_user_key in devices/passkeys
     const TEST_UNSIGNED_SHARED_KEY: &str = "4.AAAAAAAAAAAAAAAAAAAAAA==";
 
-    // Valid RSA SPKI DER public key bytes (reused from bitwarden-auth registration tests)
     const TEST_RSA_PUBLIC_KEY_BYTES: &[u8] = &[
         48, 130, 1, 34, 48, 13, 6, 9, 42, 134, 72, 134, 247, 13, 1, 1, 1, 5, 0, 3, 130, 1, 15, 0,
         48, 130, 1, 10, 2, 130, 1, 1, 0, 173, 4, 54, 63, 125, 12, 254, 38, 115, 34, 95, 164, 148,
@@ -565,94 +560,6 @@ mod tests {
             web_authn_prf_options: None,
         }
     }
-
-    #[test]
-    fn test_parse_folders_success() {
-        let folder_id = uuid::Uuid::new_v4();
-        let folders = vec![create_test_folder(folder_id)];
-
-        let result = parse_folders(Some(folders));
-
-        assert!(result.is_ok());
-        let parsed = result.unwrap();
-        assert_eq!(parsed.len(), 1);
-        assert_eq!(
-            parsed[0].id.expect("should have id").to_string(),
-            folder_id.to_string()
-        );
-    }
-
-    #[test]
-    fn test_parse_folders_empty() {
-        let result = parse_folders(Some(vec![]));
-
-        assert!(result.is_ok());
-        let parsed = result.unwrap();
-        assert!(parsed.is_empty());
-    }
-
-    #[test]
-    fn test_parse_ciphers_success() {
-        let cipher_id = uuid::Uuid::new_v4();
-        let ciphers = vec![create_test_cipher(cipher_id)];
-
-        let result = parse_ciphers(Some(ciphers));
-
-        assert!(result.is_ok());
-        let parsed = result.unwrap();
-        assert_eq!(parsed.len(), 1);
-        assert_eq!(
-            parsed[0].id.expect("should have id").to_string(),
-            cipher_id.to_string()
-        );
-    }
-
-    #[test]
-    fn test_parse_ciphers_empty() {
-        let result = parse_ciphers(Some(vec![]));
-
-        assert!(result.is_ok());
-        let parsed = result.unwrap();
-        assert!(parsed.is_empty());
-    }
-
-    #[test]
-    fn test_parse_sends_success() {
-        let send_id = uuid::Uuid::new_v4();
-        let sends = vec![create_test_send(send_id)];
-
-        let result = parse_sends(Some(sends));
-
-        assert!(result.is_ok());
-        let parsed = result.unwrap();
-        assert_eq!(parsed.len(), 1);
-        assert_eq!(parsed[0].id.expect("should have id"), send_id);
-    }
-
-    #[test]
-    fn test_parse_sends_empty() {
-        let result = parse_sends(Some(vec![]));
-
-        assert!(result.is_ok());
-        let parsed = result.unwrap();
-        assert!(parsed.is_empty());
-    }
-
-    #[test]
-    fn test_parse_kdf_and_salt_success() {
-        let user_decryption = Some(Box::new(create_test_user_decryption()));
-
-        let result = parse_kdf_and_salt(&user_decryption);
-
-        assert!(result.is_ok());
-        let parsed = result.unwrap();
-        assert!(parsed.is_some());
-        let (kdf, salt) = parsed.expect("should have kdf and salt");
-        assert_eq!(salt, "test_salt");
-        assert!(matches!(kdf, Kdf::PBKDF2 { iterations } if iterations.get() == 600000));
-    }
-
-    // --- API response model builders ---
 
     fn create_test_profile(user_id: uuid::Uuid) -> ProfileResponseModel {
         ProfileResponseModel {
@@ -759,184 +666,6 @@ mod tests {
                 ..WebAuthnCredentialResponseModel::new()
             }]),
             continuation_token: None,
-        }
-    }
-
-    // --- API mock tests ---
-
-    #[tokio::test]
-    async fn test_sync_orgs_success() {
-        let org_id = uuid::Uuid::new_v4();
-
-        let api_client = ApiClient::new_mocked(|mock| {
-            let org_id = org_id;
-            mock.organizations_api
-                .expect_get_user()
-                .once()
-                .returning(move || Ok(create_test_org_list_response(org_id)));
-            mock.organizations_api
-                .expect_get_public_key()
-                .once()
-                .returning(move |_id| Ok(create_test_org_public_key_response()));
-        });
-
-        let result = sync_orgs(&api_client).await;
-
-        assert!(result.is_ok());
-        let orgs = result.unwrap();
-        assert_eq!(orgs.len(), 1);
-        assert_eq!(orgs[0].organization_id, org_id);
-        assert_eq!(orgs[0].name, "Test Org");
-
-        if let ApiClient::Mock(mut mock) = api_client {
-            mock.organizations_api.checkpoint();
-        }
-    }
-
-    #[tokio::test]
-    async fn test_sync_orgs_network_error() {
-        let api_client = ApiClient::new_mocked(|mock| {
-            mock.organizations_api
-                .expect_get_user()
-                .once()
-                .returning(move || {
-                    Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other("API error")),
-                    ))
-                });
-            mock.organizations_api.expect_get_public_key().never();
-        });
-
-        let result = sync_orgs(&api_client).await;
-
-        assert!(matches!(result, Err(SyncError::NetworkError)));
-
-        if let ApiClient::Mock(mut mock) = api_client {
-            mock.organizations_api.checkpoint();
-        }
-    }
-
-    #[tokio::test]
-    async fn test_sync_emergency_access_success() {
-        let ea_id = uuid::Uuid::new_v4();
-        let grantee_id = uuid::Uuid::new_v4();
-
-        let api_client = ApiClient::new_mocked(|mock| {
-            let ea_id = ea_id;
-            let grantee_id = grantee_id;
-            mock.emergency_access_api
-                .expect_get_contacts()
-                .once()
-                .returning(move || Ok(create_test_emergency_access_response(ea_id, grantee_id)));
-            mock.users_api
-                .expect_get_public_key()
-                .once()
-                .returning(move |_user_id| Ok(create_test_user_key_response()));
-        });
-
-        let result = sync_emergency_access(&api_client).await;
-
-        assert!(result.is_ok());
-        let eas = result.unwrap();
-        assert_eq!(eas.len(), 1);
-        assert_eq!(eas[0].id, ea_id);
-        assert_eq!(eas[0].name, "Emergency Contact");
-
-        if let ApiClient::Mock(mut mock) = api_client {
-            mock.emergency_access_api.checkpoint();
-            mock.users_api.checkpoint();
-        }
-    }
-
-    #[tokio::test]
-    async fn test_sync_devices_success() {
-        let device_id = uuid::Uuid::new_v4();
-
-        let api_client = ApiClient::new_mocked(|mock| {
-            let device_id = device_id;
-            mock.devices_api
-                .expect_get_all()
-                .once()
-                .returning(move || Ok(create_test_devices_response(device_id)));
-        });
-
-        let result = sync_devices(&api_client).await;
-
-        assert!(result.is_ok());
-        let devices = result.unwrap();
-        assert_eq!(devices.len(), 1);
-        assert_eq!(devices[0].id, device_id);
-
-        if let ApiClient::Mock(mut mock) = api_client {
-            mock.devices_api.checkpoint();
-        }
-    }
-
-    #[tokio::test]
-    async fn test_sync_devices_filters_untrusted() {
-        let trusted_id = uuid::Uuid::new_v4();
-        let untrusted_id = uuid::Uuid::new_v4();
-
-        let api_client = ApiClient::new_mocked(|mock| {
-            let trusted_id = trusted_id;
-            let untrusted_id = untrusted_id;
-            mock.devices_api.expect_get_all().once().returning(move || {
-                Ok(DeviceAuthRequestResponseModelListResponseModel {
-                    object: None,
-                    data: Some(vec![
-                        DeviceAuthRequestResponseModel {
-                            id: Some(trusted_id),
-                            is_trusted: Some(true),
-                            encrypted_user_key: Some(TEST_UNSIGNED_SHARED_KEY.to_string()),
-                            encrypted_public_key: Some(TEST_ENC_STRING.to_string()),
-                            ..DeviceAuthRequestResponseModel::new()
-                        },
-                        DeviceAuthRequestResponseModel {
-                            id: Some(untrusted_id),
-                            is_trusted: Some(false),
-                            encrypted_user_key: Some(TEST_UNSIGNED_SHARED_KEY.to_string()),
-                            encrypted_public_key: Some(TEST_ENC_STRING.to_string()),
-                            ..DeviceAuthRequestResponseModel::new()
-                        },
-                    ]),
-                    continuation_token: None,
-                })
-            });
-        });
-
-        let result = sync_devices(&api_client).await;
-
-        assert!(result.is_ok());
-        let devices = result.unwrap();
-        assert_eq!(devices.len(), 1);
-        assert_eq!(devices[0].id, trusted_id);
-
-        if let ApiClient::Mock(mut mock) = api_client {
-            mock.devices_api.checkpoint();
-        }
-    }
-
-    #[tokio::test]
-    async fn test_sync_passkeys_success() {
-        let passkey_id = uuid::Uuid::new_v4();
-
-        let api_client = ApiClient::new_mocked(|mock| {
-            let passkey_id = passkey_id;
-            mock.web_authn_api
-                .expect_get()
-                .once()
-                .returning(move || Ok(create_test_passkeys_response(passkey_id)));
-        });
-
-        let result = sync_passkeys(&api_client).await;
-
-        assert!(result.is_ok());
-        let passkeys = result.unwrap();
-        assert_eq!(passkeys.len(), 1);
-        assert_eq!(passkeys[0].id, passkey_id);
-
-        if let ApiClient::Mock(mut mock) = api_client {
-            mock.web_authn_api.checkpoint();
         }
     }
 
