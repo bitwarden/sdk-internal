@@ -23,7 +23,7 @@ pub trait TokenHandler: 'static + Send + Sync {
     /// done either during renewal (as part of the middleware) or during registration/login, in
     /// which case it would be up to the auth crate to internally set those tokens when initializing
     /// the client.
-    fn set_tokens(&self, token: String, refresh_token: Option<String>, expires_on: u64);
+    fn set_tokens(&self, token: String, refresh_token: Option<String>, expires_in: u64);
 }
 
 /// Access tokens managed by client applications, such as the web or mobile apps.

@@ -48,11 +48,11 @@ impl TokenHandler for PasswordManagerTokenHandler {
         Arc::new(MiddlewareWrapper(self.clone()))
     }
 
-    fn set_tokens(&self, access_token: String, refresh_token: Option<String>, expires_on: u64) {
+    fn set_tokens(&self, access_token: String, refresh_token: Option<String>, expires_in: u64) {
         let mut inner = self.inner.write().expect("RwLock is not poisoned");
         inner.access_token = Some(access_token);
         inner.refresh_token = refresh_token;
-        inner.expires_on = Some(expires_on as i64);
+        inner.expires_on = Some(Utc::now().timestamp() + expires_in as i64);
     }
 }
 
@@ -60,6 +60,11 @@ impl TokenHandler for PasswordManagerTokenHandler {
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 impl MiddlewareExt for PasswordManagerTokenHandler {
     async fn get_token(&self) -> Result<Option<String>, LoginError> {
+        // We're not holding on to a lock for the duration of the token renewal, so if multiple
+        // requests come in at the same time when the token is expired, we may end up renewing the
+        // token multiple times. This is not ideal, but it's the behavior of the previous
+        // implementation. We should be able to introduce an async semaphore or something
+        // similar to prevent this if it becomes an issue in practice.
         let inner = self.inner.read().expect("RwLock is not poisoned").clone();
 
         // Validate the token, returning early if it's still valid.
@@ -84,7 +89,7 @@ impl MiddlewareExt for PasswordManagerTokenHandler {
             return Err(NotAuthenticatedError.into());
         };
 
-        let (access_token, refresh_token, expires_on) =
+        let (access_token, refresh_token, expires_in) =
             bitwarden_core::auth::renew::renew_pm_token_sdk_managed(
                 inner.refresh_token,
                 user_login_method,
@@ -92,7 +97,7 @@ impl MiddlewareExt for PasswordManagerTokenHandler {
             )
             .await?;
 
-        self.set_tokens(access_token.clone(), refresh_token, expires_on);
+        self.set_tokens(access_token.clone(), refresh_token, expires_in);
         Ok(Some(access_token))
     }
 }

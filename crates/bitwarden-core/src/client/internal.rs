@@ -9,8 +9,6 @@ use bitwarden_crypto::{
 };
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
-#[cfg(any(feature = "internal", feature = "secrets"))]
-use chrono::Utc;
 #[cfg(feature = "internal")]
 use tracing::{info, instrument};
 
@@ -148,11 +146,8 @@ impl InternalClient {
 
     #[cfg(any(feature = "internal", feature = "secrets"))]
     pub(crate) fn set_tokens(&self, token: String, refresh_token: Option<String>, expires_in: u64) {
-        self.token_handler.set_tokens(
-            token,
-            refresh_token,
-            Utc::now().timestamp() as u64 + expires_in,
-        );
+        self.token_handler
+            .set_tokens(token, refresh_token, expires_in);
     }
 
     #[allow(missing_docs)]
