@@ -196,33 +196,34 @@ mod tests {
         // Verify OAuth2 standard fields use snake_case
         assert!(
             serialized.contains("client_id="),
-            "OAuth2 field should use snake_case"
+            "client_id should use snake_case"
         );
         assert!(
             serialized.contains("grant_type="),
-            "OAuth2 field should use snake_case"
+            "grant_type should use snake_case"
         );
-        assert!(
-            serialized.contains("scope="),
-            "OAuth2 field should use snake_case"
-        );
+        assert!(serialized.contains("scope="), "scope should use snake_case");
 
         // Verify Bitwarden custom fields use camelCase
         assert!(
             serialized.contains("deviceType="),
-            "Custom field should use camelCase"
+            "device_type should serialize as deviceType"
         );
         assert!(
             serialized.contains("deviceIdentifier="),
-            "Custom field should use camelCase"
+            "device_identifier should serialize as deviceIdentifier"
         );
         assert!(
             serialized.contains("deviceName="),
-            "Custom field should use camelCase"
+            "device_name should serialize as deviceName"
         );
         assert!(
             serialized.contains("devicePushToken="),
-            "Custom field should use camelCase"
+            "device_push_token should serialize as devicePushToken"
+        );
+        assert!(
+            !serialized.contains("device_push_token"),
+            "device_push_token should not appear in snake_case"
         );
 
         // Verify 2FA fields use camelCase
@@ -230,21 +231,37 @@ mod tests {
         // But we can verify they would use camelCase by checking field omission
         assert!(
             !serialized.contains("two_factor_token"),
-            "2FA fields should use camelCase, not snake_case"
+            "two_factor_token should not appear in snake_case"
+        );
+        assert!(
+            !serialized.contains("two_factor_provider"),
+            "two_factor_provider should not appear in snake_case"
+        );
+        assert!(
+            !serialized.contains("two_factor_remember"),
+            "two_factor_remember should not appear in snake_case"
         );
         assert!(
             !serialized.contains("twoFactorToken"),
-            "2FA fields should be omitted when None"
+            "twoFactorToken should be omitted when None"
+        );
+        assert!(
+            !serialized.contains("twoFactorProvider"),
+            "twoFactorProvider should be omitted when None"
+        );
+        assert!(
+            !serialized.contains("twoFactorRemember"),
+            "twoFactorRemember should be omitted when None"
         );
 
         // Verify flattened login mechanism fields are present
         assert!(
             serialized.contains("username="),
-            "Flattened fields should be included"
+            "username should be included from flattened fields"
         );
         assert!(
             serialized.contains("password="),
-            "Flattened fields should be included"
+            "password should be included from flattened fields"
         );
     }
 
