@@ -6,6 +6,7 @@
 //! This is not required on UNIFFI since there SDK instances live as long as the client is unlocked.
 //! Eventually, the WASM sdk will also hold SDK instances like described above.
 
+use bitwarden_crypto::SymmetricCryptoKey;
 use tracing::info;
 
 use crate::{
@@ -50,4 +51,26 @@ pub(crate) async fn copy_user_key_to_client_managed_state(
         )
         .await
         .map_err(|_| UnableToSetError)
+}
+
+pub(crate) struct UnableToGetError;
+pub(crate) async fn get_user_key_from_client_managed_state(
+    client: &Client,
+) -> Result<SymmetricCryptoKey, UnableToGetError> {
+    // The repository pattern requires us to specify a key. Here we use an empty string as the only
+    // key for this repository map.
+    const USER_KEY_REPOSITORY_KEY: &str = "";
+
+    info!("Getting the user-key from client managed-state in SDK");
+    // Get the user-key from the state repository.
+    let user_key_state = client
+        .platform()
+        .state()
+        .get::<key_management::UserKeyState>()
+        .map_err(|_| UnableToGetError)?
+        .get(USER_KEY_REPOSITORY_KEY.to_string())
+        .await
+        .map_err(|_| UnableToGetError)?
+        .ok_or(UnableToGetError)?;
+    SymmetricCryptoKey::try_from(user_key_state.decrypted_user_key).map_err(|_| UnableToGetError)
 }
