@@ -1,8 +1,6 @@
-//! Login client module
-//!
-//! The LoginClient is used to authenticate a Bitwarden User.
-//! This involves logging in via various mechanisms (password, SSO, etc.) to obtain
-//! OAuth2 tokens from the BW Identity API.
+//! The Login module provides the LoginClient and related types for authenticating
+//! Bitwarden users via various mechanisms (password, SSO, etc.) to obtain
+//! OAuth2 tokens from the Bitwarden Identity API.
 
 mod login_client;
 
