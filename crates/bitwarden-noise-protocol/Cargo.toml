@@ -1,0 +1,32 @@
+[package]
+name = "bitwarden-noise-protocol"
+description = "Noise Protocol implementation for Bitwarden"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[features]
+default = []
+experimental-post-quantum-crypto = []
+
+[dependencies]
+base64 = { workspace = true }
+bitwarden-error = { workspace = true }
+chacha20poly1305 = { workspace = true }
+ciborium = { workspace = true }
+clatter = { workspace = true }
+hex = { workspace = true }
+hkdf = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+zeroize = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "time", "macros"] }
+
+[lints]
+workspace = true

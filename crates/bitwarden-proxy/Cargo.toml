@@ -1,0 +1,34 @@
+[package]
+name = "bitwarden-proxy"
+description = "WebSocket proxy client for Bitwarden"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["experimental-post-quantum-crypto"]
+experimental-post-quantum-crypto = []
+
+[dependencies]
+bitwarden-error = { workspace = true }
+chrono = { workspace = true }
+coset = { workspace = true }
+ed25519-dalek = { workspace = true }
+futures = { workspace = true }
+hex = { workspace = true }
+ml-dsa = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["net", "rt", "sync", "time"] }
+tokio-tungstenite = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+[lints]
+workspace = true

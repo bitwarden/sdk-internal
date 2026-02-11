@@ -40,8 +40,11 @@ bitwarden-exporters = { path = "crates/bitwarden-exporters", version = "=2.0.0" 
 bitwarden-fido = { path = "crates/bitwarden-fido", version = "=2.0.0" }
 bitwarden-generators = { path = "crates/bitwarden-generators", version = "=2.0.0" }
 bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=2.0.0" }
+bitwarden-noise-protocol = { path = "crates/bitwarden-noise-protocol", version = "=2.0.0" }
 bitwarden-pm = { path = "crates/bitwarden-pm", version = "=2.0.0" }
 bitwarden-policies = { path = "crates/bitwarden-policies", version = "=2.0.0" }
+bitwarden-proxy = { path = "crates/bitwarden-proxy", version = "=2.0.0" }
+bitwarden-rat-client = { path = "crates/bitwarden-rat-client", version = "=2.0.0" }
 bitwarden-send = { path = "crates/bitwarden-send", version = "=2.0.0" }
 bitwarden-server-communication-config = { path = "crates/bitwarden-server-communication-config", version = "=2.0.0" }
 bitwarden-sm = { path = "bitwarden_license/bitwarden-sm", version = "=2.0.0" }
@@ -55,15 +58,24 @@ bitwarden-user-crypto-management = { path = "crates/bitwarden-user-crypto-manage
 bitwarden-uuid = { path = "crates/bitwarden-uuid", version = "=2.0.0" }
 bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=2.0.0" }
 bitwarden-vault = { path = "crates/bitwarden-vault", version = "=2.0.0" }
+base64 = ">=0.22, <0.23"
+chacha20poly1305 = ">=0.10, <0.11"
 chrono = { version = ">=0.4.26, <0.5", features = [
     "clock",
     "serde",
     "std",
 ], default-features = false }
+ciborium = ">=0.2, <0.3"
+clatter = { version = ">=2.2, <3", default-features = false, features = ["use-rust-crypto-ml-kem", "use-25519", "use-chacha20poly1305", "use-sha", "getrandom"] }
+coset = ">=0.4.1, <0.5"
 data-encoding = ">=2.0, <3"
+dirs = ">=5.0, <6"
 ed25519-dalek = { version = ">=2.1.1, <=2.2.0" }
 futures = ">=0.3.31, <0.4"
+hex = ">=0.4, <0.5"
+hkdf = ">=0.12, <0.13"
 js-sys = { version = ">=0.3.72, <0.4" }
+ml-dsa = ">=0.0.4, <0.1"
 mockall = { version = ">=0.13.1, <0.15" }
 proc-macro2 = ">=1.0.89, <2"
 quote = ">=1.0.37, <2"
@@ -86,10 +98,12 @@ serde_json = ">=1.0.96, <2.0"
 serde_qs = ">=0.12.0, <0.16"
 serde_repr = ">=0.1.12, <0.2"
 sha1 = ">=0.10.5, <0.11"
+sha2 = ">=0.10, <0.11"
 subtle = ">=2.5.0, <3.0"
 syn = ">=2.0.87, <3"
 thiserror = ">=1.0.40, <3"
 tokio = { version = "1.36.0", features = ["macros"] }
+tokio-tungstenite = { version = ">=0.24, <0.25", features = ["native-tls"] }
 tracing = { version = "0.1.41" }
 tracing-subscriber = { version = "0.3.20", features = [
     "fmt",
@@ -107,6 +121,7 @@ wasm-bindgen-cli = "=0.2.105"
 wasm-bindgen-futures = "0.4.55"
 wasm-bindgen-test = "0.3.55"
 wiremock = ">=0.6.0, <0.7"
+zeroize = { version = ">=1.8, <2", features = ["zeroize_derive"] }
 zxcvbn = ">=3.0.1, <4.0"
 
 [workspace.lints.clippy]
@@ -118,7 +133,7 @@ string_slice = "warn"
 [workspace.lints.rust]
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = [
-    'cfg(feature, values("uniffi", "wasm"))',
+    'cfg(feature, values("uniffi", "wasm", "experimental-post-quantum-crypto"))',
 ] }
 
 [workspace.metadata.dylint]
