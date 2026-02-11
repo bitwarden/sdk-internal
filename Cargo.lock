@@ -976,6 +976,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-sync"
+version = "2.0.0"
+dependencies = [
+ "async-trait",
+ "bitwarden-api-api",
+ "bitwarden-core",
+ "serde",
+ "thiserror 1.0.69",
+ "tokio",
+]
+
+[[package]]
 name = "bitwarden-test"
 version = "2.0.0"
 dependencies = [
@@ -1116,6 +1128,7 @@ dependencies = [
 name = "bitwarden-vault"
 version = "2.0.0"
 dependencies = [
+ "async-trait",
  "bitwarden-api-api",
  "bitwarden-collections",
  "bitwarden-core",
@@ -1123,6 +1136,7 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-state",
+ "bitwarden-sync",
  "bitwarden-test",
  "bitwarden-uuid",
  "chrono",
