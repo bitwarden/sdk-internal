@@ -76,7 +76,7 @@ mod tests {
     const TEST_KDF_ITERATIONS: i32 = 600000;
     const TEST_PUSH_TOKEN: &str = "test_push_token";
 
-    fn make_identity_client(mock_server: &wiremock::MockServer) -> LoginClient {
+    fn make_login_client(mock_server: &wiremock::MockServer) -> LoginClient {
         let settings = ClientSettings {
             identity_url: format!("http://{}/identity", mock_server.address()),
             api_url: format!("http://{}/api", mock_server.address()),
@@ -222,10 +222,10 @@ mod tests {
             .respond_with(ResponseTemplate::new(200).set_body_json(raw_success));
 
             let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-            let identity_client = make_identity_client(&mock_server);
+            let login_client = make_login_client(&mock_server);
 
             let request = make_password_login_request(kdf_type);
-            let result = identity_client.login_via_password(request).await;
+            let result = login_client.login_via_password(request).await;
 
             assert!(result.is_ok(), "Failed for KDF type: {kdf_type:?}");
             let login_response = result.unwrap();
@@ -245,10 +245,10 @@ mod tests {
             .respond_with(ResponseTemplate::new(400).set_body_json(error_response));
 
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_identity_client(&mock_server);
+        let login_client = make_login_client(&mock_server);
 
         let request = make_password_login_request(TestKdfType::Pbkdf2);
-        let result = identity_client.login_via_password(request).await;
+        let result = login_client.login_via_password(request).await;
 
         assert!(result.is_err());
         let error = result.unwrap_err();
@@ -271,10 +271,10 @@ mod tests {
             .respond_with(ResponseTemplate::new(400).set_body_json(error_response));
 
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_identity_client(&mock_server);
+        let login_client = make_login_client(&mock_server);
 
         let request = make_password_login_request(TestKdfType::Pbkdf2);
-        let result = identity_client.login_via_password(request).await;
+        let result = login_client.login_via_password(request).await;
 
         assert!(result.is_err());
         let error = result.unwrap_err();
@@ -300,10 +300,10 @@ mod tests {
             .respond_with(ResponseTemplate::new(401).set_body_json(error_response));
 
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_identity_client(&mock_server);
+        let login_client = make_login_client(&mock_server);
 
         let request = make_password_login_request(TestKdfType::Pbkdf2);
-        let result = identity_client.login_via_password(request).await;
+        let result = login_client.login_via_password(request).await;
 
         assert!(result.is_err());
         let error = result.unwrap_err();
@@ -328,10 +328,10 @@ mod tests {
             .respond_with(ResponseTemplate::new(500).set_body_json(error_response));
 
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_identity_client(&mock_server);
+        let login_client = make_login_client(&mock_server);
 
         let request = make_password_login_request(TestKdfType::Pbkdf2);
-        let result = identity_client.login_via_password(request).await;
+        let result = login_client.login_via_password(request).await;
 
         assert!(result.is_err());
         let error = result.unwrap_err();
@@ -348,7 +348,7 @@ mod tests {
     async fn test_login_via_password_invalid_kdf_configuration() {
         // No mock server needed - error occurs during KDF derivation before API call
         let (mock_server, _api_config) = start_api_mock(vec![]).await;
-        let identity_client = make_identity_client(&mock_server);
+        let login_client = make_login_client(&mock_server);
 
         // Create a request with PBKDF2 iterations below the minimum (5000)
         // This will cause derive() to fail with InsufficientKdfParameters
@@ -372,7 +372,7 @@ mod tests {
             },
         };
 
-        let result = identity_client.login_via_password(request).await;
+        let result = login_client.login_via_password(request).await;
 
         assert!(result.is_err());
         let error = result.unwrap_err();
@@ -402,10 +402,10 @@ mod tests {
             bitwarden_client_version: None,
             bitwarden_package_type: None,
         };
-        let identity_client = LoginClient::new(settings);
+        let login_client = LoginClient::new(settings);
 
         let request = make_password_login_request(TestKdfType::Pbkdf2);
-        let result = identity_client.login_via_password(request).await;
+        let result = login_client.login_via_password(request).await;
 
         // Should fail with Unknown error due to connection refused
         assert!(result.is_err());
@@ -429,10 +429,10 @@ mod tests {
             bitwarden_client_version: None,
             bitwarden_package_type: None,
         };
-        let identity_client = LoginClient::new(settings);
+        let login_client = LoginClient::new(settings);
 
         let request = make_password_login_request(TestKdfType::Pbkdf2);
-        let result = identity_client.login_via_password(request).await;
+        let result = login_client.login_via_password(request).await;
 
         // Should fail with Unknown error due to DNS failure
         assert!(result.is_err());
@@ -454,10 +454,10 @@ mod tests {
             .respond_with(ResponseTemplate::new(200).set_body_string(""));
 
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_identity_client(&mock_server);
+        let login_client = make_login_client(&mock_server);
 
         let request = make_password_login_request(TestKdfType::Pbkdf2);
-        let result = identity_client.login_via_password(request).await;
+        let result = login_client.login_via_password(request).await;
 
         // Should fail with Unknown error due to empty body
         assert!(result.is_err());
@@ -477,10 +477,10 @@ mod tests {
             .respond_with(ResponseTemplate::new(200).set_body_string("{invalid json"));
 
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_identity_client(&mock_server);
+        let login_client = make_login_client(&mock_server);
 
         let request = make_password_login_request(TestKdfType::Pbkdf2);
-        let result = identity_client.login_via_password(request).await;
+        let result = login_client.login_via_password(request).await;
 
         // Should fail with Unknown error due to malformed JSON
         assert!(result.is_err());
@@ -505,10 +505,10 @@ mod tests {
             .respond_with(ResponseTemplate::new(200).set_body_json(incomplete_response));
 
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_identity_client(&mock_server);
+        let login_client = make_login_client(&mock_server);
 
         let request = make_password_login_request(TestKdfType::Pbkdf2);
-        let result = identity_client.login_via_password(request).await;
+        let result = login_client.login_via_password(request).await;
 
         // Should fail with Unknown error due to missing required fields
         assert!(result.is_err());
@@ -532,10 +532,10 @@ mod tests {
             );
 
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_identity_client(&mock_server);
+        let login_client = make_login_client(&mock_server);
 
         let request = make_password_login_request(TestKdfType::Pbkdf2);
-        let result = identity_client.login_via_password(request).await;
+        let result = login_client.login_via_password(request).await;
 
         // Should fail with Unknown error due to wrong content type
         assert!(result.is_err());
@@ -555,10 +555,10 @@ mod tests {
             .respond_with(ResponseTemplate::new(418).set_body_string("I'm a teapot"));
 
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_identity_client(&mock_server);
+        let login_client = make_login_client(&mock_server);
 
         let request = make_password_login_request(TestKdfType::Pbkdf2);
-        let result = identity_client.login_via_password(request).await;
+        let result = login_client.login_via_password(request).await;
 
         // Should fail with Unknown error due to unexpected status code
         assert!(result.is_err());

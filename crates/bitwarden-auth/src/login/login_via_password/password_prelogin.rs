@@ -121,9 +121,9 @@ mod tests {
             .respond_with(ResponseTemplate::new(200).set_body_json(raw_success));
 
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_login_client(&mock_server);
+        let login_client = make_login_client(&mock_server);
 
-        let result = identity_client
+        let result = login_client
             .get_password_prelogin(TEST_EMAIL.to_string())
             .await
             .unwrap();
@@ -162,9 +162,9 @@ mod tests {
             .respond_with(ResponseTemplate::new(200).set_body_json(raw_success));
 
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_login_client(&mock_server);
+        let login_client = make_login_client(&mock_server);
 
-        let result = identity_client
+        let result = login_client
             .get_password_prelogin(TEST_EMAIL.to_string())
             .await
             .unwrap();
@@ -196,9 +196,9 @@ mod tests {
             .respond_with(ResponseTemplate::new(200).set_body_json(raw_response));
 
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_login_client(&mock_server);
+        let login_client = make_login_client(&mock_server);
 
-        let result = identity_client
+        let result = login_client
             .get_password_prelogin(TEST_EMAIL.to_string())
             .await;
 
@@ -229,9 +229,9 @@ mod tests {
             .respond_with(ResponseTemplate::new(200).set_body_json(raw_response));
 
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_login_client(&mock_server);
+        let login_client = make_login_client(&mock_server);
 
-        let result = identity_client
+        let result = login_client
             .get_password_prelogin(TEST_EMAIL.to_string())
             .await;
 
@@ -255,9 +255,9 @@ mod tests {
             .respond_with(ResponseTemplate::new(500));
 
         let (mock_server, _api_config) = start_api_mock(vec![mock]).await;
-        let identity_client = make_login_client(&mock_server);
+        let login_client = make_login_client(&mock_server);
 
-        let result = identity_client
+        let result = login_client
             .get_password_prelogin(TEST_EMAIL.to_string())
             .await;
 
