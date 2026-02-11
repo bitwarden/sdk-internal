@@ -28,7 +28,9 @@ use {tsify::Tsify, wasm_bindgen::prelude::*};
 use crate::key_management::wasm_unlock_state::copy_user_key_to_client_managed_state;
 use crate::{
     Client, NotAuthenticatedError, OrganizationId, UserId, WrongPasswordError,
-    client::{LoginMethod, UserLoginMethod, encryption_settings::EncryptionSettingsError},
+    client::{
+        LoginMethod, UserLoginMethod, encryption_settings::EncryptionSettingsError, internal,
+    },
     error::StatefulCryptoError,
     key_management::{
         MasterPasswordError, PrivateKeyId, SecurityState, SignedSecurityState, SigningKeyId,
@@ -189,6 +191,7 @@ pub(super) async fn initialize_user_crypto(
                 )?;
 
             drop(_span_guard);
+            #[cfg(feature = "internal")]
             copy_user_key_to_client_managed_state(client)
                 .await
                 .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
@@ -221,6 +224,7 @@ pub(super) async fn initialize_user_crypto(
             )?;
 
             drop(_span_guard);
+            #[cfg(feature = "internal")]
             copy_user_key_to_client_managed_state(client)
                 .await
                 .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
