@@ -111,7 +111,7 @@ mod tests {
         MasterPasswordAuthenticationData::derive(
             &request.password,
             &request.prelogin_response.kdf,
-            &request.email,
+            &request.prelogin_response.salt,
         )
         .unwrap()
     }
