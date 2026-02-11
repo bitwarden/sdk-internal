@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`94cd6fbff6f1916e0f379eb0e3ef510efba6b880`](https://github.com/bitwarden/server/commit/94cd6fbff6f1916e0f379eb0e3ef510efba6b880)
+  [`cda8527c7d309a00a7f6f4659be83eaa414e33e8`](https://github.com/bitwarden/server/commit/cda8527c7d309a00a7f6f4659be83eaa414e33e8)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -49,8 +49,10 @@ All URIs are relative to *https://api.bitwarden.com*
 | _AccountBillingVNextApi_                  | [**get_credit**](docs/AccountBillingVNextApi.md#account_billing_v_next_get_credit)                                                                               | **GET** /account/billing/vnext/credit                                                                    |
 | _AccountBillingVNextApi_                  | [**get_license**](docs/AccountBillingVNextApi.md#account_billing_v_next_get_license)                                                                             | **GET** /account/billing/vnext/license                                                                   |
 | _AccountBillingVNextApi_                  | [**get_payment_method**](docs/AccountBillingVNextApi.md#account_billing_v_next_get_payment_method)                                                               | **GET** /account/billing/vnext/payment-method                                                            |
+| _AccountBillingVNextApi_                  | [**get_subscription**](docs/AccountBillingVNextApi.md#account_billing_v_next_get_subscription)                                                                   | **GET** /account/billing/vnext/subscription                                                              |
+| _AccountBillingVNextApi_                  | [**reinstate_subscription**](docs/AccountBillingVNextApi.md#account_billing_v_next_reinstate_subscription)                                                       | **POST** /account/billing/vnext/subscription/reinstate                                                   |
 | _AccountBillingVNextApi_                  | [**update_payment_method**](docs/AccountBillingVNextApi.md#account_billing_v_next_update_payment_method)                                                         | **PUT** /account/billing/vnext/payment-method                                                            |
-| _AccountBillingVNextApi_                  | [**update_storage**](docs/AccountBillingVNextApi.md#account_billing_v_next_update_storage)                                                                       | **PUT** /account/billing/vnext/storage                                                                   |
+| _AccountBillingVNextApi_                  | [**update_subscription_storage**](docs/AccountBillingVNextApi.md#account_billing_v_next_update_subscription_storage)                                             | **PUT** /account/billing/vnext/subscription/storage                                                      |
 | _AccountBillingVNextApi_                  | [**upgrade_premium_to_organization**](docs/AccountBillingVNextApi.md#account_billing_v_next_upgrade_premium_to_organization)                                     | **POST** /account/billing/vnext/upgrade                                                                  |
 | _AccountsApi_                             | [**api_key**](docs/AccountsApi.md#accounts_api_key)                                                                                                              | **POST** /accounts/api-key                                                                               |
 | _AccountsApi_                             | [**delete**](docs/AccountsApi.md#accounts_delete)                                                                                                                | **DELETE** /accounts                                                                                     |
@@ -317,6 +319,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationUsersApi_                    | [**reinvite**](docs/OrganizationUsersApi.md#organization_users_reinvite)                                                                                         | **POST** /organizations/{orgId}/users/{id}/reinvite                                                      |
 | _OrganizationUsersApi_                    | [**remove**](docs/OrganizationUsersApi.md#organization_users_remove)                                                                                             | **DELETE** /organizations/{orgId}/users/{id}                                                             |
 | _OrganizationUsersApi_                    | [**restore**](docs/OrganizationUsersApi.md#organization_users_restore)                                                                                           | **PUT** /organizations/{orgId}/users/{id}/restore                                                        |
+| _OrganizationUsersApi_                    | [**restore_async_v_next**](docs/OrganizationUsersApi.md#organization_users_restore_async_v_next)                                                                 | **PUT** /organizations/{orgId}/users/{id}/restore/vnext                                                  |
 | _OrganizationUsersApi_                    | [**revoke**](docs/OrganizationUsersApi.md#organization_users_revoke)                                                                                             | **PUT** /organizations/{orgId}/users/{id}/revoke                                                         |
 | _OrganizationUsersApi_                    | [**revoke_self**](docs/OrganizationUsersApi.md#organization_users_revoke_self)                                                                                   | **PUT** /organizations/{orgId}/users/revoke-self                                                         |
 | _OrganizationUsersApi_                    | [**user_public_keys**](docs/OrganizationUsersApi.md#organization_users_user_public_keys)                                                                         | **POST** /organizations/{orgId}/users/public-keys                                                        |
@@ -356,6 +359,11 @@ All URIs are relative to *https://api.bitwarden.com*
 | _PoliciesApi_                             | [**get_master_password_policy**](docs/PoliciesApi.md#policies_get_master_password_policy)                                                                        | **GET** /organizations/{orgId}/policies/master-password                                                  |
 | _PoliciesApi_                             | [**put**](docs/PoliciesApi.md#policies_put)                                                                                                                      | **PUT** /organizations/{orgId}/policies/{type}                                                           |
 | _PoliciesApi_                             | [**put_v_next**](docs/PoliciesApi.md#policies_put_v_next)                                                                                                        | **PUT** /organizations/{orgId}/policies/{type}/vnext                                                     |
+| _PreviewInvoiceApi_                       | [**preview_organization_subscription_plan_change_tax**](docs/PreviewInvoiceApi.md#preview_invoice_preview_organization_subscription_plan_change_tax)             | **POST** /billing/preview-invoice/organizations/{organizationId}/subscription/plan-change                |
+| _PreviewInvoiceApi_                       | [**preview_organization_subscription_purchase_tax**](docs/PreviewInvoiceApi.md#preview_invoice_preview_organization_subscription_purchase_tax)                   | **POST** /billing/preview-invoice/organizations/subscriptions/purchase                                   |
+| _PreviewInvoiceApi_                       | [**preview_organization_subscription_update_tax**](docs/PreviewInvoiceApi.md#preview_invoice_preview_organization_subscription_update_tax)                       | **PUT** /billing/preview-invoice/organizations/{organizationId}/subscription/update                      |
+| _PreviewInvoiceApi_                       | [**preview_premium_subscription_purchase_tax**](docs/PreviewInvoiceApi.md#preview_invoice_preview_premium_subscription_purchase_tax)                             | **POST** /billing/preview-invoice/premium/subscriptions/purchase                                         |
+| _PreviewInvoiceApi_                       | [**preview_premium_upgrade_proration**](docs/PreviewInvoiceApi.md#preview_invoice_preview_premium_upgrade_proration)                                             | **POST** /billing/preview-invoice/premium/subscriptions/upgrade                                          |
 | _ProjectsApi_                             | [**bulk_delete**](docs/ProjectsApi.md#projects_bulk_delete)                                                                                                      | **POST** /projects/delete                                                                                |
 | _ProjectsApi_                             | [**create**](docs/ProjectsApi.md#projects_create)                                                                                                                | **POST** /organizations/{organizationId}/projects                                                        |
 | _ProjectsApi_                             | [**get**](docs/ProjectsApi.md#projects_get)                                                                                                                      | **GET** /projects/{id}                                                                                   |
@@ -439,15 +447,18 @@ All URIs are relative to *https://api.bitwarden.com*
 | _SelfHostedOrganizationSponsorshipsApi_   | [**get_sponsored_organizations**](docs/SelfHostedOrganizationSponsorshipsApi.md#self_hosted_organization_sponsorships_get_sponsored_organizations)               | **GET** /organization/sponsorship/self-hosted/{orgId}/sponsored                                          |
 | _SelfHostedOrganizationSponsorshipsApi_   | [**revoke_sponsorship**](docs/SelfHostedOrganizationSponsorshipsApi.md#self_hosted_organization_sponsorships_revoke_sponsorship)                                 | **DELETE** /organization/sponsorship/self-hosted/{sponsoringOrgId}                                       |
 | _SendsApi_                                | [**access**](docs/SendsApi.md#sends_access)                                                                                                                      | **POST** /sends/access/{id}                                                                              |
+| _SendsApi_                                | [**access_using_auth**](docs/SendsApi.md#sends_access_using_auth)                                                                                                | **POST** /sends/access                                                                                   |
 | _SendsApi_                                | [**azure_validate_file**](docs/SendsApi.md#sends_azure_validate_file)                                                                                            | **POST** /sends/file/validate/azure                                                                      |
 | _SendsApi_                                | [**delete**](docs/SendsApi.md#sends_delete)                                                                                                                      | **DELETE** /sends/{id}                                                                                   |
 | _SendsApi_                                | [**get**](docs/SendsApi.md#sends_get)                                                                                                                            | **GET** /sends/{id}                                                                                      |
 | _SendsApi_                                | [**get_all**](docs/SendsApi.md#sends_get_all)                                                                                                                    | **GET** /sends                                                                                           |
 | _SendsApi_                                | [**get_send_file_download_data**](docs/SendsApi.md#sends_get_send_file_download_data)                                                                            | **POST** /sends/{encodedSendId}/access/file/{fileId}                                                     |
+| _SendsApi_                                | [**get_send_file_download_data_using_auth**](docs/SendsApi.md#sends_get_send_file_download_data_using_auth)                                                      | **POST** /sends/access/file/{fileId}                                                                     |
 | _SendsApi_                                | [**post**](docs/SendsApi.md#sends_post)                                                                                                                          | **POST** /sends                                                                                          |
 | _SendsApi_                                | [**post_file**](docs/SendsApi.md#sends_post_file)                                                                                                                | **POST** /sends/file/v2                                                                                  |
 | _SendsApi_                                | [**post_file_for_existing_send**](docs/SendsApi.md#sends_post_file_for_existing_send)                                                                            | **POST** /sends/{id}/file/{fileId}                                                                       |
 | _SendsApi_                                | [**put**](docs/SendsApi.md#sends_put)                                                                                                                            | **PUT** /sends/{id}                                                                                      |
+| _SendsApi_                                | [**put_remove_auth**](docs/SendsApi.md#sends_put_remove_auth)                                                                                                    | **PUT** /sends/{id}/remove-auth                                                                          |
 | _SendsApi_                                | [**put_remove_password**](docs/SendsApi.md#sends_put_remove_password)                                                                                            | **PUT** /sends/{id}/remove-password                                                                      |
 | _SendsApi_                                | [**renew_file_upload**](docs/SendsApi.md#sends_renew_file_upload)                                                                                                | **GET** /sends/{id}/file/{fileId}                                                                        |
 | _ServiceAccountsApi_                      | [**bulk_delete**](docs/ServiceAccountsApi.md#service_accounts_bulk_delete)                                                                                       | **POST** /service-accounts/delete                                                                        |
@@ -462,14 +473,11 @@ All URIs are relative to *https://api.bitwarden.com*
 | _SettingsApi_                             | [**put_domains**](docs/SettingsApi.md#settings_put_domains)                                                                                                      | **PUT** /settings/domains                                                                                |
 | _SlackIntegrationApi_                     | [**create**](docs/SlackIntegrationApi.md#slack_integration_create)                                                                                               | **GET** /organizations/integrations/slack/create                                                         |
 | _SlackIntegrationApi_                     | [**redirect**](docs/SlackIntegrationApi.md#slack_integration_redirect)                                                                                           | **GET** /organizations/{organizationId}/integrations/slack/redirect                                      |
+| _SsoCookieVendorApi_                      | [**get**](docs/SsoCookieVendorApi.md#sso_cookie_vendor_get)                                                                                                      | **GET** /sso-cookie-vendor                                                                               | Reads SSO cookie (shards supported) and redirects to the bitwarden:// URI with cookie value(s).                                                                                                                                                                         |
 | _StripeApi_                               | [**create_setup_intent_for_bank_account**](docs/StripeApi.md#stripe_create_setup_intent_for_bank_account)                                                        | **POST** /setup-intent/bank-account                                                                      |
 | _StripeApi_                               | [**create_setup_intent_for_card**](docs/StripeApi.md#stripe_create_setup_intent_for_card)                                                                        | **POST** /setup-intent/card                                                                              |
 | _StripeApi_                               | [**is_country_supported**](docs/StripeApi.md#stripe_is_country_supported)                                                                                        | **GET** /tax/is-country-supported                                                                        |
 | _SyncApi_                                 | [**get**](docs/SyncApi.md#sync_get)                                                                                                                              | **GET** /sync                                                                                            |
-| _TaxApi_                                  | [**preview_organization_subscription_plan_change_tax**](docs/TaxApi.md#tax_preview_organization_subscription_plan_change_tax)                                    | **POST** /billing/tax/organizations/{organizationId}/subscription/plan-change                            |
-| _TaxApi_                                  | [**preview_organization_subscription_purchase_tax**](docs/TaxApi.md#tax_preview_organization_subscription_purchase_tax)                                          | **POST** /billing/tax/organizations/subscriptions/purchase                                               |
-| _TaxApi_                                  | [**preview_organization_subscription_update_tax**](docs/TaxApi.md#tax_preview_organization_subscription_update_tax)                                              | **PUT** /billing/tax/organizations/{organizationId}/subscription/update                                  |
-| _TaxApi_                                  | [**preview_premium_subscription_purchase_tax**](docs/TaxApi.md#tax_preview_premium_subscription_purchase_tax)                                                    | **POST** /billing/tax/premium/subscriptions/purchase                                                     |
 | _TeamsIntegrationApi_                     | [**create**](docs/TeamsIntegrationApi.md#teams_integration_create)                                                                                               | **GET** /organizations/integrations/teams/create                                                         |
 | _TeamsIntegrationApi_                     | [**incoming_post**](docs/TeamsIntegrationApi.md#teams_integration_incoming_post)                                                                                 | **POST** /organizations/integrations/teams/incoming                                                      |
 | _TeamsIntegrationApi_                     | [**redirect**](docs/TeamsIntegrationApi.md#teams_integration_redirect)                                                                                           | **GET** /organizations/{organizationId}/integrations/teams/redirect                                      |
@@ -602,6 +610,8 @@ All URIs are relative to *https://api.bitwarden.com*
 - [CollectionResponseModelListResponseModel](docs/CollectionResponseModelListResponseModel.md)
 - [CollectionType](docs/CollectionType.md)
 - [CollectionWithIdRequestModel](docs/CollectionWithIdRequestModel.md)
+- [CommunicationBootstrapSettings](docs/CommunicationBootstrapSettings.md)
+- [CommunicationSettings](docs/CommunicationSettings.md)
 - [ConfigResponseModel](docs/ConfigResponseModel.md)
 - [CreateClientOrganizationRequestBody](docs/CreateClientOrganizationRequestBody.md)
 - [CreateCollectionRequestModel](docs/CreateCollectionRequestModel.md)
@@ -760,6 +770,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [OrganizationUserResetPasswordDetailsResponseModelListResponseModel](docs/OrganizationUserResetPasswordDetailsResponseModelListResponseModel.md)
 - [OrganizationUserResetPasswordEnrollmentRequestModel](docs/OrganizationUserResetPasswordEnrollmentRequestModel.md)
 - [OrganizationUserResetPasswordRequestModel](docs/OrganizationUserResetPasswordRequestModel.md)
+- [OrganizationUserRestoreRequest](docs/OrganizationUserRestoreRequest.md)
 - [OrganizationUserStatusType](docs/OrganizationUserStatusType.md)
 - [OrganizationUserType](docs/OrganizationUserType.md)
 - [OrganizationUserUpdateRequestModel](docs/OrganizationUserUpdateRequestModel.md)
@@ -790,10 +801,10 @@ All URIs are relative to *https://api.bitwarden.com*
 - [PlanResponseModelListResponseModel](docs/PlanResponseModelListResponseModel.md)
 - [PlanSponsorshipType](docs/PlanSponsorshipType.md)
 - [PlanType](docs/PlanType.md)
-- [PolicyDetailResponseModel](docs/PolicyDetailResponseModel.md)
 - [PolicyRequestModel](docs/PolicyRequestModel.md)
 - [PolicyResponseModel](docs/PolicyResponseModel.md)
 - [PolicyResponseModelListResponseModel](docs/PolicyResponseModelListResponseModel.md)
+- [PolicyStatusResponseModel](docs/PolicyStatusResponseModel.md)
 - [PolicyType](docs/PolicyType.md)
 - [PotentialGranteeResponseModel](docs/PotentialGranteeResponseModel.md)
 - [PotentialGranteeResponseModelListResponseModel](docs/PotentialGranteeResponseModelListResponseModel.md)
@@ -803,6 +814,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [PreviewOrganizationSubscriptionPurchaseTaxRequest](docs/PreviewOrganizationSubscriptionPurchaseTaxRequest.md)
 - [PreviewOrganizationSubscriptionUpdateTaxRequest](docs/PreviewOrganizationSubscriptionUpdateTaxRequest.md)
 - [PreviewPremiumSubscriptionPurchaseTaxRequest](docs/PreviewPremiumSubscriptionPurchaseTaxRequest.md)
+- [PreviewPremiumUpgradeProrationRequest](docs/PreviewPremiumUpgradeProrationRequest.md)
 - [Priority](docs/Priority.md)
 - [PrivateKeysResponseModel](docs/PrivateKeysResponseModel.md)
 - [ProductTierType](docs/ProductTierType.md)
@@ -993,6 +1005,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [WebAuthnLoginCredentialCreateRequestModel](docs/WebAuthnLoginCredentialCreateRequestModel.md)
 - [WebAuthnLoginCredentialUpdateRequestModel](docs/WebAuthnLoginCredentialUpdateRequestModel.md)
 - [WebAuthnLoginRotateKeyRequestModel](docs/WebAuthnLoginRotateKeyRequestModel.md)
+- [WebAuthnPrfDecryptionOption](docs/WebAuthnPrfDecryptionOption.md)
 - [WebAuthnPrfStatus](docs/WebAuthnPrfStatus.md)
 - [WebPushAuthRequestModel](docs/WebPushAuthRequestModel.md)
 

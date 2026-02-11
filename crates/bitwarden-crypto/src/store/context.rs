@@ -14,9 +14,8 @@ use crate::{
     CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeyId, KeyIds, LocalId,
     Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm, Result,
     RotatedUserKeys, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
-    SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, SymmetricKeyAlgorithm,
-    UnsignedSharedKey, VerifyingKey, derive_shareable_key, error::UnsupportedOperationError,
-    signing, store::backend::StoreBackend,
+    SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, SymmetricKeyAlgorithm, VerifyingKey,
+    derive_shareable_key, error::UnsupportedOperationError, signing, store::backend::StoreBackend,
 };
 
 /// The context of a crypto operation using [super::KeyStore]
@@ -459,51 +458,6 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 UnsupportedOperationError::EncryptionNotImplementedForKey,
             )),
         }
-    }
-
-    /// Decapsulate a symmetric key into the context by using an already existing private key
-    ///
-    /// # Arguments
-    ///
-    /// * `decapsulation_key` - The key id used to decrypt the `encrypted_key`. It must already
-    ///   exist in the context
-    /// * `new_key_id` - The key id where the decrypted key will be stored. If it already exists, it
-    ///   will be overwritten
-    /// * `encapsulated_shared_key` - The symmetric key to decrypt
-    pub fn decapsulate_key_unsigned(
-        &mut self,
-        decapsulation_key: Ids::Private,
-        new_key_id: Ids::Symmetric,
-        encapsulated_shared_key: &UnsignedSharedKey,
-    ) -> Result<Ids::Symmetric> {
-        let decapsulation_key = self.get_private_key(decapsulation_key)?;
-        let decapsulated_key =
-            encapsulated_shared_key.decapsulate_key_unsigned(decapsulation_key)?;
-
-        #[allow(deprecated)]
-        self.set_symmetric_key(new_key_id, decapsulated_key)?;
-
-        // Returning the new key identifier for convenience
-        Ok(new_key_id)
-    }
-
-    /// Encapsulate and return a symmetric key from the context by using an already existing
-    /// private key
-    ///
-    /// # Arguments
-    ///
-    /// * `encapsulation_key` - The key id used to encrypt the `encapsulated_key`. It must already
-    ///   exist in the context
-    /// * `shared_key` - The key id to encrypt. It must already exist in the context
-    pub fn encapsulate_key_unsigned(
-        &self,
-        encapsulation_key: Ids::Private,
-        shared_key: Ids::Symmetric,
-    ) -> Result<UnsignedSharedKey> {
-        UnsignedSharedKey::encapsulate_key_unsigned(
-            self.get_symmetric_key(shared_key)?,
-            &self.get_private_key(encapsulation_key)?.to_public_key(),
-        )
     }
 
     /// Returns `true` if the context has a symmetric key with the given identifier

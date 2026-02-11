@@ -266,6 +266,7 @@ impl PureCrypto {
     ) -> Result<String, CryptoError> {
         let _span = tracing::info_span!("PureCrypto::encapsulate_key_unsigned").entered();
         let encapsulation_key = PublicKey::from_der(&SpkiPublicKeyBytes::from(encapsulation_key))?;
+        #[expect(deprecated)]
         Ok(UnsignedSharedKey::encapsulate_key_unsigned(
             &SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(shared_key))?,
             &encapsulation_key,
@@ -281,6 +282,7 @@ impl PureCrypto {
         decapsulation_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
         let _span = tracing::info_span!("PureCrypto::decapsulate_key_unsigned").entered();
+        #[expect(deprecated)]
         Ok(UnsignedSharedKey::from_str(encapsulated_key.as_str())?
             .decapsulate_key_unsigned(&PrivateKey::from_der(&Pkcs8PrivateKeyBytes::from(
                 decapsulation_key,
