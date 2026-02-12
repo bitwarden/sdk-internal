@@ -97,7 +97,10 @@ impl Debug for SignedSecurityState {
         if let Ok(signed_by) = self.0.signed_by_id() {
             debug_struct.field("signed_by", &signed_by);
         }
-        if let Some(state) = self.0.unverified_decode::<SecurityState>() {
+        if let Some(state) = self
+            .0
+            .dangerous_unverified_decode_do_not_use_except_for_debug_logs::<SecurityState>()
+        {
             debug_struct.field("version", &state.version);
         }
 

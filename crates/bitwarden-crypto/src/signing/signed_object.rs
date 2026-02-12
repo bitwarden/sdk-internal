@@ -45,9 +45,13 @@ impl SignedObject {
     }
 
     /// Deserializes the payload without verifying the signature.
-    /// This is intended for debug logging only. Do not use this to make security decisions.
-    #[cfg(feature = "dangerous-crypto-debug")]
-    pub fn unverified_decode<Message: DeserializeOwned>(&self) -> Option<Message> {
+    /// This is intended for debug logging only, to debug structs without having to explicitly
+    /// verify their signature first. WARNING: YOU MUST NOT USE THIS EXCEPT FOR DEBUG LOGGING.
+    pub fn dangerous_unverified_decode_do_not_use_except_for_debug_logs<
+        Message: DeserializeOwned,
+    >(
+        &self,
+    ) -> Option<Message> {
         let payload = self.0.payload.as_deref()?;
         let content_type = self.content_type().ok()?;
         SerializedMessage::from_bytes(payload.to_vec(), content_type)

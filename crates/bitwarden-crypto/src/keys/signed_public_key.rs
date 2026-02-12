@@ -85,7 +85,11 @@ impl std::fmt::Debug for SignedPublicKey {
             debug_struct.field("signed_by", &key_id);
         }
 
-        if let Some(msg) = self.0.unverified_decode::<SignedPublicKeyMessage>() {
+        if let Some(msg) = self
+            .0
+            .dangerous_unverified_decode_do_not_use_except_for_debug_logs::<SignedPublicKeyMessage>(
+            )
+        {
             debug_struct.field("algorithm", &msg.algorithm);
             debug_struct.field("public_key", &hex::encode(&msg.public_key));
         }
