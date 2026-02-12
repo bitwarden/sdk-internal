@@ -125,6 +125,9 @@ mod tests {
                 master_key_encrypted_user_key: Some(MASTER_KEY_ENCRYPTED_USER_KEY.to_string()),
                 salt: Some(SALT.to_string()),
             }),
+            // Note: the trusted device option && the key connector option are mutually exclusive
+            // from the server, but this test is just verifying that the conversion logic works
+            // for all option types.
             trusted_device_option: Some(TrustedDeviceUserDecryptionOptionApiResponse {
                 has_admin_approval: true,
                 has_login_approving_device: false,
