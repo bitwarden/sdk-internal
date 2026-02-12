@@ -21,6 +21,20 @@ use crate::key_rotation::{
     unlock::{V1EmergencyAccessMembership, V1OrganizationMembership},
 };
 
+trait DebugMapErr<T, E: std::fmt::Debug> {
+    /// Logs the error using `tracing::debug` and maps it to a new error type
+    fn debug_map_err<E2>(self, target: E2) -> Result<T, E2>;
+}
+
+impl<T, E: std::fmt::Debug> DebugMapErr<T, E> for Result<T, E> {
+    fn debug_map_err<E2>(self, target: E2) -> Result<T, E2> {
+        self.map_err(|e| {
+            debug!(error = ?e);
+            target
+        })
+    }
+}
+
 #[allow(unused)]
 pub(super) struct SyncedAccountData {
     pub(super) wrapped_account_cryptographic_state: WrappedAccountCryptographicState,
@@ -55,15 +69,15 @@ async fn fetch_organization_public_key(
         .organizations_api()
         .get_public_key(&organization_id.to_string())
         .await
-        .map_err(|_| SyncError::NetworkError)?
+        .debug_map_err(SyncError::NetworkError)?
         .public_key
         .ok_or(SyncError::DataError)?;
     PublicKey::from_der(&SpkiPublicKeyBytes::from(
         B64::from_str(&org_details)
-            .map_err(|_| SyncError::DataError)?
+            .debug_map_err(SyncError::DataError)?
             .into_bytes(),
     ))
-    .map_err(|_| SyncError::DataError)
+    .debug_map_err(SyncError::DataError)
 }
 
 // Download the public keys for the organizations, since these are not included in the sync
@@ -75,7 +89,7 @@ pub(crate) async fn sync_orgs(
         .organizations_api()
         .get_user()
         .await
-        .map_err(|_| SyncError::NetworkError)?
+        .debug_map_err(SyncError::NetworkError)?
         .data
         .ok_or(SyncError::DataError)?
         .into_iter();
@@ -114,18 +128,17 @@ async fn fetch_user_public_key(
         .users_api()
         .get_public_key(user_id)
         .await
-        .map_err(|_| SyncError::NetworkError)?;
+        .debug_map_err(SyncError::NetworkError)?;
     let public_key_b64 = user_key_response.public_key.ok_or(SyncError::DataError)?;
     PublicKey::from_der(&SpkiPublicKeyBytes::from(
         B64::from_str(&public_key_b64)
-            .map_err(|_| SyncError::DataError)?
+            .debug_map_err(SyncError::DataError)?
             .into_bytes(),
     ))
-    .map_err(|_| SyncError::DataError)
+    .debug_map_err(SyncError::DataError)
 }
 
 /// Download the emergency access memberships and their public keys
-#[allow(unused)]
 pub(crate) async fn sync_emergency_access(
     api_client: &ApiClient,
 ) -> Result<Vec<V1EmergencyAccessMembership>, SyncError> {
@@ -133,7 +146,7 @@ pub(crate) async fn sync_emergency_access(
         .emergency_access_api()
         .get_contacts()
         .await
-        .map_err(|_| SyncError::NetworkError)?
+        .debug_map_err(SyncError::NetworkError)?
         .data
         .ok_or(SyncError::DataError)?
         .into_iter()
@@ -168,22 +181,22 @@ async fn sync_passkeys(api_client: &ApiClient) -> Result<Vec<PartialRotateableKe
         .web_authn_api()
         .get()
         .await
-        .map_err(|_| SyncError::NetworkError)?
+        .debug_map_err(SyncError::NetworkError)?
         .data
         .ok_or(SyncError::DataError)?
         .into_iter()
         .map(|cred| {
             Ok(PartialRotateableKeyset {
                 id: Uuid::from_str(&cred.id.ok_or(SyncError::DataError)?)
-                    .map_err(|_| SyncError::DataError)?,
+                    .debug_map_err(SyncError::DataError)?,
                 encrypted_public_key: EncString::from_str(
                     &cred.encrypted_public_key.ok_or(SyncError::DataError)?,
                 )
-                .map_err(|_| SyncError::DataError)?,
+                .debug_map_err(SyncError::DataError)?,
                 encrypted_user_key: UnsignedSharedKey::from_str(
                     &cred.encrypted_user_key.ok_or(SyncError::DataError)?,
                 )
-                .map_err(|_| SyncError::DataError)?,
+                .debug_map_err(SyncError::DataError)?,
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -198,7 +211,7 @@ async fn sync_devices(api_client: &ApiClient) -> Result<Vec<PartialRotateableKey
         .devices_api()
         .get_all()
         .await
-        .map_err(|_| SyncError::NetworkError)?
+        .debug_map_err(SyncError::NetworkError)?
         .data
         .ok_or(SyncError::DataError)?
         .into_iter()
@@ -209,11 +222,11 @@ async fn sync_devices(api_client: &ApiClient) -> Result<Vec<PartialRotateableKey
                 encrypted_public_key: EncString::from_str(
                     &device.encrypted_public_key.ok_or(SyncError::DataError)?,
                 )
-                .map_err(|_| SyncError::DataError)?,
+                .debug_map_err(SyncError::DataError)?,
                 encrypted_user_key: UnsignedSharedKey::from_str(
                     &device.encrypted_user_key.ok_or(SyncError::DataError)?,
                 )
-                .map_err(|_| SyncError::DataError)?,
+                .debug_map_err(SyncError::DataError)?,
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -230,7 +243,7 @@ fn parse_ciphers(
         .into_iter()
         .map(|c| {
             let _span = debug_span!("deserializing_cipher", cipher_id = ?c.id).entered();
-            Cipher::try_from(c).map_err(|_| SyncError::DataError)
+            Cipher::try_from(c).debug_map_err(SyncError::DataError)
         })
         .collect::<Result<Vec<_>, _>>()?;
     info!("Deserialized {} ciphers", ciphers.len());
@@ -245,7 +258,7 @@ fn parse_folders(
         .into_iter()
         .map(|f| {
             let _span = debug_span!("deserializing_folder", folder_id = ?f.id).entered();
-            Folder::try_from(f).map_err(|_| SyncError::DataError)
+            Folder::try_from(f).debug_map_err(SyncError::DataError)
         })
         .collect::<Result<Vec<_>, _>>()?;
     info!("Deserialized {} folders", folders.len());
@@ -261,7 +274,7 @@ fn parse_sends(
         .into_iter()
         .map(|s| {
             let _span = debug_span!("deserializing_send", send_id = ?s.id).entered();
-            bitwarden_send::Send::try_from(s).map_err(|_| SyncError::DataError)
+            bitwarden_send::Send::try_from(s).debug_map_err(SyncError::DataError)
         })
         .collect::<Result<Vec<_>, _>>()?;
     info!("Deserialized {} sends", sends.len());
@@ -274,24 +287,23 @@ fn from_kdf(
 ) -> Result<Kdf, ()> {
     Ok(match kdf.kdf_type {
         bitwarden_api_api::models::KdfType::PBKDF2_SHA256 => Kdf::PBKDF2 {
-            iterations: std::num::NonZeroU32::new(kdf.iterations.try_into().map_err(|_| ())?)
+            iterations: std::num::NonZeroU32::new(kdf.iterations.try_into().debug_map_err(())?)
                 .ok_or(())?,
         },
         bitwarden_api_api::models::KdfType::Argon2id => {
             let memory = kdf.memory.ok_or(())?;
             let parallelism = kdf.parallelism.ok_or(())?;
             Kdf::Argon2id {
-                iterations: std::num::NonZeroU32::new(kdf.iterations.try_into().map_err(|_| ())?)
+                iterations: std::num::NonZeroU32::new(kdf.iterations.try_into().debug_map_err(())?)
                     .ok_or(())?,
-                memory: std::num::NonZeroU32::new(memory.try_into().map_err(|_| ())?).ok_or(())?,
-                parallelism: std::num::NonZeroU32::new(parallelism.try_into().map_err(|_| ())?)
+                memory: std::num::NonZeroU32::new(memory.try_into().debug_map_err(())?).ok_or(())?,
+                parallelism: std::num::NonZeroU32::new(parallelism.try_into().debug_map_err(())?)
                     .ok_or(())?,
             }
         }
     })
 }
 
-#[allow(unused)]
 #[derive(Debug, Error)]
 #[bitwarden_error(flat)]
 enum PrivateKeysParsingError {
@@ -301,18 +313,18 @@ enum PrivateKeysParsingError {
     InvalidFormat,
 }
 
-#[allow(unused)]
 #[instrument(skip(private_keys_response), err)]
 fn from_private_keys_response(
     private_keys_response: &bitwarden_api_api::models::PrivateKeysResponseModel,
 ) -> Result<WrappedAccountCryptographicState, PrivateKeysParsingError> {
     let is_v2 = private_keys_response.signature_key_pair.is_some();
     if is_v2 {
+        debug!("Parsing V2 account cryptographic state from sync response");
         let private_key = private_keys_response
             .public_key_encryption_key_pair
             .wrapped_private_key
             .as_ref()
-            .map(|pk| EncString::from_str(pk).map_err(|_| PrivateKeysParsingError::InvalidFormat))
+            .map(|pk| EncString::from_str(pk).debug_map_err(PrivateKeysParsingError::InvalidFormat))
             .ok_or(PrivateKeysParsingError::MissingField(
                 "private_key".to_string(),
             ))??;
@@ -320,7 +332,7 @@ fn from_private_keys_response(
             .signature_key_pair
             .as_ref()
             .and_then(|skp| skp.wrapped_signing_key.as_ref())
-            .map(|s| EncString::from_str(s).map_err(|_| PrivateKeysParsingError::InvalidFormat))
+            .map(|s| EncString::from_str(s).debug_map_err(PrivateKeysParsingError::InvalidFormat))
             .ok_or(PrivateKeysParsingError::MissingField(
                 "signing_key".to_string(),
             ))??;
@@ -329,7 +341,7 @@ fn from_private_keys_response(
             .signed_public_key
             .as_ref()
             .map(|spk| {
-                SignedPublicKey::from_str(spk).map_err(|_| PrivateKeysParsingError::InvalidFormat)
+                SignedPublicKey::from_str(spk).debug_map_err(PrivateKeysParsingError::InvalidFormat)
             })
             .ok_or(PrivateKeysParsingError::MissingField(
                 "signed_public_key".to_string(),
@@ -339,7 +351,7 @@ fn from_private_keys_response(
             .as_ref()
             .map(|ss| {
                 SignedSecurityState::from_str(&ss.security_state.clone().unwrap_or_default())
-                    .map_err(|_| PrivateKeysParsingError::InvalidFormat)
+                    .debug_map_err(PrivateKeysParsingError::InvalidFormat)
             })
             .ok_or(PrivateKeysParsingError::MissingField(
                 "security_state".to_string(),
@@ -351,12 +363,13 @@ fn from_private_keys_response(
             security_state,
         })
     } else {
+        debug!("Parsing V1 account cryptographic state from sync response");
         // V1: Private key, security state
         let private_key = private_keys_response
             .public_key_encryption_key_pair
             .wrapped_private_key
             .as_ref()
-            .map(|pk| EncString::from_str(pk).map_err(|_| PrivateKeysParsingError::InvalidFormat))
+            .map(|pk| EncString::from_str(pk).debug_map_err(PrivateKeysParsingError::InvalidFormat))
             .ok_or(PrivateKeysParsingError::MissingField(
                 "private_key".to_string(),
             ))??;
@@ -364,10 +377,10 @@ fn from_private_keys_response(
     }
 }
 
-#[allow(unused)]
 fn parse_kdf_and_salt(
     user_decryption: &Option<Box<bitwarden_api_api::models::UserDecryptionResponseModel>>,
 ) -> Result<Option<(Kdf, String)>, SyncError> {
+    debug!("Parsing KDF and salt from sync response");
     let master_password_unlock = user_decryption
         .as_ref()
         .ok_or(SyncError::DataError)?
@@ -375,7 +388,7 @@ fn parse_kdf_and_salt(
         .clone()
         .ok_or(SyncError::DataError)?;
 
-    let kdf = from_kdf(&master_password_unlock.kdf).map_err(|_| SyncError::DataError)?;
+    let kdf = from_kdf(&master_password_unlock.kdf).debug_map_err(SyncError::DataError)?;
     let salt = master_password_unlock.salt.ok_or(SyncError::DataError)?;
     debug!("Parsed password KDF and salt from sync response");
     Ok(Some((kdf, salt)))
@@ -390,7 +403,7 @@ pub(super) async fn sync_current_account_data(
         .sync_api()
         .get(Some(true))
         .await
-        .map_err(|_| SyncError::NetworkError)?;
+        .debug_map_err(SyncError::NetworkError)?;
 
     let profile = sync.profile.as_ref().ok_or(SyncError::DataError)?;
     let kdf_and_salt = parse_kdf_and_salt(&sync.user_decryption)?;
@@ -403,7 +416,7 @@ pub(super) async fn sync_current_account_data(
     let sends = parse_sends(sync.sends)?;
     let wrapped_account_cryptographic_state =
         from_private_keys_response(&account_cryptographic_state)
-            .map_err(|_| SyncError::DataError)?;
+            .debug_map_err(SyncError::DataError)?;
     let user_id = sync
         .profile
         .as_ref()
