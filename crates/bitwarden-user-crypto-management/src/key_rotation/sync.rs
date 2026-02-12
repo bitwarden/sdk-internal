@@ -49,7 +49,6 @@ pub(super) struct SyncedAccountData {
     pub(super) user_id: uuid::Uuid,
 }
 
-#[allow(unused)]
 #[derive(Debug, Error)]
 #[bitwarden_error(flat)]
 pub(super) enum SyncError {
@@ -60,7 +59,6 @@ pub(super) enum SyncError {
 }
 
 /// Fetch the public key for a single organization
-#[allow(unused)]
 async fn fetch_organization_public_key(
     api_client: &ApiClient,
     organization_id: Uuid,
@@ -81,7 +79,6 @@ async fn fetch_organization_public_key(
 }
 
 // Download the public keys for the organizations, since these are not included in the sync
-#[allow(unused)]
 pub(crate) async fn sync_orgs(
     api_client: &ApiClient,
 ) -> Result<Vec<V1OrganizationMembership>, SyncError> {
@@ -175,7 +172,6 @@ pub(crate) async fn sync_emergency_access(
 }
 
 /// Sync the user's passkeys
-#[allow(unused)]
 async fn sync_passkeys(api_client: &ApiClient) -> Result<Vec<PartialRotateableKeyset>, SyncError> {
     let passkeys = api_client
         .web_authn_api()
@@ -205,7 +201,6 @@ async fn sync_passkeys(api_client: &ApiClient) -> Result<Vec<PartialRotateableKe
 }
 
 /// Sync the user's trusted devices
-#[allow(unused)]
 async fn sync_devices(api_client: &ApiClient) -> Result<Vec<PartialRotateableKeyset>, SyncError> {
     let trusted_devices = api_client
         .devices_api()
@@ -265,7 +260,6 @@ fn parse_folders(
     Ok(folders)
 }
 
-#[allow(unused)]
 fn parse_sends(
     sends: Option<Vec<bitwarden_api_api::models::SendResponseModel>>,
 ) -> Result<Vec<bitwarden_send::Send>, SyncError> {
@@ -281,7 +275,6 @@ fn parse_sends(
     Ok(sends)
 }
 
-#[allow(unused)]
 fn from_kdf(
     kdf: &bitwarden_api_api::models::MasterPasswordUnlockKdfResponseModel,
 ) -> Result<Kdf, ()> {
