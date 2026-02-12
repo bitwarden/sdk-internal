@@ -94,7 +94,9 @@ impl Debug for SignedSecurityState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut debug_struct = f.debug_struct("SignedSecurityState");
 
-        debug_struct.field("signed_by", &self.0.signed_by_id());
+        if let Ok(signed_by) = self.0.signed_by_id() {
+            debug_struct.field("signed_by", &signed_by);
+        }
         if let Some(state) = self.0.unverified_decode::<SecurityState>() {
             debug_struct.field("version", &state.version);
         }
