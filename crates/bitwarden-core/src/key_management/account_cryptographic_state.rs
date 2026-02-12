@@ -363,6 +363,22 @@ impl WrappedAccountCryptographicState {
                 }
 
                 ctx.persist_symmetric_key(user_key, SymmetricKeyId::User)?;
+                #[cfg(feature = "dangerous-crypto-debug")]
+                #[allow(deprecated)]
+                {
+                    let ctx = store.context();
+                    let user_key = ctx
+                        .dangerous_get_symmetric_key(SymmetricKeyId::User)
+                        .expect("User key should be set");
+                    let private_key = ctx
+                        .dangerous_get_private_key(PrivateKeyId::UserPrivateKey)
+                        .ok();
+                    let public_key = ctx.get_public_key(PrivateKeyId::UserPrivateKey).ok();
+                    info!(
+                        "V1 account cryptographic state set to context. UserKey: {:?}, PrivateKey: {:?}, PublicKey: {:?}",
+                        user_key, private_key, public_key
+                    );
+                }
             }
             WrappedAccountCryptographicState::V2 {
                 private_key,
@@ -404,6 +420,34 @@ impl WrappedAccountCryptographicState {
                 ctx.persist_private_key(private_key_id, PrivateKeyId::UserPrivateKey)?;
                 ctx.persist_signing_key(signing_key_id, SigningKeyId::UserSigningKey)?;
                 ctx.persist_symmetric_key(user_key, SymmetricKeyId::User)?;
+
+                #[cfg(feature = "dangerous-crypto-debug")]
+                #[allow(deprecated)]
+                {
+                    let ctx = store.context();
+                    let user_key = ctx
+                        .dangerous_get_symmetric_key(SymmetricKeyId::User)
+                        .expect("User key should be set");
+                    let private_key = ctx
+                        .dangerous_get_private_key(PrivateKeyId::UserPrivateKey)
+                        .ok();
+                    let signing_key = ctx
+                        .dangerous_get_signing_key(SigningKeyId::UserSigningKey)
+                        .ok();
+                    let verifying_key = ctx.get_verifying_key(SigningKeyId::UserSigningKey).ok();
+                    let public_key = ctx.get_public_key(PrivateKeyId::UserPrivateKey).ok();
+                    info!(
+                        "V2 account cryptographic state set to context. UserKey: {:?}, PrivateKey: {:?}, SigningKey: {:?}, VerifyingKey: {:?}, PublicKey: {:?}, SignedPublicKey: {:?}, SecurityState: {:?}",
+                        user_key,
+                        private_key,
+                        signing_key,
+                        verifying_key,
+                        public_key,
+                        signed_public_key,
+                        security_state
+                    );
+                }
+
                 // Not manually dropping ctx here would lead to a deadlock, since storing the state
                 // needs to acquire a lock on the inner key store
                 drop(ctx);

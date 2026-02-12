@@ -70,7 +70,7 @@ impl From<[u8; KEY_ID_SIZE]> for KeyId {
 
 impl std::fmt::Debug for KeyId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "KeyId({})", hex::encode(&self.0))
+        write!(f, "KeyId({})", hex::encode(self.0))
     }
 }
 
