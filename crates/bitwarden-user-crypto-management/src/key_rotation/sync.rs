@@ -229,7 +229,6 @@ async fn sync_devices(api_client: &ApiClient) -> Result<Vec<PartialRotateableKey
     Ok(trusted_devices)
 }
 
-#[allow(unused)]
 fn parse_ciphers(
     ciphers: Option<Vec<bitwarden_api_api::models::CipherDetailsResponseModel>>,
 ) -> Result<Vec<Cipher>, SyncError> {
