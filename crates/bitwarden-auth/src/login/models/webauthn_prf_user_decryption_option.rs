@@ -20,12 +20,12 @@ pub struct WebAuthnPrfUserDecryptionOption {
     pub encrypted_user_key: UnsignedSharedKey,
 
     /// Credential ID for this WebAuthn PRF credential.
-    /// TODO: PM-32163 - can remove Option<T> after 3 releases from server v2026.1.1
+    /// TODO: PM-32163 - can remove `Option<T>` after 3 releases from server v2026.1.1
     pub credential_id: Option<String>,
 
     /// Transport methods available for this credential (e.g., "usb", "nfc", "ble", "internal",
     /// "hybrid").
-    /// TODO: PM-32163 - can remove Option<T> after 3 releases from server v2026.1.1
+    /// TODO: PM-32163 - can remove `Option<T>` after 3 releases from server v2026.1.1
     pub transports: Option<Vec<String>>,
 }
 
