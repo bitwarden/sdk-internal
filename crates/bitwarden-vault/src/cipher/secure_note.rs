@@ -89,16 +89,21 @@ impl TryFrom<CipherSecureNoteModel> for SecureNote {
 
     fn try_from(model: CipherSecureNoteModel) -> Result<Self, Self::Error> {
         Ok(Self {
-            r#type: require!(model.r#type).into(),
+            r#type: require!(model.r#type).try_into()?,
         })
     }
 }
 
-impl From<bitwarden_api_api::models::SecureNoteType> for SecureNoteType {
-    fn from(model: bitwarden_api_api::models::SecureNoteType) -> Self {
-        match model {
+impl TryFrom<bitwarden_api_api::models::SecureNoteType> for SecureNoteType {
+    type Error = bitwarden_core::MissingFieldError;
+
+    fn try_from(model: bitwarden_api_api::models::SecureNoteType) -> Result<Self, Self::Error> {
+        Ok(match model {
             bitwarden_api_api::models::SecureNoteType::Generic => SecureNoteType::Generic,
-        }
+            bitwarden_api_api::models::SecureNoteType::__Unknown(_) => {
+                return Err(bitwarden_core::MissingFieldError("type"));
+            }
+        })
     }
 }
 

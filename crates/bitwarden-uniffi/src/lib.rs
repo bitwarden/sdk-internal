@@ -29,6 +29,10 @@ use crypto::CryptoClient;
 use error::{Error, Result};
 pub use log_callback::LogCallback;
 use platform::PlatformClient;
+pub use platform::{
+    AcquiredCookie, BootstrapConfig, ServerCommunicationConfig, ServerCommunicationConfigClient,
+    ServerCommunicationConfigRepository, SsoCookieVendorConfig,
+};
 use tool::{ExporterClient, GeneratorClients, SendClient, SshClient};
 use vault::VaultClient;
 

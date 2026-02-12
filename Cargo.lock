@@ -503,7 +503,6 @@ dependencies = [
  "reqwest-middleware",
  "serde",
  "serde_json",
- "serde_repr",
  "serde_with",
  "url",
  "uuid",
@@ -531,7 +530,6 @@ dependencies = [
  "reqwest-middleware",
  "serde",
  "serde_json",
- "serde_repr",
  "serde_with",
  "url",
  "uuid",
@@ -905,6 +903,7 @@ dependencies = [
 name = "bitwarden-server-communication-config"
 version = "2.0.0"
 dependencies = [
+ "async-trait",
  "bitwarden-error",
  "bitwarden-threading",
  "js-sys",
@@ -914,6 +913,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tsify",
+ "uniffi",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
@@ -1045,6 +1045,7 @@ dependencies = [
  "bitwarden-generators",
  "bitwarden-pm",
  "bitwarden-send",
+ "bitwarden-server-communication-config",
  "bitwarden-ssh",
  "bitwarden-state",
  "bitwarden-uniffi-error",
@@ -1078,7 +1079,9 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-send",
  "bitwarden-test",
+ "bitwarden-vault",
  "chrono",
  "reqwest",
  "serde",
