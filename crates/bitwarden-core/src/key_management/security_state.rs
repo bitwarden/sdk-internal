@@ -20,7 +20,7 @@
 //! 5. The client, given a security state with security version N+1 will reject all items that are
 //!    in format version A.
 
-use std::str::FromStr;
+use std::{fmt::Debug, str::FromStr};
 
 use bitwarden_crypto::{
     CoseSerializable, CoseSign1Bytes, CryptoError, EncodingError, KeyIds, KeyStoreContext,
@@ -87,8 +87,21 @@ impl SecurityState {
 }
 
 /// A signed and serialized `SecurityState` object.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct SignedSecurityState(pub(crate) SignedObject);
+
+impl Debug for SignedSecurityState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut debug_struct = f.debug_struct("SignedSecurityState");
+
+        debug_struct.field("signed_by", &self.0.signed_by_id());
+        if let Some(state) = self.0.unverified_decode::<SecurityState>() {
+            debug_struct.field("version", &state.version);
+        }
+
+        debug_struct.finish()
+    }
+}
 
 impl SignedSecurityState {
     /// Verifies the signature of the `SignedSecurityState` using the provided `VerifyingKey`.
@@ -161,6 +174,21 @@ mod tests {
 
     use super::*;
     use crate::key_management::KeyIds;
+
+    #[test]
+    #[ignore = "Manual test for debug logs"]
+    fn test_security_state_debug_logs() {
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let user_id = UserId::new_v4();
+        let security_state = SecurityState::initialize_for_user(user_id);
+        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
+        let key = ctx.add_local_signing_key(signing_key.clone());
+        let signed_security_state = security_state.sign(key, &mut ctx).unwrap();
+
+        println!("{:?}", signed_security_state);
+    }
 
     #[test]
     fn test_security_state_signing() {

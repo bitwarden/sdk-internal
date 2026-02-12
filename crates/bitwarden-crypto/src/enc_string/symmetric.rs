@@ -11,7 +11,9 @@ use super::{check_length, from_b64, from_b64_vec, split_enc_string};
 use crate::{
     Aes256CbcHmacKey, ContentFormat, CoseEncrypt0Bytes, KeyDecryptable, KeyEncryptable,
     KeyEncryptableWithContentType, SymmetricCryptoKey, Utf8Bytes, XChaCha20Poly1305Key,
+    cose::XCHACHA20_POLY1305,
     error::{CryptoError, EncStringParseError, Result, UnsupportedOperationError},
+    keys::KeyId,
 };
 
 #[cfg(feature = "wasm")]
@@ -245,13 +247,45 @@ impl std::fmt::Debug for EncString {
         match self {
             EncString::Aes256Cbc_B64 { iv, data } => fmt_parts(f, enc_type, &[iv, data]),
             EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data } => {
-                fmt_parts(f, enc_type, &[iv, data, mac])
+                let mut debug_struct = f.debug_struct("EncString::Aes256Cbc_HmacSha256_B64");
+                debug_struct.field("iv", &hex::encode(iv));
+                debug_struct.field("data", &hex::encode(data));
+                debug_struct.field("mac", &hex::encode(mac));
+                debug_struct.finish()
             }
             EncString::Cose_Encrypt0_B64 { data } => {
-                let msg = coset::CoseEncrypt0::from_slice(data.as_slice())
-                    .map(|msg| format!("{msg:?}"))
-                    .unwrap_or_else(|_| "INVALID_COSE".to_string());
-                write!(f, "{enc_type}.{msg}")
+                let mut debug_struct = f.debug_struct("EncString::Cose_Encrypt0");
+
+                match coset::CoseEncrypt0::from_slice(data.as_slice()) {
+                    Ok(msg) => {
+                        if let Some(ref alg) = msg.protected.header.alg {
+                            let alg_name = match alg {
+                                coset::Algorithm::PrivateUse(XCHACHA20_POLY1305) => {
+                                    "XChaCha20-Poly1305"
+                                }
+                                other => return debug_struct.field("algorithm", other).finish(),
+                            };
+                            debug_struct.field("algorithm", &alg_name);
+                        }
+
+                        let key_id = &msg.protected.header.key_id;
+                        if let Ok(key_id) = KeyId::try_from(key_id.as_slice()) {
+                            debug_struct.field("key_id", &key_id);
+                        }
+                        debug_struct.field("nonce", &hex::encode(msg.unprotected.iv.as_slice()));
+                        if let Some(ref content_type) = msg.protected.header.content_type {
+                            debug_struct.field("content_type", content_type);
+                        }
+                        if let Some(ref ciphertext) = msg.ciphertext {
+                            debug_struct.field("ciphertext", &hex::encode(ciphertext));
+                        }
+                    }
+                    Err(_) => {
+                        debug_struct.field("error", &"INVALID_COSE");
+                    }
+                }
+
+                debug_struct.finish()
             }
         }
     }
@@ -404,7 +438,7 @@ mod tests {
         let key_id = [0u8; KEY_ID_SIZE];
         let enc_key = [0u8; 32];
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
-            key_id,
+            key_id: key_id.into(),
             enc_key: Box::pin(enc_key.into()),
             supported_operations: vec![
                 coset::iana::KeyOperation::Decrypt,
@@ -415,6 +449,17 @@ mod tests {
         });
 
         plaintext.encrypt_with_key(&key).expect("encryption works")
+    }
+
+    #[test]
+    #[ignore = "Manual test to verify debug format"]
+    fn test_debug() {
+        let enc_string = encrypt_with_xchacha20("Test debug string");
+        println!("{:?}", enc_string);
+        let enc_string_aes =
+            EncString::encrypt_aes256_hmac(b"Test debug string", &derive_symmetric_key("test"))
+                .unwrap();
+        println!("{:?}", enc_string_aes);
     }
 
     /// XChaCha20Poly1305 encstrings should be padded in blocks of 32 bytes. This ensures that the
@@ -449,7 +494,7 @@ mod tests {
         let key_id = [0u8; KEY_ID_SIZE];
         let enc_key = [0u8; 32];
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
-            key_id,
+            key_id: key_id.into(),
             enc_key: Box::pin(enc_key.into()),
             supported_operations: vec![
                 coset::iana::KeyOperation::Decrypt,
@@ -481,7 +526,7 @@ mod tests {
         let key_id = [0u8; KEY_ID_SIZE];
         let enc_key = [0u8; 32];
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
-            key_id,
+            key_id: key_id.into(),
             enc_key: Box::pin(enc_key.into()),
             supported_operations: vec![
                 coset::iana::KeyOperation::Decrypt,
@@ -618,7 +663,7 @@ mod tests {
         let key_id = [0u8; KEY_ID_SIZE];
         let enc_key = [0u8; 32];
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
-            key_id,
+            key_id: key_id.into(),
             enc_key: Box::pin(enc_key.into()),
             supported_operations: vec![KeyOperation::Decrypt],
         });

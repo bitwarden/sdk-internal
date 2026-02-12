@@ -44,6 +44,7 @@ ciborium = { version = ">=0.2.2, <0.3" }
 coset = { version = ">=0.4.0, <0.5" }
 ed25519-dalek = { workspace = true, features = ["rand_core"] }
 generic-array = { version = ">=0.14.7, <1.0", features = ["zeroize"] }
+hex = "0.4.3"
 hkdf = ">=0.12.3, <0.13"
 hmac = ">=0.12.1, <0.13"
 num-bigint = ">=0.4, <0.5"

@@ -111,8 +111,14 @@ impl std::fmt::Debug for WrappedAccountCryptographicState {
             WrappedAccountCryptographicState::V1 { .. } => f
                 .debug_struct("WrappedAccountCryptographicState::V1")
                 .finish(),
-            WrappedAccountCryptographicState::V2 { .. } => f
+            WrappedAccountCryptographicState::V2 {
+                security_state,
+                private_key: _,
+                signed_public_key: _,
+                signing_key: _,
+            } => f
                 .debug_struct("WrappedAccountCryptographicState::V2")
+                .field("security_state", security_state)
                 .finish(),
         }
     }
@@ -339,7 +345,7 @@ impl WrappedAccountCryptographicState {
 
         match self {
             WrappedAccountCryptographicState::V1 { private_key } => {
-                info!("Initializing V1 account cryptographic state");
+                info!(state = ?self, "Initializing V1 account cryptographic state");
                 if ctx.get_symmetric_key_algorithm(user_key)?
                     != SymmetricKeyAlgorithm::Aes256CbcHmac
                 {
@@ -364,7 +370,7 @@ impl WrappedAccountCryptographicState {
                 signing_key,
                 security_state,
             } => {
-                info!("Initializing V2 account cryptographic state");
+                info!(state = ?self, "Initializing V2 account cryptographic state");
                 if ctx.get_symmetric_key_algorithm(user_key)?
                     != SymmetricKeyAlgorithm::XChaCha20Poly1305
                 {
@@ -385,10 +391,16 @@ impl WrappedAccountCryptographicState {
                         .map_err(|_| AccountCryptographyInitializationError::TamperedData)?;
                 }
 
+                let verifying_key = ctx.get_verifying_key(signing_key_id)?;
                 let security_state: SecurityState = security_state
                     .to_owned()
-                    .verify_and_unwrap(&ctx.get_verifying_key(signing_key_id)?)
+                    .verify_and_unwrap(&verifying_key)
                     .map_err(|_| AccountCryptographyInitializationError::TamperedData)?;
+                info!(
+                    security_state_version = security_state.version(),
+                    verifying_key = ?verifying_key,
+                    "V2 account cryptographic state verified"
+                );
                 ctx.persist_private_key(private_key_id, PrivateKeyId::UserPrivateKey)?;
                 ctx.persist_signing_key(signing_key_id, SigningKeyId::UserSigningKey)?;
                 ctx.persist_symmetric_key(user_key, SymmetricKeyId::User)?;
@@ -424,6 +436,20 @@ mod tests {
 
     use super::*;
     use crate::key_management::{PrivateKeyId, SigningKeyId, SymmetricKeyId};
+
+    #[test]
+    #[ignore = "Manual test to verify debug format"]
+    fn test_debug() {
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let (_, v1) = WrappedAccountCryptographicState::make_v1(&mut ctx).unwrap();
+        println!("{:?}", v1);
+
+        let user_id = UserId::new_v4();
+        let (_, v2) = WrappedAccountCryptographicState::make(&mut ctx, user_id).unwrap();
+        println!("{:?}", v2);
+    }
 
     #[test]
     fn test_set_to_context_v1() {

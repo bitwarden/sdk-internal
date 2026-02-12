@@ -44,6 +44,20 @@ const _: fn() = || {
 impl zeroize::ZeroizeOnDrop for SigningKey {}
 impl CryptoKey for SigningKey {}
 
+impl std::fmt::Debug for SigningKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let key_suffix = match &self.inner {
+            RawSigningKey::Ed25519(_) => "Ed25519",
+        };
+        let mut debug_struct = f.debug_struct(format!("SigningKey_{}", key_suffix).as_str());
+        debug_struct.field("id", &self.id);
+        match &self.inner {
+            RawSigningKey::Ed25519(key) => debug_struct.field("key", &hex::encode(key.to_bytes())),
+        };
+        debug_struct.finish()
+    }
+}
+
 impl SigningKey {
     /// Makes a new signing key for the given signature scheme.
     pub fn make(algorithm: SignatureAlgorithm) -> Self {
@@ -133,6 +147,15 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[ignore = "Manual test to verify debug format"]
+    fn test_key_debug() {
+        let key = SigningKey::make(SignatureAlgorithm::Ed25519);
+        println!("{:?}", key);
+        let verifying_key = key.to_verifying_key();
+        println!("{:?}", verifying_key);
+    }
 
     #[test]
     fn test_cose_roundtrip_encode_signing() {

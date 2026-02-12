@@ -1055,7 +1055,7 @@ mod tests {
         let key_id = TestSymmKey::A(0);
         // Key with only Decrypt allowed
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
-            key_id: [0u8; 16],
+            key_id: [0u8; 16].into(),
             enc_key: Box::pin([0u8; 32].into()),
             supported_operations: vec![KeyOperation::Decrypt],
         });
