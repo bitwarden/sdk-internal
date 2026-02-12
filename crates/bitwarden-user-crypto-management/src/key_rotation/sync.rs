@@ -293,6 +293,7 @@ fn from_kdf(
                     .ok_or(())?,
             }
         }
+        bitwarden_api_api::models::KdfType::__Unknown(_) => return Err(()),
     })
 }
 
