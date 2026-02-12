@@ -110,3 +110,75 @@ impl FoldersClient {
         .await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use bitwarden_core::{client::internal::MockApiProvider, key_management::SymmetricKeyId};
+    use bitwarden_crypto::{PrimitiveEncryptable, SymmetricKeyAlgorithm};
+    use bitwarden_test::MemoryRepository;
+    use uuid::uuid;
+
+    use super::*;
+
+    async fn repository_add_folder(
+        repository: &MemoryRepository<Folder>,
+        store: &KeyStore<KeyIds>,
+        folder_id: FolderId,
+        name: &str,
+    ) {
+        let folder = Folder {
+            id: Some(folder_id),
+            name: name
+                .encrypt(&mut store.context(), SymmetricKeyId::User)
+                .unwrap(),
+            revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
+        };
+        repository.set(folder_id.to_string(), folder).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_list() {
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+                .unwrap();
+        }
+
+        let repository = Arc::new(MemoryRepository::<Folder>::default());
+
+        let folder_id_1 = FolderId::new(uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1"));
+        let folder_id_2 = FolderId::new(uuid!("35afb11c-9c95-4db5-8bac-c21cb204a3f2"));
+
+        repository_add_folder(&repository, &store, folder_id_1, "folder1").await;
+        repository_add_folder(&repository, &store, folder_id_2, "folder2").await;
+
+        let client = FoldersClient::new(store, Arc::new(MockApiProvider::new()), repository);
+
+        let result = client.list().await.unwrap();
+
+        assert_eq!(result.len(), 2);
+        assert!(result.iter().any(|f| f.name == "folder1"));
+        assert!(result.iter().any(|f| f.name == "folder2"));
+    }
+
+    #[tokio::test]
+    async fn test_list_empty() {
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+                .unwrap();
+        }
+
+        let repository = Arc::new(MemoryRepository::<Folder>::default());
+
+        let client = FoldersClient::new(store, Arc::new(MockApiProvider::new()), repository);
+
+        let result = client.list().await.unwrap();
+
+        assert!(result.is_empty());
+    }
+}

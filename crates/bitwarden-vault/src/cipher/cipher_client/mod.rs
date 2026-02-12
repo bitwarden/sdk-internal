@@ -313,6 +313,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "wasm")]
     fn test_cipher_view() -> CipherView {
         let test_id = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         CipherView {
@@ -705,6 +706,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "wasm")]
     async fn test_encrypt_list() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
@@ -723,6 +725,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "wasm")]
     async fn test_encrypt_list_empty() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
@@ -733,6 +736,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "wasm")]
     async fn test_encrypt_list_roundtrip() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
@@ -757,6 +761,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "wasm")]
     async fn test_encrypt_list_preserves_user_id() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
 
