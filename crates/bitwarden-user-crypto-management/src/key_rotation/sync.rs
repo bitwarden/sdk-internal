@@ -369,21 +369,27 @@ fn from_private_keys_response(
     }
 }
 
+/// Parses the user's KDF and salt from the sync response. If the user is not a master-password
+/// user, returns Ok(None)
 fn parse_kdf_and_salt(
     user_decryption: &Option<Box<bitwarden_api_api::models::UserDecryptionResponseModel>>,
 ) -> Result<Option<(Kdf, String)>, SyncError> {
-    debug!("Parsing KDF and salt from sync response");
-    let master_password_unlock = user_decryption
-        .as_ref()
-        .ok_or(SyncError::DataError)?
-        .master_password_unlock
-        .clone()
-        .ok_or(SyncError::DataError)?;
-
-    let kdf = from_kdf(&master_password_unlock.kdf).debug_map_err(SyncError::DataError)?;
-    let salt = master_password_unlock.salt.ok_or(SyncError::DataError)?;
-    debug!("Parsed password KDF and salt from sync response");
-    Ok(Some((kdf, salt)))
+    let user_decryption_options = user_decryption.as_ref().ok_or(SyncError::DataError)?;
+    if let Some(master_password_unlock) = &user_decryption_options.master_password_unlock {
+        let kdf =
+            from_kdf(&master_password_unlock.clone().kdf).debug_map_err(SyncError::DataError)?;
+        let salt = master_password_unlock
+            .clone()
+            .salt
+            .ok_or(SyncError::DataError)?;
+        debug!("Parsed password KDF and salt from sync response");
+        Ok(Some((kdf, salt)))
+    } else {
+        debug!(
+            "User does not have master password decryption options, skipping KDF and salt parsing"
+        );
+        Ok(None)
+    }
 }
 
 #[allow(unused)]
@@ -398,6 +404,7 @@ pub(super) async fn sync_current_account_data(
         .debug_map_err(SyncError::NetworkError)?;
 
     let profile = sync.profile.as_ref().ok_or(SyncError::DataError)?;
+    /// This is optional for master-password-users!
     let kdf_and_salt = parse_kdf_and_salt(&sync.user_decryption)?;
     let account_cryptographic_state = profile
         .account_keys
