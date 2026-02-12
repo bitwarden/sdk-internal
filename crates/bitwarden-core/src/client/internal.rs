@@ -170,6 +170,7 @@ impl InternalClient {
         let lm = self.login_method.read().expect("RwLock is not poisoned");
         match lm.as_deref()? {
             LoginMethod::User(ulm) => Some(ulm.clone()),
+            #[allow(unreachable_patterns)]
             _ => None,
         }
     }
