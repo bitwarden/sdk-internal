@@ -405,7 +405,7 @@ impl TryFrom<SendResponseModel> for Send {
 
     fn try_from(send: SendResponseModel) -> Result<Self, Self::Error> {
         let auth_type = match send.auth_type {
-            Some(t) => t.into(),
+            Some(t) => t.try_into()?,
             None => {
                 if send.password.is_some() {
                     AuthType::Password
@@ -423,7 +423,7 @@ impl TryFrom<SendResponseModel> for Send {
             notes: EncString::try_from_optional(send.notes)?,
             key: require!(send.key).parse()?,
             password: send.password,
-            r#type: require!(send.r#type).into(),
+            r#type: require!(send.r#type).try_into()?,
             file: send.file.map(|f| (*f).try_into()).transpose()?,
             text: send.text.map(|t| (*t).try_into()).transpose()?,
             max_access_count: send.max_access_count.map(|s| s as u32),
@@ -439,22 +439,32 @@ impl TryFrom<SendResponseModel> for Send {
     }
 }
 
-impl From<bitwarden_api_api::models::SendType> for SendType {
-    fn from(t: bitwarden_api_api::models::SendType) -> Self {
-        match t {
+impl TryFrom<bitwarden_api_api::models::SendType> for SendType {
+    type Error = bitwarden_core::MissingFieldError;
+
+    fn try_from(t: bitwarden_api_api::models::SendType) -> Result<Self, Self::Error> {
+        Ok(match t {
             bitwarden_api_api::models::SendType::Text => SendType::Text,
             bitwarden_api_api::models::SendType::File => SendType::File,
-        }
+            bitwarden_api_api::models::SendType::__Unknown(_) => {
+                return Err(bitwarden_core::MissingFieldError("type"));
+            }
+        })
     }
 }
 
-impl From<bitwarden_api_api::models::AuthType> for AuthType {
-    fn from(value: bitwarden_api_api::models::AuthType) -> Self {
-        match value {
+impl TryFrom<bitwarden_api_api::models::AuthType> for AuthType {
+    type Error = bitwarden_core::MissingFieldError;
+
+    fn try_from(value: bitwarden_api_api::models::AuthType) -> Result<Self, Self::Error> {
+        Ok(match value {
             bitwarden_api_api::models::AuthType::Email => AuthType::Email,
             bitwarden_api_api::models::AuthType::Password => AuthType::Password,
             bitwarden_api_api::models::AuthType::None => AuthType::None,
-        }
+            bitwarden_api_api::models::AuthType::__Unknown(_) => {
+                return Err(bitwarden_core::MissingFieldError("auth_type"));
+            }
+        })
     }
 }
 
