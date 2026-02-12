@@ -2,9 +2,7 @@ use bitwarden_crypto::{EncString, PinKey, safe::PasswordProtectedKeyEnvelope};
 use tracing::info;
 
 use crate::{
-    Client, NotAuthenticatedError,
-    auth::AuthValidateError,
-    client::{LoginMethod, UserLoginMethod},
+    Client, NotAuthenticatedError, auth::AuthValidateError, client::UserLoginMethod,
     key_management::SymmetricKeyId,
 };
 
@@ -18,11 +16,6 @@ pub(crate) fn validate_pin(
         .get_login_method()
         .ok_or(NotAuthenticatedError)?;
 
-    #[allow(irrefutable_let_patterns)]
-    let LoginMethod::User(login_method) = login_method.as_ref() else {
-        return Err(NotAuthenticatedError)?;
-    };
-
     match login_method {
         UserLoginMethod::Username { email, kdf, .. }
         | UserLoginMethod::ApiKey { email, kdf, .. } => {
@@ -32,7 +25,7 @@ pub(crate) fn validate_pin(
             #[allow(deprecated)]
             let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
-            let pin_key = PinKey::derive(pin.as_bytes(), email.as_bytes(), kdf)?;
+            let pin_key = PinKey::derive(pin.as_bytes(), email.as_bytes(), &kdf)?;
 
             let Ok(decrypted_key) = pin_key.decrypt_user_key(pin_protected_user_key) else {
                 return Ok(false);

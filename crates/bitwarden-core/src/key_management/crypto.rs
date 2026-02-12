@@ -331,18 +331,14 @@ pub(super) fn make_update_kdf(
         .internal
         .get_login_method()
         .ok_or(NotAuthenticatedError)?;
-    let email = match login_method.as_ref() {
-        LoginMethod::User(
-            UserLoginMethod::Username { email, .. } | UserLoginMethod::ApiKey { email, .. },
-        ) => email,
-        #[cfg(feature = "secrets")]
-        LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
+    let email = match login_method {
+        UserLoginMethod::Username { email, .. } | UserLoginMethod::ApiKey { email, .. } => email,
     };
 
-    let authentication_data = MasterPasswordAuthenticationData::derive(password, new_kdf, email)
+    let authentication_data = MasterPasswordAuthenticationData::derive(password, new_kdf, &email)
         .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
     let unlock_data =
-        MasterPasswordUnlockData::derive(password, new_kdf, email, SymmetricKeyId::User, &ctx)
+        MasterPasswordUnlockData::derive(password, new_kdf, &email, SymmetricKeyId::User, &ctx)
             .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
     let old_authentication_data = MasterPasswordAuthenticationData::derive(
         password,
@@ -350,7 +346,7 @@ pub(super) fn make_update_kdf(
             .internal
             .get_kdf()
             .map_err(|_| NotAuthenticatedError)?,
-        email,
+        &email,
     )
     .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
 
@@ -389,13 +385,11 @@ pub(super) fn make_update_password(
         .ok_or(NotAuthenticatedError)?;
 
     // Derive a new master key from password
-    let new_master_key = match login_method.as_ref() {
-        LoginMethod::User(
-            UserLoginMethod::Username { email, kdf, .. }
-            | UserLoginMethod::ApiKey { email, kdf, .. },
-        ) => MasterKey::derive(&new_password, email, kdf)?,
-        #[cfg(feature = "secrets")]
-        LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
+    let new_master_key = match login_method {
+        UserLoginMethod::Username { email, kdf, .. }
+        | UserLoginMethod::ApiKey { email, kdf, .. } => {
+            MasterKey::derive(&new_password, &email, &kdf)?
+        }
     };
 
     let new_key = new_master_key.encrypt_user_key(user_key)?;
@@ -494,18 +488,16 @@ pub(super) fn derive_pin_user_key(
 
 fn derive_pin_protected_user_key(
     pin: &str,
-    login_method: &LoginMethod,
+    login_method: &UserLoginMethod,
     user_key: &SymmetricCryptoKey,
 ) -> Result<EncString, CryptoClientError> {
     use bitwarden_crypto::PinKey;
 
     let derived_key = match login_method {
-        LoginMethod::User(
-            UserLoginMethod::Username { email, kdf, .. }
-            | UserLoginMethod::ApiKey { email, kdf, .. },
-        ) => PinKey::derive(pin.as_bytes(), email.as_bytes(), kdf)?,
-        #[cfg(feature = "secrets")]
-        LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError)?,
+        UserLoginMethod::Username { email, kdf, .. }
+        | UserLoginMethod::ApiKey { email, kdf, .. } => {
+            PinKey::derive(pin.as_bytes(), email.as_bytes(), kdf)?
+        }
     };
 
     Ok(derived_key.encrypt_user_key(user_key)?)
@@ -1767,21 +1759,21 @@ mod tests {
         assert!(context.has_symmetric_key(SymmetricKeyId::User));
         assert!(context.has_private_key(PrivateKeyId::UserPrivateKey));
         let login_method = client.internal.get_login_method().unwrap();
-        if let LoginMethod::User(UserLoginMethod::Username {
+        if let UserLoginMethod::Username {
             email,
             kdf,
             client_id,
             ..
-        }) = login_method.as_ref()
+        } = login_method
         {
-            assert_eq!(*email, TEST_USER_EMAIL);
+            assert_eq!(&email, TEST_USER_EMAIL);
             assert_eq!(
-                *kdf,
+                kdf,
                 Kdf::PBKDF2 {
                     iterations: 600_000.try_into().unwrap(),
                 }
             );
-            assert_eq!(*client_id, "");
+            assert_eq!(&client_id, "");
         } else {
             panic!("Expected username login method");
         }

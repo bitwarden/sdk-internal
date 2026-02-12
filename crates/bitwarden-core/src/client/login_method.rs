@@ -17,7 +17,7 @@ pub(crate) enum LoginMethod {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum UserLoginMethod {
     Username {
         client_id: String,
