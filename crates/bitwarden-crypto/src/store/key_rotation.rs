@@ -1,7 +1,8 @@
+use crate::{CoseKeyBytes, EncString, SignedPublicKey, SpkiPublicKeyBytes, SymmetricCryptoKey};
+#[cfg(feature = "non-fips-crypto")]
 use crate::{
-    CoseKeyBytes, CoseSerializable, CryptoError, EncString, KeyEncryptable, KeyIds,
-    KeyStoreContext, SignedPublicKey, SignedPublicKeyMessage, SpkiPublicKeyBytes,
-    SymmetricCryptoKey,
+    CoseSerializable, CryptoError, KeyEncryptable, KeyIds, KeyStoreContext,
+    SignedPublicKeyMessage,
 };
 
 /// Rotated set of account keys
@@ -21,6 +22,7 @@ pub struct RotatedUserKeys {
 }
 
 /// Generates a new user key and re-encrypts the current private and signing keys with it.
+#[cfg(feature = "non-fips-crypto")]
 #[deprecated(note = "Use AccountCryptographicState::rotate instead")]
 pub fn dangerous_get_v2_rotated_account_keys<Ids: KeyIds>(
     current_user_private_key_id: Ids::Private,
@@ -46,7 +48,7 @@ pub fn dangerous_get_v2_rotated_account_keys<Ids: KeyIds>(
     })
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "non-fips-crypto"))]
 mod tests {
     use super::*;
     use crate::{

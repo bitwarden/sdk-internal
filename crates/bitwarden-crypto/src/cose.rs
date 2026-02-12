@@ -4,20 +4,26 @@
 //! be documented publicly.
 
 use coset::{
-    CborSerializable, ContentType, Header, Label,
+    CborSerializable, ContentType, Label,
     iana::{self, CoapContentFormat, KeyOperation},
 };
+#[cfg(feature = "non-fips-crypto")]
+use coset::Header;
 use generic_array::GenericArray;
+#[cfg(feature = "non-fips-crypto")]
 use thiserror::Error;
 use tracing::instrument;
 use typenum::U32;
 
 use crate::{
-    ContentFormat, CoseEncrypt0Bytes, CryptoError, SymmetricCryptoKey, XChaCha20Poly1305Key,
+    ContentFormat, CoseEncrypt0Bytes, CryptoError, SymmetricCryptoKey,
     content_format::{Bytes, ConstContentFormat, CoseContentFormat},
     error::{EncStringParseError, EncodingError},
-    xchacha20,
 };
+#[cfg(feature = "non-fips-crypto")]
+use crate::{XChaCha20Poly1305Key, xchacha20};
+#[cfg(feature = "fips-crypto")]
+use crate::{Aes256GcmKey, aes_gcm};
 
 // Custom COSE algorithm values
 // NOTE: Any algorithm value below -65536 is reserved for private use in the IANA allocations and
@@ -25,23 +31,31 @@ use crate::{
 /// XChaCha20 <https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha-03> is used over ChaCha20
 /// to be able to randomly generate nonces, and to not have to worry about key wearout. Since
 /// the draft was never published as an RFC, we use a private-use value for the algorithm.
+#[cfg(feature = "non-fips-crypto")]
 pub(crate) const XCHACHA20_POLY1305: i64 = -70000;
+#[cfg(feature = "non-fips-crypto")]
 pub(crate) const ALG_ARGON2ID13: i64 = -71000;
 
 // Custom labels for COSE headers
 // NOTE: Any label below -65536 is reserved for private use in the IANA allocations and can be used
 // freely.
+#[cfg(feature = "non-fips-crypto")]
 pub(crate) const ARGON2_SALT: i64 = -71001;
+#[cfg(feature = "non-fips-crypto")]
 pub(crate) const ARGON2_ITERATIONS: i64 = -71002;
+#[cfg(feature = "non-fips-crypto")]
 pub(crate) const ARGON2_MEMORY: i64 = -71003;
+#[cfg(feature = "non-fips-crypto")]
 pub(crate) const ARGON2_PARALLELISM: i64 = -71004;
 /// Indicates for any object containing a key (wrapped key, password protected key envelope) which
 /// key ID that contained key has
+#[cfg(feature = "non-fips-crypto")]
 pub(crate) const CONTAINED_KEY_ID: i64 = -71005;
 
 // Note: These are in the "unregistered" tree: https://datatracker.ietf.org/doc/html/rfc6838#section-3.4
 // These are only used within Bitwarden, and not meant for exchange with other systems.
 const CONTENT_TYPE_PADDED_UTF8: &str = "application/x.bitwarden.utf8-padded";
+#[cfg(feature = "non-fips-crypto")]
 pub(crate) const CONTENT_TYPE_PADDED_CBOR: &str = "application/x.bitwarden.cbor-padded";
 const CONTENT_TYPE_BITWARDEN_LEGACY_KEY: &str = "application/x.bitwarden.legacy-key";
 const CONTENT_TYPE_SPKI_PUBLIC_KEY: &str = "application/x.bitwarden.spki-public-key";
@@ -50,11 +64,13 @@ const CONTENT_TYPE_SPKI_PUBLIC_KEY: &str = "application/x.bitwarden.spki-public-
 /// The label used for the namespace ensuring strong domain separation when using signatures.
 pub(crate) const SIGNING_NAMESPACE: i64 = -80000;
 /// The label used for the namespace ensuring strong domain separation when using data envelopes.
+#[cfg(feature = "non-fips-crypto")]
 pub(crate) const DATA_ENVELOPE_NAMESPACE: i64 = -80001;
 
-const XCHACHA20_TEXT_PAD_BLOCK_SIZE: usize = 32;
+const TEXT_PAD_BLOCK_SIZE: usize = 32;
 
 /// Encrypts a plaintext message using XChaCha20Poly1305 and returns a COSE Encrypt0 message
+#[cfg(feature = "non-fips-crypto")]
 pub(crate) fn encrypt_xchacha20_poly1305(
     plaintext: &[u8],
     key: &crate::XChaCha20Poly1305Key,
@@ -72,7 +88,7 @@ pub(crate) fn encrypt_xchacha20_poly1305(
     if should_pad_content(&content_format) {
         // Pad the data to a block size in order to hide plaintext length
         let min_length =
-            XCHACHA20_TEXT_PAD_BLOCK_SIZE * (1 + (plaintext.len() / XCHACHA20_TEXT_PAD_BLOCK_SIZE));
+            TEXT_PAD_BLOCK_SIZE * (1 + (plaintext.len() / TEXT_PAD_BLOCK_SIZE));
         crate::keys::utils::pad_bytes(&mut plaintext, min_length)?;
     }
 
@@ -95,6 +111,7 @@ pub(crate) fn encrypt_xchacha20_poly1305(
 }
 
 /// Decrypts a COSE Encrypt0 message, using a XChaCha20Poly1305 key
+#[cfg(feature = "non-fips-crypto")]
 pub(crate) fn decrypt_xchacha20_poly1305(
     cose_encrypt0_message: &CoseEncrypt0Bytes,
     key: &crate::XChaCha20Poly1305Key,
@@ -144,6 +161,93 @@ pub(crate) fn decrypt_xchacha20_poly1305(
     Ok((decrypted_message, content_format))
 }
 
+/// Encrypts a plaintext message using AES-256-GCM and returns a COSE Encrypt0 message
+#[cfg(feature = "fips-crypto")]
+pub(crate) fn encrypt_aes256_gcm(
+    plaintext: &[u8],
+    key: &Aes256GcmKey,
+    content_format: ContentFormat,
+) -> Result<CoseEncrypt0Bytes, CryptoError> {
+    let mut plaintext = plaintext.to_vec();
+
+    let header_builder: coset::HeaderBuilder = content_format.into();
+    let mut protected_header = header_builder.key_id(key.key_id.to_vec()).build();
+    protected_header.alg = Some(coset::Algorithm::Assigned(iana::Algorithm::A256GCM));
+
+    if should_pad_content(&content_format) {
+        let min_length =
+            TEXT_PAD_BLOCK_SIZE * (1 + (plaintext.len() / TEXT_PAD_BLOCK_SIZE));
+        crate::keys::utils::pad_bytes(&mut plaintext, min_length)?;
+    }
+
+    let mut nonce = [0u8; aes_gcm::NONCE_SIZE];
+    let cose_encrypt0 = coset::CoseEncrypt0Builder::new()
+        .protected(protected_header)
+        .create_ciphertext(&plaintext, &[], |data, aad| {
+            let ciphertext =
+                crate::aes_gcm::encrypt_aes256_gcm(&(*key.enc_key).into(), data, aad);
+            nonce = ciphertext.nonce();
+            ciphertext.encrypted_bytes().to_vec()
+        })
+        .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
+        .build();
+
+    cose_encrypt0
+        .to_vec()
+        .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))
+        .map(CoseEncrypt0Bytes::from)
+}
+
+/// Decrypts a COSE Encrypt0 message, using an AES-256-GCM key
+#[cfg(feature = "fips-crypto")]
+pub(crate) fn decrypt_aes256_gcm(
+    cose_encrypt0_message: &CoseEncrypt0Bytes,
+    key: &Aes256GcmKey,
+) -> Result<(Vec<u8>, ContentFormat), CryptoError> {
+    let msg = coset::CoseEncrypt0::from_slice(cose_encrypt0_message.as_ref())
+        .map_err(|err| CryptoError::EncString(EncStringParseError::InvalidCoseEncoding(err)))?;
+
+    let Some(ref alg) = msg.protected.header.alg else {
+        return Err(CryptoError::EncString(
+            EncStringParseError::CoseMissingAlgorithm,
+        ));
+    };
+
+    if *alg != coset::Algorithm::Assigned(iana::Algorithm::A256GCM) {
+        return Err(CryptoError::WrongKeyType);
+    }
+
+    let content_format = ContentFormat::try_from(&msg.protected.header)
+        .map_err(|_| CryptoError::EncString(EncStringParseError::CoseMissingContentType))?;
+
+    if key.key_id != *msg.protected.header.key_id {
+        return Err(CryptoError::WrongCoseKeyId);
+    }
+
+    let decrypted_message = msg.decrypt_ciphertext(
+        &[],
+        || CryptoError::MissingField("ciphertext"),
+        |data, aad| {
+            let nonce = msg.unprotected.iv.as_slice();
+            crate::aes_gcm::decrypt_aes256_gcm(
+                nonce
+                    .try_into()
+                    .map_err(|_| CryptoError::InvalidNonceLength)?,
+                &(*key.enc_key).into(),
+                data,
+                aad,
+            )
+        },
+    )?;
+
+    if should_pad_content(&content_format) {
+        let data = crate::keys::utils::unpad_bytes(&decrypted_message)?;
+        return Ok((data.to_vec(), content_format));
+    }
+
+    Ok((decrypted_message, content_format))
+}
+
 const SYMMETRIC_KEY: Label = Label::Int(iana::SymmetricKeyParameter::K as i64);
 
 impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
@@ -181,6 +285,7 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
             .collect::<Result<Vec<KeyOperation>, CryptoError>>()?;
 
         match alg {
+            #[cfg(feature = "non-fips-crypto")]
             coset::Algorithm::PrivateUse(XCHACHA20_POLY1305) => {
                 // Ensure the length is correct since `GenericArray::clone_from_slice` panics if it
                 // receives the wrong length.
@@ -200,6 +305,23 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
                         supported_operations: key_opts,
                     },
                 ))
+            }
+            #[cfg(feature = "fips-crypto")]
+            coset::Algorithm::Assigned(iana::Algorithm::A256GCM) => {
+                if key_bytes.len() != aes_gcm::KEY_SIZE {
+                    return Err(CryptoError::InvalidKey);
+                }
+                let enc_key = Box::pin(GenericArray::<u8, U32>::clone_from_slice(key_bytes));
+                let key_id = cose_key
+                    .key_id
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| CryptoError::InvalidKey)?;
+                Ok(SymmetricCryptoKey::Aes256GcmKey(Aes256GcmKey {
+                    enc_key,
+                    key_id,
+                    supported_operations: key_opts,
+                }))
             }
             _ => Err(CryptoError::InvalidKey),
         }
@@ -279,6 +401,7 @@ pub trait CoseSerializable<T: CoseContentFormat + ConstContentFormat> {
         Self: Sized;
 }
 
+#[cfg(feature = "non-fips-crypto")]
 pub(crate) fn extract_integer(
     header: &Header,
     target_label: i64,
@@ -299,6 +422,7 @@ pub(crate) fn extract_integer(
         .ok_or_else(|| CoseExtractError::MissingValue(value_name.to_string()))
 }
 
+#[cfg(feature = "non-fips-crypto")]
 pub(crate) fn extract_bytes(
     header: &Header,
     target_label: i64,
@@ -318,13 +442,14 @@ pub(crate) fn extract_bytes(
         .ok_or(CoseExtractError::MissingValue(value_name.to_string()))
 }
 
+#[cfg(feature = "non-fips-crypto")]
 #[derive(Debug, Error)]
 pub(crate) enum CoseExtractError {
     #[error("Missing value {0}")]
     MissingValue(String),
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "non-fips-crypto"))]
 mod test {
     use super::*;
 
@@ -471,5 +596,49 @@ mod test {
             decrypt_xchacha20_poly1305(&serialized_message, &key),
             Err(CryptoError::WrongKeyType)
         ));
+    }
+}
+
+#[cfg(all(test, feature = "fips-crypto"))]
+mod test_aes_gcm {
+    use super::*;
+
+    #[test]
+    fn test_aes_gcm_encrypt_decrypt_roundtrip_octetstream() {
+        let SymmetricCryptoKey::Aes256GcmKey(ref key) = SymmetricCryptoKey::make_aes256_gcm_key()
+        else {
+            panic!("Failed to create Aes256GcmKey");
+        };
+
+        let plaintext = b"Hello, world!";
+        let encrypted = encrypt_aes256_gcm(plaintext, key, ContentFormat::OctetStream).unwrap();
+        let decrypted = decrypt_aes256_gcm(&encrypted, key).unwrap();
+        assert_eq!(decrypted, (plaintext.to_vec(), ContentFormat::OctetStream));
+    }
+
+    #[test]
+    fn test_aes_gcm_encrypt_decrypt_roundtrip_utf8() {
+        let SymmetricCryptoKey::Aes256GcmKey(ref key) = SymmetricCryptoKey::make_aes256_gcm_key()
+        else {
+            panic!("Failed to create Aes256GcmKey");
+        };
+
+        let plaintext = b"Hello, world!";
+        let encrypted = encrypt_aes256_gcm(plaintext, key, ContentFormat::Utf8).unwrap();
+        let decrypted = decrypt_aes256_gcm(&encrypted, key).unwrap();
+        assert_eq!(decrypted, (plaintext.to_vec(), ContentFormat::Utf8));
+    }
+
+    #[test]
+    fn test_aes_gcm_encrypt_decrypt_roundtrip_cosekey() {
+        let SymmetricCryptoKey::Aes256GcmKey(ref key) = SymmetricCryptoKey::make_aes256_gcm_key()
+        else {
+            panic!("Failed to create Aes256GcmKey");
+        };
+
+        let plaintext = b"Hello, world!";
+        let encrypted = encrypt_aes256_gcm(plaintext, key, ContentFormat::CoseKey).unwrap();
+        let decrypted = decrypt_aes256_gcm(&encrypted, key).unwrap();
+        assert_eq!(decrypted, (plaintext.to_vec(), ContentFormat::CoseKey));
     }
 }

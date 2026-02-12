@@ -30,6 +30,8 @@ wasm = [
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
 ] # WASM support
+non-fips-crypto = ["bitwarden-crypto/non-fips-crypto"]
+fips-crypto = ["bitwarden-crypto/fips-crypto"]
 
 [dependencies]
 bitwarden-api-api = { workspace = true }

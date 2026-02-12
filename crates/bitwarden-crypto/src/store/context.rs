@@ -12,11 +12,13 @@ use super::KeyStoreInner;
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseEncrypt0Bytes, CoseKeyBytes, CoseSerializable,
     CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeyId, KeyIds, LocalId,
-    Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm, Result,
-    RotatedUserKeys, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
-    SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, SymmetricKeyAlgorithm, VerifyingKey,
-    derive_shareable_key, error::UnsupportedOperationError, signing, store::backend::StoreBackend,
+    Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm, Result, Signature,
+    SignatureAlgorithm, SignedObject, SignedPublicKey, SignedPublicKeyMessage, SigningKey,
+    SymmetricCryptoKey, SymmetricKeyAlgorithm, VerifyingKey, derive_shareable_key,
+    error::UnsupportedOperationError, signing, store::backend::StoreBackend,
 };
+#[cfg(feature = "non-fips-crypto")]
+use crate::RotatedUserKeys;
 
 /// The context of a crypto operation using [super::KeyStore]
 ///
@@ -225,11 +227,29 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)
                     .map_err(|_| CryptoError::Decrypt)?,
             ))?,
+            #[cfg(feature = "non-fips-crypto")]
             (
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
                 let (content_bytes, content_format) = crate::cose::decrypt_xchacha20_poly1305(
+                    &CoseEncrypt0Bytes::from(data.clone()),
+                    key,
+                )?;
+                match content_format {
+                    ContentFormat::BitwardenLegacyKey => {
+                        SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(content_bytes))?
+                    }
+                    ContentFormat::CoseKey => SymmetricCryptoKey::try_from_cose(&content_bytes)?,
+                    _ => return Err(CryptoError::InvalidKey),
+                }
+            }
+            #[cfg(feature = "fips-crypto")]
+            (
+                EncString::Cose_Encrypt0_B64 { data },
+                SymmetricCryptoKey::Aes256GcmKey(key),
+            ) => {
+                let (content_bytes, content_format) = crate::cose::decrypt_aes256_gcm(
                     &CoseEncrypt0Bytes::from(data.clone()),
                     key,
                 )?;
@@ -433,10 +453,31 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         // or `Aes256CbcKey`, or by specifying the content format to be CoseKey, in case the
         // wrapped key is a `XChaCha20Poly1305Key`.
         match (wrapping_key_instance, key_to_wrap_instance) {
-            (
-                Aes256CbcHmacKey(_),
-                Aes256CbcHmacKey(_) | Aes256CbcKey(_) | XChaCha20Poly1305Key(_),
-            ) => self.encrypt_data_with_symmetric_key(
+            (Aes256CbcHmacKey(_), Aes256CbcHmacKey(_) | Aes256CbcKey(_)) => {
+                self.encrypt_data_with_symmetric_key(
+                    wrapping_key,
+                    key_to_wrap_instance
+                        .to_encoded()
+                        .as_ref()
+                        .to_vec()
+                        .as_slice(),
+                    ContentFormat::BitwardenLegacyKey,
+                )
+            }
+            #[cfg(feature = "non-fips-crypto")]
+            (Aes256CbcHmacKey(_), XChaCha20Poly1305Key(_)) => {
+                self.encrypt_data_with_symmetric_key(
+                    wrapping_key,
+                    key_to_wrap_instance
+                        .to_encoded()
+                        .as_ref()
+                        .to_vec()
+                        .as_slice(),
+                    ContentFormat::BitwardenLegacyKey,
+                )
+            }
+            #[cfg(feature = "fips-crypto")]
+            (Aes256CbcHmacKey(_), Aes256GcmKey(_)) => self.encrypt_data_with_symmetric_key(
                 wrapping_key,
                 key_to_wrap_instance
                     .to_encoded()
@@ -445,7 +486,18 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                     .as_slice(),
                 ContentFormat::BitwardenLegacyKey,
             ),
+            #[cfg(feature = "non-fips-crypto")]
             (XChaCha20Poly1305Key(_), _) => {
+                let encoded = key_to_wrap_instance.to_encoded_raw();
+                let content_format = encoded.content_format();
+                self.encrypt_data_with_symmetric_key(
+                    wrapping_key,
+                    Into::<Vec<u8>>::into(encoded).as_slice(),
+                    content_format,
+                )
+            }
+            #[cfg(feature = "fips-crypto")]
+            (Aes256GcmKey(_), _) => {
                 let encoded = key_to_wrap_instance.to_encoded_raw();
                 let content_format = encoded.content_format();
                 self.encrypt_data_with_symmetric_key(
@@ -638,9 +690,12 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 UnsupportedOperationError::EncryptionNotImplementedForKey,
             )),
             SymmetricCryptoKey::Aes256CbcHmacKey(_) => Ok(SymmetricKeyAlgorithm::Aes256CbcHmac),
+            #[cfg(feature = "non-fips-crypto")]
             SymmetricCryptoKey::XChaCha20Poly1305Key(_) => {
                 Ok(SymmetricKeyAlgorithm::XChaCha20Poly1305)
             }
+            #[cfg(feature = "fips-crypto")]
+            SymmetricCryptoKey::Aes256GcmKey(_) => Ok(SymmetricKeyAlgorithm::Aes256Gcm),
         }
     }
 
@@ -706,11 +761,23 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 SymmetricCryptoKey::Aes256CbcHmacKey(key),
             ) => crate::aes::decrypt_aes256_hmac(iv, mac, data.clone(), &key.mac_key, &key.enc_key)
                 .map_err(|_| CryptoError::Decrypt),
+            #[cfg(feature = "non-fips-crypto")]
             (
                 EncString::Cose_Encrypt0_B64 { data },
                 SymmetricCryptoKey::XChaCha20Poly1305Key(key),
             ) => {
                 let (data, _) = crate::cose::decrypt_xchacha20_poly1305(
+                    &CoseEncrypt0Bytes::from(data.clone()),
+                    key,
+                )?;
+                Ok(data)
+            }
+            #[cfg(feature = "fips-crypto")]
+            (
+                EncString::Cose_Encrypt0_B64 { data },
+                SymmetricCryptoKey::Aes256GcmKey(key),
+            ) => {
+                let (data, _) = crate::cose::decrypt_aes256_gcm(
                     &CoseEncrypt0Bytes::from(data.clone()),
                     key,
                 )?;
@@ -735,11 +802,19 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 UnsupportedOperationError::EncryptionNotImplementedForKey,
             )),
             SymmetricCryptoKey::Aes256CbcHmacKey(key) => EncString::encrypt_aes256_hmac(data, key),
+            #[cfg(feature = "non-fips-crypto")]
             SymmetricCryptoKey::XChaCha20Poly1305Key(key) => {
                 if !key.supported_operations.contains(&KeyOperation::Encrypt) {
                     return Err(CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt));
                 }
                 EncString::encrypt_xchacha20_poly1305(data, key, content_format)
+            }
+            #[cfg(feature = "fips-crypto")]
+            SymmetricCryptoKey::Aes256GcmKey(key) => {
+                if !key.supported_operations.contains(&KeyOperation::Encrypt) {
+                    return Err(CryptoError::KeyOperationNotSupported(KeyOperation::Encrypt));
+                }
+                EncString::encrypt_aes256_gcm(data, key, content_format)
             }
         }
     }
@@ -770,6 +845,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     }
 
     /// Re-encrypts the user's keys with the provided symmetric key for a v2 user.
+    #[cfg(feature = "non-fips-crypto")]
     pub fn dangerous_get_v2_rotated_account_keys(
         &self,
         current_user_private_key_id: Ids::Private,
@@ -790,15 +866,18 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        CompositeEncryptable, CoseKeyBytes, CoseSerializable, CryptoError, Decryptable,
-        KeyDecryptable, Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm,
-        SignatureAlgorithm, SigningKey, SigningNamespace, SymmetricCryptoKey,
-        SymmetricKeyAlgorithm,
+        CompositeEncryptable, CryptoError, Decryptable, SignatureAlgorithm, SigningKey,
+        SigningNamespace, SymmetricKeyAlgorithm,
         store::{
             KeyStore,
             tests::{Data, DataView},
         },
         traits::tests::{TestIds, TestSigningKey, TestSymmKey},
+    };
+    #[cfg(feature = "non-fips-crypto")]
+    use crate::{
+        CoseKeyBytes, CoseSerializable, KeyDecryptable, Pkcs8PrivateKeyBytes, PrivateKey,
+        PublicKey, PublicKeyEncryptionAlgorithm, SymmetricCryptoKey,
     };
 
     #[test]
@@ -868,6 +947,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "non-fips-crypto")]
     fn test_wrap_unwrap() {
         let store: KeyStore<TestIds> = KeyStore::default();
         let mut ctx = store.context_mut();
@@ -971,6 +1051,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "non-fips-crypto")]
     fn test_account_key_rotation() {
         let store: KeyStore<TestIds> = KeyStore::default();
         let mut ctx = store.context_mut();
@@ -1048,6 +1129,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "non-fips-crypto")]
     fn test_encrypt_fails_when_operation_not_allowed() {
         use coset::iana::KeyOperation;
         let store = KeyStore::<TestIds>::default();

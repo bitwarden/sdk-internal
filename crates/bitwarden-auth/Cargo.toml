@@ -23,6 +23,8 @@ wasm = [
     "dep:wasm-bindgen-futures",
 ] # WASM support
 uniffi = ["bitwarden-core/uniffi", "dep:uniffi"] # Uniffi bindings
+non-fips-crypto = ["bitwarden-crypto/non-fips-crypto"]
+fips-crypto = ["bitwarden-crypto/fips-crypto"]
 
 # Note: dependencies must be alphabetized to pass the cargo sort check in the CI pipeline.
 [dependencies]

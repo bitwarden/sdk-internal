@@ -40,7 +40,12 @@ pub(crate) fn make_key_pair(key: &SymmetricCryptoKey) -> Result<RsaKeyPair> {
         SymmetricCryptoKey::Aes256CbcHmacKey(key) => {
             EncString::encrypt_aes256_hmac(pkcs.as_bytes(), key)
         }
+        #[cfg(feature = "non-fips-crypto")]
         SymmetricCryptoKey::XChaCha20Poly1305Key(_) => Err(CryptoError::OperationNotSupported(
+            UnsupportedOperationError::EncryptionNotImplementedForKey,
+        )),
+        #[cfg(feature = "fips-crypto")]
+        SymmetricCryptoKey::Aes256GcmKey(_) => Err(CryptoError::OperationNotSupported(
             UnsupportedOperationError::EncryptionNotImplementedForKey,
         )),
         SymmetricCryptoKey::Aes256CbcKey(_) => Err(CryptoError::OperationNotSupported(

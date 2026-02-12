@@ -17,6 +17,8 @@ uniffi = [
     "dep:uniffi",
 ] # Uniffi bindings
 wasm = ["bitwarden-core/wasm", "dep:tsify", "dep:wasm-bindgen"] # WASM support
+non-fips-crypto = ["bitwarden-crypto/non-fips-crypto"]
+fips-crypto = ["bitwarden-crypto/fips-crypto"]
 
 [dependencies]
 bitwarden-api-api = { workspace = true }

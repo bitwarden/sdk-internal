@@ -15,10 +15,12 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-default = []
+default = ["non-fips-crypto"]
 no-memory-hardening = [] # Disable memory hardening features
+non-fips-crypto = ["dep:chacha20poly1305", "dep:argon2"]
+fips-crypto = ["dep:aes-gcm"]
 uniffi = [
-    "argon2/parallel",
+    "argon2?/parallel",
     "bitwarden-encoding/uniffi",
     "dep:bitwarden-uniffi-error",
     "dep:uniffi",
@@ -31,15 +33,16 @@ dangerous-crypto-debug = []
 
 [dependencies]
 aes = { version = ">=0.8.2, <0.9", features = ["zeroize"] }
+aes-gcm = { version = "0.10", optional = true }
 argon2 = { version = "=0.6.0-rc.2", features = [
     "std",
     "zeroize",
-], default-features = false }
+], default-features = false, optional = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-uniffi-error = { workspace = true, optional = true }
 cbc = { version = ">=0.1.2, <0.2", features = ["alloc", "zeroize"] }
-chacha20poly1305 = { version = "0.10.1" }
+chacha20poly1305 = { version = "0.10.1", optional = true }
 ciborium = { version = ">=0.2.2, <0.3" }
 coset = { version = ">=0.4.0, <0.5" }
 ed25519-dalek = { workspace = true, features = ["rand_core"] }
@@ -74,6 +77,14 @@ zeroizing-alloc = ">=0.1.0, <0.2"
 criterion = "0.7.0"
 rand_chacha = "0.3.1"
 serde_json = { workspace = true }
+
+[[example]]
+name = "protect_key_with_password"
+required-features = ["non-fips-crypto"]
+
+[[example]]
+name = "seal_struct"
+required-features = ["non-fips-crypto"]
 
 [[bench]]
 name = "default_allocator"

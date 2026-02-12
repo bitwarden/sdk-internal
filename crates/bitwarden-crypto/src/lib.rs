@@ -31,18 +31,26 @@ pub use util::{generate_random_alphanumeric, generate_random_bytes, pbkdf2};
 mod wordlist;
 pub use wordlist::EFF_LONG_WORD_LIST;
 mod store;
+#[allow(deprecated)]
+pub use store::{KeyStore, KeyStoreContext, RotatedUserKeys};
+#[cfg(feature = "non-fips-crypto")]
 #[expect(deprecated)]
-pub use store::{
-    KeyStore, KeyStoreContext, RotatedUserKeys, dangerous_get_v2_rotated_account_keys,
-};
+pub use store::dangerous_get_v2_rotated_account_keys;
 mod cose;
+#[cfg(feature = "non-fips-crypto")]
 pub(crate) use cose::CONTENT_TYPE_PADDED_CBOR;
 pub use cose::CoseSerializable;
+#[cfg(feature = "non-fips-crypto")]
 pub mod safe;
+#[cfg(not(feature = "non-fips-crypto"))]
+mod safe {}
 mod signing;
 pub use signing::*;
 mod traits;
+#[cfg(feature = "non-fips-crypto")]
 mod xchacha20;
+#[cfg(feature = "fips-crypto")]
+mod aes_gcm;
 pub use traits::{
     CompositeEncryptable, Decryptable, IdentifyKey, KeyId, KeyIds, LocalId, PrimitiveEncryptable,
 };
