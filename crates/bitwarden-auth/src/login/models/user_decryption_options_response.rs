@@ -139,6 +139,8 @@ mod tests {
             webauthn_prf_option: Some(WebAuthnPrfUserDecryptionOptionApiResponse {
                 encrypted_private_key: WEBAUTHN_ENCRYPTED_PRIVATE_KEY.parse().unwrap(),
                 encrypted_user_key: WEBAUTHN_ENCRYPTED_USER_KEY.parse().unwrap(),
+                credential_id: None,
+                transports: None,
             }),
         };
 
@@ -187,6 +189,8 @@ mod tests {
             webauthn.encrypted_user_key,
             WEBAUTHN_ENCRYPTED_USER_KEY.parse().unwrap()
         );
+        assert_eq!(webauthn.credential_id, None);
+        assert_eq!(webauthn.transports, None);
     }
 
     #[test]
@@ -264,6 +268,8 @@ mod tests {
             webauthn_prf_option: Some(WebAuthnPrfUserDecryptionOptionApiResponse {
                 encrypted_private_key: WEBAUTHN_ENCRYPTED_PRIVATE_KEY.parse().unwrap(),
                 encrypted_user_key: WEBAUTHN_ENCRYPTED_USER_KEY.parse().unwrap(),
+                credential_id: None,
+                transports: None,
             }),
         };
 
@@ -283,6 +289,8 @@ mod tests {
             webauthn.encrypted_user_key,
             WEBAUTHN_ENCRYPTED_USER_KEY.parse().unwrap()
         );
+        assert_eq!(webauthn.credential_id, None);
+        assert_eq!(webauthn.transports, None);
     }
 
     #[test]
@@ -389,6 +397,8 @@ mod tests {
             webauthn_prf_option: Some(WebAuthnPrfUserDecryptionOptionApiResponse {
                 encrypted_private_key: WEBAUTHN_ENCRYPTED_PRIVATE_KEY.parse().unwrap(),
                 encrypted_user_key: WEBAUTHN_ENCRYPTED_USER_KEY.parse().unwrap(),
+                credential_id: None,
+                transports: None,
             }),
         };
 
