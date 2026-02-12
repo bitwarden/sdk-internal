@@ -640,6 +640,7 @@ dependencies = [
  "bitwarden-uuid",
  "chrono",
  "getrandom 0.2.16",
+ "mockall",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "reqwest",

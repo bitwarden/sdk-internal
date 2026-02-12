@@ -8,7 +8,7 @@ pub mod client_settings;
 pub mod encryption_settings;
 #[allow(missing_docs)]
 pub mod internal;
-pub use internal::ApiConfigurations;
+pub use internal::{ApiConfigurations, ApiProvider};
 #[allow(missing_docs)]
 pub mod login_method;
 #[cfg(feature = "secrets")]
