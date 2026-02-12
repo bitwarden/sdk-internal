@@ -1,3 +1,7 @@
+---
+category: features
+---
+
 # Bitwarden Fido
 
-Contains the FIDO2 implementation for Bitwarden Password Manager.
+FIDO2 (Passkey) implementation for Bitwarden Password Manager.
