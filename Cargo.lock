@@ -885,6 +885,7 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-state",
+ "bitwarden-test",
  "chrono",
  "serde",
  "serde_repr",

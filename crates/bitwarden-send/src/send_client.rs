@@ -12,7 +12,7 @@ use crate::{
     Send, SendListView, SendView,
     create::{CreateSendError, SendAddEditRequest, create_send},
     edit::{EditSendError, edit_send},
-    get_list::{GetSendError, get_send, list_folders},
+    get_list::{GetSendError, get_send, list_sends},
 };
 
 /// Generic error type for send encryption errors.
@@ -176,7 +176,7 @@ impl SendClient {
         let key_store = self.client.internal.get_key_store();
         let repository = self.get_repository()?;
 
-        list_folders(key_store, repository.as_ref()).await
+        list_sends(key_store, repository.as_ref()).await
     }
 
     /// Get a specific [Send] by its ID from state and decrypt it to a [SendView].

@@ -193,7 +193,7 @@ impl Send {
         Self::derive_shareable_key(ctx, &key)
     }
 
-    fn derive_shareable_key(
+    pub(crate) fn derive_shareable_key(
         ctx: &mut KeyStoreContext<KeyIds>,
         key: &[u8],
     ) -> Result<SymmetricKeyId, CryptoError> {
