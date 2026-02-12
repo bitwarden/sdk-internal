@@ -106,7 +106,7 @@ mod tests {
         // Create a mock success response with PBKDF2
         let raw_success = serde_json::json!({
             "kdfSettings": {
-                "kdfType": KdfType::PBKDF2_SHA256 as i32,
+                "kdfType": KdfType::PBKDF2_SHA256.as_i64(),
                 "iterations": mock_default_pbkdf2_iterations().get()
             },
             "salt": TEST_SALT_PBKDF2
@@ -145,7 +145,7 @@ mod tests {
         // Create a mock success response with Argon2id
         let raw_success = serde_json::json!({
             "kdfSettings": {
-                "kdfType": KdfType::Argon2id as i32,
+                "kdfType": KdfType::Argon2id.as_i64(),
                 "iterations": default_iterations.get(),
                 "memory": default_memory.get(),
                 "parallelism": default_parallelism.get(),
@@ -219,7 +219,7 @@ mod tests {
         // Create a mock response missing salt
         let raw_response = serde_json::json!({
             "kdfSettings": {
-                "kdfType": KdfType::PBKDF2_SHA256 as i32,
+                "kdfType": KdfType::PBKDF2_SHA256.as_i64(),
                 "iterations": mock_default_pbkdf2_iterations().get(),
             }
         });

@@ -42,6 +42,9 @@ impl TryFrom<PasswordPreloginResponseModel> for PasswordPreloginResponse {
                 parallelism: NonZeroU32::new(require!(kdf_settings.parallelism) as u32)
                     .expect("Non-zero number"),
             },
+            KdfType::__Unknown(_) => {
+                return Err(MissingFieldError("response.kdf_settings.kdf_type"));
+            }
         };
 
         Ok(PasswordPreloginResponse {
