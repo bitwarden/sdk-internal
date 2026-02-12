@@ -101,6 +101,11 @@ impl PasswordManagerClient {
     pub fn exporters(&self) -> ExporterClient {
         self.0.exporters()
     }
+
+    /// Exporter related operations.
+    pub fn sends(&self) -> ExporterClient {
+        self.0.sends()
+    }
 }
 
 #[bitwarden_error(basic)]
