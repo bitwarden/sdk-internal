@@ -1,6 +1,5 @@
 use bitwarden_vault::SshKeyView;
 use ed25519;
-use p256::ecdsa;
 use pem_rfc7468::PemLabel;
 use pkcs8::{
     DecodePrivateKey, ObjectIdentifier, PrivateKeyInfo, SecretDocument, der::Decode, pkcs5,
