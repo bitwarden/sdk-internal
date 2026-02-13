@@ -10,6 +10,7 @@ use bitwarden_crypto::{
     PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKey, SigningKey,
     SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey, VerifyingKey,
 };
+use rand::Rng;
 use rsa::{
     Oaep, RsaPrivateKey, RsaPublicKey,
     pkcs8::{DecodePrivateKey, DecodePublicKey},
@@ -409,6 +410,14 @@ impl PureCrypto {
         public_key
             .encrypt(&mut rng, padding, &plain_data)
             .map_err(|_| RsaError::Encryption)
+    }
+
+    /// Generates a cryptographically secure random number between the given min and max
+    /// (inclusive).
+    pub fn random_number(min: u32, max: u32) -> u32 {
+        let _span = tracing::info_span!("PureCrypto::random_number").entered();
+        let mut rng = rand::thread_rng();
+        rng.gen_range(min..=max)
     }
 }
 
