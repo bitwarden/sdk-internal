@@ -73,16 +73,16 @@ impl reqwest_middleware::Middleware for ClientManagedTokenHandler {
         ext: &mut http::Extensions,
         next: reqwest_middleware::Next<'_>,
     ) -> Result<reqwest::Response, reqwest_middleware::Error> {
-        if ext.get::<bitwarden_api_base::AuthRequired>().is_some() {
-            if let Some(token) = self.tokens.get_access_token().await {
-                match format!("Bearer {}", token).parse() {
-                    Ok(header_value) => {
-                        req.headers_mut()
-                            .insert(http::header::AUTHORIZATION, header_value);
-                    }
-                    Err(e) => {
-                        tracing::warn!("Failed to parse auth token for header: {e}");
-                    }
+        if ext.get::<bitwarden_api_base::AuthRequired>().is_some()
+            && let Some(token) = self.tokens.get_access_token().await
+        {
+            match format!("Bearer {}", token).parse() {
+                Ok(header_value) => {
+                    req.headers_mut()
+                        .insert(http::header::AUTHORIZATION, header_value);
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to parse auth token for header: {e}");
                 }
             }
         }

@@ -68,10 +68,10 @@ impl MiddlewareExt for PasswordManagerTokenHandler {
         let inner = self.inner.read().expect("RwLock is not poisoned").clone();
 
         // Validate the token, returning early if it's still valid.
-        if let Some(expires) = inner.expires_on {
-            if Utc::now().timestamp() < expires - TOKEN_RENEW_MARGIN_SECONDS {
-                return Ok(inner.access_token.clone());
-            }
+        if let Some(expires) = inner.expires_on
+            && Utc::now().timestamp() < expires - TOKEN_RENEW_MARGIN_SECONDS
+        {
+            return Ok(inner.access_token.clone());
         }
 
         // These should always be set by initialize_middleware before we get here, but we return an
