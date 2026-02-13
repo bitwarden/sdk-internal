@@ -142,7 +142,7 @@ impl SendClient {
         Ok(encrypted.to_buffer()?)
     }
 
-    /// Create a new [Folder] and save it to the server.
+    /// Create a new [Send] and save it to the server.
     pub async fn create(&self, request: SendAddEditRequest) -> Result<SendView, CreateSendError> {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations().await;
