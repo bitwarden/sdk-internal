@@ -1,13 +1,13 @@
 #![doc = include_str!("../README.md")]
 
-use bitwarden_core::key_management::KeyIds;
+use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::KeyStoreContext;
 use bitwarden_encoding::{B64Url, NotB64UrlEncodedError};
 use bitwarden_vault::{
     CipherError, CipherView, Fido2CredentialFullView, Fido2CredentialNewView, Fido2CredentialView,
 };
 use crypto::{CoseKeyToPkcs8Error, PrivateKeyFromSecretKeyError};
-use passkey::types::{CredentialExtensions, Passkey, ctap2::Aaguid};
+use passkey::types::{CredentialExtensions, Passkey, StoredHmacSecret, ctap2::Aaguid};
 
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
@@ -21,8 +21,8 @@ mod crypto;
 mod traits;
 mod types;
 pub use authenticator::{
-    CredentialsForAutofillError, Fido2Authenticator, GetAssertionError, MakeCredentialError,
-    SilentlyDiscoverCredentialsError,
+    CredentialsForAutofillError, Fido2Authenticator, Fido2AuthenticatorOptions, GetAssertionError,
+    MakeCredentialError, SilentlyDiscoverCredentialsError,
 };
 pub use client::{Fido2Client, Fido2ClientError};
 pub use client_fido::{ClientFido2, ClientFido2Ext, DecryptFido2AutofillCredentialsError};
@@ -65,8 +65,12 @@ pub(crate) struct CipherViewContainer {
 }
 
 impl CipherViewContainer {
-    fn new(cipher: CipherView, ctx: &mut KeyStoreContext<KeyIds>) -> Result<Self, CipherError> {
-        let fido2_credentials = cipher.get_fido2_credentials(ctx)?;
+    fn new(
+        cipher: CipherView,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key_id: Option<SymmetricKeyId>,
+    ) -> Result<Self, CipherError> {
+        let fido2_credentials = cipher.get_fido2_credentials(ctx, key_id)?;
         Ok(Self {
             cipher,
             fido2_credentials,
@@ -117,6 +121,17 @@ fn try_from_credential_full_view(value: Fido2CredentialFullView) -> Result<Passk
     let counter = (counter != 0).then_some(counter);
     let key_value = B64Url::try_from(value.key_value)?;
     let user_handle = value.user_handle.map(B64Url::try_from).transpose()?;
+    let hmac_secret = value
+        .hmac_secret
+        .map(B64Url::try_from)
+        .transpose()?
+        .map(|s| s.as_bytes().to_vec());
+    let extensions = CredentialExtensions {
+        hmac_secret: hmac_secret.map(|cred_with_uv| StoredHmacSecret {
+            cred_with_uv,
+            cred_without_uv: None,
+        }),
+    };
 
     let key = pkcs8_to_cose_key(key_value.as_bytes())?;
 
@@ -126,7 +141,7 @@ fn try_from_credential_full_view(value: Fido2CredentialFullView) -> Result<Passk
         rp_id: value.rp_id.clone(),
         user_handle: user_handle.map(|u| u.into_bytes().into()),
         counter,
-        extensions: CredentialExtensions { hmac_secret: None },
+        extensions,
     })
 }
 
@@ -148,6 +163,11 @@ pub fn fill_with_credential(
     let user_handle = value
         .user_handle
         .map(|u| B64Url::from(u.to_vec()).to_string());
+    let hmac_secret = value
+        .extensions
+        .hmac_secret
+        .as_ref()
+        .map(|s| B64Url::from(s.cred_with_uv.as_ref()).to_string());
     let key_value = B64Url::from(cose_key_to_pkcs8(&value.key)?).to_string();
 
     Ok(Fido2CredentialFullView {
@@ -164,6 +184,7 @@ pub fn fill_with_credential(
         user_name: view.user_name.clone(),
         user_display_name: view.user_display_name.clone(),
         discoverable: "true".to_owned(),
+        hmac_secret,
         creation_date: chrono::offset::Utc::now(),
     })
 }
@@ -201,6 +222,11 @@ pub(crate) fn try_from_credential_full(
     let cred_id: Vec<u8> = value.credential_id.into();
     let key_value = B64Url::from(cose_key_to_pkcs8(&value.key)?).to_string();
     let user_handle = B64Url::from(user.id.to_vec()).to_string();
+    let hmac_secret = value
+        .extensions
+        .hmac_secret
+        .as_ref()
+        .map(|s| B64Url::from(s.cred_with_uv.as_ref()).to_string());
 
     Ok(Fido2CredentialFullView {
         credential_id: guid_bytes_to_string(&cred_id)?,
@@ -216,6 +242,7 @@ pub(crate) fn try_from_credential_full(
         user_name: user.name,
         user_display_name: user.display_name,
         discoverable: options.rk.to_string(),
+        hmac_secret,
         creation_date: chrono::offset::Utc::now(),
     })
 }
