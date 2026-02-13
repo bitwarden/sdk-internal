@@ -87,7 +87,7 @@ pub(crate) async fn complete_auth_request(
         config.device_type,
         &auth_req.device_identifier,
     )
-    .send(&config)
+    .send(&config.identity_config)
     .await?;
 
     if let IdentityTokenResponse::Authenticated(r) = response {

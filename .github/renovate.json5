@@ -70,6 +70,7 @@
         "dylint_testing",
         "ed25519-dalek",
         "futures",
+        "http",
         "js-sys",
         "mockall",
         "proc-macro2",
