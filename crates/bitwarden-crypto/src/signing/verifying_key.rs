@@ -32,6 +32,22 @@ pub struct VerifyingKey {
     pub(super) inner: RawVerifyingKey,
 }
 
+impl std::fmt::Debug for VerifyingKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let key_suffix = match &self.inner {
+            RawVerifyingKey::Ed25519(_) => "Ed25519",
+        };
+        let mut debug_struct = f.debug_struct(format!("VerifyingKey_{}", key_suffix).as_str());
+        debug_struct.field("id", &self.id);
+        match self.inner {
+            RawVerifyingKey::Ed25519(_key) => {
+                debug_struct.field("key", &hex::encode(_key.to_bytes()));
+            }
+        }
+        debug_struct.finish()
+    }
+}
+
 impl VerifyingKey {
     /// Returns the signature scheme used by the verifying key.
     pub fn algorithm(&self) -> SignatureAlgorithm {
