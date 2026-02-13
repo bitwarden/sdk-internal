@@ -35,11 +35,11 @@ wasm = [
 bitwarden-api-api = { workspace = true }
 bitwarden-collections = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
+bitwarden-core-macro = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-state = { workspace = true }
-bitwarden-test-macro = { workspace = true }
 bitwarden-uuid = { workspace = true }
 chrono = { workspace = true }
 data-encoding = { workspace = true }

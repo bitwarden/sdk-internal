@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use bitwarden_core::{client::ApiProvider, key_management::KeyIds};
+use bitwarden_core_macro::from_client;
 use bitwarden_crypto::KeyStore;
 use bitwarden_state::repository::Repository;
-use bitwarden_test_macro::from_client;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 

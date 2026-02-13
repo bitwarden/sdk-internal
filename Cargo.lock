@@ -666,6 +666,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-core-macro"
+version = "2.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "bitwarden-crypto"
 version = "2.0.0"
 dependencies = [
@@ -1120,12 +1129,12 @@ dependencies = [
  "bitwarden-api-api",
  "bitwarden-collections",
  "bitwarden-core",
+ "bitwarden-core-macro",
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-state",
  "bitwarden-test",
- "bitwarden-test-macro",
  "bitwarden-uuid",
  "chrono",
  "data-encoding",
