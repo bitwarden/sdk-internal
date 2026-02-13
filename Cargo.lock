@@ -609,6 +609,7 @@ dependencies = [
  "bitwarden-uuid",
  "chrono",
  "getrandom 0.2.17",
+ "mockall",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "reqwest",
@@ -631,6 +632,15 @@ dependencies = [
  "wasm-bindgen-futures",
  "zeroize",
  "zxcvbn",
+]
+
+[[package]]
+name = "bitwarden-core-macro"
+version = "2.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -1088,6 +1098,7 @@ dependencies = [
  "bitwarden-api-api",
  "bitwarden-collections",
  "bitwarden-core",
+ "bitwarden-core-macro",
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",

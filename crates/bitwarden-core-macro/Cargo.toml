@@ -1,5 +1,5 @@
 [package]
-name = "bitwarden-test-macro"
+name = "bitwarden-core-macro"
 description = """
 Internal crate for the bitwarden crate. Do not use.
 """
