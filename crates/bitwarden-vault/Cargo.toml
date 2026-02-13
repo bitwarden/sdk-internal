@@ -39,6 +39,7 @@ bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-state = { workspace = true }
+bitwarden-test-macro = { workspace = true }
 bitwarden-uuid = { workspace = true }
 chrono = { workspace = true }
 data-encoding = { workspace = true }

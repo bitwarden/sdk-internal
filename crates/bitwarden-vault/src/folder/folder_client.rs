@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
-use bitwarden_core::{Client, client::ApiProvider, key_management::KeyIds};
+use bitwarden_core::{client::ApiProvider, key_management::KeyIds};
 use bitwarden_crypto::KeyStore;
-use bitwarden_state::repository::{Repository, RepositoryError};
+use bitwarden_state::repository::Repository;
+use bitwarden_test_macro::from_client;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -14,6 +15,7 @@ use crate::{
 };
 
 /// Wrapper for folder specific functionality.
+#[from_client]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct FoldersClient {
     key_store: KeyStore<KeyIds>,
@@ -36,15 +38,6 @@ impl FoldersClient {
             api_config_provider,
             repository,
         }
-    }
-
-    /// Creates a FoldersClient from a Client.
-    pub(crate) fn from_client(client: &Client) -> Result<Self, RepositoryError> {
-        Ok(Self {
-            key_store: client.internal.get_key_store().clone(),
-            api_config_provider: Arc::new(client.internal.clone()),
-            repository: client.platform().state().get::<Folder>()?,
-        })
     }
 }
 

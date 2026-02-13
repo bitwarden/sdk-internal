@@ -1125,6 +1125,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-state",
  "bitwarden-test",
+ "bitwarden-test-macro",
  "bitwarden-uuid",
  "chrono",
  "data-encoding",
