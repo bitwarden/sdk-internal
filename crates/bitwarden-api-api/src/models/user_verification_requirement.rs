@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 ///
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum UserVerificationRequirement {
     #[serde(rename = "required")]
     Required,
@@ -21,6 +21,10 @@ pub enum UserVerificationRequirement {
     Preferred,
     #[serde(rename = "discouraged")]
     Discouraged,
+
+    /// Unknown value returned from the server. This is used to handle forward compatibility.
+    #[serde(untagged)]
+    __Unknown(String),
 }
 
 impl std::fmt::Display for UserVerificationRequirement {
@@ -29,6 +33,7 @@ impl std::fmt::Display for UserVerificationRequirement {
             Self::Required => write!(f, "required"),
             Self::Preferred => write!(f, "preferred"),
             Self::Discouraged => write!(f, "discouraged"),
+            Self::__Unknown(s) => write!(f, "{}", s),
         }
     }
 }

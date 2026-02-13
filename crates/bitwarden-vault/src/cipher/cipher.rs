@@ -998,7 +998,7 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
                 .collect(),
             name: require!(EncString::try_from_optional(cipher.name)?),
             notes: EncString::try_from_optional(cipher.notes)?,
-            r#type: require!(cipher.r#type).into(),
+            r#type: require!(cipher.r#type).try_into()?,
             login: cipher.login.map(|l| (*l).try_into()).transpose()?,
             identity: cipher.identity.map(|i| (*i).try_into()).transpose()?,
             card: cipher.card.map(|c| (*c).try_into()).transpose()?,
@@ -1007,7 +1007,8 @@ impl TryFrom<CipherDetailsResponseModel> for Cipher {
             favorite: cipher.favorite.unwrap_or(false),
             reprompt: cipher
                 .reprompt
-                .map(|r| r.into())
+                .map(|r| r.try_into())
+                .transpose()?
                 .unwrap_or(CipherRepromptType::None),
             organization_use_totp: cipher.organization_use_totp.unwrap_or(true),
             edit: cipher.edit.unwrap_or(true),
@@ -1045,24 +1046,34 @@ impl PartialCipher for CipherDetailsResponseModel {
     }
 }
 
-impl From<bitwarden_api_api::models::CipherType> for CipherType {
-    fn from(t: bitwarden_api_api::models::CipherType) -> Self {
-        match t {
+impl TryFrom<bitwarden_api_api::models::CipherType> for CipherType {
+    type Error = MissingFieldError;
+
+    fn try_from(t: bitwarden_api_api::models::CipherType) -> Result<Self, Self::Error> {
+        Ok(match t {
             bitwarden_api_api::models::CipherType::Login => CipherType::Login,
             bitwarden_api_api::models::CipherType::SecureNote => CipherType::SecureNote,
             bitwarden_api_api::models::CipherType::Card => CipherType::Card,
             bitwarden_api_api::models::CipherType::Identity => CipherType::Identity,
             bitwarden_api_api::models::CipherType::SSHKey => CipherType::SshKey,
-        }
+            bitwarden_api_api::models::CipherType::__Unknown(_) => {
+                return Err(MissingFieldError("type"));
+            }
+        })
     }
 }
 
-impl From<bitwarden_api_api::models::CipherRepromptType> for CipherRepromptType {
-    fn from(t: bitwarden_api_api::models::CipherRepromptType) -> Self {
-        match t {
+impl TryFrom<bitwarden_api_api::models::CipherRepromptType> for CipherRepromptType {
+    type Error = MissingFieldError;
+
+    fn try_from(t: bitwarden_api_api::models::CipherRepromptType) -> Result<Self, Self::Error> {
+        Ok(match t {
             bitwarden_api_api::models::CipherRepromptType::None => CipherRepromptType::None,
             bitwarden_api_api::models::CipherRepromptType::Password => CipherRepromptType::Password,
-        }
+            bitwarden_api_api::models::CipherRepromptType::__Unknown(_) => {
+                return Err(MissingFieldError("reprompt"));
+            }
+        })
     }
 }
 
@@ -1105,7 +1116,7 @@ impl TryFrom<CipherResponseModel> for Cipher {
             collection_ids: vec![], // CipherResponseModel doesn't include collection_ids
             name: require!(cipher.name).parse()?,
             notes: EncString::try_from_optional(cipher.notes)?,
-            r#type: require!(cipher.r#type).into(),
+            r#type: require!(cipher.r#type).try_into()?,
             login: cipher.login.map(|l| (*l).try_into()).transpose()?,
             identity: cipher.identity.map(|i| (*i).try_into()).transpose()?,
             card: cipher.card.map(|c| (*c).try_into()).transpose()?,
@@ -1114,7 +1125,8 @@ impl TryFrom<CipherResponseModel> for Cipher {
             favorite: cipher.favorite.unwrap_or(false),
             reprompt: cipher
                 .reprompt
-                .map(|r| r.into())
+                .map(|r| r.try_into())
+                .transpose()?
                 .unwrap_or(CipherRepromptType::None),
             organization_use_totp: cipher.organization_use_totp.unwrap_or(false),
             edit: cipher.edit.unwrap_or(false),
@@ -1152,7 +1164,7 @@ impl PartialCipher for CipherMiniResponseModel {
             key: EncString::try_from_optional(self.key)?,
             name: require!(EncString::try_from_optional(self.name)?),
             notes: EncString::try_from_optional(self.notes)?,
-            r#type: require!(self.r#type).into(),
+            r#type: require!(self.r#type).try_into()?,
             login: self.login.map(|l| (*l).try_into()).transpose()?,
             identity: self.identity.map(|i| (*i).try_into()).transpose()?,
             card: self.card.map(|c| (*c).try_into()).transpose()?,
@@ -1160,7 +1172,8 @@ impl PartialCipher for CipherMiniResponseModel {
             ssh_key: self.ssh_key.map(|s| (*s).try_into()).transpose()?,
             reprompt: self
                 .reprompt
-                .map(|r| r.into())
+                .map(|r| r.try_into())
+                .transpose()?
                 .unwrap_or(CipherRepromptType::None),
             organization_use_totp: self.organization_use_totp.unwrap_or(true),
             attachments: self
@@ -1208,7 +1221,7 @@ impl PartialCipher for CipherMiniDetailsResponseModel {
             key: EncString::try_from_optional(self.key)?,
             name: require!(EncString::try_from_optional(self.name)?),
             notes: EncString::try_from_optional(self.notes)?,
-            r#type: require!(self.r#type).into(),
+            r#type: require!(self.r#type).try_into()?,
             login: self.login.map(|l| (*l).try_into()).transpose()?,
             identity: self.identity.map(|i| (*i).try_into()).transpose()?,
             card: self.card.map(|c| (*c).try_into()).transpose()?,
@@ -1216,7 +1229,8 @@ impl PartialCipher for CipherMiniDetailsResponseModel {
             ssh_key: self.ssh_key.map(|s| (*s).try_into()).transpose()?,
             reprompt: self
                 .reprompt
-                .map(|r| r.into())
+                .map(|r| r.try_into())
+                .transpose()?
                 .unwrap_or(CipherRepromptType::None),
             organization_use_totp: self.organization_use_totp.unwrap_or(true),
             attachments: self
