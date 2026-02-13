@@ -15,6 +15,7 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
+cli = ["internal"] # CLI-specific features (includes internal)
 internal = ["dep:zxcvbn"]
 no-memory-hardening = [
     "bitwarden-crypto/no-memory-hardening",

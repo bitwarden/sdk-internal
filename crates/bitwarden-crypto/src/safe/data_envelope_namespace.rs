@@ -10,6 +10,8 @@ use crate::safe::DataEnvelopeError;
 pub enum DataEnvelopeNamespace {
     /// The namespace for vault items ("ciphers")
     VaultItem = 1,
+    /// The namespace for CLI session key encryption
+    CliSession = 2,
     /// This namespace is only used in tests
     #[cfg(test)]
     ExampleNamespace = -1,
@@ -31,6 +33,7 @@ impl TryFrom<i64> for DataEnvelopeNamespace {
     fn try_from(value: i64) -> Result<Self, Self::Error> {
         match value {
             1 => Ok(DataEnvelopeNamespace::VaultItem),
+            2 => Ok(DataEnvelopeNamespace::CliSession),
             #[cfg(test)]
             -1 => Ok(DataEnvelopeNamespace::ExampleNamespace),
             #[cfg(test)]

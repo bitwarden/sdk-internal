@@ -2,6 +2,7 @@
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use bitwarden_cli::install_color_eyre;
+use bitwarden_core::client::PersistedAuthState;
 use clap::{CommandFactory, Parser};
 use clap_complete::Shell;
 use color_eyre::eyre::Result;
@@ -58,7 +59,7 @@ async fn main() -> Result<()> {
     render_config.render_result(result)
 }
 
-async fn process_commands(command: Commands, _session: Option<String>) -> CommandResult {
+async fn process_commands(command: Commands, session: Option<String>) -> CommandResult {
     // Try to initialize the client with the session if provided
     // Ideally we'd have separate clients and this would be an enum, something like:
     // enum CliClient {
@@ -71,14 +72,44 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
     // to do two matches over the whole command tree
     let client = bitwarden_pm::PasswordManagerClient::new(None);
 
+    // Try to load auth state from disk first
+    let auth_state_loaded = if let Ok(Some(auth_state)) = try_load_persisted_auth(&client).await {
+        tracing::info!("Loaded auth state from disk");
+
+        if let Err(e) = client.0.internal.restore_persisted_auth_state(&auth_state) {
+            tracing::warn!("Failed to restore auth state: {:?}", e);
+            false
+        } else {
+            tracing::debug!("Restored auth state from persistence");
+            true
+        }
+    } else {
+        false
+    };
+
+    // If session key provided, try to decrypt and initialize crypto
+    if let Some(session_token) = session {
+        if !auth_state_loaded {
+            return Err(color_eyre::eyre::eyre!(
+                "No authenticated session found. Please run 'bw login' first."
+            ));
+        }
+
+        key_management::session::restore_with_session_key(&client.0, session_token.parse()?)
+            .await?;
+    }
+
     match command {
         // Auth commands
         Commands::Login(args) => args.run().await,
-        Commands::Logout => todo!(),
+        Commands::Logout => {
+            auth::logout::logout(client.0).await?;
+            Ok("Logged out successfully".into())
+        }
 
         // KM commands
         Commands::Lock => todo!(),
-        Commands::Unlock(_args) => todo!(),
+        Commands::Unlock(args) => auth::unlock::unlock(&client.0, args).await,
 
         // Platform commands
         Commands::Sync { .. } => todo!(),
@@ -135,4 +166,17 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         // Server commands
         Commands::Serve(_args) => todo!(),
     }
+}
+
+async fn try_load_persisted_auth(
+    client: &bitwarden_pm::PasswordManagerClient,
+) -> Result<Option<PersistedAuthState>> {
+    let db_path = platform::state::get_database_path()?;
+    if !db_path.exists() {
+        return Ok(None);
+    }
+
+    platform::state::initialize_database(&client.0).await?;
+
+    Ok(auth::state::load(&client.0).await?)
 }

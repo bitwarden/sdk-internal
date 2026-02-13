@@ -1,4 +1,17 @@
+//! Key management for the CLI.
+//!
+//! This module handles cryptographic key persistence and session key management
+//! for the CLI.
+//!
+//! # Submodules
+//!
+//! - [`crypto`]: Server-provided encrypted keys needed for vault unlock
+//! - [`session`]: Local session key encryption/decryption for vault access
+
 use clap::Args;
+
+pub mod crypto;
+pub mod session;
 
 #[derive(Args, Clone)]
 pub(crate) struct UnlockArgs {

@@ -70,6 +70,11 @@ pub(crate) async fn sync(client: &Client, input: &SyncRequest) -> Result<SyncRes
 
     client.internal.initialize_org_crypto(org_keys)?;
 
+    // Persist crypto state for CLI unlock support
+    if let Err(e) = crate::key_management::crypto::persist(client, &sync).await {
+        tracing::warn!("Failed to persist crypto state: {:?}", e);
+    }
+
     SyncResponse::process_response(sync)
 }
 
