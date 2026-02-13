@@ -35,7 +35,6 @@ impl<T, E: std::fmt::Debug> DebugMapErr<T, E> for Result<T, E> {
     }
 }
 
-#[allow(unused)]
 pub(super) struct SyncedAccountData {
     pub(super) wrapped_account_cryptographic_state: WrappedAccountCryptographicState,
     pub(super) folders: Vec<Folder>,
@@ -75,7 +74,7 @@ async fn fetch_organization_public_key(
             .debug_map_err(SyncError::DataError)?
             .into_bytes(),
     ))
-    .debug_map_err(SyncError::DataErr)
+    .debug_map_err(SyncError::DataError)
 }
 
 // Download the public keys for the organizations, since these are not included in the sync
@@ -393,7 +392,6 @@ fn parse_kdf_and_salt(
     }
 }
 
-#[allow(unused)]
 pub(super) async fn sync_current_account_data(
     api_client: &ApiClient,
 ) -> Result<SyncedAccountData, SyncError> {

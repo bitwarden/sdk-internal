@@ -7,7 +7,7 @@ mod unlock;
 
 use bitwarden_api_api::models::RotateUserAccountKeysAndDataRequestModel;
 use bitwarden_core::{
-    Client, UserId,
+    UserId,
     key_management::{MasterPasswordAuthenticationData, SymmetricKeyId},
 };
 use bitwarden_crypto::PublicKey;
@@ -19,12 +19,15 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::key_rotation::{
-    crypto::rotate_account_cryptographic_state,
-    data::reencrypt_data,
-    unlock::{
-        ReencryptUnlockInput, V1EmergencyAccessMembership, V1OrganizationMembership,
-        reencrypt_unlock,
+use crate::{
+    UserCryptoManagementClient,
+    key_rotation::{
+        crypto::rotate_account_cryptographic_state,
+        data::reencrypt_data,
+        unlock::{
+            ReencryptUnlockInput, V1EmergencyAccessMembership, V1OrganizationMembership,
+            reencrypt_unlock,
+        },
     },
 };
 

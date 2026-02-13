@@ -27,7 +27,6 @@ pub(crate) enum DataReencryptionError {
 /// Re-encrypts all user data (folders, ciphers, sends) with the new user key for the purpose of
 /// key-rotation. Note: Ciphers must be filtered to just contain the user's ciphers, not
 /// organization ciphers.
-#[allow(unused)]
 #[instrument(name = "reencrypt_data", skip(folders, ciphers, sends, ctx))]
 pub(super) fn reencrypt_data(
     folders: &[bitwarden_vault::Folder],
