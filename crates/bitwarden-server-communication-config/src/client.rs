@@ -49,10 +49,10 @@ where
 
     /// Determines if cookie bootstrapping is needed for this hostname
     pub async fn needs_bootstrap(&self, hostname: String) -> bool {
-        if let Ok(Some(config)) = self.repository.get(hostname).await {
-            if let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap {
-                return vendor_config.cookie_value.is_none();
-            }
+        if let Ok(Some(config)) = self.repository.get(hostname).await
+            && let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap
+        {
+            return vendor_config.cookie_value.is_none();
         }
         false
     }
@@ -62,15 +62,14 @@ where
     /// Returns the stored cookies as-is. For sharded cookies, each entry includes
     /// the full cookie name with its `-{N}` suffix (e.g., `AWSELBAuthSessionCookie-0`).
     pub async fn cookies(&self, hostname: String) -> Vec<(String, String)> {
-        if let Ok(Some(config)) = self.repository.get(hostname).await {
-            if let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap {
-                if let Some(acquired_cookies) = vendor_config.cookie_value {
-                    return acquired_cookies
-                        .into_iter()
-                        .map(|cookie| (cookie.name, cookie.value))
-                        .collect();
-                }
-            }
+        if let Ok(Some(config)) = self.repository.get(hostname).await
+            && let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap
+            && let Some(acquired_cookies) = vendor_config.cookie_value
+        {
+            return acquired_cookies
+                .into_iter()
+                .map(|cookie| (cookie.name, cookie.value))
+                .collect();
         }
         Vec::new()
     }
