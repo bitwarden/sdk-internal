@@ -15,6 +15,7 @@ use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, info, info_span, warn};
+#[cfg(feature = "wasm")]
 use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
