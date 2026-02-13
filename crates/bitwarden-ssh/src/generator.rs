@@ -1,7 +1,9 @@
 use bitwarden_vault::SshKeyView;
 use rand::CryptoRng;
 use serde::{Deserialize, Serialize};
-use ssh_key::{Algorithm, EcdsaCurve};
+use ssh_key::Algorithm;
+#[cfg(feature = "ecdsa-keys")]
+use ssh_key::EcdsaCurve;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
@@ -17,8 +19,11 @@ pub enum KeyAlgorithm {
     Ed25519,
     Rsa3072,
     Rsa4096,
+    #[cfg(feature = "ecdsa-keys")]
     EcdsaP256,
+    #[cfg(feature = "ecdsa-keys")]
     EcdsaP384,
+    #[cfg(feature = "ecdsa-keys")]
     EcdsaP521,
 }
 
@@ -43,6 +48,7 @@ fn generate_sshkey_internal<R: CryptoRng + ?Sized>(
             .map_err(KeyGenerationError::KeyGeneration),
         KeyAlgorithm::Rsa3072 => create_rsa_key(rng, 3072),
         KeyAlgorithm::Rsa4096 => create_rsa_key(rng, 4096),
+        #[cfg(feature = "ecdsa-keys")]
         KeyAlgorithm::EcdsaP256 => ssh_key::PrivateKey::random(
             rng,
             Algorithm::Ecdsa {
@@ -50,6 +56,7 @@ fn generate_sshkey_internal<R: CryptoRng + ?Sized>(
             },
         )
         .map_err(KeyGenerationError::KeyGeneration),
+        #[cfg(feature = "ecdsa-keys")]
         KeyAlgorithm::EcdsaP384 => ssh_key::PrivateKey::random(
             rng,
             Algorithm::Ecdsa {
@@ -57,6 +64,7 @@ fn generate_sshkey_internal<R: CryptoRng + ?Sized>(
             },
         )
         .map_err(KeyGenerationError::KeyGeneration),
+        #[cfg(feature = "ecdsa-keys")]
         KeyAlgorithm::EcdsaP521 => ssh_key::PrivateKey::random(
             rng,
             Algorithm::Ecdsa {
@@ -115,6 +123,7 @@ mod tests {
         assert_eq!(result.unwrap().private_key, target);
     }
 
+    #[cfg(feature = "ecdsa-keys")]
     #[test]
     fn generate_ssh_key_ecdsa_p256() {
         let mut rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
@@ -124,6 +133,7 @@ mod tests {
         assert_eq!(result.unwrap().private_key, target);
     }
 
+    #[cfg(feature = "ecdsa-keys")]
     #[test]
     fn generate_ssh_key_ecdsa_p384() {
         let mut rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
@@ -133,6 +143,7 @@ mod tests {
         assert_eq!(result.unwrap().private_key, target);
     }
 
+    #[cfg(feature = "ecdsa-keys")]
     #[test]
     fn generate_ssh_key_ecdsa_p521() {
         let mut rng = rand_chacha::ChaCha12Rng::from_seed([0u8; 32]);
