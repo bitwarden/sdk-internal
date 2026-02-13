@@ -18,7 +18,6 @@ keywords.workspace = true
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
 serde_json = { workspace = true }
-thiserror = { workspace = true }
 url = ">=2.5, <3"
 
 [lints]
