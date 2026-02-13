@@ -55,10 +55,10 @@ pub fn play_test(_attr: TokenStream, item: TokenStream) -> TokenStream {
         .inputs
         .first()
         .and_then(|arg| {
-            if let syn::FnArg::Typed(pat_type) = arg {
-                if let syn::Pat::Ident(pat_ident) = &*pat_type.pat {
-                    return Some((pat_ident.ident.clone(), pat_type.ty.clone()));
-                }
+            if let syn::FnArg::Typed(pat_type) = arg
+                && let syn::Pat::Ident(pat_ident) = &*pat_type.pat
+            {
+                return Some((pat_ident.ident.clone(), pat_type.ty.clone()));
             }
             None
         })
