@@ -1,6 +1,6 @@
 use pkcs8::EncodePrivateKey;
 use rsa::RsaPrivateKey;
-use ssh_key::PrivateKey;
+use ssh_key::{EcdsaCurve, PrivateKey};
 
 use crate::error::SshKeyExportError;
 
@@ -36,7 +36,45 @@ pub fn export_pkcs8_der_key(private_key: &str) -> Result<Vec<u8>, SshKeyExportEr
                 .as_bytes()
                 .to_vec())
         }
+        ssh_key::private::KeypairData::Ecdsa(keypair) => export_ecdsa_pkcs8_der(keypair),
         _ => Err(SshKeyExportError::KeyConversion),
+    }
+}
+
+fn export_ecdsa_pkcs8_der(
+    keypair: &ssh_key::private::EcdsaKeypair,
+) -> Result<Vec<u8>, SshKeyExportError> {
+    let curve = keypair.curve();
+    let private_key_bytes = keypair.private_key_bytes();
+
+    match curve {
+        EcdsaCurve::NistP256 => {
+            let sk = p256::SecretKey::from_slice(private_key_bytes)
+                .map_err(|_| SshKeyExportError::KeyConversion)?;
+            Ok(sk
+                .to_pkcs8_der()
+                .map_err(|_| SshKeyExportError::KeyConversion)?
+                .as_bytes()
+                .to_vec())
+        }
+        EcdsaCurve::NistP384 => {
+            let sk = p384::SecretKey::from_slice(private_key_bytes)
+                .map_err(|_| SshKeyExportError::KeyConversion)?;
+            Ok(sk
+                .to_pkcs8_der()
+                .map_err(|_| SshKeyExportError::KeyConversion)?
+                .as_bytes()
+                .to_vec())
+        }
+        EcdsaCurve::NistP521 => {
+            let sk = p521::SecretKey::from_slice(private_key_bytes)
+                .map_err(|_| SshKeyExportError::KeyConversion)?;
+            Ok(sk
+                .to_pkcs8_der()
+                .map_err(|_| SshKeyExportError::KeyConversion)?
+                .as_bytes()
+                .to_vec())
+        }
     }
 }
 
@@ -81,5 +119,60 @@ mod tests {
             reimported_key.public_key,
             result.public_key.strip_suffix(" testkey").unwrap()
         );
+    }
+
+    #[test]
+    fn export_ecdsa_p256() {
+        let private_key = include_str!("../resources/generator/ecdsa_p256_key");
+        let exported_key = export_pkcs8_der_key(private_key).unwrap();
+        // Verify the PKCS8 DER is non-empty and re-importable
+        assert!(!exported_key.is_empty());
+    }
+
+    #[test]
+    fn export_ecdsa_p384() {
+        let private_key = include_str!("../resources/generator/ecdsa_p384_key");
+        let exported_key = export_pkcs8_der_key(private_key).unwrap();
+        assert!(!exported_key.is_empty());
+    }
+
+    #[test]
+    fn export_ecdsa_p521() {
+        let private_key = include_str!("../resources/generator/ecdsa_p521_key");
+        let exported_key = export_pkcs8_der_key(private_key).unwrap();
+        assert!(!exported_key.is_empty());
+    }
+
+    #[cfg(feature = "ecdsa-import")]
+    #[test]
+    fn export_ecdsa_p256_roundtrip() {
+        let private_key = include_str!("../resources/generator/ecdsa_p256_key");
+        let view = import_key(private_key.to_string(), None).unwrap();
+
+        let exported_key = export_pkcs8_der_key(&view.private_key).unwrap();
+        let reimported = import_pkcs8_der_key(&exported_key).unwrap();
+        assert_eq!(reimported.public_key, view.public_key);
+    }
+
+    #[cfg(feature = "ecdsa-import")]
+    #[test]
+    fn export_ecdsa_p384_roundtrip() {
+        let private_key = include_str!("../resources/generator/ecdsa_p384_key");
+        let view = import_key(private_key.to_string(), None).unwrap();
+
+        let exported_key = export_pkcs8_der_key(&view.private_key).unwrap();
+        let reimported = import_pkcs8_der_key(&exported_key).unwrap();
+        assert_eq!(reimported.public_key, view.public_key);
+    }
+
+    #[cfg(feature = "ecdsa-import")]
+    #[test]
+    fn export_ecdsa_p521_roundtrip() {
+        let private_key = include_str!("../resources/generator/ecdsa_p521_key");
+        let view = import_key(private_key.to_string(), None).unwrap();
+
+        let exported_key = export_pkcs8_der_key(&view.private_key).unwrap();
+        let reimported = import_pkcs8_der_key(&exported_key).unwrap();
+        assert_eq!(reimported.public_key, view.public_key);
     }
 }
