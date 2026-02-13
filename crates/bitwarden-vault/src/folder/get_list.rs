@@ -23,10 +23,7 @@ pub(super) async fn get_folder(
     repository: &dyn Repository<Folder>,
     id: FolderId,
 ) -> Result<FolderView, GetFolderError> {
-    let folder = repository
-        .get(id.to_string())
-        .await?
-        .ok_or(ItemNotFoundError)?;
+    let folder = repository.get(id).await?.ok_or(ItemNotFoundError)?;
 
     Ok(store.decrypt(&folder)?)
 }

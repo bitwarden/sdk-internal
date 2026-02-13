@@ -22,7 +22,8 @@ async fn share_cipher(
     encrypted_cipher: EncryptionContext,
     collection_ids: Vec<CollectionId>,
 ) -> Result<Cipher, CipherError> {
-    let cipher_id: uuid::Uuid = require!(encrypted_cipher.cipher.id).into();
+    let cipher_id = require!(encrypted_cipher.cipher.id);
+    let cipher_uuid: uuid::Uuid = cipher_id.into();
 
     let req = CipherShareRequestModel::new(
         collection_ids
@@ -32,14 +33,12 @@ async fn share_cipher(
         encrypted_cipher.into(),
     );
 
-    let response = api_client.put_share(cipher_id, Some(req)).await?;
+    let response = api_client.put_share(cipher_uuid, Some(req)).await?;
 
     let mut new_cipher: Cipher = response.try_into()?;
     new_cipher.collection_ids = collection_ids;
 
-    repository
-        .set(cipher_id.to_string(), new_cipher.clone())
-        .await?;
+    repository.set(cipher_id, new_cipher.clone()).await?;
 
     Ok(new_cipher)
 }
@@ -72,7 +71,9 @@ async fn share_ciphers_bulk(
         // The server does not return the full Cipher object, so we pull the details from the
         // current local version to fill in those missing values.
         let orig_cipher = repository
-            .get(cipher_mini.id.ok_or(MissingFieldError("id"))?.to_string())
+            .get(CipherId::new(
+                cipher_mini.id.ok_or(MissingFieldError("id"))?,
+            ))
             .await?;
 
         let cipher: Cipher = Cipher {
@@ -142,9 +143,7 @@ async fn share_ciphers_bulk(
             data: None,
         };
 
-        repository
-            .set(require!(cipher.id).to_string(), cipher.clone())
-            .await?;
+        repository.set(require!(cipher.id), cipher.clone()).await?;
         results.push(cipher)
     }
 
@@ -210,7 +209,7 @@ impl CiphersClient {
         mut original_cipher: Option<Cipher>,
     ) -> Result<(), CipherError> {
         if let (Some(cipher_id), None) = (cipher_view.id, &original_cipher) {
-            original_cipher = self.get_repository()?.get(cipher_id.to_string()).await?;
+            original_cipher = self.get_repository()?.get(cipher_id).await?;
         }
         if let Some(original_cipher_view) = original_cipher
             .map(|cipher| self.decrypt(cipher))
@@ -483,7 +482,7 @@ mod tests {
         let encrypted_1 = cipher_client.encrypt(cipher_view_1.clone()).unwrap();
         let repository = cipher_client.get_repository().unwrap();
         repository
-            .set(TEST_CIPHER_ID.to_string(), encrypted_1.cipher.clone())
+            .set(TEST_CIPHER_ID.parse().unwrap(), encrypted_1.cipher.clone())
             .await
             .unwrap();
 
@@ -609,7 +608,7 @@ mod tests {
 
         // Verify the cipher was stored in repository
         let stored_cipher = repository
-            .get(TEST_CIPHER_ID.to_string())
+            .get(TEST_CIPHER_ID.parse().unwrap())
             .await
             .unwrap()
             .expect("Cipher should be stored");
@@ -717,7 +716,7 @@ mod tests {
             };
 
         repository
-            .set(TEST_CIPHER_ID.to_string(), original_cipher)
+            .set(TEST_CIPHER_ID.parse().unwrap(), original_cipher)
             .await
             .unwrap();
 
@@ -751,7 +750,7 @@ mod tests {
 
         // Verify the cipher was updated in repository
         let stored_cipher = repository
-            .get(TEST_CIPHER_ID.to_string())
+            .get(TEST_CIPHER_ID.parse().unwrap())
             .await
             .unwrap()
             .expect("Cipher should be stored");
@@ -920,7 +919,7 @@ mod tests {
         let encrypted_original = cipher_client.encrypt(cipher_view.clone()).unwrap();
         repository
             .set(
-                TEST_CIPHER_ID.to_string(),
+                TEST_CIPHER_ID.parse().unwrap(),
                 encrypted_original.cipher.clone(),
             )
             .await
@@ -1035,7 +1034,7 @@ mod tests {
         let encrypted_original1 = cipher_client.encrypt(cipher_view1.clone()).unwrap();
         repository
             .set(
-                encrypted_original1.cipher.id.unwrap().to_string(),
+                encrypted_original1.cipher.id.unwrap(),
                 encrypted_original1.cipher.clone(),
             )
             .await
@@ -1044,7 +1043,7 @@ mod tests {
         let encrypted_original2 = cipher_client.encrypt(cipher_view2.clone()).unwrap();
         repository
             .set(
-                encrypted_original2.cipher.id.unwrap().to_string(),
+                encrypted_original2.cipher.id.unwrap(),
                 encrypted_original2.cipher.clone(),
             )
             .await

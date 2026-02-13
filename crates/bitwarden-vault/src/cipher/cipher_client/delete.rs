@@ -31,7 +31,7 @@ async fn delete_cipher<R: Repository<Cipher> + ?Sized>(
 ) -> Result<(), DeleteCipherError> {
     let api = api_client.ciphers_api();
     api.delete(cipher_id.into()).await?;
-    repository.remove(cipher_id.to_string()).await?;
+    repository.remove(cipher_id).await?;
     Ok(())
 }
 
@@ -50,7 +50,7 @@ async fn delete_ciphers<R: Repository<Cipher> + ?Sized>(
     .await?;
 
     for cipher_id in cipher_ids {
-        repository.remove(cipher_id.to_string()).await?;
+        repository.remove(cipher_id).await?;
     }
     Ok(())
 }
@@ -89,10 +89,10 @@ async fn process_soft_delete<R: Repository<Cipher> + ?Sized>(
     repository: &R,
     cipher_id: CipherId,
 ) -> Result<(), RepositoryError> {
-    let cipher: Option<Cipher> = repository.get(cipher_id.to_string()).await?;
+    let cipher: Option<Cipher> = repository.get(cipher_id).await?;
     if let Some(mut cipher) = cipher {
         cipher.soft_delete();
-        repository.set(cipher_id.to_string(), cipher).await?;
+        repository.set(cipher_id, cipher).await?;
     }
     Ok(())
 }
@@ -208,7 +208,7 @@ mod tests {
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
         let repository = MemoryRepository::<Cipher>::default();
         repository
-            .set(cipher_id.to_string(), generate_test_cipher())
+            .set(cipher_id, generate_test_cipher())
             .await
             .unwrap();
 
@@ -216,7 +216,7 @@ mod tests {
             .await
             .unwrap();
 
-        let cipher = repository.get(cipher_id.to_string()).await.unwrap();
+        let cipher = repository.get(cipher_id).await.unwrap();
         assert!(
             cipher.is_none(),
             "Cipher is deleted from the local repository"
@@ -239,21 +239,15 @@ mod tests {
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
         let cipher_id_2: CipherId = TEST_CIPHER_ID_2.parse().unwrap();
 
-        repository
-            .set(cipher_id.to_string(), cipher_1)
-            .await
-            .unwrap();
-        repository
-            .set(TEST_CIPHER_ID_2.to_string(), cipher_2)
-            .await
-            .unwrap();
+        repository.set(cipher_id, cipher_1).await.unwrap();
+        repository.set(cipher_id_2, cipher_2).await.unwrap();
 
         delete_ciphers(vec![cipher_id, cipher_id_2], None, &api_client, &repository)
             .await
             .unwrap();
 
-        let cipher_1 = repository.get(cipher_id.to_string()).await.unwrap();
-        let cipher_2 = repository.get(cipher_id_2.to_string()).await.unwrap();
+        let cipher_1 = repository.get(cipher_id).await.unwrap();
+        let cipher_2 = repository.get(cipher_id_2).await.unwrap();
         assert!(
             cipher_1.is_none(),
             "Cipher is deleted from the local repository"
@@ -275,7 +269,7 @@ mod tests {
 
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
         repository
-            .set(cipher_id.to_string(), generate_test_cipher())
+            .set(cipher_id, generate_test_cipher())
             .await
             .unwrap();
 
@@ -285,11 +279,7 @@ mod tests {
             .unwrap();
         let end_time = Utc::now();
 
-        let cipher: Cipher = repository
-            .get(cipher_id.to_string())
-            .await
-            .unwrap()
-            .unwrap();
+        let cipher: Cipher = repository.get(cipher_id).await.unwrap().unwrap();
         assert!(
             cipher.deleted_date.unwrap() >= start_time && cipher.deleted_date.unwrap() <= end_time,
             "Cipher was flagged as deleted in the repository."
@@ -311,14 +301,8 @@ mod tests {
 
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
         let cipher_id_2: CipherId = TEST_CIPHER_ID_2.parse().unwrap();
-        repository
-            .set(cipher_id.to_string(), cipher_1)
-            .await
-            .unwrap();
-        repository
-            .set(TEST_CIPHER_ID_2.to_string(), cipher_2)
-            .await
-            .unwrap();
+        repository.set(cipher_id, cipher_1).await.unwrap();
+        repository.set(cipher_id_2, cipher_2).await.unwrap();
 
         let start_time = Utc::now();
 
@@ -327,16 +311,8 @@ mod tests {
             .unwrap();
         let end_time = Utc::now();
 
-        let cipher_1 = repository
-            .get(cipher_id.to_string())
-            .await
-            .unwrap()
-            .unwrap();
-        let cipher_2 = repository
-            .get(cipher_id_2.to_string())
-            .await
-            .unwrap()
-            .unwrap();
+        let cipher_1 = repository.get(cipher_id).await.unwrap().unwrap();
+        let cipher_2 = repository.get(cipher_id_2).await.unwrap().unwrap();
 
         assert!(
             cipher_1.deleted_date.unwrap() >= start_time
