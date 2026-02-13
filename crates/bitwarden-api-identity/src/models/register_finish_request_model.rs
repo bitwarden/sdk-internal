@@ -22,7 +22,24 @@ pub struct RegisterFinishRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub email_verification_token: Option<String>,
-    #[serde(rename = "masterPasswordHash", alias = "MasterPasswordHash")]
+    #[serde(
+        rename = "masterPasswordAuthentication",
+        alias = "MasterPasswordAuthentication",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub master_password_authentication:
+        Option<Box<models::MasterPasswordAuthenticationDataRequestModel>>,
+    #[serde(
+        rename = "masterPasswordUnlock",
+        alias = "MasterPasswordUnlock",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub master_password_unlock: Option<Box<models::MasterPasswordUnlockDataRequestModel>>,
+    #[serde(
+        rename = "masterPasswordHash",
+        alias = "MasterPasswordHash",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub master_password_hash: Option<String>,
     #[serde(
         rename = "masterPasswordHint",
@@ -30,14 +47,22 @@ pub struct RegisterFinishRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub master_password_hint: Option<String>,
-    #[serde(rename = "userSymmetricKey", alias = "UserSymmetricKey")]
+    #[serde(
+        rename = "userSymmetricKey",
+        alias = "UserSymmetricKey",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub user_symmetric_key: Option<String>,
     #[serde(rename = "userAsymmetricKeys", alias = "UserAsymmetricKeys")]
     pub user_asymmetric_keys: Box<models::KeysRequestModel>,
-    #[serde(rename = "kdf", alias = "Kdf")]
-    pub kdf: models::KdfType,
-    #[serde(rename = "kdfIterations", alias = "KdfIterations")]
-    pub kdf_iterations: i32,
+    #[serde(rename = "kdf", alias = "Kdf", skip_serializing_if = "Option::is_none")]
+    pub kdf: Option<models::KdfType>,
+    #[serde(
+        rename = "kdfIterations",
+        alias = "KdfIterations",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub kdf_iterations: Option<i32>,
     #[serde(
         rename = "kdfMemory",
         alias = "KdfMemory",
@@ -97,21 +122,19 @@ pub struct RegisterFinishRequestModel {
 impl RegisterFinishRequestModel {
     pub fn new(
         email: Option<String>,
-        master_password_hash: Option<String>,
-        user_symmetric_key: Option<String>,
         user_asymmetric_keys: models::KeysRequestModel,
-        kdf: models::KdfType,
-        kdf_iterations: i32,
     ) -> RegisterFinishRequestModel {
         RegisterFinishRequestModel {
             email,
             email_verification_token: None,
-            master_password_hash,
+            master_password_authentication: None,
+            master_password_unlock: None,
+            master_password_hash: None,
             master_password_hint: None,
-            user_symmetric_key,
+            user_symmetric_key: None,
             user_asymmetric_keys: Box::new(user_asymmetric_keys),
-            kdf,
-            kdf_iterations,
+            kdf: None,
+            kdf_iterations: None,
             kdf_memory: None,
             kdf_parallelism: None,
             organization_user_id: None,

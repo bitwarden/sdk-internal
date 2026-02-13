@@ -109,9 +109,9 @@ mod tests {
         let repo = InMemoryRepository::default();
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
-                idp_login_url: "https://example.com/login".to_string(),
-                cookie_name: "TestCookie".to_string(),
-                cookie_domain: "example.com".to_string(),
+                idp_login_url: Some("https://example.com/login".to_string()),
+                cookie_name: Some("TestCookie".to_string()),
+                cookie_domain: Some("example.com".to_string()),
                 cookie_value: Some(vec![AcquiredCookie {
                     name: "TestCookie".to_string(),
                     value: "cookie-value-123".to_string(),
@@ -132,7 +132,7 @@ mod tests {
             .unwrap();
 
         if let BootstrapConfig::SsoCookieVendor(vendor_config) = retrieved.bootstrap {
-            assert_eq!(vendor_config.cookie_name, "TestCookie");
+            assert_eq!(vendor_config.cookie_name, Some("TestCookie".to_string()));
             assert_eq!(vendor_config.cookie_value.as_ref().unwrap().len(), 1);
             assert_eq!(
                 vendor_config.cookie_value.as_ref().unwrap()[0].value,
@@ -158,9 +158,9 @@ mod tests {
         // Overwrite with second config
         let config2 = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
-                idp_login_url: "https://example.com".to_string(),
-                cookie_name: "Cookie".to_string(),
-                cookie_domain: "example.com".to_string(),
+                idp_login_url: Some("https://example.com".to_string()),
+                cookie_name: Some("Cookie".to_string()),
+                cookie_domain: Some("example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -189,9 +189,9 @@ mod tests {
         };
         let config2 = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
-                idp_login_url: "https://example.com".to_string(),
-                cookie_name: "Cookie".to_string(),
-                cookie_domain: "example.com".to_string(),
+                idp_login_url: Some("https://example.com".to_string()),
+                cookie_name: Some("Cookie".to_string()),
+                cookie_domain: Some("example.com".to_string()),
                 cookie_value: None,
             }),
         };

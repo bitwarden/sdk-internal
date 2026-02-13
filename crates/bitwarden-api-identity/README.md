@@ -22,7 +22,7 @@ client.
 - API version: v1
 - Package version: 2.0.0
 - Server Git commit:
-  [`d9e849a44da734c3d210d96151fed6f405a23587`](https://github.com/bitwarden/server/commit/d9e849a44da734c3d210d96151fed6f405a23587)
+  [`e5cf9dff2e718a4ca88d4f9888686ec13db9118b`](https://github.com/bitwarden/server/commit/e5cf9dff2e718a4ca88d4f9888686ec13db9118b)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -51,9 +51,12 @@ All URIs are relative to *https://identity.bitwarden.com*
 - [AssertionOptions](docs/AssertionOptions.md)
 - [AuthenticationExtensionsClientInputs](docs/AuthenticationExtensionsClientInputs.md)
 - [AuthenticatorTransport](docs/AuthenticatorTransport.md)
+- [KdfRequestModel](docs/KdfRequestModel.md)
 - [KdfSettings](docs/KdfSettings.md)
 - [KdfType](docs/KdfType.md)
 - [KeysRequestModel](docs/KeysRequestModel.md)
+- [MasterPasswordAuthenticationDataRequestModel](docs/MasterPasswordAuthenticationDataRequestModel.md)
+- [MasterPasswordUnlockDataRequestModel](docs/MasterPasswordUnlockDataRequestModel.md)
 - [PasswordPreloginRequestModel](docs/PasswordPreloginRequestModel.md)
 - [PasswordPreloginResponseModel](docs/PasswordPreloginResponseModel.md)
 - [ProductTierType](docs/ProductTierType.md)

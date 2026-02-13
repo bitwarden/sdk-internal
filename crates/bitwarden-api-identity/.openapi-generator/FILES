@@ -8,9 +8,12 @@ src/models/account_keys_request_model.rs
 src/models/assertion_options.rs
 src/models/authentication_extensions_client_inputs.rs
 src/models/authenticator_transport.rs
+src/models/kdf_request_model.rs
 src/models/kdf_settings.rs
 src/models/kdf_type.rs
 src/models/keys_request_model.rs
+src/models/master_password_authentication_data_request_model.rs
+src/models/master_password_unlock_data_request_model.rs
 src/models/mod.rs
 src/models/password_prelogin_request_model.rs
 src/models/password_prelogin_response_model.rs
