@@ -75,7 +75,7 @@ async fn fetch_organization_public_key(
             .debug_map_err(SyncError::DataError)?
             .into_bytes(),
     ))
-    .debug_map_err(SyncError::DataError)
+    .debug_map_err(SyncError::DataErr)
 }
 
 // Download the public keys for the organizations, since these are not included in the sync

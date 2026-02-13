@@ -1,4 +1,4 @@
-use std::{pin::Pin, str::FromStr};
+use std::{fmt::Display, pin::Pin, str::FromStr};
 
 use bitwarden_encoding::{B64, FromStrVisitor};
 use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::DecodePublicKey};
@@ -97,6 +97,15 @@ impl FromStr for PublicKey {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let bytes: Vec<u8> = s.parse::<B64>().map_err(|_| ())?.into();
         Self::from_der(&SpkiPublicKeyBytes::from(bytes)).map_err(|_| ())
+    }
+}
+
+impl Display for PublicKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.to_der() {
+            Ok(der) => write!(f, "{}", B64::from(der.as_ref()).to_string()),
+            Err(_) => write!(f, ""),
+        }
     }
 }
 
