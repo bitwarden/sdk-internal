@@ -5,7 +5,7 @@ use std::{
 
 use coset::iana::KeyOperation;
 use serde::Serialize;
-use tracing::instrument;
+use tracing::{info, instrument};
 use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
@@ -242,7 +242,11 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 }
             }
             _ => {
-                tracing::warn!("Unsupported unwrap operation for the given key and data");
+                tracing::warn!(
+                    "Unsupported unwrap operation for the given key and data {:?}, {:?}",
+                    wrapping_key,
+                    wrapped_key
+                );
                 return Err(CryptoError::InvalidKey);
             }
         };

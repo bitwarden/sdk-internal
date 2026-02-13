@@ -10,7 +10,7 @@ use bitwarden_core::{
 use bitwarden_crypto::{CompositeEncryptable, Decryptable, KeyStoreContext};
 use bitwarden_send::SendView;
 use bitwarden_vault::{CipherView, EncryptionContext, FolderView};
-use tracing::{debug_span, instrument};
+use tracing::{debug, debug_span, instrument};
 use uuid::Uuid;
 
 /// Errors that can occur during data re-encryption
@@ -22,6 +22,8 @@ pub(crate) enum DataReencryptionError {
     Encryption,
     /// Failed to convert data to API model
     DataConversion,
+    /// CipherKeyRewrap
+    CipherKeyRewrap,
 }
 
 /// Re-encrypts all user data (folders, ciphers, sends) with the new user key for the purpose of
@@ -113,12 +115,28 @@ fn reencrypt_ciphers(
         .iter()
         .map(|cipher| {
             let _span = debug_span!("reencrypt_cipher", cipher_id = ?cipher.id).entered();
-            let cipher_view: CipherView = cipher
-                .decrypt(ctx, current_key)
-                .map_err(|_| DataReencryptionError::Decryption)?;
-            cipher_view
-                .encrypt_composite(ctx, new_key)
-                .map_err(|_| DataReencryptionError::Encryption)
+
+            // If the cipher has a per-vault-item cipher-key, the cipher-key
+            // is re-wrapped
+            if cipher.key.is_some() {
+                debug!("Re-wrapping cipher key without decrypting cipher");
+                let mut cipher = cipher.clone();
+                cipher
+                    .rewrap_cipher_key(current_key, new_key, ctx)
+                    .map_err(|_| DataReencryptionError::CipherKeyRewrap)?;
+                Ok(cipher)
+
+            // If the cipher has no cipher-key, the entire cipher is decrypted and re-encrypted
+            // and has to be re-uploaded.
+            } else {
+                debug!("Cipher has no cipher key, decrypting and re-encrypting entire cipher");
+                let cipher_view: CipherView = cipher
+                    .decrypt(ctx, current_key)
+                    .map_err(|_| DataReencryptionError::Decryption)?;
+                cipher_view
+                    .encrypt_composite(ctx, new_key)
+                    .map_err(|_| DataReencryptionError::Encryption)
+            }
         })
         .collect::<Result<Vec<bitwarden_vault::Cipher>, DataReencryptionError>>()
 }

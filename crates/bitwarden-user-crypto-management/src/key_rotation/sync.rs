@@ -403,7 +403,7 @@ pub(super) async fn sync_current_account_data(
         .debug_map_err(SyncError::NetworkError)?;
 
     let profile = sync.profile.as_ref().ok_or(SyncError::DataError)?;
-    /// This is optional for master-password-users!
+    // This is optional for master-password-users!
     let kdf_and_salt = parse_kdf_and_salt(&sync.user_decryption)?;
     let account_cryptographic_state = profile
         .account_keys
