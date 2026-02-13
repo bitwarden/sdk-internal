@@ -5,7 +5,7 @@ use std::{
 
 use coset::iana::KeyOperation;
 use serde::Serialize;
-use tracing::{info, instrument};
+use tracing::instrument;
 use zeroize::Zeroizing;
 
 use super::KeyStoreInner;
