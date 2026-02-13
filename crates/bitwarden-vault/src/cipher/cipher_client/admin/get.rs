@@ -8,7 +8,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     VaultParseError,
-    cipher::cipher::{DecryptCipherListResult, PartialCipher},
+    cipher::cipher::{DecryptCipherResult, PartialCipher},
     cipher_client::admin::CipherAdminClient,
 };
 
@@ -30,7 +30,7 @@ pub async fn list_org_ciphers(
     include_member_items: bool,
     api_client: &bitwarden_api_api::apis::ApiClient,
     key_store: &KeyStore<KeyIds>,
-) -> Result<DecryptCipherListResult, GetOrganizationCiphersAdminError> {
+) -> Result<DecryptCipherResult, GetOrganizationCiphersAdminError> {
     let api = api_client.ciphers_api();
     let response: CipherMiniDetailsResponseModelListResponseModel = api
         .get_organization_ciphers(Some(org_id.into()), Some(include_member_items))
@@ -44,7 +44,7 @@ pub async fn list_org_ciphers(
         .collect::<Result<Vec<_>, _>>()?;
 
     let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
-    Ok(DecryptCipherListResult {
+    Ok(DecryptCipherResult {
         successes,
         failures: failures.into_iter().cloned().collect(),
     })
@@ -56,7 +56,7 @@ impl CipherAdminClient {
         &self,
         org_id: OrganizationId,
         include_member_items: bool,
-    ) -> Result<DecryptCipherListResult, GetOrganizationCiphersAdminError> {
+    ) -> Result<DecryptCipherResult, GetOrganizationCiphersAdminError> {
         list_org_ciphers(
             org_id,
             include_member_items,
