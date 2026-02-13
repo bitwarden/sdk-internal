@@ -832,6 +832,7 @@ mod tests {
                     salt: "test@bitwarden.com".to_owned(),
                 },
             },
+            upgrade_token: None,
         };
 
         let org_request = InitOrgCryptoRequest {

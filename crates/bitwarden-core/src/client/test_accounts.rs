@@ -139,7 +139,8 @@ pub fn test_bitwarden_com_account() -> TestAccount {
                     master_key_wrapped_user_key: "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=".parse().unwrap(),
                     salt: email.to_owned(),
                 },
-            }
+            },
+            upgrade_token: None,
         },
         org: Some(InitOrgCryptoRequest {
             organization_keys: HashMap::from([(
@@ -205,6 +206,7 @@ pub fn test_legacy_user_key_account() -> TestAccount {
                     salt: email.to_owned(),
                 },
             },
+            upgrade_token: None,
         },
         org: None,
     }

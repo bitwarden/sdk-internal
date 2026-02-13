@@ -1,3 +1,6 @@
+#[cfg(all(feature = "wasm", not(feature = "uniffi")))]
+use std::str::FromStr;
+
 #[cfg(feature = "wasm")]
 use bitwarden_crypto::safe::PasswordProtectedKeyEnvelope;
 use bitwarden_crypto::{CryptoError, Decryptable, Kdf, RotateableKeySet};
@@ -27,7 +30,7 @@ use crate::key_management::{
 use crate::{
     Client, UserId,
     client::encryption_settings::EncryptionSettingsError,
-    error::StatefulCryptoError,
+    error::{NotAuthenticatedError, StatefulCryptoError},
     key_management::crypto::{
         CryptoClientError, EnrollPinResponse, MakeKeysError, MakeTdeRegistrationResponse,
         UpdateKdfResponse, UserCryptoV2KeysResponse, enroll_pin, get_v2_rotated_account_keys,
@@ -238,6 +241,53 @@ impl CryptoClient {
             salt,
             org_public_key,
         )
+    }
+
+    /// Gets the upgraded V2 user key using an upgrade token.
+    /// If the current key is already V2, returns it directly.
+    /// If the current key is V1 and a token is provided, extracts the V2 key.
+    pub fn get_upgraded_user_key(
+        &self,
+        #[cfg(all(feature = "wasm", not(feature = "uniffi")))] upgrade_token: Option<String>,
+        #[cfg(not(all(feature = "wasm", not(feature = "uniffi"))))] upgrade_token: Option<
+            crate::key_management::V2UpgradeToken,
+        >,
+    ) -> Result<B64, CryptoClientError> {
+        #[cfg(all(feature = "wasm", not(feature = "uniffi")))]
+        let upgrade_token = upgrade_token
+            .map(|s| crate::key_management::V2UpgradeToken::from_str(&s))
+            .transpose()
+            .map_err(|_| CryptoClientError::InvalidUpgradeToken)?;
+
+        let mut ctx = self.client.internal.get_key_store().context_mut();
+        #[allow(deprecated)]
+        let current_key = ctx
+            .dangerous_get_symmetric_key(SymmetricKeyId::User)
+            .map_err(|_| CryptoClientError::NotAuthenticated(NotAuthenticatedError))?;
+
+        match (current_key, upgrade_token) {
+            // Already V2, return current key
+            (bitwarden_crypto::SymmetricCryptoKey::XChaCha20Poly1305Key(_), _) => {
+                Ok(current_key.clone().to_base64())
+            }
+            // V1 with token, extract V2
+            (bitwarden_crypto::SymmetricCryptoKey::Aes256CbcHmacKey(_), Some(token)) => {
+                let current_key_id = SymmetricKeyId::User;
+                let v2_key_id = token
+                    .unwrap_v2(current_key_id, &mut ctx)
+                    .map_err(|_| CryptoClientError::InvalidUpgradeToken)?;
+                #[allow(deprecated)]
+                let v2_key = ctx
+                    .dangerous_get_symmetric_key(v2_key_id)
+                    .map_err(|_| CryptoClientError::InvalidUpgradeToken)?;
+                Ok(v2_key.clone().to_base64())
+            }
+            // V1 without token, error
+            (bitwarden_crypto::SymmetricCryptoKey::Aes256CbcHmacKey(_), None) => {
+                Err(CryptoClientError::UpgradeTokenRequired)
+            }
+            _ => Err(CryptoClientError::InvalidKeyType),
+        }
     }
 }
 

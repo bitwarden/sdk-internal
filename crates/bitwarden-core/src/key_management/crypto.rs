@@ -53,6 +53,12 @@ pub enum CryptoClientError {
     PasswordProtectedKeyEnvelope(#[from] PasswordProtectedKeyEnvelopeError),
     #[error("Invalid PRF input")]
     InvalidPrfInput,
+    #[error("Invalid upgrade token")]
+    InvalidUpgradeToken,
+    #[error("Upgrade token is required for V1 keys")]
+    UpgradeTokenRequired,
+    #[error("Invalid key type")]
+    InvalidKeyType,
 }
 
 /// State used for initializing the user cryptographic state.
@@ -72,6 +78,9 @@ pub struct InitUserCryptoRequest {
     pub account_cryptographic_state: WrappedAccountCryptographicState,
     /// The method to decrypt the user's account symmetric key (user key)
     pub method: InitUserCryptoMethod,
+    /// Optional V2 upgrade token for automatic key rotation from V1 to V2
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub upgrade_token: Option<crate::key_management::V2UpgradeToken>,
 }
 
 /// The crypto method used to initialize the user cryptographic state.
@@ -184,13 +193,16 @@ pub(super) async fn initialize_user_crypto(
                     password,
                     master_password_unlock,
                     account_crypto_state,
+                    req.upgrade_token.clone(),
                 )?;
         }
         InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
             let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
-            client
-                .internal
-                .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                account_crypto_state,
+                req.upgrade_token.clone(),
+            )?;
         }
         InitUserCryptoMethod::Pin {
             pin,
@@ -201,6 +213,7 @@ pub(super) async fn initialize_user_crypto(
                 pin_key,
                 pin_protected_user_key,
                 account_crypto_state,
+                req.upgrade_token.clone(),
             )?;
         }
         InitUserCryptoMethod::PinEnvelope {
@@ -211,6 +224,7 @@ pub(super) async fn initialize_user_crypto(
                 pin,
                 pin_protected_user_key_envelope,
                 account_crypto_state,
+                req.upgrade_token.clone(),
             )?;
         }
         InitUserCryptoMethod::AuthRequest {
@@ -230,9 +244,11 @@ pub(super) async fn initialize_user_crypto(
                     auth_request_key,
                 )?,
             };
-            client
-                .internal
-                .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                account_crypto_state,
+                req.upgrade_token.clone(),
+            )?;
         }
         InitUserCryptoMethod::DeviceKey {
             device_key,
@@ -243,9 +259,11 @@ pub(super) async fn initialize_user_crypto(
             let user_key = device_key
                 .decrypt_user_key(protected_device_private_key, device_protected_user_key)?;
 
-            client
-                .internal
-                .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                account_crypto_state,
+                req.upgrade_token.clone(),
+            )?;
         }
         InitUserCryptoMethod::KeyConnector {
             master_key,
@@ -258,6 +276,7 @@ pub(super) async fn initialize_user_crypto(
                 master_key,
                 user_key,
                 account_crypto_state,
+                req.upgrade_token.clone(),
             )?;
         }
     }
@@ -1072,6 +1091,7 @@ mod tests {
                         salt: "test@bitwarden.com".to_string(),
                     },
                 },
+                upgrade_token: None,
             },
         )
             .await
@@ -1103,6 +1123,7 @@ mod tests {
                         salt: "test@bitwarden.com".to_string(),
                     },
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1172,6 +1193,7 @@ mod tests {
                         salt: "test@bitwarden.com".to_string(),
                     },
                 },
+                upgrade_token: None,
             },
         )
             .await
@@ -1198,6 +1220,7 @@ mod tests {
                         salt: "test@bitwarden.com".to_string(),
                     },
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1262,6 +1285,7 @@ mod tests {
                         salt: "test@bitwarden.com".to_string(),
                     },
                 },
+                upgrade_token: None,
             },
         )
             .await
@@ -1286,6 +1310,7 @@ mod tests {
                     pin: "1234".into(),
                     pin_protected_user_key: pin_key.pin_protected_user_key,
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1331,6 +1356,7 @@ mod tests {
                     pin: "1234".into(),
                     pin_protected_user_key,
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1379,6 +1405,7 @@ mod tests {
                 method: InitUserCryptoMethod::DecryptedKey {
                     decrypted_user_key: user_key.to_string(),
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1407,6 +1434,7 @@ mod tests {
                     pin_protected_user_key_envelope: enroll_response
                         .pin_protected_user_key_envelope,
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1431,6 +1459,7 @@ mod tests {
                     salt: "test@bitwarden.com".to_string(),
                 },
                 WrappedAccountCryptographicState::V1 { private_key },
+                None,
             )
             .unwrap();
 
@@ -1594,6 +1623,7 @@ mod tests {
                         salt: "test@bitwarden.com".into(),
                     },
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1640,6 +1670,7 @@ mod tests {
                         salt: "test@bitwarden.com".to_string(),
                     },
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1666,6 +1697,7 @@ mod tests {
                 method: InitUserCryptoMethod::DecryptedKey {
                     decrypted_user_key: TEST_VECTOR_USER_KEY_V2_B64.to_string(),
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1722,6 +1754,7 @@ mod tests {
                 method: InitUserCryptoMethod::DecryptedKey {
                     decrypted_user_key: TEST_VECTOR_USER_KEY_V2_B64.to_string(),
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1757,6 +1790,7 @@ mod tests {
                         salt: TEST_USER_EMAIL.to_string(),
                     },
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1831,6 +1865,7 @@ mod tests {
                         .trusted_device_keys
                         .protected_user_key,
                 },
+                upgrade_token: None,
             })
             .await
             .expect("initializing user crypto with TDE device key should succeed");
@@ -1885,6 +1920,7 @@ mod tests {
                         .clone(),
                     master_key: make_keys_response.key_connector_key.clone().into(),
                 },
+                upgrade_token: None,
             })
             .await
             .expect("initializing user crypto with key connector key should succeed");

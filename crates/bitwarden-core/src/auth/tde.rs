@@ -39,6 +39,7 @@ pub(super) fn make_register_tde_keys(
         WrappedAccountCryptographicState::V1 {
             private_key: key_pair.private.clone(),
         },
+        None,
     )?;
 
     client

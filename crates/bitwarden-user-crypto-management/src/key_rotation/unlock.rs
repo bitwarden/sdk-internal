@@ -137,6 +137,7 @@ pub(super) fn reencrypt_unlock(
         organization_account_recovery_unlock_data: Some(organizations_memberships),
         passkey_unlock_data: Some(prf_passkey_unlock_data),
         device_key_unlock_data: Some(tde_device_unlock_data),
+        v2_upgrade_token: None,
     })
 }
 
