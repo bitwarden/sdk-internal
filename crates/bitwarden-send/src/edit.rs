@@ -42,7 +42,7 @@ pub(super) async fn edit_send<R: Repository<Send> + ?Sized>(
 ) -> Result<SendView, EditSendError> {
     let id = send_id.to_string();
 
-    // Verify the folder we're updating exists
+    // Verify the send we're updating exists
     repository.get(id.clone()).await?.ok_or(ItemNotFoundError)?;
 
     let send_request = key_store.encrypt(request)?;
