@@ -159,8 +159,8 @@ checksum = "2fd1289c04a9ea8cb22300a459a72a385d7c73d3259e2ed7dcb2af674838cfa9"
 
 [[package]]
 name = "clippy_utils"
-version = "0.1.91"
-source = "git+https://github.com/rust-lang/rust-clippy?rev=334fb906aef13d20050987b13448f37391bb97a2#334fb906aef13d20050987b13448f37391bb97a2"
+version = "0.1.95"
+source = "git+https://github.com/rust-lang/rust-clippy?rev=18a4108bf24e88f1537ed1f87264a64d0fb0f70d#18a4108bf24e88f1537ed1f87264a64d0fb0f70d"
 dependencies = [
  "arrayvec",
  "itertools",
