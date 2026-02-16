@@ -45,3 +45,6 @@ crates/bitwarden-uniffi/kotlin/sdk/src/main/java/com/bitwarden/**/*.kt
 
 # API Swagger files
 /artifacts
+
+# Claude
+.claude/settings.local.json

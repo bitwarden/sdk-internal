@@ -1,0 +1,9 @@
+[bindings.kotlin]
+package_name = "com.bitwarden.usercryptomanagement"
+generate_immutable_records = true
+android = true
+
+[bindings.swift]
+ffi_module_name = "BitwardenUserCryptoManagementFFI"
+module_name = "BitwardenUserCryptoManagement"
+generate_immutable_records = true

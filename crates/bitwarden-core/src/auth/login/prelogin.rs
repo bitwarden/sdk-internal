@@ -45,5 +45,6 @@ fn parse_prelogin(response: PasswordPreloginResponseModel) -> Result<Kdf, Missin
             parallelism: NonZeroU32::new(require!(response.kdf_parallelism) as u32)
                 .expect("Non-zero number"),
         },
+        KdfType::__Unknown(_) => return Err(MissingFieldError("kdf")),
     })
 }
