@@ -13,8 +13,8 @@ pub(crate) struct MiddlewareWrapper<T>(pub(crate) T);
 
 /// Trait used to share over the token attaching middleware. This is implemented by the token
 /// management structs, leaving them responsible for handling token retrieval and renewal logic. The
-/// middleware simply calls [MiddlewareExt::get_token] to get the current token (renewing if necessary) and
-/// attaches it to the request.
+/// middleware simply calls [MiddlewareExt::get_token] to get the current token (renewing if
+/// necessary) and attaches it to the request.
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 pub(crate) trait MiddlewareExt: 'static + Send + Sync {
