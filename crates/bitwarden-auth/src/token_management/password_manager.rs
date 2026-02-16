@@ -12,7 +12,7 @@ use bitwarden_crypto::KeyStore;
 use chrono::Utc;
 
 use super::common::{MiddlewareExt, MiddlewareWrapper};
-use crate::renew::common::TOKEN_RENEW_MARGIN_SECONDS;
+use crate::token_management::common::TOKEN_RENEW_MARGIN_SECONDS;
 
 /// Token handler for Bitwarden authentication.
 #[derive(Clone, Default)]
@@ -115,7 +115,7 @@ mod tests {
     use wiremock::MockServer;
 
     use super::*;
-    use crate::renew::common::test_utils;
+    use crate::token_management::common::test_utils;
 
     fn api_key_login_method() -> Arc<RwLock<Option<Arc<LoginMethod>>>> {
         Arc::new(RwLock::new(Some(Arc::new(LoginMethod::User(

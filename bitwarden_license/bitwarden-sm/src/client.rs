@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use bitwarden_auth::token_management::SecretsManagerTokenHandler;
 pub use bitwarden_core::ClientSettings;
 use bitwarden_core::{OrganizationId, auth::auth_client::AuthClient};
 use bitwarden_generators::GeneratorClientsExt;
@@ -11,13 +12,13 @@ use crate::{ProjectsClient, SecretsClient};
 /// The main struct for interacting with the Secrets Manager service through the SM SDK.
 pub struct SecretsManagerClient {
     client: bitwarden_core::Client,
-    token_handler: Arc<bitwarden_auth::renew::SecretsManagerTokenHandler>,
+    token_handler: Arc<SecretsManagerTokenHandler>,
 }
 
 impl SecretsManagerClient {
     /// Create a new SecretsManagerClient
     pub fn new(settings: Option<ClientSettings>) -> Self {
-        let token_handler = Arc::new(bitwarden_auth::renew::SecretsManagerTokenHandler::default());
+        let token_handler = Arc::new(SecretsManagerTokenHandler::default());
         Self {
             client: bitwarden_core::Client::new_with_token_handler(settings, token_handler.clone()),
             token_handler,

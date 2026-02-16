@@ -5,7 +5,7 @@ mod commercial;
 
 use std::sync::Arc;
 
-use bitwarden_auth::AuthClientExt as _;
+use bitwarden_auth::{AuthClientExt as _, token_management::PasswordManagerTokenHandler};
 use bitwarden_core::auth::{ClientManagedTokenHandler, ClientManagedTokens};
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
@@ -36,7 +36,7 @@ pub struct PasswordManagerClient(pub bitwarden_core::Client);
 impl PasswordManagerClient {
     /// Initialize a new instance of the SDK client
     pub fn new(settings: Option<bitwarden_core::ClientSettings>) -> Self {
-        let token_handler = Arc::new(bitwarden_auth::renew::PasswordManagerTokenHandler::default());
+        let token_handler = Arc::new(PasswordManagerTokenHandler::default());
         Self(bitwarden_core::Client::new_with_token_handler(
             settings,
             token_handler,
