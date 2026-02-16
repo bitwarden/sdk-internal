@@ -495,6 +495,55 @@ mod tests {
         content_format::{Bytes, Pkcs8PrivateKeyDerContentFormat},
     };
 
+    const COSE_TEST_PRIVATE_KEY: &str = "-----BEGIN PRIVATE KEY-----
+MIIEwAIBADANBgkqhkiG9w0BAQEFAASCBKowggSmAgEAAoIBAQDiTQVuzhdygFz5
+qv14i+XFDGTnDravzUQT1hPKPGUZOUSZ1gwdNgkWqOIaOnR65BHEnL0sp4bnuiYc
+afeK2JAW5Sc8Z7IxBNSuAwhQmuKx3RochMIiuCkI2/p+JvUQoJu6FBNm8OoJ4Cwm
+qqHGZESMfnpQDCuDrB3JdJEdXhtmnl0C48sGjOk3WaBMcgGqn8LbJDUlyu1zdqyv
+b0waJf0iV4PJm2fkUl7+57D/2TkpbCqURVnZK1FFIEg8mr6FzSN1F2pOfktkNYZw
+P7MSNR7o81CkRSCMr7EkIVa+MZYMBx106BMK7FXgWB7nbSpsWKxBk7ZDHkID2fam
+rEcVtrzDAgMBAAECggEBAKwq9OssGGKgjhvUnyrLJHAZ0dqIMyzk+dotkLjX4gKi
+szJmyqiep6N5sStLNbsZMPtoU/RZMCW0VbJgXFhiEp2YkZU/Py5UAoqw++53J+kx
+0d/IkPphKbb3xUec0+1mg5O6GljDCQuiZXS1dIa/WfeZcezclW6Dz9WovY6ePjJ+
+8vEBR1icbNKzyeINd6MtPtpcgQPHtDwHvhPyUDbKDYGbLvjh9nui8h4+ZUlXKuVR
+jB0ChxiKV1xJRjkrEVoulOOicd5r597WfB2ghax3pvRZ4MdXemCXm3gQYqPVKach
+vGU+1cPQR/MBJZpxT+EZA97xwtFS3gqwbxJaNFcoE8ECgYEA9OaeYZhQPDo485tI
+1u/Z7L/3PNape9hBQIXoW7+MgcQ5NiWqYh8Jnj43EIYa0wM/ECQINr1Za8Q5e6KR
+J30FcU+kfyjuQ0jeXdNELGU/fx5XXNg/vV8GevHwxRlwzqZTCg6UExUZzbYEQqd7
+l+wPyETGeua5xCEywA1nX/D101kCgYEA7I6aMFjhEjO71RmzNhqjKJt6DOghoOfQ
+TjhaaanNEhLYSbenFz1mlb21mW67ulmz162saKdIYLxQNJIP8ZPmxh4ummOJI8w9
+ClHfo8WuCI2hCjJ19xbQJocSbTA5aJg6lA1IDVZMDbQwsnAByPRGpaLHBT/Q9Bye
+KvCMB+9amXsCgYEAx65yXSkP4sumPBrVHUub6MntERIGRxBgw/drKcPZEMWp0FiN
+wEuGUBxyUWrG3F69QK/gcqGZE6F/LSu0JvptQaKqgXQiMYJsrRvhbkFvsHpQyUcZ
+UZL1ebFjm5HOxPAgrQaN/bEqxOwwNRjSUWEMzUImg3c06JIZCzbinvudtKECgYEA
+kY3JF/iIPI/yglP27lKDlCfeeHSYxI3+oTKRhzSAxx8rUGidenJAXeDGDauR/T7W
+pt3pGNfddBBK9Z3uC4Iq3DqUCFE4f/taj7ADAJ1Q0Vh7/28/IJM77ojr8J1cpZwN
+Zy2o6PPxhfkagaDjqEeN9Lrs5LD4nEvDkr5CG1vOjmMCgYEAvIBFKRm31NyF8jLi
+CVuPwC5PzrW5iThDmsWTaXFpB3esUsbICO2pEz872oeQS+Em4GO5vXUlpbbFPzup
+PFhA8iMJ8TAvemhvc7oM0OZqpU6p3K4seHf6BkwLxumoA3vDJfovu9RuXVcJVOnf
+DnqOsltgPomWZ7xVfMkm9niL2OA=
+-----END PRIVATE KEY-----";
+    const COSE_TEST_KEY_ID: &[u8] = &[
+        31, 177, 210, 36, 166, 187, 97, 218, 27, 217, 37, 160, 84, 26, 144, 40,
+    ];
+    const COSE_TEST_PUBLIC_KEY_DER: &[u8] = &[
+        48, 130, 1, 34, 48, 13, 6, 9, 42, 134, 72, 134, 247, 13, 1, 1, 1, 5, 0, 3, 130, 1, 15, 0,
+        48, 130, 1, 10, 2, 130, 1, 1, 0, 226, 77, 5, 110, 206, 23, 114, 128, 92, 249, 170, 253,
+        120, 139, 229, 197, 12, 100, 231, 14, 182, 175, 205, 68, 19, 214, 19, 202, 60, 101, 25, 57,
+        68, 153, 214, 12, 29, 54, 9, 22, 168, 226, 26, 58, 116, 122, 228, 17, 196, 156, 189, 44,
+        167, 134, 231, 186, 38, 28, 105, 247, 138, 216, 144, 22, 229, 39, 60, 103, 178, 49, 4, 212,
+        174, 3, 8, 80, 154, 226, 177, 221, 26, 28, 132, 194, 34, 184, 41, 8, 219, 250, 126, 38,
+        245, 16, 160, 155, 186, 20, 19, 102, 240, 234, 9, 224, 44, 38, 170, 161, 198, 100, 68, 140,
+        126, 122, 80, 12, 43, 131, 172, 29, 201, 116, 145, 29, 94, 27, 102, 158, 93, 2, 227, 203,
+        6, 140, 233, 55, 89, 160, 76, 114, 1, 170, 159, 194, 219, 36, 53, 37, 202, 237, 115, 118,
+        172, 175, 111, 76, 26, 37, 253, 34, 87, 131, 201, 155, 103, 228, 82, 94, 254, 231, 176,
+        255, 217, 57, 41, 108, 42, 148, 69, 89, 217, 43, 81, 69, 32, 72, 60, 154, 190, 133, 205,
+        35, 117, 23, 106, 78, 126, 75, 100, 53, 134, 112, 63, 179, 18, 53, 30, 232, 243, 80, 164,
+        69, 32, 140, 175, 177, 36, 33, 86, 190, 49, 150, 12, 7, 29, 116, 232, 19, 10, 236, 85, 224,
+        88, 30, 231, 109, 42, 108, 88, 172, 65, 147, 182, 67, 30, 66, 3, 217, 246, 166, 172, 71,
+        21, 182, 188, 195, 2, 3, 1, 0, 1,
+    ];
+
     #[test]
     fn test_asymmetric_crypto_key() {
         let pem_key_str = "-----BEGIN PRIVATE KEY-----
@@ -680,17 +729,9 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
 
     #[test]
     fn test_public_key_cose_roundtrip() {
-        let public_key_b64 = concat!(
-            "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArvcXfr5pCD6KhzXo7BWc",
-            "5Hdcbgp9U6hk0+wDYQBJ2yP8mlbd3GiN9JMFAtliE6BaTYLuxI9Mdk7XmDoKy63X",
-            "AuI8tUon5imL/792Wca3f3qrbZh9pOfPKWp7HkcByty1ZO8QPlEYUP24y4DzOfVd",
-            "LkdZfs9X5qKHiTxc+VklzTm3PSap4eORTQ/lP1GB10y0qJk5+44GRcSQSr3ku6ui",
-            "2re8AJ2GQhdnZz5oWaCb/kij5bQPBwBrIEBlgRdaeasVdR6wFJPJAQZxtqWo9MPK",
-            "eVDOkaQ3Qrryh+49S4rln3592/WeHYM5hO47DJr86ELcqcyCmksYas7xTqHfVfHS",
-            "XQIDAQAB",
-        );
-
-        let key: PublicKey = public_key_b64.parse().expect("should parse public key");
+        let key: PublicKey =
+            PublicKey::from_der(&SpkiPublicKeyBytes::from(COSE_TEST_PUBLIC_KEY_DER))
+                .expect("should parse public key");
         let cose = key.to_cose();
         let decoded = PublicKey::from_cose(&cose).expect("should decode public key from COSE");
 
@@ -698,46 +739,40 @@ DnqOsltgPomWZ7xVfMkm9niL2OA=
             key.to_der().expect("should convert key to DER"),
             decoded.to_der().expect("should convert decoded key to DER")
         );
+
+        let key_id_decoded: Vec<u8> = (&decoded.key_id()).into();
+        assert_eq!(
+            COSE_TEST_KEY_ID, key_id_decoded,
+            "key ID should match original key ID"
+        );
     }
 
     #[test]
     fn test_private_key_cose_roundtrip() {
-        let pem_key_str = "-----BEGIN PRIVATE KEY-----
-MIIEwAIBADANBgkqhkiG9w0BAQEFAASCBKowggSmAgEAAoIBAQDiTQVuzhdygFz5
-qv14i+XFDGTnDravzUQT1hPKPGUZOUSZ1gwdNgkWqOIaOnR65BHEnL0sp4bnuiYc
-afeK2JAW5Sc8Z7IxBNSuAwhQmuKx3RochMIiuCkI2/p+JvUQoJu6FBNm8OoJ4Cwm
-qqHGZESMfnpQDCuDrB3JdJEdXhtmnl0C48sGjOk3WaBMcgGqn8LbJDUlyu1zdqyv
-b0waJf0iV4PJm2fkUl7+57D/2TkpbCqURVnZK1FFIEg8mr6FzSN1F2pOfktkNYZw
-P7MSNR7o81CkRSCMr7EkIVa+MZYMBx106BMK7FXgWB7nbSpsWKxBk7ZDHkID2fam
-rEcVtrzDAgMBAAECggEBAKwq9OssGGKgjhvUnyrLJHAZ0dqIMyzk+dotkLjX4gKi
-szJmyqiep6N5sStLNbsZMPtoU/RZMCW0VbJgXFhiEp2YkZU/Py5UAoqw++53J+kx
-0d/IkPphKbb3xUec0+1mg5O6GljDCQuiZXS1dIa/WfeZcezclW6Dz9WovY6ePjJ+
-8vEBR1icbNKzyeINd6MtPtpcgQPHtDwHvhPyUDbKDYGbLvjh9nui8h4+ZUlXKuVR
-jB0ChxiKV1xJRjkrEVoulOOicd5r597WfB2ghax3pvRZ4MdXemCXm3gQYqPVKach
-vGU+1cPQR/MBJZpxT+EZA97xwtFS3gqwbxJaNFcoE8ECgYEA9OaeYZhQPDo485tI
-1u/Z7L/3PNape9hBQIXoW7+MgcQ5NiWqYh8Jnj43EIYa0wM/ECQINr1Za8Q5e6KR
-J30FcU+kfyjuQ0jeXdNELGU/fx5XXNg/vV8GevHwxRlwzqZTCg6UExUZzbYEQqd7
-l+wPyETGeua5xCEywA1nX/D101kCgYEA7I6aMFjhEjO71RmzNhqjKJt6DOghoOfQ
-TjhaaanNEhLYSbenFz1mlb21mW67ulmz162saKdIYLxQNJIP8ZPmxh4ummOJI8w9
-ClHfo8WuCI2hCjJ19xbQJocSbTA5aJg6lA1IDVZMDbQwsnAByPRGpaLHBT/Q9Bye
-KvCMB+9amXsCgYEAx65yXSkP4sumPBrVHUub6MntERIGRxBgw/drKcPZEMWp0FiN
-wEuGUBxyUWrG3F69QK/gcqGZE6F/LSu0JvptQaKqgXQiMYJsrRvhbkFvsHpQyUcZ
-UZL1ebFjm5HOxPAgrQaN/bEqxOwwNRjSUWEMzUImg3c06JIZCzbinvudtKECgYEA
-kY3JF/iIPI/yglP27lKDlCfeeHSYxI3+oTKRhzSAxx8rUGidenJAXeDGDauR/T7W
-pt3pGNfddBBK9Z3uC4Iq3DqUCFE4f/taj7ADAJ1Q0Vh7/28/IJM77ojr8J1cpZwN
-Zy2o6PPxhfkagaDjqEeN9Lrs5LD4nEvDkr5CG1vOjmMCgYEAvIBFKRm31NyF8jLi
-CVuPwC5PzrW5iThDmsWTaXFpB3esUsbICO2pEz872oeQS+Em4GO5vXUlpbbFPzup
-PFhA8iMJ8TAvemhvc7oM0OZqpU6p3K4seHf6BkwLxumoA3vDJfovu9RuXVcJVOnf
-DnqOsltgPomWZ7xVfMkm9niL2OA=
------END PRIVATE KEY-----";
-
-        let key = PrivateKey::from_pem(pem_key_str).expect("should parse private key");
+        let key = PrivateKey::from_pem(COSE_TEST_PRIVATE_KEY).expect("should parse private key");
         let cose = key.to_cose();
         let decoded = PrivateKey::from_cose(&cose).expect("should decode private key from COSE");
+        let public_key_der = key
+            .to_public_key()
+            .to_der()
+            .expect("should get public key DER");
 
         assert_eq!(
             key.to_der().expect("should convert key to DER"),
             decoded.to_der().expect("should convert decoded key to DER")
+        );
+        assert_eq!(
+            public_key_der,
+            decoded
+                .to_public_key()
+                .to_der()
+                .expect("should get public key DER from decoded key")
+        );
+
+        let key_id_decoded: Vec<u8> = (&decoded.key_id()).into();
+        assert_eq!(
+            COSE_TEST_KEY_ID, key_id_decoded,
+            "key ID should match original key ID"
         );
     }
 }
