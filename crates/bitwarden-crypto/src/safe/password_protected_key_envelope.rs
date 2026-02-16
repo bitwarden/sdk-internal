@@ -30,7 +30,8 @@ use crate::{
     KEY_ID_SIZE, KeyIds, KeyStoreContext, SymmetricCryptoKey,
     cose::{
         ALG_ARGON2ID13, ARGON2_ITERATIONS, ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
-        CONTAINED_KEY_ID, CoseExtractError, extract_bytes, extract_integer,
+        CONTAINED_KEY_ID, CoseExtractError, SAFE_OBJECT_NAMESPACE, SafeObjectNamespace,
+        extract_bytes, extract_integer,
     },
     keys::KeyId,
     xchacha20,
@@ -127,6 +128,10 @@ impl PasswordProtectedKeyEnvelope {
                 if let Some(key_id) = key_to_seal.key_id() {
                     hdr = hdr.value(CONTAINED_KEY_ID, Value::from(Vec::from(&key_id)));
                 }
+                hdr = hdr.value(
+                    SAFE_OBJECT_NAMESPACE,
+                    Value::from(SafeObjectNamespace::PasswordProtectedKeyEnvelope as i64),
+                );
                 hdr.build()
             })
             .create_ciphertext(&key_to_seal_bytes, &[], |data, aad| {
@@ -172,6 +177,25 @@ impl PasswordProtectedKeyEnvelope {
             return Err(PasswordProtectedKeyEnvelopeError::Parsing(
                 "Unknown or unsupported KDF algorithm".to_string(),
             ));
+        }
+
+        match extract_integer(
+            &self.cose_encrypt.protected.header,
+            SAFE_OBJECT_NAMESPACE,
+            "safe object namespace",
+        ) {
+            Ok(namespace) => {
+                if namespace != i128::from(SafeObjectNamespace::PasswordProtectedKeyEnvelope as i64)
+                {
+                    return Err(PasswordProtectedKeyEnvelopeError::Parsing(
+                        "Invalid safe object namespace".to_string(),
+                    ));
+                }
+            }
+            // The first use-case - Pin-protected-key-envelopes - did not require the object
+            // namespace to be present. Therefore, without migration of persistent pin
+            // unlocks, this cannot yet be removed / enforced to error.
+            Err(_) => {}
         }
 
         let kdf_settings: Argon2RawSettings =
@@ -676,6 +700,38 @@ mod tests {
         assert!(matches!(
             deserialized.unseal(wrong_password, &mut ctx),
             Err(PasswordProtectedKeyEnvelopeError::WrongPassword)
+        ));
+    }
+
+    #[test]
+    fn test_wrong_safe_namespace() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
+        let test_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let password = "test_password";
+
+        let mut envelope =
+            PasswordProtectedKeyEnvelope::seal(test_key, password, &ctx).expect("Seal works");
+
+        if let Some((_, value)) = envelope
+            .cose_encrypt
+            .protected
+            .header
+            .rest
+            .iter_mut()
+            .find(|(label, _)| {
+                matches!(label, coset::Label::Int(label_value) if *label_value == SAFE_OBJECT_NAMESPACE)
+            })
+        {
+            *value = Value::Integer((SafeObjectNamespace::DataEnvelope as i64).into());
+        }
+
+        let deserialized: PasswordProtectedKeyEnvelope =
+            PasswordProtectedKeyEnvelope::try_from(&(&envelope).into())
+                .expect("Envelope should be valid");
+        assert!(matches!(
+            deserialized.unseal(password, &mut ctx),
+            Err(PasswordProtectedKeyEnvelopeError::Parsing(_))
         ));
     }
 

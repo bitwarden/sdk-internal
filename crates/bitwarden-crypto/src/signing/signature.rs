@@ -9,7 +9,7 @@ use super::{
 use crate::{
     CoseSign1Bytes, CryptoError,
     content_format::CoseSign1ContentFormat,
-    cose::{CoseSerializable, SIGNING_NAMESPACE},
+    cose::{CONTENT_NAMESPACE, CoseSerializable},
     error::{EncodingError, SignatureError},
 };
 
@@ -162,7 +162,7 @@ impl SigningKey {
                         .key_id((&self.id).into())
                         .content_format(message.content_type())
                         .value(
-                            SIGNING_NAMESPACE,
+                            CONTENT_NAMESPACE,
                             ciborium::Value::Integer(Integer::from(namespace.as_i64())),
                         )
                         .build(),
