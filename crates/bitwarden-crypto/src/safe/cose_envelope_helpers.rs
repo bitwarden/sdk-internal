@@ -1,8 +1,6 @@
 //! Shared helpers for COSE-encrypted key envelopes.
 
 use thiserror::Error;
-
-use super::KeyProtectedKeyEnvelopeNamespace;
 use crate::{
     cose::{
         CONTAINED_KEY_ID, CONTENT_NAMESPACE, SAFE_OBJECT_NAMESPACE, extract_bytes, extract_integer,
@@ -36,7 +34,7 @@ pub enum KeyProtectedKeyEnvelopeError {
 /// Extract the content namespace from a COSE header.
 pub(super) fn extract_envelope_namespace(
     header: &coset::Header,
-) -> Result<KeyProtectedKeyEnvelopeNamespace, KeyProtectedKeyEnvelopeError> {
+) -> Result<i64, KeyProtectedKeyEnvelopeError> {
     header
         .rest
         .iter()
@@ -45,11 +43,11 @@ pub(super) fn extract_envelope_namespace(
                 if *key == CONTENT_NAMESPACE =>
             {
                 let decoded: i128 = (*int).into();
-                Some(KeyProtectedKeyEnvelopeNamespace::try_from(decoded))
+                decoded.try_into().ok()
             }
             _ => None,
         })
-        .unwrap_or_else(|| Err(KeyProtectedKeyEnvelopeError::InvalidNamespace))
+        .ok_or(KeyProtectedKeyEnvelopeError::InvalidNamespace)
 }
 
 /// Extract the safe object namespace from a COSE header.

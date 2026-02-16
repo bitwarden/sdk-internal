@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::convert::FromWasmAbi;
 
-use super::{KeyProtectedKeyEnvelopeNamespace, cose_envelope_helpers::*};
+use super::cose_envelope_helpers::*;
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KeyIds,
     KeyStoreContext, SymmetricCryptoKey, XChaCha20Poly1305Key,
@@ -19,6 +19,23 @@ use crate::{
     },
     keys::KeyId,
 };
+
+#[derive(Copy, Clone)]
+pub enum Namespace {
+    #[cfg(test)]
+    /// Example namespace for testing purposes.
+    ExampleNamespace = -3,
+    #[cfg(test)]
+    /// Another example namespace for testing purposes.
+    ExampleNamespace2 = -4,
+}
+
+impl Namespace {
+    /// Returns the numeric value of the namespace.
+    pub fn as_i64(&self) -> i64 {
+        *self as i64
+    }
+}
 
 /// A wrapped symmetric key
 pub struct WrappedSymmetricKey {
@@ -32,7 +49,7 @@ impl WrappedSymmetricKey {
     pub fn seal<Ids: KeyIds>(
         key_to_seal: Ids::Symmetric,
         wrapping_key: Ids::Symmetric,
-        namespace: KeyProtectedKeyEnvelopeNamespace,
+        namespace: Namespace,
         ctx: &KeyStoreContext<Ids>,
     ) -> Result<Self, KeyProtectedKeyEnvelopeError> {
         // Get the keys from the key store.
@@ -92,7 +109,7 @@ impl WrappedSymmetricKey {
     pub fn unseal<Ids: KeyIds>(
         &self,
         wrapping_key: Ids::Symmetric,
-        namespace: KeyProtectedKeyEnvelopeNamespace,
+        namespace: Namespace,
         ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<Ids::Symmetric, KeyProtectedKeyEnvelopeError> {
         let wrapping_key_ref = ctx
@@ -117,7 +134,7 @@ impl WrappedSymmetricKey {
 
         // Validate the content namespace
         let envelope_namespace = extract_envelope_namespace(&self.cose_encrypt0.protected.header)?;
-        if envelope_namespace != namespace {
+        if envelope_namespace != namespace.as_i64() {
             return Err(KeyProtectedKeyEnvelopeError::InvalidNamespace);
         }
 
@@ -261,7 +278,7 @@ mod tests {
         let envelope = WrappedSymmetricKey::seal(
             key_to_seal,
             wrapping_key,
-            KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            Namespace::ExampleNamespace,
             &ctx,
         )
         .unwrap();
@@ -269,7 +286,7 @@ mod tests {
         let unsealed_key = envelope
             .unseal(
                 wrapping_key,
-                KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,
+                Namespace::ExampleNamespace,
                 &mut ctx,
             )
             .unwrap();
@@ -298,7 +315,7 @@ mod tests {
         let envelope = WrappedSymmetricKey::seal(
             key_to_seal,
             wrapping_key,
-            KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            Namespace::ExampleNamespace,
             &ctx,
         )
         .unwrap();
@@ -324,7 +341,7 @@ mod tests {
         let envelope = WrappedSymmetricKey::seal(
             key_to_seal,
             wrapping_key,
-            KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            Namespace::ExampleNamespace,
             &ctx,
         )
         .unwrap();
@@ -335,7 +352,7 @@ mod tests {
         let unsealed_key = deserialized
             .unseal(
                 wrapping_key,
-                KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,
+                Namespace::ExampleNamespace,
                 &mut ctx,
             )
             .unwrap();
@@ -362,20 +379,12 @@ mod tests {
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         let wrong_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = WrappedSymmetricKey::seal(
-            key_to_seal,
-            wrapping_key,
-            KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,
-            &ctx,
-        )
-        .unwrap();
+        let envelope =
+            WrappedSymmetricKey::seal(key_to_seal, wrapping_key, Namespace::ExampleNamespace, &ctx)
+                .unwrap();
 
         assert!(matches!(
-            envelope.unseal(
-                wrong_key,
-                KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,
-                &mut ctx
-            ),
+            envelope.unseal(wrong_key, Namespace::ExampleNamespace, &mut ctx),
             Err(KeyProtectedKeyEnvelopeError::WrongKey)
         ));
     }
@@ -391,17 +400,13 @@ mod tests {
         let envelope = WrappedSymmetricKey::seal(
             key_to_seal,
             wrapping_key,
-            KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            Namespace::ExampleNamespace,
             &ctx,
         )
         .unwrap();
 
         assert!(matches!(
-            envelope.unseal(
-                wrapping_key,
-                KeyProtectedKeyEnvelopeNamespace::ExampleNamespace2,
-                &mut ctx
-            ),
+            envelope.unseal(wrapping_key, Namespace::ExampleNamespace2, &mut ctx),
             Err(KeyProtectedKeyEnvelopeError::InvalidNamespace)
         ));
     }
