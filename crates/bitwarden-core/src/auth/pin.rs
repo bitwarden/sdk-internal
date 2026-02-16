@@ -178,7 +178,7 @@ mod tests {
 
         let mut envelope_bytes: Vec<u8> = (&envelope).into();
         // Corrupt some bytes
-        envelope_bytes[50] ^= 0xFF;
+        envelope_bytes[60] ^= 0xFF;
 
         let envelope: PasswordProtectedKeyEnvelope =
             PasswordProtectedKeyEnvelope::try_from(&envelope_bytes).unwrap();
