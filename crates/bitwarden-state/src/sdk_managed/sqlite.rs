@@ -189,11 +189,11 @@ mod tests {
 
         #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
         struct TestA(usize);
-        register_repository_item!(TestA, "TestItem_A");
+        register_repository_item!(String => TestA, "TestItem_A");
 
         #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
         struct TestB(usize);
-        register_repository_item!(TestB, "TestItem_B");
+        register_repository_item!(String => TestB, "TestItem_B");
 
         let steps = vec![
             // Test that deleting a table that doesn't exist is fine
