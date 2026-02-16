@@ -11,8 +11,8 @@ use bitwarden_core::{
 use bitwarden_crypto::KeyStore;
 use chrono::Utc;
 
-use super::common::{MiddlewareExt, MiddlewareWrapper};
-use crate::renew::common::TOKEN_RENEW_MARGIN_SECONDS;
+use super::middleware::{MiddlewareExt, MiddlewareWrapper};
+use crate::token_management::middleware::TOKEN_RENEW_MARGIN_SECONDS;
 
 /// Token handler for Bitwarden authentication.
 #[derive(Clone, Default)]
@@ -135,7 +135,7 @@ mod tests {
     use wiremock::MockServer;
 
     use super::*;
-    use crate::renew::common::test_utils;
+    use crate::token_management::test_utils::*;
 
     fn service_account_login_method() -> Arc<RwLock<Option<Arc<LoginMethod>>>> {
         let access_token = AccessToken::from_str(
@@ -154,19 +154,19 @@ mod tests {
 
     #[tokio::test]
     async fn attaches_existing_token_when_not_expired() {
-        let app_server = test_utils::start_app_server().await;
+        let app_server = start_app_server().await;
         let identity_server = MockServer::start().await;
 
         let handler = SecretsManagerTokenHandler::default();
         handler.set_tokens("original-token".to_string(), None, 3600);
 
-        let client = test_utils::build_client(handler.initialize_middleware(
+        let client = build_client(handler.initialize_middleware(
             service_account_login_method(),
-            test_utils::identity_config(&identity_server.uri()),
+            identity_config(&identity_server.uri()),
             KeyStore::<KeyIds>::default(),
         ));
 
-        let auth = test_utils::send_auth_request(&client, &app_server).await;
+        let auth = send_auth_request(&client, &app_server).await;
         assert_eq!(auth.as_deref(), Some("Bearer original-token"));
         assert_eq!(identity_server.received_requests().await.unwrap().len(), 0);
         assert_eq!(app_server.received_requests().await.unwrap().len(), 1);
@@ -174,20 +174,20 @@ mod tests {
 
     #[tokio::test]
     async fn renews_expired_token() {
-        let app_server = test_utils::start_app_server().await;
-        let identity_server = test_utils::start_renewal_server("renewed-token").await;
+        let app_server = start_app_server().await;
+        let identity_server = start_renewal_server("renewed-token").await;
 
         let handler = SecretsManagerTokenHandler::default();
         // expires_in=0 means the token is immediately considered expired
         handler.set_tokens("expired-token".to_string(), None, 0);
 
-        let client = test_utils::build_client(handler.initialize_middleware(
+        let client = build_client(handler.initialize_middleware(
             service_account_login_method(),
-            test_utils::identity_config(&identity_server.uri()),
+            identity_config(&identity_server.uri()),
             KeyStore::<KeyIds>::default(),
         ));
 
-        let auth = test_utils::send_auth_request(&client, &app_server).await;
+        let auth = send_auth_request(&client, &app_server).await;
         assert_eq!(auth.as_deref(), Some("Bearer renewed-token"));
         assert_eq!(identity_server.received_requests().await.unwrap().len(), 1);
         assert_eq!(app_server.received_requests().await.unwrap().len(), 1);
