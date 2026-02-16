@@ -1,4 +1,4 @@
-use bitwarden_core::Client;
+use bitwarden_core::{Client, FromClient};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
