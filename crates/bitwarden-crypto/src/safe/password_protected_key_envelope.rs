@@ -166,7 +166,7 @@ impl PasswordProtectedKeyEnvelope {
     fn unseal_ref(
         &self,
         password: &str,
-        namespace: PasswordProtectedKeyEnvelopeNamespace,
+        content_namespace: PasswordProtectedKeyEnvelopeNamespace,
     ) -> Result<SymmetricCryptoKey, PasswordProtectedKeyEnvelopeError> {
         // There must be exactly one recipient in the COSE Encrypt object, which contains the KDF
         // parameters.
@@ -206,7 +206,7 @@ impl PasswordProtectedKeyEnvelope {
             &recipient.protected.header,
             CONTENT_NAMESPACE,
             "content namespace",
-        ) && namespace != i128::from(namespace as i64)
+        ) && namespace != i128::from(content_namespace.as_i64())
         {
             return Err(PasswordProtectedKeyEnvelopeError::InvalidNamespace);
         }
