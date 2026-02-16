@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use bitwarden_encoding::{B64, FromStrVisitor, NotB64EncodedError};
-use ciborium::value::Integer;
+use ciborium::{Value, value::Integer};
 #[allow(unused_imports)]
 use coset::{CborSerializable, ProtectedHeader, RegisteredLabel, iana::CoapContentFormat};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -12,7 +12,10 @@ use wasm_bindgen::convert::FromWasmAbi;
 use crate::{
     CONTENT_TYPE_PADDED_CBOR, CoseEncrypt0Bytes, CryptoError, EncString, EncodingError, KeyIds,
     SerializedMessage, SymmetricCryptoKey, XChaCha20Poly1305Key,
-    cose::{DATA_ENVELOPE_NAMESPACE, XCHACHA20_POLY1305},
+    cose::{
+        CONTENT_NAMESPACE, SAFE_OBJECT_NAMESPACE, SafeObjectNamespace, XCHACHA20_POLY1305,
+        extract_integer,
+    },
     safe::DataEnvelopeNamespace,
     utils::pad_bytes,
     xchacha20,
@@ -120,7 +123,11 @@ impl DataEnvelope {
             .key_id(cek.key_id.to_vec())
             .content_type(CONTENT_TYPE_PADDED_CBOR.to_string())
             .value(
-                DATA_ENVELOPE_NAMESPACE,
+                SAFE_OBJECT_NAMESPACE,
+                Value::from(SafeObjectNamespace::DataEnvelope as i64),
+            )
+            .value(
+                CONTENT_NAMESPACE,
                 ciborium::Value::Integer(Integer::from(namespace.as_i64())),
             )
             .build();
@@ -202,6 +209,7 @@ impl DataEnvelope {
         let msg = coset::CoseEncrypt0::from_slice(self.envelope_data.as_ref())
             .map_err(|_| DataEnvelopeError::CoseDecodingError)?;
         let envelope_namespace = extract_namespace(&msg.protected.header)?;
+        let safe_object_namespace = extract_safe_object_namespace(&msg.protected.header)?;
         let content_format =
             content_format(&msg.protected).map_err(|_| DataEnvelopeError::DecodingError)?;
 
@@ -215,6 +223,11 @@ impl DataEnvelope {
         if msg.protected.header.key_id != cek.key_id {
             return Err(DataEnvelopeError::WrongKey);
         }
+
+        if safe_object_namespace != SafeObjectNamespace::DataEnvelope as i64 {
+            return Err(DataEnvelopeError::InvalidNamespace);
+        }
+
         if envelope_namespace != *namespace {
             return Err(DataEnvelopeError::InvalidNamespace);
         }
@@ -261,7 +274,7 @@ fn extract_namespace(header: &coset::Header) -> Result<DataEnvelopeNamespace, Da
         .iter()
         .find(|(label, _)| {
             if let coset::Label::Int(label_int) = label {
-                *label_int == DATA_ENVELOPE_NAMESPACE
+                *label_int == CONTENT_NAMESPACE
             } else {
                 false
             }
@@ -278,6 +291,17 @@ fn extract_namespace(header: &coset::Header) -> Result<DataEnvelopeNamespace, Da
     };
 
     DataEnvelopeNamespace::try_from(namespace_int).map_err(|_| DataEnvelopeError::InvalidNamespace)
+}
+
+fn extract_safe_object_namespace(header: &coset::Header) -> Result<i64, DataEnvelopeError> {
+    match extract_integer(header, SAFE_OBJECT_NAMESPACE, "safe object namespace") {
+        Ok(value) => value.try_into().map_err(|_| {
+            DataEnvelopeError::ParsingError("Invalid safe object namespace".to_string())
+        }),
+        Err(_) => Err(DataEnvelopeError::ParsingError(
+            "Missing object namespace".to_string(),
+        )),
+    }
 }
 
 /// Helper function to extract the content type from a `ProtectedHeader`. The content type is a
@@ -527,8 +551,8 @@ mod tests {
     );
 
     const TEST_VECTOR_CEK: &str =
-        "pQEEAlAiZII8tW5Lu9YH2bND5qx4AzoAARFvBIEEIFggnlL+dg+plLs+YqbUS00NYjwvir9E7O5pTJgX/O++XuQB";
-    const TEST_VECTOR_ENVELOPE: &str = "g1hFpAE6AAERbwN4I2FwcGxpY2F0aW9uL3guYml0d2FyZGVuLmNib3ItcGFkZGVkBFAiZII8tW5Lu9YH2bND5qx4OgABOIAgoQVYGDjsL+Q0npomBf7fVsefBkXNJT/OkMncuVhQ8VSz8YWHIRylVilXRDrQp3LRSnDHQKIU4F0A49yi8W2tmRATUcPkU87eI9xbRvxjdUY/X4wL26MoFsqbWxyMJHcj8svQWwL3Jq3OvK9VS6A=";
+        "pQEEAlAvoAnFyacXA7Ip/8BhXSAyAzoAARFvBIEEIFggs02/JCuXK9IwruUhIwtN1359zvKTp4sO/tux1FE2yU0B";
+    const TEST_VECTOR_ENVELOPE: &str = "g1hLpQE6AAERbwN4I2FwcGxpY2F0aW9uL3guYml0d2FyZGVuLmNib3ItcGFkZGVkBFAvoAnFyacXA7Ip/8BhXSAyOgABOIACOgABOH8goQVYGHUM+oHwspIuLyU509LJYJOdOeiwi0ht0FhQ5S+86TUQBGWoh39zKFqugspcTmDwkrHgfGdUHPU95BSwh87psvM4vepWjy1oqgtP/VB8S0ejtOcHhUf8LcD+og0VzfdaetHPCuw5WfQ4wF8=";
 
     #[test]
     #[ignore]
@@ -541,10 +565,13 @@ mod tests {
             .unwrap();
         assert_eq!(unsealed_data, data);
         println!(
-            "CEK: {}",
+            "const TEST_VECTOR_CEK: &str = \"{}\";",
             B64::from(SymmetricCryptoKey::XChaCha20Poly1305Key(cek).to_encoded())
         );
-        println!("Envelope: {}", String::from(envelope));
+        println!(
+            "const TEST_VECTOR_ENVELOPE: &str = \"{}\";",
+            String::from(envelope)
+        );
     }
 
     #[test]
