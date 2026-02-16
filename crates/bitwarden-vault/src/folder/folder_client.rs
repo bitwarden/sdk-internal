@@ -125,7 +125,7 @@ mod tests {
                 .unwrap(),
             revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
         };
-        repository.set(folder_id.to_string(), folder).await.unwrap();
+        repository.set(folder_id, folder).await.unwrap();
     }
 
     #[tokio::test]
