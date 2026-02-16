@@ -1,4 +1,4 @@
-//! Wrapped private key envelope for sealing a private key with a symmetric key.
+//! Wrapped symmetric key envelope for sealing a symmetric key with another symmetric key.
 
 use std::str::FromStr;
 
@@ -11,39 +11,39 @@ use wasm_bindgen::convert::FromWasmAbi;
 
 use super::{KeyProtectedKeyEnvelopeNamespace, cose_envelope_helpers::*};
 use crate::{
-    ContentFormat, CoseKeyBytes, KeyIds, KeyStoreContext, PrivateKey, SymmetricCryptoKey,
-    XChaCha20Poly1305Key,
+    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KeyIds,
+    KeyStoreContext, SymmetricCryptoKey, XChaCha20Poly1305Key,
     cose::{
-        CONTAINED_KEY_ID, CONTENT_NAMESPACE, CoseSerializable, SAFE_OBJECT_NAMESPACE,
-        SafeObjectNamespace, XCHACHA20_POLY1305,
+        CONTAINED_KEY_ID, CONTENT_NAMESPACE, SAFE_OBJECT_NAMESPACE, SafeObjectNamespace,
+        XCHACHA20_POLY1305,
     },
     keys::KeyId,
 };
 
-/// A wrapped private key
-pub struct WrappedPrivateKey {
+/// A wrapped symmetric key
+pub struct WrappedSymmetricKey {
     cose_encrypt0: coset::CoseEncrypt0,
 }
 
-impl WrappedPrivateKey {
-    /// Seals a private key with a symmetric key from the key store.
+impl WrappedSymmetricKey {
+    /// Seals a symmetric key with another symmetric key from the key store.
     ///
     /// This should never fail, except for memory allocation errors.
     pub fn seal<Ids: KeyIds>(
-        key_to_seal: Ids::Private,
+        key_to_seal: Ids::Symmetric,
         wrapping_key: Ids::Symmetric,
         namespace: KeyProtectedKeyEnvelopeNamespace,
         ctx: &KeyStoreContext<Ids>,
     ) -> Result<Self, KeyProtectedKeyEnvelopeError> {
         // Get the keys from the key store.
         let key_to_seal = ctx
-            .get_private_key(key_to_seal)
+            .get_symmetric_key(key_to_seal)
             .map_err(|_| KeyProtectedKeyEnvelopeError::KeyMissing)?;
         let wrapping_key = ctx
             .get_symmetric_key(wrapping_key)
             .map_err(|_| KeyProtectedKeyEnvelopeError::KeyMissing)?;
 
-        // For now, just XChaCha20Poly1305 is supported
+        // For now, just XChaCha20Poly1305 is supported as wrapping key
         let wrapping_key: &XChaCha20Poly1305Key = match wrapping_key {
             SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key,
             _ => {
@@ -53,40 +53,48 @@ impl WrappedPrivateKey {
             }
         };
 
-        let key_bytes = key_to_seal.to_cose();
+        let (content_format, key_bytes) = match key_to_seal.to_encoded_raw() {
+            EncodedSymmetricKey::BitwardenLegacyKey(key_bytes) => {
+                (ContentFormat::BitwardenLegacyKey, key_bytes.to_vec())
+            }
+            EncodedSymmetricKey::CoseKey(key_bytes) => (ContentFormat::CoseKey, key_bytes.to_vec()),
+        };
 
-        let mut protected_header = HeaderBuilder::from(ContentFormat::CoseKey)
+        let mut header_builder = HeaderBuilder::from(content_format)
             .value(
                 SAFE_OBJECT_NAMESPACE,
-                Value::from(SafeObjectNamespace::WrappedPrivateKeyNamespace as i64),
+                Value::from(SafeObjectNamespace::WrappedSymmetricKeyNamespace as i64),
             )
             .value(
                 CONTENT_NAMESPACE,
                 Value::Integer(Integer::from(namespace.as_i64())),
-            )
-            .value(
-                CONTAINED_KEY_ID,
-                Value::from(Vec::from(&key_to_seal.key_id())),
-            )
-            .build();
+            );
+
+        // Only set the contained key ID if the key has one
+        if let Some(key_id) = key_to_seal.key_id() {
+            header_builder =
+                header_builder.value(CONTAINED_KEY_ID, Value::from(Vec::from(&key_id)));
+        }
+
+        let mut protected_header = header_builder.build();
         protected_header.alg = Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305));
 
         let cose_encrypt0 = crate::cose::encrypt_cose(
             CoseEncrypt0Builder::new().protected(protected_header),
-            key_bytes.as_ref(),
+            &key_bytes,
             wrapping_key,
         );
 
-        Ok(WrappedPrivateKey { cose_encrypt0 })
+        Ok(WrappedSymmetricKey { cose_encrypt0 })
     }
 
-    /// Unseals a private key from the envelope and stores it in the key store context.
+    /// Unseals a symmetric key from the envelope and stores it in the key store context.
     pub fn unseal<Ids: KeyIds>(
         &self,
         wrapping_key: Ids::Symmetric,
         namespace: KeyProtectedKeyEnvelopeNamespace,
         ctx: &mut KeyStoreContext<Ids>,
-    ) -> Result<Ids::Private, KeyProtectedKeyEnvelopeError> {
+    ) -> Result<Ids::Symmetric, KeyProtectedKeyEnvelopeError> {
         let wrapping_key_ref = ctx
             .get_symmetric_key(wrapping_key)
             .map_err(|_| KeyProtectedKeyEnvelopeError::KeyMissing)?;
@@ -103,7 +111,7 @@ impl WrappedPrivateKey {
         // Validate the safe object namespace
         let safe_object_namespace =
             extract_safe_object_namespace(&self.cose_encrypt0.protected.header)?;
-        if safe_object_namespace != SafeObjectNamespace::WrappedPrivateKeyNamespace as i64 {
+        if safe_object_namespace != SafeObjectNamespace::WrappedSymmetricKeyNamespace as i64 {
             return Err(KeyProtectedKeyEnvelopeError::InvalidNamespace);
         }
 
@@ -118,19 +126,26 @@ impl WrappedPrivateKey {
             .map_err(|_| {
                 KeyProtectedKeyEnvelopeError::Parsing("Invalid content format".to_string())
             })?;
-        if content_format != ContentFormat::CoseKey {
-            return Err(KeyProtectedKeyEnvelopeError::WrongKeyType);
-        }
 
         // Decrypt the key bytes
         let key_bytes = crate::cose::decrypt_cose(&self.cose_encrypt0, wrapping_key_inner)
             .map_err(|_| KeyProtectedKeyEnvelopeError::WrongKey)?;
 
-        let key = PrivateKey::from_cose(&CoseKeyBytes::from(key_bytes)).map_err(|_| {
-            KeyProtectedKeyEnvelopeError::Parsing("Failed to decode private key".to_string())
-        })?;
+        // Reconstruct the encoded symmetric key from the content format
+        let encoded_key = match content_format {
+            ContentFormat::BitwardenLegacyKey => {
+                EncodedSymmetricKey::BitwardenLegacyKey(BitwardenLegacyKeyBytes::from(key_bytes))
+            }
+            ContentFormat::CoseKey => EncodedSymmetricKey::CoseKey(CoseKeyBytes::from(key_bytes)),
+            _ => {
+                return Err(KeyProtectedKeyEnvelopeError::WrongKeyType);
+            }
+        };
 
-        Ok(ctx.add_local_private_key(key))
+        let key = SymmetricCryptoKey::try_from(encoded_key)
+            .map_err(|_| KeyProtectedKeyEnvelopeError::WrongKeyType)?;
+
+        Ok(ctx.add_local_symmetric_key(key))
     }
 
     /// Get the key ID of the contained key.
@@ -139,8 +154,8 @@ impl WrappedPrivateKey {
     }
 }
 
-impl From<&WrappedPrivateKey> for Vec<u8> {
-    fn from(val: &WrappedPrivateKey) -> Self {
+impl From<&WrappedSymmetricKey> for Vec<u8> {
+    fn from(val: &WrappedSymmetricKey) -> Self {
         val.cose_encrypt0
             .clone()
             .to_vec()
@@ -148,46 +163,46 @@ impl From<&WrappedPrivateKey> for Vec<u8> {
     }
 }
 
-impl TryFrom<&Vec<u8>> for WrappedPrivateKey {
+impl TryFrom<&Vec<u8>> for WrappedSymmetricKey {
     type Error = coset::CoseError;
 
     fn try_from(value: &Vec<u8>) -> Result<Self, Self::Error> {
         let cose_encrypt0 = coset::CoseEncrypt0::from_slice(value)?;
-        Ok(WrappedPrivateKey { cose_encrypt0 })
+        Ok(WrappedSymmetricKey { cose_encrypt0 })
     }
 }
 
-impl std::fmt::Debug for WrappedPrivateKey {
+impl std::fmt::Debug for WrappedSymmetricKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("WrappedPrivateKey")
+        f.debug_struct("WrappedSymmetricKey")
             .field("cose_encrypt0", &self.cose_encrypt0)
             .finish()
     }
 }
 
-impl FromStr for WrappedPrivateKey {
+impl FromStr for WrappedSymmetricKey {
     type Err = KeyProtectedKeyEnvelopeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let data = B64::try_from(s).map_err(|_| {
             KeyProtectedKeyEnvelopeError::Parsing(
-                "Invalid WrappedPrivateKey Base64 encoding".to_string(),
+                "Invalid WrappedSymmetricKey Base64 encoding".to_string(),
             )
         })?;
         Self::try_from(&data.into_bytes()).map_err(|_| {
-            KeyProtectedKeyEnvelopeError::Parsing("Failed to parse WrappedPrivateKey".to_string())
+            KeyProtectedKeyEnvelopeError::Parsing("Failed to parse WrappedSymmetricKey".to_string())
         })
     }
 }
 
-impl From<WrappedPrivateKey> for String {
-    fn from(val: WrappedPrivateKey) -> Self {
+impl From<WrappedSymmetricKey> for String {
+    fn from(val: WrappedSymmetricKey) -> Self {
         let serialized: Vec<u8> = (&val).into();
         B64::from(serialized).to_string()
     }
 }
 
-impl<'de> Deserialize<'de> for WrappedPrivateKey {
+impl<'de> Deserialize<'de> for WrappedSymmetricKey {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -196,7 +211,7 @@ impl<'de> Deserialize<'de> for WrappedPrivateKey {
     }
 }
 
-impl Serialize for WrappedPrivateKey {
+impl Serialize for WrappedSymmetricKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -209,43 +224,41 @@ impl Serialize for WrappedPrivateKey {
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
-export type WrappedPrivateKey = Tagged<string, "WrappedPrivateKey">;
+export type WrappedSymmetricKey = Tagged<string, "WrappedSymmetricKey">;
 "#;
 
 #[cfg(feature = "wasm")]
-impl wasm_bindgen::describe::WasmDescribe for WrappedPrivateKey {
+impl wasm_bindgen::describe::WasmDescribe for WrappedSymmetricKey {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();
     }
 }
 
 #[cfg(feature = "wasm")]
-impl FromWasmAbi for WrappedPrivateKey {
+impl FromWasmAbi for WrappedSymmetricKey {
     type Abi = <String as FromWasmAbi>::Abi;
 
     unsafe fn from_abi(abi: Self::Abi) -> Self {
         use wasm_bindgen::UnwrapThrowExt;
         let string = unsafe { String::from_abi(abi) };
-        WrappedPrivateKey::from_str(&string).unwrap_throw()
+        WrappedSymmetricKey::from_str(&string).unwrap_throw()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        KeyStore, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm, traits::tests::TestIds,
-    };
+    use crate::{KeyStore, SymmetricKeyAlgorithm, traits::tests::TestIds};
 
     #[test]
-    fn test_seal_unseal_private() {
+    fn test_seal_unseal_symmetric() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        let key_to_seal = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = WrappedPrivateKey::seal(
+        let envelope = WrappedSymmetricKey::seal(
             key_to_seal,
             wrapping_key,
             KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,
@@ -263,29 +276,26 @@ mod tests {
 
         #[allow(deprecated)]
         let unsealed_key_ref = ctx
-            .dangerous_get_private_key(unsealed_key)
+            .dangerous_get_symmetric_key(unsealed_key)
             .expect("Key should exist in the key store");
 
         #[allow(deprecated)]
         let original_key_ref = ctx
-            .dangerous_get_private_key(key_to_seal)
+            .dangerous_get_symmetric_key(key_to_seal)
             .expect("Key should exist in the key store");
 
-        assert_eq!(
-            unsealed_key_ref.to_der().unwrap(),
-            original_key_ref.to_der().unwrap()
-        );
+        assert_eq!(unsealed_key_ref, original_key_ref);
     }
 
     #[test]
-    fn test_contained_key_id_private() {
+    fn test_contained_key_id_symmetric() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        let key_to_seal = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = WrappedPrivateKey::seal(
+        let envelope = WrappedSymmetricKey::seal(
             key_to_seal,
             wrapping_key,
             KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,
@@ -295,12 +305,12 @@ mod tests {
 
         #[allow(deprecated)]
         let key_to_seal_ref = ctx
-            .dangerous_get_private_key(key_to_seal)
+            .dangerous_get_symmetric_key(key_to_seal)
             .expect("Key should exist in the key store");
 
         let contained_key_id = envelope.contained_key_id().unwrap();
 
-        assert_eq!(Some(key_to_seal_ref.key_id()), contained_key_id);
+        assert_eq!(key_to_seal_ref.key_id(), contained_key_id);
     }
 
     #[test]
@@ -308,10 +318,10 @@ mod tests {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        let key_to_seal = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = WrappedPrivateKey::seal(
+        let envelope = WrappedSymmetricKey::seal(
             key_to_seal,
             wrapping_key,
             KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,
@@ -320,7 +330,7 @@ mod tests {
         .unwrap();
 
         let serialized: String = envelope.into();
-        let deserialized = WrappedPrivateKey::from_str(&serialized).unwrap();
+        let deserialized = WrappedSymmetricKey::from_str(&serialized).unwrap();
 
         let unsealed_key = deserialized
             .unseal(
@@ -332,18 +342,15 @@ mod tests {
 
         #[allow(deprecated)]
         let unsealed_key_ref = ctx
-            .dangerous_get_private_key(unsealed_key)
+            .dangerous_get_symmetric_key(unsealed_key)
             .expect("Key should exist in the key store");
 
         #[allow(deprecated)]
         let original_key_ref = ctx
-            .dangerous_get_private_key(key_to_seal)
+            .dangerous_get_symmetric_key(key_to_seal)
             .expect("Key should exist in the key store");
 
-        assert_eq!(
-            unsealed_key_ref.to_der().unwrap(),
-            original_key_ref.to_der().unwrap()
-        );
+        assert_eq!(unsealed_key_ref, original_key_ref);
     }
 
     #[test]
@@ -351,11 +358,11 @@ mod tests {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        let key_to_seal = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         let wrong_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = WrappedPrivateKey::seal(
+        let envelope = WrappedSymmetricKey::seal(
             key_to_seal,
             wrapping_key,
             KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,
@@ -378,10 +385,10 @@ mod tests {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        let key_to_seal = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = WrappedPrivateKey::seal(
+        let envelope = WrappedSymmetricKey::seal(
             key_to_seal,
             wrapping_key,
             KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,

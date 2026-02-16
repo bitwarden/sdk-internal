@@ -1,4 +1,4 @@
-//! Wrapped private key envelope for sealing a private key with a symmetric key.
+//! Wrapped signing key envelope for sealing a signing key with a symmetric key.
 
 use std::str::FromStr;
 
@@ -11,7 +11,7 @@ use wasm_bindgen::convert::FromWasmAbi;
 
 use super::{KeyProtectedKeyEnvelopeNamespace, cose_envelope_helpers::*};
 use crate::{
-    ContentFormat, CoseKeyBytes, KeyIds, KeyStoreContext, PrivateKey, SymmetricCryptoKey,
+    ContentFormat, CoseKeyBytes, KeyIds, KeyStoreContext, SigningKey, SymmetricCryptoKey,
     XChaCha20Poly1305Key,
     cose::{
         CONTAINED_KEY_ID, CONTENT_NAMESPACE, CoseSerializable, SAFE_OBJECT_NAMESPACE,
@@ -20,24 +20,24 @@ use crate::{
     keys::KeyId,
 };
 
-/// A wrapped private key
-pub struct WrappedPrivateKey {
+/// A wrapped signing key
+pub struct WrappedSigningKey {
     cose_encrypt0: coset::CoseEncrypt0,
 }
 
-impl WrappedPrivateKey {
-    /// Seals a private key with a symmetric key from the key store.
+impl WrappedSigningKey {
+    /// Seals a signing key with a symmetric key from the key store.
     ///
     /// This should never fail, except for memory allocation errors.
     pub fn seal<Ids: KeyIds>(
-        key_to_seal: Ids::Private,
+        key_to_seal: Ids::Signing,
         wrapping_key: Ids::Symmetric,
         namespace: KeyProtectedKeyEnvelopeNamespace,
         ctx: &KeyStoreContext<Ids>,
     ) -> Result<Self, KeyProtectedKeyEnvelopeError> {
         // Get the keys from the key store.
         let key_to_seal = ctx
-            .get_private_key(key_to_seal)
+            .get_signing_key(key_to_seal)
             .map_err(|_| KeyProtectedKeyEnvelopeError::KeyMissing)?;
         let wrapping_key = ctx
             .get_symmetric_key(wrapping_key)
@@ -58,7 +58,7 @@ impl WrappedPrivateKey {
         let mut protected_header = HeaderBuilder::from(ContentFormat::CoseKey)
             .value(
                 SAFE_OBJECT_NAMESPACE,
-                Value::from(SafeObjectNamespace::WrappedPrivateKeyNamespace as i64),
+                Value::from(SafeObjectNamespace::WrappedSigningKeyNamespace as i64),
             )
             .value(
                 CONTENT_NAMESPACE,
@@ -77,16 +77,16 @@ impl WrappedPrivateKey {
             wrapping_key,
         );
 
-        Ok(WrappedPrivateKey { cose_encrypt0 })
+        Ok(WrappedSigningKey { cose_encrypt0 })
     }
 
-    /// Unseals a private key from the envelope and stores it in the key store context.
+    /// Unseals a signing key from the envelope and stores it in the key store context.
     pub fn unseal<Ids: KeyIds>(
         &self,
         wrapping_key: Ids::Symmetric,
         namespace: KeyProtectedKeyEnvelopeNamespace,
         ctx: &mut KeyStoreContext<Ids>,
-    ) -> Result<Ids::Private, KeyProtectedKeyEnvelopeError> {
+    ) -> Result<Ids::Signing, KeyProtectedKeyEnvelopeError> {
         let wrapping_key_ref = ctx
             .get_symmetric_key(wrapping_key)
             .map_err(|_| KeyProtectedKeyEnvelopeError::KeyMissing)?;
@@ -103,7 +103,7 @@ impl WrappedPrivateKey {
         // Validate the safe object namespace
         let safe_object_namespace =
             extract_safe_object_namespace(&self.cose_encrypt0.protected.header)?;
-        if safe_object_namespace != SafeObjectNamespace::WrappedPrivateKeyNamespace as i64 {
+        if safe_object_namespace != SafeObjectNamespace::WrappedSigningKeyNamespace as i64 {
             return Err(KeyProtectedKeyEnvelopeError::InvalidNamespace);
         }
 
@@ -126,11 +126,11 @@ impl WrappedPrivateKey {
         let key_bytes = crate::cose::decrypt_cose(&self.cose_encrypt0, wrapping_key_inner)
             .map_err(|_| KeyProtectedKeyEnvelopeError::WrongKey)?;
 
-        let key = PrivateKey::from_cose(&CoseKeyBytes::from(key_bytes)).map_err(|_| {
-            KeyProtectedKeyEnvelopeError::Parsing("Failed to decode private key".to_string())
+        let key = SigningKey::from_cose(&CoseKeyBytes::from(key_bytes)).map_err(|_| {
+            KeyProtectedKeyEnvelopeError::Parsing("Failed to decode signing key".to_string())
         })?;
 
-        Ok(ctx.add_local_private_key(key))
+        Ok(ctx.add_local_signing_key(key))
     }
 
     /// Get the key ID of the contained key.
@@ -139,8 +139,8 @@ impl WrappedPrivateKey {
     }
 }
 
-impl From<&WrappedPrivateKey> for Vec<u8> {
-    fn from(val: &WrappedPrivateKey) -> Self {
+impl From<&WrappedSigningKey> for Vec<u8> {
+    fn from(val: &WrappedSigningKey) -> Self {
         val.cose_encrypt0
             .clone()
             .to_vec()
@@ -148,46 +148,46 @@ impl From<&WrappedPrivateKey> for Vec<u8> {
     }
 }
 
-impl TryFrom<&Vec<u8>> for WrappedPrivateKey {
+impl TryFrom<&Vec<u8>> for WrappedSigningKey {
     type Error = coset::CoseError;
 
     fn try_from(value: &Vec<u8>) -> Result<Self, Self::Error> {
         let cose_encrypt0 = coset::CoseEncrypt0::from_slice(value)?;
-        Ok(WrappedPrivateKey { cose_encrypt0 })
+        Ok(WrappedSigningKey { cose_encrypt0 })
     }
 }
 
-impl std::fmt::Debug for WrappedPrivateKey {
+impl std::fmt::Debug for WrappedSigningKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("WrappedPrivateKey")
+        f.debug_struct("WrappedSigningKey")
             .field("cose_encrypt0", &self.cose_encrypt0)
             .finish()
     }
 }
 
-impl FromStr for WrappedPrivateKey {
+impl FromStr for WrappedSigningKey {
     type Err = KeyProtectedKeyEnvelopeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let data = B64::try_from(s).map_err(|_| {
             KeyProtectedKeyEnvelopeError::Parsing(
-                "Invalid WrappedPrivateKey Base64 encoding".to_string(),
+                "Invalid WrappedSigningKey Base64 encoding".to_string(),
             )
         })?;
         Self::try_from(&data.into_bytes()).map_err(|_| {
-            KeyProtectedKeyEnvelopeError::Parsing("Failed to parse WrappedPrivateKey".to_string())
+            KeyProtectedKeyEnvelopeError::Parsing("Failed to parse WrappedSigningKey".to_string())
         })
     }
 }
 
-impl From<WrappedPrivateKey> for String {
-    fn from(val: WrappedPrivateKey) -> Self {
+impl From<WrappedSigningKey> for String {
+    fn from(val: WrappedSigningKey) -> Self {
         let serialized: Vec<u8> = (&val).into();
         B64::from(serialized).to_string()
     }
 }
 
-impl<'de> Deserialize<'de> for WrappedPrivateKey {
+impl<'de> Deserialize<'de> for WrappedSigningKey {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -196,7 +196,7 @@ impl<'de> Deserialize<'de> for WrappedPrivateKey {
     }
 }
 
-impl Serialize for WrappedPrivateKey {
+impl Serialize for WrappedSigningKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -209,43 +209,41 @@ impl Serialize for WrappedPrivateKey {
 #[cfg(feature = "wasm")]
 #[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
-export type WrappedPrivateKey = Tagged<string, "WrappedPrivateKey">;
+export type WrappedSigningKey = Tagged<string, "WrappedSigningKey">;
 "#;
 
 #[cfg(feature = "wasm")]
-impl wasm_bindgen::describe::WasmDescribe for WrappedPrivateKey {
+impl wasm_bindgen::describe::WasmDescribe for WrappedSigningKey {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();
     }
 }
 
 #[cfg(feature = "wasm")]
-impl FromWasmAbi for WrappedPrivateKey {
+impl FromWasmAbi for WrappedSigningKey {
     type Abi = <String as FromWasmAbi>::Abi;
 
     unsafe fn from_abi(abi: Self::Abi) -> Self {
         use wasm_bindgen::UnwrapThrowExt;
         let string = unsafe { String::from_abi(abi) };
-        WrappedPrivateKey::from_str(&string).unwrap_throw()
+        WrappedSigningKey::from_str(&string).unwrap_throw()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        KeyStore, PublicKeyEncryptionAlgorithm, SymmetricKeyAlgorithm, traits::tests::TestIds,
-    };
+    use crate::{KeyStore, SignatureAlgorithm, SymmetricKeyAlgorithm, traits::tests::TestIds};
 
     #[test]
-    fn test_seal_unseal_private() {
+    fn test_seal_unseal_signing() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        let key_to_seal = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let key_to_seal = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = WrappedPrivateKey::seal(
+        let envelope = WrappedSigningKey::seal(
             key_to_seal,
             wrapping_key,
             KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,
@@ -263,29 +261,26 @@ mod tests {
 
         #[allow(deprecated)]
         let unsealed_key_ref = ctx
-            .dangerous_get_private_key(unsealed_key)
+            .dangerous_get_signing_key(unsealed_key)
             .expect("Key should exist in the key store");
 
         #[allow(deprecated)]
         let original_key_ref = ctx
-            .dangerous_get_private_key(key_to_seal)
+            .dangerous_get_signing_key(key_to_seal)
             .expect("Key should exist in the key store");
 
-        assert_eq!(
-            unsealed_key_ref.to_der().unwrap(),
-            original_key_ref.to_der().unwrap()
-        );
+        assert_eq!(unsealed_key_ref.to_cose(), original_key_ref.to_cose());
     }
 
     #[test]
-    fn test_contained_key_id_private() {
+    fn test_contained_key_id_signing() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        let key_to_seal = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let key_to_seal = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = WrappedPrivateKey::seal(
+        let envelope = WrappedSigningKey::seal(
             key_to_seal,
             wrapping_key,
             KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,
@@ -295,7 +290,7 @@ mod tests {
 
         #[allow(deprecated)]
         let key_to_seal_ref = ctx
-            .dangerous_get_private_key(key_to_seal)
+            .dangerous_get_signing_key(key_to_seal)
             .expect("Key should exist in the key store");
 
         let contained_key_id = envelope.contained_key_id().unwrap();
@@ -308,10 +303,10 @@ mod tests {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        let key_to_seal = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let key_to_seal = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = WrappedPrivateKey::seal(
+        let envelope = WrappedSigningKey::seal(
             key_to_seal,
             wrapping_key,
             KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,
@@ -320,7 +315,7 @@ mod tests {
         .unwrap();
 
         let serialized: String = envelope.into();
-        let deserialized = WrappedPrivateKey::from_str(&serialized).unwrap();
+        let deserialized = WrappedSigningKey::from_str(&serialized).unwrap();
 
         let unsealed_key = deserialized
             .unseal(
@@ -332,18 +327,15 @@ mod tests {
 
         #[allow(deprecated)]
         let unsealed_key_ref = ctx
-            .dangerous_get_private_key(unsealed_key)
+            .dangerous_get_signing_key(unsealed_key)
             .expect("Key should exist in the key store");
 
         #[allow(deprecated)]
         let original_key_ref = ctx
-            .dangerous_get_private_key(key_to_seal)
+            .dangerous_get_signing_key(key_to_seal)
             .expect("Key should exist in the key store");
 
-        assert_eq!(
-            unsealed_key_ref.to_der().unwrap(),
-            original_key_ref.to_der().unwrap()
-        );
+        assert_eq!(unsealed_key_ref.to_cose(), original_key_ref.to_cose());
     }
 
     #[test]
@@ -351,11 +343,11 @@ mod tests {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        let key_to_seal = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let key_to_seal = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         let wrong_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = WrappedPrivateKey::seal(
+        let envelope = WrappedSigningKey::seal(
             key_to_seal,
             wrapping_key,
             KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,
@@ -378,10 +370,10 @@ mod tests {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
 
-        let key_to_seal = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let key_to_seal = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = WrappedPrivateKey::seal(
+        let envelope = WrappedSigningKey::seal(
             key_to_seal,
             wrapping_key,
             KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,

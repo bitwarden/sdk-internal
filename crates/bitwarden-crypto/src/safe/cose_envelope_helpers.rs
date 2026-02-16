@@ -2,12 +2,13 @@
 
 use thiserror::Error;
 
+use super::KeyProtectedKeyEnvelopeNamespace;
 use crate::{
-    cose::{CONTAINED_KEY_ID, CONTENT_NAMESPACE, SAFE_OBJECT_NAMESPACE, extract_bytes, extract_integer},
+    cose::{
+        CONTAINED_KEY_ID, CONTENT_NAMESPACE, SAFE_OBJECT_NAMESPACE, extract_bytes, extract_integer,
+    },
     keys::{KEY_ID_SIZE, KeyId},
 };
-
-use super::KeyProtectedKeyEnvelopeNamespace;
 
 /// Errors that can occur when sealing or unsealing a key with envelope operations.
 #[derive(Debug, Error)]

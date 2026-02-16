@@ -62,6 +62,8 @@ pub enum SafeObjectNamespace {
     PasswordProtectedKeyEnvelope = 1,
     DataEnvelope = 2,
     WrappedPrivateKeyNamespace = 3,
+    WrappedSigningKeyNamespace = 4,
+    WrappedSymmetricKeyNamespace = 5,
 }
 
 /// Each type of object has it's own namespace for strong domain separation to eliminate
