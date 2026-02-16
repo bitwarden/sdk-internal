@@ -83,7 +83,8 @@ impl SigningKey {
         }
     }
 
-    pub(crate) fn key_id(&self) -> KeyId {
+    /// The id of the signature key pair
+    pub fn key_id(&self) -> KeyId {
         self.id.clone()
     }
 }

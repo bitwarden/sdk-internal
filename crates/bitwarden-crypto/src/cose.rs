@@ -61,6 +61,7 @@ pub(crate) const SAFE_OBJECT_NAMESPACE: i64 = -80001;
 pub enum SafeObjectNamespace {
     PasswordProtectedKeyEnvelope = 1,
     DataEnvelope = 2,
+    WrappedPrivateKeyNamespace = 3,
 }
 
 /// Each type of object has it's own namespace for strong domain separation to eliminate
@@ -72,11 +73,12 @@ const XCHACHA20_TEXT_PAD_BLOCK_SIZE: usize = 32;
 
 pub(crate) fn encrypt_cose(
     cose_encrypt0_builder: CoseEncrypt0Builder,
-    key: XChaCha20Poly1305Key,
+    plaintext: &[u8],
+    key: &XChaCha20Poly1305Key,
 ) -> CoseEncrypt0 {
     let mut nonce = [0u8; xchacha20::NONCE_SIZE];
     cose_encrypt0_builder
-        .create_ciphertext(&[], &[], |data, aad| {
+        .create_ciphertext(plaintext, &[], |data, aad| {
             let ciphertext =
                 crate::xchacha20::encrypt_xchacha20_poly1305(&(*key.enc_key).into(), data, aad);
             nonce = ciphertext.nonce();
@@ -88,8 +90,8 @@ pub(crate) fn encrypt_cose(
 
 pub struct DecryptFailed;
 pub(crate) fn decrypt_cose(
-    cose_encrypt0: CoseEncrypt0,
-    key: XChaCha20Poly1305Key,
+    cose_encrypt0: &CoseEncrypt0,
+    key: &XChaCha20Poly1305Key,
 ) -> Result<Vec<u8>, DecryptFailed> {
     let nonce: [u8; xchacha20::NONCE_SIZE] = cose_encrypt0
         .unprotected
@@ -98,6 +100,7 @@ pub(crate) fn decrypt_cose(
         .try_into()
         .map_err(|_| DecryptFailed)?;
     cose_encrypt0
+        .clone()
         .decrypt_ciphertext(
             &[],
             || CryptoError::MissingField("ciphertext"),

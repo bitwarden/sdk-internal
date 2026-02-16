@@ -3,7 +3,7 @@
 use std::str::FromStr;
 
 use bitwarden_encoding::{B64, FromStrVisitor};
-use ciborium::Value;
+use ciborium::{Value, value::Integer};
 use coset::{CborSerializable, CoseEncrypt0Builder, HeaderBuilder};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
@@ -12,18 +12,16 @@ use wasm_bindgen::convert::FromWasmAbi;
 use crate::{
     ContentFormat, CoseKeyBytes, KeyIds, KeyStoreContext, PrivateKey, SymmetricCryptoKey,
     XChaCha20Poly1305Key,
-    cose::{CONTAINED_KEY_ID, CoseSerializable, encrypt_cose},
+    cose::{
+        CONTAINED_KEY_ID, CONTENT_NAMESPACE, CoseSerializable, SAFE_OBJECT_NAMESPACE,
+        SafeObjectNamespace, XCHACHA20_POLY1305,
+    },
     keys::KeyId,
 };
 
-use super::cose_envelope_helpers::*;
+use super::{KeyProtectedKeyEnvelopeNamespace, cose_envelope_helpers::*};
 
-pub enum PrivateKeyNamespace {
-    UserPrivateKey,
-    OrganizationPrivateKey,
-}
-
-// A wrapped private key.
+/// A wrapped private key
 pub struct WrappedPrivateKey {
     cose_encrypt0: coset::CoseEncrypt0,
 }
@@ -35,7 +33,7 @@ impl WrappedPrivateKey {
     pub fn seal<Ids: KeyIds>(
         key_to_seal: Ids::Private,
         wrapping_key: Ids::Symmetric,
-        namespace: PrivateKeyNamespace,
+        namespace: KeyProtectedKeyEnvelopeNamespace,
         ctx: &KeyStoreContext<Ids>,
     ) -> Result<Self, KeyProtectedKeyEnvelopeError> {
         // Get the keys from the key store.
@@ -47,8 +45,8 @@ impl WrappedPrivateKey {
             .map_err(|_| KeyProtectedKeyEnvelopeError::KeyMissing)?;
 
         // For now, just XChaCha20Poly1305 is supported
-        let wrapping_key: XChaCha20Poly1305Key = match wrapping_key {
-            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key.to_owned(),
+        let wrapping_key: &XChaCha20Poly1305Key = match wrapping_key {
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key,
             _ => {
                 return Err(KeyProtectedKeyEnvelopeError::Parsing(
                     "Wrapping key must be XChaCha20Poly1305".to_string(),
@@ -56,14 +54,30 @@ impl WrappedPrivateKey {
             }
         };
 
-        let protected_header = HeaderBuilder::from(ContentFormat::CoseKey)
+        let key_bytes = key_to_seal.to_cose();
+
+        let mut protected_header = HeaderBuilder::from(ContentFormat::CoseKey)
+            .value(
+                SAFE_OBJECT_NAMESPACE,
+                Value::from(SafeObjectNamespace::WrappedPrivateKeyNamespace as i64),
+            )
+            .value(
+                CONTENT_NAMESPACE,
+                Value::Integer(Integer::from(namespace.as_i64())),
+            )
             .value(
                 CONTAINED_KEY_ID,
                 Value::from(Vec::from(&key_to_seal.key_id())),
             )
             .build();
-        let encrypt0_builder = CoseEncrypt0Builder::new().protected(protected_header);
-        let cose_encrypt0 = encrypt_cose(encrypt0_builder, wrapping_key);
+        protected_header.alg = Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305));
+
+        let cose_encrypt0 = crate::cose::encrypt_cose(
+            CoseEncrypt0Builder::new().protected(protected_header),
+            key_bytes.as_ref(),
+            wrapping_key,
+        );
+
         Ok(WrappedPrivateKey { cose_encrypt0 })
     }
 
@@ -71,23 +85,47 @@ impl WrappedPrivateKey {
     pub fn unseal<Ids: KeyIds>(
         &self,
         wrapping_key: Ids::Symmetric,
-        namespace: PrivateKeyNamespace,
+        namespace: KeyProtectedKeyEnvelopeNamespace,
         ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<Ids::Private, KeyProtectedKeyEnvelopeError> {
         let wrapping_key_ref = ctx
             .get_symmetric_key(wrapping_key)
             .map_err(|_| KeyProtectedKeyEnvelopeError::KeyMissing)?;
 
-        let key_bytes = unseal_key_internal(&self.cose_encrypt0, wrapping_key, namespace)?;
+        let wrapping_key_inner = match wrapping_key_ref {
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key,
+            _ => {
+                return Err(KeyProtectedKeyEnvelopeError::Parsing(
+                    "Wrapping key must be XChaCha20Poly1305".to_string(),
+                ));
+            }
+        };
 
+        // Validate the safe object namespace
+        let safe_object_namespace =
+            extract_safe_object_namespace(&self.cose_encrypt0.protected.header)?;
+        if safe_object_namespace != SafeObjectNamespace::WrappedPrivateKeyNamespace as i64 {
+            return Err(KeyProtectedKeyEnvelopeError::InvalidNamespace);
+        }
+
+        // Validate the content namespace
+        let envelope_namespace = extract_envelope_namespace(&self.cose_encrypt0.protected.header)?;
+        if envelope_namespace != namespace {
+            return Err(KeyProtectedKeyEnvelopeError::InvalidNamespace);
+        }
+
+        // Validate the content format
         let content_format = ContentFormat::try_from(&self.cose_encrypt0.protected.header)
             .map_err(|_| {
                 KeyProtectedKeyEnvelopeError::Parsing("Invalid content format".to_string())
             })?;
-
         if content_format != ContentFormat::CoseKey {
             return Err(KeyProtectedKeyEnvelopeError::WrongKeyType);
         }
+
+        // Decrypt the key bytes
+        let key_bytes = crate::cose::decrypt_cose(&self.cose_encrypt0, wrapping_key_inner)
+            .map_err(|_| KeyProtectedKeyEnvelopeError::WrongKey)?;
 
         let key = PrivateKey::from_cose(&CoseKeyBytes::from(key_bytes)).map_err(|_| {
             KeyProtectedKeyEnvelopeError::Parsing("Failed to decode private key".to_string())
@@ -99,11 +137,6 @@ impl WrappedPrivateKey {
     /// Get the key ID of the contained key.
     pub fn contained_key_id(&self) -> Result<Option<KeyId>, KeyProtectedKeyEnvelopeError> {
         extract_contained_key_id(&self.cose_encrypt0.protected.header)
-    }
-
-    /// Get the key ID of the wrapping key id.
-    pub fn wrapping_key_id(&self) -> Result<Option<KeyId>, KeyProtectedKeyEnvelopeError> {
-        extract_wrapping_key_id(&self.cose_encrypt0.protected.header)
     }
 }
 
