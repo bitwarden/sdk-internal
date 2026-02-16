@@ -16,7 +16,7 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-ecdsa-keys = [] # Allow ECDSA key generation and import at runtime (disabled by default)
+ecdsa-keys = [] # Allow ECDSA key generation and import at runtime (disabled by default, since SSH Agent does not support ECDSA keys yet)
 wasm = [
     "bitwarden-error/wasm",
     "dep:tsify",

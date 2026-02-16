@@ -4,12 +4,12 @@ use pem_rfc7468::PemLabel;
 use pkcs8::{
     DecodePrivateKey, ObjectIdentifier, PrivateKeyInfo, SecretDocument, der::Decode, pkcs5,
 };
-use ssh_key::private::{Ed25519Keypair, RsaKeypair};
+use ssh_key::{
+    private::{Ed25519Keypair, RsaKeypair},
+    sec1,
+};
 
 use crate::{error::SshKeyImportError, ssh_private_key_to_view};
-
-#[cfg(feature = "ecdsa-keys")]
-const EC_ALGORITHM_OID: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.2.840.10045.2.1");
 
 /// Import a PKCS8 or OpenSSH encoded private key, and returns a decoded [SshKeyView],
 /// with the public key and fingerprint, and the private key in OpenSSH format.
@@ -80,13 +80,8 @@ pub fn import_pkcs8_der_key(encoded_key: &[u8]) -> Result<SshKeyView, SshKeyImpo
                 RsaKeypair::try_from(private_key).map_err(|_| SshKeyImportError::Parsing)?,
             )
         }
-        EC_ALGORITHM_OID => {
-            #[cfg(not(feature = "ecdsa-keys"))]
-            return Err(SshKeyImportError::UnsupportedKeyType);
-
-            #[cfg(feature = "ecdsa-keys")]
-            import_ecdsa_pkcs8_der(encoded_key)?
-        }
+        #[cfg(feature = "ecdsa-keys")]
+        sec1::ALGORITHM_OID => import_ecdsa_pkcs8_der(encoded_key)?,
         _ => return Err(SshKeyImportError::UnsupportedKeyType),
     };
 
