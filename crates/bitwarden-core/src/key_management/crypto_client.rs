@@ -1,8 +1,6 @@
 #[cfg(feature = "wasm")]
-use bitwarden_crypto::safe::PasswordProtectedKeyEnvelope;
-use bitwarden_crypto::{
-    CryptoError, Decryptable, Kdf, RotateableKeySet, safe::PasswordProtectedKeyEnvelopeNamespace,
-};
+use bitwarden_crypto::safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace};
+use bitwarden_crypto::{CryptoError, Decryptable, Kdf, RotateableKeySet};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use bitwarden_encoding::B64;
