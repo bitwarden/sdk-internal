@@ -373,7 +373,7 @@ impl CoseSerializable<CoseKeyContentFormat> for PrivateKey {
             RawPrivateKey::RsaOaepSha1(private_key) => {
                 let primes = private_key.primes();
                 let prime_p = primes
-                    .get(0)
+                    .first()
                     .expect("RSA private key has prime p")
                     .to_bytes_be();
                 let prime_q = primes
