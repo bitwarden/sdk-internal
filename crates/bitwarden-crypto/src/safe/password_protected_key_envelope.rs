@@ -179,23 +179,18 @@ impl PasswordProtectedKeyEnvelope {
             ));
         }
 
-        match extract_integer(
+        // The first use-case - Pin-protected-key-envelopes - did not require the object
+        // namespace to be present. Therefore, without migration of persistent pin
+        // unlocks, this cannot yet be strongly enforced.
+        if let Ok(namespace) = extract_integer(
             &self.cose_encrypt.protected.header,
             SAFE_OBJECT_NAMESPACE,
             "safe object namespace",
-        ) {
-            Ok(namespace) => {
-                if namespace != i128::from(SafeObjectNamespace::PasswordProtectedKeyEnvelope as i64)
-                {
-                    return Err(PasswordProtectedKeyEnvelopeError::Parsing(
-                        "Invalid safe object namespace".to_string(),
-                    ));
-                }
-            }
-            // The first use-case - Pin-protected-key-envelopes - did not require the object
-            // namespace to be present. Therefore, without migration of persistent pin
-            // unlocks, this cannot yet be removed / enforced to error.
-            Err(_) => {}
+        ) && namespace != i128::from(SafeObjectNamespace::PasswordProtectedKeyEnvelope as i64)
+        {
+            return Err(PasswordProtectedKeyEnvelopeError::Parsing(
+                "Invalid safe object namespace".to_string(),
+            ));
         }
 
         let kdf_settings: Argon2RawSettings =
