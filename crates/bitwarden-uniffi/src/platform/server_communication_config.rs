@@ -55,6 +55,19 @@ impl ServerCommunicationConfigClient {
             .collect()
     }
 
+    /// Sets the server communication configuration for a hostname
+    ///
+    /// This method saves the provided communication configuration to the repository.
+    /// Typically called when receiving the `/api/config` response from the server.
+    pub async fn set_communication_type(
+        &self,
+        hostname: String,
+        config: ServerCommunicationConfig,
+    ) -> Result<()> {
+        self.client.set_communication_type(hostname, config).await?;
+        Ok(())
+    }
+
     /// Acquires a cookie from the platform and saves it to the repository
     pub async fn acquire_cookie(&self, hostname: String) -> Result<()> {
         self.client.acquire_cookie(&hostname).await?;
