@@ -1,18 +1,20 @@
 //! This example demonstrates how to securely protect cryptographic keys with another symmetric key
-//! using the [KeyProtectedKeyEnvelope].
+//! using wrapped key envelopes.
 //!
 //! Unlike password-protected envelopes, this uses direct encryption without a.
 //! This is suitable for scenarios where the wrapping key is already a strong symmetric key
 //!
-//! The envelope supports three types of keys:
-//! - Symmetric keys (XChaCha20Poly1305, AES-256-CBC-HMAC)
-//! - Private keys (RSA-2048)
-//! - Signing keys (Ed25519)
+//! Three types of keys can be wrapped:
+//! - Symmetric keys (XChaCha20Poly1305, AES-256-CBC-HMAC) with [WrappedSymmetricKey]
+//! - Private keys (RSA-2048) with [WrappedPrivateKey]
+//! - Signing keys (Ed25519) with [WrappedSigningKey]
 
 use bitwarden_crypto::{
     CoseSerializable, KeyStore, KeyStoreContext, PublicKeyEncryptionAlgorithm, SignatureAlgorithm,
     SymmetricKeyAlgorithm, key_ids,
-    safe::{KeyProtectedKeyEnvelope, KeyProtectedKeyEnvelopeNamespace},
+    safe::{
+        KeyProtectedKeyEnvelopeNamespace, WrappedPrivateKey, WrappedSigningKey, WrappedSymmetricKey,
+    },
 };
 
 fn main() {
@@ -28,7 +30,7 @@ fn main() {
 
     // Seal the vault key with the wrapping key
     // This uses direct encryption with XChaCha20-Poly1305
-    let envelope = KeyProtectedKeyEnvelope::seal_symmetric(
+    let envelope = WrappedSymmetricKey::seal(
         vault_key,
         wrapping_key,
         KeyProtectedKeyEnvelopeNamespace::DeviceProtectedKey,
@@ -40,14 +42,14 @@ fn main() {
     disk.save("vault_key_envelope", (&envelope).into());
 
     // Later, when needed: Load the envelope from disk and unseal it
-    let deserialized: KeyProtectedKeyEnvelope = KeyProtectedKeyEnvelope::try_from(
+    let deserialized: WrappedSymmetricKey = WrappedSymmetricKey::try_from(
         disk.load("vault_key_envelope")
             .expect("Loading from disk should work"),
     )
     .expect("Deserializing envelope should work");
 
     let unsealed_vault_key = deserialized
-        .unseal_symmetric(
+        .unseal(
             wrapping_key,
             KeyProtectedKeyEnvelopeNamespace::DeviceProtectedKey,
             &mut ctx,
@@ -60,7 +62,7 @@ fn main() {
     let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
     // Seal the private key with the wrapping key (reusing from scenario 1)
-    let envelope = KeyProtectedKeyEnvelope::seal_private(
+    let envelope = WrappedPrivateKey::seal(
         private_key,
         wrapping_key,
         KeyProtectedKeyEnvelopeNamespace::DeviceProtectedKey,
@@ -71,14 +73,14 @@ fn main() {
     disk.save("private_key_envelope", (&envelope).into());
 
     // Later: Load and unseal the private key
-    let deserialized: KeyProtectedKeyEnvelope = KeyProtectedKeyEnvelope::try_from(
+    let deserialized: WrappedPrivateKey = WrappedPrivateKey::try_from(
         disk.load("private_key_envelope")
             .expect("Loading from disk should work"),
     )
     .expect("Deserializing envelope should work");
 
     let unsealed_private_key = deserialized
-        .unseal_private(
+        .unseal(
             wrapping_key,
             KeyProtectedKeyEnvelopeNamespace::DeviceProtectedKey,
             &mut ctx,
@@ -91,7 +93,7 @@ fn main() {
     let signing_key = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
 
     // Seal the signing key with the wrapping key (reusing from scenario 1)
-    let envelope = KeyProtectedKeyEnvelope::seal_signing(
+    let envelope = WrappedSigningKey::seal(
         signing_key,
         wrapping_key,
         KeyProtectedKeyEnvelopeNamespace::DeviceProtectedKey,
@@ -102,14 +104,14 @@ fn main() {
     disk.save("signing_key_envelope", (&envelope).into());
 
     // Later: Load and unseal the signing key
-    let deserialized: KeyProtectedKeyEnvelope = KeyProtectedKeyEnvelope::try_from(
+    let deserialized: WrappedSigningKey = WrappedSigningKey::try_from(
         disk.load("signing_key_envelope")
             .expect("Loading from disk should work"),
     )
     .expect("Deserializing envelope should work");
 
     let unsealed_signing_key = deserialized
-        .unseal_signing(
+        .unseal(
             wrapping_key,
             KeyProtectedKeyEnvelopeNamespace::DeviceProtectedKey,
             &mut ctx,

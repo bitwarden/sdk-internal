@@ -584,7 +584,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         .ok_or_else(|| crate::CryptoError::MissingKeyId(format!("{key_id:?}")))
     }
 
-    pub(super) fn get_private_key(&self, key_id: Ids::Private) -> Result<&PrivateKey> {
+    pub(crate) fn get_private_key(&self, key_id: Ids::Private) -> Result<&PrivateKey> {
         if key_id.is_local() {
             self.local_private_keys.get(key_id)
         } else {
@@ -593,7 +593,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         .ok_or_else(|| crate::CryptoError::MissingKeyId(format!("{key_id:?}")))
     }
 
-    pub(super) fn get_signing_key(&self, key_id: Ids::Signing) -> Result<&SigningKey> {
+    pub(crate) fn get_signing_key(&self, key_id: Ids::Signing) -> Result<&SigningKey> {
         if key_id.is_local() {
             self.local_signing_keys.get(key_id)
         } else {

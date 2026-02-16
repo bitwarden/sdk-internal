@@ -28,12 +28,13 @@ use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, EncodedSymmetricKey, KeyIds,
-    KeyStoreContext, Pkcs8PrivateKeyBytes, PrivateKey, SigningKey, SymmetricCryptoKey,
+    KeyStoreContext, PrivateKey, SigningKey, SymmetricCryptoKey,
     cose::{
-        CoseSerializable, KEY_PROTECTED_KEY_ENVELOPE_NAMESPACE, KEY_PROTECTED_KEY_TYPE,
-        KEY_PROTECTED_KEY_TYPE_PRIVATE, KEY_PROTECTED_KEY_TYPE_SIGNING,
-        KEY_PROTECTED_KEY_TYPE_SYMMETRIC,
+        CONTAINED_KEY_ID, CoseSerializable, KEY_PROTECTED_KEY_ENVELOPE_NAMESPACE,
+        KEY_PROTECTED_KEY_TYPE, KEY_PROTECTED_KEY_TYPE_PRIVATE, KEY_PROTECTED_KEY_TYPE_SIGNING,
+        KEY_PROTECTED_KEY_TYPE_SYMMETRIC, extract_bytes,
     },
+    keys::{KEY_ID_SIZE, KeyId},
     xchacha20,
 };
 
@@ -116,12 +117,14 @@ impl KeyProtectedKeyEnvelope {
             EncodedSymmetricKey::CoseKey(key_bytes) => (ContentFormat::CoseKey, key_bytes.to_vec()),
         };
 
+        let key_id = key_to_seal.key_id();
         Self::seal_ref_internal(
             &key_to_seal_bytes,
             content_format,
             wrapping_key,
             KeyProtectedEnvelopeType::Symmetric,
             namespace,
+            key_id,
         )
     }
 
@@ -195,16 +198,14 @@ impl KeyProtectedKeyEnvelope {
         wrapping_key: &SymmetricCryptoKey,
         namespace: KeyProtectedKeyEnvelopeNamespace,
     ) -> Result<Self, KeyProtectedKeyEnvelopeError> {
-        let key_to_seal_bytes = key_to_seal.to_der().map_err(|_| {
-            KeyProtectedKeyEnvelopeError::Parsing("Failed to encode private key".to_string())
-        })?;
-
+        let key_to_seal_bytes = key_to_seal.to_cose();
         Self::seal_ref_internal(
             key_to_seal_bytes.as_ref(),
-            ContentFormat::Pkcs8PrivateKey,
+            ContentFormat::CoseKey,
             wrapping_key,
             KeyProtectedEnvelopeType::Private,
             namespace,
+            Some(key_to_seal.key_id()),
         )
     }
 
@@ -237,11 +238,11 @@ impl KeyProtectedKeyEnvelope {
             return Err(KeyProtectedKeyEnvelopeError::WrongKeyType);
         }
 
-        if content_format != ContentFormat::Pkcs8PrivateKey {
+        if content_format != ContentFormat::CoseKey {
             return Err(KeyProtectedKeyEnvelopeError::WrongKeyType);
         }
 
-        PrivateKey::from_der(&Pkcs8PrivateKeyBytes::from(key_bytes)).map_err(|_| {
+        PrivateKey::from_cose(&CoseKeyBytes::from(key_bytes)).map_err(|_| {
             KeyProtectedKeyEnvelopeError::Parsing("Failed to decode private key".to_string())
         })
     }
@@ -274,13 +275,13 @@ impl KeyProtectedKeyEnvelope {
         namespace: KeyProtectedKeyEnvelopeNamespace,
     ) -> Result<Self, KeyProtectedKeyEnvelopeError> {
         let key_to_seal_bytes = key_to_seal.to_cose();
-
         Self::seal_ref_internal(
             key_to_seal_bytes.as_ref(),
             ContentFormat::CoseKey,
             wrapping_key,
             KeyProtectedEnvelopeType::Signing,
             namespace,
+            Some(key_to_seal.key_id()),
         )
     }
 
@@ -329,6 +330,7 @@ impl KeyProtectedKeyEnvelope {
         wrapping_key: &SymmetricCryptoKey,
         envelope_type: KeyProtectedEnvelopeType,
         namespace: KeyProtectedKeyEnvelopeNamespace,
+        contained_key_id: Option<KeyId>,
     ) -> Result<Self, KeyProtectedKeyEnvelopeError> {
         // Extract the XChaCha20Poly1305 key from the wrapping key
         let wrapping_key_inner = match wrapping_key {
@@ -342,7 +344,7 @@ impl KeyProtectedKeyEnvelope {
 
         let mut nonce = [0u8; xchacha20::NONCE_SIZE];
 
-        let protected_header = HeaderBuilder::from(content_format)
+        let mut protected_header = HeaderBuilder::from(content_format)
             .value(
                 KEY_PROTECTED_KEY_TYPE,
                 Value::Integer(Integer::from(envelope_type.as_label() as i64)),
@@ -350,8 +352,14 @@ impl KeyProtectedKeyEnvelope {
             .value(
                 KEY_PROTECTED_KEY_ENVELOPE_NAMESPACE,
                 Value::Integer(Integer::from(namespace.as_i64())),
-            )
-            .build();
+            );
+
+        if let Some(key_id) = contained_key_id {
+            protected_header =
+                protected_header.value(CONTAINED_KEY_ID, Value::from(Vec::from(&key_id)));
+        }
+
+        let protected_header = protected_header.build();
 
         let cose_encrypt0 = coset::CoseEncrypt0Builder::new()
             .protected(protected_header)
@@ -489,6 +497,26 @@ impl KeyProtectedKeyEnvelope {
                 _ => None,
             })
             .unwrap_or_else(|| Err(KeyProtectedKeyEnvelopeError::InvalidNamespace))
+    }
+
+    /// Get the key ID of the contained key, if the key ID is stored on the envelope headers.
+    /// Only COSE keys have a key ID, legacy keys do not.
+    pub fn contained_key_id(&self) -> Result<Option<KeyId>, KeyProtectedKeyEnvelopeError> {
+        let key_id_bytes = extract_bytes(
+            &self.cose_encrypt0.protected.header,
+            CONTAINED_KEY_ID,
+            "key id",
+        );
+
+        if let Ok(bytes) = key_id_bytes {
+            let key_id_array: [u8; KEY_ID_SIZE] = bytes
+                .as_slice()
+                .try_into()
+                .map_err(|_| KeyProtectedKeyEnvelopeError::Parsing("Invalid key id".to_string()))?;
+            Ok(Some(KeyId::from(key_id_array)))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -648,6 +676,36 @@ mod tests {
     }
 
     #[test]
+    fn test_contained_key_id_symmetric_cosekey() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let envelope = KeyProtectedKeyEnvelope::seal_symmetric(
+            key_to_seal,
+            wrapping_key,
+            KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            &ctx,
+        )
+        .unwrap();
+
+        #[allow(deprecated)]
+        let key_to_seal_ref = ctx
+            .dangerous_get_symmetric_key(key_to_seal)
+            .expect("Key should exist in the key store");
+
+        let expected_key_id = key_to_seal_ref
+            .key_id()
+            .expect("COSE symmetric keys always have a key id");
+
+        let contained_key_id = envelope.contained_key_id().unwrap();
+
+        assert_eq!(Some(expected_key_id), contained_key_id);
+    }
+
+    #[test]
     fn test_seal_unseal_symmetric_legacy() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
@@ -690,6 +748,27 @@ mod tests {
             .expect("Key should exist in the key store");
 
         assert_eq!(unsealed_key_ref, original_key_ref);
+    }
+
+    #[test]
+    fn test_contained_key_id_symmetric_legacy() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        let key_to_seal = ctx.generate_symmetric_key();
+        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let envelope = KeyProtectedKeyEnvelope::seal_symmetric(
+            key_to_seal,
+            wrapping_key,
+            KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            &ctx,
+        )
+        .unwrap();
+
+        let contained_key_id = envelope.contained_key_id().unwrap();
+
+        assert_eq!(None, contained_key_id);
     }
 
     #[test]
@@ -741,6 +820,32 @@ mod tests {
     }
 
     #[test]
+    fn test_contained_key_id_private() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        let key_to_seal = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let envelope = KeyProtectedKeyEnvelope::seal_private(
+            key_to_seal,
+            wrapping_key,
+            KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            &ctx,
+        )
+        .unwrap();
+
+        #[allow(deprecated)]
+        let key_to_seal_ref = ctx
+            .dangerous_get_private_key(key_to_seal)
+            .expect("Key should exist in the key store");
+
+        let contained_key_id = envelope.contained_key_id().unwrap();
+
+        assert_eq!(Some(key_to_seal_ref.key_id()), contained_key_id);
+    }
+
+    #[test]
     fn test_seal_unseal_signing() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx = key_store.context_mut();
@@ -779,6 +884,32 @@ mod tests {
         let original_key_ref = ctx.dangerous_get_signing_key(key_to_seal).unwrap();
 
         assert_eq!(unsealed_key_ref.to_cose(), original_key_ref.to_cose());
+    }
+
+    #[test]
+    fn test_contained_key_id_signing() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        let key_to_seal = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
+        let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let envelope = KeyProtectedKeyEnvelope::seal_signing(
+            key_to_seal,
+            wrapping_key,
+            KeyProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            &ctx,
+        )
+        .unwrap();
+
+        #[allow(deprecated)]
+        let key_to_seal_ref = ctx
+            .dangerous_get_signing_key(key_to_seal)
+            .expect("Key should exist in the key store");
+
+        let contained_key_id = envelope.contained_key_id().unwrap();
+
+        assert_eq!(Some(key_to_seal_ref.key_id()), contained_key_id);
     }
 
     #[test]

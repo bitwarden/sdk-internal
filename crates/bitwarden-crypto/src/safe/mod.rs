@@ -2,10 +2,16 @@
 
 mod password_protected_key_envelope;
 pub use password_protected_key_envelope::*;
-mod key_protected_key_envelope;
-pub use key_protected_key_envelope::*;
 mod key_protected_key_envelope_namespace;
 pub use key_protected_key_envelope_namespace::KeyProtectedKeyEnvelopeNamespace;
+mod cose_envelope_helpers;
+pub use cose_envelope_helpers::KeyProtectedKeyEnvelopeError;
+mod wrapped_symmetric_key;
+pub use wrapped_symmetric_key::WrappedSymmetricKey;
+mod wrapped_private_key;
+pub use wrapped_private_key::WrappedPrivateKey;
+mod wrapped_signing_key;
+pub use wrapped_signing_key::WrappedSigningKey;
 mod data_envelope;
 pub use data_envelope::*;
 mod data_envelope_namespace;

@@ -82,6 +82,10 @@ impl SigningKey {
             RawSigningKey::Ed25519(key) => key.sign(data).to_bytes().to_vec(),
         }
     }
+
+    pub(crate) fn key_id(&self) -> KeyId {
+        self.id.clone()
+    }
 }
 
 impl CoseSerializable<CoseKeyContentFormat> for SigningKey {

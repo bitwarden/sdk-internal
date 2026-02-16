@@ -4,7 +4,7 @@
 //! be documented publicly.
 
 use coset::{
-    CborSerializable, ContentType, Header, Label,
+    CborSerializable, ContentType, CoseEncrypt0, CoseEncrypt0Builder, Header, Label,
     iana::{self, CoapContentFormat, KeyOperation},
 };
 use generic_array::GenericArray;
@@ -38,11 +38,6 @@ pub(crate) const ARGON2_PARALLELISM: i64 = -71004;
 /// Indicates for any object containing a key (wrapped key, password protected key envelope) which
 /// key ID that contained key has
 pub(crate) const CONTAINED_KEY_ID: i64 = -71005;
-/// Indicates what type of key is contained in a protected key envelope
-pub(crate) const KEY_PROTECTED_KEY_TYPE: i64 = -71006;
-pub(crate) const KEY_PROTECTED_KEY_TYPE_SYMMETRIC: i128 = -71007;
-pub(crate) const KEY_PROTECTED_KEY_TYPE_PRIVATE: i128 = -71008;
-pub(crate) const KEY_PROTECTED_KEY_TYPE_SIGNING: i128 = -71009;
 
 // Note: These are in the "unregistered" tree: https://datatracker.ietf.org/doc/html/rfc6838#section-3.4
 // These are only used within Bitwarden, and not meant for exchange with other systems.
@@ -53,13 +48,47 @@ const CONTENT_TYPE_SPKI_PUBLIC_KEY: &str = "application/x.bitwarden.spki-public-
 
 /// Namespaces
 /// The label used for the namespace ensuring strong domain separation when using signatures.
-pub(crate) const SIGNING_NAMESPACE: i64 = -80000;
-/// The label used for the namespace ensuring strong domain separation when using data envelopes.
-pub(crate) const DATA_ENVELOPE_NAMESPACE: i64 = -80001;
-/// The label used for the namespace ensuring strong domain separation when using key protected key envelopes.
-pub(crate) const KEY_PROTECTED_KEY_ENVELOPE_NAMESPACE: i64 = -80002;
+pub(crate) const CONTENT_NAMESPACE: i64 = -80000;
 
 const XCHACHA20_TEXT_PAD_BLOCK_SIZE: usize = 32;
+
+pub(crate) fn encrypt_cose(
+    cose_encrypt0_builder: CoseEncrypt0Builder,
+    key: XChaCha20Poly1305Key,
+) -> CoseEncrypt0 {
+    let mut nonce = [0u8; xchacha20::NONCE_SIZE];
+    cose_encrypt0_builder
+        .create_ciphertext(&[], &[], |data, aad| {
+            let ciphertext =
+                crate::xchacha20::encrypt_xchacha20_poly1305(&(*key.enc_key).into(), data, aad);
+            nonce = ciphertext.nonce();
+            ciphertext.encrypted_bytes().to_vec()
+        })
+        .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
+        .build()
+}
+
+pub struct DecryptFailed;
+pub(crate) fn decrypt_cose(
+    cose_encrypt0: CoseEncrypt0,
+    key: XChaCha20Poly1305Key,
+) -> Result<Vec<u8>, DecryptFailed> {
+    let nonce: [u8; xchacha20::NONCE_SIZE] = cose_encrypt0
+        .unprotected
+        .iv
+        .clone()
+        .try_into()
+        .map_err(|_| DecryptFailed)?;
+    cose_encrypt0
+        .decrypt_ciphertext(
+            &[],
+            || CryptoError::MissingField("ciphertext"),
+            |data, aad| {
+                xchacha20::decrypt_xchacha20_poly1305(&nonce, &(*key.enc_key).into(), data, aad)
+            },
+        )
+        .map_err(|_| DecryptFailed)
+}
 
 /// Encrypts a plaintext message using XChaCha20Poly1305 and returns a COSE Encrypt0 message
 pub(crate) fn encrypt_xchacha20_poly1305(
