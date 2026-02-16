@@ -2,8 +2,6 @@
 
 mod password_protected_key_envelope;
 pub use password_protected_key_envelope::*;
-mod key_protected_key_envelope_namespace;
-pub use key_protected_key_envelope_namespace::KeyProtectedKeyEnvelopeNamespace;
 mod cose_envelope_helpers;
 pub use cose_envelope_helpers::KeyProtectedKeyEnvelopeError;
 mod wrapped_private_key;
