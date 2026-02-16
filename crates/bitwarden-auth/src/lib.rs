@@ -8,8 +8,8 @@ mod auth_client;
 
 pub mod identity;
 pub mod registration;
-pub mod token_management;
 pub mod send_access;
+pub mod token_management;
 
 pub(crate) mod api; // keep internal to crate
 
