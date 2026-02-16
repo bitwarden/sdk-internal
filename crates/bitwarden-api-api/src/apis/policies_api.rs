@@ -30,8 +30,8 @@ pub trait PoliciesApi: Send + Sync {
     async fn get<'a>(
         &self,
         org_id: uuid::Uuid,
-        r#type: i32,
-    ) -> Result<models::PolicyDetailResponseModel, Error<GetError>>;
+        r#type: models::PolicyType,
+    ) -> Result<models::PolicyStatusResponseModel, Error<GetError>>;
 
     /// GET /organizations/{orgId}/policies
     async fn get_all<'a>(
@@ -87,13 +87,13 @@ impl PoliciesApi for PoliciesApiClient {
     async fn get<'a>(
         &self,
         org_id: uuid::Uuid,
-        r#type: i32,
-    ) -> Result<models::PolicyDetailResponseModel, Error<GetError>> {
+        r#type: models::PolicyType,
+    ) -> Result<models::PolicyStatusResponseModel, Error<GetError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
 
-        let local_var_uri_str = format!("{}/organizations/{orgId}/policies/{type}", local_var_configuration.base_path, orgId=org_id, type=r#type);
+        let local_var_uri_str = format!("{}/organizations/{orgId}/policies/{type}", local_var_configuration.base_path, orgId=org_id, type=r#type.to_string());
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
@@ -119,12 +119,12 @@ impl PoliciesApi for PoliciesApiClient {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
                 ContentType::Text => {
                     return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::PolicyDetailResponseModel`",
+                        "Received `text/plain` content type response that cannot be converted to `models::PolicyStatusResponseModel`",
                     )));
                 }
                 ContentType::Unsupported(local_var_unknown_type) => {
                     return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PolicyDetailResponseModel`"
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PolicyStatusResponseModel`"
                     ))));
                 }
             }

@@ -82,7 +82,7 @@ async fn share_ciphers_bulk(
             key: EncString::try_from_optional(cipher_mini.key)?,
             name: require!(EncString::try_from_optional(cipher_mini.name)?),
             notes: EncString::try_from_optional(cipher_mini.notes)?,
-            r#type: require!(cipher_mini.r#type).into(),
+            r#type: require!(cipher_mini.r#type).try_into()?,
             login: cipher_mini.login.map(|l| (*l).try_into()).transpose()?,
             identity: cipher_mini.identity.map(|i| (*i).try_into()).transpose()?,
             card: cipher_mini.card.map(|c| (*c).try_into()).transpose()?,
@@ -93,7 +93,8 @@ async fn share_ciphers_bulk(
             ssh_key: cipher_mini.ssh_key.map(|s| (*s).try_into()).transpose()?,
             reprompt: cipher_mini
                 .reprompt
-                .map(|r| r.into())
+                .map(|r| r.try_into())
+                .transpose()?
                 .unwrap_or(CipherRepromptType::None),
             organization_use_totp: cipher_mini.organization_use_totp.unwrap_or(true),
             attachments: cipher_mini
