@@ -26,9 +26,9 @@ use crate::key_management::KeyIds;
 /// impl MyFeatureClient {
 ///     pub fn from_client(client: &Client) -> Result<Self, Error> {
 ///         Ok(Self {
-///             key_store: client.from_client_part()?,
-///             api_provider: client.from_client_part()?,
-///             repository: client.from_client_part()?,
+///             key_store: client.get_part()?,
+///             api_provider: client.get_part()?,
+///             repository: client.get_part()?,
 ///         })
 ///     }
 /// }
@@ -38,13 +38,13 @@ pub trait FromClientPart<T> {
     type Error;
 
     /// Extract a dependency of type `T` from self.
-    fn from_client_part(&self) -> Result<T, Self::Error>;
+    fn get_part(&self) -> Result<T, Self::Error>;
 }
 
 impl FromClientPart<KeyStore<KeyIds>> for Client {
     type Error = std::convert::Infallible;
 
-    fn from_client_part(&self) -> Result<KeyStore<KeyIds>, Self::Error> {
+    fn get_part(&self) -> Result<KeyStore<KeyIds>, Self::Error> {
         Ok(self.internal.get_key_store().clone())
     }
 }
@@ -52,7 +52,7 @@ impl FromClientPart<KeyStore<KeyIds>> for Client {
 impl FromClientPart<Arc<dyn ApiProvider>> for Client {
     type Error = std::convert::Infallible;
 
-    fn from_client_part(&self) -> Result<Arc<dyn ApiProvider>, Self::Error> {
+    fn get_part(&self) -> Result<Arc<dyn ApiProvider>, Self::Error> {
         Ok(Arc::new(self.internal.clone()))
     }
 }
@@ -61,7 +61,7 @@ impl FromClientPart<Arc<dyn ApiProvider>> for Client {
 impl<T: RepositoryItem> FromClientPart<Arc<dyn Repository<T>>> for Client {
     type Error = bitwarden_state::registry::StateRegistryError;
 
-    fn from_client_part(&self) -> Result<Arc<dyn Repository<T>>, Self::Error> {
+    fn get_part(&self) -> Result<Arc<dyn Repository<T>>, Self::Error> {
         self.platform().state().get::<T>()
     }
 }
