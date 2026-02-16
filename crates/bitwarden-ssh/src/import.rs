@@ -2,10 +2,7 @@ use bitwarden_vault::SshKeyView;
 use ed25519;
 use pem_rfc7468::PemLabel;
 use pkcs8::{DecodePrivateKey, PrivateKeyInfo, SecretDocument, der::Decode, pkcs5};
-use ssh_key::{
-    private::{Ed25519Keypair, RsaKeypair},
-    sec1,
-};
+use ssh_key::private::{Ed25519Keypair, RsaKeypair};
 
 use crate::{error::SshKeyImportError, ssh_private_key_to_view};
 
