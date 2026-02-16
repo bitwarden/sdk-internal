@@ -2,6 +2,8 @@
 
 mod password_protected_key_envelope;
 pub use password_protected_key_envelope::*;
+mod password_protected_key_envelope_namespace;
+pub use password_protected_key_envelope_namespace::*;
 mod data_envelope;
 pub use data_envelope::*;
 mod data_envelope_namespace;
