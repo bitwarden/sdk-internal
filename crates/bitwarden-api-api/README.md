@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`209ec4c0917a97f18638a3289418782ebdee47e5`](https://github.com/bitwarden/server/commit/209ec4c0917a97f18638a3289418782ebdee47e5)
+  [`88fa59ae807d5a005533ce6efc30c829d51dddfd`](https://github.com/bitwarden/server/commit/88fa59ae807d5a005533ce6efc30c829d51dddfd)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -565,7 +565,6 @@ All URIs are relative to *https://api.bitwarden.com*
 - [BulkDenyAdminAuthRequestRequestModel](docs/BulkDenyAdminAuthRequestRequestModel.md)
 - [ChangePlanFrequencyRequest](docs/ChangePlanFrequencyRequest.md)
 - [CheckoutBillingAddressRequest](docs/CheckoutBillingAddressRequest.md)
-- [Cipher](docs/Cipher.md)
 - [CipherAttachmentModel](docs/CipherAttachmentModel.md)
 - [CipherBulkArchiveRequestModel](docs/CipherBulkArchiveRequestModel.md)
 - [CipherBulkDeleteRequestModel](docs/CipherBulkDeleteRequestModel.md)
@@ -616,7 +615,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [CreateClientOrganizationRequestBody](docs/CreateClientOrganizationRequestBody.md)
 - [CreateCollectionRequestModel](docs/CreateCollectionRequestModel.md)
 - [CredentialCreateOptions](docs/CredentialCreateOptions.md)
-- [DeleteAttachmentResponseData](docs/DeleteAttachmentResponseData.md)
+- [DeleteAttachmentResponseModel](docs/DeleteAttachmentResponseModel.md)
 - [DeleteRecoverRequestModel](docs/DeleteRecoverRequestModel.md)
 - [DeviceAuthRequestResponseModel](docs/DeviceAuthRequestResponseModel.md)
 - [DeviceAuthRequestResponseModelListResponseModel](docs/DeviceAuthRequestResponseModelListResponseModel.md)
