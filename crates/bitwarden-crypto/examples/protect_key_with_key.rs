@@ -189,11 +189,11 @@ fn assert_signing_keys_equal(
 ) {
     #[allow(deprecated)]
     let left_key = ctx
-        .dangerous_get_signing_key(left)
+        .get_signing_key(left)
         .expect("Left signing key should exist");
     #[allow(deprecated)]
     let right_key = ctx
-        .dangerous_get_signing_key(right)
+        .get_signing_key(right)
         .expect("Right signing key should exist");
 
     assert_eq!(

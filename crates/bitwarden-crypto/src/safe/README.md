@@ -6,7 +6,15 @@ other parts of `bitwarden-crypto`.
 
 Usage examples of all safe APIs are provided in the crate's `examples` directory.
 
-## Password-protected key envelope
+## Guidelines for consumers
+
+The safe module aims to provide a high level of abstraction, that features can be built on top of.
+Each safe primitive aims to fulfill one clearly described use-case well, providing an easy and safe
+interface, adequate cryptographically authenticated metadata, and a rigurous security model.
+
+If your use-case is not covered here, please reach out, and we will consider building it.
+
+### Password-protected key envelope
 
 Use the password protected key envelope to protect a symmetric key with a password. Examples
 include:
@@ -17,7 +25,7 @@ include:
 Internally, the module uses a KDF to protect against brute-forcing, but it does not expose this to
 the consumer. The consumer only provides a password and key.
 
-## Data envelope
+### Data envelope
 
 Use the data envelope to protect a struct (document) of data. Examples include:
 
@@ -29,13 +37,25 @@ The serialization of the data and the creation of a content encryption key is ha
 Calling the API with a decrypted struct, the content encryption key ID and the encrypted data are
 returned.
 
-## Guidelines for devs
+### Wrapped key
+
+Use the wrapped key when you want to protect a key (private, signing or symmetric) with a symmetric
+key. Examples include:
+
+- I have a vault item that has a data document (as a data envelope), and a set of attachments, each
+  of which have an attachment key.
+- I have the private and signature key of a user
+- I want to define a session encryption key that wraps the user's account encryption key
+
+## Guidelines for maintainers
 
 When adding a new primitive there are a few considerations to make:
 
 - Does this serve a new purpose that is not already fulfilled better otherwise
   - Replacing insecure functionality is a valid reason here
 - Is it easy to use for developers that are not cryptography exprets
+  - There should be a clear usecase description such as "I have a password and want to protect a
+    symmetric key"
 - Does the API prevent (accidental) mis-use by developers that are not cryptography experts
 - Is the format extensible and cover the use-case adequately
 - Does the new object have adequate security analysis performed?
@@ -58,3 +78,7 @@ decrypting code to correctly identify whether an object that is being decrypted 
 correct object type (e.g. a DataEnvelope). Within each object type, there is then another layer of
 partitioning, since these objects can be used in many places. For instance, a DataEnvelope may have
 the partitioning vault item, account settings, and so on.
+
+### Key context
+
+Public interfaces must work on key-context, without ever exposing direct key copies to the consumer.

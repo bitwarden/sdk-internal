@@ -556,7 +556,7 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
     /// # Errors
     /// Returns [`CryptoError::MissingKeyId`] if the key id does not exist in the context.
     #[deprecated(note = "This function should ideally never be used outside this crate")]
-    pub fn dangerous_get_signing_key(&self, key_id: Ids::Signing) -> Result<&SigningKey> {
+    pub fn get_signing_key(&self, key_id: Ids::Signing) -> Result<&SigningKey> {
         self.get_signing_key(key_id)
     }
 

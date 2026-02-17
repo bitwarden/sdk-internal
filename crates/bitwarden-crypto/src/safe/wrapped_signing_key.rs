@@ -260,30 +260,22 @@ mod tests {
         let key_to_seal = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = WrappedSigningKey::seal(
-            key_to_seal,
-            wrapping_key,
-            Namespace::ExampleNamespace,
-            &ctx,
-        )
-        .unwrap();
+        let envelope =
+            WrappedSigningKey::seal(key_to_seal, wrapping_key, Namespace::ExampleNamespace, &ctx)
+                .unwrap();
 
         let unsealed_key = envelope
-            .unseal(
-                wrapping_key,
-                Namespace::ExampleNamespace,
-                &mut ctx,
-            )
+            .unseal(wrapping_key, Namespace::ExampleNamespace, &mut ctx)
             .unwrap();
 
         #[allow(deprecated)]
         let unsealed_key_ref = ctx
-            .dangerous_get_signing_key(unsealed_key)
+            .get_signing_key(unsealed_key)
             .expect("Key should exist in the key store");
 
         #[allow(deprecated)]
         let original_key_ref = ctx
-            .dangerous_get_signing_key(key_to_seal)
+            .get_signing_key(key_to_seal)
             .expect("Key should exist in the key store");
 
         assert_eq!(unsealed_key_ref.to_cose(), original_key_ref.to_cose());
@@ -297,17 +289,13 @@ mod tests {
         let key_to_seal = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = WrappedSigningKey::seal(
-            key_to_seal,
-            wrapping_key,
-            Namespace::ExampleNamespace,
-            &ctx,
-        )
-        .unwrap();
+        let envelope =
+            WrappedSigningKey::seal(key_to_seal, wrapping_key, Namespace::ExampleNamespace, &ctx)
+                .unwrap();
 
         #[allow(deprecated)]
         let key_to_seal_ref = ctx
-            .dangerous_get_signing_key(key_to_seal)
+            .get_signing_key(key_to_seal)
             .expect("Key should exist in the key store");
 
         let contained_key_id = envelope.contained_key_id().unwrap();
@@ -323,33 +311,25 @@ mod tests {
         let key_to_seal = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = WrappedSigningKey::seal(
-            key_to_seal,
-            wrapping_key,
-            Namespace::ExampleNamespace,
-            &ctx,
-        )
-        .unwrap();
+        let envelope =
+            WrappedSigningKey::seal(key_to_seal, wrapping_key, Namespace::ExampleNamespace, &ctx)
+                .unwrap();
 
         let serialized: String = envelope.into();
         let deserialized = WrappedSigningKey::from_str(&serialized).unwrap();
 
         let unsealed_key = deserialized
-            .unseal(
-                wrapping_key,
-                Namespace::ExampleNamespace,
-                &mut ctx,
-            )
+            .unseal(wrapping_key, Namespace::ExampleNamespace, &mut ctx)
             .unwrap();
 
         #[allow(deprecated)]
         let unsealed_key_ref = ctx
-            .dangerous_get_signing_key(unsealed_key)
+            .get_signing_key(unsealed_key)
             .expect("Key should exist in the key store");
 
         #[allow(deprecated)]
         let original_key_ref = ctx
-            .dangerous_get_signing_key(key_to_seal)
+            .get_signing_key(key_to_seal)
             .expect("Key should exist in the key store");
 
         assert_eq!(unsealed_key_ref.to_cose(), original_key_ref.to_cose());
@@ -382,13 +362,9 @@ mod tests {
         let key_to_seal = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = WrappedSigningKey::seal(
-            key_to_seal,
-            wrapping_key,
-            Namespace::ExampleNamespace,
-            &ctx,
-        )
-        .unwrap();
+        let envelope =
+            WrappedSigningKey::seal(key_to_seal, wrapping_key, Namespace::ExampleNamespace, &ctx)
+                .unwrap();
 
         assert!(matches!(
             envelope.unseal(wrapping_key, Namespace::ExampleNamespace2, &mut ctx),
