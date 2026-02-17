@@ -95,7 +95,7 @@ pub enum AccountKeysResponseParseError {
 
 /// Any keys / cryptographic protection "downstream" from the account symmetric key (user key).
 /// Private keys are protected by the user key.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[allow(clippy::large_enum_variant)]
@@ -756,32 +756,7 @@ mod tests {
         let parsed = WrappedAccountCryptographicState::try_from(&response)
             .expect("V2 response should parse successfully");
 
-        match &parsed {
-            WrappedAccountCryptographicState::V2 {
-                private_key,
-                signed_public_key,
-                signing_key,
-                ..
-            } => match &wrapped_state {
-                WrappedAccountCryptographicState::V2 {
-                    private_key: orig_private_key,
-                    signed_public_key: orig_signed_public_key,
-                    signing_key: orig_signing_key,
-                    ..
-                } => {
-                    assert_eq!(private_key.to_string(), orig_private_key.to_string());
-                    assert_eq!(signing_key.to_string(), orig_signing_key.to_string());
-                    assert_eq!(
-                        signed_public_key.as_ref().map(|k| String::from(k.clone())),
-                        orig_signed_public_key
-                            .as_ref()
-                            .map(|k| String::from(k.clone())),
-                    );
-                }
-                _ => panic!("Original state should be V2"),
-            },
-            _ => panic!("Parsed state should be V2"),
-        }
+        assert_eq!(parsed, wrapped_state);
     }
 
     #[test]
@@ -803,7 +778,7 @@ mod tests {
             object: None,
             public_key_encryption_key_pair: Box::new(PublicKeyEncryptionKeyPairResponseModel {
                 object: None,
-                wrapped_private_key: Some(wrapped_private_key.clone()),
+                wrapped_private_key: Some(wrapped_private_key),
                 public_key: None,
                 signed_public_key: None,
             }),
@@ -814,12 +789,7 @@ mod tests {
         let parsed = WrappedAccountCryptographicState::try_from(&response)
             .expect("V1 response should parse successfully");
 
-        match &parsed {
-            WrappedAccountCryptographicState::V1 { private_key } => {
-                assert_eq!(private_key.to_string(), wrapped_private_key);
-            }
-            _ => panic!("Parsed state should be V1"),
-        }
+        assert_eq!(parsed, wrapped_state);
     }
 
     #[test]
