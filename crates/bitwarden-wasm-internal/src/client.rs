@@ -102,8 +102,8 @@ impl PasswordManagerClient {
         self.0.exporters()
     }
 
-    /// Exporter related operations.
-    pub fn sends(&self) -> ExporterClient {
+    /// Send related operations.
+    pub fn sends(&self) -> SendClient {
         self.0.sends()
     }
 }
