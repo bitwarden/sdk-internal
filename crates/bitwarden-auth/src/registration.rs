@@ -9,10 +9,12 @@ use bitwarden_api_api::models::{
     DeviceKeysRequestModel, KeysRequestModel, OrganizationUserResetPasswordEnrollmentRequestModel,
     SetInitialPasswordRequestModel, SetKeyConnectorKeyRequestModel,
 };
+use bitwarden_api_identity::models::RegisterFinishRequestModel;
 use bitwarden_core::{
     Client, OrganizationId, UserId,
     key_management::{
-        MasterPasswordUnlockData, account_cryptographic_state::WrappedAccountCryptographicState,
+        AccountKeysData, MasterPasswordAuthenticationData, MasterPasswordUnlockData,
+        account_cryptographic_state::WrappedAccountCryptographicState,
     },
 };
 use bitwarden_crypto::EncString;
@@ -71,6 +73,43 @@ pub struct JitMasterPasswordRegistrationRequest {
     pub master_password_hint: Option<String>,
     /// Should enroll user into admin password reset
     pub reset_password_enroll: bool,
+}
+
+/// Request parameters for master password registration
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct UserMasterPasswordRegistrationRequest {
+    /// User ID for the account being initialized
+    pub user_id: UserId,
+    /// Email for the account being initialized
+    pub email: String,
+    /// Salt for master password hashing
+    pub salt: String,
+    /// Master password for the account
+    pub master_password: String,
+    /// Optional hint for the master password
+    pub master_password_hint: Option<String>,
+    /// Optional token for email verification
+    pub email_verification_token: Option<String>,
+    /// Optional organization user ID for organization invitations
+    pub organization_user_id: Option<OrganizationId>,
+    /// Optional organization invite token for joining an organization
+    pub org_invite_token: Option<String>,
+    /// Optional token for sponsored free family plan
+    pub org_sponsored_free_family_plan_token: Option<String>,
+    /// Optional token for accepting emergency access invitation
+    pub accept_emergency_access_invite_token: Option<String>,
+    /// Optional emergency access ID for accepting emergency access invitation
+    pub accept_emergency_access_id: Option<UserId>,
+    /// Optional provider invite token for joining as a provider
+    pub provider_invite_token: Option<String>,
+    /// Optional provider user ID for provider invitations
+    pub provider_user_id: Option<UserId>,
 }
 
 /// Client for initializing a user account.
@@ -133,6 +172,17 @@ impl RegistrationClient {
         let client = &self.client.internal;
         let api_client = &client.get_api_configurations().await.api_client;
         internal_post_keys_for_jit_password_registration(self, api_client, request).await
+    }
+
+    /// Initializes new password-based cryptographic state for a user
+    /// and posts the state to the server
+    pub async fn post_user_password_registration(
+        &self,
+        request: UserMasterPasswordRegistrationRequest,
+    ) -> Result<UserMasterPasswordRegistrationResponse, RegistrationError> {
+        let client = &self.client.internal;
+        let identity_client = &client.get_api_configurations().await.identity_client;
+        internal_post_user_password_registration(self, identity_client, request).await
     }
 }
 
@@ -470,6 +520,84 @@ pub struct JitMasterPasswordRegistrationResponse {
     pub master_password_unlock: MasterPasswordUnlockData,
     /// The decrypted user key.
     pub user_key: B64,
+}
+
+async fn internal_post_user_password_registration(
+    registration_client: &RegistrationClient,
+    identity_client: &bitwarden_api_identity::apis::ApiClient,
+    request: UserMasterPasswordRegistrationRequest,
+) -> Result<UserMasterPasswordRegistrationResponse, RegistrationError> {
+    let make_crypto_response = registration_client
+        .client
+        .crypto()
+        .make_user_password_registration(request.user_id, request.master_password, request.salt)
+        .map_err(|_| RegistrationError::Crypto)?;
+    let account_keys_data: AccountKeysData = (&make_crypto_response.account_keys_request)
+        .try_into()
+        .map_err(|_| RegistrationError::Crypto)?;
+
+    let api_request = RegisterFinishRequestModel {
+        email: Some(request.email),
+        master_password_hint: request.master_password_hint,
+        master_password_unlock: Some(Box::new(
+            (&make_crypto_response.master_password_unlock_data).into(),
+        )),
+        master_password_authentication: Some(Box::new(
+            (&make_crypto_response.master_password_authentication_data).into(),
+        )),
+        account_keys: Some(Box::new((&account_keys_data).into())),
+        email_verification_token: request.email_verification_token,
+        organization_user_id: request.organization_user_id.map(Into::into),
+        org_invite_token: (request.org_invite_token),
+        org_sponsored_free_family_plan_token: (request.org_sponsored_free_family_plan_token),
+        accept_emergency_access_invite_token: (request.accept_emergency_access_invite_token),
+        accept_emergency_access_id: request.accept_emergency_access_id.map(Into::into),
+        provider_invite_token: (request.provider_invite_token),
+        provider_user_id: request.provider_user_id.map(Into::into),
+        // TODO remove deprecated fields below with https://bitwarden.atlassian.net/browse/PM-27326
+        kdf: None,
+        kdf_memory: None,
+        kdf_parallelism: None,
+        kdf_iterations: None,
+        master_password_hash: None,
+        user_symmetric_key: None,
+        user_asymmetric_keys: None,
+    };
+
+    identity_client
+        .accounts_api()
+        .post_register_finish(Some(api_request))
+        .await
+        .map_err(|e| {
+            error!("Failed to post account keys: {e:?}");
+            RegistrationError::Api
+        })?;
+
+    Ok(UserMasterPasswordRegistrationResponse {
+        account_cryptographic_state: make_crypto_response.account_cryptographic_state,
+        master_password_unlock: make_crypto_response.master_password_unlock_data,
+        master_password_authentication: make_crypto_response.master_password_authentication_data,
+        account_keys_request: account_keys_data,
+    })
+}
+
+/// Result of user master password registration process.
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct UserMasterPasswordRegistrationResponse {
+    /// The account cryptographic state of the user
+    pub account_cryptographic_state: WrappedAccountCryptographicState,
+    /// The master password unlock data
+    pub master_password_unlock: MasterPasswordUnlockData,
+    /// The master password authentication data
+    pub master_password_authentication: MasterPasswordAuthenticationData,
+    /// The asymmetric account keys data
+    pub account_keys_request: AccountKeysData,
 }
 
 /// Errors that can occur during user registration.

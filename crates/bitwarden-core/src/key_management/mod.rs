@@ -38,6 +38,11 @@ mod user_decryption;
 #[cfg(feature = "internal")]
 pub use user_decryption::UserDecryptionData;
 
+#[cfg(feature = "internal")]
+mod account_keys;
+#[cfg(feature = "internal")]
+pub use account_keys::{AccountKeysData, AccountKeysError};
+
 use crate::OrganizationId;
 
 key_ids! {
