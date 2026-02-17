@@ -536,11 +536,13 @@ version = "2.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
+ "bitwarden-api-identity",
  "bitwarden-api-key-connector",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-policies",
  "bitwarden-test",
  "chrono",
  "http",
@@ -549,6 +551,8 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
+ "serde_repr",
+ "serde_urlencoded",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -854,7 +858,11 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_repr",
+ "tsify",
+ "uniffi",
  "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
