@@ -151,7 +151,7 @@ impl SendClient {
         create_send(key_store, &config.api_client, repository.as_ref(), request).await
     }
 
-    /// Edit the [Folder] and save it to the server.
+    /// Edit the [Send] and save it to the server.
     pub async fn edit(
         &self,
         send_id: Uuid,
