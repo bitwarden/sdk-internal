@@ -26,10 +26,11 @@ use tracing::{info, instrument};
 use tsify::Tsify;
 
 use crate::{
-    MissingFieldError, UserId, require,
+    MissingFieldError, UserId,
     key_management::{
         KeyIds, PrivateKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
     },
+    require,
 };
 
 /// Errors that can occur during initialization of the account cryptographic state.
@@ -761,26 +762,24 @@ mod tests {
                 signed_public_key,
                 signing_key,
                 ..
-            } => {
-                match &wrapped_state {
-                    WrappedAccountCryptographicState::V2 {
-                        private_key: orig_private_key,
-                        signed_public_key: orig_signed_public_key,
-                        signing_key: orig_signing_key,
-                        ..
-                    } => {
-                        assert_eq!(private_key.to_string(), orig_private_key.to_string());
-                        assert_eq!(signing_key.to_string(), orig_signing_key.to_string());
-                        assert_eq!(
-                            signed_public_key.as_ref().map(|k| String::from(k.clone())),
-                            orig_signed_public_key
-                                .as_ref()
-                                .map(|k| String::from(k.clone())),
-                        );
-                    }
-                    _ => panic!("Original state should be V2"),
+            } => match &wrapped_state {
+                WrappedAccountCryptographicState::V2 {
+                    private_key: orig_private_key,
+                    signed_public_key: orig_signed_public_key,
+                    signing_key: orig_signing_key,
+                    ..
+                } => {
+                    assert_eq!(private_key.to_string(), orig_private_key.to_string());
+                    assert_eq!(signing_key.to_string(), orig_signing_key.to_string());
+                    assert_eq!(
+                        signed_public_key.as_ref().map(|k| String::from(k.clone())),
+                        orig_signed_public_key
+                            .as_ref()
+                            .map(|k| String::from(k.clone())),
+                    );
                 }
-            }
+                _ => panic!("Original state should be V2"),
+            },
             _ => panic!("Parsed state should be V2"),
         }
     }
