@@ -1,116 +1,5 @@
-use std::{error, fmt};
-
-#[derive(Debug, Clone)]
-pub struct ResponseContent<T> {
-    pub status: reqwest::StatusCode,
-    pub content: String,
-    pub entity: Option<T>,
-}
-
-#[derive(Debug)]
-pub enum Error<T> {
-    Reqwest(reqwest::Error),
-    Serde(serde_json::Error),
-    Io(std::io::Error),
-    ResponseError(ResponseContent<T>),
-}
-
-impl<T> fmt::Display for Error<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let (module, e) = match self {
-            Error::Reqwest(e) => ("reqwest", e.to_string()),
-            Error::Serde(e) => ("serde", e.to_string()),
-            Error::Io(e) => ("IO", e.to_string()),
-            Error::ResponseError(e) => ("response", format!("status code {}", e.status)),
-        };
-        write!(f, "error in {}: {}", module, e)
-    }
-}
-
-impl<T: fmt::Debug> error::Error for Error<T> {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        Some(match self {
-            Error::Reqwest(e) => e,
-            Error::Serde(e) => e,
-            Error::Io(e) => e,
-            Error::ResponseError(_) => return None,
-        })
-    }
-}
-
-impl<T> From<reqwest::Error> for Error<T> {
-    fn from(e: reqwest::Error) -> Self {
-        Error::Reqwest(e)
-    }
-}
-
-impl<T> From<serde_json::Error> for Error<T> {
-    fn from(e: serde_json::Error) -> Self {
-        Error::Serde(e)
-    }
-}
-
-impl<T> From<std::io::Error> for Error<T> {
-    fn from(e: std::io::Error) -> Self {
-        Error::Io(e)
-    }
-}
-
-pub fn urlencode<T: AsRef<str>>(s: T) -> String {
-    ::url::form_urlencoded::byte_serialize(s.as_ref().as_bytes()).collect()
-}
-
-pub fn parse_deep_object(prefix: &str, value: &serde_json::Value) -> Vec<(String, String)> {
-    if let serde_json::Value::Object(object) = value {
-        let mut params = vec![];
-
-        for (key, value) in object {
-            match value {
-                serde_json::Value::Object(_) => params.append(&mut parse_deep_object(
-                    &format!("{}[{}]", prefix, key),
-                    value,
-                )),
-                serde_json::Value::Array(array) => {
-                    for (i, value) in array.iter().enumerate() {
-                        params.append(&mut parse_deep_object(
-                            &format!("{}[{}][{}]", prefix, key, i),
-                            value,
-                        ));
-                    }
-                }
-                serde_json::Value::String(s) => {
-                    params.push((format!("{}[{}]", prefix, key), s.clone()))
-                }
-                _ => params.push((format!("{}[{}]", prefix, key), value.to_string())),
-            }
-        }
-
-        return params;
-    }
-
-    unimplemented!("Only objects are supported with style=deepObject")
-}
-
-/// Internal use only
-/// A content type supported by this client.
-#[allow(dead_code)]
-enum ContentType {
-    Json,
-    Text,
-    Unsupported(String),
-}
-
-impl From<&str> for ContentType {
-    fn from(content_type: &str) -> Self {
-        if content_type.starts_with("application") && content_type.contains("json") {
-            return Self::Json;
-        } else if content_type.starts_with("text/plain") {
-            return Self::Text;
-        } else {
-            return Self::Unsupported(content_type.to_string());
-        }
-    }
-}
+// Reexport base types from bitwarden-api-base for backwards compatibility
+pub use bitwarden_api_base::*;
 
 pub mod access_policies_api;
 pub mod account_billing_v_next_api;
@@ -147,6 +36,7 @@ pub mod organization_users_api;
 pub mod organizations_api;
 pub mod plans_api;
 pub mod policies_api;
+pub mod preview_invoice_api;
 pub mod projects_api;
 pub mod provider_billing_api;
 pub mod provider_billing_v_next_api;
@@ -170,16 +60,19 @@ pub mod sends_api;
 pub mod service_accounts_api;
 pub mod settings_api;
 pub mod slack_integration_api;
+pub mod sso_cookie_vendor_api;
 pub mod stripe_api;
 pub mod sync_api;
-pub mod tax_api;
 pub mod teams_integration_api;
 pub mod trash_api;
 pub mod two_factor_api;
 pub mod users_api;
 pub mod web_authn_api;
 
-pub mod configuration;
+// Reexport Configuration type from bitwarden-api-base for backwards compatibility
+pub mod configuration {
+    pub use bitwarden_api_base::Configuration;
+}
 
 use std::sync::Arc;
 
@@ -229,6 +122,7 @@ struct ApiClientReal {
     organizations_api: organizations_api::OrganizationsApiClient,
     plans_api: plans_api::PlansApiClient,
     policies_api: policies_api::PoliciesApiClient,
+    preview_invoice_api: preview_invoice_api::PreviewInvoiceApiClient,
     projects_api: projects_api::ProjectsApiClient,
     provider_billing_api: provider_billing_api::ProviderBillingApiClient,
     provider_billing_v_next_api: provider_billing_v_next_api::ProviderBillingVNextApiClient,
@@ -256,9 +150,9 @@ struct ApiClientReal {
     service_accounts_api: service_accounts_api::ServiceAccountsApiClient,
     settings_api: settings_api::SettingsApiClient,
     slack_integration_api: slack_integration_api::SlackIntegrationApiClient,
+    sso_cookie_vendor_api: sso_cookie_vendor_api::SsoCookieVendorApiClient,
     stripe_api: stripe_api::StripeApiClient,
     sync_api: sync_api::SyncApiClient,
-    tax_api: tax_api::TaxApiClient,
     teams_integration_api: teams_integration_api::TeamsIntegrationApiClient,
     trash_api: trash_api::TrashApiClient,
     two_factor_api: two_factor_api::TwoFactorApiClient,
@@ -307,6 +201,7 @@ pub struct ApiClientMock {
     pub organizations_api: organizations_api::MockOrganizationsApi,
     pub plans_api: plans_api::MockPlansApi,
     pub policies_api: policies_api::MockPoliciesApi,
+    pub preview_invoice_api: preview_invoice_api::MockPreviewInvoiceApi,
     pub projects_api: projects_api::MockProjectsApi,
     pub provider_billing_api: provider_billing_api::MockProviderBillingApi,
     pub provider_billing_v_next_api: provider_billing_v_next_api::MockProviderBillingVNextApi,
@@ -334,9 +229,9 @@ pub struct ApiClientMock {
     pub service_accounts_api: service_accounts_api::MockServiceAccountsApi,
     pub settings_api: settings_api::MockSettingsApi,
     pub slack_integration_api: slack_integration_api::MockSlackIntegrationApi,
+    pub sso_cookie_vendor_api: sso_cookie_vendor_api::MockSsoCookieVendorApi,
     pub stripe_api: stripe_api::MockStripeApi,
     pub sync_api: sync_api::MockSyncApi,
-    pub tax_api: tax_api::MockTaxApi,
     pub teams_integration_api: teams_integration_api::MockTeamsIntegrationApi,
     pub trash_api: trash_api::MockTrashApi,
     pub two_factor_api: two_factor_api::MockTwoFactorApi,
@@ -345,7 +240,7 @@ pub struct ApiClientMock {
 }
 
 impl ApiClient {
-    pub fn new(configuration: &Arc<configuration::Configuration>) -> Self {
+    pub fn new(configuration: &Arc<bitwarden_api_base::Configuration>) -> Self {
         Self::Real(ApiClientReal {
             access_policies_api: access_policies_api::AccessPoliciesApiClient::new(configuration.clone()),
             account_billing_v_next_api: account_billing_v_next_api::AccountBillingVNextApiClient::new(configuration.clone()),
@@ -382,6 +277,7 @@ impl ApiClient {
             organizations_api: organizations_api::OrganizationsApiClient::new(configuration.clone()),
             plans_api: plans_api::PlansApiClient::new(configuration.clone()),
             policies_api: policies_api::PoliciesApiClient::new(configuration.clone()),
+            preview_invoice_api: preview_invoice_api::PreviewInvoiceApiClient::new(configuration.clone()),
             projects_api: projects_api::ProjectsApiClient::new(configuration.clone()),
             provider_billing_api: provider_billing_api::ProviderBillingApiClient::new(configuration.clone()),
             provider_billing_v_next_api: provider_billing_v_next_api::ProviderBillingVNextApiClient::new(configuration.clone()),
@@ -405,9 +301,9 @@ impl ApiClient {
             service_accounts_api: service_accounts_api::ServiceAccountsApiClient::new(configuration.clone()),
             settings_api: settings_api::SettingsApiClient::new(configuration.clone()),
             slack_integration_api: slack_integration_api::SlackIntegrationApiClient::new(configuration.clone()),
+            sso_cookie_vendor_api: sso_cookie_vendor_api::SsoCookieVendorApiClient::new(configuration.clone()),
             stripe_api: stripe_api::StripeApiClient::new(configuration.clone()),
             sync_api: sync_api::SyncApiClient::new(configuration.clone()),
-            tax_api: tax_api::TaxApiClient::new(configuration.clone()),
             teams_integration_api: teams_integration_api::TeamsIntegrationApiClient::new(configuration.clone()),
             trash_api: trash_api::TrashApiClient::new(configuration.clone()),
             two_factor_api: two_factor_api::TwoFactorApiClient::new(configuration.clone()),
@@ -454,6 +350,7 @@ impl ApiClient {
             organizations_api: organizations_api::MockOrganizationsApi::new(),
             plans_api: plans_api::MockPlansApi::new(),
             policies_api: policies_api::MockPoliciesApi::new(),
+            preview_invoice_api: preview_invoice_api::MockPreviewInvoiceApi::new(),
             projects_api: projects_api::MockProjectsApi::new(),
             provider_billing_api: provider_billing_api::MockProviderBillingApi::new(),
             provider_billing_v_next_api: provider_billing_v_next_api::MockProviderBillingVNextApi::new(),
@@ -477,9 +374,9 @@ impl ApiClient {
             service_accounts_api: service_accounts_api::MockServiceAccountsApi::new(),
             settings_api: settings_api::MockSettingsApi::new(),
             slack_integration_api: slack_integration_api::MockSlackIntegrationApi::new(),
+            sso_cookie_vendor_api: sso_cookie_vendor_api::MockSsoCookieVendorApi::new(),
             stripe_api: stripe_api::MockStripeApi::new(),
             sync_api: sync_api::MockSyncApi::new(),
-            tax_api: tax_api::MockTaxApi::new(),
             teams_integration_api: teams_integration_api::MockTeamsIntegrationApi::new(),
             trash_api: trash_api::MockTrashApi::new(),
             two_factor_api: two_factor_api::MockTwoFactorApi::new(),
@@ -758,6 +655,13 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.policies_api,
         }
     }
+    pub fn preview_invoice_api(&self) -> &dyn preview_invoice_api::PreviewInvoiceApi {
+        match self {
+            ApiClient::Real(real) => &real.preview_invoice_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.preview_invoice_api,
+        }
+    }
     pub fn projects_api(&self) -> &dyn projects_api::ProjectsApi {
         match self {
             ApiClient::Real(real) => &real.projects_api,
@@ -936,6 +840,13 @@ impl ApiClient {
             ApiClient::Mock(mock) => &mock.slack_integration_api,
         }
     }
+    pub fn sso_cookie_vendor_api(&self) -> &dyn sso_cookie_vendor_api::SsoCookieVendorApi {
+        match self {
+            ApiClient::Real(real) => &real.sso_cookie_vendor_api,
+            #[cfg(feature = "mockall")]
+            ApiClient::Mock(mock) => &mock.sso_cookie_vendor_api,
+        }
+    }
     pub fn stripe_api(&self) -> &dyn stripe_api::StripeApi {
         match self {
             ApiClient::Real(real) => &real.stripe_api,
@@ -948,13 +859,6 @@ impl ApiClient {
             ApiClient::Real(real) => &real.sync_api,
             #[cfg(feature = "mockall")]
             ApiClient::Mock(mock) => &mock.sync_api,
-        }
-    }
-    pub fn tax_api(&self) -> &dyn tax_api::TaxApi {
-        match self {
-            ApiClient::Real(real) => &real.tax_api,
-            #[cfg(feature = "mockall")]
-            ApiClient::Mock(mock) => &mock.tax_api,
         }
     }
     pub fn teams_integration_api(&self) -> &dyn teams_integration_api::TeamsIntegrationApi {

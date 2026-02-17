@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType, ResponseContent},
     models,
 };
 
@@ -30,8 +30,8 @@ pub trait PoliciesApi: Send + Sync {
     async fn get<'a>(
         &self,
         org_id: uuid::Uuid,
-        r#type: i32,
-    ) -> Result<models::PolicyDetailResponseModel, Error<GetError>>;
+        r#type: models::PolicyType,
+    ) -> Result<models::PolicyStatusResponseModel, Error<GetError>>;
 
     /// GET /organizations/{orgId}/policies
     async fn get_all<'a>(
@@ -87,23 +87,20 @@ impl PoliciesApi for PoliciesApiClient {
     async fn get<'a>(
         &self,
         org_id: uuid::Uuid,
-        r#type: i32,
-    ) -> Result<models::PolicyDetailResponseModel, Error<GetError>> {
+        r#type: models::PolicyType,
+    ) -> Result<models::PolicyStatusResponseModel, Error<GetError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
 
-        let local_var_uri_str = format!("{}/organizations/{orgId}/policies/{type}", local_var_configuration.base_path, orgId=org_id, type=r#type);
+        let local_var_uri_str = format!("{}/organizations/{orgId}/policies/{type}", local_var_configuration.base_path, orgId=org_id, type=r#type.to_string());
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
         if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
             local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
         };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         let local_var_req = local_var_req_builder.build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -122,12 +119,12 @@ impl PoliciesApi for PoliciesApiClient {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
                 ContentType::Text => {
                     return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::PolicyDetailResponseModel`",
+                        "Received `text/plain` content type response that cannot be converted to `models::PolicyStatusResponseModel`",
                     )));
                 }
                 ContentType::Unsupported(local_var_unknown_type) => {
                     return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PolicyDetailResponseModel`"
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PolicyStatusResponseModel`"
                     ))));
                 }
             }
@@ -158,13 +155,10 @@ impl PoliciesApi for PoliciesApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
         if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
             local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
         };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         let local_var_req = local_var_req_builder.build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -235,13 +229,10 @@ impl PoliciesApi for PoliciesApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("organizationUserId", &param_value.to_string())]);
         }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
         if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
             local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
         };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         let local_var_req = local_var_req_builder.build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -297,13 +288,10 @@ impl PoliciesApi for PoliciesApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
         if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
             local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
         };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         let local_var_req = local_var_req_builder.build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -357,13 +345,10 @@ impl PoliciesApi for PoliciesApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
         if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
             local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
         };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&policy_request_model);
 
         let local_var_req = local_var_req_builder.build()?;
@@ -417,13 +402,10 @@ impl PoliciesApi for PoliciesApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
         if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
             local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
         };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&save_policy_request);
 
         let local_var_req = local_var_req_builder.build()?;

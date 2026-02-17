@@ -80,7 +80,7 @@ impl Database for SqliteDatabase {
         else {
             return Err(DatabaseError::UnsupportedConfiguration(configuration));
         };
-        path.set_file_name(format!("{db_name}.sqlite"));
+        path.push(format!("{db_name}.sqlite"));
 
         let db = rusqlite::Connection::open(path)?;
         Self::initialize_internal(db, migrations)
@@ -189,11 +189,11 @@ mod tests {
 
         #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
         struct TestA(usize);
-        register_repository_item!(TestA, "TestItem_A");
+        register_repository_item!(String => TestA, "TestItem_A");
 
         #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
         struct TestB(usize);
-        register_repository_item!(TestB, "TestItem_B");
+        register_repository_item!(String => TestB, "TestItem_B");
 
         let steps = vec![
             // Test that deleting a table that doesn't exist is fine
@@ -215,5 +215,24 @@ mod tests {
         db.remove::<TestA>("key1").await.unwrap();
 
         assert_eq!(db.get::<TestA>("key1").await.unwrap(), None);
+    }
+
+    #[tokio::test]
+    async fn test_sqlite_database_path_construction() {
+        let temp_dir = std::env::temp_dir().join("bitwarden_state_test");
+        std::fs::create_dir_all(&temp_dir).unwrap();
+
+        let config = DatabaseConfiguration::Sqlite {
+            db_name: "test_db".to_string(),
+            folder_path: temp_dir.clone(),
+        };
+
+        SqliteDatabase::initialize(config, RepositoryMigrations::new(vec![]))
+            .await
+            .unwrap();
+
+        assert!(temp_dir.join("test_db.sqlite").exists());
+
+        std::fs::remove_dir_all(&temp_dir).ok();
     }
 }

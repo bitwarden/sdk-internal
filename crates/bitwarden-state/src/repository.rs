@@ -1,6 +1,8 @@
 use std::any::TypeId;
 
-use crate::registry::RepositoryNotFoundError;
+use serde::{Serialize, de::DeserializeOwned};
+
+use crate::registry::StateRegistryError;
 
 /// An error resulting from operations on a repository.
 #[derive(thiserror::Error, Debug)]
@@ -17,9 +19,9 @@ pub enum RepositoryError {
     #[error(transparent)]
     Database(#[from] crate::sdk_managed::DatabaseError),
 
-    /// Repository not found.
+    /// State registry error.
     #[error(transparent)]
-    RepositoryNotFound(#[from] RepositoryNotFoundError),
+    StateRegistry(#[from] StateRegistryError),
 }
 
 /// This trait represents a generic repository interface, capable of storing and retrieving
@@ -27,21 +29,27 @@ pub enum RepositoryError {
 #[async_trait::async_trait]
 pub trait Repository<V: RepositoryItem>: Send + Sync {
     /// Retrieves an item from the repository by its key.
-    async fn get(&self, key: String) -> Result<Option<V>, RepositoryError>;
+    async fn get(&self, key: V::Key) -> Result<Option<V>, RepositoryError>;
     /// Lists all items in the repository.
     async fn list(&self) -> Result<Vec<V>, RepositoryError>;
     /// Sets an item in the repository with the specified key.
-    async fn set(&self, key: String, value: V) -> Result<(), RepositoryError>;
+    async fn set(&self, key: V::Key, value: V) -> Result<(), RepositoryError>;
     /// Removes an item from the repository by its key.
-    async fn remove(&self, key: String) -> Result<(), RepositoryError>;
+    async fn remove(&self, key: V::Key) -> Result<(), RepositoryError>;
 }
 
 /// This trait is used to mark types that can be stored in a repository.
 /// It should not be implemented manually; instead, users should
 /// use the [crate::register_repository_item] macro to register their item types.
-pub trait RepositoryItem: Internal + Send + Sync + 'static {
+///
+/// All repository items must implement `Serialize` and `DeserializeOwned` to support
+/// SDK-managed repositories that persist items to storage.
+pub trait RepositoryItem: Internal + Serialize + DeserializeOwned + Send + Sync + 'static {
     /// The name of the type implementing this trait.
     const NAME: &'static str;
+
+    /// The type used as a key in the Repository
+    type Key: ToString + Send + Sync + 'static;
 
     /// Returns the `TypeId` of the type implementing this trait.
     fn type_id() -> TypeId {
@@ -64,7 +72,7 @@ pub struct RepositoryItemData {
 
 impl RepositoryItemData {
     /// Create a new `RepositoryItemData` from a type that implements `RepositoryItem`.
-    pub fn new<T: RepositoryItem + ?Sized>() -> Self {
+    pub fn new<T: RepositoryItem>() -> Self {
         Self {
             type_id: TypeId::of::<T>(),
             name: T::NAME,
@@ -149,11 +157,12 @@ impl RepositoryMigrations {
 /// where it's defined. The provided name must be unique and not be changed.
 #[macro_export]
 macro_rules! register_repository_item {
-    ($ty:ty, $name:literal) => {
+    ($keyty:ty => $ty:ty, $name:literal) => {
         const _: () = {
             impl $crate::repository::___internal::Internal for $ty {}
             impl $crate::repository::RepositoryItem for $ty {
                 const NAME: &'static str = $name;
+                type Key = $keyty;
             }
             assert!(
                 $crate::repository::validate_registry_name($name),

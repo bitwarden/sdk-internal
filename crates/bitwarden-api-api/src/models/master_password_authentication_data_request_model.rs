@@ -12,6 +12,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// MasterPasswordAuthenticationDataRequestModel : Use this datatype when interfacing with requests
+/// to create a separation of concern. See
+/// Bit.Core.KeyManagement.Models.Data.MasterPasswordAuthenticationData to use for commands,
+/// queries, services.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MasterPasswordAuthenticationDataRequestModel {
     #[serde(rename = "kdf", alias = "Kdf")]
@@ -20,16 +24,19 @@ pub struct MasterPasswordAuthenticationDataRequestModel {
         rename = "masterPasswordAuthenticationHash",
         alias = "MasterPasswordAuthenticationHash"
     )]
-    pub master_password_authentication_hash: Option<String>,
+    pub master_password_authentication_hash: String,
     #[serde(rename = "salt", alias = "Salt")]
-    pub salt: Option<String>,
+    pub salt: String,
 }
 
 impl MasterPasswordAuthenticationDataRequestModel {
+    /// Use this datatype when interfacing with requests to create a separation of concern. See
+    /// Bit.Core.KeyManagement.Models.Data.MasterPasswordAuthenticationData to use for commands,
+    /// queries, services.
     pub fn new(
         kdf: models::KdfRequestModel,
-        master_password_authentication_hash: Option<String>,
-        salt: Option<String>,
+        master_password_authentication_hash: String,
+        salt: String,
     ) -> MasterPasswordAuthenticationDataRequestModel {
         MasterPasswordAuthenticationDataRequestModel {
             kdf: Box::new(kdf),

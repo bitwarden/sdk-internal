@@ -1,0 +1,100 @@
+use std::fmt::Debug;
+
+use bitwarden_core::{key_management::MasterPasswordError, require};
+use bitwarden_policies::MasterPasswordPolicyResponse;
+
+use crate::login::{api::response::LoginSuccessApiResponse, models::UserDecryptionOptionsResponse};
+
+/// SDK response model for a successful login.
+/// This is the model that will be exposed to consuming applications.
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+pub struct LoginSuccessResponse {
+    /// The access token string.
+    pub access_token: String,
+
+    /// The duration in seconds until the token expires.
+    pub expires_in: u64,
+
+    /// The timestamp in milliseconds when the token expires.
+    /// We calculate this for more convenient token expiration handling.
+    pub expires_at: i64,
+
+    /// The scope of the access token.
+    /// OAuth 2.0 RFC reference: <https://datatracker.ietf.org/doc/html/rfc6749#section-3.3>
+    pub scope: String,
+
+    /// The type of the token.
+    /// This will be "Bearer" for send access tokens.
+    /// OAuth 2.0 RFC reference: <https://datatracker.ietf.org/doc/html/rfc6749#section-7.1>
+    pub token_type: String,
+
+    /// The optional refresh token string.
+    /// This token can be used to obtain new access tokens when the current one expires.
+    pub refresh_token: Option<String>,
+
+    /// The user key wrapped user private key.
+    /// Note: previously known as "private_key".
+    pub user_key_wrapped_user_private_key: Option<String>,
+
+    /// Two-factor authentication token for future requests.
+    pub two_factor_token: Option<String>,
+
+    /// Indicates whether an admin has reset the user's master password,
+    /// requiring them to set a new password upon next login.
+    pub force_password_reset: Option<bool>,
+
+    /// Indicates whether the user uses Key Connector and if the client should have a locally
+    /// configured Key Connector URL in their environment.
+    /// Note: This is currently only applicable for client_credential grant type logins and
+    /// is only expected to be relevant for the CLI
+    pub api_use_key_connector: Option<bool>,
+
+    /// The user's decryption options for unlocking their vault.
+    pub user_decryption_options: UserDecryptionOptionsResponse,
+
+    /// If the user is subject to an organization master password policy,
+    /// this field contains the requirements of that policy.
+    pub master_password_policy: Option<MasterPasswordPolicyResponse>,
+    // TODO: PM-30222 we can expose this once we have a trait to convert PrivateKeysResponseModel
+    // to WrappedAccountCryptographicState
+    // The user's account cryptographic keys (wrapped with the user key).
+    // pub wrapped_account_crypto_state: Option<WrappedAccountCryptographicState>,
+}
+
+impl TryFrom<LoginSuccessApiResponse> for LoginSuccessResponse {
+    type Error = MasterPasswordError;
+    fn try_from(response: LoginSuccessApiResponse) -> Result<Self, Self::Error> {
+        // We want to convert the expires_in from seconds to a millisecond timestamp to have a
+        // concrete time the token will expire. This makes it easier to build logic around a
+        // concrete time rather than a duration. We keep expires_in as well for backward
+        // compatibility and convenience.
+        let expires_at =
+            chrono::Utc::now().timestamp_millis() + (response.expires_in * 1000) as i64;
+
+        Ok(LoginSuccessResponse {
+            access_token: response.access_token,
+            expires_in: response.expires_in,
+            expires_at,
+            scope: response.scope,
+            token_type: response.token_type,
+            refresh_token: response.refresh_token,
+            user_key_wrapped_user_private_key: response.private_key,
+            two_factor_token: response.two_factor_token,
+            force_password_reset: response.force_password_reset,
+            api_use_key_connector: response.api_use_key_connector,
+            // User decryption options are required on successful login responses
+            user_decryption_options: require!(response.user_decryption_options).try_into()?,
+            master_password_policy: response.master_password_policy.map(|policy| policy.into()),
+            // TODO: PM-30222 - we can expose this once we have a trait to convert
+            // PrivateKeysResponseModel to WrappedAccountCryptographicState
+            // wrapped_account_crypto_state: response.account_keys.map(|keys| keys.into()),
+        })
+    }
+}

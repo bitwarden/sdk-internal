@@ -33,8 +33,8 @@ pub(crate) mod tests {
             C(LocalId),
         }
 
-        #[asymmetric]
-        pub enum TestAsymmKey {
+        #[private]
+        pub enum TestPrivateKey {
             A(u8),
             B,
             #[local]
@@ -49,6 +49,6 @@ pub(crate) mod tests {
             C(LocalId),
         }
 
-       pub TestIds => TestSymmKey, TestAsymmKey, TestSigningKey;
+       pub TestIds => TestSymmKey, TestPrivateKey, TestSigningKey;
     }
 }

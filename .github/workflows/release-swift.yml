@@ -32,7 +32,7 @@ jobs:
       _BOT_NAME: bitwarden-devops-bot
     steps:
       - name: Checkout SDK repo
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           path: sdk
           persist-credentials: false
@@ -119,7 +119,7 @@ jobs:
         uses: bitwarden/gh-actions/azure-logout@main
 
       - name: Generate GH App token
-        uses: actions/create-github-app-token@a8d616148505b5069dccd32f177bb87d7f39123b # v2.1.1
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
         id: app-token-sdk-swift
         with:
           app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
@@ -129,7 +129,7 @@ jobs:
           permission-contents: write # used to: push code; create github release
 
       - name: Checkout SDK-Swift repo
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: bitwarden/sdk-swift
           path: sdk-swift
@@ -227,7 +227,7 @@ jobs:
             "BitwardenFFI-$_PKG_VERSION-$_SDK_INTERNAL_SHORT_REF.xcframework.zip"
 
       - name: Generate GH App token
-        uses: actions/create-github-app-token@a8d616148505b5069dccd32f177bb87d7f39123b # v2.1.1
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
         id: app-token-ios
         with:
           app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}

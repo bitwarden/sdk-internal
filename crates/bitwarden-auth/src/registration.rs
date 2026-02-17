@@ -54,6 +54,11 @@ pub struct TdeRegistrationRequest {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct JitMasterPasswordRegistrationRequest {
+    /// Organization ID to enroll in
+    pub org_id: OrganizationId,
+    /// Organization's public key for encrypting the reset password key. This should be verified by
+    /// the client and not verifying may compromise the security of the user's account.
+    pub org_public_key: B64,
     /// Organization SSO identifier
     pub organization_sso_identifier: String,
     /// User ID for the account being initialized
@@ -64,6 +69,8 @@ pub struct JitMasterPasswordRegistrationRequest {
     pub master_password: String,
     /// Optional hint for the master password
     pub master_password_hint: Option<String>,
+    /// Should enroll user into admin password reset
+    pub reset_password_enroll: bool,
 }
 
 /// Client for initializing a user account.
@@ -370,6 +377,7 @@ async fn internal_post_keys_for_jit_password_registration(
             request.user_id,
             request.master_password,
             request.salt,
+            request.org_public_key,
         )
         .map_err(|_| RegistrationError::Crypto)?;
 
@@ -402,16 +410,42 @@ async fn internal_post_keys_for_jit_password_registration(
         .post_set_password(Some(api_request))
         .await
         .map_err(|e| {
-            tracing::error!("Failed to post account keys: {e:?}");
+            error!("Failed to post account keys: {e:?}");
             RegistrationError::Api
         })?;
+
+    // Enroll the user for reset password using the reset password key generated above.
+    if request.reset_password_enroll {
+        info!("Enrolling into admin account recovery");
+        api_client
+            .organization_users_api()
+            .put_reset_password_enrollment(
+                request.org_id.into(),
+                request.user_id.into(),
+                Some(OrganizationUserResetPasswordEnrollmentRequestModel {
+                    reset_password_key: Some(
+                        registration_crypto_result.reset_password_key.to_string(),
+                    ),
+                    master_password_hash: Some(
+                        registration_crypto_result
+                            .master_password_authentication_data
+                            .master_password_authentication_hash
+                            .to_string(),
+                    ),
+                }),
+            )
+            .await
+            .map_err(|e| {
+                error!("Failed to enroll for reset password: {e:?}");
+                RegistrationError::Api
+            })?;
+    }
 
     info!("User initialized!");
     // Note: This passing out of state and keys is temporary. Once SDK state management is more
     // mature, the account cryptographic state and keys should be set directly here.
     Ok(JitMasterPasswordRegistrationResponse {
         account_cryptographic_state: registration_crypto_result.account_cryptographic_state,
-        master_key: registration_crypto_result.master_key.to_base64(),
         master_password_unlock: registration_crypto_result.master_password_unlock_data,
         user_key: registration_crypto_result
             .user_key
@@ -434,8 +468,6 @@ pub struct JitMasterPasswordRegistrationResponse {
     pub account_cryptographic_state: WrappedAccountCryptographicState,
     /// The master password unlock data
     pub master_password_unlock: MasterPasswordUnlockData,
-    /// The master key
-    pub master_key: B64,
     /// The decrypted user key.
     pub user_key: B64,
 }
@@ -967,26 +999,22 @@ mod tests {
                         assert_eq!(security_state.security_version, 2);
                         assert!(req.master_password_unlock.is_some());
                         let master_password_unlock = req.master_password_unlock.as_ref().unwrap();
-                        assert_eq!(
-                            master_password_unlock.salt,
-                            Some("test@example.com".to_string())
-                        );
+                        assert_eq!(master_password_unlock.salt, "test@example.com".to_string());
                         assert_eq!(
                             master_password_unlock.kdf,
                             Box::new(KdfRequestModel {
                                 kdf_type: KdfType::Argon2id,
                                 iterations: 6,
                                 memory: Some(32),
-                                parallelism: Some(3),
+                                parallelism: Some(4),
                             })
                         );
-                        assert!(master_password_unlock.master_key_wrapped_user_key.is_some());
                         assert!(req.master_password_authentication.is_some());
                         let master_password_authentication =
                             req.master_password_authentication.as_ref().unwrap();
                         assert_eq!(
                             master_password_authentication.salt,
-                            Some("test@example.com".to_string())
+                            "test@example.com".to_string()
                         );
                         assert_eq!(
                             master_password_authentication.kdf,
@@ -994,13 +1022,8 @@ mod tests {
                                 kdf_type: KdfType::Argon2id,
                                 iterations: 6,
                                 memory: Some(32),
-                                parallelism: Some(3),
+                                parallelism: Some(4),
                             })
-                        );
-                        assert!(
-                            master_password_authentication
-                                .master_password_authentication_hash
-                                .is_some()
                         );
                         true
                     } else {
@@ -1008,14 +1031,32 @@ mod tests {
                     }
                 })
                 .returning(move |_body| Ok(()));
+            mock.organization_users_api
+                .expect_put_reset_password_enrollment()
+                .once()
+                .withf(move |org_id, user_id, body| {
+                    assert_eq!(*org_id, uuid::uuid!(TEST_ORG_ID));
+                    assert_eq!(*user_id, uuid::uuid!(TEST_USER_ID));
+                    if let Some(enrollment_request) = body {
+                        assert!(enrollment_request.reset_password_key.is_some());
+                        assert!(enrollment_request.master_password_hash.is_some());
+                        true
+                    } else {
+                        false
+                    }
+                })
+                .returning(move |_org_id, _user_id, _body| Ok(()));
         });
 
         let request = JitMasterPasswordRegistrationRequest {
+            org_id: TEST_ORG_ID.parse().unwrap(),
+            org_public_key: TEST_ORG_PUBLIC_KEY.into(),
             organization_sso_identifier: TEST_SSO_ORG_IDENTIFIER.to_string(),
             user_id: TEST_USER_ID.parse().unwrap(),
             salt: "test@example.com".to_string(),
             master_password: "test-password-123".to_string(),
             master_password_hint: Some(expected_hint.to_string()),
+            reset_password_enroll: true,
         };
 
         let result = internal_post_keys_for_jit_password_registration(
@@ -1041,13 +1082,14 @@ mod tests {
             Kdf::Argon2id {
                 iterations: NonZeroU32::new(6).unwrap(),
                 memory: NonZeroU32::new(32).unwrap(),
-                parallelism: NonZeroU32::new(3).unwrap(),
+                parallelism: NonZeroU32::new(4).unwrap(),
             }
         );
 
         // Assert that the mock expectations were met
         if let ApiClient::Mock(mut mock) = api_client {
             mock.accounts_api.checkpoint();
+            mock.organization_users_api.checkpoint();
         }
     }
 
@@ -1065,14 +1107,20 @@ mod tests {
                         serde_json::Error::io(std::io::Error::other("API error")),
                     ))
                 });
+            mock.organization_users_api
+                .expect_put_reset_password_enrollment()
+                .never();
         });
 
         let request = JitMasterPasswordRegistrationRequest {
+            org_id: TEST_ORG_ID.parse().unwrap(),
+            org_public_key: TEST_ORG_PUBLIC_KEY.into(),
             organization_sso_identifier: TEST_SSO_ORG_IDENTIFIER.to_string(),
             user_id: TEST_USER_ID.parse().unwrap(),
             salt: "test@example.com".to_string(),
             master_password: "test-password-123".to_string(),
             master_password_hint: Some("test hint".to_string()),
+            reset_password_enroll: true,
         };
 
         let result = internal_post_keys_for_jit_password_registration(
@@ -1088,6 +1136,97 @@ mod tests {
         // Assert that the mock expectations were met
         if let ApiClient::Mock(mut mock) = api_client {
             mock.accounts_api.checkpoint();
+            mock.organization_users_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_post_keys_for_jit_password_registration_reset_password_enrollment_failure() {
+        let client = Client::new(None);
+        let registration_client = RegistrationClient::new(client);
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.accounts_api
+                .expect_post_set_password()
+                .once()
+                .returning(move |_body| Ok(()));
+            mock.organization_users_api
+                .expect_put_reset_password_enrollment()
+                .once()
+                .returning(move |_org_id, _user_id, _body| {
+                    Err(bitwarden_api_api::apis::Error::Serde(
+                        serde_json::Error::io(std::io::Error::other("API error")),
+                    ))
+                });
+        });
+
+        let request = JitMasterPasswordRegistrationRequest {
+            org_id: TEST_ORG_ID.parse().unwrap(),
+            org_public_key: TEST_ORG_PUBLIC_KEY.into(),
+            organization_sso_identifier: TEST_SSO_ORG_IDENTIFIER.to_string(),
+            user_id: TEST_USER_ID.parse().unwrap(),
+            salt: "test@example.com".to_string(),
+            master_password: "test-password-123".to_string(),
+            master_password_hint: Some("test hint".to_string()),
+            reset_password_enroll: true,
+        };
+
+        let result = internal_post_keys_for_jit_password_registration(
+            &registration_client,
+            &api_client,
+            request,
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), RegistrationError::Api));
+
+        // Assert that the mock expectations were met
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.accounts_api.checkpoint();
+            mock.organization_users_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_post_keys_for_jit_password_registration_reset_password_enroll_false() {
+        let client = Client::new(None);
+        let registration_client = RegistrationClient::new(client);
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.accounts_api
+                .expect_post_set_password()
+                .once()
+                .returning(move |_body| Ok(()));
+            mock.organization_users_api
+                .expect_put_reset_password_enrollment()
+                .never();
+        });
+
+        let request = JitMasterPasswordRegistrationRequest {
+            org_id: TEST_ORG_ID.parse().unwrap(),
+            org_public_key: TEST_ORG_PUBLIC_KEY.into(),
+            organization_sso_identifier: TEST_SSO_ORG_IDENTIFIER.to_string(),
+            user_id: TEST_USER_ID.parse().unwrap(),
+            salt: "test@example.com".to_string(),
+            master_password: "test-password-123".to_string(),
+            master_password_hint: Some("test hint".to_string()),
+            reset_password_enroll: false,
+        };
+
+        let result = internal_post_keys_for_jit_password_registration(
+            &registration_client,
+            &api_client,
+            request,
+        )
+        .await;
+
+        assert!(result.is_ok());
+
+        // Assert that the mock expectations were met
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.accounts_api.checkpoint();
+            mock.organization_users_api.checkpoint();
         }
     }
 }

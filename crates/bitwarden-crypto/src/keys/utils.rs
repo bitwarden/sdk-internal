@@ -9,11 +9,12 @@ use crate::{CryptoError, Result, util::hkdf_expand};
 /// Stretch the given key using HKDF.
 /// This can be either a kdf-derived key (PIN/Master password) or
 /// a random key from key connector
-pub(super) fn stretch_key(key: &Pin<Box<GenericArray<u8, U32>>>) -> Result<Aes256CbcHmacKey> {
-    Ok(Aes256CbcHmacKey {
-        enc_key: hkdf_expand(key, Some("enc"))?,
-        mac_key: hkdf_expand(key, Some("mac"))?,
-    })
+pub(super) fn stretch_key(key: &Pin<Box<GenericArray<u8, U32>>>) -> Aes256CbcHmacKey {
+    Aes256CbcHmacKey {
+        // this is safe because the key length is always 32 bytes
+        enc_key: hkdf_expand(key, Some("enc")).expect("HKDF expand to succeed"),
+        mac_key: hkdf_expand(key, Some("mac")).expect("HKDF expand to succeed"),
+    }
 }
 
 /// Pads bytes to a minimum length using PKCS7-like padding.
@@ -58,7 +59,7 @@ mod tests {
             ]
             .into(),
         );
-        let stretched = stretch_key(&key).unwrap();
+        let stretched = stretch_key(&key);
 
         assert_eq!(
             [

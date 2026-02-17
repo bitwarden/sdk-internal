@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType, ResponseContent},
     models,
 };
 
@@ -90,6 +90,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
     ) -> Result<(), Error<AddCreditViaBitPayError>>;
@@ -158,6 +159,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
     ) -> Result<(), Error<GetBillingAddressError>>;
 
@@ -225,6 +227,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
     ) -> Result<(), Error<GetCreditError>>;
 
@@ -292,6 +295,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
     ) -> Result<(), Error<GetMetadataError>>;
 
@@ -359,6 +363,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
     ) -> Result<(), Error<GetPaymentMethodError>>;
 
@@ -426,6 +431,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
     ) -> Result<(), Error<GetWarningsError>>;
 
@@ -493,6 +499,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
         restart_subscription_request: Option<models::RestartSubscriptionRequest>,
     ) -> Result<(), Error<RestartSubscriptionError>>;
@@ -561,6 +568,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
         billing_address_request: Option<models::BillingAddressRequest>,
     ) -> Result<(), Error<UpdateBillingAddressError>>;
@@ -629,6 +637,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
     ) -> Result<(), Error<UpdatePaymentMethodError>>;
@@ -710,6 +719,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
     ) -> Result<(), Error<AddCreditViaBitPayError>> {
@@ -967,17 +977,18 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder = local_var_req_builder
                 .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_disable_sm_ads_for_users {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useDisableSmAdsForUsers", &param_value.to_string())]);
+        }
         if let Some(ref param_value) = use_phishing_blocker {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
         if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
             local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
         };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&bit_pay_credit_request);
 
         let local_var_req = local_var_req_builder.build()?;
@@ -1063,6 +1074,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
     ) -> Result<(), Error<GetBillingAddressError>> {
         let local_var_configuration = &self.configuration;
@@ -1319,17 +1331,18 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder = local_var_req_builder
                 .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_disable_sm_ads_for_users {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useDisableSmAdsForUsers", &param_value.to_string())]);
+        }
         if let Some(ref param_value) = use_phishing_blocker {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
         if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
             local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
         };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         let local_var_req = local_var_req_builder.build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -1414,6 +1427,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
     ) -> Result<(), Error<GetCreditError>> {
         let local_var_configuration = &self.configuration;
@@ -1670,17 +1684,18 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder = local_var_req_builder
                 .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_disable_sm_ads_for_users {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useDisableSmAdsForUsers", &param_value.to_string())]);
+        }
         if let Some(ref param_value) = use_phishing_blocker {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
         if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
             local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
         };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         let local_var_req = local_var_req_builder.build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -1765,6 +1780,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
     ) -> Result<(), Error<GetMetadataError>> {
         let local_var_configuration = &self.configuration;
@@ -2021,17 +2037,18 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder = local_var_req_builder
                 .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_disable_sm_ads_for_users {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useDisableSmAdsForUsers", &param_value.to_string())]);
+        }
         if let Some(ref param_value) = use_phishing_blocker {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
         if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
             local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
         };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         let local_var_req = local_var_req_builder.build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -2116,6 +2133,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
     ) -> Result<(), Error<GetPaymentMethodError>> {
         let local_var_configuration = &self.configuration;
@@ -2372,17 +2390,18 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder = local_var_req_builder
                 .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_disable_sm_ads_for_users {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useDisableSmAdsForUsers", &param_value.to_string())]);
+        }
         if let Some(ref param_value) = use_phishing_blocker {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
         if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
             local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
         };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         let local_var_req = local_var_req_builder.build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -2467,6 +2486,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
     ) -> Result<(), Error<GetWarningsError>> {
         let local_var_configuration = &self.configuration;
@@ -2723,17 +2743,18 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder = local_var_req_builder
                 .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_disable_sm_ads_for_users {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useDisableSmAdsForUsers", &param_value.to_string())]);
+        }
         if let Some(ref param_value) = use_phishing_blocker {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
         if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
             local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
         };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         let local_var_req = local_var_req_builder.build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -2818,6 +2839,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
         restart_subscription_request: Option<models::RestartSubscriptionRequest>,
     ) -> Result<(), Error<RestartSubscriptionError>> {
@@ -3075,17 +3097,18 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder = local_var_req_builder
                 .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_disable_sm_ads_for_users {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useDisableSmAdsForUsers", &param_value.to_string())]);
+        }
         if let Some(ref param_value) = use_phishing_blocker {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
         if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
             local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
         };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&restart_subscription_request);
 
         let local_var_req = local_var_req_builder.build()?;
@@ -3171,6 +3194,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
         billing_address_request: Option<models::BillingAddressRequest>,
     ) -> Result<(), Error<UpdateBillingAddressError>> {
@@ -3428,17 +3452,18 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder = local_var_req_builder
                 .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_disable_sm_ads_for_users {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useDisableSmAdsForUsers", &param_value.to_string())]);
+        }
         if let Some(ref param_value) = use_phishing_blocker {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
         if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
             local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
         };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&billing_address_request);
 
         let local_var_req = local_var_req_builder.build()?;
@@ -3524,6 +3549,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_admin_sponsored_families: Option<bool>,
         sync_seats: Option<bool>,
         use_automatic_user_confirmation: Option<bool>,
+        use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
     ) -> Result<(), Error<UpdatePaymentMethodError>> {
@@ -3781,17 +3807,18 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder = local_var_req_builder
                 .query(&[("useAutomaticUserConfirmation", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_disable_sm_ads_for_users {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("useDisableSmAdsForUsers", &param_value.to_string())]);
+        }
         if let Some(ref param_value) = use_phishing_blocker {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
         if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
             local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
         };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&tokenized_payment_method_request);
 
         let local_var_req = local_var_req_builder.build()?;

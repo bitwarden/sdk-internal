@@ -37,7 +37,6 @@ use std::{future::Future, marker::PhantomData, rc::Rc};
 
 use bitwarden_state::repository::{Repository, RepositoryError, RepositoryItem};
 use bitwarden_threading::ThreadBoundRunner;
-use serde::{Serialize, de::DeserializeOwned};
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
 /// This trait defines the methods that a [::wasm_bindgen] repository must implement.
@@ -65,20 +64,27 @@ impl<T, R: WasmRepository<T> + 'static> WasmRepositoryChannel<T, R> {
 }
 
 #[async_trait::async_trait]
-impl<T: RepositoryItem + Serialize + DeserializeOwned, R: WasmRepository<T> + 'static> Repository<T>
+impl<T: RepositoryItem, R: WasmRepository<T> + 'static> Repository<T>
     for WasmRepositoryChannel<T, R>
 {
-    async fn get(&self, id: String) -> Result<Option<T>, RepositoryError> {
-        run_convert(&self.0, |s| async move { s.get(id).await }).await
+    async fn get(&self, key: T::Key) -> Result<Option<T>, RepositoryError> {
+        let key = key.to_string();
+        run_convert(&self.0, |s| async move { s.get(key).await }).await
     }
     async fn list(&self) -> Result<Vec<T>, RepositoryError> {
         run_convert(&self.0, |s| async move { s.list().await }).await
     }
-    async fn set(&self, id: String, value: T) -> Result<(), RepositoryError> {
-        run_convert(&self.0, |s| async move { s.set(id, value).await.and(UNIT) }).await
+    async fn set(&self, key: T::Key, value: T) -> Result<(), RepositoryError> {
+        let key = key.to_string();
+        run_convert(
+            &self.0,
+            |s| async move { s.set(key, value).await.and(UNIT) },
+        )
+        .await
     }
-    async fn remove(&self, id: String) -> Result<(), RepositoryError> {
-        run_convert(&self.0, |s| async move { s.remove(id).await.and(UNIT) }).await
+    async fn remove(&self, key: T::Key) -> Result<(), RepositoryError> {
+        let key = key.to_string();
+        run_convert(&self.0, |s| async move { s.remove(key).await.and(UNIT) }).await
     }
 }
 

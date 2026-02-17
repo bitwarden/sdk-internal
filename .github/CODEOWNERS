@@ -18,9 +18,11 @@
 # Bindings for our API do not have an owner as the API is shared between teams.
 crates/bitwarden-api-api/src/**
 crates/bitwarden-api-api/README.md
+crates/bitwarden-api-api/.openapi-generator/**
 # Bindings for Identity are owned by Auth.
 crates/bitwarden-api-identity/src/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
 crates/bitwarden-api-identity/README.md @bitwarden/team-auth-dev @bitwarden/team-platform-dev
+crates/bitwarden-api-identity/.openapi-generator/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
 # Bindings for Key Connector are owned by Key Management.
 crates/bitwarden-api-key-connector/src/** @bitwarden/team-key-management-dev
 
@@ -33,6 +35,7 @@ crates/bitwarden-api-key-connector/src/** @bitwarden/team-key-management-dev
 bitwarden_license/bitwarden-sm/** @bitwarden/team-secrets-manager-dev @bitwarden/team-platform-dev
 crates/bitwarden-auth/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
 crates/bitwarden-crypto/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
+crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
 crates/bitwarden-vault/** @bitwarden/team-vault-dev @bitwarden/team-sdk-sme
 crates/bitwarden-generators/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
 crates/bitwarden-exporters/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
@@ -62,3 +65,10 @@ crates/bw/src/vault/** @bitwarden/team-vault-dev @bitwarden/team-sdk-sme
 **/*.dockerignore @bitwarden/team-appsec @bitwarden/dept-bre
 **/entrypoint.sh @bitwarden/team-appsec @bitwarden/dept-bre
 **/docker-compose.yml @bitwarden/team-appsec @bitwarden/dept-bre
+
+## No ownership for dependency management files to allow Renovate to manage updates
+Cargo.lock
+Cargo.toml
+package-lock.json
+package.json
+

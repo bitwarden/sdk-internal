@@ -1,4 +1,4 @@
-use bitwarden_api_api::models::FolderResponseModel;
+use bitwarden_api_api::models::{FolderResponseModel, FolderWithIdRequestModel};
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
     require,
@@ -28,7 +28,7 @@ pub struct Folder {
     pub revision_date: DateTime<Utc>,
 }
 
-bitwarden_state::register_repository_item!(Folder, "Folder");
+bitwarden_state::register_repository_item!(FolderId => Folder, "Folder");
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
@@ -89,5 +89,14 @@ impl TryFrom<FolderResponseModel> for Folder {
             name: require!(EncString::try_from_optional(folder.name)?),
             revision_date: require!(folder.revision_date).parse()?,
         })
+    }
+}
+
+impl From<&Folder> for FolderWithIdRequestModel {
+    fn from(val: &Folder) -> Self {
+        FolderWithIdRequestModel {
+            name: val.name.to_string(),
+            id: val.id.map(|id| id.0),
+        }
     }
 }

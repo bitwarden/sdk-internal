@@ -5,10 +5,11 @@ use bitwarden_api_api::models::{
     MasterPasswordUnlockDataRequestModel,
     master_password_unlock_response_model::MasterPasswordUnlockResponseModel,
 };
-use bitwarden_crypto::{EncString, Kdf, MasterKey, SymmetricCryptoKey};
+use bitwarden_crypto::{EncString, Kdf, KeyIds, KeyStoreContext, MasterKey, SymmetricCryptoKey};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
+use tracing::Level;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -34,10 +35,13 @@ pub enum MasterPasswordError {
     /// Generic crypto error
     #[error(transparent)]
     Crypto(#[from] bitwarden_crypto::CryptoError),
+    /// The provided password is incorrect
+    #[error("Wrong password")]
+    WrongPassword,
 }
 
 /// Represents the data required to unlock with the master password.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(
@@ -55,7 +59,21 @@ pub struct MasterPasswordUnlockData {
 }
 
 impl MasterPasswordUnlockData {
-    pub(crate) fn derive(
+    /// Unwrap the user key into the key store context using the provided password.
+    pub fn unwrap_to_context<Ids: KeyIds>(
+        &self,
+        password: &str,
+        ctx: &mut KeyStoreContext<Ids>,
+    ) -> Result<Ids::Symmetric, MasterPasswordError> {
+        let master_key = MasterKey::derive(password, &self.salt, &self.kdf)
+            .map_err(|_| MasterPasswordError::InvalidKdfConfiguration)?;
+        let user_key = master_key
+            .decrypt_user_key(self.master_key_wrapped_user_key.clone())
+            .map_err(|_| MasterPasswordError::WrongPassword)?;
+        Ok(ctx.add_local_symmetric_key(user_key))
+    }
+
+    pub(crate) fn derive_ref(
         password: &str,
         kdf: &Kdf,
         salt: &str,
@@ -73,6 +91,22 @@ impl MasterPasswordUnlockData {
             master_key_wrapped_user_key,
         })
     }
+
+    /// Derive master password unlock data from a password and user key in the key store.
+    #[tracing::instrument(skip(password, salt, ctx))]
+    pub fn derive<Ids: KeyIds>(
+        password: &str,
+        kdf: &Kdf,
+        salt: &str,
+        user_key_id: Ids::Symmetric,
+        ctx: &KeyStoreContext<Ids>,
+    ) -> Result<Self, MasterPasswordError> {
+        tracing::event!(Level::INFO, "deriving master password unlock data");
+        // Temporary workaround until lower level functions also work on the key context
+        #[expect(deprecated)]
+        let key = ctx.dangerous_get_symmetric_key(user_key_id)?;
+        Self::derive_ref(password, kdf, salt, key)
+    }
 }
 
 impl TryFrom<&MasterPasswordUnlockResponseModel> for MasterPasswordUnlockData {
@@ -88,6 +122,7 @@ impl TryFrom<&MasterPasswordUnlockResponseModel> for MasterPasswordUnlockData {
                 memory: kdf_parse_nonzero_u32(require!(response.kdf.memory))?,
                 parallelism: kdf_parse_nonzero_u32(require!(response.kdf.parallelism))?,
             },
+            KdfType::__Unknown(_) => return Err(MasterPasswordError::KdfMalformed),
         };
 
         let master_key_wrapped_user_key = require!(&response.master_key_encrypted_user_key)
@@ -107,8 +142,8 @@ impl From<&MasterPasswordUnlockData> for MasterPasswordUnlockDataRequestModel {
     fn from(data: &MasterPasswordUnlockData) -> Self {
         Self {
             kdf: Box::new(kdf_to_kdf_request_model(&data.kdf)),
-            master_key_wrapped_user_key: Some(data.master_key_wrapped_user_key.to_string()),
-            salt: Some(data.salt.to_owned()),
+            master_key_wrapped_user_key: data.master_key_wrapped_user_key.to_string(),
+            salt: data.salt.to_owned(),
         }
     }
 }
@@ -138,11 +173,10 @@ pub struct MasterPasswordAuthenticationData {
 }
 
 impl MasterPasswordAuthenticationData {
-    pub(crate) fn derive(
-        password: &str,
-        kdf: &Kdf,
-        salt: &str,
-    ) -> Result<Self, MasterPasswordError> {
+    /// Derive master password authentication data from a password, KDF, and salt.
+    #[tracing::instrument(skip(password, kdf, salt))]
+    pub fn derive(password: &str, kdf: &Kdf, salt: &str) -> Result<Self, MasterPasswordError> {
+        tracing::event!(Level::INFO, "deriving master password authentication data");
         let master_key = MasterKey::derive(password, salt, kdf)
             .map_err(|_| MasterPasswordError::InvalidKdfConfiguration)?;
         let hash = master_key.derive_master_key_hash(
@@ -162,10 +196,10 @@ impl From<&MasterPasswordAuthenticationData> for MasterPasswordAuthenticationDat
     fn from(data: &MasterPasswordAuthenticationData) -> Self {
         Self {
             kdf: Box::new(kdf_to_kdf_request_model(&data.kdf)),
-            master_password_authentication_hash: Some(
-                data.master_password_authentication_hash.to_string(),
-            ),
-            salt: Some(data.salt.to_owned()),
+            master_password_authentication_hash: data
+                .master_password_authentication_hash
+                .to_string(),
+            salt: data.salt.to_owned(),
         }
     }
 }
@@ -194,8 +228,10 @@ fn kdf_to_kdf_request_model(kdf: &Kdf) -> KdfRequestModel {
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::models::{KdfType, MasterPasswordUnlockKdfResponseModel};
+    use bitwarden_crypto::KeyStore;
 
     use super::*;
+    use crate::key_management::{KeyIds, SymmetricKeyId};
 
     const TEST_USER_KEY: &str = "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=";
     const TEST_INVALID_USER_KEY: &str = "-1.8UClLa8IPE1iZT7chy5wzQ==|6PVfHnVk5S3XqEtQemnM5yb4JodxmPkkWzmDRdfyHtjORmvxqlLX40tBJZ+CKxQWmS8tpEB5w39rbgHg/gqs0haGdZG4cPbywsgGzxZ7uNI=";
@@ -211,7 +247,7 @@ mod tests {
         };
         let salt = TEST_SALT.to_string();
         let user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
-        let data = MasterPasswordUnlockData::derive(TEST_PASSWORD, &kdf, &salt, &user_key)
+        let data = MasterPasswordUnlockData::derive_ref(TEST_PASSWORD, &kdf, &salt, &user_key)
             .expect("Failed to derive master password unlock data");
         assert_eq!(data.salt, salt);
         assert!(matches!(data.kdf, Kdf::PBKDF2 { iterations } if iterations.get() == 600_000));
@@ -462,5 +498,79 @@ mod tests {
 
         let result = MasterPasswordUnlockData::try_from(&response);
         assert!(matches!(result, Err(MasterPasswordError::KdfMalformed)));
+    }
+
+    #[test]
+    fn test_unwrap_to_context_success() {
+        // Derive master password unlock data from a known password and user key
+        let kdf = Kdf::PBKDF2 {
+            iterations: NonZeroU32::new(600_000).expect("non-zero"),
+        };
+        let user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let data = MasterPasswordUnlockData::derive_ref(TEST_PASSWORD, &kdf, TEST_SALT, &user_key)
+            .expect("Failed to derive master password unlock data");
+
+        // Create a key store and unwrap the user key into the context
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let key_id = data
+            .unwrap_to_context::<KeyIds>(TEST_PASSWORD, &mut ctx)
+            .expect("Failed to unwrap to context");
+
+        // Verify that the key was added to the context
+        assert!(ctx.has_symmetric_key(key_id));
+
+        // Verify the unwrapped key matches the original
+        #[expect(deprecated)]
+        let unwrapped_key = ctx
+            .dangerous_get_symmetric_key(key_id)
+            .expect("Failed to get symmetric key");
+        assert_eq!(*unwrapped_key, user_key);
+    }
+
+    #[test]
+    fn test_unwrap_to_context_wrong_password() {
+        // Derive master password unlock data from a known password and user key
+        let kdf = Kdf::PBKDF2 {
+            iterations: NonZeroU32::new(600_000).expect("non-zero"),
+        };
+        let user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let data = MasterPasswordUnlockData::derive_ref(TEST_PASSWORD, &kdf, TEST_SALT, &user_key)
+            .expect("Failed to derive master password unlock data");
+
+        // Attempt to unwrap with wrong password
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let result = data.unwrap_to_context::<KeyIds>("wrong_password", &mut ctx);
+
+        assert!(matches!(result, Err(MasterPasswordError::WrongPassword)));
+    }
+
+    #[test]
+    fn test_unwrap_to_context_persists_key() {
+        // Derive master password unlock data from a known password and user key
+        let kdf = Kdf::PBKDF2 {
+            iterations: NonZeroU32::new(600_000).expect("non-zero"),
+        };
+        let user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        let data = MasterPasswordUnlockData::derive_ref(TEST_PASSWORD, &kdf, TEST_SALT, &user_key)
+            .expect("Failed to derive master password unlock data");
+
+        // Create a key store and unwrap the user key into the context
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        {
+            let mut ctx = store.context_mut();
+            let local_key_id = data
+                .unwrap_to_context::<KeyIds>(TEST_PASSWORD, &mut ctx)
+                .expect("Failed to unwrap to context");
+
+            // Persist the local key to the User key slot
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+                .expect("Failed to persist symmetric key");
+        }
+
+        // Verify the key is accessible with the User key id in a new context
+        let ctx = store.context();
+        assert!(ctx.has_symmetric_key(SymmetricKeyId::User));
     }
 }

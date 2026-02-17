@@ -5,9 +5,9 @@
 //! authentication.
 
 use bitwarden_crypto::{
-    AsymmetricCryptoKey, DeriveFingerprint, KeyStore, KeyStoreContext,
-    PublicKeyEncryptionAlgorithm, SerializedMessage, Signature, SignatureAlgorithm, SignedObject,
-    SignedPublicKeyMessage, SigningKey, SigningNamespace, SymmetricCryptoKey, key_ids,
+    DeriveFingerprint, KeyStore, KeyStoreContext, PrivateKey, PublicKeyEncryptionAlgorithm,
+    SerializedMessage, Signature, SignatureAlgorithm, SignedObject, SignedPublicKeyMessage,
+    SigningKey, SigningNamespace, SymmetricCryptoKey, key_ids,
     safe::{IdentitySealedKeyEnvelope, OtherIdentity, SelfIdentity},
 };
 use serde::{Deserialize, Serialize};
@@ -122,13 +122,13 @@ impl MembershipAgreement {
 
 fn setup_user(ctx: &mut KeyStoreContext<'_, ExampleIds>) -> UserIdentity {
     let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
-    let private_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+    let private_key = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
     // Store keys in the key store (scope the context borrow)
     #[allow(deprecated)]
     let _ = ctx.set_signing_key(ExampleSigningKey::UserSigningKey, signing_key);
     #[allow(deprecated)]
-    let _ = ctx.set_asymmetric_key(ExampleAsymmetricKey::UserPrivateKey, private_key);
+    let _ = ctx.set_private_key(ExampleAsymmetricKey::UserPrivateKey, private_key);
 
     UserIdentity {
         name: "Alice".to_string(),
@@ -138,7 +138,7 @@ fn setup_user(ctx: &mut KeyStoreContext<'_, ExampleIds>) -> UserIdentity {
 fn setup_organization(ctx: &mut KeyStoreContext<'_, ExampleIds>) -> OrganizationIdentity {
     let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
     let symmetric_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
-    let private_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+    let private_key = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
     // Store keys in the key store (scope the context borrow)
     #[allow(deprecated)]
@@ -146,7 +146,7 @@ fn setup_organization(ctx: &mut KeyStoreContext<'_, ExampleIds>) -> Organization
     #[allow(deprecated)]
     let _ = ctx.set_symmetric_key(ExampleSymmetricKey::OrgKey, symmetric_key);
     #[allow(deprecated)]
-    let _ = ctx.set_asymmetric_key(ExampleAsymmetricKey::OrgPrivateKey, private_key);
+    let _ = ctx.set_private_key(ExampleAsymmetricKey::OrgPrivateKey, private_key);
 
     OrganizationIdentity {
         name: "My Org Name".to_string(),
@@ -350,7 +350,7 @@ key_ids! {
         VaultKey(LocalId)
     }
 
-    #[asymmetric]
+    #[private]
     pub enum ExampleAsymmetricKey {
         UserPrivateKey,
         OrgPrivateKey,

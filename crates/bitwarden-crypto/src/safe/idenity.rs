@@ -16,8 +16,8 @@
 use thiserror::Error;
 
 use crate::{
-    AsymmetricPublicCryptoKey, DeriveFingerprint, KeyFingerprint, KeyIds, SignedPublicKey,
-    VerifyingKey, store::KeyStoreContext,
+    DeriveFingerprint, KeyFingerprint, KeyIds, PublicKey, SignedPublicKey, VerifyingKey,
+    store::KeyStoreContext,
 };
 
 /// Errors that can occur when constructing an `OtherIdentity`.
@@ -40,7 +40,7 @@ pub struct OtherIdentity {
     /// The verifying key used to verify signatures from this identity.
     verifying_key: VerifyingKey,
     /// The verified public encryption key, extracted from the signed public key.
-    public_key: AsymmetricPublicCryptoKey,
+    public_key: PublicKey,
 }
 
 impl OtherIdentity {
@@ -56,7 +56,7 @@ impl OtherIdentity {
     }
 
     /// Returns a reference to the verified public encryption key.
-    pub(crate) fn public_key(&self) -> &AsymmetricPublicCryptoKey {
+    pub(crate) fn public_key(&self) -> &PublicKey {
         &self.public_key
     }
 }
@@ -102,7 +102,7 @@ pub struct SelfIdentity<'a, Ids: KeyIds> {
     /// The key ID for the user's signing key.
     signing_key_id: Ids::Signing,
     /// The key ID for the user's asymmetric encryption key.
-    asymmetric_key_id: Ids::Asymmetric,
+    private_key_id: Ids::Private,
 }
 
 /// Error indicating that a required key was not found in the key store.
@@ -113,12 +113,12 @@ impl<'a, Ids: KeyIds> SelfIdentity<'a, Ids> {
     pub fn new(
         ctx: &'a KeyStoreContext<'a, Ids>,
         signing_key_id: Ids::Signing,
-        asymmetric_key_id: Ids::Asymmetric,
+        private_key_id: Ids::Private,
     ) -> Self {
         Self {
             ctx,
             signing_key_id,
-            asymmetric_key_id,
+            private_key_id,
         }
     }
 
@@ -133,8 +133,8 @@ impl<'a, Ids: KeyIds> SelfIdentity<'a, Ids> {
     }
 
     /// Returns the private encryption key ID.
-    pub fn private_key_id(&self) -> Ids::Asymmetric {
-        self.asymmetric_key_id
+    pub fn private_key_id(&self) -> Ids::Private {
+        self.private_key_id
     }
 
     /// Derives the fingerprint from the signing key of this identity.
@@ -151,15 +151,15 @@ impl<'a, Ids: KeyIds> SelfIdentity<'a, Ids> {
 mod tests {
     use super::*;
     use crate::{
-        AsymmetricCryptoKey, PublicKeyEncryptionAlgorithm, SignatureAlgorithm,
-        SignedPublicKeyMessage, SigningKey,
+        PrivateKey, PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKeyMessage,
+        SigningKey,
     };
 
     #[test]
     fn test_other_identity_valid_signature() {
         let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
         let verifying_key = signing_key.to_verifying_key();
-        let private_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let private_key = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let signed_public_key =
             SignedPublicKeyMessage::from_public_key(&private_key.to_public_key())
                 .expect("Failed to create signed public key message")
@@ -175,7 +175,7 @@ mod tests {
         let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
         let wrong_signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
         let wrong_verifying_key = wrong_signing_key.to_verifying_key();
-        let private_key = AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let private_key = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let signed_public_key =
             SignedPublicKeyMessage::from_public_key(&private_key.to_public_key())
                 .expect("Failed to create signed public key message")

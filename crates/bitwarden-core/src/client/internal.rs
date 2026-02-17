@@ -11,7 +11,7 @@ use bitwarden_crypto::{
 use bitwarden_state::registry::StateRegistry;
 use chrono::Utc;
 #[cfg(feature = "internal")]
-use tracing::instrument;
+use tracing::{info, instrument};
 
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::client::encryption_settings::EncryptionSettings;
@@ -37,8 +37,8 @@ use crate::{
 pub struct ApiConfigurations {
     pub identity_client: bitwarden_api_identity::apis::ApiClient,
     pub api_client: bitwarden_api_api::apis::ApiClient,
-    pub identity_config: bitwarden_api_identity::apis::configuration::Configuration,
-    pub api_config: bitwarden_api_api::apis::configuration::Configuration,
+    pub identity_config: bitwarden_api_identity::Configuration,
+    pub api_config: bitwarden_api_api::Configuration,
     pub device_type: DeviceType,
 }
 
@@ -52,8 +52,8 @@ impl std::fmt::Debug for ApiConfigurations {
 
 impl ApiConfigurations {
     pub(crate) fn new(
-        identity_config: bitwarden_api_identity::apis::configuration::Configuration,
-        api_config: bitwarden_api_api::apis::configuration::Configuration,
+        identity_config: bitwarden_api_identity::Configuration,
+        api_config: bitwarden_api_api::Configuration,
         device_type: DeviceType,
     ) -> Arc<Self> {
         let identity = Arc::new(identity_config.clone());
@@ -85,7 +85,7 @@ impl ApiConfigurations {
     ) -> bitwarden_api_key_connector::apis::ApiClient {
         let api = self.api_config.clone();
 
-        let key_connector = bitwarden_api_key_connector::apis::configuration::Configuration {
+        let key_connector = bitwarden_api_base::Configuration {
             base_path: key_connector_url,
             user_agent: api.user_agent,
             client: api.client,
@@ -315,7 +315,14 @@ impl InternalClient {
         account_crypto_state: WrappedAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
         let mut ctx = self.key_store.context_mut();
+
+        // Note: The actual key does not get logged unless the crypto crate has the
+        // dangerous-crypto-debug feature enabled, so this is safe
+        info!("Setting user key {:?}", user_key);
         let user_key = ctx.add_local_symmetric_key(user_key);
+        // The user key gets set to the local context frame here; It then gets persisted to the
+        // context when the cryptographic state was unwrapped correctly, so that there is no
+        // risk of a partial / incorrect setup.
         account_crypto_state
             .set_to_context(&self.security_state, user_key, &self.key_store, ctx)
             .map_err(|_| EncryptionSettingsError::CryptoInitialization)

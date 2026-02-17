@@ -18,11 +18,15 @@ on:
         required: true
         type: string
         default: latest
+
+      # List of packages to publish
+      # Default includes all Bitwarden crates required to publish the SM `bitwarden` crate. To obtain this list, you can use the following command:
+      # cargo tree -p bitwarden-cli -p bitwarden-sm --prefix none | cut -d' ' -f1 | sort -u | grep bitwarden | tr '\n' ' '
       packages:
         description: "Space-separated list of packages to publish"
         required: false
         type: string
-        default: "bitwarden-api-api bitwarden-api-identity bitwarden-cli bitwarden-core bitwarden-crypto bitwarden-encoding bitwarden-error bitwarden-error-macro bitwarden-generators bitwarden-sm bitwarden-state bitwarden-threading bitwarden-uuid bitwarden-uuid-macro"
+        default: "bitwarden-api-api bitwarden-api-base bitwarden-api-identity bitwarden-api-key-connector bitwarden-cli bitwarden-core bitwarden-crypto bitwarden-encoding bitwarden-error bitwarden-error-macro bitwarden-generators bitwarden-sm bitwarden-state bitwarden-threading bitwarden-uuid bitwarden-uuid-macro"
 
 jobs:
   setup:
@@ -35,7 +39,7 @@ jobs:
       release-tag: ${{ steps.version-output.outputs.tag_name }}
     steps:
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
@@ -77,7 +81,7 @@ jobs:
       deployments: write
     steps:
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.setup.outputs.release-tag }}
           persist-credentials: false
@@ -100,12 +104,12 @@ jobs:
         uses: bitwarden/gh-actions/azure-logout@main
 
       - name: Install rust
-        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e # stable
+        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561 # stable
         with:
           toolchain: stable
 
       - name: Cache cargo registry
-        uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
 
       - name: Install cargo-release
         run: cargo install cargo-release --version 0.25.20 --locked

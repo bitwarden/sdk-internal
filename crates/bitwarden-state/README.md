@@ -8,13 +8,16 @@ To make use of the `Repository` trait, the first thing to do is to ensure the da
 it is registered to do so:
 
 ```rust
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize)]
 struct Cipher {
     // Cipher fields
-};
+}
 
 // Register `Cipher` for use with a `Repository`.
 // This should be done in the crate where `Cipher` is defined.
-bitwarden_state::register_repository_item!(Cipher, "Cipher");
+bitwarden_state::register_repository_item!(String => Cipher, "Cipher");
 ```
 
 With the registration complete, the next important decision is to select where will the data be
@@ -180,3 +183,51 @@ pub fn get_sdk_managed_migrations() -> RepositoryMigrations {
     ])
 }
 ```
+
+## Settings
+
+This crate also provides a type-safe settings API for storing application configuration and state.
+The settings system uses type-safe keys to ensure compile-time type checking when getting and
+setting values.
+
+### Usage
+
+```rust
+use bitwarden_state::{register_setting_key, Setting};
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
+struct AppConfig {
+    theme: String,
+    auto_save: bool,
+}
+
+// Register a type-safe key
+register_setting_key!(const CONFIG: AppConfig = "app_config");
+
+struct TestClient {
+    // Access settings via bitwarden_core::Client.platform().state().setting()
+    app_config: Setting<AppConfig>,
+}
+
+async fn example(client: &TestClient) -> Result<(), Box<dyn std::error::Error>> {
+    // Get value
+    let config: Option<AppConfig> = client.app_config.get().await?;
+
+    // Update value
+    let new_config = AppConfig {
+        theme: "dark".to_string(),
+        auto_save: true,
+    };
+    client.app_config.update(new_config).await?;
+
+    // Delete setting
+    client.app_config.delete().await?;
+
+    Ok(())
+}
+```
+
+The `Key<T>` type associates a string key name with a value type at compile time, preventing type
+mismatches while maintaining ergonomic usage. The `Setting<T>` handle provides async methods to get,
+update, and delete the setting value.

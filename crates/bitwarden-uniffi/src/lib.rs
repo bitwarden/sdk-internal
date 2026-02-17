@@ -11,7 +11,9 @@ use bitwarden_core::{ClientSettings, client::internal::ClientManagedTokens};
 pub mod auth;
 #[allow(missing_docs)]
 pub mod crypto;
-mod error;
+#[allow(missing_docs)]
+pub mod error;
+mod log_callback;
 #[allow(missing_docs)]
 pub mod platform;
 #[allow(missing_docs)]
@@ -25,7 +27,12 @@ mod android_support;
 
 use crypto::CryptoClient;
 use error::{Error, Result};
+pub use log_callback::LogCallback;
 use platform::PlatformClient;
+pub use platform::{
+    AcquiredCookie, BootstrapConfig, ServerCommunicationConfig, ServerCommunicationConfigClient,
+    ServerCommunicationConfigRepository, SsoCookieVendorConfig,
+};
 use tool::{ExporterClient, GeneratorClients, SendClient, SshClient};
 use vault::VaultClient;
 
@@ -41,7 +48,7 @@ impl Client {
         token_provider: Arc<dyn ClientManagedTokens>,
         settings: Option<ClientSettings>,
     ) -> Self {
-        init_logger();
+        init_logger(None);
         setup_error_converter();
 
         #[cfg(target_os = "android")]
@@ -113,7 +120,29 @@ impl Client {
 
 static INIT: Once = Once::new();
 
-fn init_logger() {
+/// Initialize the SDK logger
+///
+/// This function should be called once before creating any SDK clients.
+/// It initializes the tracing infrastructure for the SDK and optionally
+/// registers a callback to receive log events.
+///
+/// # Parameters
+/// - `callback`: Optional callback to receive SDK log events. Pass `None` to use only platform
+///   loggers (oslog on iOS, logcat on Android).
+///
+/// # Example
+/// ```kotlin
+/// // Initialize with callback before creating clients
+/// initLogger(FlightRecorderCallback())
+/// val client = Client(tokenProvider, settings)
+/// ```
+///
+/// # Notes
+/// - This function can only be called once - subsequent calls are ignored
+/// - If not called explicitly, logging is auto-initialized when first client is created
+/// - Platform loggers (oslog/logcat) are always enabled regardless of callback
+#[uniffi::export]
+pub fn init_logger(callback: Option<Arc<dyn LogCallback>>) {
     use tracing_subscriber::{EnvFilter, layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
     INIT.call_once(|| {
@@ -137,13 +166,17 @@ fn init_logger() {
             .with_target(true)
             .pretty();
 
+        // Build base registry once instead of duplicating per-platform
+        let registry = tracing_subscriber::registry().with(fmtlayer).with(filter);
+
+        // Conditionally add callback layer if provided
+        // Use Option to avoid type incompatibility between Some/None branches
+        let callback_layer = callback.map(log_callback::CallbackLayer::new);
+        let registry = registry.with(callback_layer);
         #[cfg(target_os = "ios")]
         {
             const TAG: &str = "com.8bit.bitwarden";
-
-            tracing_subscriber::registry()
-                .with(fmtlayer)
-                .with(filter)
+            registry
                 .with(tracing_oslog::OsLogger::new(TAG, "default"))
                 .init();
         }
@@ -151,10 +184,7 @@ fn init_logger() {
         #[cfg(target_os = "android")]
         {
             const TAG: &str = "com.bitwarden.sdk";
-
-            tracing_subscriber::registry()
-                .with(fmtlayer)
-                .with(filter)
+            registry
                 .with(
                     tracing_android::layer(TAG)
                         .expect("initialization of android logcat tracing layer"),
@@ -164,11 +194,12 @@ fn init_logger() {
 
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         {
-            tracing_subscriber::registry()
-                .with(fmtlayer)
-                .with(filter)
-                .init();
+            registry.init();
         }
+        #[cfg(feature = "dangerous-crypto-debug")]
+        tracing::warn!(
+            "Dangerous crypto debug features are enabled. THIS MUST NOT BE USED IN PRODUCTION BUILDS!!"
+        );
     });
 }
 
@@ -178,4 +209,65 @@ fn setup_error_converter() {
     bitwarden_uniffi_error::set_error_to_uniffi_error(|e| {
         crate::error::BitwardenError::Conversion(e.to_string()).into()
     });
+}
+#[cfg(test)]
+mod tests {
+    use std::sync::Mutex;
+
+    use super::*;
+    // Mock token provider for testing
+    #[derive(Debug)]
+    struct MockTokenProvider;
+
+    #[async_trait::async_trait]
+    impl ClientManagedTokens for MockTokenProvider {
+        async fn get_access_token(&self) -> Option<String> {
+            Some("mock_token".to_string())
+        }
+    }
+    /// Mock LogCallback implementation for testing
+    struct TestLogCallback {
+        logs: Arc<Mutex<Vec<(String, String, String)>>>,
+    }
+    impl LogCallback for TestLogCallback {
+        fn on_log(&self, level: String, target: String, message: String) -> Result<()> {
+            self.logs
+                .lock()
+                .expect("Failed to lock logs mutex")
+                .push((level, target, message));
+            Ok(())
+        }
+    }
+
+    // Log callback unit tests only test happy path because running this with
+    // Once means we get one registered callback per test run. There are
+    // other tests written as integration tests in the /tests/ folder that
+    // assert more specific details.
+    #[test]
+    fn test_callback_receives_logs() {
+        let logs = Arc::new(Mutex::new(Vec::new()));
+        let callback = Arc::new(TestLogCallback { logs: logs.clone() });
+
+        // Initialize logger with callback before creating client
+        init_logger(Some(callback));
+
+        // Create client
+        let _client = Client::new(Arc::new(MockTokenProvider), None);
+
+        // Trigger a log
+        tracing::info!("test message from SDK");
+
+        // Verify callback received it
+        let captured = logs.lock().expect("Failed to lock logs mutex");
+        assert!(!captured.is_empty(), "Callback should receive logs");
+
+        // Find our specific test log (there may be other SDK logs during init)
+        let test_log = captured
+            .iter()
+            .find(|(_, _, msg)| msg.contains("test message"))
+            .expect("Should find our test log message");
+
+        assert_eq!(test_log.0, "INFO");
+        assert!(test_log.2.contains("test message"));
+    }
 }

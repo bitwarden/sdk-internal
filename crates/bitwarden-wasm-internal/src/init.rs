@@ -40,11 +40,16 @@ pub fn init_sdk(log_level: Option<LogLevel>) {
         .without_time() // time is not supported in wasm
         .with_writer(MakeWebConsoleWriter::new()); // write events to the console
 
-    let perf_layer = performance_layer().with_details_from_fields(Pretty::default());
+    let tracing_subscriber = tracing_subscriber::registry().with(filter).with(fmt);
+    #[cfg(feature = "performance-tracing")]
+    let tracing_subscriber = {
+        let perf_layer = performance_layer().with_details_from_fields(Pretty::default());
+        tracing_subscriber.with(perf_layer)
+    };
+    tracing_subscriber.init();
 
-    tracing_subscriber::registry()
-        .with(perf_layer)
-        .with(filter)
-        .with(fmt)
-        .init();
+    #[cfg(feature = "dangerous-crypto-debug")]
+    tracing::warn!(
+        "Dangerous crypto debug features are enabled. THIS MUST NOT BE USED IN PRODUCTION BUILDS!!"
+    );
 }

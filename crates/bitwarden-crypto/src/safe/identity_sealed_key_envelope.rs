@@ -32,9 +32,9 @@ use wasm_bindgen::convert::FromWasmAbi;
 
 use super::idenity::{OtherIdentity, SelfIdentity};
 use crate::{
-    AsymmetricCryptoKey, AsymmetricPublicCryptoKey, BitwardenLegacyKeyBytes, ContentFormat,
-    CoseKeyBytes, EncodedSymmetricKey, KeyIds, RawPrivateKey, RawPublicKey, SigningKey,
-    SigningNamespace, SymmetricCryptoKey, VerifyingKey,
+    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KeyIds, PrivateKey,
+    PublicKey, RawPrivateKey, RawPublicKey, SigningKey, SigningNamespace, SymmetricCryptoKey,
+    VerifyingKey,
     cose::{
         CONTENT_TYPE_BITWARDEN_LEGACY_KEY, IDENTITY_SEALED_ENVELOPE_RECIPIENT_FINGERPRINT,
         IDENTITY_SEALED_ENVELOPE_SENDER_FINGERPRINT, XCHACHA20_POLY1305,
@@ -111,7 +111,7 @@ impl IdentitySealedKeyEnvelope {
     fn seal_ref(
         sender_signing_key: &SigningKey,
         recipient_verifying_key: &VerifyingKey,
-        recipient_public_key: &AsymmetricPublicCryptoKey,
+        recipient_public_key: &PublicKey,
         key_to_share: &SymmetricCryptoKey,
     ) -> Result<Self, SealError> {
         // Derive fingerprints for sender and recipient
@@ -230,7 +230,7 @@ impl IdentitySealedKeyEnvelope {
         &self,
         sender_verifying_key: &VerifyingKey,
         recipient_verifying_key: &VerifyingKey,
-        recipient_private_key: &AsymmetricCryptoKey,
+        recipient_private_key: &PrivateKey,
     ) -> Result<SymmetricCryptoKey, UnsealError> {
         // Cryptographic Safety: To unseal the envelope, while guaranteeing the security properties,
         // the following must be verified:
@@ -370,7 +370,7 @@ impl IdentitySealedKeyEnvelope {
         #[allow(deprecated)]
         let recipient_private_key = recipient
             .context()
-            .dangerous_get_asymmetric_key(recipient.private_key_id())
+            .dangerous_get_private_key(recipient.private_key_id())
             .map_err(|_| UnsealError::UnsealFailed)?;
 
         let recipient_verifying_key = recipient
@@ -517,8 +517,8 @@ impl FromWasmAbi for IdentitySealedKeyEnvelope {
 mod tests {
     use super::*;
     use crate::{
-        AsymmetricCryptoKey, PublicKeyEncryptionAlgorithm, SignatureAlgorithm,
-        SignedPublicKeyMessage, SymmetricCryptoKey,
+        PrivateKey, PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKeyMessage,
+        SymmetricCryptoKey,
     };
 
     #[test]
@@ -531,8 +531,7 @@ mod tests {
         let recipient_signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
 
         // Create recipient's encryption key pair
-        let recipient_private_key =
-            AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let recipient_private_key = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let recipient_public_key = recipient_private_key.to_public_key();
 
         // Sign the recipient's public key with their signing key
@@ -588,8 +587,7 @@ mod tests {
         let recipient_signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
 
         // Create recipient's encryption key pair
-        let recipient_private_key =
-            AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let recipient_private_key = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let recipient_public_key = recipient_private_key.to_public_key();
 
         // Sign the recipient's public key
@@ -637,13 +635,12 @@ mod tests {
         let recipient_signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
 
         // Create recipient's encryption key pair
-        let recipient_private_key =
-            AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let recipient_private_key = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let recipient_public_key = recipient_private_key.to_public_key();
 
         // Create a different recipient's private key (attacker)
         let wrong_recipient_private_key =
-            AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+            PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
         // Sign the recipient's public key
         let signed_public_key = SignedPublicKeyMessage::from_public_key(&recipient_public_key)
@@ -695,8 +692,7 @@ mod tests {
         let recipient_signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
 
         // Create recipient's encryption key pair
-        let recipient_private_key =
-            AsymmetricCryptoKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        let recipient_private_key = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let recipient_public_key = recipient_private_key.to_public_key();
 
         // Sign the recipient's public key with their signing key

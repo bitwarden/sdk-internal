@@ -36,7 +36,7 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
@@ -61,7 +61,7 @@ jobs:
           echo "SDK_VERSION='${SDK_VERSION}'"
 
       - name: Setup Node
-        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: 20
           registry-url: "https://npm.pkg.github.com"
@@ -82,14 +82,14 @@ jobs:
         working-directory: crates/bitwarden-wasm-internal/${{ matrix.license_type.npm_folder }}
 
       - name: Install rust
-        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e # stable
+        uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561 # stable
         with:
           toolchain: "${{ steps.toolchain.outputs.RUST_TOOLCHAIN }}"
           targets: wasm32-unknown-unknown
           components: rust-src
 
       - name: Cache cargo registry
-        uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3 # v2.7.7
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
           key: wasm-cargo-cache
 
@@ -97,7 +97,7 @@ jobs:
         run: ./build.sh -r ${{ matrix.license_type.build_flags }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: ${{ matrix.license_type.artifact_name }}
           path: ${{ github.workspace }}/crates/bitwarden-wasm-internal/${{ matrix.license_type.npm_folder }}/*
@@ -126,7 +126,7 @@ jobs:
           secrets: "BW-GHAPP-ID,BW-GHAPP-KEY"
 
       - name: Generate GH App token
-        uses: actions/create-github-app-token@30bf6253fa41bdc8d1501d202ad15287582246b4 # v2.0.3
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
         id: app-token
         with:
           app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
