@@ -473,7 +473,7 @@ pub struct JitMasterPasswordRegistrationResponse {
 }
 
 /// Errors that can occur during user registration.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone)]
 #[bitwarden_error(flat)]
 pub enum RegistrationError {
     /// Key Connector API call failed.
@@ -665,6 +665,7 @@ mod tests {
                 .await;
 
         assert!(result.is_err());
+        println!("Error: {:?}", result.clone().unwrap_err());
         assert!(matches!(result.unwrap_err(), RegistrationError::Api));
 
         // Assert that the mock expectations were met

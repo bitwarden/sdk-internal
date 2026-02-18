@@ -8,7 +8,7 @@ use coset::{
 use super::SigningNamespace;
 use crate::{
     CryptoError, KEY_ID_SIZE,
-    cose::SAFE_CONTENT_NAMESPACE,
+    cose::SIGNING_NAMESPACE,
     error::{EncodingError, SignatureError},
     keys::KeyId,
 };
@@ -24,7 +24,7 @@ pub(super) fn namespace(
         .iter()
         .find_map(|(key, value)| {
             if let Label::Int(key) = key
-                && *key == SAFE_CONTENT_NAMESPACE
+                && *key == SIGNING_NAMESPACE
             {
                 return value.as_integer();
             }
