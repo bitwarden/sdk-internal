@@ -78,9 +78,7 @@ pub(super) async fn create_folder<R: Repository<Folder> + ?Sized>(
 
     let folder: Folder = resp.try_into()?;
 
-    repository
-        .set(require!(folder.id).to_string(), folder.clone())
-        .await?;
+    repository.set(require!(folder.id), folder.clone()).await?;
 
     Ok(key_store.decrypt(&folder)?)
 }
@@ -134,10 +132,12 @@ mod tests {
         .await
         .unwrap();
 
+        let folder_id = FolderId::new(folder_id);
+
         assert_eq!(
             result,
             FolderView {
-                id: Some(FolderId::new(folder_id)),
+                id: Some(folder_id),
                 name: "test".to_string(),
                 revision_date: "2025-01-01T00:00:00Z".parse().unwrap(),
             }
@@ -146,13 +146,7 @@ mod tests {
         // Confirm the folder was stored in the repository
         assert_eq!(
             store
-                .decrypt(
-                    &repository
-                        .get(folder_id.to_string())
-                        .await
-                        .unwrap()
-                        .unwrap()
-                )
+                .decrypt(&repository.get(folder_id).await.unwrap().unwrap())
                 .unwrap(),
             result
         );

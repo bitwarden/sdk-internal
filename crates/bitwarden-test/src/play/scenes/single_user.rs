@@ -12,14 +12,12 @@ use crate::play::SceneTemplate;
 pub struct SingleUserArgs {
     /// User email address (should be mangled for test isolation)
     pub email: String,
+    /// User password
+    pub password: String,
     /// Whether the user's email is verified
-    pub verified: bool,
+    pub email_verified: bool,
     /// Whether the user has premium
     pub premium: bool,
-    /// Optional user ID to set
-    pub id: Option<Uuid>,
-    /// Optional api key
-    pub api_key: Option<String>,
 }
 
 /// Result returned when creating a single user scene
