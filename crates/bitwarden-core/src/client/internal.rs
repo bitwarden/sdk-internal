@@ -1,6 +1,7 @@
 use std::sync::{Arc, OnceLock, RwLock};
 
 use bitwarden_crypto::KeyStore;
+use bitwarden_server_communication_config::CookieProvider;
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use bitwarden_crypto::SymmetricCryptoKey;
 #[cfg(feature = "internal")]
@@ -125,7 +126,6 @@ pub(crate) struct SdkManagedTokens {
 }
 
 #[allow(missing_docs)]
-#[derive(Debug)]
 pub struct InternalClient {
     pub(crate) user_id: OnceLock<UserId>,
     pub(crate) tokens: RwLock<Tokens>,
@@ -149,6 +149,22 @@ pub struct InternalClient {
 
     #[cfg(feature = "internal")]
     pub(crate) repository_map: StateRegistry,
+
+    /// Optional cookie provider for server communication middleware
+    pub(crate) server_communication_config: Option<Arc<dyn CookieProvider>>,
+}
+
+impl std::fmt::Debug for InternalClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InternalClient")
+            .field("user_id", &self.user_id)
+            .field("tokens", &self.tokens)
+            .field("login_method", &self.login_method)
+            .field("__api_configurations", &self.__api_configurations)
+            .field("key_store", &"<KeyStore>")
+            .field("server_communication_config", &self.server_communication_config.as_ref().map(|_| "<CookieProvider>"))
+            .finish_non_exhaustive()
+    }
 }
 
 impl InternalClient {
