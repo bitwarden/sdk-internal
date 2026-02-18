@@ -40,14 +40,14 @@ pub trait CiphersApi: Send + Sync {
         &self,
         id: uuid::Uuid,
         attachment_id: &'a str,
-    ) -> Result<models::DeleteAttachmentResponseData, Error<DeleteAttachmentError>>;
+    ) -> Result<models::DeleteAttachmentResponseModel, Error<DeleteAttachmentError>>;
 
     /// DELETE /ciphers/{id}/attachment/{attachmentId}/admin
     async fn delete_attachment_admin<'a>(
         &self,
         id: uuid::Uuid,
         attachment_id: &'a str,
-    ) -> Result<models::DeleteAttachmentResponseData, Error<DeleteAttachmentAdminError>>;
+    ) -> Result<models::DeleteAttachmentResponseModel, Error<DeleteAttachmentAdminError>>;
 
     /// DELETE /ciphers
     async fn delete_many<'a>(
@@ -441,7 +441,7 @@ impl CiphersApi for CiphersApiClient {
         &self,
         id: uuid::Uuid,
         attachment_id: &'a str,
-    ) -> Result<models::DeleteAttachmentResponseData, Error<DeleteAttachmentError>> {
+    ) -> Result<models::DeleteAttachmentResponseModel, Error<DeleteAttachmentError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -477,12 +477,12 @@ impl CiphersApi for CiphersApiClient {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
                 ContentType::Text => {
                     return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::DeleteAttachmentResponseData`",
+                        "Received `text/plain` content type response that cannot be converted to `models::DeleteAttachmentResponseModel`",
                     )));
                 }
                 ContentType::Unsupported(local_var_unknown_type) => {
                     return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::DeleteAttachmentResponseData`"
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::DeleteAttachmentResponseModel`"
                     ))));
                 }
             }
@@ -502,7 +502,7 @@ impl CiphersApi for CiphersApiClient {
         &self,
         id: uuid::Uuid,
         attachment_id: &'a str,
-    ) -> Result<models::DeleteAttachmentResponseData, Error<DeleteAttachmentAdminError>> {
+    ) -> Result<models::DeleteAttachmentResponseModel, Error<DeleteAttachmentAdminError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -538,12 +538,12 @@ impl CiphersApi for CiphersApiClient {
                 ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
                 ContentType::Text => {
                     return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::DeleteAttachmentResponseData`",
+                        "Received `text/plain` content type response that cannot be converted to `models::DeleteAttachmentResponseModel`",
                     )));
                 }
                 ContentType::Unsupported(local_var_unknown_type) => {
                     return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::DeleteAttachmentResponseData`"
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::DeleteAttachmentResponseModel`"
                     ))));
                 }
             }
