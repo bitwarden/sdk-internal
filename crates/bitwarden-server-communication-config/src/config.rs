@@ -33,6 +33,7 @@ pub enum BootstrapConfig {
 ///
 /// This configuration is provided by the server.
 #[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "wasm",
     derive(tsify::Tsify),
@@ -101,6 +102,20 @@ mod tests {
         assert!(json.contains("\"type\":\"ssoCookieVendor\""));
         assert!(json.contains("timeloop-auth.acme.com"));
         assert!(json.contains("ALBAuthSessionCookie"));
+
+        // Verify SDK can parse server JSON with camelCase fields
+        let server_json = r#"{"bootstrap":{"type":"ssoCookieVendor","idpLoginUrl":"https://idp.example.com/login","cookieName":"TestCookie","cookieDomain":"example.com"}}"#;
+        let parsed = serde_json::from_str::<ServerCommunicationConfig>(server_json).unwrap();
+        if let BootstrapConfig::SsoCookieVendor(vendor) = parsed.bootstrap {
+            assert_eq!(
+                vendor.idp_login_url,
+                Some("https://idp.example.com/login".to_string())
+            );
+            assert_eq!(vendor.cookie_name, Some("TestCookie".to_string()));
+            assert_eq!(vendor.cookie_domain, Some("example.com".to_string()));
+        } else {
+            panic!("Expected SsoCookieVendor variant");
+        }
 
         let deserialized: ServerCommunicationConfig = serde_json::from_str(&json).unwrap();
         if let BootstrapConfig::SsoCookieVendor(vendor_config) = deserialized.bootstrap {

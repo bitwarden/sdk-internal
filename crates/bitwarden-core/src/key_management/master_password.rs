@@ -41,7 +41,7 @@ pub enum MasterPasswordError {
 }
 
 /// Represents the data required to unlock with the master password.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(
@@ -122,6 +122,7 @@ impl TryFrom<&MasterPasswordUnlockResponseModel> for MasterPasswordUnlockData {
                 memory: kdf_parse_nonzero_u32(require!(response.kdf.memory))?,
                 parallelism: kdf_parse_nonzero_u32(require!(response.kdf.parallelism))?,
             },
+            KdfType::__Unknown(_) => return Err(MasterPasswordError::KdfMalformed),
         };
 
         let master_key_wrapped_user_key = require!(&response.master_key_encrypted_user_key)
