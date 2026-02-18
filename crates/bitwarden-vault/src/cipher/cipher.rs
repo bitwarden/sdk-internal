@@ -346,7 +346,7 @@ impl Cipher {
     }
 }
 
-bitwarden_state::register_repository_item!(Cipher, "Cipher");
+bitwarden_state::register_repository_item!(CipherId => Cipher, "Cipher");
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]

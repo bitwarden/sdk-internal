@@ -242,9 +242,7 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
             .await
             .map_err(ApiError::from)?
             .try_into()?;
-        repository
-            .set(require!(cipher.id).to_string(), cipher.clone())
-            .await?;
+        repository.set(require!(cipher.id), cipher.clone()).await?;
     } else {
         cipher = api_client
             .ciphers_api()
@@ -252,9 +250,7 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
             .await
             .map_err(ApiError::from)?
             .try_into()?;
-        repository
-            .set(require!(cipher.id).to_string(), cipher.clone())
-            .await?;
+        repository.set(require!(cipher.id), cipher.clone()).await?;
     }
 
     Ok(key_store.decrypt(&cipher)?)
@@ -431,13 +427,7 @@ mod tests {
 
         // Confirm the cipher was stored in the repository
         let stored_cipher_view: CipherView = store
-            .decrypt(
-                &repository
-                    .get(cipher_id.to_string())
-                    .await
-                    .unwrap()
-                    .unwrap(),
-            )
+            .decrypt(&repository.get(cipher_id).await.unwrap().unwrap())
             .unwrap();
         assert_eq!(stored_cipher_view.id, result.id);
         assert_eq!(stored_cipher_view.name, result.name);
@@ -547,7 +537,7 @@ mod tests {
         .unwrap();
 
         let cipher: Cipher = repository
-            .get(TEST_CIPHER_ID.to_string())
+            .get(TEST_CIPHER_ID.parse().unwrap())
             .await
             .unwrap()
             .unwrap();

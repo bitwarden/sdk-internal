@@ -20,7 +20,7 @@ pub mod platform;
 pub mod secrets_manager;
 
 pub use bitwarden_crypto::ZeroizingAllocator;
-pub use client::{Client, ClientSettings, DeviceType};
+pub use client::{Client, ClientName, ClientSettings, DeviceType};
 
 mod ids;
 pub use ids::*;
