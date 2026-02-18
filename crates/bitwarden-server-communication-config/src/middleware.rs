@@ -123,7 +123,39 @@ impl Middleware for ServerCommunicationConfigMiddleware {
         // Phase 2: Execute request
         let response = next.run(req, extensions).await?;
 
-        // Phase 3: Redirect detection (TODO - Chunk 3)
+        // Phase 3: Redirect detection and cookie acquisition
+        if response.status().is_redirection() {
+            // Extract hostname from redirect Location header
+            if let Some(redirect_hostname) = response
+                .url()
+                .host_str()
+                .map(|h| h.to_string())
+            {
+                tracing::debug!(
+                    hostname = %redirect_hostname,
+                    status = %response.status(),
+                    "Detected redirect response"
+                );
+
+                // Attempt cookie acquisition for redirect target
+                // Log errors but don't fail the request per ADR-004
+                match self.cookie_provider.acquire_cookie(&redirect_hostname).await {
+                    Ok(()) => {
+                        tracing::debug!(
+                            hostname = %redirect_hostname,
+                            "Cookie acquisition succeeded after redirect"
+                        );
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            hostname = %redirect_hostname,
+                            error = %e,
+                            "Cookie acquisition failed after redirect - continuing"
+                        );
+                    }
+                }
+            }
+        }
 
         Ok(response)
     }

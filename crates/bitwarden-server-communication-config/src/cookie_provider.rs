@@ -42,4 +42,43 @@ pub trait CookieProvider: Send + Sync {
     /// // ]
     /// ```
     async fn cookies(&self, hostname: String) -> Vec<(String, String)>;
+
+    /// Acquires cookies for the given hostname from the platform.
+    ///
+    /// Triggers platform-specific cookie acquisition flow (e.g., browser redirect
+    /// to IdP for SSO authentication). The platform opens WebView/browser, user
+    /// authenticates, and cookies are retrieved and persisted.
+    ///
+    /// This method is called by middleware when:
+    /// - A redirect response (3xx) is detected indicating cookie requirement
+    /// - The hostname needs bootstrap (no cookies currently stored)
+    ///
+    /// # Arguments
+    ///
+    /// * `hostname` - The hostname requiring cookie acquisition (e.g., "vault.example.com")
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(())` - Cookie acquisition succeeded and cookies are now available via `cookies()`
+    /// - `Err(_)` - Cookie acquisition failed (user cancelled, timeout, platform error, etc.)
+    ///
+    /// # Security
+    ///
+    /// Error messages must NOT contain cookie values. Only hostname and error type
+    /// should be included in error descriptions.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// // Middleware detects redirect response
+    /// if response.status().is_redirection() {
+    ///     let hostname = response.url().host_str().unwrap();
+    ///     provider.acquire_cookie(hostname).await?;
+    ///     // Cookies now available for retry
+    /// }
+    /// ```
+    async fn acquire_cookie(
+        &self,
+        hostname: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 }

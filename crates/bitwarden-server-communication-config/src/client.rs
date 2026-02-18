@@ -190,6 +190,17 @@ where
         }
         Vec::new()
     }
+
+    async fn acquire_cookie(
+        &self,
+        hostname: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Delegate to the existing acquire_cookie method
+        // Convert AcquireCookieError to boxed trait object
+        self.acquire_cookie(hostname)
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+    }
 }
 
 #[cfg(test)]
