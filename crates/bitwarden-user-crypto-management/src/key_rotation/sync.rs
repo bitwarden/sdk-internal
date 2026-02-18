@@ -2,18 +2,14 @@
 use std::str::FromStr;
 
 use bitwarden_api_api::apis::ApiClient;
-use bitwarden_core::key_management::{
-    SignedSecurityState, account_cryptographic_state::WrappedAccountCryptographicState,
-};
-use bitwarden_crypto::{
-    EncString, Kdf, PublicKey, SignedPublicKey, SpkiPublicKeyBytes, UnsignedSharedKey,
-};
+use bitwarden_core::key_management::account_cryptographic_state::WrappedAccountCryptographicState;
+use bitwarden_crypto::{EncString, Kdf, PublicKey, SpkiPublicKeyBytes, UnsignedSharedKey};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use bitwarden_vault::{Cipher, Folder};
 use thiserror::Error;
 use tokio::try_join;
-use tracing::{debug, debug_span, info, instrument};
+use tracing::{debug, debug_span, info};
 use uuid::Uuid;
 
 use crate::key_rotation::{
