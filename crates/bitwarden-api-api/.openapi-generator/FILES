@@ -117,7 +117,6 @@ src/models/bulk_delete_response_model_list_response_model.rs
 src/models/bulk_deny_admin_auth_request_request_model.rs
 src/models/change_plan_frequency_request.rs
 src/models/checkout_billing_address_request.rs
-src/models/cipher.rs
 src/models/cipher_attachment_model.rs
 src/models/cipher_bulk_archive_request_model.rs
 src/models/cipher_bulk_delete_request_model.rs
@@ -168,7 +167,7 @@ src/models/config_response_model.rs
 src/models/create_client_organization_request_body.rs
 src/models/create_collection_request_model.rs
 src/models/credential_create_options.rs
-src/models/delete_attachment_response_data.rs
+src/models/delete_attachment_response_model.rs
 src/models/delete_recover_request_model.rs
 src/models/device_auth_request_response_model.rs
 src/models/device_auth_request_response_model_list_response_model.rs
