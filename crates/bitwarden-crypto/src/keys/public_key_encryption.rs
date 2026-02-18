@@ -104,7 +104,7 @@ impl Display for PublicKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.to_der() {
             Ok(der) => write!(f, "{}", B64::from(der.as_ref())),
-            Err(_) => write!(f, ""),
+            Err(_) => write!(f, "[INVALID PUBLIC KEY]"),
         }
     }
 }
