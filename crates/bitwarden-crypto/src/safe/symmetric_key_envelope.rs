@@ -46,6 +46,7 @@ pub enum SymmetricKeyEnvelopeError {
     InvalidNamespace,
 }
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Copy, Clone)]
 pub enum Namespace {
     /// A key used for re-hydration of the SDK

@@ -61,6 +61,7 @@ pub(crate) const SIGNING_NAMESPACE: i64 = 80000;
 
 /// MUST be placed in the protected header of cose objects
 pub(crate) const SAFE_OBJECT_NAMESPACE: i64 = -80002;
+#[allow(clippy::enum_variant_names)]
 pub enum SafeObjectNamespace {
     PasswordProtectedKeyEnvelope = 1,
     DataEnvelope = 2,
