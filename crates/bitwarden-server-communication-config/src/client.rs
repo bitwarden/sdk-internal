@@ -218,6 +218,7 @@ mod tests {
         storage: std::sync::Arc<RwLock<HashMap<String, ServerCommunicationConfig>>>,
     }
 
+    #[async_trait::async_trait]
     impl ServerCommunicationConfigRepository for MockRepository {
         type GetError = ();
         type SaveError = ();

@@ -79,6 +79,7 @@ mod tests {
         storage: Arc<RwLock<HashMap<String, ServerCommunicationConfig>>>,
     }
 
+    #[async_trait::async_trait]
     impl ServerCommunicationConfigRepository for InMemoryRepository {
         type GetError = ();
         type SaveError = ();
