@@ -60,7 +60,7 @@ pub(crate) const SIGNING_NAMESPACE: i64 = 80000;
 // or as account settings.
 
 /// MUST be placed in the protected header of cose objects
-pub(crate) const SAFE_OBJECT_NAMESPACE: i64 = -80001;
+pub(crate) const SAFE_OBJECT_NAMESPACE: i64 = -80002;
 pub enum SafeObjectNamespace {
     PasswordProtectedKeyEnvelope = 1,
     DataEnvelope = 2,
@@ -69,7 +69,7 @@ pub enum SafeObjectNamespace {
 /// Each type of object has it's own namespace for strong domain separation to eliminate
 /// attacks which attempt to confuse object types. For signatures, this refers to signature
 /// namespaces, for data envelopes to data envelope namespaces and so on.
-pub(crate) const SAFE_CONTENT_NAMESPACE: i64 = -80002;
+pub(crate) const SAFE_CONTENT_NAMESPACE: i64 = -80001;
 
 const XCHACHA20_TEXT_PAD_BLOCK_SIZE: usize = 32;
 
