@@ -37,8 +37,7 @@ uniffi::custom_type!(SignedPublicKey, String, {
 });
 
 uniffi::custom_type!(DataEnvelope, String, {
-    try_lift: |val| DataEnvelope::from_str(val.as_str())
-        .map_err(|e| e.into()),
+    try_lift: |val| convert_result(DataEnvelope::from_str(val.as_str())),
     lower: |obj| obj.to_string(),
 });
 
