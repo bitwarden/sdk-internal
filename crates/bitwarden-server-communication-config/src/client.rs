@@ -167,6 +167,31 @@ where
     }
 }
 
+// CookieProvider trait implementation for type erasure (ADR-006)
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+impl<R, P> crate::CookieProvider for ServerCommunicationConfigClient<R, P>
+where
+    R: ServerCommunicationConfigRepository + Send + Sync + 'static,
+    P: ServerCommunicationConfigPlatformApi + Send + Sync + 'static,
+{
+    async fn cookies(&self, hostname: String) -> Vec<(String, String)> {
+        // Inline implementation to satisfy Send bounds
+        // (delegating to self.cookies() creates non-Send future on some platforms)
+        if let Ok(Some(config)) = self.repository.get(hostname).await {
+            if let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap {
+                if let Some(acquired_cookies) = vendor_config.cookie_value {
+                    return acquired_cookies
+                        .into_iter()
+                        .map(|cookie| (cookie.name, cookie.value))
+                        .collect();
+                }
+            }
+        }
+        Vec::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;

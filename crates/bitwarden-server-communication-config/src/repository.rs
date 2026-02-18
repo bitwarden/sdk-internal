@@ -20,6 +20,8 @@ pub enum ServerCommunicationConfigRepositoryError {
 ///
 /// This trait abstracts storage to allow TypeScript implementations via State Provider
 /// in WASM contexts, while also supporting in-memory implementations for testing.
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 pub trait ServerCommunicationConfigRepository: Send + Sync {
     /// Error type returned by `get()` operations
     type GetError: std::fmt::Debug + Send + Sync + 'static;
@@ -37,10 +39,10 @@ pub trait ServerCommunicationConfigRepository: Send + Sync {
     /// - `Ok(Some(config))` - Configuration exists for this hostname
     /// - `Ok(None)` - No configuration exists (not an error)
     /// - `Err(e)` - Storage operation failed
-    fn get(
+    async fn get(
         &self,
         hostname: String,
-    ) -> impl std::future::Future<Output = Result<Option<ServerCommunicationConfig>, Self::GetError>>;
+    ) -> Result<Option<ServerCommunicationConfig>, Self::GetError>;
 
     /// Saves configuration for a hostname
     ///
@@ -55,11 +57,11 @@ pub trait ServerCommunicationConfigRepository: Send + Sync {
     ///
     /// - `Ok(())` - Configuration saved successfully
     /// - `Err(e)` - Storage operation failed
-    fn save(
+    async fn save(
         &self,
         hostname: String,
         config: ServerCommunicationConfig,
-    ) -> impl std::future::Future<Output = Result<(), Self::SaveError>>;
+    ) -> Result<(), Self::SaveError>;
 }
 
 #[cfg(test)]

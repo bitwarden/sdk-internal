@@ -4,10 +4,7 @@ use http::Extensions;
 use reqwest::Request;
 use reqwest_middleware::{Middleware, Next, Result as MiddlewareResult};
 
-use crate::{
-    platform_api::ServerCommunicationConfigPlatformApi as PlatformApi,
-    repository::ServerCommunicationConfigRepository as Repository, ServerCommunicationConfigClient,
-};
+use crate::CookieProvider;
 
 /// Middleware that injects ALB authentication cookies into SDK HTTP requests.
 ///
@@ -22,53 +19,43 @@ use crate::{
 /// 2. **Execution Phase**: Execute request via next.run()
 /// 3. **Acquisition Phase**: Detect redirect responses and trigger cookie acquisition
 ///
-/// # Generic Parameters
+/// # Type Erasure (ADR-006)
 ///
-/// - `R`: Repository implementation for cookie persistence
-/// - `P`: PlatformApi implementation for browser-based cookie acquisition
+/// Uses `Arc<dyn CookieProvider>` for type erasure, avoiding generic parameter
+/// cascade through Client, extension traits, and FFI bindings. The CookieProvider
+/// trait is implemented by ServerCommunicationConfigClient<R, P>, providing
+/// clean separation between middleware and cookie storage implementation details.
 ///
 /// # Security
 ///
 /// Cookie values are NEVER logged. Only hostnames and error types are included in logs.
-pub struct ServerCommunicationConfigMiddleware<R, P>
-where
-    R: Repository,
-    P: PlatformApi,
-{
-    client: Arc<ServerCommunicationConfigClient<R, P>>,
+pub struct ServerCommunicationConfigMiddleware {
+    cookie_provider: Arc<dyn CookieProvider>,
 }
 
-impl<R, P> ServerCommunicationConfigMiddleware<R, P>
-where
-    R: Repository,
-    P: PlatformApi,
-{
-    /// Creates a new middleware instance wrapping the provided client.
+impl ServerCommunicationConfigMiddleware {
+    /// Creates a new middleware instance with the provided cookie provider.
     ///
     /// # Arguments
     ///
-    /// * `client` - Arc-wrapped ServerCommunicationConfigClient for cookie management
+    /// * `cookie_provider` - Arc-wrapped trait object implementing CookieProvider.
+    ///   Typically an Arc-wrapped ServerCommunicationConfigClient.
     ///
     /// # Example
     ///
     /// ```rust,ignore
-    /// let middleware = ServerCommunicationConfigMiddleware::new(
-    ///     Arc::new(server_communication_config_client)
-    /// );
+    /// let client = Arc::new(ServerCommunicationConfigClient::new(repo, platform_api));
+    /// let middleware = ServerCommunicationConfigMiddleware::new(client);
     /// ```
-    pub fn new(client: Arc<ServerCommunicationConfigClient<R, P>>) -> Self {
+    pub fn new(cookie_provider: Arc<dyn CookieProvider>) -> Self {
         tracing::info!("ServerCommunicationConfigMiddleware registered");
-        Self { client }
+        Self { cookie_provider }
     }
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
-impl<R, P> Middleware for ServerCommunicationConfigMiddleware<R, P>
-where
-    R: Repository + Send + Sync + 'static,
-    P: PlatformApi + Send + Sync + 'static,
-{
+impl Middleware for ServerCommunicationConfigMiddleware {
     async fn handle(
         &self,
         req: Request,

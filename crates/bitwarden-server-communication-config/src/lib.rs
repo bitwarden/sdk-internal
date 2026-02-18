@@ -11,12 +11,14 @@ uniffi::setup_scaffolding!();
 
 mod client;
 mod config;
+mod cookie_provider;
 mod middleware;
 mod platform_api;
 mod repository;
 
 pub use client::ServerCommunicationConfigClient;
 pub use config::{BootstrapConfig, ServerCommunicationConfig, SsoCookieVendorConfig};
+pub use cookie_provider::CookieProvider;
 pub use middleware::ServerCommunicationConfigMiddleware;
 pub use platform_api::{AcquireCookieError, AcquiredCookie, ServerCommunicationConfigPlatformApi};
 pub use repository::{
