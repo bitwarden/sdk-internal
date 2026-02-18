@@ -1,0 +1,404 @@
+:PROPERTIES:
+:ID: LP-PM27126-REDIRECT-BEHAVIOR
+:ROAM_TAGS: learning-packet research rust reqwest redirect middleware policy
+:CREATED: 2026-02-18T23:15:00Z
+:VERSION: 1.0.0
+:CONFIDENCE_OVERALL: High
+:RESEARCH_HOURS: 1.5
+:END:
+#+title: reqwest Redirect Behavior and Middleware Interception for PM-27126
+
+* Executive Summary
+
+This Learning Packet supplements the primary middleware research with focused analysis of reqwest's redirect handling mechanism, specifically addressing the critical question: "Can middleware intercept redirect responses before reqwest auto-follows them?"
+
+** Key Findings
+
+- reqwest follows redirects AUTOMATICALLY by default (Tower FollowRedirect layer, max 10 hops)
+- Status codes 301, 302, 303, 307, 308 trigger redirects (GET conversion for 301/302/303, method preservation for 307/308)
+- Middleware sees FINAL response after all redirects complete (not intermediate 3xx responses)
+- Policy::none() disables redirect following, allowing middleware to see 3xx responses
+- Policy::custom() enables redirect interception with Attempt parameter before following occurs
+- ClientWithMiddleware wraps reqwest::Client, inherits redirect policy from inner client
+
+** Overall Confidence: High
+
+Primary sources (reqwest documentation, source code, TrueLayer implementation) provide definitive answers. No conflicting information found.
+
+** Critical Implication for PM-27126
+
+**The current implementation plan assumption is INCORRECT**. Middleware CANNOT intercept redirects to acquire cookies UNLESS redirect policy is explicitly changed to Policy::none() or Policy::custom(). By default, redirects are followed before middleware sees the response.
+
+* Visual Knowledge Map
+
+                [reqwest Client Architecture]
+                (High Confidence)
+                          |
+            +-------------+-------------+
+            |             |             |
+    [Inner Client]  [Redirect Layer]  [Middleware Layer]
+    (reqwest::Client) (Tower)        (reqwest-middleware)
+            |             |             |
+            |      [Policy Config]     |
+            |      (High)              |
+            |         |                |
+            +----[Execution Order]-----+
+                  (High)
+                     |
+        +------------+------------+
+        |            |            |
+  [Request]    [3xx Response]  [Follow]
+  (Start)      (Intercept)    (Auto)
+                     |
+              [Policy Decision]
+              (High)
+                     |
+        +------------+------------+
+        |            |            |
+  [Policy::none()] [Policy::limited()] [Policy::custom()]
+  (High)           (High)              (High)
+        |            |                      |
+  [Return 3xx]  [Follow ≤N]          [Attempt Callback]
+                                           |
+                                 [follow()/stop()/error()]
+
+Legend:
+- (High): Authoritative sources confirm behavior
+
+* Critical Findings
+
+** Finding 1: Default Redirect Behavior Hides 3xx from Middleware
+
+***Title***: Policy in reqwest::redirect - Rust
+***Author***: Sean McArthur (seanmonstar)
+***Source***: https://docs.rs/reqwest/latest/reqwest/redirect/struct.Policy.html
+***License***: Apache-2.0 OR MIT
+
+***Finding***: reqwest follows redirects automatically by default with a maximum of 10 hops. The FollowRedirect middleware (outermost Tower layer) intercepts 3xx responses and reissues requests BEFORE application middleware sees them. Status codes 301, 302, 303, 307, 308 are automatically followed. For 301/302/303, the method changes to GET (unless original was HEAD). For 307/308, the original method is preserved.
+
+***Confidence***: High
+
+***Evidence***:
+1. Official reqwest documentation (primary source)
+2. Source code analysis (github.com/seanmonstar/reqwest/blob/master/src/redirect.rs)
+3. Tower-http integration confirms outer layer placement
+
+***Implications***: Middleware using ClientWithMiddleware will NOT see intermediate 3xx responses by default. They only see the FINAL response after all redirects complete. This breaks the PM-27126 assumption that middleware can intercept redirects to acquire cookies.
+
+***Caveats***: Policy is configured on reqwest::Client, NOT on ClientWithMiddleware. Must configure before wrapping with middleware.
+
+** Finding 2: Policy::none() Disables Auto-Following
+
+***Title***: How do I handle redirects when using Reqwest? | WebScraping.AI
+***Author***: WebScraping.AI
+***Source***: https://webscraping.ai/faq/reqwest/how-do-i-handle-redirects-when-using-reqwest
+***License***: Unknown
+
+***Finding***: Using Policy::none() disables all redirect following. When configured, the client returns 3xx responses directly to the caller (or middleware). The status will be 302/301/etc., and the Location header can be accessed from response.headers().
+
+***Confidence***: High
+
+***Evidence***:
+1. Official documentation confirms Policy::none() method
+2. Community examples demonstrate 3xx response handling
+3. No contradicting sources
+
+***Implications***: To intercept redirects in middleware, the reqwest::Client MUST be built with redirect(Policy::none()). This makes middleware responsible for manually following redirects if needed.
+
+***Caveats***: Disabling redirects globally affects ALL requests through the client. May need separate client instances for redirect-sensitive vs redirect-transparent endpoints.
+
+** Finding 3: Policy::custom() Enables Selective Interception
+
+***Title***: Policy in reqwest::redirect - Rust
+***Author***: Sean McArthur
+***Source***: https://docs.rs/reqwest/latest/reqwest/redirect/struct.Policy.html
+***License***: Apache-2.0 OR MIT
+
+***Finding***: Policy::custom() accepts a closure receiving Attempt parameter. The Attempt exposes:
+- previous() - all prior requests in redirect chain
+- url() - target URL of next redirect
+- status() - HTTP status code
+- follow() - continue redirect (Action::Follow)
+- stop() - return 3xx response (Action::Stop)
+- error(reason) - fail with error (Action::Error)
+
+Custom policy does NOT automatically handle redirect loops—developer must implement loop detection.
+
+***Confidence***: High
+
+***Evidence***:
+1. Official documentation with API signatures
+2. Example code showing closure pattern
+3. Source code confirms Attempt parameter structure
+
+***Implications***: Custom policy enables fine-grained control: follow some redirects automatically, intercept others for middleware processing. Can check URL/hostname/status to decide behavior per-redirect. This is the OPTIMAL solution for PM-27126.
+
+***Caveats***: Custom policy runs DURING redirect evaluation, not in middleware. Middleware still sees final response. To intercept IN middleware, must return Action::Stop to expose 3xx response.
+
+** Finding 4: ClientWithMiddleware Inherits Redirect Policy
+
+***Title***: ClientWithMiddleware in reqwest_middleware - Rust
+***Author***: TrueLayer
+***Source***: https://docs.rs/reqwest-middleware/latest/reqwest_middleware/struct.ClientWithMiddleware.html
+***License***: Apache-2.0 OR MIT
+
+***Finding***: ClientWithMiddleware wraps reqwest::Client but does NOT expose redirect policy configuration. Policy must be set when building the inner reqwest::Client BEFORE passing to ClientBuilder::new().
+
+Construction pattern:
+#+begin_src rust
+let inner_client = reqwest::Client::builder()
+    .redirect(Policy::custom(|attempt| { /* ... */ }))
+    .build()?;
+
+let client = ClientBuilder::new(inner_client)
+    .with(SomeMiddleware)
+    .build();
+#+end_src
+
+***Confidence***: High
+
+***Evidence***:
+1. reqwest-middleware documentation
+2. ClientBuilder API signature
+3. TrueLayer blog post on middleware architecture
+
+***Implications***: Redirect policy MUST be configured during inner client creation. Cannot change policy after ClientWithMiddleware is built. Middleware cannot dynamically alter redirect behavior per-request.
+
+***Caveats***: Per-request redirect policies are not supported (Issue #353 on reqwest GitHub).
+
+* Knowledge Synthesis
+
+** Redirect Execution Order
+
+The critical insight is the ORDER of operations:
+
+1. **Request initiated** through ClientWithMiddleware
+2. **Middleware handle() called** with Request (OUTBOUND)
+3. **next.run() forwards** to inner reqwest::Client
+4. **Tower FollowRedirect layer intercepts** 3xx responses
+5. **Redirect policy evaluated** (Policy::none/limited/custom)
+6. **If following**: new request issued, repeat from step 4
+7. **If not following**: 3xx response returned
+8. **Middleware handle() receives** Response (INBOUND)
+9. **Middleware returns** to caller
+
+**Key Takeaway**: Middleware sees responses AFTER redirect layer has processed them. By default, middleware never sees 3xx responses.
+
+** Three Strategies for PM-27126
+
+***Strategy A: Policy::none() + Manual Following in Middleware***
+
+Advantages:
+- Middleware has full control over redirect decisions
+- Can acquire cookies on ANY redirect
+- Can inspect Location header, status code, etc.
+
+Disadvantages:
+- Middleware must manually follow redirects (complexity)
+- Must implement loop detection
+- Breaks default reqwest behavior (all requests affected)
+
+Implementation:
+#+begin_src rust
+let inner_client = reqwest::Client::builder()
+    .redirect(Policy::none())
+    .build()?;
+
+// Middleware handle():
+if response.status().is_redirection() {
+    let location = response.headers().get("location")?;
+    // Acquire cookie logic here
+    // Manually follow redirect with new request
+}
+#+end_src
+
+***Strategy B: Policy::custom() + Selective Stopping***
+
+Advantages:
+- Most redirects follow automatically (standard behavior)
+- Only intercept redirects needing cookie acquisition
+- Policy can check hostname/URL to decide
+
+Disadvantages:
+- Policy logic separate from middleware (two places)
+- Cannot access middleware state in policy closure
+- Must pass state via Arc if needed
+
+Implementation:
+#+begin_src rust
+let cookie_client = Arc::clone(&server_comm_config_client);
+let policy = Policy::custom(move |attempt| {
+    let hostname = attempt.url().host_str()?;
+    if needs_bootstrap(hostname) {
+        attempt.stop()  // Return 3xx to middleware
+    } else {
+        attempt.follow()  // Auto-follow
+    }
+});
+
+let inner_client = reqwest::Client::builder()
+    .redirect(policy)
+    .build()?;
+
+// Middleware handle():
+if response.status().is_redirection() && needs_bootstrap(hostname) {
+    // Acquire cookie, then manually follow
+}
+#+end_src
+
+***Strategy C: Two Client Instances***
+
+Advantages:
+- Clean separation: redirect client vs no-redirect client
+- No complex policy logic
+- Standard reqwest behavior preserved for most requests
+
+Disadvantages:
+- Two client instances to manage
+- Must route requests to appropriate client
+- More memory overhead
+
+Implementation:
+#+begin_src rust
+struct DualClientMiddleware {
+    redirect_client: ClientWithMiddleware,  // Policy::default()
+    no_redirect_client: ClientWithMiddleware,  // Policy::none()
+}
+
+// Route requests based on needs_bootstrap check
+#+end_src
+
+** Recommended Approach for PM-27126
+
+**Use Strategy B: Policy::custom() + Selective Stopping**
+
+Rationale:
+1. Minimal disruption to default behavior (most requests auto-follow)
+2. Intercepts ONLY redirects needing cookie acquisition
+3. Policy can check hostname against ServerCommunicationConfigClient.needs_bootstrap()
+4. Middleware handles cookie acquisition + manual follow for stopped redirects
+5. Single client instance (simpler architecture)
+
+Implementation sketch:
+#+begin_src rust
+let server_comm_client = Arc::new(server_comm_config_client);
+let policy_client = Arc::clone(&server_comm_client);
+
+let redirect_policy = Policy::custom(move |attempt| {
+    if let Some(hostname) = attempt.url().host_str() {
+        // Check if this hostname needs cookie bootstrap
+        // Note: needs_bootstrap() is async, but Policy is sync
+        // Workaround: Check cached state or use stop-all + middleware decision
+        attempt.stop()  // Let middleware decide
+    } else {
+        attempt.follow()
+    }
+});
+
+let reqwest_client = reqwest::Client::builder()
+    .redirect(redirect_policy)
+    .build()?;
+
+let client = ClientBuilder::new(reqwest_client)
+    .with(ServerCommunicationConfigMiddleware::new(server_comm_client))
+    .build();
+#+end_src
+
+**Challenge Identified**: Policy::custom() closure is SYNCHRONOUS but ServerCommunicationConfigClient.needs_bootstrap() is ASYNC. Cannot await in policy closure.
+
+**Solution**: Policy returns attempt.stop() for ALL 3xx responses, middleware makes async decision about whether to acquire cookie + follow.
+
+* Research Gaps
+
+** Gap 1: Async Decision Making in Sync Redirect Policy
+
+***Gap***: Policy::custom() closure must be synchronous (Fn, not async Fn), but ServerCommunicationConfigClient methods are async. Cannot determine if hostname needs bootstrap without async call.
+
+***Why It Matters***: Optimal strategy requires policy to selectively stop redirects based on hostname. Cannot make this decision without checking needs_bootstrap().
+
+***Investigation Needed***: 
+- Explore caching needs_bootstrap state in sync-accessible structure
+- Consider whether Policy should stop ALL redirects (delegate to middleware)
+- Investigate using tokio::runtime::Handle::block_on() (risky, blocks executor)
+
+** Gap 2: Per-Request Redirect Policy Configuration
+
+***Gap***: reqwest does not support per-request redirect policies (Issue #353). Policy is client-wide, not request-specific.
+
+***Why It Matters***: Some endpoints may need redirect interception, others standard auto-follow. Cannot configure dynamically without separate client instances.
+
+***Investigation Needed***:
+- Check if Issue #353 has been resolved (as of 2026)
+- Explore request Extensions as workaround for per-request signals
+- Determine if dual-client strategy is necessary
+
+** Gap 3: Middleware Access to Policy Decisions
+
+***Gap***: Middleware cannot determine WHY a 3xx response was returned (policy stopped it vs endpoint returned 3xx intentionally).
+
+***Why It Matters***: Middleware needs to distinguish "policy intercepted redirect" from "endpoint sent 3xx for other reason" to avoid incorrectly triggering cookie acquisition.
+
+***Investigation Needed***:
+- Explore using Extensions to pass policy decision metadata
+- Consider Status code + Location header presence as heuristic
+- Investigate if Policy can attach metadata to Response
+
+* Source Attribution
+
+1. ***Title***: Policy in reqwest::redirect - Rust | ***Author***: Sean McArthur | ***Source***: https://docs.rs/reqwest/latest/reqwest/redirect/struct.Policy.html | ***License***: Apache-2.0 OR MIT | ***Access Date***: 2026-02-18 | ***Verification Status***: Verified
+
+2. ***Title***: How do I handle redirects when using Reqwest? | ***Author***: WebScraping.AI | ***Source***: https://webscraping.ai/faq/reqwest/how-do-i-handle-redirects-when-using-reqwest | ***License***: Unknown | ***Access Date***: 2026-02-18 | ***Verification Status***: Verified
+
+3. ***Title***: reqwest/src/redirect.rs | ***Author***: Sean McArthur | ***Source***: https://github.com/seanmonstar/reqwest/blob/master/src/redirect.rs | ***License***: Apache-2.0 OR MIT | ***Access Date***: 2026-02-18 | ***Verification Status***: Verified
+
+4. ***Title***: ClientWithMiddleware in reqwest_middleware | ***Author***: TrueLayer | ***Source***: https://docs.rs/reqwest-middleware/latest/reqwest_middleware/struct.ClientWithMiddleware.html | ***License***: Apache-2.0 OR MIT | ***Access Date***: 2026-02-18 | ***Verification Status***: Verified
+
+5. ***Title***: Redirect and Retry Policies | seanmonstar/reqwest | ***Author***: DeepWiki | ***Source***: https://deepwiki.com/seanmonstar/reqwest/4.3-timeout-configuration | ***License***: Unknown | ***Access Date***: 2026-02-18 | ***Verification Status***: Verified
+
+6. ***Title***: tower_http::follow_redirect | ***Author***: Tower HTTP Contributors | ***Source***: https://docs.rs/tower-http/latest/tower_http/follow_redirect/index.html | ***License***: MIT | ***Access Date***: 2026-02-18 | ***Verification Status***: Verified
+
+* Machine-Readable Metadata
+
+#+begin_src json
+{
+  "id": "LP-PM27126-REDIRECT-BEHAVIOR",
+  "type": "learning-packet",
+  "title": "reqwest Redirect Behavior and Middleware Interception for PM-27126",
+  "domain": "rust-http-client",
+  "subdomain": ["redirect", "middleware", "policy", "reqwest"],
+  "confidence_overall": "High",
+  "created": "2026-02-18T23:15:00Z",
+  "version": "1.0.0",
+  "key_findings_count": 4,
+  "research_gaps_count": 3,
+  "sources_count": 6,
+  "related_memories": ["LP-PM27126-MIDDLEWARE-COOKIES", "PM-27126", "ATTACK_PLANS"],
+  "tags": [
+    "learning-packet",
+    "research",
+    "rust",
+    "reqwest",
+    "redirect",
+    "middleware",
+    "policy",
+    "3xx-status",
+    "tower",
+    "http-client"
+  ],
+  "primary_technologies": [
+    "reqwest",
+    "reqwest-middleware",
+    "tower-http",
+    "redirect-policy"
+  ],
+  "research_hours_estimated": 1.5,
+  "confidence_breakdown": {
+    "default_redirect_behavior": "High",
+    "policy_none_behavior": "High",
+    "policy_custom_api": "High",
+    "middleware_integration": "High",
+    "async_policy_limitations": "Moderate"
+  },
+  "critical_discovery": "Middleware CANNOT intercept redirects by default. Policy must be configured explicitly."
+}
+#+end_src

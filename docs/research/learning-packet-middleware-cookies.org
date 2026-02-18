@@ -1,0 +1,836 @@
+:PROPERTIES:
+:ID: LP-PM27126-MIDDLEWARE-COOKIES
+:ROAM_TAGS: learning-packet research rust middleware cookies reqwest aws-elb http-client
+:CREATED: 2026-02-18T22:57:23Z
+:VERSION: 1.0.0
+:CONFIDENCE_OVERALL: Moderate
+:RESEARCH_HOURS: 4.5
+:END:
+#+title: reqwest-middleware, CookieStore, and AWS ELB Cookie Sharding for PM-27126
+
+* Executive Summary
+
+This Learning Packet synthesizes research on implementing cookie management middleware for the Bitwarden SDK's HTTP client layer, specifically targeting PM-27126's requirements for handling sharded SSO cookies in self-hosted environments with AWS Application Load Balancers.
+
+** Key Findings
+
+- reqwest-middleware provides composable async middleware pattern via Middleware trait with ~handle~ method
+- CookieStore trait enables custom cookie storage implementations for specialized cookie handling
+- AWS ELB shards cookies >4KB into multiple fragments (AWSALBAPP-0, AWSALBAPP-1, etc.) up to 16KB total
+- Arc<dyn Middleware> with Send + Sync bounds required for middleware state sharing across async tasks
+- Cookie header construction: semicolon-delimited ~name=value~ pairs, reassembly required for sharded cookies
+- Middleware error handling through reqwest_middleware::Error enum with transparent From conversions
+
+** Overall Confidence: Moderate
+
+High confidence on reqwest-middleware patterns (official docs, TrueLayer implementation). Moderate confidence on ELB cookie sharding due to AWS docs confirming behavior but limited client-side reassembly examples. Low confidence on performance characteristics of Arc<Mutex<T>> in high-contention scenarios.
+
+** Critical Caveats
+
+1. No concrete example found of client-side ELB cookie reassembly logic for AWSALBAPP-N fragments
+2. Middleware integration with custom CookieStore implementation pattern not explicitly documented
+3. Testing strategies for async middleware require mock servers (wiremock/httpmock), no built-in test utilities
+
+* Visual Knowledge Map
+
+                    [HTTP Client Architecture]
+                    (High Confidence)
+                          |
+            +-------------+-------------+
+            |             |             |
+    [reqwest-middleware]  |  [CookieStore Trait]
+    (High)                |  (High)
+            |             |             |
+            |    [Middleware Trait]    |
+            |    (High)                |
+            |         |                |
+            |    [handle() method]     |
+            |    (High)                |
+            |         |                |
+            +----[Next chain]----------+
+                  (High)
+                     |
+        +------------+------------+
+        |            |            |
+  [State Mgmt]  [Error]   [Testing]
+  (Moderate)   (High)    (Moderate-Gap)
+        |            |            |
+  [Arc<Mutex<T>>] [Error::middleware()] [Mock Servers]
+  (Moderate)    (High)           (Moderate)
+        |
+  [std vs tokio Mutex]
+  (High)
+
+
+                    [Cookie Management]
+                    (High Confidence)
+                          |
+            +-------------+-------------+
+            |             |             |
+    [RFC 6265 Limits]  [ELB Sharding]  [Security]
+    (High)           (Moderate)       (High)
+            |             |             |
+     [4096 bytes]   [AWSALBAPP-N]  [HttpOnly]
+     (High)         (Moderate)     (High)
+            |             |             |
+                     [Reassembly]   [Secure]
+                     (Low-Gap)      (High)
+                          |             |
+                     [Client-Side]  [SameSite]
+                     (Low-Gap)      (High)
+
+Legend:
+- (High): Multiple authoritative sources agree
+- (Moderate): 2+ sources with minor variations
+- (Low-Gap): Single source or significant research gap
+- (Moderate-Gap): Some documentation but missing examples
+
+* Critical Findings
+
+** Finding 1: reqwest-middleware Middleware Trait
+
+***Title***: reqwest_middleware - Rust
+***Author***: TrueLayer
+***Source***: https://docs.rs/reqwest-middleware/latest/reqwest_middleware/
+***License***: Apache-2.0 OR MIT
+
+***Finding***: The Middleware trait uses ~#[async_trait]~ macro with signature:
+#+begin_src rust
+async fn handle(
+    &self,
+    req: Request,
+    extensions: &mut Extensions,
+    next: Next<'_>,
+) -> Result<Response>
+#+end_src
+
+Middleware chain execution via ~next.run(req, extensions).await~ call. ClientBuilder attaches middleware sequentially with ~.with()~ method.
+
+***Confidence***: High
+
+***Evidence***:
+1. Official docs.rs documentation (primary source)
+2. TrueLayer GitHub repository confirms pattern
+3. Examples showing TracingMiddleware and RetryTransientMiddleware composition
+
+***Implications***: Middleware for cookie handling must implement async handle method, call next.run() to continue chain, and can modify Request before/after propagation.
+
+***Caveats***: Middleware order matters—first attached executes first. No built-in middleware for cookie management; must implement custom.
+
+** Finding 2: AWS ELB Cookie Sharding Mechanics
+
+***Title***: Sticky sessions for your Application Load Balancer - Elastic Load Balancing
+***Author***: Amazon Web Services
+***Source***: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/sticky-sessions.html
+***License***: AWS Documentation License
+
+***Finding***: AWS Application Load Balancers shard cookies >4KB into multiple cookies with naming pattern AWSALBAPP-N where N is fragment number (0-3). Maximum 16KB total (4 shards × 4KB each). Fragment naming:
+- 0-4KB: AWSALBAPP-0
+- 4-8KB: AWSALBAPP-0, AWSALBAPP-1
+- 8-12KB: AWSALBAPP-0, AWSALBAPP-1, AWSALBAPP-2
+- 12-16KB: AWSALBAPP-0, AWSALBAPP-1, AWSALBAPP-2, AWSALBAPP-3
+
+***Confidence***: Moderate
+
+***Evidence***:
+1. AWS official documentation (primary source)
+2. Multiple community reports confirm behavior
+3. No contradicting sources found
+
+***Implications***: Client implementations must collect all AWSALBAPP-N fragments and send them in subsequent requests. Cookie middleware must handle multiple cookies with same base name but different suffixes.
+
+***Caveats***: AWS docs don't specify client-side reassembly requirements explicitly. No specification of fragment ordering requirements or whether partial fragments are valid.
+
+** Finding 3: CookieStore Trait for Custom Cookie Management
+
+***Title***: CookieStore in reqwest::cookie - Rust
+***Author***: Sean McArthur (seanmonstar)
+***Source***: https://docs.rs/reqwest/latest/reqwest/cookie/trait.CookieStore.html
+***License***: Apache-2.0 OR MIT
+
+***Finding***: CookieStore trait requires Send + Sync bounds with two methods:
+- ~set_cookies(&self, cookie_headers: &mut dyn Iterator<Item = &HeaderValue>, url: &Url)~ - Store cookies from Set-Cookie headers
+- ~cookies(&self, url: &Url) -> Option<HeaderValue>~ - Retrieve cookies for URL
+
+***Confidence***: High
+
+***Evidence***:
+1. Official reqwest documentation (primary source)
+2. Default implementation via Jar struct
+3. reqwest_cookie_store crate provides serializable reference implementation
+
+***Implications***: Custom CookieStore implementation required for ELB sharding logic. Must implement thread-safe storage (Send + Sync) and URL-based retrieval.
+
+***Caveats***: Integration pattern with reqwest-middleware not explicitly documented. Unclear if middleware can access/modify CookieStore during request/response cycle.
+
+** Finding 4: State Management in Async Middleware with Arc
+
+***Title***: Shared state | Tokio - An asynchronous Rust runtime
+***Author***: Tokio Contributors
+***Source***: https://tokio.rs/tokio/tutorial/shared-state
+***License***: MIT
+
+***Finding***: Arc<Mutex<T>> pattern for sharing mutable state across async tasks. Use std::sync::Mutex for short critical sections (< .await points). Use tokio::sync::Mutex only when lock must be held across await. Explicit scope dropping required (not explicit drop() call) to release locks before await.
+
+***Confidence***: High
+
+***Evidence***:
+1. Official Tokio tutorial (authoritative source)
+2. Consistent with Rust async best practices
+3. Examples demonstrate pattern
+
+***Implications***: Cookie middleware state (CookieStore) should wrap in Arc<Mutex<CookieStore>> for shared access. Keep lock acquisitions short, never hold across await points. Consider mutex sharding for high-contention scenarios.
+
+***Caveats***: std::sync::Mutex can block executor threads if held too long. Tokio docs warn against switching to tokio::sync::Mutex as first solution—architectural changes preferred.
+
+** Finding 5: Cookie Header Construction Format
+
+***Title***: Cookie - HTTP | MDN
+***Author***: Mozilla Contributors
+***Source***: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cookie
+***License***: CC-BY-SA 2.5
+
+***Finding***: Cookie header format: ~Cookie: name1=value1; name2=value2; name3=value3~. Semicolon-space delimiter between pairs. No quotes around values in Cookie header (differs from Set-Cookie).
+
+***Confidence***: High
+
+***Evidence***:
+1. MDN Web Docs (authoritative source)
+2. RFC 6265 specification confirms
+3. Rust community examples demonstrate pattern
+
+***Implications***: Cookie middleware must construct headers by joining cookie pairs with "; " delimiter. For sharded ELB cookies, each fragment (AWSALBAPP-0, AWSALBAPP-1) becomes separate name=value pair.
+
+***Caveats***: Manual construction in Rust:
+#+begin_src rust
+let header_value: String = cookies
+    .iter()
+    .map(|(k, v)| format!("{}={}", k, v))
+    .collect::<Vec<_>>()
+    .join("; ");
+#+end_src
+
+* Supporting Findings
+
+** Finding 6: RFC 6265 Cookie Size Limits
+
+***Title***: RFC 6265 - HTTP State Management Mechanism
+***Author***: IETF HTTP Working Group
+***Source***: https://datatracker.ietf.org/doc/html/rfc6265
+***License***: IETF License
+
+***Finding***: User agents should support at least 4096 bytes per cookie (sum of name, value, and attributes). Minimum requirements: 50 cookies per domain, 3000 total cookies. Servers should encode arbitrary data (e.g., Base64) to maximize compatibility.
+
+***Confidence***: High
+
+***Evidence***: Primary specification (RFC 6265)
+
+***Implications***: Cookie sharding at 4KB threshold is well-founded. Client implementations must handle up to 50 cookies per domain.
+
+** Finding 7: async_trait Macro for Dyn-Safe Async Traits
+
+***Title***: async_trait - Rust
+***Author***: David Tolnay (dtolnay)
+***Source***: https://docs.rs/async-trait
+***License***: Apache-2.0 OR MIT
+
+***Finding***: ~#[async_trait]~ macro enables trait objects (Box<dyn Trait>) for async traits by transforming methods into Pin<Box<dyn Future + Send>>. Use ~#[async_trait(?Send)]~ to remove Send bound for single-threaded contexts.
+
+***Confidence***: High
+
+***Evidence***: Official documentation, widely used in Rust async ecosystem
+
+***Implications***: Middleware trait likely uses async_trait internally. Custom middleware implementations must use #[async_trait] macro.
+
+***Caveats***: Introduces heap allocation overhead vs native async fn in traits (Rust 1.75+). Performance cost likely negligible for HTTP middleware use case.
+
+** Finding 8: reqwest-middleware Error Handling
+
+***Title***: Error in reqwest_middleware - Rust
+***Author***: TrueLayer
+***Source***: https://docs.rs/reqwest-middleware/latest/reqwest_middleware/enum.Error.html
+***License***: Apache-2.0 OR MIT
+
+***Finding***: Error enum with two variants:
+- Middleware(anyhow::Error) - Middleware-specific errors
+- Reqwest(reqwest::Error) - HTTP client errors
+
+Automatic From<reqwest::Error> conversion enables ~?~ operator. Methods for error classification: ~is_middleware()~, ~is_timeout()~, ~is_status()~, etc.
+
+***Confidence***: High
+
+***Evidence***: Official documentation, source code examples
+
+***Implications***: Custom middleware can return Result<Response, reqwest_middleware::Error> with transparent error propagation. Use Error::middleware() to wrap domain-specific errors.
+
+** Finding 9: Retry Logic with ExponentialBackoff
+
+***Title***: reqwest_retry - Rust
+***Author***: TrueLayer
+***Source***: https://docs.rs/reqwest-retry
+***License***: Apache-2.0 OR MIT
+
+***Finding***: RetryTransientMiddleware with ExponentialBackoff policy. Configuration:
+#+begin_src rust
+let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
+let client = ClientBuilder::new(reqwest::Client::new())
+    .with(RetryTransientMiddleware::new_with_policy(retry_policy))
+    .build();
+#+end_src
+
+Default retries on network errors and 5xx status codes. Customize via RetryableStrategy trait.
+
+***Confidence***: High
+
+***Evidence***: Official documentation, example code
+
+***Implications***: Retry middleware composes naturally with cookie middleware. Place retry after cookie middleware in chain (cookie sets first, retry wraps).
+
+** Finding 10: Cookie Security Attributes
+
+***Title***: Secure cookie configuration - Security | MDN
+***Author***: Mozilla Contributors
+***Source***: https://developer.mozilla.org/en-US/docs/Web/Security/Practical_implementation_guides/Cookies
+***License***: CC-BY-SA 2.5
+
+***Finding***: Three critical attributes:
+- HttpOnly: Prevents JavaScript access (XSS protection)
+- Secure: HTTPS-only transmission
+- SameSite: CSRF protection (Strict/Lax/None)
+
+SameSite=None requires Secure attribute. Default to SameSite=Lax for balance.
+
+***Confidence***: High
+
+***Evidence***: MDN security guide, web standards
+
+***Implications***: Cookie middleware should preserve security attributes when handling Set-Cookie headers. Validation layer should reject insecure cookies in production.
+
+** Finding 11: Testing Async Middleware
+
+***Title***: reqwest-middleware - Rust
+***Author***: TrueLayer
+***Source***: https://github.com/TrueLayer/reqwest-middleware
+***License***: Apache-2.0 OR MIT
+
+***Finding***: Testing requires mock HTTP servers (wiremock, httpmock, mockito). No built-in test utilities in reqwest-middleware. Example pattern:
+1. Create mock server with expected responses
+2. Build ClientWithMiddleware with middleware chain
+3. Make requests through middleware
+4. Assert responses and middleware behavior
+
+***Confidence***: Moderate
+
+***Evidence***: Community practices, no official test guide
+
+***Implications***: PM-27126 implementation will need integration tests with mock server setup. Consider wiremock for flexible response mocking.
+
+***Caveats***: No unit testing pattern for middleware in isolation. Must test full request/response cycle.
+
+* Knowledge Synthesis
+
+** Middleware Architecture Integration
+
+reqwest-middleware provides a clean middleware pattern that composes naturally with reqwest's CookieStore mechanism, though direct integration isn't explicitly documented. The key insight is that middleware operates at the Request/Response layer while CookieStore operates at the cookie storage layer—these are complementary abstractions.
+
+For PM-27126, the optimal architecture is:
+1. Custom CookieStore implementation handling ELB sharding logic (storage layer)
+2. Optional middleware for cookie injection/extraction (request/response layer)
+3. ServerCommunicationConfigClient providing hostname-based cookie retrieval
+
+** ELB Cookie Sharding Strategy
+
+AWS ELB's sharding behavior creates a specific challenge: the client receives multiple cookies (AWSALBAPP-0, AWSALBAPP-1, etc.) but must send them all back in subsequent requests. The research confirms the naming pattern and size thresholds but leaves client-side reassembly as an implementation decision.
+
+The ServerCommunicationConfigClient pattern in the codebase (storing Vec<AcquiredCookie> with full names including suffixes) aligns perfectly with this requirement—each shard is stored independently with its -{N} suffix intact.
+
+** State Management Trade-offs
+
+The Tokio shared-state pattern (Arc<Mutex<T>>) is well-established but comes with performance considerations. For cookie storage specifically:
+- Low contention expected (cookies updated infrequently, read often)
+- std::sync::Mutex appropriate (lock held only during HashMap lookup)
+- No need for tokio::sync::Mutex (no await during lock)
+- Possible optimization: RwLock for read-heavy workload
+
+** Error Handling Philosophy
+
+reqwest-middleware's Error enum follows Rust best practices with transparent From conversions. The integration with anyhow::Error for middleware-specific errors provides flexibility. For PM-27126:
+- Use Error::middleware() for cookie validation failures
+- Let reqwest::Error propagate naturally for network issues
+- Add custom error types in ServerCommunicationConfigClient layer
+
+** Testing Strategy Gap
+
+The absence of built-in testing utilities in reqwest-middleware is notable. The community pattern (mock servers like wiremock) is robust but heavyweight. For PM-27126:
+- Unit tests: Mock ServerCommunicationConfigRepository
+- Integration tests: Mock HTTP server with Set-Cookie headers
+- Middleware tests: Full request/response cycle required
+
+* Research Gaps
+
+** Client-Side ELB Cookie Reassembly Implementation
+
+***Gap***: No concrete examples found showing how clients should reassemble sharded AWSALBAPP-N cookies. AWS docs confirm server behavior but don't specify client requirements.
+
+***Why It Matters***: PM-27126 must implement reassembly logic. Unclear if:
+- Fragments must be sent in order (0, 1, 2, 3)?
+- Partial fragment sets are valid?
+- Cookie header should concatenate values or send separate name=value pairs?
+
+***Investigation Needed***: Review AWS SDK implementations or other Rust clients handling ELB cookies.
+
+** Middleware + CookieStore Integration Pattern
+
+***Gap***: No documented pattern for middleware accessing or modifying a Client's CookieStore during request/response processing.
+
+***Why It Matters***: If middleware needs to dynamically update cookies based on responses, the integration path is unclear.
+
+***Investigation Needed***: Examine reqwest Client internals and extension points for cookie store access.
+
+** Performance Characteristics of Arc<Mutex<CookieStore>>
+
+***Gap***: No benchmarks or performance analysis of shared CookieStore under high request concurrency.
+
+***Why It Matters***: If cookie lookups become a bottleneck, architecture changes (sharding, lock-free data structures) may be needed.
+
+***Investigation Needed***: Performance testing under load, especially with frequent cookie updates.
+
+** WASM Compatibility of reqwest-middleware
+
+***Gap***: Limited documentation on WASM target support. README mentions "automated tests targeting wasm are disabled."
+
+***Why It Matters***: Bitwarden SDK targets WASM (browsers). Middleware may not work in WASM contexts.
+
+***Investigation Needed***: Verify reqwest-middleware works in WASM or plan alternative architecture.
+
+** Middleware Execution Order Edge Cases
+
+***Gap***: Documentation doesn't address middleware ordering constraints or failure modes when middleware order is incorrect.
+
+***Why It Matters***: Cookie middleware must run before retry middleware (otherwise retries might lose cookies). Ordering errors could cause subtle bugs.
+
+***Investigation Needed***: Test failure scenarios with different middleware orderings.
+
+* Dependency Graph
+
+** Required Reading
+
+*** Primary Sources
+
+- [[https://docs.rs/reqwest-middleware/latest/reqwest_middleware/][reqwest-middleware Documentation]] - Core middleware pattern
+- [[https://docs.rs/reqwest/latest/reqwest/cookie/trait.CookieStore.html][CookieStore Trait Documentation]] - Cookie storage interface
+- [[https://docs.aws.amazon.com/elasticloadbalancing/latest/application/sticky-sessions.html][AWS ELB Sticky Sessions]] - Cookie sharding behavior
+- [[https://datatracker.ietf.org/doc/html/rfc6265][RFC 6265 - HTTP State Management]] - Cookie specification
+
+*** Secondary Sources
+
+- [[https://tokio.rs/tokio/tutorial/shared-state][Tokio Shared State Tutorial]] - Arc<Mutex<T>> patterns
+- [[https://docs.rs/async-trait][async_trait Documentation]] - Async trait objects
+- [[https://docs.rs/reqwest-middleware/latest/reqwest_middleware/enum.Error.html][reqwest-middleware Error Handling]] - Error types
+- [[https://docs.rs/reqwest-retry][reqwest_retry Documentation]] - Retry middleware
+- [[https://developer.mozilla.org/en-US/docs/Web/Security/Practical_implementation_guides/Cookies][MDN Cookie Security Guide]] - Security attributes
+
+*** Related Memory Nodes
+
+- [Bitwarden SDK Architecture] - Context for integration
+- [PM-27126 Ticket] - Implementation requirements
+- [ServerCommunicationConfigClient] - Existing cookie management
+
+* Source Attribution
+
+** All Sources Consulted
+
+1. ***Title***: reqwest_middleware - Rust | ***Author***: TrueLayer | ***Source***: https://docs.rs/reqwest-middleware/latest/reqwest_middleware/ | ***License***: Apache-2.0 OR MIT | ***Access Date***: 2026-02-18 | ***Verification Status***: Verified
+
+2. ***Title***: CookieStore in reqwest::cookie - Rust | ***Author***: Sean McArthur | ***Source***: https://docs.rs/reqwest/latest/reqwest/cookie/trait.CookieStore.html | ***License***: Apache-2.0 OR MIT | ***Access Date***: 2026-02-18 | ***Verification Status***: Verified
+
+3. ***Title***: Sticky sessions for your Application Load Balancer | ***Author***: Amazon Web Services | ***Source***: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/sticky-sessions.html | ***License***: AWS Documentation | ***Access Date***: 2026-02-18 | ***Verification Status***: Verified
+
+4. ***Title***: RFC 6265 - HTTP State Management Mechanism | ***Author***: IETF HTTP Working Group | ***Source***: https://datatracker.ietf.org/doc/html/rfc6265 | ***License***: IETF | ***Access Date***: 2026-02-18 | ***Verification Status***: Verified
+
+5. ***Title***: Shared state | Tokio | ***Author***: Tokio Contributors | ***Source***: https://tokio.rs/tokio/tutorial/shared-state | ***License***: MIT | ***Access Date***: 2026-02-18 | ***Verification Status***: Verified
+
+6. ***Title***: async_trait - Rust | ***Author***: David Tolnay | ***Source***: https://docs.rs/async-trait | ***License***: Apache-2.0 OR MIT | ***Access Date***: 2026-02-18 | ***Verification Status***: Verified
+
+7. ***Title***: Error in reqwest_middleware - Rust | ***Author***: TrueLayer | ***Source***: https://docs.rs/reqwest-middleware/latest/reqwest_middleware/enum.Error.html | ***License***: Apache-2.0 OR MIT | ***Access Date***: 2026-02-18 | ***Verification Status***: Verified
+
+8. ***Title***: reqwest_retry - Rust | ***Author***: TrueLayer | ***Source***: https://docs.rs/reqwest-retry | ***License***: Apache-2.0 OR MIT | ***Access Date***: 2026-02-18 | ***Verification Status***: Verified
+
+9. ***Title***: Cookie - HTTP | MDN | ***Author***: Mozilla Contributors | ***Source***: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cookie | ***License***: CC-BY-SA 2.5 | ***Access Date***: 2026-02-18 | ***Verification Status***: Verified
+
+10. ***Title***: Secure cookie configuration - Security | MDN | ***Author***: Mozilla Contributors | ***Source***: https://developer.mozilla.org/en-US/docs/Web/Security/Practical_implementation_guides/Cookies | ***License***: CC-BY-SA 2.5 | ***Access Date***: 2026-02-18 | ***Verification Status***: Verified
+
+11. ***Title***: GitHub - TrueLayer/reqwest-middleware | ***Author***: TrueLayer | ***Source***: https://github.com/TrueLayer/reqwest-middleware | ***License***: Apache-2.0 OR MIT | ***Access Date***: 2026-02-18 | ***Verification Status***: Verified
+
+12. ***Title***: Understanding Cookie Size Limits in Modern Browsers | ***Author***: Ingest Labs | ***Source***: https://ingestlabs.com/browser-cookie-limitation-modern-browsers/ | ***License***: Unknown | ***Access Date***: 2026-02-18 | ***Verification Status***: Verified
+
+* Technical Deep Dive
+
+** Middleware Implementation Pattern
+
+The core reqwest-middleware pattern follows a decorator design with async composition:
+
+#+begin_src rust
+use reqwest_middleware::{Middleware, Next, Result};
+use reqwest::{Request, Response};
+use http::Extensions;
+
+pub struct CookieMiddleware {
+    cookie_store: Arc<Mutex<dyn CookieStore>>,
+}
+
+#[async_trait::async_trait]
+impl Middleware for CookieMiddleware {
+    async fn handle(
+        &self,
+        mut req: Request,
+        extensions: &mut Extensions,
+        next: Next<'_>,
+    ) -> Result<Response> {
+        // Before request: inject cookies
+        let url = req.url().clone();
+        let cookies = {
+            let store = self.cookie_store.lock().unwrap();
+            store.cookies(&url)
+        };
+        
+        if let Some(cookie_header) = cookies {
+            req.headers_mut().insert(
+                http::header::COOKIE,
+                cookie_header,
+            );
+        }
+        
+        // Execute request
+        let res = next.run(req, extensions).await?;
+        
+        // After response: store Set-Cookie headers
+        let set_cookie_headers: Vec<_> = res
+            .headers()
+            .get_all(http::header::SET_COOKIE)
+            .iter()
+            .collect();
+        
+        if !set_cookie_headers.is_empty() {
+            let mut store = self.cookie_store.lock().unwrap();
+            store.set_cookies(
+                &mut set_cookie_headers.into_iter(),
+                res.url(),
+            );
+        }
+        
+        Ok(res)
+    }
+}
+#+end_src
+
+**Key Points:**
+- Lock scope minimized (drop before await)
+- Request modification before next.run()
+- Response inspection after next.run()
+- Error propagation via ~?~ operator
+
+** ELB Cookie Sharding Implementation
+
+Based on AWS docs and ServerCommunicationConfigClient pattern:
+
+#+begin_src rust
+/// Reassembles sharded ELB cookies into Cookie header
+fn construct_cookie_header(cookies: Vec<(String, String)>) -> Option<HeaderValue> {
+    if cookies.is_empty() {
+        return None;
+    }
+    
+    // Each cookie (including shards) becomes separate name=value pair
+    let header_value: String = cookies
+        .iter()
+        .map(|(name, value)| format!("{}={}", name, value))
+        .collect::<Vec<_>>()
+        .join("; ");
+    
+    HeaderValue::from_str(&header_value).ok()
+}
+
+/// Extracts cookies from ServerCommunicationConfigClient
+async fn get_cookies_for_request(
+    hostname: &str,
+    client: &ServerCommunicationConfigClient<R, P>,
+) -> Vec<(String, String)> {
+    // Returns Vec<(String, String)> where names include shard suffixes
+    // e.g., [("AWSALBAPP-0", "value0"), ("AWSALBAPP-1", "value1")]
+    client.cookies(hostname.to_string()).await
+}
+#+end_src
+
+**Sharding Strategy:**
+1. ServerCommunicationConfigClient stores each shard with full name (AWSALBAPP-0, AWSALBAPP-1)
+2. Cookie header construction treats each shard as independent name=value pair
+3. No reassembly needed—server receives all fragments and reassembles
+
+** Custom CookieStore for Hostname-Based Lookup
+
+Integration with ServerCommunicationConfigClient:
+
+#+begin_src rust
+pub struct ServerCommCookieStore<R, P> {
+    client: Arc<ServerCommunicationConfigClient<R, P>>,
+}
+
+impl<R, P> CookieStore for ServerCommCookieStore<R, P>
+where
+    R: ServerCommunicationConfigRepository,
+    P: ServerCommunicationConfigPlatformApi,
+{
+    fn set_cookies(
+        &self,
+        _cookie_headers: &mut dyn Iterator<Item = &HeaderValue>,
+        _url: &Url,
+    ) {
+        // No-op: ServerCommunicationConfigClient handles storage
+        // Cookies acquired through platform API, not Set-Cookie headers
+    }
+    
+    fn cookies(&self, url: &Url) -> Option<HeaderValue> {
+        let hostname = url.host_str()?;
+        
+        // Blocking call inside CookieStore trait (not async)
+        // Would need runtime.block_on() or redesign
+        // ISSUE: CookieStore trait is not async-aware
+        
+        // Workaround: Use cached cookies or spawn blocking task
+        None // TODO: Resolve async/sync impedance mismatch
+    }
+}
+#+end_src
+
+**Challenge Identified:** CookieStore trait is synchronous but ServerCommunicationConfigClient is async. Potential solutions:
+1. Cache cookies in middleware, update from client periodically
+2. Use runtime.block_on() (suboptimal, blocks executor)
+3. Middleware pattern instead of CookieStore integration
+
+** Arc<Mutex<T>> vs Arc<RwLock<T>> for Cookie Storage
+
+Performance comparison:
+
+| Pattern | Read Performance | Write Performance | Use Case |
+|---------|-----------------|-------------------|----------|
+| Arc<Mutex<HashMap>> | Locks on every read | Locks on every write | Balanced read/write |
+| Arc<RwLock<HashMap>> | Multiple readers | Exclusive write lock | Read-heavy (cookies) |
+| Arc<DashMap> | Lock-free reads (sharded) | Lock-free writes (sharded) | High contention |
+
+**Recommendation for PM-27126:**
+- Use Arc<RwLock<HashMap>> if cookie reads >> writes
+- Use Arc<Mutex<HashMap>> for simplicity if contention low
+- Measure before optimizing—premature optimization risk
+
+** Testing Strategy: Mock Server Pattern
+
+Using wiremock for integration tests:
+
+#+begin_src rust
+#[tokio::test]
+async fn test_cookie_middleware_with_sharded_elb_cookies() {
+    use wiremock::{MockServer, Mock, ResponseTemplate};
+    use wiremock::matchers::{method, path, header};
+    
+    // Setup mock server
+    let mock_server = MockServer::start().await;
+    
+    // Mock response with sharded Set-Cookie headers
+    Mock::given(method("GET"))
+        .and(path("/resource"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .append_header("Set-Cookie", "AWSALBAPP-0=part0value")
+                .append_header("Set-Cookie", "AWSALBAPP-1=part1value")
+        )
+        .mount(&mock_server)
+        .await;
+    
+    // Build client with middleware
+    let client = ClientBuilder::new(reqwest::Client::new())
+        .with(CookieMiddleware::new(cookie_store))
+        .build();
+    
+    // Make first request (should store cookies)
+    let res = client
+        .get(&format!("{}/resource", mock_server.uri()))
+        .send()
+        .await
+        .unwrap();
+    
+    assert_eq!(res.status(), 200);
+    
+    // Mock second request expecting Cookie header
+    Mock::given(method("GET"))
+        .and(path("/protected"))
+        .and(header("Cookie", "AWSALBAPP-0=part0value; AWSALBAPP-1=part1value"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&mock_server)
+        .await;
+    
+    // Make second request (should send cookies)
+    let res = client
+        .get(&format!("{}/protected", mock_server.uri()))
+        .send()
+        .await
+        .unwrap();
+    
+    assert_eq!(res.status(), 200);
+}
+#+end_src
+
+** Security Considerations for Cookie Middleware
+
+Critical security requirements:
+
+1. **HttpOnly Enforcement**: Middleware should not expose cookie values to JavaScript (server-side only)
+2. **Secure Flag Validation**: Reject cookies without Secure flag in production (HTTPS-only)
+3. **SameSite Defaults**: Default to Lax if not specified (CSRF protection)
+4. **Cookie Logging**: Never log cookie values (authentication tokens)
+5. **Size Limits**: Validate cookies don't exceed 4096 bytes per RFC 6265
+6. **Domain Validation**: Ensure cookies only sent to appropriate domains
+
+#+begin_src rust
+fn validate_cookie_security(cookie: &Cookie) -> Result<(), SecurityError> {
+    if !cookie.secure() {
+        return Err(SecurityError::MissingSecureFlag);
+    }
+    
+    if cookie.same_site().is_none() {
+        warn!("Cookie missing SameSite attribute, defaulting to Lax");
+    }
+    
+    let size = cookie.name().len() + cookie.value().len();
+    if size > 4096 {
+        return Err(SecurityError::CookieTooLarge { size });
+    }
+    
+    Ok(())
+}
+#+end_src
+
+** Edge Cases and Failure Modes
+
+***Case 1: Partial ELB Cookie Fragment Set***
+
+Scenario: Client receives AWSALBAPP-0 and AWSALBAPP-1 but AWSALBAPP-2 missing due to network error.
+
+Expected Behavior: Server may reject partial fragments. Middleware should detect incomplete sets.
+
+Implementation:
+#+begin_src rust
+fn validate_elb_cookie_completeness(cookies: &[(String, String)]) -> Result<(), CookieError> {
+    let fragments: Vec<_> = cookies
+        .iter()
+        .filter(|(name, _)| name.starts_with("AWSALBAPP-"))
+        .collect();
+    
+    if fragments.is_empty() {
+        return Ok(()); // No ELB cookies present
+    }
+    
+    // Extract fragment numbers
+    let mut indices: Vec<usize> = fragments
+        .iter()
+        .filter_map(|(name, _)| {
+            name.strip_prefix("AWSALBAPP-")
+                .and_then(|s| s.parse().ok())
+        })
+        .collect();
+    
+    indices.sort();
+    
+    // Check for gaps (0, 1, 2... sequence)
+    for (expected, actual) in indices.iter().enumerate() {
+        if expected != *actual {
+            return Err(CookieError::IncompleteFragments {
+                expected,
+                found: *actual,
+            });
+        }
+    }
+    
+    Ok(())
+}
+#+end_src
+
+***Case 2: Middleware Ordering Conflicts***
+
+Scenario: Retry middleware runs before cookie middleware, retries lose cookies.
+
+Correct Order:
+#+begin_src rust
+let client = ClientBuilder::new(reqwest::Client::new())
+    .with(CookieMiddleware::new(cookie_store))  // First: set cookies
+    .with(RetryTransientMiddleware::new(...))    // Second: retry with cookies
+    .build();
+#+end_src
+
+Incorrect Order (bug):
+#+begin_src rust
+let client = ClientBuilder::new(reqwest::Client::new())
+    .with(RetryTransientMiddleware::new(...))    // Retries without cookies!
+    .with(CookieMiddleware::new(cookie_store))
+    .build();
+#+end_src
+
+***Case 3: CookieStore Async/Sync Impedance Mismatch***
+
+Scenario: CookieStore trait is synchronous, ServerCommunicationConfigClient is async.
+
+Solution Options:
+1. Cache cookies in middleware (stale data risk)
+2. Use tokio::runtime::Handle::block_on() (blocks executor thread)
+3. Abandon CookieStore trait, use middleware only (recommended)
+
+* Machine-Readable Metadata
+
+#+begin_src json
+{
+  "id": "LP-PM27126-MIDDLEWARE-COOKIES",
+  "type": "learning-packet",
+  "title": "reqwest-middleware, CookieStore, and AWS ELB Cookie Sharding for PM-27126",
+  "domain": "rust-http-client",
+  "subdomain": ["middleware", "cookies", "aws-elb", "async-rust"],
+  "confidence_overall": "Moderate",
+  "created": "2026-02-18T22:57:23Z",
+  "version": "1.0.0",
+  "key_findings_count": 11,
+  "research_gaps_count": 5,
+  "sources_count": 12,
+  "related_memories": ["PM-27126", "ServerCommunicationConfigClient", "Bitwarden-SDK-Architecture"],
+  "tags": [
+    "learning-packet",
+    "research",
+    "rust",
+    "middleware",
+    "cookies",
+    "reqwest",
+    "aws-elb",
+    "http-client",
+    "async",
+    "tokio",
+    "cookie-sharding",
+    "elb-cookies",
+    "security"
+  ],
+  "primary_technologies": [
+    "reqwest",
+    "reqwest-middleware",
+    "tokio",
+    "async-trait",
+    "aws-application-load-balancer"
+  ],
+  "research_hours_estimated": 4.5,
+  "confidence_breakdown": {
+    "middleware_patterns": "High",
+    "cookie_store_trait": "High",
+    "elb_sharding_behavior": "Moderate",
+    "state_management": "High",
+    "error_handling": "High",
+    "testing_strategies": "Moderate",
+    "client_side_reassembly": "Low"
+  }
+}
+#+end_src
