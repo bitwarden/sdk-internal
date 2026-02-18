@@ -46,8 +46,8 @@ pub(crate) const CONTENT_TYPE_PADDED_CBOR: &str = "application/x.bitwarden.cbor-
 const CONTENT_TYPE_BITWARDEN_LEGACY_KEY: &str = "application/x.bitwarden.legacy-key";
 const CONTENT_TYPE_SPKI_PUBLIC_KEY: &str = "application/x.bitwarden.spki-public-key";
 
-// The label used for defining the namespace of a signed object
-pub(crate) const SIGNING_NAMESPACE: i64 = 80000;
+/// The label used for the namespace ensuring strong domain separation when using signatures.
+pub(crate) const SIGNING_NAMESPACE: i64 = -80000;
 
 // Domain separation / Namespaces
 //
