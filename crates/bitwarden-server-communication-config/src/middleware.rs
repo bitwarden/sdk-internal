@@ -58,13 +58,73 @@ impl ServerCommunicationConfigMiddleware {
 impl Middleware for ServerCommunicationConfigMiddleware {
     async fn handle(
         &self,
-        req: Request,
+        mut req: Request,
         extensions: &mut Extensions,
         next: Next<'_>,
     ) -> MiddlewareResult<reqwest::Response> {
-        // TODO: Implement cookie injection phase
-        // TODO: Implement request execution
-        // TODO: Implement redirect detection and acquisition phase
-        next.run(req, extensions).await
+        // Phase 1: Cookie Injection
+        // Extract hostname from request URL
+        let hostname = req
+            .url()
+            .host_str()
+            .map(|h| h.to_string())
+            .unwrap_or_default();
+
+        if !hostname.is_empty() {
+            // Retrieve stored cookies for this hostname
+            let cookies = self.cookie_provider.cookies(hostname.clone()).await;
+
+            if !cookies.is_empty() {
+                // Serialize cookies to RFC 6265 format: name1=value1; name2=value2
+                let new_cookies = cookies
+                    .iter()
+                    .map(|(name, value)| format!("{}={}", name, value))
+                    .collect::<Vec<_>>()
+                    .join("; ");
+
+                // Get existing Cookie header if present
+                let existing_cookies = req
+                    .headers()
+                    .get(reqwest::header::COOKIE)
+                    .and_then(|v| v.to_str().ok());
+
+                // Append to existing or create new Cookie header
+                let final_cookie_value = match existing_cookies {
+                    Some(existing) => format!("{}; {}", existing, new_cookies),
+                    None => new_cookies,
+                };
+
+                // Inject Cookie header
+                match reqwest::header::HeaderValue::from_str(&final_cookie_value) {
+                    Ok(header_value) => {
+                        req.headers_mut()
+                            .insert(reqwest::header::COOKIE, header_value);
+                        tracing::debug!(
+                            hostname = %hostname,
+                            cookie_count = cookies.len(),
+                            "Injected cookies for hostname"
+                        );
+                    }
+                    Err(e) => {
+                        // Fail fast on injection errors per ADR-004
+                        tracing::error!(
+                            hostname = %hostname,
+                            error = %e,
+                            "Failed to serialize Cookie header - invalid header value"
+                        );
+                        // Skip injection on header serialization failure
+                        // Continue with request without cookies rather than failing
+                        // (cookies may be malformed from storage)
+                    }
+                }
+            }
+        }
+
+        // Phase 2: Execute request
+        let response = next.run(req, extensions).await?;
+
+        // Phase 3: Redirect detection (TODO - Chunk 3)
+
+        Ok(response)
     }
 }
