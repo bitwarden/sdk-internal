@@ -123,6 +123,7 @@ impl SymmetrickeyEnvelope {
 
         let mut protected_header = header_builder.build();
         protected_header.alg = Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305));
+        protected_header.key_id = Vec::from(wrapping_key.key_id);
 
         let cose_encrypt0 = crate::cose::encrypt_cose(
             CoseEncrypt0Builder::new().protected(protected_header),
@@ -225,9 +226,20 @@ impl TryFrom<&Vec<u8>> for SymmetrickeyEnvelope {
 
 impl std::fmt::Debug for SymmetrickeyEnvelope {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("WrappedSymmetricKey")
-            .field("cose_encrypt0", &self.cose_encrypt0)
-            .finish()
+        let mut s = f.debug_struct("SymmetricKeyEnvelope");
+
+        if !self.cose_encrypt0.protected.header.key_id.is_empty() {
+            s.field(
+                "sealing_key_id",
+                &self.cose_encrypt0.protected.header.key_id,
+            );
+        }
+
+        if let Ok(Some(key_id)) = self.contained_key_id() {
+            s.field("contained_key_id", &key_id);
+        }
+
+        s.finish()
     }
 }
 
@@ -301,6 +313,22 @@ mod tests {
     use super::*;
     use crate::{KeyStore, SymmetricKeyAlgorithm, traits::tests::TestIds};
 
+    const TEST_VECTOR_SEALING_KEY: &str = "pQEEAlBLD8tcKNRLZaXNSr8OcwkgAzoAARFvBIQDBAUGIFgggG++dwvSRVPaPrIis1+XXXCizFYcakDZxSJP2HlJj0YB";
+    const TEST_VECTOR_KEY_TO_SEAL: &str = "pQEEAlCEjXxxMulOVJtq1CSNv1aqAzoAARFvBIQDBAUGIFggwdF1yfFVwesj1CMQlVMhm+tvjwA1pxvTnQVUmfBMlJMB";
+    const TEST_VECTOR_ENVELOPE: &str = "g1gspQE6AAERbwMYZToAATiBAzoAATiAIjoAARVcUISNfHEy6U5Um2rUJI2/VqqhBVgYnGokg0NPDLDd18K13zYsAM1SN+NkcfSJWFSEgtR3nhrJzUHRq35myF0tZh18iQx+0vJQ2BHj4lWwHLV3awLcyxdD8UBNQYgKu6nDHs1KDiFN+D48iI60aelHmLgJpNVsCBovnTxZVLbo67AIgw4=";
+
+    #[test]
+    #[ignore = "Manual test to verify debug format"]
+    fn test_debug() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx = key_store.context_mut();
+        let key1 = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let key2 = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let envelope = SymmetrickeyEnvelope::seal(key1, key2, Namespace::ExampleNamespace, &ctx);
+        println!("{:?}", envelope);
+    }
+
     #[test]
     fn test_seal_unseal_symmetric() {
         let key_store = KeyStore::<TestIds>::default();
@@ -321,14 +349,12 @@ mod tests {
             .unseal(wrapping_key, Namespace::ExampleNamespace, &mut ctx)
             .unwrap();
 
-        #[allow(deprecated)]
         let unsealed_key_ref = ctx
-            .dangerous_get_symmetric_key(unsealed_key)
+            .get_symmetric_key(unsealed_key)
             .expect("Key should exist in the key store");
 
-        #[allow(deprecated)]
         let original_key_ref = ctx
-            .dangerous_get_symmetric_key(key_to_seal)
+            .get_symmetric_key(key_to_seal)
             .expect("Key should exist in the key store");
 
         assert_eq!(unsealed_key_ref, original_key_ref);
@@ -350,9 +376,8 @@ mod tests {
         )
         .unwrap();
 
-        #[allow(deprecated)]
         let key_to_seal_ref = ctx
-            .dangerous_get_symmetric_key(key_to_seal)
+            .get_symmetric_key(key_to_seal)
             .expect("Key should exist in the key store");
 
         let contained_key_id = envelope.contained_key_id().unwrap();
@@ -383,14 +408,12 @@ mod tests {
             .unseal(wrapping_key, Namespace::ExampleNamespace, &mut ctx)
             .unwrap();
 
-        #[allow(deprecated)]
         let unsealed_key_ref = ctx
-            .dangerous_get_symmetric_key(unsealed_key)
+            .get_symmetric_key(unsealed_key)
             .expect("Key should exist in the key store");
 
-        #[allow(deprecated)]
         let original_key_ref = ctx
-            .dangerous_get_symmetric_key(key_to_seal)
+            .get_symmetric_key(key_to_seal)
             .expect("Key should exist in the key store");
 
         assert_eq!(unsealed_key_ref, original_key_ref);
@@ -440,10 +463,6 @@ mod tests {
             Err(SymmetricKeyEnvelopeError::InvalidNamespace)
         ));
     }
-
-    const TEST_VECTOR_SEALING_KEY: &str = "pQEEAlBLD8tcKNRLZaXNSr8OcwkgAzoAARFvBIQDBAUGIFgggG++dwvSRVPaPrIis1+XXXCizFYcakDZxSJP2HlJj0YB";
-    const TEST_VECTOR_KEY_TO_SEAL: &str = "pQEEAlCEjXxxMulOVJtq1CSNv1aqAzoAARFvBIQDBAUGIFggwdF1yfFVwesj1CMQlVMhm+tvjwA1pxvTnQVUmfBMlJMB";
-    const TEST_VECTOR_ENVELOPE: &str = "g1gspQE6AAERbwMYZToAATiBAzoAATiAIjoAARVcUISNfHEy6U5Um2rUJI2/VqqhBVgYnGokg0NPDLDd18K13zYsAM1SN+NkcfSJWFSEgtR3nhrJzUHRq35myF0tZh18iQx+0vJQ2BHj4lWwHLV3awLcyxdD8UBNQYgKu6nDHs1KDiFN+D48iI60aelHmLgJpNVsCBovnTxZVLbo67AIgw4=";
 
     #[test]
     #[ignore]
