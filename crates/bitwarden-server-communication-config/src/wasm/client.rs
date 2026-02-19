@@ -1,7 +1,7 @@
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    ServerCommunicationConfig, ServerCommunicationConfigClient,
+    CookieProvider, ServerCommunicationConfig, ServerCommunicationConfigClient,
     wasm::{
         JsServerCommunicationConfigPlatformApi, JsServerCommunicationConfigRepository,
         RawJsServerCommunicationConfigPlatformApi, RawJsServerCommunicationConfigRepository,
@@ -104,5 +104,27 @@ impl JsServerCommunicationConfigClient {
             .acquire_cookie(&hostname)
             .await
             .map_err(|e| e.to_string())
+    }
+}
+
+/// CookieProvider implementation for WASM wrapper
+///
+/// Enables JsServerCommunicationConfigClient to be used as a cookie provider
+/// for HTTP middleware without exposing the inner generic client type.
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+impl CookieProvider for JsServerCommunicationConfigClient {
+    async fn cookies(&self, hostname: String) -> Vec<(String, String)> {
+        self.client.cookies(hostname).await
+    }
+
+    async fn acquire_cookie(
+        &self,
+        hostname: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.client
+            .acquire_cookie(hostname)
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
     }
 }

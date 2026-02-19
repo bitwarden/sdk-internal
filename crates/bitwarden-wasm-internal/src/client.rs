@@ -11,6 +11,7 @@ use crate::platform::{
     PlatformClient,
     token_provider::{JsTokenProvider, WasmClientManagedTokens},
 };
+use bitwarden_server_communication_config::{CookieProvider, wasm::JsServerCommunicationConfigClient};
 
 #[wasm_bindgen(typescript_custom_section)]
 const TOKEN_CUSTOM_TS_TYPE: &'static str = r#"
@@ -28,11 +29,29 @@ pub struct PasswordManagerClient(pub(crate) InnerPasswordManagerClient);
 impl PasswordManagerClient {
     /// Initialize a new instance of the SDK client
     #[wasm_bindgen(constructor)]
-    pub fn new(token_provider: JsTokenProvider, settings: Option<ClientSettings>) -> Self {
+    pub fn new(
+        token_provider: JsTokenProvider,
+        settings: Option<ClientSettings>,
+        cookie_provider: Option<JsServerCommunicationConfigClient>,
+    ) -> Self {
         let tokens = Arc::new(WasmClientManagedTokens::new(token_provider));
-        Self(InnerPasswordManagerClient::new_with_client_tokens(
-            settings, tokens,
-        ))
+
+        match cookie_provider {
+            Some(cp) => {
+                let cookie_provider_arc = Arc::new(cp) as Arc<dyn CookieProvider>;
+                Self(InnerPasswordManagerClient::new_with_client_tokens_and_cookie_provider(
+                    settings,
+                    tokens,
+                    cookie_provider_arc,
+                ))
+            }
+            None => {
+                Self(InnerPasswordManagerClient::new_with_client_tokens(
+                    settings,
+                    tokens,
+                ))
+            }
+        }
     }
 
     /// Test method, echoes back the input
