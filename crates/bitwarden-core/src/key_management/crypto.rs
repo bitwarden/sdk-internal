@@ -1721,6 +1721,12 @@ mod tests {
     #[tokio::test]
     async fn test_make_v2_keys_for_v1_user_with_v2_user_fails() {
         let client = Client::new(None);
+        let repository = MemoryRepository::<UserKeyState>::default();
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
+
         initialize_user_crypto(
             &client,
             InitUserCryptoRequest {
@@ -1777,6 +1783,12 @@ mod tests {
     #[tokio::test]
     async fn test_get_v2_rotated_account_keys() {
         let client = Client::new(None);
+        let repository = MemoryRepository::<UserKeyState>::default();
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
+
         initialize_user_crypto(
             &client,
             InitUserCryptoRequest {
