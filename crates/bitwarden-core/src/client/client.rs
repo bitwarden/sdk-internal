@@ -1,6 +1,9 @@
 use std::sync::{Arc, OnceLock, RwLock};
 
 use bitwarden_crypto::KeyStore;
+// Import types for cookie middleware integration
+#[allow(unused_imports)]
+use bitwarden_server_communication_config::{CookieProvider, ServerCommunicationConfigMiddleware};
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
@@ -27,7 +30,11 @@ pub struct Client {
 impl Client {
     /// Create a new Bitwarden client with SDK-managed tokens.
     pub fn new(settings: Option<ClientSettings>) -> Self {
-        Self::new_internal(settings, Tokens::SdkManaged(SdkManagedTokens::default()))
+        Self::new_internal(
+            settings,
+            Tokens::SdkManaged(SdkManagedTokens::default()),
+            None,
+        )
     }
 
     /// Create a new Bitwarden client with client-managed tokens.
@@ -35,10 +42,14 @@ impl Client {
         settings: Option<ClientSettings>,
         tokens: Arc<dyn ClientManagedTokens>,
     ) -> Self {
-        Self::new_internal(settings, Tokens::ClientManaged(tokens))
+        Self::new_internal(settings, Tokens::ClientManaged(tokens), None)
     }
 
-    fn new_internal(settings_input: Option<ClientSettings>, tokens: Tokens) -> Self {
+    fn new_internal(
+        settings_input: Option<ClientSettings>,
+        tokens: Tokens,
+        cookie_provider: Option<Arc<dyn CookieProvider>>,
+    ) -> Self {
         let settings = settings_input.unwrap_or_default();
 
         let external_http_client = new_http_client_builder()
@@ -52,7 +63,15 @@ impl Client {
             .build()
             .expect("Bw HTTP Client build should not fail");
 
-        let bw_http_client = reqwest_middleware::ClientBuilder::new(bw_http_client).build();
+        // Conditionally register ServerCommunicationConfigMiddleware
+        // Register FIRST in middleware chain per ADR-022
+        let bw_http_client = if let Some(ref provider) = cookie_provider {
+            reqwest_middleware::ClientBuilder::new(bw_http_client)
+                .with(ServerCommunicationConfigMiddleware::new(provider.clone()))
+                .build()
+        } else {
+            reqwest_middleware::ClientBuilder::new(bw_http_client).build()
+        };
 
         let identity = bitwarden_api_identity::Configuration {
             base_path: settings.identity_url,

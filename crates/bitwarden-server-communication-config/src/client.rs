@@ -1,7 +1,7 @@
 #[cfg(test)]
 use crate::AcquiredCookie;
 use crate::{
-    AcquireCookieError, BootstrapConfig, ServerCommunicationConfig,
+    AcquireCookieError, BootstrapConfig, CookieProvider, ServerCommunicationConfig,
     ServerCommunicationConfigPlatformApi, ServerCommunicationConfigRepository,
 };
 
@@ -164,6 +164,35 @@ where
             .map_err(|e| AcquireCookieError::RepositorySaveError(format!("{:?}", e)))?;
 
         Ok(())
+    }
+}
+
+// Implement CookieProvider trait for ServerCommunicationConfigClient
+//
+// This implementation enables the client to be used with the middleware via Arc<dyn
+// CookieProvider>, providing type erasure to avoid generic parameter propagation through the Client
+// and FFI boundaries.
+#[async_trait::async_trait]
+impl<R, P> CookieProvider for ServerCommunicationConfigClient<R, P>
+where
+    R: ServerCommunicationConfigRepository + Send + Sync,
+    P: ServerCommunicationConfigPlatformApi + Send + Sync,
+    R::GetError: Send + Sync,
+    R::SaveError: Send + Sync,
+{
+    async fn cookies(&self, hostname: String) -> Vec<(String, String)> {
+        // Delegate to the existing cookies method
+        self.cookies(hostname).await
+    }
+
+    async fn acquire_cookie(
+        &self,
+        hostname: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Delegate to the existing acquire_cookie method, boxing the error for trait compatibility
+        self.acquire_cookie(hostname)
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
     }
 }
 
