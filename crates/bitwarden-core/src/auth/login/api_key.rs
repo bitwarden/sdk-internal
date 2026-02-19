@@ -31,6 +31,11 @@ pub(crate) async fn login_api_key(
             r.expires_in,
         );
 
+        // Extract and set user_id from JWT token
+        if let Ok(user_id) = client.internal.extract_user_id_from_token(&r.access_token) {
+            let _ = client.internal.init_user_id(user_id);
+        }
+
         let private_key: EncString = require!(&r.private_key).parse()?;
 
         let user_key_state = WrappedAccountCryptographicState::V1 { private_key };

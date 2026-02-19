@@ -2,6 +2,9 @@ use clap::{Args, Subcommand};
 
 use crate::render::CommandResult;
 
+pub(crate) mod state;
+pub use state::StateError;
+
 #[derive(Args, Clone)]
 pub struct SyncArgs {
     #[arg(short = 'f', long, help = "Force a full sync.")]
