@@ -180,7 +180,7 @@ impl TryFrom<CipherFieldModel> for Field {
         Ok(Self {
             name: EncString::try_from_optional(model.name)?,
             value: EncString::try_from_optional(model.value)?,
-            r#type: require!(model.r#type).into(),
+            r#type: require!(model.r#type).try_into()?,
             linked_id: model
                 .linked_id
                 .map(|id| (id as u32).try_into())
@@ -189,14 +189,19 @@ impl TryFrom<CipherFieldModel> for Field {
     }
 }
 
-impl From<bitwarden_api_api::models::FieldType> for FieldType {
-    fn from(model: bitwarden_api_api::models::FieldType) -> Self {
-        match model {
+impl TryFrom<bitwarden_api_api::models::FieldType> for FieldType {
+    type Error = MissingFieldError;
+
+    fn try_from(model: bitwarden_api_api::models::FieldType) -> Result<Self, Self::Error> {
+        Ok(match model {
             bitwarden_api_api::models::FieldType::Text => FieldType::Text,
             bitwarden_api_api::models::FieldType::Hidden => FieldType::Hidden,
             bitwarden_api_api::models::FieldType::Boolean => FieldType::Boolean,
             bitwarden_api_api::models::FieldType::Linked => FieldType::Linked,
-        }
+            bitwarden_api_api::models::FieldType::__Unknown(_) => {
+                return Err(MissingFieldError("type"));
+            }
+        })
     }
 }
 
