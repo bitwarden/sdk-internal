@@ -99,7 +99,7 @@ impl ApiConfigurations {
 
 /// Access and refresh tokens used for authentication and authorization.
 #[derive(Debug, Clone)]
-pub(crate) enum Tokens {
+pub enum Tokens {
     SdkManaged(SdkManagedTokens),
     ClientManaged(Arc<dyn ClientManagedTokens>),
 }
@@ -114,7 +114,7 @@ pub trait ClientManagedTokens: std::fmt::Debug + Send + Sync {
 
 /// Tokens managed by the SDK, the SDK will automatically handle token renewal.
 #[derive(Debug, Default, Clone)]
-pub(crate) struct SdkManagedTokens {
+pub struct SdkManagedTokens {
     // These two fields are always written to, but they are not read
     // from the secrets manager SDK.
     #[allow(dead_code)]

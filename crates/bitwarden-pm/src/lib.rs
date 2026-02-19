@@ -6,10 +6,14 @@ mod commercial;
 use std::sync::Arc;
 
 use bitwarden_auth::AuthClientExt as _;
-use bitwarden_core::client::internal::ClientManagedTokens;
+use bitwarden_core::client::{
+    SdkManagedTokens, Tokens,
+    internal::ClientManagedTokens,
+};
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_send::SendClientExt as _;
+use bitwarden_server_communication_config::CookieProvider;
 use bitwarden_user_crypto_management::UserCryptoManagementClientExt;
 use bitwarden_vault::VaultClientExt as _;
 
@@ -46,6 +50,31 @@ impl PasswordManagerClient {
     ) -> Self {
         Self(bitwarden_core::Client::new_with_client_tokens(
             settings, tokens,
+        ))
+    }
+
+    /// Initialize a new instance of the SDK client with a cookie provider for ALB middleware
+    pub fn new_with_cookie_provider(
+        settings: Option<bitwarden_core::ClientSettings>,
+        cookie_provider: Arc<dyn CookieProvider>,
+    ) -> Self {
+        Self(bitwarden_core::Client::new_internal(
+            settings,
+            Tokens::SdkManaged(SdkManagedTokens::default()),
+            Some(cookie_provider),
+        ))
+    }
+
+    /// Initialize a new instance of the SDK client with client-managed tokens and a cookie provider
+    pub fn new_with_client_tokens_and_cookie_provider(
+        settings: Option<bitwarden_core::ClientSettings>,
+        tokens: Arc<dyn ClientManagedTokens>,
+        cookie_provider: Arc<dyn CookieProvider>,
+    ) -> Self {
+        Self(bitwarden_core::Client::new_internal(
+            settings,
+            Tokens::ClientManaged(tokens),
+            Some(cookie_provider),
         ))
     }
 

@@ -39,7 +39,9 @@ impl Client {
         Self::new_internal(settings, Tokens::ClientManaged(tokens), None)
     }
 
-    fn new_internal(
+    /// Internal constructor that accepts tokens and optional cookie provider.
+    /// Used by feature crates (like bitwarden-pm) to enable ALB cookie middleware.
+    pub fn new_internal(
         settings_input: Option<ClientSettings>,
         tokens: Tokens,
         cookie_provider: Option<Arc<dyn CookieProvider>>,

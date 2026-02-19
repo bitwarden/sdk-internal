@@ -1,0 +1,121 @@
+:PROPERTIES:
+:ID: VALID-PM27126-ELB-SHARDING
+:ROAM_TAGS: validation research aws elb cookie-sharding PM-27126
+:CREATED: 2026-02-19
+:VERSION: 1.0.0
+:CONFIDENCE_OVERALL: High
+:RESEARCH_HOURS: 0.5
+:END:
+#+title: Validation: AWS ELB Cookie Sharding with Official Documentation (PM-27126)
+
+* Executive Summary
+
+This validation document confirms AWS ELB cookie sharding behavior through official AWS documentation, upgrading confidence from Moderate to High.
+
+** Key Validation
+
+**OFFICIAL CONFIRMATION**: AWS official documentation confirms AWSALBAPP-N sharding pattern for cookies >4KB, with specific naming conventions and size thresholds documented in learning-packet-middleware-cookies.org.
+
+** Confidence Upgrade
+
+From **Moderate** (community reports) → **High** (AWS official documentation)
+
+** References Existing Research
+
+Validates Finding 2 in learning-packet-middleware-cookies.org (lines 120-142):
+- AWSALBAPP-N pattern: Confirmed ✓
+- 4KB threshold: Confirmed ✓
+- 16KB maximum: Confirmed ✓
+- Naming sequence: Confirmed ✓
+
+* Validation Finding
+
+** AWS ELB Cookie Sharding Mechanics
+
+**Finding**: AWS Application Load Balancers shard application cookies exceeding 4KB into multiple cookies with systematic naming pattern AWSALBAPP-N where N is the fragment index (0-3).
+
+**Confidence**: High
+
+**Evidence**:
+
+***Title***: Sticky sessions for your Application Load Balancer - Elastic Load Balancing
+***Author***: Amazon Web Services
+***Source***: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/sticky-sessions.html
+***License***: AWS Documentation License
+***Access Date***: 2026-02-19
+***Verification Status***: Verified (official AWS documentation)
+
+**Sharding Rules** (from AWS documentation):
+
+| Cookie Size Range | Cookies Created | Example |
+|-------------------|-----------------|---------|
+| 0 - 4KB | AWSALBAPP-0 | Single shard |
+| 4KB - 8KB | AWSALBAPP-0, AWSALBAPP-1 | Two shards |
+| 8KB - 12KB | AWSALBAPP-0, AWSALBAPP-1, AWSALBAPP-2 | Three shards |
+| 12KB - 16KB | AWSALBAPP-0, AWSALBAPP-1, AWSALBAPP-2, AWSALBAPP-3 | Four shards (maximum) |
+
+**Maximum Cookie Size**: 16KB total (4 shards × 4KB each)
+
+**Browser Compatibility Rationale**: RFC 6265 recommends minimum 4096 bytes per cookie support. ALB sharding ensures compatibility with browser limitations.
+
+** Implementation Implications for PM-27126
+
+**ServerCommunicationConfigClient Storage Strategy**: Storing cookies with full names including `-N` suffix is CORRECT:
+
+```
+Stored: [
+  ("AWSALBAPP-0", "chunk0value"),
+  ("AWSALBAPP-1", "chunk1value"),
+  ("AWSALBAPP-2", "chunk2value"),
+]
+
+Cookie Header: "AWSALBAPP-0=chunk0value; AWSALBAPP-1=chunk1value; AWSALBAPP-2=chunk2value"
+```
+
+**Server Reassembly**: AWS ELB server-side automatically reassembles sharded cookies when receiving requests. Client does NOT need to concatenate values—send shards as separate cookie pairs.
+
+**Validation**: Confirms ATTACK_PLANS middleware strategy:
+1. Middleware detects AWSALBAPP-N pattern
+2. Stores each shard with full name (including -N)
+3. Sends all shards as separate name=value pairs in Cookie header
+4. Server reassembles automatically
+
+* Confidence Upgrade
+
+| Aspect | Previous Confidence | Validated Confidence | Source |
+|--------|---------------------|----------------------|--------|
+| Sharding pattern | Moderate (community) | High (AWS official) | AWS docs |
+| Naming convention | Moderate | High | AWS docs |
+| Size thresholds | Moderate | High | AWS docs |
+| Fragment ordering | Low (unclear) | Moderate (implicit) | Inferred |
+
+**Remaining Gap**: AWS documentation doesn't explicitly state whether fragment ordering matters (must send 0, 1, 2, 3 in sequence). Implementation should defensively preserve order.
+
+* Source Attribution
+
+1. ***Title***: Sticky sessions for your Application Load Balancer | ***Author***: Amazon Web Services | ***Source***: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/sticky-sessions.html | ***License***: AWS Documentation | ***Access Date***: 2026-02-19 | ***Verification***: Verified
+
+2. ***Title***: RFC 6265 - HTTP State Management Mechanism | ***Author***: IETF | ***Source***: https://datatracker.ietf.org/doc/html/rfc6265 | ***License***: IETF | ***Access Date***: 2026-02-19 | ***Verification***: Referenced for 4KB rationale
+
+* Related Research
+
+- [[file:learning-packet-middleware-cookies.org][Learning Packet: Middleware & Cookies]] - Finding 2 validated (lines 120-142)
+- [[file:../ATTACK_PLANS.md][ATTACK_PLANS]] - Storage strategy confirmed correct
+
+* Metadata
+
+#+begin_src json
+{
+  "id": "VALID-PM27126-ELB-SHARDING",
+  "type": "validation-addendum",
+  "title": "Validation: AWS ELB Cookie Sharding",
+  "validates": "learning-packet-middleware-cookies.org Finding 2",
+  "confidence_overall": "High",
+  "created": "2026-02-19",
+  "version": "1.0.0",
+  "research_hours": 0.5,
+  "key_validation": "AWS official docs confirm AWSALBAPP-N sharding pattern",
+  "confidence_upgrade": "Moderate → High",
+  "implementation_impact": "Confirms ServerCommunicationConfigClient storage strategy is correct"
+}
+#+end_src
