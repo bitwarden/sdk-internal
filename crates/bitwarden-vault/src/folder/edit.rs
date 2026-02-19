@@ -38,7 +38,7 @@ pub(super) async fn edit_folder<R: Repository<Folder> + ?Sized>(
     let id = folder_id.to_string();
 
     // Verify the folder we're updating exists
-    repository.get(id.clone()).await?.ok_or(ItemNotFoundError)?;
+    repository.get(folder_id).await?.ok_or(ItemNotFoundError)?;
 
     let folder_request = key_store.encrypt(request)?;
 
@@ -52,7 +52,7 @@ pub(super) async fn edit_folder<R: Repository<Folder> + ?Sized>(
 
     debug_assert!(folder.id.unwrap_or_default() == folder_id);
 
-    repository.set(id, folder.clone()).await?;
+    repository.set(folder_id, folder.clone()).await?;
 
     Ok(key_store.decrypt(&folder)?)
 }
@@ -81,7 +81,7 @@ mod tests {
                 .unwrap(),
             revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
         };
-        repository.set(folder_id.to_string(), folder).await.unwrap();
+        repository.set(folder_id, folder).await.unwrap();
     }
 
     #[tokio::test]

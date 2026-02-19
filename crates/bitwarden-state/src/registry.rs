@@ -173,9 +173,9 @@ mod tests {
     #[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
     struct TestItem<T>(T);
 
-    register_repository_item!(TestItem<usize>, "TestItem_usize");
-    register_repository_item!(TestItem<String>, "TestItem_String");
-    register_repository_item!(TestItem<Vec<u8>>, "TestItem_Vec");
+    register_repository_item!(String => TestItem<usize>, "TestItem_usize");
+    register_repository_item!(String => TestItem<String>, "TestItem_String");
+    register_repository_item!(String => TestItem<Vec<u8>>, "TestItem_Vec");
 
     impl_repository!(TestA, TestItem<usize>);
     impl_repository!(TestB, TestItem<String>);
@@ -189,10 +189,13 @@ mod tests {
 
         let map = StateRegistry::new();
 
-        async fn get<T: RepositoryItem>(map: &StateRegistry) -> Option<T> {
+        async fn get<T: RepositoryItem>(map: &StateRegistry) -> Option<T>
+        where
+            T::Key: Default,
+        {
             map.get_client_managed::<T>()
                 .unwrap()
-                .get(String::new())
+                .get(Default::default())
                 .await
                 .unwrap()
         }

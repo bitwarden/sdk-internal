@@ -334,10 +334,7 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
 ) -> Result<CipherView, EditCipherError> {
     let cipher_id = request.id;
 
-    let original_cipher = repository
-        .get(cipher_id.to_string())
-        .await?
-        .ok_or(ItemNotFoundError)?;
+    let original_cipher = repository.get(cipher_id).await?.ok_or(ItemNotFoundError)?;
     let original_cipher_view: CipherView = key_store.decrypt(&original_cipher)?;
 
     let request = CipherEditRequestInternal::new(request, &original_cipher_view);
@@ -352,9 +349,7 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
         .map_err(ApiError::from)?
         .try_into()?;
     debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
-    repository
-        .set(cipher_id.to_string(), cipher.clone())
-        .await?;
+    repository.set(cipher_id, cipher.clone()).await?;
 
     Ok(key_store.decrypt(&cipher)?)
 }
@@ -416,7 +411,7 @@ impl CiphersClient {
 
         let api_config = self.client.internal.get_api_configurations().await;
         let api = api_config.api_client.ciphers_api();
-        let orig_cipher = repository.get(cipher_id.to_string()).await?;
+        let orig_cipher = repository.get(cipher_id).await?;
         let cipher = if is_admin {
             api.put_collections_admin(&cipher_id.to_string(), Some(req))
                 .await?
@@ -426,9 +421,7 @@ impl CiphersClient {
                 .put_collections(cipher_id.into(), Some(req))
                 .await?
                 .merge_with_cipher(orig_cipher)?;
-            repository
-                .set(cipher_id.to_string(), response.clone())
-                .await?;
+            repository.set(cipher_id, response.clone()).await?;
             response
         };
 
@@ -557,7 +550,7 @@ mod tests {
             }
         };
 
-        repository.set(cipher_id.to_string(), cipher).await.unwrap();
+        repository.set(cipher_id, cipher).await.unwrap();
     }
 
     #[tokio::test]

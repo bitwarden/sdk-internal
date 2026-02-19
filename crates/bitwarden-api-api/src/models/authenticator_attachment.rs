@@ -13,12 +13,16 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 ///
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum AuthenticatorAttachment {
     #[serde(rename = "platform")]
     Platform,
     #[serde(rename = "cross-platform")]
     CrossPlatform,
+
+    /// Unknown value returned from the server. This is used to handle forward compatibility.
+    #[serde(untagged)]
+    __Unknown(String),
 }
 
 impl std::fmt::Display for AuthenticatorAttachment {
@@ -26,6 +30,7 @@ impl std::fmt::Display for AuthenticatorAttachment {
         match self {
             Self::Platform => write!(f, "platform"),
             Self::CrossPlatform => write!(f, "cross-platform"),
+            Self::__Unknown(s) => write!(f, "{}", s),
         }
     }
 }
