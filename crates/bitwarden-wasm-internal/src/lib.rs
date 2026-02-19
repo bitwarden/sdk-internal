@@ -5,6 +5,7 @@ mod custom_types;
 mod init;
 mod platform;
 mod pure_crypto;
+mod rat_client;
 mod ssh;
 
 pub use bitwarden_ipc::wasm::*;

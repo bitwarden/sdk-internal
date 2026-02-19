@@ -6,12 +6,16 @@ authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 
+[features]
+default = ["native-proxy"]
+native-proxy = ["bitwarden-proxy/native-client"]
+
 [dependencies]
 async-trait = { workspace = true }
 base64 = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-noise-protocol = { workspace = true }
-bitwarden-proxy = { workspace = true }
+bitwarden-proxy = { workspace = true, features = ["experimental-post-quantum-crypto"] }
 dirs = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }

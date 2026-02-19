@@ -43,8 +43,8 @@ bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=2.0.0" }
 bitwarden-noise-protocol = { path = "crates/bitwarden-noise-protocol", version = "=2.0.0" }
 bitwarden-pm = { path = "crates/bitwarden-pm", version = "=2.0.0" }
 bitwarden-policies = { path = "crates/bitwarden-policies", version = "=2.0.0" }
-bitwarden-proxy = { path = "crates/bitwarden-proxy", version = "=2.0.0" }
-bitwarden-rat-client = { path = "crates/bitwarden-rat-client", version = "=2.0.0" }
+bitwarden-proxy = { path = "crates/bitwarden-proxy", version = "=2.0.0", default-features = false }
+bitwarden-rat-client = { path = "crates/bitwarden-rat-client", version = "=2.0.0", default-features = false }
 bitwarden-send = { path = "crates/bitwarden-send", version = "=2.0.0" }
 bitwarden-server-communication-config = { path = "crates/bitwarden-server-communication-config", version = "=2.0.0" }
 bitwarden-sm = { path = "bitwarden_license/bitwarden-sm", version = "=2.0.0" }

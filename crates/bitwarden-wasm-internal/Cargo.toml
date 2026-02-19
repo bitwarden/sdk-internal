@@ -34,7 +34,10 @@ bitwarden-core = { workspace = true, features = ["wasm", "internal"] }
 bitwarden-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-error = { workspace = true }
 bitwarden-ipc = { workspace = true, features = ["wasm"] }
+bitwarden-noise-protocol = { workspace = true }
 bitwarden-pm = { workspace = true, features = ["wasm"] }
+bitwarden-proxy = { workspace = true }
+bitwarden-rat-client = { workspace = true }
 bitwarden-server-communication-config = { workspace = true, features = ["wasm"] }
 bitwarden-ssh = { workspace = true, features = ["wasm"] }
 bitwarden-state = { workspace = true, features = ["wasm"] }
@@ -42,10 +45,16 @@ bitwarden-threading = { workspace = true }
 bitwarden-user-crypto-management = { workspace = true, features = ["wasm"] }
 bitwarden-vault = { workspace = true, features = ["wasm"] }
 console_error_panic_hook = "0.1.7"
+getrandom = { version = ">=0.3, <0.4", features = ["wasm_js"] }
+hex = { workspace = true }
+js-sys = { workspace = true }
 rand = { workspace = true }
 rsa = { workspace = true }
 serde = { workspace = true }
+serde-wasm-bindgen = { workspace = true }
+serde_json = { workspace = true }
 sha1 = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-web = { version = "0.1.3" }

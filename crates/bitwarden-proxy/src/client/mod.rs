@@ -69,7 +69,9 @@
 //! ```
 
 mod config;
+#[cfg(feature = "native-client")]
 mod protocol_client;
 
 pub use config::{IncomingMessage, ProxyClientConfig};
+#[cfg(feature = "native-client")]
 pub use protocol_client::ProxyProtocolClient;

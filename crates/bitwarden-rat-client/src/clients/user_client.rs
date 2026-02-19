@@ -16,7 +16,7 @@ use crate::{
 };
 
 /// Events emitted by the user client during operation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UserClientEvent {
     /// Started listening for connections
     Listening {},
@@ -75,7 +75,7 @@ pub enum UserClientEvent {
 }
 
 /// Response actions for events requiring user decision
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UserClientResponse {
     /// Respond to a credential request
     RespondCredential {

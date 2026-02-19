@@ -4,9 +4,7 @@
 //! enabling dependency injection and easier testing.
 
 use async_trait::async_trait;
-use bitwarden_proxy::{
-    IdentityFingerprint, IncomingMessage, ProxyClientConfig, ProxyProtocolClient, RendevouzCode,
-};
+use bitwarden_proxy::{IdentityFingerprint, IncomingMessage, RendevouzCode};
 use tokio::sync::mpsc;
 
 use crate::error::RemoteClientError;
@@ -36,11 +34,16 @@ pub trait ProxyClient: Send + Sync {
     async fn disconnect(&mut self) -> Result<(), RemoteClientError>;
 }
 
+#[cfg(feature = "native-proxy")]
+use bitwarden_proxy::{ProxyClientConfig, ProxyProtocolClient};
+
 /// Default implementation using ProxyProtocolClient from bitwarden-proxy
+#[cfg(feature = "native-proxy")]
 pub struct DefaultProxyClient {
     inner: ProxyProtocolClient,
 }
 
+#[cfg(feature = "native-proxy")]
 impl DefaultProxyClient {
     pub fn new(config: ProxyClientConfig) -> Self {
         Self {
@@ -49,6 +52,7 @@ impl DefaultProxyClient {
     }
 }
 
+#[cfg(feature = "native-proxy")]
 #[async_trait]
 impl ProxyClient for DefaultProxyClient {
     async fn connect(

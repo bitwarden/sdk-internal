@@ -120,6 +120,7 @@ pub enum ProxyError {
     ChannelSendFailed,
 }
 
+#[cfg(feature = "native-client")]
 impl From<tokio_tungstenite::tungstenite::Error> for ProxyError {
     fn from(err: tokio_tungstenite::tungstenite::Error) -> Self {
         ProxyError::WebSocket(err.to_string())
