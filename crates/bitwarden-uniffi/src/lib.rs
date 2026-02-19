@@ -25,6 +25,7 @@ pub mod vault;
 #[cfg(target_os = "android")]
 mod android_support;
 
+use bitwarden_server_communication_config::CookieProvider;
 use crypto::CryptoClient;
 use error::{Error, Result};
 pub use log_callback::LogCallback;
@@ -47,6 +48,7 @@ impl Client {
     pub fn new(
         token_provider: Arc<dyn ClientManagedTokens>,
         settings: Option<ClientSettings>,
+        cookie_provider: Option<Arc<ServerCommunicationConfigClient>>,
     ) -> Self {
         init_logger(None);
         setup_error_converter();
@@ -54,10 +56,22 @@ impl Client {
         #[cfg(target_os = "android")]
         android_support::init();
 
-        Self(bitwarden_pm::PasswordManagerClient::new_with_client_tokens(
-            settings,
-            token_provider,
-        ))
+        match cookie_provider {
+            Some(cp) => {
+                let provider_arc = cp as Arc<dyn CookieProvider>;
+                Self(
+                    bitwarden_pm::PasswordManagerClient::new_with_client_tokens_and_cookie_provider(
+                        settings,
+                        token_provider,
+                        provider_arc,
+                    ),
+                )
+            }
+            None => Self(bitwarden_pm::PasswordManagerClient::new_with_client_tokens(
+                settings,
+                token_provider,
+            )),
+        }
     }
 
     /// Crypto operations

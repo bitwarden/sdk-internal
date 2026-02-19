@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use bitwarden_server_communication_config::{
-    AcquiredCookie, ServerCommunicationConfig, ServerCommunicationConfigPlatformApi,
+    AcquiredCookie, CookieProvider, ServerCommunicationConfig,
+    ServerCommunicationConfigPlatformApi,
 };
 
 use crate::error::Result;
@@ -62,6 +63,27 @@ impl ServerCommunicationConfigClient {
     }
 }
 
+/// CookieProvider implementation for UniFFI wrapper
+///
+/// Enables ServerCommunicationConfigClient to be used as a cookie provider
+/// for HTTP middleware without exposing the inner generic client type.
+#[async_trait::async_trait]
+impl CookieProvider for ServerCommunicationConfigClient {
+    async fn cookies(&self, hostname: String) -> Vec<(String, String)> {
+        self.client.cookies(hostname).await
+    }
+
+    async fn acquire_cookie(
+        &self,
+        hostname: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.client
+            .acquire_cookie(hostname)
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+    }
+}
+
 /// UniFFI repository trait for server communication configuration
 #[uniffi::export(with_foreign)]
 #[async_trait::async_trait]
@@ -89,6 +111,7 @@ impl<T: std::fmt::Debug> std::fmt::Debug for UniffiRepositoryBridge<T> {
     }
 }
 
+#[async_trait::async_trait]
 impl<'a> bitwarden_server_communication_config::ServerCommunicationConfigRepository
     for UniffiRepositoryBridge<Arc<dyn ServerCommunicationConfigRepository + 'a>>
 {
