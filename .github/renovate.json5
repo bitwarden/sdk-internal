@@ -133,5 +133,5 @@
       reviewers: ["team:team-platform-dev"],
     },
   ],
-  ignoreDeps: ["dotnet-sdk"],
+  ignoreDeps: ["clippy_utils", "dotnet-sdk"],
 }
