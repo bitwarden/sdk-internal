@@ -343,14 +343,15 @@ impl UserClient {
         self.transports.insert(source, transport.clone());
 
         // Check if this is a new connection (not in cache)
-        let is_new_connection = !self.session_store.has_session(&source);
+        let is_new_connection = !self.session_store.has_session(&source).await;
 
         // Cache the session for future connections (must be done before save_transport_state)
-        self.session_store.cache_session(source)?;
+        self.session_store.cache_session(source).await?;
 
         // Save transport state for session persistence (enables multi-device support)
         self.session_store
-            .save_transport_state(&source, transport)?;
+            .save_transport_state(&source, transport)
+            .await?;
 
         event_tx
             .send(UserClientEvent::HandshakeComplete {})
@@ -381,7 +382,8 @@ impl UserClient {
             info!("Loading transport state for source: {:?}", source);
             let session = self
                 .session_store
-                .load_transport_state(&source)?
+                .load_transport_state(&source)
+                .await?
                 .expect("Transport state should exist for cached session");
             self.transports.insert(source, session);
         }

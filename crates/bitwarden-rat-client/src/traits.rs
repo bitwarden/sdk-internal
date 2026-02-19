@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use bitwarden_noise_protocol::MultiDeviceTransport;
 use bitwarden_proxy::{IdentityFingerprint, IdentityKeyPair};
 
@@ -7,31 +8,35 @@ use crate::error::RemoteClientError;
 ///
 /// Provides an abstraction for storing and retrieving approved remote fingerprints.
 /// Implementations must be thread-safe for use in async contexts.
+#[async_trait]
 pub trait SessionStore: Send + Sync {
     /// Check if a fingerprint exists in the cache
-    fn has_session(&self, fingerprint: &IdentityFingerprint) -> bool;
+    async fn has_session(&self, fingerprint: &IdentityFingerprint) -> bool;
 
     /// Cache a new session fingerprint
     ///
     /// If the fingerprint already exists, updates the cached_at timestamp.
-    fn cache_session(&mut self, fingerprint: IdentityFingerprint) -> Result<(), RemoteClientError>;
+    async fn cache_session(
+        &mut self,
+        fingerprint: IdentityFingerprint,
+    ) -> Result<(), RemoteClientError>;
 
     /// Remove a fingerprint from the cache
-    fn remove_session(
+    async fn remove_session(
         &mut self,
         fingerprint: &IdentityFingerprint,
     ) -> Result<(), RemoteClientError>;
 
     /// Clear all cached sessions
-    fn clear(&mut self) -> Result<(), RemoteClientError>;
+    async fn clear(&mut self) -> Result<(), RemoteClientError>;
 
     /// List all cached sessions
     ///
     /// Returns tuples of (fingerprint, optional_name, last_connected_timestamp)
-    fn list_sessions(&self) -> Vec<(IdentityFingerprint, Option<String>, u64)>;
+    async fn list_sessions(&self) -> Vec<(IdentityFingerprint, Option<String>, u64)>;
 
     /// Update the last_connected_at timestamp for a session
-    fn update_last_connected(
+    async fn update_last_connected(
         &mut self,
         fingerprint: &IdentityFingerprint,
     ) -> Result<(), RemoteClientError>;
@@ -39,7 +44,7 @@ pub trait SessionStore: Send + Sync {
     /// Save transport state for a session
     ///
     /// This allows session resumption without requiring a new Noise handshake.
-    fn save_transport_state(
+    async fn save_transport_state(
         &mut self,
         fingerprint: &IdentityFingerprint,
         transport_state: MultiDeviceTransport,
@@ -48,7 +53,7 @@ pub trait SessionStore: Send + Sync {
     /// Load transport state for a session
     ///
     /// Returns None if no transport state is stored for this session.
-    fn load_transport_state(
+    async fn load_transport_state(
         &self,
         fingerprint: &IdentityFingerprint,
     ) -> Result<Option<MultiDeviceTransport>, RemoteClientError>;

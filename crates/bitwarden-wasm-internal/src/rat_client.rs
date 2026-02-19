@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+use async_trait::async_trait;
 use bitwarden_noise_protocol::MultiDeviceTransport;
 use bitwarden_proxy::{IdentityFingerprint, IdentityKeyPair, IncomingMessage, RendevouzCode};
 use bitwarden_rat_client::{
@@ -15,14 +16,14 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen(typescript_custom_section)]
 const RAT_SESSION_STORE_TS: &'static str = r#"
 export interface RatSessionStore {
-    has_session(fingerprint: string): boolean;
-    cache_session(fingerprint: string): void;
-    remove_session(fingerprint: string): void;
-    clear(): void;
-    list_sessions(): Array<{ fingerprint: string; name: string | null; lastConnected: number }>;
-    update_last_connected(fingerprint: string): void;
-    save_transport_state(fingerprint: string, state: Uint8Array): void;
-    load_transport_state(fingerprint: string): Uint8Array | null;
+    has_session(fingerprint: string): Promise<boolean>;
+    cache_session(fingerprint: string): Promise<void>;
+    remove_session(fingerprint: string): Promise<void>;
+    clear(): Promise<void>;
+    list_sessions(): Promise<Array<{ fingerprint: string; name: string | null; lastConnected: number }>>;
+    update_last_connected(fingerprint: string): Promise<void>;
+    save_transport_state(fingerprint: string, state: Uint8Array): Promise<void>;
+    load_transport_state(fingerprint: string): Promise<Uint8Array | null>;
 }
 "#;
 
@@ -52,28 +53,28 @@ extern "C" {
     pub type JsSessionStore;
 
     #[wasm_bindgen(method)]
-    fn has_session(this: &JsSessionStore, fingerprint: &str) -> bool;
+    async fn has_session(this: &JsSessionStore, fingerprint: &str) -> JsValue;
 
     #[wasm_bindgen(method)]
-    fn cache_session(this: &JsSessionStore, fingerprint: &str);
+    async fn cache_session(this: &JsSessionStore, fingerprint: &str);
 
     #[wasm_bindgen(method)]
-    fn remove_session(this: &JsSessionStore, fingerprint: &str);
+    async fn remove_session(this: &JsSessionStore, fingerprint: &str);
 
     #[wasm_bindgen(method)]
-    fn clear(this: &JsSessionStore);
+    async fn clear(this: &JsSessionStore);
 
     #[wasm_bindgen(method)]
-    fn list_sessions(this: &JsSessionStore) -> JsValue;
+    async fn list_sessions(this: &JsSessionStore) -> JsValue;
 
     #[wasm_bindgen(method)]
-    fn update_last_connected(this: &JsSessionStore, fingerprint: &str);
+    async fn update_last_connected(this: &JsSessionStore, fingerprint: &str);
 
     #[wasm_bindgen(method)]
-    fn save_transport_state(this: &JsSessionStore, fingerprint: &str, state: &[u8]);
+    async fn save_transport_state(this: &JsSessionStore, fingerprint: &str, state: &[u8]);
 
     #[wasm_bindgen(method)]
-    fn load_transport_state(this: &JsSessionStore, fingerprint: &str) -> JsValue;
+    async fn load_transport_state(this: &JsSessionStore, fingerprint: &str) -> JsValue;
 }
 
 #[wasm_bindgen]
@@ -123,6 +124,18 @@ fn fingerprint_from_hex(hex_str: &str) -> Result<IdentityFingerprint, JsValue> {
     Ok(IdentityFingerprint(arr))
 }
 
+/// Parse a hex-encoded fingerprint string into an IdentityFingerprint.
+/// Returns None if the hex is invalid or not 32 bytes.
+fn parse_fingerprint_hex(hex_str: &str) -> Option<IdentityFingerprint> {
+    let bytes = hex::decode(hex_str).ok()?;
+    if bytes.len() != 32 {
+        return None;
+    }
+    let mut arr = [0u8; 32];
+    arr.copy_from_slice(&bytes);
+    Some(IdentityFingerprint(arr))
+}
+
 // ---------- WasmIdentityProvider ----------
 
 struct WasmIdentityProvider {
@@ -146,117 +159,183 @@ impl IdentityProvider for WasmIdentityProvider {
 // ---------- WasmSessionStore ----------
 
 struct WasmSessionStore {
-    js: JsSessionStore,
+    runner: ThreadBoundRunner<JsSessionStore>,
 }
 
-// SAFETY: WASM is single-threaded; the JS object is only accessed from the main thread.
-unsafe impl Send for WasmSessionStore {}
-unsafe impl Sync for WasmSessionStore {}
-
+#[async_trait]
 impl SessionStore for WasmSessionStore {
-    fn has_session(&self, fingerprint: &IdentityFingerprint) -> bool {
-        self.js.has_session(&fingerprint_to_hex(fingerprint))
+    async fn has_session(&self, fingerprint: &IdentityFingerprint) -> bool {
+        let fp_hex = fingerprint_to_hex(fingerprint);
+        self.runner
+            .run_in_thread(move |js| async move {
+                js.has_session(&fp_hex).await.as_bool().unwrap_or(false)
+            })
+            .await
+            .unwrap_or(false)
     }
 
-    fn cache_session(
+    async fn cache_session(
         &mut self,
         fingerprint: IdentityFingerprint,
     ) -> Result<(), bitwarden_rat_client::RemoteClientError> {
-        self.js.cache_session(&fingerprint_to_hex(&fingerprint));
-        Ok(())
+        let fp_hex = fingerprint_to_hex(&fingerprint);
+        self.runner
+            .run_in_thread(move |js| async move {
+                js.cache_session(&fp_hex).await;
+            })
+            .await
+            .map_err(|e| {
+                bitwarden_rat_client::RemoteClientError::SessionCache(e.to_string())
+            })
     }
 
-    fn remove_session(
+    async fn remove_session(
         &mut self,
         fingerprint: &IdentityFingerprint,
     ) -> Result<(), bitwarden_rat_client::RemoteClientError> {
-        self.js.remove_session(&fingerprint_to_hex(fingerprint));
-        Ok(())
+        let fp_hex = fingerprint_to_hex(fingerprint);
+        self.runner
+            .run_in_thread(move |js| async move {
+                js.remove_session(&fp_hex).await;
+            })
+            .await
+            .map_err(|e| {
+                bitwarden_rat_client::RemoteClientError::SessionCache(e.to_string())
+            })
     }
 
-    fn clear(&mut self) -> Result<(), bitwarden_rat_client::RemoteClientError> {
-        self.js.clear();
-        Ok(())
+    async fn clear(&mut self) -> Result<(), bitwarden_rat_client::RemoteClientError> {
+        self.runner
+            .run_in_thread(move |js| async move {
+                js.clear().await;
+            })
+            .await
+            .map_err(|e| {
+                bitwarden_rat_client::RemoteClientError::SessionCache(e.to_string())
+            })
     }
 
-    fn list_sessions(&self) -> Vec<(IdentityFingerprint, Option<String>, u64)> {
-        let js_result = self.js.list_sessions();
+    async fn list_sessions(&self) -> Vec<(IdentityFingerprint, Option<String>, u64)> {
+        // Extract raw data (String-based) from JS inside the thread-bound closure,
+        // then convert fingerprint hex strings to IdentityFingerprint outside.
+        let raw: Vec<(String, Option<String>, u64)> = self
+            .runner
+            .run_in_thread(move |js| async move {
+                let js_result = js.list_sessions().await;
 
-        // Parse the JS array of { fingerprint, name, lastConnected }
-        let array: js_sys::Array = match js_result.dyn_into() {
-            Ok(a) => a,
-            Err(_) => return Vec::new(),
-        };
+                // Parse the JS array of { fingerprint, name, lastConnected }
+                let array: js_sys::Array = match js_result.dyn_into() {
+                    Ok(a) => a,
+                    Err(_) => return Vec::new(),
+                };
 
-        let mut sessions = Vec::new();
-        for i in 0..array.length() {
-            let entry = array.get(i);
-            let fp_val = js_sys::Reflect::get(&entry, &JsValue::from_str("fingerprint")).ok();
-            let name_val = js_sys::Reflect::get(&entry, &JsValue::from_str("name")).ok();
-            let last_val = js_sys::Reflect::get(&entry, &JsValue::from_str("lastConnected")).ok();
+                let mut sessions = Vec::new();
+                for i in 0..array.length() {
+                    let entry = array.get(i);
+                    let fp_val =
+                        js_sys::Reflect::get(&entry, &JsValue::from_str("fingerprint")).ok();
+                    let name_val =
+                        js_sys::Reflect::get(&entry, &JsValue::from_str("name")).ok();
+                    let last_val =
+                        js_sys::Reflect::get(&entry, &JsValue::from_str("lastConnected")).ok();
 
-            if let Some(fp_str) = fp_val.and_then(|v| v.as_string()) {
-                if let Ok(fp) = fingerprint_from_hex(&fp_str) {
-                    let name = name_val.and_then(|v| v.as_string());
-                    let last_connected = last_val.and_then(|v| v.as_f64()).unwrap_or(0.0) as u64;
-                    sessions.push((fp, name, last_connected));
+                    if let Some(fp_str) = fp_val.and_then(|v| v.as_string()) {
+                        let name = name_val.and_then(|v| v.as_string());
+                        let last_connected =
+                            last_val.and_then(|v| v.as_f64()).unwrap_or(0.0) as u64;
+                        sessions.push((fp_str, name, last_connected));
+                    }
                 }
-            }
-        }
-        sessions
+                sessions
+            })
+            .await
+            .unwrap_or_default();
+
+        raw.into_iter()
+            .filter_map(|(fp_hex, name, last_connected)| {
+                parse_fingerprint_hex(&fp_hex).map(|fp| (fp, name, last_connected))
+            })
+            .collect()
     }
 
-    fn update_last_connected(
+    async fn update_last_connected(
         &mut self,
         fingerprint: &IdentityFingerprint,
     ) -> Result<(), bitwarden_rat_client::RemoteClientError> {
-        self.js
-            .update_last_connected(&fingerprint_to_hex(fingerprint));
-        Ok(())
+        let fp_hex = fingerprint_to_hex(fingerprint);
+        self.runner
+            .run_in_thread(move |js| async move {
+                js.update_last_connected(&fp_hex).await;
+            })
+            .await
+            .map_err(|e| {
+                bitwarden_rat_client::RemoteClientError::SessionCache(e.to_string())
+            })
     }
 
-    fn save_transport_state(
+    async fn save_transport_state(
         &mut self,
         fingerprint: &IdentityFingerprint,
         transport_state: MultiDeviceTransport,
     ) -> Result<(), bitwarden_rat_client::RemoteClientError> {
+        let fp_hex = fingerprint_to_hex(fingerprint);
         let bytes = transport_state.save_state().map_err(|e| {
             bitwarden_rat_client::RemoteClientError::Serialization(format!(
                 "Failed to serialize transport state: {e}"
             ))
         })?;
-        self.js
-            .save_transport_state(&fingerprint_to_hex(fingerprint), &bytes);
-        Ok(())
+        self.runner
+            .run_in_thread(move |js| async move {
+                js.save_transport_state(&fp_hex, &bytes).await;
+            })
+            .await
+            .map_err(|e| {
+                bitwarden_rat_client::RemoteClientError::SessionCache(e.to_string())
+            })
     }
 
-    fn load_transport_state(
+    async fn load_transport_state(
         &self,
         fingerprint: &IdentityFingerprint,
     ) -> Result<Option<MultiDeviceTransport>, bitwarden_rat_client::RemoteClientError> {
-        let js_result = self
-            .js
-            .load_transport_state(&fingerprint_to_hex(fingerprint));
+        let fp_hex = fingerprint_to_hex(fingerprint);
+        // Extract raw bytes from JS inside the thread-bound closure, returning
+        // Option<Vec<u8>> which is Send + Sync.
+        let bytes = self
+            .runner
+            .run_in_thread(move |js| async move {
+                let js_result = js.load_transport_state(&fp_hex).await;
 
-        if js_result.is_null() || js_result.is_undefined() {
-            return Ok(None);
-        }
+                if js_result.is_null() || js_result.is_undefined() {
+                    return Ok(None);
+                }
 
-        let uint8array: js_sys::Uint8Array = js_result
-            .dyn_into()
-            .map_err(|_| {
-                bitwarden_rat_client::RemoteClientError::Serialization(
-                    "Expected Uint8Array from load_transport_state".to_string(),
-                )
+                let uint8array: js_sys::Uint8Array =
+                    js_result.dyn_into().map_err(|_| {
+                        "Expected Uint8Array from load_transport_state".to_string()
+                    })?;
+                Ok(Some(uint8array.to_vec()))
+            })
+            .await
+            .map_err(|e| {
+                bitwarden_rat_client::RemoteClientError::SessionCache(e.to_string())
+            })?
+            .map_err(|e: String| {
+                bitwarden_rat_client::RemoteClientError::Serialization(e)
             })?;
-        let bytes = uint8array.to_vec();
 
-        let transport = MultiDeviceTransport::restore_state(&bytes).map_err(|e| {
-            bitwarden_rat_client::RemoteClientError::Serialization(format!(
-                "Failed to deserialize transport state: {e}"
-            ))
-        })?;
-        Ok(Some(transport))
+        match bytes {
+            None => Ok(None),
+            Some(bytes) => {
+                let transport =
+                    MultiDeviceTransport::restore_state(&bytes).map_err(|e| {
+                        bitwarden_rat_client::RemoteClientError::Serialization(format!(
+                            "Failed to deserialize transport state: {e}"
+                        ))
+                    })?;
+                Ok(Some(transport))
+            }
+        }
     }
 }
 
@@ -365,7 +444,9 @@ impl WasmUserClient {
         let identity_provider =
             Box::new(WasmIdentityProvider::new(&identity_cose_bytes)?) as Box<dyn IdentityProvider>;
 
-        let wasm_session_store = Box::new(WasmSessionStore { js: session_store }) as Box<dyn SessionStore>;
+        let wasm_session_store = Box::new(WasmSessionStore {
+            runner: ThreadBoundRunner::new(session_store),
+        }) as Box<dyn SessionStore>;
 
         let incoming_tx: Arc<Mutex<Option<mpsc::UnboundedSender<IncomingMessage>>>> =
             Arc::new(Mutex::new(None));
