@@ -57,7 +57,7 @@ pub struct UserKeyState {
     decrypted_user_key: B64,
 }
 
-bitwarden_state::register_repository_item!(UserKeyState, "UserKey");
+bitwarden_state::register_repository_item!(String => UserKeyState, "UserKey");
 
 key_ids! {
     #[symmetric]

@@ -199,6 +199,12 @@ pub(super) async fn initialize_user_crypto(
             client
                 .internal
                 .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
+
+            drop(_span_guard);
+            #[cfg(feature = "wasm")]
+            copy_user_key_to_client_managed_state(client)
+                .await
+                .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
         }
         InitUserCryptoMethod::Pin {
             pin,
