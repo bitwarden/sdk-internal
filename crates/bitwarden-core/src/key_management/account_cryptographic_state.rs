@@ -471,7 +471,6 @@ impl WrappedAccountCryptographicState {
 
 #[cfg(test)]
 mod tests {
-    use core::prelude::v1;
     use std::{str::FromStr, sync::RwLock};
 
     use bitwarden_crypto::{KeyStore, PrimitiveEncryptable};
