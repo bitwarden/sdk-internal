@@ -12,8 +12,6 @@
 //!
 //! </div>
 
-use std::sync::Arc;
-
 use bitwarden_api_api::models::{ApiKeyResponseModel, SecretVerificationRequestModel};
 use bitwarden_crypto::{CryptoError, HashPurpose, MasterKey};
 use serde::{Deserialize, Serialize};
@@ -22,9 +20,7 @@ use tracing::{debug, info};
 
 use super::SecretVerificationRequest;
 use crate::{
-    ApiError, Client, MissingFieldError, NotAuthenticatedError,
-    client::{LoginMethod, UserLoginMethod},
-    require,
+    ApiError, Client, MissingFieldError, NotAuthenticatedError, client::UserLoginMethod, require,
 };
 
 #[allow(missing_docs)]
@@ -50,10 +46,10 @@ pub(crate) async fn get_user_api_key(
     info!("Getting Api Key");
     debug!(?input);
 
-    let auth_settings = get_login_method(client)?;
+    let login_method = get_login_method(client)?;
     let config = client.internal.get_api_configurations().await;
 
-    let request = build_secret_verification_request(&auth_settings, input)?;
+    let request = build_secret_verification_request(&login_method, input)?;
     let response = config
         .api_client
         .accounts_api()
@@ -63,7 +59,7 @@ pub(crate) async fn get_user_api_key(
     UserApiKeyResponse::process_response(response)
 }
 
-fn get_login_method(client: &Client) -> Result<Arc<LoginMethod>, NotAuthenticatedError> {
+fn get_login_method(client: &Client) -> Result<UserLoginMethod, NotAuthenticatedError> {
     client
         .internal
         .get_login_method()
@@ -72,10 +68,10 @@ fn get_login_method(client: &Client) -> Result<Arc<LoginMethod>, NotAuthenticate
 
 /// Build the secret verification request.
 fn build_secret_verification_request(
-    login_method: &LoginMethod,
+    login_method: &UserLoginMethod,
     input: &SecretVerificationRequest,
 ) -> Result<SecretVerificationRequestModel, UserApiKeyError> {
-    if let LoginMethod::User(UserLoginMethod::Username { email, kdf, .. }) = login_method {
+    if let UserLoginMethod::Username { email, kdf, .. } = login_method {
         let master_password_hash = input
             .master_password
             .as_ref()

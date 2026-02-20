@@ -166,11 +166,13 @@ impl InternalClient {
     }
 
     #[cfg(feature = "internal")]
-    pub(crate) fn get_login_method(&self) -> Option<Arc<LoginMethod>> {
-        self.login_method
-            .read()
-            .expect("RwLock is not poisoned")
-            .clone()
+    pub(crate) fn get_login_method(&self) -> Option<UserLoginMethod> {
+        let lm = self.login_method.read().expect("RwLock is not poisoned");
+        match lm.as_deref()? {
+            LoginMethod::User(ulm) => Some(ulm.clone()),
+            #[allow(unreachable_patterns)]
+            _ => None,
+        }
     }
 
     #[allow(missing_docs)]
@@ -415,27 +417,25 @@ impl InternalClient {
         let kdf = self.get_kdf()?;
 
         if kdf != new_kdf {
-            match login_method.as_ref() {
-                LoginMethod::User(UserLoginMethod::Username {
+            match login_method {
+                UserLoginMethod::Username {
                     client_id, email, ..
-                }) => self.set_login_method(LoginMethod::User(UserLoginMethod::Username {
-                    client_id: client_id.to_owned(),
-                    email: email.to_owned(),
+                } => self.set_login_method(LoginMethod::User(UserLoginMethod::Username {
+                    client_id,
+                    email,
                     kdf: new_kdf,
                 })),
-                LoginMethod::User(UserLoginMethod::ApiKey {
+                UserLoginMethod::ApiKey {
                     client_id,
                     client_secret,
                     email,
                     ..
-                }) => self.set_login_method(LoginMethod::User(UserLoginMethod::ApiKey {
-                    client_id: client_id.to_owned(),
-                    client_secret: client_secret.to_owned(),
-                    email: email.to_owned(),
+                } => self.set_login_method(LoginMethod::User(UserLoginMethod::ApiKey {
+                    client_id,
+                    client_secret,
+                    email,
                     kdf: new_kdf,
                 })),
-                #[cfg(feature = "secrets")]
-                LoginMethod::ServiceAccount(_) => return Err(NotAuthenticatedError),
             };
         }
 
@@ -451,7 +451,7 @@ mod tests {
 
     use crate::{
         Client,
-        client::{LoginMethod, UserLoginMethod, test_accounts::test_bitwarden_com_account},
+        client::{UserLoginMethod, test_accounts::test_bitwarden_com_account},
         key_management::MasterPasswordUnlockData,
     };
 
@@ -527,8 +527,8 @@ mod tests {
             .unwrap();
 
         let login_method = client.internal.get_login_method().unwrap();
-        match login_method.as_ref() {
-            LoginMethod::User(UserLoginMethod::Username { email, .. }) => {
+        match login_method {
+            UserLoginMethod::Username { email, .. } => {
                 assert_eq!(*email, expected_email);
             }
             _ => panic!("Expected username login method"),
