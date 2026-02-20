@@ -1,4 +1,4 @@
-use bitwarden_core::Client;
+use bitwarden_core::{Client, FromClient};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -45,9 +45,7 @@ impl VaultClient {
 
     /// Folder related operations.
     pub fn folders(&self) -> FoldersClient {
-        FoldersClient {
-            client: self.client.clone(),
-        }
+        FoldersClient::from_client(&self.client).expect("Folder repository not configured")
     }
 
     /// TOTP related operations.

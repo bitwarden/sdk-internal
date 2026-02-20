@@ -443,6 +443,24 @@ impl InternalClient {
     }
 }
 
+/// Trait for types that provide API configurations.
+///
+/// This abstraction allows for dependency injection and testing, decoupling
+/// consumers from the concrete [`InternalClient`] implementation.
+#[cfg_attr(feature = "mockall", mockall::automock)]
+#[async_trait::async_trait]
+pub trait ApiProvider: Send + Sync {
+    /// Returns API configurations, potentially renewing tokens if needed.
+    async fn get_api_configurations(&self) -> Arc<ApiConfigurations>;
+}
+
+#[async_trait::async_trait]
+impl ApiProvider for Arc<InternalClient> {
+    async fn get_api_configurations(&self) -> Arc<ApiConfigurations> {
+        self.get_api_configurations().await
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::num::NonZeroU32;
