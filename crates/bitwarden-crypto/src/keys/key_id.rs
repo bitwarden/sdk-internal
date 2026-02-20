@@ -11,6 +11,9 @@ pub(crate) const KEY_ID_SIZE: usize = 16;
 #[derive(Clone, PartialEq, Zeroize)]
 pub struct KeyId([u8; KEY_ID_SIZE]);
 
+// Constant time here is not implemented because the key-id itself is secret, it is not.
+// Instead, it is implemented to correctly allow other things that implement ct_eq to correctly
+// implement the ct_eq contract. This is the case for COSE keys that have key material and a key id.
 impl ConstantTimeEq for KeyId {
     fn ct_eq(&self, other: &Self) -> subtle::Choice {
         self.0.ct_eq(&other.0)

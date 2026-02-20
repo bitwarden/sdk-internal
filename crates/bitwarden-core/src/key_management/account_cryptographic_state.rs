@@ -111,12 +111,7 @@ impl std::fmt::Debug for WrappedAccountCryptographicState {
             WrappedAccountCryptographicState::V1 { .. } => f
                 .debug_struct("WrappedAccountCryptographicState::V1")
                 .finish(),
-            WrappedAccountCryptographicState::V2 {
-                security_state,
-                private_key: _,
-                signed_public_key: _,
-                signing_key: _,
-            } => f
+            WrappedAccountCryptographicState::V2 { security_state, .. } => f
                 .debug_struct("WrappedAccountCryptographicState::V2")
                 .field("security_state", security_state)
                 .finish(),
@@ -375,8 +370,10 @@ impl WrappedAccountCryptographicState {
                         .ok();
                     let public_key = ctx.get_public_key(PrivateKeyId::UserPrivateKey).ok();
                     info!(
-                        "V1 account cryptographic state set to context. UserKey: {:?}, PrivateKey: {:?}, PublicKey: {:?}",
-                        user_key, private_key, public_key
+                        ?user_key,
+                        ?private_key,
+                        ?public_key,
+                        "V1 account cryptographic state set to context"
                     );
                 }
             }
@@ -474,6 +471,7 @@ impl WrappedAccountCryptographicState {
 
 #[cfg(test)]
 mod tests {
+    use core::prelude::v1;
     use std::{str::FromStr, sync::RwLock};
 
     use bitwarden_crypto::{KeyStore, PrimitiveEncryptable};
@@ -490,9 +488,17 @@ mod tests {
         let (_, v1) = WrappedAccountCryptographicState::make_v1(&mut ctx).unwrap();
         println!("{:?}", v1);
 
+        let v1 = format!("{v1:?}");
+        assert!(!v1.contains("private_key"));
+
         let user_id = UserId::new_v4();
         let (_, v2) = WrappedAccountCryptographicState::make(&mut ctx, user_id).unwrap();
         println!("{:?}", v2);
+
+        let v2 = format!("{v2:?}");
+        assert!(!v2.contains("private_key"));
+        assert!(!v2.contains("signed_public_key"));
+        assert!(!v2.contains("signing_key"));
     }
 
     #[test]

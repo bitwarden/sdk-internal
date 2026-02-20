@@ -47,6 +47,7 @@ impl SignedObject {
     /// Deserializes the payload without verifying the signature.
     /// This is intended for debug logging only, to debug structs without having to explicitly
     /// verify their signature first. WARNING: YOU MUST NOT USE THIS EXCEPT FOR DEBUG LOGGING.
+    #[doc(hidden)]
     pub fn dangerous_unverified_decode_do_not_use_except_for_debug_logs<
         Message: DeserializeOwned,
     >(

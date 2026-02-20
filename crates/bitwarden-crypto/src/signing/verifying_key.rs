@@ -40,8 +40,8 @@ impl std::fmt::Debug for VerifyingKey {
         let mut debug_struct = f.debug_struct(format!("VerifyingKey_{}", key_suffix).as_str());
         debug_struct.field("id", &self.id);
         match self.inner {
-            RawVerifyingKey::Ed25519(_key) => {
-                debug_struct.field("key", &hex::encode(_key.to_bytes()));
+            RawVerifyingKey::Ed25519(key) => {
+                debug_struct.field("key", &hex::encode(key.to_bytes()));
             }
         }
         debug_struct.finish()

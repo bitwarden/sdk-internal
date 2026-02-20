@@ -230,31 +230,39 @@ impl ToString for EncString {
 
 impl std::fmt::Debug for EncString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        fn fmt_parts(
-            f: &mut std::fmt::Formatter<'_>,
-            enc_type: u8,
-            parts: &[&[u8]],
-        ) -> std::fmt::Result {
-            let encoded_parts: Vec<String> = parts
-                .iter()
-                .map(|part| B64::from(*part).to_string())
-                .collect();
-            write!(f, "{}.{}", enc_type, encoded_parts.join("|"))
-        }
-
-        let enc_type = self.enc_type();
-
         match self {
-            EncString::Aes256Cbc_B64 { iv, data } => fmt_parts(f, enc_type, &[iv, data]),
+            EncString::Aes256Cbc_B64 { iv, data } => {
+                let mut debug_struct = f.debug_struct("EncString::Aes256Cbc");
+                #[cfg(feature = "dangerous-crypto-debug")]
+                {
+                    debug_struct.field("iv", &hex::encode(iv));
+                    debug_struct.field("data", &hex::encode(data));
+                }
+                #[cfg(not(feature = "dangerous-crypto-debug"))]
+                {
+                    debug_struct.field("iv", &"***");
+                    debug_struct.field("data", &"***");
+                }
+                debug_struct.finish()
+            }
             EncString::Aes256Cbc_HmacSha256_B64 { iv, mac, data } => {
-                let mut debug_struct = f.debug_struct("EncString::Aes256Cbc_HmacSha256_B64");
-                debug_struct.field("iv", &hex::encode(iv));
-                debug_struct.field("data", &hex::encode(data));
-                debug_struct.field("mac", &hex::encode(mac));
+                let mut debug_struct = f.debug_struct("EncString::Aes256CbcHmacSha256");
+                #[cfg(feature = "dangerous-crypto-debug")]
+                {
+                    debug_struct.field("iv", &hex::encode(iv));
+                    debug_struct.field("data", &hex::encode(data));
+                    debug_struct.field("mac", &hex::encode(mac));
+                }
+                #[cfg(not(feature = "dangerous-crypto-debug"))]
+                {
+                    debug_struct.field("iv", &"***");
+                    debug_struct.field("data", &"***");
+                    debug_struct.field("mac", &"***");
+                }
                 debug_struct.finish()
             }
             EncString::Cose_Encrypt0_B64 { data } => {
-                let mut debug_struct = f.debug_struct("EncString::Cose_Encrypt0");
+                let mut debug_struct = f.debug_struct("EncString::CoseEncrypt0");
 
                 match coset::CoseEncrypt0::from_slice(data.as_slice()) {
                     Ok(msg) => {
@@ -276,6 +284,8 @@ impl std::fmt::Debug for EncString {
                         if let Some(ref content_type) = msg.protected.header.content_type {
                             debug_struct.field("content_type", content_type);
                         }
+
+                        #[cfg(feature = "dangerous-crypto-debug")]
                         if let Some(ref ciphertext) = msg.ciphertext {
                             debug_struct.field("ciphertext", &hex::encode(ciphertext));
                         }
