@@ -1,4 +1,4 @@
-use crate::safe::PasswordProtectedKeyEnvelopeError;
+use crate::{cose::ContentNamespace, safe::PasswordProtectedKeyEnvelopeError};
 
 /// The content-layer separation namespace for password protected key envelopes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -45,3 +45,11 @@ impl TryFrom<i128> for PasswordProtectedKeyEnvelopeNamespace {
         Self::try_from(value)
     }
 }
+
+impl Into<i128> for PasswordProtectedKeyEnvelopeNamespace {
+    fn into(self) -> i128 {
+        self.as_i64() as i128
+    }
+}
+
+impl ContentNamespace for PasswordProtectedKeyEnvelopeNamespace {}

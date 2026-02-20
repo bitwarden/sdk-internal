@@ -34,7 +34,10 @@ use crate::{
         SafeObjectNamespace, extract_bytes, extract_integer,
     },
     keys::KeyId,
-    safe::password_protected_key_envelope_namespace::PasswordProtectedKeyEnvelopeNamespace,
+    safe::{
+        extract_safe_content_namespace, extract_safe_object_namespace,
+        password_protected_key_envelope_namespace::PasswordProtectedKeyEnvelopeNamespace,
+    },
     xchacha20,
 };
 
@@ -192,21 +195,16 @@ impl PasswordProtectedKeyEnvelope {
         // The first use-case - Pin-protected-key-envelopes - did not require the object
         // namespace to be present. Therefore, without migration of persistent pin
         // unlocks, this cannot yet be strongly enforced.
-        if let Ok(namespace) = extract_integer(
-            &self.cose_encrypt.protected.header,
-            SAFE_OBJECT_NAMESPACE,
-            "safe object namespace",
-        ) && namespace != i128::from(SafeObjectNamespace::PasswordProtectedKeyEnvelope as i64)
+        if let Ok(namespace) = extract_safe_object_namespace(&recipient.protected.header)
+            && namespace != SafeObjectNamespace::PasswordProtectedKeyEnvelope
         {
             return Err(PasswordProtectedKeyEnvelopeError::InvalidNamespace);
         }
 
         // Validate the content namespace, if present
-        if let Ok(namespace) = extract_integer(
+        if let Ok(namespace) = extract_safe_content_namespace::<PasswordProtectedKeyEnvelopeNamespace>(
             &recipient.protected.header,
-            SAFE_CONTENT_NAMESPACE,
-            "content namespace",
-        ) && namespace != i128::from(content_namespace.as_i64())
+        ) && namespace != content_namespace
         {
             return Err(PasswordProtectedKeyEnvelopeError::InvalidNamespace);
         }

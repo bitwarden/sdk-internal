@@ -61,10 +61,26 @@ pub(crate) const SIGNING_NAMESPACE: i64 = -80000;
 
 /// MUST be placed in the protected header of cose objects
 pub(crate) const SAFE_OBJECT_NAMESPACE: i64 = -80002;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SafeObjectNamespace {
     PasswordProtectedKeyEnvelope = 1,
     DataEnvelope = 2,
 }
+
+impl TryFrom<i128> for SafeObjectNamespace {
+    type Error = ();
+
+    fn try_from(value: i128) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(SafeObjectNamespace::PasswordProtectedKeyEnvelope),
+            2 => Ok(SafeObjectNamespace::DataEnvelope),
+            _ => Err(()),
+        }
+    }
+}
+
+pub(crate) trait ContentNamespace: TryFrom<i128> + Into<i128> {}
 
 /// Each type of object has it's own namespace for strong domain separation to eliminate
 /// attacks which attempt to confuse object types. For signatures, this refers to signature
