@@ -52,7 +52,13 @@ impl Client {
             .build()
             .expect("Bw HTTP Client build should not fail");
 
-        let bw_http_client = reqwest_middleware::ClientBuilder::new(bw_http_client).build();
+        // TODO: Accept cookie_provider as parameter when available
+        // For now, middleware registration is prepared but cookie_provider needs to be passed
+        // through constructor chain
+        let bw_http_client = reqwest_middleware::ClientBuilder::new(bw_http_client)
+            // .with(crate::client::CookieInjectionMiddleware::new(cookie_provider))  // TODO:
+            // Uncomment when cookie_provider available
+            .build();
 
         let identity = bitwarden_api_identity::Configuration {
             base_path: settings.identity_url,

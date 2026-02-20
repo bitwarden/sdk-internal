@@ -20,6 +20,9 @@ mod flags;
 pub use client::Client;
 pub use client_settings::{ClientSettings, DeviceType};
 
+mod cookie_middleware;
+pub use cookie_middleware::CookieInjectionMiddleware;
+
 #[allow(missing_docs)]
 #[cfg(feature = "internal")]
 pub mod test_accounts;

@@ -515,7 +515,7 @@ dependencies = [
  "reqwest",
  "reqwest-middleware",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "url",
 ]
 
@@ -633,11 +633,13 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-server-communication-config",
  "bitwarden-state",
  "bitwarden-uniffi-error",
  "bitwarden-uuid",
  "chrono",
  "getrandom 0.2.16",
+ "http",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "reqwest",
@@ -650,6 +652,7 @@ dependencies = [
  "serde_json",
  "serde_qs",
  "serde_repr",
+ "task-local-extensions",
  "thiserror 2.0.12",
  "tokio",
  "tracing",
@@ -902,7 +905,7 @@ dependencies = [
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tsify",
  "uniffi",
@@ -986,7 +989,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
  "uuid",
@@ -5374,6 +5377,15 @@ name = "target-triple"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ac9aa371f599d22256307c24a9d748c041e548cbf599f35d890f9d365361790"
+
+[[package]]
+name = "task-local-extensions"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba323866e5d033818e3240feeb9f7db2c4296674e4d9e16b97b7bf8f490434e8"
+dependencies = [
+ "pin-utils",
+]
 
 [[package]]
 name = "tempfile"
