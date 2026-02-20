@@ -49,7 +49,7 @@ impl std::fmt::Debug for SigningKey {
         let key_suffix = match &self.inner {
             RawSigningKey::Ed25519(_) => "Ed25519",
         };
-        let mut debug_struct = f.debug_struct(format!("SigningKey_{}", key_suffix).as_str());
+        let mut debug_struct = f.debug_struct(format!("SigningKey::{}", key_suffix).as_str());
         debug_struct.field("id", &self.id);
         match &self.inner {
             RawSigningKey::Ed25519(key) => debug_struct.field("key", &hex::encode(key.to_bytes())),

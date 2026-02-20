@@ -240,8 +240,8 @@ impl std::fmt::Debug for EncString {
                 }
                 #[cfg(not(feature = "dangerous-crypto-debug"))]
                 {
-                    debug_struct.field("iv", &"***");
-                    debug_struct.field("data", &"***");
+                    _ = iv;
+                    _ = data;
                 }
                 debug_struct.finish()
             }
@@ -255,9 +255,9 @@ impl std::fmt::Debug for EncString {
                 }
                 #[cfg(not(feature = "dangerous-crypto-debug"))]
                 {
-                    debug_struct.field("iv", &"***");
-                    debug_struct.field("data", &"***");
-                    debug_struct.field("mac", &"***");
+                    _ = iv;
+                    _ = data;
+                    _ = mac;
                 }
                 debug_struct.finish()
             }

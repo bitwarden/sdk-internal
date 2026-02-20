@@ -403,7 +403,7 @@ impl std::fmt::Debug for SymmetricCryptoKey {
 
 impl std::fmt::Debug for Aes256CbcKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut debug_struct = f.debug_struct("SymmetricKey_Aes256Cbc");
+        let mut debug_struct = f.debug_struct("SymmetricKey::Aes256Cbc");
         #[cfg(feature = "dangerous-crypto-debug")]
         debug_struct.field("key", &hex::encode(self.enc_key.as_slice()));
         debug_struct.finish()
@@ -412,7 +412,7 @@ impl std::fmt::Debug for Aes256CbcKey {
 
 impl std::fmt::Debug for Aes256CbcHmacKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut debug_struct = f.debug_struct("SymmetricKey_Aes256CbcHmac");
+        let mut debug_struct = f.debug_struct("SymmetricKey::Aes256CbcHmac");
         #[cfg(feature = "dangerous-crypto-debug")]
         debug_struct
             .field("enc_key", &hex::encode(self.enc_key.as_slice()))

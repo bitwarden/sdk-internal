@@ -65,7 +65,7 @@ impl std::fmt::Debug for PublicKey {
         let key_suffix = match &self.inner {
             RawPublicKey::RsaOaepSha1(_) => "RsaOaepSha1",
         };
-        let mut debug_struct = f.debug_struct(format!("PublicKey_{}", key_suffix).as_str());
+        let mut debug_struct = f.debug_struct(format!("PublicKey::{}", key_suffix).as_str());
         match &self.inner {
             RawPublicKey::RsaOaepSha1(_) => {
                 if let Ok(der) = self.to_der() {
@@ -242,7 +242,7 @@ impl std::fmt::Debug for PrivateKey {
         let key_suffix = match &self.inner {
             RawPrivateKey::RsaOaepSha1(_) => "RsaOaepSha1",
         };
-        let mut debug_struct = f.debug_struct(format!("PrivateKey_{}", key_suffix).as_str());
+        let mut debug_struct = f.debug_struct(format!("PrivateKey::{}", key_suffix).as_str());
         match &self.inner {
             RawPrivateKey::RsaOaepSha1(_) => {
                 if let Ok(der) = self.to_der() {
