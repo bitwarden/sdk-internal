@@ -326,6 +326,21 @@ pub(crate) enum CoseExtractError {
     MissingValue(String),
 }
 
+/// Helper function to convert a COSE KeyOperation to a debug string
+pub(crate) fn debug_key_operation(key_operation: KeyOperation) -> &'static str {
+    match key_operation {
+        KeyOperation::Sign => "Sign",
+        KeyOperation::Verify => "Verify",
+        KeyOperation::Encrypt => "Encrypt",
+        KeyOperation::Decrypt => "Decrypt",
+        KeyOperation::WrapKey => "WrapKey",
+        KeyOperation::UnwrapKey => "UnwrapKey",
+        KeyOperation::DeriveKey => "DeriveKey",
+        KeyOperation::DeriveBits => "DeriveBits",
+        _ => "Unknown",
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

@@ -425,7 +425,14 @@ impl std::fmt::Debug for XChaCha20Poly1305Key {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut debug_struct = f.debug_struct("SymmetricKey_XChaCha20Poly1305");
         debug_struct.field("key_id", &self.key_id);
-        debug_struct.field("supported_operations", &self.supported_operations);
+        debug_struct.field(
+            "supported_operations",
+            &self
+                .supported_operations
+                .iter()
+                .map(|key_operation: &KeyOperation| cose::debug_key_operation(*key_operation))
+                .collect::<Vec<_>>(),
+        );
         #[cfg(feature = "dangerous-crypto-debug")]
         debug_struct.field("key", &hex::encode(self.enc_key.as_slice()));
         debug_struct.finish()
