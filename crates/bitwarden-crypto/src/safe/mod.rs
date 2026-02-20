@@ -14,28 +14,29 @@ use crate::cose::{
     extract_integer,
 };
 
+enum ExtractionError {
+    MissingNamespace,
+    InvalidNamespace,
+}
+
 fn extract_safe_object_namespace(
     header: &coset::Header,
-) -> Result<SafeObjectNamespace, DataEnvelopeError> {
+) -> Result<SafeObjectNamespace, ExtractionError> {
     match extract_integer(header, SAFE_OBJECT_NAMESPACE, "safe object namespace") {
-        Ok(value) => value.try_into().map_err(|_| {
-            DataEnvelopeError::ParsingError("Invalid safe object namespace".to_string())
-        }),
-        Err(_) => Err(DataEnvelopeError::ParsingError(
-            "Missing object namespace".to_string(),
-        )),
+        Ok(value) => value
+            .try_into()
+            .map_err(|_| ExtractionError::InvalidNamespace),
+        Err(_) => Err(ExtractionError::MissingNamespace),
     }
 }
 
 fn extract_safe_content_namespace<T: ContentNamespace>(
     header: &coset::Header,
-) -> Result<T, DataEnvelopeError> {
+) -> Result<T, ExtractionError> {
     match extract_integer(header, SAFE_CONTENT_NAMESPACE, "safe content namespace") {
-        Ok(value) => value.try_into().map_err(|_| {
-            DataEnvelopeError::ParsingError("Invalid safe content namespace".to_string())
-        }),
-        Err(_) => Err(DataEnvelopeError::ParsingError(
-            "Missing content namespace".to_string(),
-        )),
+        Ok(value) => value
+            .try_into()
+            .map_err(|_| ExtractionError::InvalidNamespace),
+        Err(_) => Err(ExtractionError::MissingNamespace),
     }
 }
