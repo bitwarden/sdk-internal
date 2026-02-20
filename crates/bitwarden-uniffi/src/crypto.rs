@@ -1,6 +1,9 @@
-use bitwarden_core::key_management::crypto::{
-    DeriveKeyConnectorRequest, DerivePinKeyResponse, EnrollPinResponse, InitOrgCryptoRequest,
-    InitUserCryptoRequest, UpdateKdfResponse, UpdatePasswordResponse,
+use bitwarden_core::key_management::{
+    V2UpgradeToken,
+    crypto::{
+        DeriveKeyConnectorRequest, DerivePinKeyResponse, EnrollPinResponse, InitOrgCryptoRequest,
+        InitUserCryptoRequest, UpdateKdfResponse, UpdatePasswordResponse,
+    },
 };
 use bitwarden_crypto::{EncString, Kdf, RotateableKeySet, UnsignedSharedKey};
 use bitwarden_encoding::B64;
@@ -90,5 +93,12 @@ impl CryptoClient {
     /// user key and the new password hash but does not update sdk state.
     pub fn make_update_kdf(&self, password: String, kdf: Kdf) -> Result<UpdateKdfResponse> {
         Ok(self.0.make_update_kdf(password, kdf)?)
+    }
+
+    /// Gets the upgraded V2 user key using an upgrade token.
+    /// If the current key is already V2, returns it directly.
+    /// If the current key is V1 and a token is provided, extracts the V2 key.
+    pub fn get_upgraded_user_key(&self, upgrade_token: Option<V2UpgradeToken>) -> Result<B64> {
+        Ok(self.0.get_upgraded_user_key(upgrade_token)?)
     }
 }

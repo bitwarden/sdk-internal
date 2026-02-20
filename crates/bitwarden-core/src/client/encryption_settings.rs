@@ -33,6 +33,9 @@ pub enum EncryptionSettingsError {
 
     #[error("Wrong Pin")]
     WrongPin,
+
+    #[error("Invalid upgrade token")]
+    InvalidUpgradeToken,
 }
 
 #[allow(missing_docs)]

@@ -37,6 +37,10 @@ pub use security_state::{
 mod user_decryption;
 #[cfg(feature = "internal")]
 pub use user_decryption::UserDecryptionData;
+#[cfg(feature = "internal")]
+mod v2_upgrade_token;
+#[cfg(feature = "internal")]
+pub use v2_upgrade_token::{V2UpgradeToken, V2UpgradeTokenError};
 
 use crate::OrganizationId;
 

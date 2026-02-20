@@ -47,6 +47,7 @@ async fn test_register_initialize_crypto() {
                     salt: email.to_owned(),
                 },
             },
+            upgrade_token: None,
         })
         .await
         .unwrap();
