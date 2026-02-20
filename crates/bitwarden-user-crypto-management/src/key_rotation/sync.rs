@@ -35,7 +35,6 @@ impl<T, E: std::fmt::Debug> DebugMapErr<T, E> for Result<T, E> {
     }
 }
 
-#[allow(unused)]
 pub(super) struct SyncedAccountData {
     pub(super) wrapped_account_cryptographic_state: WrappedAccountCryptographicState,
     pub(super) folders: Vec<Folder>,
@@ -78,7 +77,8 @@ async fn fetch_organization_public_key(
     .debug_map_err(SyncError::DataError)
 }
 
-// Download the public keys for the organizations, since these are not included in the sync
+// Download the public keys for the organizations for which reset password is enrolled, since these
+// are not included in the sync
 pub(crate) async fn sync_orgs(
     api_client: &ApiClient,
 ) -> Result<Vec<V1OrganizationMembership>, SyncError> {
@@ -92,6 +92,7 @@ pub(crate) async fn sync_orgs(
         .into_iter();
     let organizations = organizations
         .into_iter()
+        .filter(|org| org.reset_password_enrolled.unwrap_or(false))
         .map(async |org| {
             let id = org.id.ok_or(SyncError::DataError)?;
             let public_key = fetch_organization_public_key(api_client, id).await?;
@@ -393,7 +394,6 @@ fn parse_kdf_and_salt(
     }
 }
 
-#[allow(unused)]
 pub(super) async fn sync_current_account_data(
     api_client: &ApiClient,
 ) -> Result<SyncedAccountData, SyncError> {
@@ -405,7 +405,7 @@ pub(super) async fn sync_current_account_data(
         .debug_map_err(SyncError::NetworkError)?;
 
     let profile = sync.profile.as_ref().ok_or(SyncError::DataError)?;
-    /// This is optional for master-password-users!
+    // This is optional for master-password-users!
     let kdf_and_salt = parse_kdf_and_salt(&sync.user_decryption)?;
     let account_cryptographic_state = profile
         .account_keys
@@ -616,6 +616,7 @@ mod tests {
             data: Some(vec![ProfileOrganizationResponseModel {
                 id: Some(org_id),
                 name: Some("Test Org".to_string()),
+                reset_password_enrolled: Some(true),
                 ..ProfileOrganizationResponseModel::new()
             }]),
             continuation_token: None,
@@ -901,16 +902,19 @@ mod tests {
                             ProfileOrganizationResponseModel {
                                 id: Some(org_id1),
                                 name: Some(org_name1.clone()),
+                                reset_password_enrolled: Some(true),
                                 ..ProfileOrganizationResponseModel::new()
                             },
                             ProfileOrganizationResponseModel {
                                 id: Some(org_id2),
                                 name: Some(org_name2.clone()),
+                                reset_password_enrolled: Some(true),
                                 ..ProfileOrganizationResponseModel::new()
                             },
                             ProfileOrganizationResponseModel {
                                 id: Some(org_id3),
                                 name: Some(org_name3.clone()),
+                                reset_password_enrolled: Some(true),
                                 ..ProfileOrganizationResponseModel::new()
                             },
                         ]),
@@ -996,6 +1000,7 @@ mod tests {
                         data: Some(vec![ProfileOrganizationResponseModel {
                             id: Some(org_id),
                             name: Some("Test Org".to_string()),
+                            reset_password_enrolled: Some(true),
                             ..ProfileOrganizationResponseModel::new()
                         }]),
                         continuation_token: None,
@@ -1409,6 +1414,117 @@ mod tests {
         if let ApiClient::Mock(mut mock) = api_client {
             mock.emergency_access_api.checkpoint();
             mock.users_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_sync_orgs_filters_non_enrolled_orgs() {
+        let org_id_enrolled1 = uuid::Uuid::new_v4();
+        let org_id_not_enrolled = uuid::Uuid::new_v4();
+        let org_id_none_enrolled = uuid::Uuid::new_v4();
+        let org_id_enrolled2 = uuid::Uuid::new_v4();
+        let expected_public_key_b64 = test_public_key_b64();
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.organizations_api
+                .expect_get_user()
+                .once()
+                .returning(move || {
+                    Ok(ProfileOrganizationResponseModelListResponseModel {
+                        object: None,
+                        data: Some(vec![
+                            ProfileOrganizationResponseModel {
+                                id: Some(org_id_enrolled1),
+                                name: Some("Enrolled Org 1".to_string()),
+                                reset_password_enrolled: Some(true),
+                                ..ProfileOrganizationResponseModel::new()
+                            },
+                            ProfileOrganizationResponseModel {
+                                id: Some(org_id_not_enrolled),
+                                name: Some("Not Enrolled Org".to_string()),
+                                reset_password_enrolled: Some(false),
+                                ..ProfileOrganizationResponseModel::new()
+                            },
+                            ProfileOrganizationResponseModel {
+                                id: Some(org_id_none_enrolled),
+                                name: Some("None Enrolled Org".to_string()),
+                                reset_password_enrolled: None,
+                                ..ProfileOrganizationResponseModel::new()
+                            },
+                            ProfileOrganizationResponseModel {
+                                id: Some(org_id_enrolled2),
+                                name: Some("Enrolled Org 2".to_string()),
+                                reset_password_enrolled: Some(true),
+                                ..ProfileOrganizationResponseModel::new()
+                            },
+                        ]),
+                        continuation_token: None,
+                    })
+                });
+
+            let expected_public_key_b64 = expected_public_key_b64.clone();
+            mock.organizations_api
+                .expect_get_public_key()
+                .times(2)
+                .returning(move |_| {
+                    Ok(OrganizationPublicKeyResponseModel {
+                        object: None,
+                        public_key: Some(expected_public_key_b64.clone()),
+                    })
+                });
+        });
+
+        let result = sync_orgs(&api_client).await;
+        let memberships = result.unwrap();
+
+        assert_eq!(memberships.len(), 2);
+        assert_eq!(memberships[0].organization_id, org_id_enrolled1);
+        assert_eq!(memberships[0].name, "Enrolled Org 1");
+        assert_eq!(memberships[1].organization_id, org_id_enrolled2);
+        assert_eq!(memberships[1].name, "Enrolled Org 2");
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.organizations_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_sync_orgs_all_not_enrolled_returns_empty() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.organizations_api
+                .expect_get_user()
+                .once()
+                .returning(move || {
+                    Ok(ProfileOrganizationResponseModelListResponseModel {
+                        object: None,
+                        data: Some(vec![
+                            ProfileOrganizationResponseModel {
+                                id: Some(uuid::Uuid::new_v4()),
+                                name: Some("Org A".to_string()),
+                                reset_password_enrolled: Some(false),
+                                ..ProfileOrganizationResponseModel::new()
+                            },
+                            ProfileOrganizationResponseModel {
+                                id: Some(uuid::Uuid::new_v4()),
+                                name: Some("Org B".to_string()),
+                                reset_password_enrolled: None,
+                                ..ProfileOrganizationResponseModel::new()
+                            },
+                        ]),
+                        continuation_token: None,
+                    })
+                });
+
+            mock.organizations_api.expect_get_public_key().never();
+        });
+
+        let result = sync_orgs(&api_client).await;
+        let memberships = result.unwrap();
+
+        assert_eq!(memberships.len(), 0);
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.organizations_api.checkpoint();
         }
     }
 }

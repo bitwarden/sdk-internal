@@ -20,7 +20,7 @@ pub(crate) use login_method::{LoginMethod, UserLoginMethod};
 mod flags;
 
 pub use client::Client;
-pub use client_settings::{ClientSettings, DeviceType};
+pub use client_settings::{ClientName, ClientSettings, DeviceType};
 
 #[allow(missing_docs)]
 #[cfg(feature = "internal")]

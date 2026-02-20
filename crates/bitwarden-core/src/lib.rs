@@ -24,7 +24,7 @@ pub mod secrets_manager;
 /// See [`FromClient`] for usage details.
 pub use bitwarden_core_macro::FromClient;
 pub use bitwarden_crypto::ZeroizingAllocator;
-pub use client::{Client, ClientSettings, DeviceType, FromClient};
+pub use client::{Client, ClientName, ClientSettings, DeviceType, FromClient};
 
 mod ids;
 pub use ids::*;
