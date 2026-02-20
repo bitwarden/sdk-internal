@@ -51,9 +51,9 @@ impl TryFrom<i128> for DataEnvelopeNamespace {
     }
 }
 
-impl Into<i128> for DataEnvelopeNamespace {
-    fn into(self) -> i128 {
-        self.as_i64() as i128
+impl From<DataEnvelopeNamespace> for i128 {
+    fn from(val: DataEnvelopeNamespace) -> Self {
+        val.as_i64() as i128
     }
 }
 

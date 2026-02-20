@@ -46,9 +46,9 @@ impl TryFrom<i128> for PasswordProtectedKeyEnvelopeNamespace {
     }
 }
 
-impl Into<i128> for PasswordProtectedKeyEnvelopeNamespace {
-    fn into(self) -> i128 {
-        self.as_i64() as i128
+impl From<PasswordProtectedKeyEnvelopeNamespace> for i128 {
+    fn from(val: PasswordProtectedKeyEnvelopeNamespace) -> Self {
+        val.as_i64() as i128
     }
 }
 
