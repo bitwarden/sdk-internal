@@ -89,6 +89,7 @@ impl<T: std::fmt::Debug> std::fmt::Debug for UniffiRepositoryBridge<T> {
     }
 }
 
+#[async_trait::async_trait]
 impl<'a> bitwarden_server_communication_config::ServerCommunicationConfigRepository
     for UniffiRepositoryBridge<Arc<dyn ServerCommunicationConfigRepository + 'a>>
 {

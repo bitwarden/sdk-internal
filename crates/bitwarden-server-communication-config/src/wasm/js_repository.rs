@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use bitwarden_threading::ThreadBoundRunner;
 use wasm_bindgen::prelude::*;
 
@@ -78,6 +79,7 @@ impl Clone for JsServerCommunicationConfigRepository {
     }
 }
 
+#[async_trait]
 impl ServerCommunicationConfigRepository for JsServerCommunicationConfigRepository {
     type GetError = String;
     type SaveError = String;
