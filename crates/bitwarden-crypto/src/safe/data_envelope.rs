@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use bitwarden_encoding::{B64, FromStrVisitor, NotB64EncodedError};
-use ciborium::value::Integer;
+use ciborium::{Value, value::Integer};
 #[allow(unused_imports)]
 use coset::{CborSerializable, ProtectedHeader, RegisteredLabel, iana::CoapContentFormat};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -12,8 +12,10 @@ use wasm_bindgen::convert::FromWasmAbi;
 use crate::{
     CONTENT_TYPE_PADDED_CBOR, CoseEncrypt0Bytes, CryptoError, EncString, EncodingError, KeyIds,
     SerializedMessage, SymmetricCryptoKey, XChaCha20Poly1305Key,
-    cose::{DATA_ENVELOPE_NAMESPACE, XCHACHA20_POLY1305},
-    safe::DataEnvelopeNamespace,
+    cose::{
+        SAFE_CONTENT_NAMESPACE, SAFE_OBJECT_NAMESPACE, SafeObjectNamespace, XCHACHA20_POLY1305,
+    },
+    safe::{DataEnvelopeNamespace, extract_safe_content_namespace, extract_safe_object_namespace},
     utils::pad_bytes,
     xchacha20,
 };
@@ -68,7 +70,7 @@ impl DataEnvelope {
     where
         T: Serialize + SealableVersionedData,
     {
-        let (envelope, cek) = Self::seal_ref(&data, &T::NAMESPACE)?;
+        let (envelope, cek) = Self::seal_ref(&data, T::NAMESPACE)?;
         let cek_id = ctx.generate_symmetric_key();
         ctx.set_symmetric_key_internal(cek_id, SymmetricCryptoKey::XChaCha20Poly1305Key(cek))
             .map_err(|_| DataEnvelopeError::KeyStoreError)?;
@@ -98,7 +100,7 @@ impl DataEnvelope {
     /// content-encryption-key.
     fn seal_ref<T>(
         data: &T,
-        namespace: &DataEnvelopeNamespace,
+        namespace: DataEnvelopeNamespace,
     ) -> Result<(DataEnvelope, XChaCha20Poly1305Key), DataEnvelopeError>
     where
         T: Serialize + SealableVersionedData,
@@ -120,7 +122,11 @@ impl DataEnvelope {
             .key_id(cek.key_id.to_vec())
             .content_type(CONTENT_TYPE_PADDED_CBOR.to_string())
             .value(
-                DATA_ENVELOPE_NAMESPACE,
+                SAFE_OBJECT_NAMESPACE,
+                Value::from(SafeObjectNamespace::DataEnvelope as i64),
+            )
+            .value(
+                SAFE_CONTENT_NAMESPACE,
                 ciborium::Value::Integer(Integer::from(namespace.as_i64())),
             )
             .build();
@@ -168,7 +174,7 @@ impl DataEnvelope {
             .map_err(|_| DataEnvelopeError::KeyStoreError)?;
 
         match cek {
-            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => self.unseal_ref(&T::NAMESPACE, key),
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => self.unseal_ref(T::NAMESPACE, key),
             _ => Err(DataEnvelopeError::UnsupportedContentFormat),
         }
     }
@@ -192,7 +198,7 @@ impl DataEnvelope {
     /// Unseals the data from the encrypted blob using the provided content-encryption-key.
     fn unseal_ref<T>(
         &self,
-        namespace: &DataEnvelopeNamespace,
+        namespace: DataEnvelopeNamespace,
         cek: &XChaCha20Poly1305Key,
     ) -> Result<T, DataEnvelopeError>
     where
@@ -201,7 +207,6 @@ impl DataEnvelope {
         // Parse the COSE message
         let msg = coset::CoseEncrypt0::from_slice(self.envelope_data.as_ref())
             .map_err(|_| DataEnvelopeError::CoseDecodingError)?;
-        let envelope_namespace = extract_namespace(&msg.protected.header)?;
         let content_format =
             content_format(&msg.protected).map_err(|_| DataEnvelopeError::DecodingError)?;
 
@@ -215,9 +220,20 @@ impl DataEnvelope {
         if msg.protected.header.key_id != cek.key_id {
             return Err(DataEnvelopeError::WrongKey);
         }
-        if envelope_namespace != *namespace {
+
+        if let Ok(safe_object_namespace) = extract_safe_object_namespace(&msg.protected.header)
+            && safe_object_namespace != SafeObjectNamespace::DataEnvelope
+        {
             return Err(DataEnvelopeError::InvalidNamespace);
         }
+
+        if let Ok(envelope_namespace) =
+            extract_safe_content_namespace::<DataEnvelopeNamespace>(&msg.protected.header)
+            && envelope_namespace != namespace
+        {
+            return Err(DataEnvelopeError::InvalidNamespace);
+        }
+
         if content_format != CONTENT_TYPE_PADDED_CBOR {
             return Err(DataEnvelopeError::UnsupportedContentFormat);
         }
@@ -251,33 +267,6 @@ impl DataEnvelope {
             .decode()
             .map_err(|_| DataEnvelopeError::DecodingError)
     }
-}
-
-/// Helper function to extract the namespace from a `ProtectedHeader`. The namespace is stored
-/// as a custom header value using the DATA_ENVELOPE_NAMESPACE label.
-fn extract_namespace(header: &coset::Header) -> Result<DataEnvelopeNamespace, DataEnvelopeError> {
-    let namespace_value = header
-        .rest
-        .iter()
-        .find(|(label, _)| {
-            if let coset::Label::Int(label_int) = label {
-                *label_int == DATA_ENVELOPE_NAMESPACE
-            } else {
-                false
-            }
-        })
-        .map(|(_, value)| value)
-        .ok_or(DataEnvelopeError::InvalidNamespace)?;
-
-    let namespace_int = match namespace_value {
-        ciborium::Value::Integer(int) => {
-            let int_val: i128 = (*int).into();
-            int_val
-        }
-        _ => return Err(DataEnvelopeError::InvalidNamespace),
-    };
-
-    DataEnvelopeNamespace::try_from(namespace_int).map_err(|_| DataEnvelopeError::InvalidNamespace)
 }
 
 /// Helper function to extract the content type from a `ProtectedHeader`. The content type is a
@@ -527,24 +516,27 @@ mod tests {
     );
 
     const TEST_VECTOR_CEK: &str =
-        "pQEEAlAiZII8tW5Lu9YH2bND5qx4AzoAARFvBIEEIFggnlL+dg+plLs+YqbUS00NYjwvir9E7O5pTJgX/O++XuQB";
-    const TEST_VECTOR_ENVELOPE: &str = "g1hFpAE6AAERbwN4I2FwcGxpY2F0aW9uL3guYml0d2FyZGVuLmNib3ItcGFkZGVkBFAiZII8tW5Lu9YH2bND5qx4OgABOIAgoQVYGDjsL+Q0npomBf7fVsefBkXNJT/OkMncuVhQ8VSz8YWHIRylVilXRDrQp3LRSnDHQKIU4F0A49yi8W2tmRATUcPkU87eI9xbRvxjdUY/X4wL26MoFsqbWxyMJHcj8svQWwL3Jq3OvK9VS6A=";
+        "pQEEAlB5RTKA0xXdA7C4iQE4QfVUAzoAARFvBIEEIFggQYqnsrAfeFFTaXGXB54YrksB6eQcctMpnaZ8rG6rMJ0B";
+    const TEST_VECTOR_ENVELOPE: &str = "g1hLpQE6AAERbwN4I2FwcGxpY2F0aW9uL3guYml0d2FyZGVuLmNib3ItcGFkZGVkBFB5RTKA0xXdA7C4iQE4QfVUOgABOIECOgABOIAgoQVYGLfQrYHVWxRxO6A8m/yp5DPbBIn3h8nijlhQj4jFwDLWfFz7le1Oy8dTls5vdEFg/FjjsPvXicI2bdb5KDdJCz/YkEu0kqjpQwdCcALpJLVJwgQQeKIeU2klBHEPZjnlLpRRXeCUp5c5BYQ=";
 
     #[test]
     #[ignore]
     fn generate_test_vectors() {
         let data: TestData = TestDataV1 { field: 123 }.into();
         let (envelope, cek) =
-            DataEnvelope::seal_ref(&data, &DataEnvelopeNamespace::ExampleNamespace).unwrap();
+            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace).unwrap();
         let unsealed_data: TestData = envelope
-            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace, &cek)
+            .unseal_ref(DataEnvelopeNamespace::ExampleNamespace, &cek)
             .unwrap();
         assert_eq!(unsealed_data, data);
         println!(
-            "CEK: {}",
+            "const TEST_VECTOR_CEK: &str = \"{}\";",
             B64::from(SymmetricCryptoKey::XChaCha20Poly1305Key(cek).to_encoded())
         );
-        println!("Envelope: {}", String::from(envelope));
+        println!(
+            "const TEST_VECTOR_ENVELOPE: &str = \"{}\";",
+            String::from(envelope)
+        );
     }
 
     #[test]
@@ -557,7 +549,7 @@ mod tests {
 
         let envelope: DataEnvelope = TEST_VECTOR_ENVELOPE.parse().unwrap();
         let unsealed_data: TestData = envelope
-            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace, &cek)
+            .unseal_ref(DataEnvelopeNamespace::ExampleNamespace, &cek)
             .unwrap();
         assert_eq!(unsealed_data, TestDataV1 { field: 123 }.into());
     }
@@ -569,9 +561,9 @@ mod tests {
 
         // Seal the data
         let (envelope, cek) =
-            DataEnvelope::seal_ref(&data, &DataEnvelopeNamespace::ExampleNamespace).unwrap();
+            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace).unwrap();
         let unsealed_data: TestData = envelope
-            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace, &cek)
+            .unseal_ref(DataEnvelopeNamespace::ExampleNamespace, &cek)
             .unwrap();
 
         // Verify that the unsealed data matches the original data
@@ -584,17 +576,17 @@ mod tests {
 
         // Test with ExampleNamespace
         let (envelope1, cek1) =
-            DataEnvelope::seal_ref(&data, &DataEnvelopeNamespace::ExampleNamespace).unwrap();
+            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace).unwrap();
         let unsealed_data1: TestData = envelope1
-            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace, &cek1)
+            .unseal_ref(DataEnvelopeNamespace::ExampleNamespace, &cek1)
             .unwrap();
         assert_eq!(unsealed_data1, data);
 
         // Test with ExampleNamespace2
         let (envelope2, cek2) =
-            DataEnvelope::seal_ref(&data, &DataEnvelopeNamespace::ExampleNamespace2).unwrap();
+            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace2).unwrap();
         let unsealed_data2: TestData = envelope2
-            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace2, &cek2)
+            .unseal_ref(DataEnvelopeNamespace::ExampleNamespace2, &cek2)
             .unwrap();
         assert_eq!(unsealed_data2, data);
     }
@@ -605,16 +597,16 @@ mod tests {
 
         // Seal with ExampleNamespace
         let (envelope, cek) =
-            DataEnvelope::seal_ref(&data, &DataEnvelopeNamespace::ExampleNamespace).unwrap();
+            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace).unwrap();
 
         // Try to unseal with wrong namespace - should fail
         let result: Result<TestData, DataEnvelopeError> =
-            envelope.unseal_ref(&DataEnvelopeNamespace::ExampleNamespace2, &cek);
+            envelope.unseal_ref(DataEnvelopeNamespace::ExampleNamespace2, &cek);
         assert!(matches!(result, Err(DataEnvelopeError::InvalidNamespace)));
 
         // Verify correct namespace still works
         let unsealed_data: TestData = envelope
-            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace, &cek)
+            .unseal_ref(DataEnvelopeNamespace::ExampleNamespace, &cek)
             .unwrap();
         assert_eq!(unsealed_data, data);
     }
@@ -627,7 +619,7 @@ mod tests {
 
         // Seal with keystore using ExampleNamespace2
         let (envelope, cek) =
-            DataEnvelope::seal_ref(&data, &DataEnvelopeNamespace::ExampleNamespace2).unwrap();
+            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace2).unwrap();
         ctx.set_symmetric_key_internal(
             crate::traits::tests::TestSymmKey::A(0),
             SymmetricCryptoKey::XChaCha20Poly1305Key(cek),
@@ -647,28 +639,28 @@ mod tests {
 
         // Seal two different pieces of data with different namespaces
         let (envelope1, cek1) =
-            DataEnvelope::seal_ref(&data1, &DataEnvelopeNamespace::ExampleNamespace).unwrap();
+            DataEnvelope::seal_ref(&data1, DataEnvelopeNamespace::ExampleNamespace).unwrap();
         let (envelope2, cek2) =
-            DataEnvelope::seal_ref(&data2, &DataEnvelopeNamespace::ExampleNamespace2).unwrap();
+            DataEnvelope::seal_ref(&data2, DataEnvelopeNamespace::ExampleNamespace2).unwrap();
 
         // Verify each envelope only opens with its correct namespace
         let unsealed1: TestData = envelope1
-            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace, &cek1)
+            .unseal_ref(DataEnvelopeNamespace::ExampleNamespace, &cek1)
             .unwrap();
         assert_eq!(unsealed1, data1);
 
         let unsealed2: TestData = envelope2
-            .unseal_ref(&DataEnvelopeNamespace::ExampleNamespace2, &cek2)
+            .unseal_ref(DataEnvelopeNamespace::ExampleNamespace2, &cek2)
             .unwrap();
         assert_eq!(unsealed2, data2);
 
         // Cross-unsealing should fail
         assert!(matches!(
-            envelope1.unseal_ref::<TestData>(&DataEnvelopeNamespace::ExampleNamespace2, &cek1),
+            envelope1.unseal_ref::<TestData>(DataEnvelopeNamespace::ExampleNamespace2, &cek1),
             Err(DataEnvelopeError::InvalidNamespace)
         ));
         assert!(matches!(
-            envelope2.unseal_ref::<TestData>(&DataEnvelopeNamespace::ExampleNamespace, &cek2),
+            envelope2.unseal_ref::<TestData>(DataEnvelopeNamespace::ExampleNamespace, &cek2),
             Err(DataEnvelopeError::InvalidNamespace)
         ));
     }

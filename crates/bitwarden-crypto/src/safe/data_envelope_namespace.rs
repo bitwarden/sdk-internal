@@ -1,4 +1,4 @@
-use crate::safe::DataEnvelopeError;
+use crate::{cose::ContentNamespace, safe::DataEnvelopeError};
 
 /// Data envelopes are domain-separated within bitwarden, to prevent cross protocol attacks.
 ///
@@ -50,3 +50,11 @@ impl TryFrom<i128> for DataEnvelopeNamespace {
         Self::try_from(value)
     }
 }
+
+impl From<DataEnvelopeNamespace> for i128 {
+    fn from(val: DataEnvelopeNamespace) -> Self {
+        val.as_i64() as i128
+    }
+}
+
+impl ContentNamespace for DataEnvelopeNamespace {}

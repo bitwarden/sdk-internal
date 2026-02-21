@@ -1,5 +1,5 @@
 #[cfg(feature = "wasm")]
-use bitwarden_crypto::safe::PasswordProtectedKeyEnvelope;
+use bitwarden_crypto::safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace};
 use bitwarden_crypto::{CryptoError, Decryptable, Kdf, RotateableKeySet};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
@@ -137,7 +137,11 @@ impl CryptoClient {
         envelope: PasswordProtectedKeyEnvelope,
     ) -> Result<Vec<u8>, CryptoClientError> {
         let mut ctx = self.client.internal.get_key_store().context_mut();
-        let key_slot = envelope.unseal(pin.as_str(), &mut ctx)?;
+        let key_slot = envelope.unseal(
+            pin.as_str(),
+            PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
+            &mut ctx,
+        )?;
         #[allow(deprecated)]
         let key = ctx.dangerous_get_symmetric_key(key_slot)?;
         Ok(key.to_encoded().to_vec())
