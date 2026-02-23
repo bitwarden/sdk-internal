@@ -573,6 +573,7 @@ mod tests {
                 salt: Some("test_salt".to_string()),
             })),
             web_authn_prf_options: None,
+            v2_upgrade_token: None,
         }
     }
 

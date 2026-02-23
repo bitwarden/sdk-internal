@@ -27,16 +27,10 @@ use wasm_bindgen::convert::FromWasmAbi;
 /// - `wrapped_uk_2`: V2 user key encrypted with V1 key (Aes256Cbc_HmacSha256_B64 format)
 ///
 /// Both wrapping directions are validated on creation and unwrapping to prevent tampering.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct V2UpgradeTokenInternal {
-    wrapped_uk_1: EncString,
-    wrapped_uk_2: EncString,
-}
-
-/// V2 Upgrade Token - public interface
 #[derive(Clone, Debug)]
 pub struct V2UpgradeToken {
-    inner: V2UpgradeTokenInternal,
+    wrapped_uk_1: EncString,
+    wrapped_uk_2: EncString,
 }
 
 impl V2UpgradeToken {
@@ -97,10 +91,8 @@ impl V2UpgradeToken {
             .map_err(|_| V2UpgradeTokenError::ValidationFailed)?;
 
         Ok(V2UpgradeToken {
-            inner: V2UpgradeTokenInternal {
-                wrapped_uk_1,
-                wrapped_uk_2,
-            },
+            wrapped_uk_1,
+            wrapped_uk_2,
         })
     }
 
@@ -123,7 +115,7 @@ impl V2UpgradeToken {
     ) -> Result<Ids::Symmetric, V2UpgradeTokenError> {
         // Decrypt wrapped_uk_1 with V2 key and add V1 key to the store
         let new_v1_id = ctx
-            .unwrap_symmetric_key(v2_key_id, &self.inner.wrapped_uk_1)
+            .unwrap_symmetric_key(v2_key_id, &self.wrapped_uk_1)
             .map_err(|_| V2UpgradeTokenError::DecryptionFailed)?;
 
         // Validate: unwrapped V1 should be able to decrypt wrapped_uk_2
@@ -132,7 +124,6 @@ impl V2UpgradeToken {
             .dangerous_get_symmetric_key(new_v1_id)
             .map_err(|_| V2UpgradeTokenError::DecryptionFailed)?;
         let _: Vec<u8> = self
-            .inner
             .wrapped_uk_2
             .decrypt_with_key(v1_key)
             .map_err(|_| V2UpgradeTokenError::ValidationFailed)?;
@@ -159,7 +150,7 @@ impl V2UpgradeToken {
     ) -> Result<Ids::Symmetric, V2UpgradeTokenError> {
         // Decrypt wrapped_uk_2 with V1 key and add V2 key to the store
         let new_v2_id = ctx
-            .unwrap_symmetric_key(v1_key_id, &self.inner.wrapped_uk_2)
+            .unwrap_symmetric_key(v1_key_id, &self.wrapped_uk_2)
             .map_err(|_| V2UpgradeTokenError::DecryptionFailed)?;
 
         // Validate: unwrapped V2 should be able to decrypt wrapped_uk_1
@@ -168,7 +159,6 @@ impl V2UpgradeToken {
             .dangerous_get_symmetric_key(new_v2_id)
             .map_err(|_| V2UpgradeTokenError::DecryptionFailed)?;
         let _: Vec<u8> = self
-            .inner
             .wrapped_uk_1
             .decrypt_with_key(v2_key)
             .map_err(|_| V2UpgradeTokenError::ValidationFailed)?;
@@ -181,15 +171,34 @@ impl FromStr for V2UpgradeToken {
     type Err = V2UpgradeTokenError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let inner: V2UpgradeTokenInternal =
-            serde_json::from_str(s).map_err(|_| V2UpgradeTokenError::Serialization)?;
-        Ok(V2UpgradeToken { inner })
+        #[derive(Deserialize)]
+        struct Fields {
+            wrapped_uk_1: EncString,
+            wrapped_uk_2: EncString,
+        }
+        let Fields {
+            wrapped_uk_1,
+            wrapped_uk_2,
+        } = serde_json::from_str(s).map_err(|_| V2UpgradeTokenError::Serialization)?;
+        Ok(V2UpgradeToken {
+            wrapped_uk_1,
+            wrapped_uk_2,
+        })
     }
 }
 
 impl From<V2UpgradeToken> for String {
     fn from(val: V2UpgradeToken) -> Self {
-        serde_json::to_string(&val.inner).expect("Serialization to JSON should not fail")
+        #[derive(Serialize)]
+        struct Fields<'a> {
+            wrapped_uk_1: &'a EncString,
+            wrapped_uk_2: &'a EncString,
+        }
+        serde_json::to_string(&Fields {
+            wrapped_uk_1: &val.wrapped_uk_1,
+            wrapped_uk_2: &val.wrapped_uk_2,
+        })
+        .expect("Serialization to JSON should not fail")
     }
 }
 
