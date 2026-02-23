@@ -119,8 +119,7 @@ picture.
 
 **Create vs. Edit requests**: When the fields for creating and editing an item differ (e.g. edit
 requires an `id`, `revision_date`, or fields that are immutable after creation), use **separate**
-`*CreateRequest` and `*EditRequest` structs. Combined `*AddEditRequest` structs exist in some older
-code (e.g. `FolderAddEditRequest`) but should not be used for new code.
+`*CreateRequest` and `*EditRequest` structs.
 
 ## Development Workflow
 
