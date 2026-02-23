@@ -1,5 +1,6 @@
 //! Manages repository migrations for the Bitwarden SDK.
 
+use bitwarden_core::key_management::UserKeyState;
 use bitwarden_state::{
     SettingItem,
     repository::{RepositoryItem, RepositoryMigrationStep, RepositoryMigrations},
@@ -14,6 +15,7 @@ pub fn get_sdk_managed_migrations() -> RepositoryMigrations {
         // requires a separate migration step using `Remove(...)`.
         Add(Cipher::data()),
         Add(Folder::data()),
+        Add(UserKeyState::data()),
         Add(SettingItem::data()),
     ])
 }
@@ -31,6 +33,7 @@ macro_rules! create_client_managed_repositories {
             // <fully qualified path to the item>, <item type idenfier>, <field name>, <name of the repository implementation>
             ::bitwarden_vault::Cipher, Cipher, cipher, CipherRepository;
             ::bitwarden_vault::Folder, Folder, folder, FolderRepository;
+            ::bitwarden_core::key_management::UserKeyState, UserKeyState, user_key_state, UserKeyStateRepository;
         }
     };
 }
