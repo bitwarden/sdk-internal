@@ -10,7 +10,6 @@ use tracing::debug;
 /// Rotates an account cryptographic state and upgrades it to V2 if necessary.
 /// This function fails and logs an error via tracing if the passed keys are invalid, or if the
 /// account cryptographic state is malformed.
-#[allow(unused)]
 pub(super) fn rotate_account_cryptographic_state(
     wrapped_account_cryptographic_state: &WrappedAccountCryptographicState,
     current_user_key_id: &SymmetricKeyId,
