@@ -33,6 +33,10 @@ pub enum EncryptionSettingsError {
 
     #[error("Wrong Pin")]
     WrongPin,
+
+    /// The user-key could not be set to the state, and the sdk will remain locked
+    #[error("Unable to set user-key to state")]
+    UserKeyStateUpdateFailed,
 }
 
 #[allow(missing_docs)]
