@@ -249,11 +249,10 @@ impl CryptoClient {
     /// security state) wrapped with a new user key.
     pub fn make_user_password_registration(
         &self,
-        user_id: UserId,
         master_password: String,
         salt: String,
     ) -> Result<MakeUserMasterPasswordRegistrationResponse, MakeKeysError> {
-        make_user_password_registration(&self.client, user_id, master_password, salt)
+        make_user_password_registration(&self.client, master_password, salt)
     }
 }
 

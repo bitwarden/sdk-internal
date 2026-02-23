@@ -84,8 +84,6 @@ pub struct JitMasterPasswordRegistrationRequest {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct UserMasterPasswordRegistrationRequest {
-    /// User ID for the account being initialized
-    pub user_id: UserId,
     /// Email for the account being initialized
     pub email: String,
     /// Salt for master password hashing
@@ -530,7 +528,7 @@ async fn internal_post_user_password_registration(
     let make_crypto_response = registration_client
         .client
         .crypto()
-        .make_user_password_registration(request.user_id, request.master_password, request.salt)
+        .make_user_password_registration(request.master_password, request.salt)
         .map_err(|_| RegistrationError::Crypto)?;
     let account_keys_data: AccountKeysData = (&make_crypto_response.account_keys_request)
         .try_into()
@@ -1465,7 +1463,6 @@ mod tests {
         });
 
         let request = UserMasterPasswordRegistrationRequest {
-            user_id: TEST_USER_ID.parse().unwrap(),
             email: test_email.to_string(),
             salt: test_email.to_string(),
             master_password: test_password.to_string(),
@@ -1516,7 +1513,6 @@ mod tests {
         });
 
         let request = UserMasterPasswordRegistrationRequest {
-            user_id: TEST_USER_ID.parse().unwrap(),
             email: test_email.to_string(),
             salt: test_email.to_string(),
             master_password: test_password.to_string(),

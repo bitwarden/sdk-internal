@@ -1071,15 +1071,15 @@ pub struct MakeUserMasterPasswordRegistrationResponse {
 /// Creates cryptographic data needed for user master password registration
 pub(crate) fn make_user_password_registration(
     client: &Client,
-    user_id: UserId,
     master_password: String,
     salt: String,
 ) -> Result<MakeUserMasterPasswordRegistrationResponse, MakeKeysError> {
     // make_user_v2_crypto_state() - Creates user key (xchacha20-poly1305), RSA keypair, ed25519
     // signature keypair, and signed security state
     let mut ctx = client.internal.get_key_store().context_mut();
-    let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx, user_id)
-        .map_err(MakeKeysError::AccountCryptographyInitialization)?;
+    let (user_key_id, wrapped_state) =
+        WrappedAccountCryptographicState::make(&mut ctx, UserId::default())
+            .map_err(MakeKeysError::AccountCryptographyInitialization)?;
 
     let kdf = Kdf::default_argon2();
 
@@ -2069,7 +2069,6 @@ mod tests {
         let make_keys_response = registration_client
             .crypto()
             .make_user_password_registration(
-                user_id,
                 TEST_USER_PASSWORD.to_string(),
                 TEST_USER_EMAIL.to_string(),
             )
