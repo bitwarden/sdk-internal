@@ -1,5 +1,7 @@
 //! Integration tests for the registration process
 
+use bitwarden_test::MemoryRepository;
+
 /// Integration test for registering a new user and unlocking the vault
 #[cfg(feature = "internal")]
 #[tokio::test]
@@ -9,7 +11,7 @@ async fn test_register_initialize_crypto() {
     use bitwarden_core::{
         Client, UserId,
         key_management::{
-            MasterPasswordUnlockData,
+            MasterPasswordUnlockData, UserKeyState,
             account_cryptographic_state::WrappedAccountCryptographicState,
             crypto::{InitUserCryptoMethod, InitUserCryptoRequest},
         },
@@ -17,6 +19,12 @@ async fn test_register_initialize_crypto() {
     use bitwarden_crypto::Kdf;
 
     let client = Client::new(None);
+
+    let repository = MemoryRepository::<UserKeyState>::default();
+    client
+        .platform()
+        .state()
+        .register_client_managed(std::sync::Arc::new(repository));
 
     let email = "test@bitwarden.com";
     let password = "test123";

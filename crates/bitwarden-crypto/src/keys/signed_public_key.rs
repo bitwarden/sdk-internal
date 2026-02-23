@@ -74,7 +74,7 @@ impl SignedPublicKeyMessage {
 /// [`SignedPublicKey`] is a public encryption key, signed by the owner of the encryption
 /// keypair. This wrapping ensures that the consumer of the public key MUST verify the identity of
 /// the Signer before they can use the public key for encryption.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SignedPublicKey(pub(crate) SignedObject);
 
 impl From<SignedPublicKey> for CoseSign1Bytes {

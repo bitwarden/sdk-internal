@@ -71,7 +71,7 @@ async fn request_api_identity_tokens(
 ) -> Result<IdentityTokenResponse, LoginError> {
     let config = client.internal.get_api_configurations().await;
     ApiTokenRequest::new(&input.client_id, &input.client_secret)
-        .send(&config)
+        .send(&config.identity_config)
         .await
 }
 
