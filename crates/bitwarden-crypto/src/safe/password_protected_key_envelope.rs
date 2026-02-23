@@ -195,7 +195,7 @@ impl PasswordProtectedKeyEnvelope {
         // The first use-case - Pin-protected-key-envelopes - did not require the object
         // namespace to be present. Therefore, without migration of persistent pin
         // unlocks, this cannot yet be strongly enforced.
-        if let Ok(namespace) = extract_safe_object_namespace(&recipient.protected.header)
+        if let Ok(namespace) = extract_safe_object_namespace(&self.cose_encrypt.protected.header)
             && namespace != SafeObjectNamespace::PasswordProtectedKeyEnvelope
         {
             return Err(PasswordProtectedKeyEnvelopeError::InvalidNamespace);
@@ -203,7 +203,7 @@ impl PasswordProtectedKeyEnvelope {
 
         // Validate the content namespace, if present
         if let Ok(namespace) = extract_safe_content_namespace::<PasswordProtectedKeyEnvelopeNamespace>(
-            &recipient.protected.header,
+            &self.cose_encrypt.protected.header,
         ) && namespace != content_namespace
         {
             return Err(PasswordProtectedKeyEnvelopeError::InvalidNamespace);
