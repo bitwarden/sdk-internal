@@ -434,14 +434,14 @@ impl WrappedAccountCryptographicState {
                     let verifying_key = ctx.get_verifying_key(SigningKeyId::UserSigningKey).ok();
                     let public_key = ctx.get_public_key(PrivateKeyId::UserPrivateKey).ok();
                     info!(
-                        "V2 account cryptographic state set to context. UserKey: {:?}, PrivateKey: {:?}, SigningKey: {:?}, VerifyingKey: {:?}, PublicKey: {:?}, SignedPublicKey: {:?}, SecurityState: {:?}",
-                        user_key,
-                        private_key,
-                        signing_key,
-                        verifying_key,
-                        public_key,
-                        signed_public_key,
-                        security_state
+                        ?user_key,
+                        ?private_key,
+                        ?signing_key,
+                        ?verifying_key,
+                        ?public_key,
+                        ?signed_public_key,
+                        ?security_state,
+                        "V2 account cryptographic state set to context."
                     );
                 }
 

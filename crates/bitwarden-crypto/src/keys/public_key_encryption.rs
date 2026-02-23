@@ -243,6 +243,7 @@ impl std::fmt::Debug for PrivateKey {
             RawPrivateKey::RsaOaepSha1(_) => "RsaOaepSha1",
         };
         let mut debug_struct = f.debug_struct(format!("PrivateKey::{}", key_suffix).as_str());
+        #[cfg(feature = "dangerous-crypto-debug")]
         match &self.inner {
             RawPrivateKey::RsaOaepSha1(_) => {
                 if let Ok(der) = self.to_der() {
