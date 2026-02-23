@@ -104,6 +104,24 @@ Monorepo crates organized in **four architectural layers**:
 - TypeScript compilation tested against `clients` repo on PR
 - Document migration path for clients
 
+### Data Model Conventions
+
+The SDK uses distinct model layers; use the correct type for the context. See the
+[data models docs](https://contributing.bitwarden.com/architecture/sdk/data-models) for the full
+picture.
+
+| Suffix     | Role                                                    | Example                  |
+| ---------- | ------------------------------------------------------- | ------------------------ |
+| _(none)_   | Encrypted domain model — internal, not exposed publicly | `Cipher`, `Send`         |
+| `View`     | Decrypted DTO returned to clients                       | `CipherView`, `SendView` |
+| `Request`  | Public input DTO from client into SDK                   | `CipherCreateRequest`    |
+| `Response` | Public output DTO from SDK to client                    | `LoginResponse`          |
+
+**Create vs. Edit requests**: When the fields for creating and editing an item differ (e.g. edit
+requires an `id`, `revision_date`, or fields that are immutable after creation), use **separate**
+`*CreateRequest` and `*EditRequest` structs. Combined `*AddEditRequest` structs exist in some older
+code (e.g. `FolderAddEditRequest`) but should not be used for new code.
+
 ## Development Workflow
 
 **Build & Test:**
