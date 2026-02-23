@@ -117,8 +117,9 @@ picture.
 | `Request`  | Public input DTO from client into SDK                   | `CipherCreateRequest`    |
 | `Response` | Public output DTO from SDK to client                    | `LoginResponse`          |
 
-**Create vs. Edit requests**: When a resource supports both create and edit operations, define
-**separate** `*CreateRequest` and `*EditRequest` structs rather than a single combined struct.
+**Create vs. Edit requests**: When the fields for creating and editing an item differ (e.g. edit
+requires an `id`, `revision_date`, or fields that are immutable after creation), use **separate**
+`*CreateRequest` and `*EditRequest` structs.
 
 **Variant data**: When a model has a type discriminant with per-variant associated data (e.g. a send
 is either a file or text, never both), use an enum with associated data rather than a bare
