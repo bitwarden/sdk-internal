@@ -197,13 +197,13 @@ mod tests {
     use bitwarden_core::{
         ClientSettings, DeviceType,
         key_management::{
-            MasterPasswordUnlockData, SymmetricKeyId,
+            MasterPasswordUnlockData, SymmetricKeyId, UserKeyState,
             account_cryptographic_state::WrappedAccountCryptographicState,
             crypto::{InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest},
         },
     };
     use bitwarden_crypto::{EncString, Kdf, UnsignedSharedKey};
-    use bitwarden_test::start_api_mock;
+    use bitwarden_test::{MemoryRepository, start_api_mock};
     use wiremock::{Mock, MockServer, Request, ResponseTemplate, matchers};
 
     use super::*;
@@ -260,6 +260,12 @@ mod tests {
             bitwarden_client_version: None,
             bitwarden_package_type: None,
         }));
+
+        let repository = MemoryRepository::<UserKeyState>::default();
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
 
         client
             .crypto()

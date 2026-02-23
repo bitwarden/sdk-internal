@@ -10,7 +10,9 @@
 
 use std::sync::RwLock;
 
-use bitwarden_api_api::models::{AccountKeysRequestModel, SecurityStateModel};
+use bitwarden_api_api::models::{
+    AccountKeysRequestModel, PrivateKeysResponseModel, SecurityStateModel,
+};
 use bitwarden_crypto::{
     CoseSerializable, CryptoError, EncString, KeyStore, KeyStoreContext,
     PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKey, SymmetricKeyAlgorithm,
@@ -24,10 +26,11 @@ use tracing::{info, instrument};
 use tsify::Tsify;
 
 use crate::{
-    UserId,
+    MissingFieldError, UserId,
     key_management::{
         KeyIds, PrivateKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
     },
+    require,
 };
 
 /// Errors that can occur during initialization of the account cryptographic state.
@@ -75,9 +78,24 @@ pub enum RotateCryptographyStateError {
     InvalidData,
 }
 
+/// Errors that can occur when parsing a `PrivateKeysResponseModel` into a
+/// `WrappedAccountCryptographicState`.
+#[derive(Debug, Error)]
+pub enum AccountKeysResponseParseError {
+    /// A required field was missing from the API response.
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError),
+    /// A field value could not be parsed into the expected type.
+    #[error("Malformed field value in API response")]
+    MalformedField,
+    /// The encryption type of the private key does not match the presence/absence of V2 fields.
+    #[error("Inconsistent account cryptographic state in API response")]
+    InconsistentState,
+}
+
 /// Any keys / cryptographic protection "downstream" from the account symmetric key (user key).
 /// Private keys are protected by the user key.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[allow(clippy::large_enum_variant)]
@@ -115,6 +133,60 @@ impl std::fmt::Debug for WrappedAccountCryptographicState {
                 .debug_struct("WrappedAccountCryptographicState::V2")
                 .field("security_state", security_state)
                 .finish(),
+        }
+    }
+}
+
+impl TryFrom<&PrivateKeysResponseModel> for WrappedAccountCryptographicState {
+    type Error = AccountKeysResponseParseError;
+
+    fn try_from(response: &PrivateKeysResponseModel) -> Result<Self, Self::Error> {
+        let private_key: EncString =
+            require!(&response.public_key_encryption_key_pair.wrapped_private_key)
+                .parse()
+                .map_err(|_| AccountKeysResponseParseError::MalformedField)?;
+
+        let is_v2_encryption = matches!(private_key, EncString::Cose_Encrypt0_B64 { .. });
+
+        if is_v2_encryption {
+            let signature_key_pair = response
+                .signature_key_pair
+                .as_ref()
+                .ok_or(AccountKeysResponseParseError::InconsistentState)?;
+
+            let signing_key: EncString = require!(&signature_key_pair.wrapped_signing_key)
+                .parse()
+                .map_err(|_| AccountKeysResponseParseError::MalformedField)?;
+
+            let signed_public_key: Option<SignedPublicKey> = response
+                .public_key_encryption_key_pair
+                .signed_public_key
+                .as_ref()
+                .map(|spk| spk.parse())
+                .transpose()
+                .map_err(|_| AccountKeysResponseParseError::MalformedField)?;
+
+            let security_state_model = response
+                .security_state
+                .as_ref()
+                .ok_or(AccountKeysResponseParseError::InconsistentState)?;
+            let security_state: SignedSecurityState =
+                require!(&security_state_model.security_state)
+                    .parse()
+                    .map_err(|_| AccountKeysResponseParseError::MalformedField)?;
+
+            Ok(WrappedAccountCryptographicState::V2 {
+                private_key,
+                signed_public_key,
+                signing_key,
+                security_state,
+            })
+        } else {
+            if response.signature_key_pair.is_some() || response.security_state.is_some() {
+                return Err(AccountKeysResponseParseError::InconsistentState);
+            }
+
+            Ok(WrappedAccountCryptographicState::V1 { private_key })
         }
     }
 }
@@ -708,6 +780,203 @@ mod tests {
         assert!(ctx.has_symmetric_key(SymmetricKeyId::User));
         // But the private key should NOT be set (due to corruption)
         assert!(!ctx.has_private_key(PrivateKeyId::UserPrivateKey));
+    }
+
+    #[test]
+    fn test_try_from_response_v2_roundtrip() {
+        use bitwarden_api_api::models::{
+            PublicKeyEncryptionKeyPairResponseModel, SecurityStateModel,
+            SignatureKeyPairResponseModel,
+        };
+
+        let temp_store: KeyStore<KeyIds> = KeyStore::default();
+        let mut temp_ctx = temp_store.context_mut();
+        let user_id = UserId::new_v4();
+        let (user_key, wrapped_state) =
+            WrappedAccountCryptographicState::make(&mut temp_ctx, user_id).unwrap();
+
+        wrapped_state
+            .set_to_context(&RwLock::new(None), user_key, &temp_store, temp_ctx)
+            .unwrap();
+
+        let mut ctx = temp_store.context_mut();
+        let request_model = wrapped_state
+            .to_request_model(&SymmetricKeyId::User, &mut ctx)
+            .unwrap();
+        drop(ctx);
+
+        let pk_pair = request_model.public_key_encryption_key_pair.unwrap();
+        let sig_pair = request_model.signature_key_pair.unwrap();
+        let sec_state = request_model.security_state.unwrap();
+
+        let response = PrivateKeysResponseModel {
+            object: None,
+            public_key_encryption_key_pair: Box::new(PublicKeyEncryptionKeyPairResponseModel {
+                object: None,
+                wrapped_private_key: pk_pair.wrapped_private_key,
+                public_key: pk_pair.public_key,
+                signed_public_key: pk_pair.signed_public_key,
+            }),
+            signature_key_pair: Some(Box::new(SignatureKeyPairResponseModel {
+                object: None,
+                wrapped_signing_key: sig_pair.wrapped_signing_key,
+                verifying_key: sig_pair.verifying_key,
+            })),
+            security_state: Some(Box::new(SecurityStateModel {
+                security_state: sec_state.security_state,
+                security_version: sec_state.security_version,
+            })),
+        };
+
+        let parsed = WrappedAccountCryptographicState::try_from(&response)
+            .expect("V2 response should parse successfully");
+
+        assert_eq!(parsed, wrapped_state);
+    }
+
+    #[test]
+    fn test_try_from_response_v1() {
+        use bitwarden_api_api::models::PublicKeyEncryptionKeyPairResponseModel;
+
+        let temp_store: KeyStore<KeyIds> = KeyStore::default();
+        let mut temp_ctx = temp_store.context_mut();
+        let (_user_key, wrapped_state) =
+            WrappedAccountCryptographicState::make_v1(&mut temp_ctx).unwrap();
+
+        let wrapped_private_key = match &wrapped_state {
+            WrappedAccountCryptographicState::V1 { private_key } => private_key.to_string(),
+            _ => panic!("Expected V1"),
+        };
+        drop(temp_ctx);
+
+        let response = PrivateKeysResponseModel {
+            object: None,
+            public_key_encryption_key_pair: Box::new(PublicKeyEncryptionKeyPairResponseModel {
+                object: None,
+                wrapped_private_key: Some(wrapped_private_key),
+                public_key: None,
+                signed_public_key: None,
+            }),
+            signature_key_pair: None,
+            security_state: None,
+        };
+
+        let parsed = WrappedAccountCryptographicState::try_from(&response)
+            .expect("V1 response should parse successfully");
+
+        assert_eq!(parsed, wrapped_state);
+    }
+
+    #[test]
+    fn test_try_from_response_missing_private_key() {
+        use bitwarden_api_api::models::PublicKeyEncryptionKeyPairResponseModel;
+
+        let response = PrivateKeysResponseModel {
+            object: None,
+            public_key_encryption_key_pair: Box::new(PublicKeyEncryptionKeyPairResponseModel {
+                object: None,
+                wrapped_private_key: None,
+                public_key: None,
+                signed_public_key: None,
+            }),
+            signature_key_pair: None,
+            security_state: None,
+        };
+
+        let result = WrappedAccountCryptographicState::try_from(&response);
+        assert!(result.is_err());
+        assert!(
+            matches!(
+                result.unwrap_err(),
+                AccountKeysResponseParseError::MissingField(_)
+            ),
+            "Should return MissingField error"
+        );
+    }
+
+    #[test]
+    fn test_try_from_response_v2_encryption_missing_signature_key_pair() {
+        use bitwarden_api_api::models::PublicKeyEncryptionKeyPairResponseModel;
+
+        // Create a V2 state to get a COSE-encrypted private key
+        let temp_store: KeyStore<KeyIds> = KeyStore::default();
+        let mut temp_ctx = temp_store.context_mut();
+        let user_id = UserId::new_v4();
+        let (user_key, wrapped_state) =
+            WrappedAccountCryptographicState::make(&mut temp_ctx, user_id).unwrap();
+
+        wrapped_state
+            .set_to_context(&RwLock::new(None), user_key, &temp_store, temp_ctx)
+            .unwrap();
+
+        let mut ctx = temp_store.context_mut();
+        let request_model = wrapped_state
+            .to_request_model(&SymmetricKeyId::User, &mut ctx)
+            .unwrap();
+        drop(ctx);
+
+        let pk_pair = request_model.public_key_encryption_key_pair.unwrap();
+
+        // V2-encrypted private key but no signature_key_pair or security_state
+        let response = PrivateKeysResponseModel {
+            object: None,
+            public_key_encryption_key_pair: Box::new(PublicKeyEncryptionKeyPairResponseModel {
+                object: None,
+                wrapped_private_key: pk_pair.wrapped_private_key,
+                public_key: pk_pair.public_key,
+                signed_public_key: None,
+            }),
+            signature_key_pair: None,
+            security_state: None,
+        };
+
+        let result = WrappedAccountCryptographicState::try_from(&response);
+        assert!(matches!(
+            result.unwrap_err(),
+            AccountKeysResponseParseError::InconsistentState
+        ));
+    }
+
+    #[test]
+    fn test_try_from_response_v1_encryption_with_unexpected_v2_fields() {
+        use bitwarden_api_api::models::{
+            PublicKeyEncryptionKeyPairResponseModel, SignatureKeyPairResponseModel,
+        };
+
+        // Create a V1 state to get an AES-encrypted private key
+        let temp_store: KeyStore<KeyIds> = KeyStore::default();
+        let mut temp_ctx = temp_store.context_mut();
+        let (_user_key, wrapped_state) =
+            WrappedAccountCryptographicState::make_v1(&mut temp_ctx).unwrap();
+
+        let wrapped_private_key = match &wrapped_state {
+            WrappedAccountCryptographicState::V1 { private_key } => private_key.to_string(),
+            _ => panic!("Expected V1"),
+        };
+        drop(temp_ctx);
+
+        // V1-encrypted private key but with a signature_key_pair present
+        let response = PrivateKeysResponseModel {
+            object: None,
+            public_key_encryption_key_pair: Box::new(PublicKeyEncryptionKeyPairResponseModel {
+                object: None,
+                wrapped_private_key: Some(wrapped_private_key),
+                public_key: None,
+                signed_public_key: None,
+            }),
+            signature_key_pair: Some(Box::new(SignatureKeyPairResponseModel {
+                object: None,
+                wrapped_signing_key: Some("bogus".to_string()),
+                verifying_key: None,
+            })),
+            security_state: None,
+        };
+
+        let result = WrappedAccountCryptographicState::try_from(&response);
+        assert!(matches!(
+            result.unwrap_err(),
+            AccountKeysResponseParseError::InconsistentState
+        ));
     }
 
     #[test]

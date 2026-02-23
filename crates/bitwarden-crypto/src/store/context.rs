@@ -242,7 +242,11 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 }
             }
             _ => {
-                tracing::warn!("Unsupported unwrap operation for the given key and data");
+                tracing::warn!(
+                    "Unsupported unwrap operation for the given key and data {:?}, {:?}",
+                    wrapping_key,
+                    wrapped_key
+                );
                 return Err(CryptoError::InvalidKey);
             }
         };
