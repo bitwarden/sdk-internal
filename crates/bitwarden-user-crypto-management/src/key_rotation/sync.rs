@@ -2,18 +2,14 @@
 use std::str::FromStr;
 
 use bitwarden_api_api::apis::ApiClient;
-use bitwarden_core::key_management::{
-    SignedSecurityState, account_cryptographic_state::WrappedAccountCryptographicState,
-};
-use bitwarden_crypto::{
-    EncString, Kdf, PublicKey, SignedPublicKey, SpkiPublicKeyBytes, UnsignedSharedKey,
-};
+use bitwarden_core::key_management::account_cryptographic_state::WrappedAccountCryptographicState;
+use bitwarden_crypto::{EncString, Kdf, PublicKey, SpkiPublicKeyBytes, UnsignedSharedKey};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use bitwarden_vault::{Cipher, Folder};
 use thiserror::Error;
 use tokio::try_join;
-use tracing::{debug, debug_span, info, instrument};
+use tracing::{debug, debug_span, info};
 use uuid::Uuid;
 
 use crate::key_rotation::{
@@ -298,79 +294,6 @@ fn from_kdf(
     })
 }
 
-#[derive(Debug, Error)]
-#[bitwarden_error(flat)]
-enum PrivateKeysParsingError {
-    #[error("Missing required field: {0}")]
-    MissingField(String),
-    #[error("Invalid format in private keys response")]
-    InvalidFormat,
-}
-
-#[instrument(skip(private_keys_response), err)]
-fn from_private_keys_response(
-    private_keys_response: &bitwarden_api_api::models::PrivateKeysResponseModel,
-) -> Result<WrappedAccountCryptographicState, PrivateKeysParsingError> {
-    let is_v2 = private_keys_response.signature_key_pair.is_some();
-    if is_v2 {
-        debug!("Parsing V2 account cryptographic state from sync response");
-        let private_key = private_keys_response
-            .public_key_encryption_key_pair
-            .wrapped_private_key
-            .as_ref()
-            .map(|pk| EncString::from_str(pk).debug_map_err(PrivateKeysParsingError::InvalidFormat))
-            .ok_or(PrivateKeysParsingError::MissingField(
-                "private_key".to_string(),
-            ))??;
-        let signing_key = private_keys_response
-            .signature_key_pair
-            .as_ref()
-            .and_then(|skp| skp.wrapped_signing_key.as_ref())
-            .map(|s| EncString::from_str(s).debug_map_err(PrivateKeysParsingError::InvalidFormat))
-            .ok_or(PrivateKeysParsingError::MissingField(
-                "signing_key".to_string(),
-            ))??;
-        let signed_public_key = private_keys_response
-            .public_key_encryption_key_pair
-            .signed_public_key
-            .as_ref()
-            .map(|spk| {
-                SignedPublicKey::from_str(spk).debug_map_err(PrivateKeysParsingError::InvalidFormat)
-            })
-            .ok_or(PrivateKeysParsingError::MissingField(
-                "signed_public_key".to_string(),
-            ))??;
-        let security_state = private_keys_response
-            .security_state
-            .as_ref()
-            .map(|ss| {
-                SignedSecurityState::from_str(&ss.security_state.clone().unwrap_or_default())
-                    .debug_map_err(PrivateKeysParsingError::InvalidFormat)
-            })
-            .ok_or(PrivateKeysParsingError::MissingField(
-                "security_state".to_string(),
-            ))??;
-        Ok(WrappedAccountCryptographicState::V2 {
-            private_key,
-            signed_public_key: Some(signed_public_key),
-            signing_key,
-            security_state,
-        })
-    } else {
-        debug!("Parsing V1 account cryptographic state from sync response");
-        // V1: Private key, security state
-        let private_key = private_keys_response
-            .public_key_encryption_key_pair
-            .wrapped_private_key
-            .as_ref()
-            .map(|pk| EncString::from_str(pk).debug_map_err(PrivateKeysParsingError::InvalidFormat))
-            .ok_or(PrivateKeysParsingError::MissingField(
-                "private_key".to_string(),
-            ))??;
-        Ok(WrappedAccountCryptographicState::V1 { private_key })
-    }
-}
-
 /// Parses the user's KDF and salt from the sync response. If the user is not a master-password
 /// user, returns Ok(None)
 fn parse_kdf_and_salt(
@@ -415,7 +338,7 @@ pub(super) async fn sync_current_account_data(
     let folders = parse_folders(sync.folders)?;
     let sends = parse_sends(sync.sends)?;
     let wrapped_account_cryptographic_state =
-        from_private_keys_response(&account_cryptographic_state)
+        WrappedAccountCryptographicState::try_from(account_cryptographic_state.as_ref())
             .debug_map_err(SyncError::DataError)?;
     let user_id = sync
         .profile

@@ -26,6 +26,12 @@ impl From<CoseSign1> for SignedObject {
     }
 }
 
+impl PartialEq for SignedObject {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_cose() == other.to_cose()
+    }
+}
+
 impl SignedObject {
     /// Parses the signature headers and returns the content type of the signed data. The content
     /// type indicates how the serialized message that was signed was encoded.
