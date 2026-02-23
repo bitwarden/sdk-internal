@@ -93,7 +93,7 @@ pub enum InitUserCryptoMethod {
         master_password_unlock: MasterPasswordUnlockData,
     },
     /// Read the user-key directly from client-managed state
-    /// Note: In contrast to [`DecryptedKey`], this does not update the state after initalizing
+    /// Note: In contrast to [`InitUserCryptoMethod::DecryptedKey`], this does not update the state after initalizing
     #[cfg(feature = "wasm")]
     ClientManagedState {},
     /// Never lock and/or biometric unlock
