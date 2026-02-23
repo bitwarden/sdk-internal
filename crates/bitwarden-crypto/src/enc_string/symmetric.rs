@@ -702,6 +702,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "dangerous-crypto-debug"))]
     fn test_debug_format() {
         let enc_str = "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=";
         let enc_string: EncString = enc_str.parse().unwrap();

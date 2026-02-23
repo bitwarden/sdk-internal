@@ -433,7 +433,6 @@ impl WrappedAccountCryptographicState {
                 #[cfg(feature = "dangerous-crypto-debug")]
                 #[allow(deprecated)]
                 {
-                    let ctx = store.context();
                     let user_key = ctx
                         .dangerous_get_symmetric_key(SymmetricKeyId::User)
                         .expect("User key should be set");
@@ -493,7 +492,6 @@ impl WrappedAccountCryptographicState {
                 #[cfg(feature = "dangerous-crypto-debug")]
                 #[allow(deprecated)]
                 {
-                    let ctx = store.context();
                     let user_key = ctx
                         .dangerous_get_symmetric_key(SymmetricKeyId::User)
                         .expect("User key should be set");
