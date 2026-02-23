@@ -121,6 +121,11 @@ picture.
 requires an `id`, `revision_date`, or fields that are immutable after creation), use **separate**
 `*CreateRequest` and `*EditRequest` structs.
 
+**Variant data**: When a model has a type discriminant with per-variant associated data (e.g. a send
+is either a file or text, never both), use an enum with associated data rather than a bare
+discriminant field alongside multiple `Option` fields. The mapping from server wire format (numeric
+discriminant + optional fields) belongs at the API→domain boundary.
+
 ## Development Workflow
 
 **Build & Test:**
