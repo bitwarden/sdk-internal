@@ -106,7 +106,7 @@ impl TryFrom<CollectionDetailsResponseModel> for Collection {
             read_only: collection.read_only.unwrap_or(false),
             manage: collection.manage.unwrap_or(false),
             default_user_collection_email: collection.default_user_collection_email,
-            r#type: require!(collection.r#type).into(),
+            r#type: require!(collection.r#type).try_into()?,
         })
     }
 }
@@ -138,14 +138,21 @@ impl TreeItem for CollectionView {
     const DELIMITER: char = '/';
 }
 
-impl From<bitwarden_api_api::models::CollectionType> for CollectionType {
-    fn from(collection_type: bitwarden_api_api::models::CollectionType) -> Self {
-        match collection_type {
+impl TryFrom<bitwarden_api_api::models::CollectionType> for CollectionType {
+    type Error = bitwarden_core::MissingFieldError;
+
+    fn try_from(
+        collection_type: bitwarden_api_api::models::CollectionType,
+    ) -> Result<Self, Self::Error> {
+        Ok(match collection_type {
             bitwarden_api_api::models::CollectionType::SharedCollection => Self::SharedCollection,
             bitwarden_api_api::models::CollectionType::DefaultUserCollection => {
                 Self::DefaultUserCollection
             }
-        }
+            bitwarden_api_api::models::CollectionType::__Unknown(_) => {
+                return Err(bitwarden_core::MissingFieldError("type"));
+            }
+        })
     }
 }
 

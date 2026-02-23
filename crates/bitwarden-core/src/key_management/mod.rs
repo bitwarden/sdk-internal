@@ -25,9 +25,9 @@ pub use crypto_client::CryptoClient;
 #[cfg(feature = "internal")]
 mod master_password;
 #[cfg(feature = "internal")]
-pub use master_password::MasterPasswordError;
-#[cfg(feature = "internal")]
-pub use master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData};
+pub use master_password::{
+    MasterPasswordAuthenticationData, MasterPasswordError, MasterPasswordUnlockData,
+};
 #[cfg(feature = "internal")]
 mod security_state;
 #[cfg(feature = "internal")]
@@ -57,7 +57,7 @@ pub struct UserKeyState {
     decrypted_user_key: B64,
 }
 
-bitwarden_state::register_repository_item!(UserKeyState, "UserKey");
+bitwarden_state::register_repository_item!(String => UserKeyState, "UserKey");
 
 key_ids! {
     #[symmetric]

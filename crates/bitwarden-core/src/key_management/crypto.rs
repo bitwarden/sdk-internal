@@ -214,6 +214,12 @@ pub(super) async fn initialize_user_crypto(
             client
                 .internal
                 .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
+
+            drop(_span_guard);
+            #[cfg(feature = "wasm")]
+            copy_user_key_to_client_managed_state(client)
+                .await
+                .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
         }
         InitUserCryptoMethod::Pin {
             pin,
@@ -1730,6 +1736,12 @@ mod tests {
     #[tokio::test]
     async fn test_make_v2_keys_for_v1_user_with_v2_user_fails() {
         let client = Client::new(None);
+        let repository = MemoryRepository::<UserKeyState>::default();
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
+
         initialize_user_crypto(
             &client,
             InitUserCryptoRequest {
@@ -1786,6 +1798,12 @@ mod tests {
     #[tokio::test]
     async fn test_get_v2_rotated_account_keys() {
         let client = Client::new(None);
+        let repository = MemoryRepository::<UserKeyState>::default();
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
+
         initialize_user_crypto(
             &client,
             InitUserCryptoRequest {

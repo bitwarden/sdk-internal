@@ -36,6 +36,32 @@ pub(crate) async fn copy_user_key_to_client_managed_state(
             .clone()
     };
 
+    // Get the current key
+    let existing_key = client
+        .platform()
+        .state()
+        .get::<key_management::UserKeyState>()
+        .map_err(|_| UnableToSetError)?
+        .get(USER_KEY_REPOSITORY_KEY.to_string())
+        .await
+        .map_err(|_| UnableToSetError)?;
+
+    // We do not want to set the user-key if it is already set as that may trigger an observable
+    // loop in the client side which subscribes to the state
+    if let Some(existing_key) = existing_key {
+        if SymmetricCryptoKey::try_from(existing_key.decrypted_user_key)
+            .map_err(|_| UnableToSetError)?
+            == user_key
+        {
+            info!("User-key in client managed state is already up to date, skipping set");
+            return Ok(());
+        } else {
+            info!("User-key in client managed state is outdated, updating it");
+        }
+    } else {
+        info!("No user-key in client managed state, setting it");
+    }
+
     info!("Setting the user-key to client managed-state from SDK");
     // Set the user-key into the state repository.
     client

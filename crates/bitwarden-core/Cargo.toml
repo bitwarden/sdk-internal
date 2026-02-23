@@ -58,6 +58,7 @@ bitwarden-uuid = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
 # We don't use this directly (it's used by rand), but we need it here to enable WASM support
 getrandom = { version = ">=0.2.9, <0.3", features = ["js"] }
+http = { workspace = true }
 rand = ">=0.8.5, <0.9"
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
@@ -87,6 +88,7 @@ rustls-platform-verifier = "0.6.0"
 [dev-dependencies]
 rand_chacha = "0.3.1"
 tokio = { workspace = true, features = ["rt"] }
+wiremock = { workspace = true }
 zeroize = { version = ">=1.7.0, <2.0", features = ["derive", "aarch64"] }
 
 [lints]

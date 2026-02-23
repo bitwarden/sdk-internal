@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::models;
 
+/// MasterPasswordUnlockDataRequestModel : Use this datatype when interfacing with requests to
+/// create a separation of concern. See Bit.Core.KeyManagement.Models.Data.MasterPasswordUnlockData
+/// to use for commands, queries, services.
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MasterPasswordUnlockDataRequestModel {
     #[serde(rename = "kdf", alias = "Kdf")]
@@ -23,6 +26,9 @@ pub struct MasterPasswordUnlockDataRequestModel {
 }
 
 impl MasterPasswordUnlockDataRequestModel {
+    /// Use this datatype when interfacing with requests to create a separation of concern. See
+    /// Bit.Core.KeyManagement.Models.Data.MasterPasswordUnlockData to use for commands, queries,
+    /// services.
     pub fn new(
         kdf: models::KdfRequestModel,
         master_key_wrapped_user_key: String,
