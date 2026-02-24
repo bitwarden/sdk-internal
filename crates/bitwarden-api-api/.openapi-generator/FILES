@@ -545,6 +545,8 @@ src/models/user_decryption_response_model.rs
 src/models/user_key_response_model.rs
 src/models/user_license.rs
 src/models/user_verification_requirement.rs
+src/models/v2_upgrade_token_request_model.rs
+src/models/v2_upgrade_token_response_model.rs
 src/models/verified_organization_domain_sso_detail_response_model.rs
 src/models/verified_organization_domain_sso_details_response_model.rs
 src/models/verify_delete_recover_request_model.rs
