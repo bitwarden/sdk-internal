@@ -5,6 +5,7 @@ use crate::cose::{
     extract_integer,
 };
 
+#[derive(Debug)]
 pub(super) enum ExtractionError {
     MissingNamespace,
     InvalidNamespace,
@@ -53,12 +54,12 @@ pub(super) fn set_safe_namespaces<T: ContentNamespace>(
     set_header_value(
         header,
         SAFE_OBJECT_NAMESPACE,
-        Value::from(object_namespace as i64),
+        Value::from(i128::from(object_namespace)),
     );
     set_header_value(
         header,
         SAFE_CONTENT_NAMESPACE,
-        Value::from(Into::<i128>::into(content_namespace) as i64),
+        Value::from(content_namespace.into()),
     );
 }
 
@@ -67,7 +68,9 @@ pub(super) fn validate_safe_namespaces<T: ContentNamespace>(
     expected_object_namespace: SafeObjectNamespace,
     expected_content_namespace: T,
 ) -> Result<(), ExtractionError> {
-    match extract_safe_object_namespace(header) {
+    let obj = extract_safe_object_namespace(header);
+    println!("Object namespace extraction result: {obj:?}");
+    match obj {
         Ok(ns) if ns == expected_object_namespace => (),
         // If the namespace is present but doesn't match, return an error immediately.
         Ok(_) => return Err(ExtractionError::InvalidNamespace),

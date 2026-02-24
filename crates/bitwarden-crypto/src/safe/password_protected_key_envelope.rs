@@ -189,7 +189,7 @@ impl PasswordProtectedKeyEnvelope {
         }
 
         validate_safe_namespaces(
-            &recipient.protected.header,
+            &self.cose_encrypt.protected.header,
             SafeObjectNamespace::PasswordProtectedKeyEnvelope,
             content_namespace,
         )
@@ -839,12 +839,15 @@ mod tests {
         let deserialized: PasswordProtectedKeyEnvelope =
             PasswordProtectedKeyEnvelope::try_from(&(&envelope).into())
                 .expect("Envelope should be valid");
+
+        let a = deserialized.unseal(
+            password,
+            PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            &mut ctx,
+        );
+        println!("Error: {a:?}");
         assert!(matches!(
-            deserialized.unseal(
-                password,
-                PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
-                &mut ctx
-            ),
+            a,
             Err(PasswordProtectedKeyEnvelopeError::InvalidNamespace)
         ));
     }

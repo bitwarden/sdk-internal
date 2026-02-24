@@ -80,6 +80,12 @@ impl TryFrom<i128> for SafeObjectNamespace {
     }
 }
 
+impl From<SafeObjectNamespace> for i128 {
+    fn from(namespace: SafeObjectNamespace) -> Self {
+        namespace as i128
+    }
+}
+
 pub(crate) trait ContentNamespace: TryFrom<i128> + Into<i128> + PartialEq {}
 
 /// Each type of object has it's own namespace for strong domain separation to eliminate
