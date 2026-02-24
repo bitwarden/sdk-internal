@@ -25,10 +25,10 @@ impl DataEnvelopeNamespace {
     }
 }
 
-impl TryFrom<i64> for DataEnvelopeNamespace {
+impl TryFrom<i128> for DataEnvelopeNamespace {
     type Error = DataEnvelopeError;
 
-    fn try_from(value: i64) -> Result<Self, Self::Error> {
+    fn try_from(value: i128) -> Result<Self, Self::Error> {
         match value {
             1 => Ok(DataEnvelopeNamespace::VaultItem),
             #[cfg(test)]
@@ -40,20 +40,17 @@ impl TryFrom<i64> for DataEnvelopeNamespace {
     }
 }
 
-impl TryFrom<i128> for DataEnvelopeNamespace {
+impl TryFrom<i64> for DataEnvelopeNamespace {
     type Error = DataEnvelopeError;
 
-    fn try_from(value: i128) -> Result<Self, Self::Error> {
-        let Ok(value) = i64::try_from(value) else {
-            return Err(DataEnvelopeError::InvalidNamespace);
-        };
-        Self::try_from(value)
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        Self::try_from(i128::from(value))
     }
 }
 
 impl From<DataEnvelopeNamespace> for i128 {
     fn from(val: DataEnvelopeNamespace) -> Self {
-        val.as_i64() as i128
+        val.as_i64().into()
     }
 }
 

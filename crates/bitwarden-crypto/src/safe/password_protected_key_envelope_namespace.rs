@@ -20,10 +20,10 @@ impl PasswordProtectedKeyEnvelopeNamespace {
     }
 }
 
-impl TryFrom<i64> for PasswordProtectedKeyEnvelopeNamespace {
+impl TryFrom<i128> for PasswordProtectedKeyEnvelopeNamespace {
     type Error = PasswordProtectedKeyEnvelopeError;
 
-    fn try_from(value: i64) -> Result<Self, Self::Error> {
+    fn try_from(value: i128) -> Result<Self, Self::Error> {
         match value {
             1 => Ok(PasswordProtectedKeyEnvelopeNamespace::PinUnlock),
             #[cfg(test)]
@@ -35,20 +35,17 @@ impl TryFrom<i64> for PasswordProtectedKeyEnvelopeNamespace {
     }
 }
 
-impl TryFrom<i128> for PasswordProtectedKeyEnvelopeNamespace {
+impl TryFrom<i64> for PasswordProtectedKeyEnvelopeNamespace {
     type Error = PasswordProtectedKeyEnvelopeError;
 
-    fn try_from(value: i128) -> Result<Self, Self::Error> {
-        let Ok(value) = i64::try_from(value) else {
-            return Err(PasswordProtectedKeyEnvelopeError::InvalidNamespace);
-        };
-        Self::try_from(value)
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        Self::try_from(i128::from(value))
     }
 }
 
 impl From<PasswordProtectedKeyEnvelopeNamespace> for i128 {
     fn from(val: PasswordProtectedKeyEnvelopeNamespace) -> Self {
-        val.as_i64() as i128
+        val.as_i64().into()
     }
 }
 
