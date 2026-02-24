@@ -80,6 +80,7 @@ impl TryFrom<i128> for SafeObjectNamespace {
         match value {
             1 => Ok(SafeObjectNamespace::PasswordProtectedKeyEnvelope),
             2 => Ok(SafeObjectNamespace::DataEnvelope),
+            3 => Ok(SafeObjectNamespace::SymmetricKeyEnvelope),
             _ => Err(()),
         }
     }
