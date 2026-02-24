@@ -577,6 +577,62 @@ mod tests {
     }
 
     #[test]
+    fn test_serde_round_trip() {
+        let key_store = KeyStore::<KeyIds>::default();
+        let mut ctx = key_store.context_mut();
+
+        let v1_key_id = ctx.generate_symmetric_key();
+        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let token = V2UpgradeToken::create(v1_key_id, v2_key_id, &ctx)
+            .expect("Token creation should succeed");
+
+        // Serialize via serde — must produce a JSON string (not an object)
+        let serialized = serde_json::to_string(&token).expect("Serialization should succeed");
+        let as_value: serde_json::Value =
+            serde_json::from_str(&serialized).expect("Should be valid JSON");
+        assert!(
+            as_value.is_string(),
+            "serde should serialize V2UpgradeToken as a JSON string, got: {as_value}"
+        );
+
+        // Deserialize back and verify the token is still functional
+        let deserialized: V2UpgradeToken =
+            serde_json::from_str(&serialized).expect("Deserialization should succeed");
+        let unwrapped_v2_id = deserialized
+            .unwrap_v2(v1_key_id, &mut ctx)
+            .expect("Unwrapping V2 from serde-deserialized token should succeed");
+
+        #[allow(deprecated)]
+        let original_v2 = ctx.dangerous_get_symmetric_key(v2_key_id).unwrap();
+        #[allow(deprecated)]
+        let unwrapped_v2 = ctx.dangerous_get_symmetric_key(unwrapped_v2_id).unwrap();
+        assert_eq!(original_v2, unwrapped_v2);
+    }
+
+    #[test]
+    fn test_from_str_invalid_json() {
+        let result = V2UpgradeToken::from_str("not valid json");
+        assert!(matches!(result, Err(V2UpgradeTokenError::Serialization)));
+    }
+
+    #[test]
+    fn test_from_str_missing_fields() {
+        // Empty object is missing both required fields
+        let result = V2UpgradeToken::from_str("{}");
+        assert!(matches!(result, Err(V2UpgradeTokenError::Serialization)));
+    }
+
+    #[test]
+    fn test_deserialize_non_string_fails() {
+        // Deserialize expects a JSON string, not an object
+        let result = serde_json::from_str::<V2UpgradeToken>(
+            r#"{"wrapped_uk_1":"2.abc","wrapped_uk_2":"2.abc"}"#,
+        );
+        assert!(result.is_err(), "Deserializing a JSON object should fail");
+    }
+
+    #[test]
     fn test_from_response_model_wrong_key_type() {
         let key_store = KeyStore::<KeyIds>::default();
         let mut ctx = key_store.context_mut();

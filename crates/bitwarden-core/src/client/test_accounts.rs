@@ -164,6 +164,40 @@ pub fn test_bitwarden_com_account() -> TestAccount {
     }
 }
 
+/// ### V2 `test@bitwarden.com`
+///
+/// A V2 upgrade of the `test@bitwarden.com` account above, using a XChaCha20Poly1305 user key
+/// provided directly via `DecryptedKey`.
+///
+/// - Email: `test@bitwarden.com`
+/// - KDF: Argon2id 6 iterations, 32MB memory, parallelism 4
+/// - User key: XChaCha20Poly1305 (DecryptedKey method)
+#[cfg(feature = "test-fixtures")]
+pub fn test_bitwarden_com_account_v2() -> TestAccount {
+    TestAccount {
+        user: InitUserCryptoRequest {
+            user_id: Some(UserId::new(uuid::uuid!("060000fb-0922-4dd3-b170-6e15cb5df8c8"))),
+            kdf_params: Kdf::Argon2id {
+                iterations: 6.try_into().unwrap(),
+                memory: 32.try_into().unwrap(),
+                parallelism: 4.try_into().unwrap(),
+            },
+            email: "test@bitwarden.com".to_owned(),
+            account_cryptographic_state: WrappedAccountCryptographicState::V2 {
+                private_key: "7.g1gdowE6AAERbwMZARwEUAIdRSjJs0C4mhnOo0zHPZuhBVgYthGLGqVLPeidY8mNMxpLJn3fyeSxyaWsWQTR6pxmRV2DyGZXly/0l9KK+Rsfetl9wvYIz0O4/RW3R6wf7eGxo5XmicV3WnFsoAmIQObxkKWShxFyjzg+ocKItQDzG7Gp6+MW4biTrAlfK51ML/ZS+PCjLmgI1QQr4eMHjiwA2TBKtKkxfjoTJkMXECpRVLEXOo8/mbIGYkuabbSA7oU+TJ0yXlfKDtD25gnyO7tjW/0JMFUaoEKRJOuKoXTN4n/ks4Hbxk0X5/DzfG05rxWad2UNBjNg7ehW99WrQ+33ckdQFKMQOri/rt8JzzrF1k11/jMJ+Y2TADKNHr91NalnUX+yqZAAe3sRt5Pv5ZhLIwRMKQi/1NrLcsQPRuUnogVSPOoMnE/eD6F70iU60Z6pvm1iBw2IvELZcrs/oxpO2SeCue08fIZW/jNZokbLnm90tQ7QeZTUpiPALhUgfGOa3J9VOJ7jQGCqDjd9CzV2DCVfhKCapeTbldm+RwEWBz5VvorH5vMx1AzbPRJxdIQuxcg3NqRrXrYC7fyZljWaPB9qP1tztiPtd1PpGEgxLByIfR6fqyZMCvOBsWbd0H6NhF8mNVdDw60+skFRdbRBTSCjCtKZeLVuVFb8ioH45PR5oXjtx4atIDzu6DKm6TTMCbR6DjZuZZ8GbwHxuUD2mDD3pAFhaof9kR3lQdjy7Zb4EzUUYskQxzcLPcqzp9ZgB3Rg91SStBCCMhdQ6AnhTy+VTGt/mY5AbBXNRSL6fI0r+P9K8CcEI4bNZCDkwwQr5v4O4ykSUzIvmVU0zKzDngy9bteIZuhkvGUoZlQ9UATNGPhoLfqq2eSvqEXkCbxTVZ5D+Ww9pHmWeVcvoBhcl5MvicfeQt++dY3tPjIfZq87nlugG4HiNbcv9nbVpgwe3v8cFetWXQgnO4uhx8JHSwGoSuxHFZtl2sdahjTHavRHnYjSABEFrViUKgb12UDD5ow1GAL62wVdSJKRf9HlLbJhN3PBxuh5L/E0wy1wGA9ecXtw/R1ktvXZ7RklGAt1TmNzZv6vI2J/CMXvndOX9rEpjKMbwbIDAjQ9PxiWdcnmc5SowT9f6yfIjbjXnRMWWidPAua7sgrtej4HP4Qjz1fpgLMLCRyF97tbMTmsAI5Cuj98Buh9PwcdyXj5SbVuHdJS1ehv9b5SWPsD4pwOm3+otVNK6FTazhoUl47AZoAoQzXfsXxrzqYzvF0yJkCnk9S1dcij1L569gQ43CJO6o6jIZFJvA4EmZDl95ELu+BC+x37Ip8dq4JLPsANDVSqvXO9tfDUIXEx25AaOYhW2KAUoDve/fbsU8d0UZR1o/w+ZrOQwawCIPeVPtbh7KFRVQi/rPI+Abl6XR6qMJbKPegliYGUuGF2oEMEc6QLTsMRCEPuw0S3kxbNfVPqml8nGhB2r8zUHBY1diJEmipVghnwH74gIKnyJ2C9nKjV8noUfKzqyV8vxUX2G5yXgodx8Jn0cWs3XhWuApFla9z4R28W/4jA1jK2WQMlx+b6xKUWgRk8+fYsc0HSt2fDrQ9pLpnjb8ME59RCxSPV++PThpnR2JtastZBZur2hBIJsGILCAmufUU4VC4gBKPhNfu/OK4Ktgz+uQlUa9fEC/FnkpTRQPxHuQjSQSNrIIyW1bIRBtnwjvvvNoui9FZJ".parse().unwrap(),
+                signing_key: "7.g1gcowE6AAERbwMYZQRQAh1FKMmzQLiaGc6jTMc9m6EFWBhYePc2qkCruHAPXgbzXsIP1WVk11ArbLNYUBpifToURlwHKs1je2BwZ1C/5thz4nyNbL0wDaYkRWI9ex1wvB7KhdzC7ltStEd5QttboTSCaXQROSZaGBPNO5+Bu3sTY8F5qK1pBUo6AHNN".parse().unwrap(),
+                security_state: "hFgepAEnAxg8BFAmkP0QgfdMVbIujX55W/yNOgABOH8CoFgkomhlbnRpdHlJZFBHOOw2BI9OQoNq+Vl1xZZKZ3ZlcnNpb24CWEAlchbJR0vmRfShG8On7Q2gknjkw4Dd6MYBLiH4u+/CmfQdmjNZdf6kozgW/6NXyKVNu8dAsKsin+xxXkDyVZoG".parse().unwrap(),
+                signed_public_key: Some("hFgepAEnAxg8BFAmkP0QgfdMVbIujX55W/yNOgABOH8BoFkBTqNpYWxnb3JpdGhtAG1jb250ZW50Rm9ybWF0AGlwdWJsaWNLZXlZASYwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDP/7WM8nUepxoJ0qtM+azxcly+eZ31qUjjZTZcX/gYw1MzkoXWAjqyeFH/bdktq1lEUwegrxkIxKkY2SMtp0CvPnaV1x5O8E6FBSJbKWRlDg181rfEhgm5tc6aR4PJ827IvFVm9xk6Sj091P5DHZDEOsWLZc2jYjtpUV3X38I4gSR7HiYnR4DcwcWkoJ3FhtxMCwYgPz6RVH0vzhLUmm1mgbzH6IH8Pf9DjLTZSxBikVO7S9s9jzhiZbTeeAl3FbNLxfj9Qkj+NoSfms7jGVTlBwvSXgjJs/ktGkT1cR5QcBMpU4bt41+l73MN8pXapCih9Awf1W+RY7imxpYOMFJ3AgMBAAFYQMq/hT4wod2w8xyoM7D86ctuLNX4ZRo+jRHf2sZfaO7QsvonG/ZYuNKF5fq8wpxMRjfoMvnY2TTShbgzLrW8BA4=".parse().unwrap()),
+            },
+            method: InitUserCryptoMethod::DecryptedKey {
+                decrypted_user_key: "pQEEAlACHUUoybNAuJoZzqNMxz2bAzoAARFvBIQDBAUGIFggAvGl4ifaUAomQdCdUPpXLHtypiQxHjZwRHeI83caZM4B".to_owned(),
+            },
+            upgrade_token: None,
+        },
+        org: None,
+    }
+}
+
 /// ### `legacy@bitwarden.com`
 ///
 /// Account which has a user_key of type `Aes256Cbc_B64` which is deprecated.
