@@ -270,7 +270,8 @@ class MainActivity : FragmentActivity() {
                         masterKeyWrappedUserKey = loginBody.Key,
                         salt = EMAIL
                     )
-                )
+                ),
+                upgradeToken = null
             )
         )
 
@@ -353,7 +354,8 @@ class MainActivity : FragmentActivity() {
                         kdfParams = kdf,
                         email = EMAIL,
                         accountCryptographicState = WrappedAccountCryptographicState.V1(privateKey = privateKey!!),
-                        method = InitUserCryptoMethod.DecryptedKey(decryptedUserKey = key)
+                        method = InitUserCryptoMethod.DecryptedKey(decryptedUserKey = key),
+                        upgradeToken = null
                     )
                 )
 
@@ -393,7 +395,8 @@ class MainActivity : FragmentActivity() {
                     accountCryptographicState = WrappedAccountCryptographicState.V1(privateKey = privateKey!!),
                     method = InitUserCryptoMethod.Pin(
                         pinProtectedUserKey = pinProtectedUserKey, pin = PIN
-                    )
+                    ),
+                    upgradeToken = null
                 )
             )
 

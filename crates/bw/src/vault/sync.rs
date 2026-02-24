@@ -300,6 +300,7 @@ mod tests {
                     salt: TEST_USER_EMAIL.to_string(),
                 },
             },
+            upgrade_token: None,
         }
     }
 

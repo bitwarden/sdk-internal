@@ -41,6 +41,10 @@ use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 #[cfg(feature = "internal")]
 pub use user_decryption::UserDecryptionData;
+#[cfg(feature = "internal")]
+mod v2_upgrade_token;
+#[cfg(feature = "internal")]
+pub use v2_upgrade_token::{V2UpgradeToken, V2UpgradeTokenError};
 
 #[cfg(all(feature = "internal", feature = "wasm"))]
 mod wasm_unlock_state;

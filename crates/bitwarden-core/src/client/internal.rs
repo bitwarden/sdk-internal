@@ -10,7 +10,7 @@ use bitwarden_crypto::{
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 #[cfg(feature = "internal")]
-use tracing::{info, instrument};
+use tracing::{debug, info, instrument};
 
 use crate::{
     DeviceType, UserId, auth::auth_tokens::TokenHandler, client::login_method::LoginMethod,
@@ -228,9 +228,10 @@ impl InternalClient {
         master_key: MasterKey,
         user_key: EncString,
         account_crypto_state: WrappedAccountCryptographicState,
+        upgrade_token: Option<crate::key_management::V2UpgradeToken>,
     ) -> Result<(), EncryptionSettingsError> {
         let user_key = master_key.decrypt_user_key(user_key)?;
-        self.initialize_user_crypto_decrypted_key(user_key, account_crypto_state)
+        self.initialize_user_crypto_decrypted_key(user_key, account_crypto_state, upgrade_token)
     }
 
     #[cfg(feature = "internal")]
@@ -239,18 +240,36 @@ impl InternalClient {
         &self,
         user_key: SymmetricCryptoKey,
         account_crypto_state: WrappedAccountCryptographicState,
+        upgrade_token: Option<crate::key_management::V2UpgradeToken>,
     ) -> Result<(), EncryptionSettingsError> {
         let mut ctx = self.key_store.context_mut();
 
+        // Add the decrypted key to KeyStore first
+        let user_key_id = ctx.add_local_symmetric_key(user_key.clone());
+
+        // Upgrade V1 key to V2 if token is present
+        let user_key_id = match (&user_key, &upgrade_token) {
+            (SymmetricCryptoKey::Aes256CbcHmacKey(_), Some(token)) => {
+                info!("V1 user key detected with upgrade token, extracting V2 key");
+                token
+                    .unwrap_v2(user_key_id, &mut ctx)
+                    .map_err(|_| EncryptionSettingsError::InvalidUpgradeToken)?
+            }
+            (SymmetricCryptoKey::XChaCha20Poly1305Key(_), Some(_)) => {
+                debug!("V2 user key already present, ignoring upgrade token");
+                user_key_id
+            }
+            _ => user_key_id,
+        };
+
         // Note: The actual key does not get logged unless the crypto crate has the
         // dangerous-crypto-debug feature enabled, so this is safe
-        info!("Setting user key {:?}", user_key);
-        let user_key = ctx.add_local_symmetric_key(user_key);
+        info!("Setting user key with ID {:?}", user_key_id);
         // The user key gets set to the local context frame here; It then gets persisted to the
         // context when the cryptographic state was unwrapped correctly, so that there is no
         // risk of a partial / incorrect setup.
         account_crypto_state
-            .set_to_context(&self.security_state, user_key, &self.key_store, ctx)
+            .set_to_context(&self.security_state, user_key_id, &self.key_store, ctx)
             .map_err(|_| EncryptionSettingsError::CryptoInitialization)
     }
 
@@ -261,9 +280,14 @@ impl InternalClient {
         pin_key: PinKey,
         pin_protected_user_key: EncString,
         account_crypto_state: WrappedAccountCryptographicState,
+        upgrade_token: Option<crate::key_management::V2UpgradeToken>,
     ) -> Result<(), EncryptionSettingsError> {
         let decrypted_user_key = pin_key.decrypt_user_key(pin_protected_user_key)?;
-        self.initialize_user_crypto_decrypted_key(decrypted_user_key, account_crypto_state)
+        self.initialize_user_crypto_decrypted_key(
+            decrypted_user_key,
+            account_crypto_state,
+            upgrade_token,
+        )
     }
 
     #[cfg(feature = "internal")]
@@ -273,6 +297,7 @@ impl InternalClient {
         pin: String,
         pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
         account_crypto_state: WrappedAccountCryptographicState,
+        upgrade_token: Option<crate::key_management::V2UpgradeToken>,
     ) -> Result<(), EncryptionSettingsError> {
         let decrypted_user_key = {
             // Note: This block ensures ctx is dropped. Otherwise it would cause a deadlock when
@@ -288,7 +313,11 @@ impl InternalClient {
             ctx.dangerous_get_symmetric_key(decrypted_user_key_id)?
                 .clone()
         };
-        self.initialize_user_crypto_decrypted_key(decrypted_user_key, account_crypto_state)
+        self.initialize_user_crypto_decrypted_key(
+            decrypted_user_key,
+            account_crypto_state,
+            upgrade_token,
+        )
     }
 
     #[cfg(feature = "secrets")]
@@ -316,6 +345,7 @@ impl InternalClient {
         password: String,
         master_password_unlock: MasterPasswordUnlockData,
         account_crypto_state: WrappedAccountCryptographicState,
+        upgrade_token: Option<crate::key_management::V2UpgradeToken>,
     ) -> Result<(), EncryptionSettingsError> {
         let master_key = MasterKey::derive(
             &password,
@@ -324,7 +354,7 @@ impl InternalClient {
         )?;
         let user_key =
             master_key.decrypt_user_key(master_password_unlock.master_key_wrapped_user_key)?;
-        self.initialize_user_crypto_decrypted_key(user_key, account_crypto_state)
+        self.initialize_user_crypto_decrypted_key(user_key, account_crypto_state, upgrade_token)
     }
 
     /// Sets the local KDF state for the master password unlock login method.

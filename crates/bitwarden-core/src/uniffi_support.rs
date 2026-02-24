@@ -6,7 +6,7 @@ use bitwarden_crypto::safe;
 use bitwarden_uniffi_error::convert_result;
 use uuid::Uuid;
 
-use crate::key_management::SignedSecurityState;
+use crate::key_management::{SignedSecurityState, V2UpgradeToken};
 
 uniffi::use_remote_type!(bitwarden_crypto::NonZeroU32);
 uniffi::use_remote_type!(bitwarden_crypto::safe::PasswordProtectedKeyEnvelope);
@@ -33,5 +33,10 @@ uniffi::custom_type!(SignedSecurityState, String, {
     try_lift: |val| {
         convert_result(SignedSecurityState::from_str(&val))
     },
+    lower: |obj| obj.into(),
+});
+
+uniffi::custom_type!(V2UpgradeToken, String, {
+    try_lift: |val| convert_result(V2UpgradeToken::from_str(&val)),
     lower: |obj| obj.into(),
 });

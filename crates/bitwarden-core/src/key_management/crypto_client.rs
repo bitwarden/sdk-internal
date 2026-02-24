@@ -1,6 +1,6 @@
 #[cfg(feature = "wasm")]
 use bitwarden_crypto::safe::PasswordProtectedKeyEnvelope;
-use bitwarden_crypto::{CryptoError, Decryptable, Kdf, RotateableKeySet};
+use bitwarden_crypto::{CryptoError, Decryptable, Kdf, RotateableKeySet, SymmetricKeyAlgorithm};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use bitwarden_encoding::B64;
@@ -27,7 +27,7 @@ use crate::key_management::{
 use crate::{
     Client, UserId,
     client::encryption_settings::EncryptionSettingsError,
-    error::StatefulCryptoError,
+    error::{NotAuthenticatedError, StatefulCryptoError},
     key_management::crypto::{
         CryptoClientError, EnrollPinResponse, MakeKeysError, MakeTdeRegistrationResponse,
         UpdateKdfResponse, UserCryptoV2KeysResponse, enroll_pin, get_v2_rotated_account_keys,
@@ -239,6 +239,46 @@ impl CryptoClient {
             org_public_key,
         )
     }
+
+    /// Gets the upgraded V2 user key using an upgrade token.
+    /// If the current key is already V2, returns it directly.
+    /// If the current key is V1 and a token is provided, extracts the V2 key.
+    pub fn get_upgraded_user_key(
+        &self,
+        upgrade_token: Option<crate::key_management::V2UpgradeToken>,
+    ) -> Result<B64, CryptoClientError> {
+        let mut ctx = self.client.internal.get_key_store().context_mut();
+
+        let algorithm = ctx
+            .get_symmetric_key_algorithm(SymmetricKeyId::User)
+            .map_err(|_| CryptoClientError::NotAuthenticated(NotAuthenticatedError))?;
+
+        match (algorithm, upgrade_token) {
+            // Already V2, return current key
+            (SymmetricKeyAlgorithm::XChaCha20Poly1305, _) => {
+                #[allow(deprecated)]
+                let current_key = ctx
+                    .dangerous_get_symmetric_key(SymmetricKeyId::User)
+                    .map_err(|_| CryptoClientError::NotAuthenticated(NotAuthenticatedError))?;
+                Ok(current_key.clone().to_base64())
+            }
+            // V1 with token, extract V2
+            (SymmetricKeyAlgorithm::Aes256CbcHmac, Some(token)) => {
+                let v2_key_id = token
+                    .unwrap_v2(SymmetricKeyId::User, &mut ctx)
+                    .map_err(|_| CryptoClientError::InvalidUpgradeToken)?;
+                #[allow(deprecated)]
+                let v2_key = ctx
+                    .dangerous_get_symmetric_key(v2_key_id)
+                    .map_err(|_| CryptoClientError::InvalidUpgradeToken)?;
+                Ok(v2_key.clone().to_base64())
+            }
+            // V1 without token, error
+            (SymmetricKeyAlgorithm::Aes256CbcHmac, None) => {
+                Err(CryptoClientError::UpgradeTokenRequired)
+            }
+        }
+    }
 }
 
 impl Client {
@@ -252,10 +292,13 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_crypto::{BitwardenLegacyKeyBytes, SymmetricCryptoKey};
+    use bitwarden_crypto::{BitwardenLegacyKeyBytes, KeyStore, SymmetricCryptoKey};
 
     use super::*;
-    use crate::client::test_accounts::test_bitwarden_com_account;
+    use crate::{
+        client::test_accounts::{test_bitwarden_com_account, test_bitwarden_com_account_v2},
+        key_management::{KeyIds, V2UpgradeToken},
+    };
 
     #[tokio::test]
     async fn test_enroll_pin_envelope() {
@@ -284,5 +327,101 @@ mod tests {
         );
         let user_key_final = SymmetricCryptoKey::try_from(&secret).expect("valid user key");
         assert_eq!(user_key_initial, user_key_final);
+    }
+
+    #[test]
+    fn test_get_upgraded_user_key_not_authenticated() {
+        let client = Client::new(None);
+        let result = client.crypto().get_upgraded_user_key(None);
+        assert!(matches!(
+            result,
+            Err(CryptoClientError::NotAuthenticated(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_get_upgraded_user_key_v1_no_token_returns_error() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let result = client.crypto().get_upgraded_user_key(None);
+        assert!(matches!(
+            result,
+            Err(CryptoClientError::UpgradeTokenRequired)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_get_upgraded_user_key_v1_with_token_returns_v2_key() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        // Add a fresh V2 key to the client's keystore and build a token linking it to the V1 key
+        let (token, expected_v2_b64) = {
+            let mut ctx = client.internal.get_key_store().context_mut();
+            let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            #[allow(deprecated)]
+            let v2_key = ctx.dangerous_get_symmetric_key(v2_key_id).unwrap().clone();
+            let token = V2UpgradeToken::create(SymmetricKeyId::User, v2_key_id, &ctx).unwrap();
+            (token, v2_key.to_base64())
+        };
+
+        let result = client.crypto().get_upgraded_user_key(Some(token)).unwrap();
+        assert_eq!(result, expected_v2_b64);
+    }
+
+    #[tokio::test]
+    async fn test_get_upgraded_user_key_v1_invalid_token_returns_error() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        // Token built with a different V1 key — unwrapping with the client's V1 key will fail
+        let mismatched_token = {
+            let key_store = KeyStore::<KeyIds>::default();
+            let mut ctx = key_store.context_mut();
+            let wrong_v1_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            V2UpgradeToken::create(wrong_v1_id, v2_id, &ctx).unwrap()
+        };
+
+        let result = client
+            .crypto()
+            .get_upgraded_user_key(Some(mismatched_token));
+        assert!(matches!(
+            result,
+            Err(CryptoClientError::InvalidUpgradeToken)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_get_upgraded_user_key_already_v2_no_token_returns_v2_key() {
+        let client = Client::init_test_account(test_bitwarden_com_account_v2()).await;
+
+        let result = client.crypto().get_upgraded_user_key(None).unwrap();
+        let result_key = SymmetricCryptoKey::try_from(result).unwrap();
+        assert!(
+            matches!(result_key, SymmetricCryptoKey::XChaCha20Poly1305Key(_)),
+            "V2 user should receive a V2 key"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_upgraded_user_key_already_v2_with_token_ignored() {
+        let client = Client::init_test_account(test_bitwarden_com_account_v2()).await;
+
+        // Build a structurally valid token with unrelated keys; it must be ignored for V2 users.
+        let dummy_token = {
+            let key_store = KeyStore::<KeyIds>::default();
+            let mut ctx = key_store.context_mut();
+            let v1_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
+            let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            V2UpgradeToken::create(v1_id, v2_id, &ctx).unwrap()
+        };
+
+        let result_with_token = client
+            .crypto()
+            .get_upgraded_user_key(Some(dummy_token))
+            .unwrap();
+        let result_no_token = client.crypto().get_upgraded_user_key(None).unwrap();
+        assert_eq!(
+            result_with_token, result_no_token,
+            "Token must be ignored for a V2 user"
+        );
     }
 }

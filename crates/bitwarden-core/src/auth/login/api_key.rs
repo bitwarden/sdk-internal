@@ -48,6 +48,7 @@ pub(crate) async fn login_api_key(
                     input.password.clone(),
                     master_password_unlock.clone(),
                     user_key_state,
+                    None,
                 )?;
 
             client

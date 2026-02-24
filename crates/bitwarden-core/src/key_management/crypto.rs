@@ -55,6 +55,12 @@ pub enum CryptoClientError {
     PasswordProtectedKeyEnvelope(#[from] PasswordProtectedKeyEnvelopeError),
     #[error("Invalid PRF input")]
     InvalidPrfInput,
+    #[error("Invalid upgrade token")]
+    InvalidUpgradeToken,
+    #[error("Upgrade token is required for V1 keys")]
+    UpgradeTokenRequired,
+    #[error("Invalid key type")]
+    InvalidKeyType,
 }
 
 /// State used for initializing the user cryptographic state.
@@ -74,6 +80,9 @@ pub struct InitUserCryptoRequest {
     pub account_cryptographic_state: WrappedAccountCryptographicState,
     /// The method to decrypt the user's account symmetric key (user key)
     pub method: InitUserCryptoMethod,
+    /// Optional V2 upgrade token for automatic key rotation from V1 to V2
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub upgrade_token: Option<crate::key_management::V2UpgradeToken>,
 }
 
 /// The crypto method used to initialize the user cryptographic state.
@@ -186,6 +195,7 @@ pub(super) async fn initialize_user_crypto(
                     password,
                     master_password_unlock,
                     account_crypto_state,
+                    req.upgrade_token.clone(),
                 )?;
 
             drop(_span_guard);
@@ -196,9 +206,11 @@ pub(super) async fn initialize_user_crypto(
         }
         InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
             let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
-            client
-                .internal
-                .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                account_crypto_state,
+                req.upgrade_token.clone(),
+            )?;
 
             drop(_span_guard);
             #[cfg(feature = "wasm")]
@@ -215,6 +227,7 @@ pub(super) async fn initialize_user_crypto(
                 pin_key,
                 pin_protected_user_key,
                 account_crypto_state,
+                req.upgrade_token.clone(),
             )?;
         }
         InitUserCryptoMethod::PinEnvelope {
@@ -225,6 +238,7 @@ pub(super) async fn initialize_user_crypto(
                 pin,
                 pin_protected_user_key_envelope,
                 account_crypto_state,
+                req.upgrade_token.clone(),
             )?;
 
             drop(_span_guard);
@@ -250,9 +264,11 @@ pub(super) async fn initialize_user_crypto(
                     auth_request_key,
                 )?,
             };
-            client
-                .internal
-                .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                account_crypto_state,
+                req.upgrade_token.clone(),
+            )?;
         }
         InitUserCryptoMethod::DeviceKey {
             device_key,
@@ -263,9 +279,11 @@ pub(super) async fn initialize_user_crypto(
             let user_key = device_key
                 .decrypt_user_key(protected_device_private_key, device_protected_user_key)?;
 
-            client
-                .internal
-                .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                account_crypto_state,
+                req.upgrade_token.clone(),
+            )?;
         }
         InitUserCryptoMethod::KeyConnector {
             master_key,
@@ -278,6 +296,7 @@ pub(super) async fn initialize_user_crypto(
                 master_key,
                 user_key,
                 account_crypto_state,
+                req.upgrade_token.clone(),
             )?;
         }
     }
@@ -1044,12 +1063,16 @@ mod tests {
     use std::num::NonZeroU32;
 
     use bitwarden_crypto::{
-        PrivateKey, PublicKeyEncryptionAlgorithm, RsaKeyPair, SymmetricKeyAlgorithm,
+        KeyStore, PrivateKey, PublicKeyEncryptionAlgorithm, RsaKeyPair, SymmetricKeyAlgorithm,
     };
     use bitwarden_test::MemoryRepository;
 
     use super::*;
-    use crate::{Client, key_management::UserKeyState};
+    use crate::{
+        Client,
+        client::test_accounts::test_bitwarden_com_account,
+        key_management::{KeyIds, UserKeyState, V2UpgradeToken},
+    };
 
     const TEST_VECTOR_USER_KEY_V2_B64: &str = "pQEEAlACHUUoybNAuJoZzqNMxz2bAzoAARFvBIQDBAUGIFggAvGl4ifaUAomQdCdUPpXLHtypiQxHjZwRHeI83caZM4B";
     const TEST_VECTOR_PRIVATE_KEY_V2: &str = "7.g1gdowE6AAERbwMZARwEUAIdRSjJs0C4mhnOo0zHPZuhBVgYthGLGqVLPeidY8mNMxpLJn3fyeSxyaWsWQTR6pxmRV2DyGZXly/0l9KK+Rsfetl9wvYIz0O4/RW3R6wf7eGxo5XmicV3WnFsoAmIQObxkKWShxFyjzg+ocKItQDzG7Gp6+MW4biTrAlfK51ML/ZS+PCjLmgI1QQr4eMHjiwA2TBKtKkxfjoTJkMXECpRVLEXOo8/mbIGYkuabbSA7oU+TJ0yXlfKDtD25gnyO7tjW/0JMFUaoEKRJOuKoXTN4n/ks4Hbxk0X5/DzfG05rxWad2UNBjNg7ehW99WrQ+33ckdQFKMQOri/rt8JzzrF1k11/jMJ+Y2TADKNHr91NalnUX+yqZAAe3sRt5Pv5ZhLIwRMKQi/1NrLcsQPRuUnogVSPOoMnE/eD6F70iU60Z6pvm1iBw2IvELZcrs/oxpO2SeCue08fIZW/jNZokbLnm90tQ7QeZTUpiPALhUgfGOa3J9VOJ7jQGCqDjd9CzV2DCVfhKCapeTbldm+RwEWBz5VvorH5vMx1AzbPRJxdIQuxcg3NqRrXrYC7fyZljWaPB9qP1tztiPtd1PpGEgxLByIfR6fqyZMCvOBsWbd0H6NhF8mNVdDw60+skFRdbRBTSCjCtKZeLVuVFb8ioH45PR5oXjtx4atIDzu6DKm6TTMCbR6DjZuZZ8GbwHxuUD2mDD3pAFhaof9kR3lQdjy7Zb4EzUUYskQxzcLPcqzp9ZgB3Rg91SStBCCMhdQ6AnhTy+VTGt/mY5AbBXNRSL6fI0r+P9K8CcEI4bNZCDkwwQr5v4O4ykSUzIvmVU0zKzDngy9bteIZuhkvGUoZlQ9UATNGPhoLfqq2eSvqEXkCbxTVZ5D+Ww9pHmWeVcvoBhcl5MvicfeQt++dY3tPjIfZq87nlugG4HiNbcv9nbVpgwe3v8cFetWXQgnO4uhx8JHSwGoSuxHFZtl2sdahjTHavRHnYjSABEFrViUKgb12UDD5ow1GAL62wVdSJKRf9HlLbJhN3PBxuh5L/E0wy1wGA9ecXtw/R1ktvXZ7RklGAt1TmNzZv6vI2J/CMXvndOX9rEpjKMbwbIDAjQ9PxiWdcnmc5SowT9f6yfIjbjXnRMWWidPAua7sgrtej4HP4Qjz1fpgLMLCRyF97tbMTmsAI5Cuj98Buh9PwcdyXj5SbVuHdJS1ehv9b5SWPsD4pwOm3+otVNK6FTazhoUl47AZoAoQzXfsXxrzqYzvF0yJkCnk9S1dcij1L569gQ43CJO6o6jIZFJvA4EmZDl95ELu+BC+x37Ip8dq4JLPsANDVSqvXO9tfDUIXEx25AaOYhW2KAUoDve/fbsU8d0UZR1o/w+ZrOQwawCIPeVPtbh7KFRVQi/rPI+Abl6XR6qMJbKPegliYGUuGF2oEMEc6QLTsMRCEPuw0S3kxbNfVPqml8nGhB2r8zUHBY1diJEmipVghnwH74gIKnyJ2C9nKjV8noUfKzqyV8vxUX2G5yXgodx8Jn0cWs3XhWuApFla9z4R28W/4jA1jK2WQMlx+b6xKUWgRk8+fYsc0HSt2fDrQ9pLpnjb8ME59RCxSPV++PThpnR2JtastZBZur2hBIJsGILCAmufUU4VC4gBKPhNfu/OK4Ktgz+uQlUa9fEC/FnkpTRQPxHuQjSQSNrIIyW1bIRBtnwjvvvNoui9FZJ";
@@ -1098,6 +1121,7 @@ mod tests {
                         salt: "test@bitwarden.com".to_string(),
                     },
                 },
+                upgrade_token: None,
             },
         )
             .await
@@ -1134,6 +1158,7 @@ mod tests {
                         salt: "test@bitwarden.com".to_string(),
                     },
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1208,6 +1233,7 @@ mod tests {
                         salt: "test@bitwarden.com".to_string(),
                     },
                 },
+                upgrade_token: None,
             },
         )
             .await
@@ -1239,6 +1265,7 @@ mod tests {
                         salt: "test@bitwarden.com".to_string(),
                     },
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1308,6 +1335,7 @@ mod tests {
                         salt: "test@bitwarden.com".to_string(),
                     },
                 },
+                upgrade_token: None,
             },
         )
             .await
@@ -1337,6 +1365,7 @@ mod tests {
                     pin: "1234".into(),
                     pin_protected_user_key: pin_key.pin_protected_user_key,
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1382,6 +1411,7 @@ mod tests {
                     pin: "1234".into(),
                     pin_protected_user_key,
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1435,6 +1465,7 @@ mod tests {
                 method: InitUserCryptoMethod::DecryptedKey {
                     decrypted_user_key: user_key.to_string(),
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1468,6 +1499,7 @@ mod tests {
                     pin_protected_user_key_envelope: enroll_response
                         .pin_protected_user_key_envelope,
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1492,6 +1524,7 @@ mod tests {
                     salt: "test@bitwarden.com".to_string(),
                 },
                 WrappedAccountCryptographicState::V1 { private_key },
+                None,
             )
             .unwrap();
 
@@ -1660,6 +1693,7 @@ mod tests {
                         salt: "test@bitwarden.com".into(),
                     },
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1712,6 +1746,7 @@ mod tests {
                         salt: "test@bitwarden.com".to_string(),
                     },
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1744,6 +1779,7 @@ mod tests {
                 method: InitUserCryptoMethod::DecryptedKey {
                     decrypted_user_key: TEST_VECTOR_USER_KEY_V2_B64.to_string(),
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1806,6 +1842,7 @@ mod tests {
                 method: InitUserCryptoMethod::DecryptedKey {
                     decrypted_user_key: TEST_VECTOR_USER_KEY_V2_B64.to_string(),
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1846,6 +1883,7 @@ mod tests {
                         salt: TEST_USER_EMAIL.to_string(),
                     },
                 },
+                upgrade_token: None,
             },
         )
         .await
@@ -1920,6 +1958,7 @@ mod tests {
                         .trusted_device_keys
                         .protected_user_key,
                 },
+                upgrade_token: None,
             })
             .await
             .expect("initializing user crypto with TDE device key should succeed");
@@ -1974,6 +2013,7 @@ mod tests {
                         .clone(),
                     master_key: make_keys_response.key_connector_key.clone().into(),
                 },
+                upgrade_token: None,
             })
             .await
             .expect("initializing user crypto with key connector key should succeed");
@@ -1995,5 +2035,167 @@ mod tests {
             .key_connector_key
             .decrypt_user_key(make_keys_response.key_connector_key_wrapped_user_key);
         assert_eq!(retrieved_symmetric_key, decrypted_user_key.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_initialize_user_crypto_with_upgrade_token_upgrades_v1_to_v2() {
+        let client1 = Client::init_test_account(test_bitwarden_com_account()).await;
+
+        let expected_v2_key =
+            SymmetricCryptoKey::try_from(TEST_VECTOR_USER_KEY_V2_B64.to_string()).unwrap();
+        let upgrade_token = {
+            let mut ctx = client1.internal.get_key_store().context_mut();
+            let v2_key_id = ctx.add_local_symmetric_key(expected_v2_key.clone());
+            V2UpgradeToken::create(SymmetricKeyId::User, v2_key_id, &ctx).unwrap()
+        };
+
+        let client2 = Client::new(None);
+        client2
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(
+                MemoryRepository::<UserKeyState>::default(),
+            ));
+        initialize_user_crypto(
+            &client2,
+            InitUserCryptoRequest {
+                user_id: Some(UserId::new_v4()),
+                kdf_params: Kdf::PBKDF2 {
+                    iterations: 600_000.try_into().unwrap(),
+                },
+                email: "test@bitwarden.com".into(),
+                account_cryptographic_state: WrappedAccountCryptographicState::V2 {
+                    private_key: TEST_VECTOR_PRIVATE_KEY_V2.parse().unwrap(),
+                    signing_key: TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap(),
+                    security_state: TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap(),
+                    signed_public_key: Some(TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap()),
+                },
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
+                    password: "asdfasdfasdf".into(),
+                    master_password_unlock: MasterPasswordUnlockData {
+                        kdf: Kdf::PBKDF2 {
+                            iterations: 600_000.try_into().unwrap(),
+                        },
+                        master_key_wrapped_user_key: TEST_ACCOUNT_USER_KEY.parse().unwrap(),
+                        salt: "test@bitwarden.com".to_string(),
+                    },
+                },
+                upgrade_token: Some(upgrade_token),
+            },
+        )
+        .await
+        .unwrap();
+
+        // The active user key must now be V2 and match the test-vector V2 key.
+        let result_key =
+            SymmetricCryptoKey::try_from(get_user_encryption_key(&client2).await.unwrap()).unwrap();
+        assert!(
+            matches!(result_key, SymmetricCryptoKey::XChaCha20Poly1305Key(_)),
+            "User key should be upgraded to V2 after initialization with upgrade token"
+        );
+        assert_eq!(result_key, expected_v2_key);
+    }
+
+    #[tokio::test]
+    async fn test_initialize_user_crypto_with_upgrade_token_ignored_for_v2_key() {
+        let dummy_token = {
+            let key_store = KeyStore::<KeyIds>::default();
+            let mut ctx = key_store.context_mut();
+            let v1_id = ctx.generate_symmetric_key();
+            let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            V2UpgradeToken::create(v1_id, v2_id, &ctx).unwrap()
+        };
+
+        let client = Client::new(None);
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(
+                MemoryRepository::<UserKeyState>::default(),
+            ));
+        initialize_user_crypto(
+            &client,
+            InitUserCryptoRequest {
+                user_id: Some(UserId::new_v4()),
+                kdf_params: Kdf::PBKDF2 {
+                    iterations: 100_000.try_into().unwrap(),
+                },
+                email: "test@bitwarden.com".into(),
+                account_cryptographic_state: WrappedAccountCryptographicState::V2 {
+                    private_key: TEST_VECTOR_PRIVATE_KEY_V2.parse().unwrap(),
+                    signing_key: TEST_VECTOR_SIGNING_KEY_V2.parse().unwrap(),
+                    security_state: TEST_VECTOR_SECURITY_STATE_V2.parse().unwrap(),
+                    signed_public_key: Some(TEST_VECTOR_SIGNED_PUBLIC_KEY_V2.parse().unwrap()),
+                },
+                method: InitUserCryptoMethod::DecryptedKey {
+                    decrypted_user_key: TEST_VECTOR_USER_KEY_V2_B64.to_string(),
+                },
+                upgrade_token: Some(dummy_token),
+            },
+        )
+        .await
+        .unwrap();
+
+        // The upgrade token must have been ignored; the original V2 key must still be active
+        let result_key =
+            SymmetricCryptoKey::try_from(get_user_encryption_key(&client).await.unwrap()).unwrap();
+        assert!(
+            matches!(result_key, SymmetricCryptoKey::XChaCha20Poly1305Key(_)),
+            "Upgrade token must be ignored for a V2 user key"
+        );
+        let expected_key =
+            SymmetricCryptoKey::try_from(TEST_VECTOR_USER_KEY_V2_B64.to_string()).unwrap();
+        assert_eq!(result_key, expected_key);
+    }
+
+    #[tokio::test]
+    async fn test_initialize_user_crypto_with_invalid_upgrade_token_fails() {
+        // Token built with a different V1 key — decryption with the test account's V1 key fails.
+        let mismatched_token = {
+            let key_store = KeyStore::<KeyIds>::default();
+            let mut ctx = key_store.context_mut();
+            let wrong_v1_id = ctx.generate_symmetric_key();
+            let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            V2UpgradeToken::create(wrong_v1_id, v2_id, &ctx).unwrap()
+        };
+
+        let client = Client::new(None);
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(
+                MemoryRepository::<UserKeyState>::default(),
+            ));
+        let result = initialize_user_crypto(
+            &client,
+            InitUserCryptoRequest {
+                user_id: Some(UserId::new_v4()),
+                kdf_params: Kdf::PBKDF2 {
+                    iterations: 600_000.try_into().unwrap(),
+                },
+                email: "test@bitwarden.com".into(),
+                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
+                    // The private key is never decrypted because the token fails first.
+                    private_key: TEST_ACCOUNT_PRIVATE_KEY.parse().unwrap(),
+                },
+                method: InitUserCryptoMethod::MasterPasswordUnlock {
+                    password: "asdfasdfasdf".into(),
+                    master_password_unlock: MasterPasswordUnlockData {
+                        kdf: Kdf::PBKDF2 {
+                            iterations: 600_000.try_into().unwrap(),
+                        },
+                        master_key_wrapped_user_key: TEST_ACCOUNT_USER_KEY.parse().unwrap(),
+                        salt: "test@bitwarden.com".to_string(),
+                    },
+                },
+                upgrade_token: Some(mismatched_token),
+            },
+        )
+        .await;
+
+        assert!(
+            matches!(result, Err(EncryptionSettingsError::InvalidUpgradeToken)),
+            "Initialization with a mismatched upgrade token should fail"
+        );
     }
 }

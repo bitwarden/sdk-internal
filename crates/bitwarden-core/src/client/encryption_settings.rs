@@ -37,6 +37,9 @@ pub enum EncryptionSettingsError {
     /// The user-key could not be set to the state, and the sdk will remain locked
     #[error("Unable to set user-key to state")]
     UserKeyStateUpdateFailed,
+
+    #[error("Invalid upgrade token")]
+    InvalidUpgradeToken,
 }
 
 #[allow(missing_docs)]
