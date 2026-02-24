@@ -62,6 +62,10 @@ pub(super) fn set_safe_namespaces<T: ContentNamespace>(
     );
 }
 
+/// Validates the provided header contains the expected object and content namespace.
+/// For backward compatibility, missing values are OK, but incorrect values are not.
+/// The validation happens individually for both namespace layers, and either one
+/// missing with the other being present is OK.
 pub(super) fn validate_safe_namespaces<T: ContentNamespace>(
     header: &coset::Header,
     expected_object_namespace: SafeObjectNamespace,
