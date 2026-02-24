@@ -19,6 +19,7 @@ uniffi = ["dep:uniffi", "bitwarden-core/uniffi", "bitwarden-vault/uniffi"]
 
 [dependencies]
 async-trait = { workspace = true }
+bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }

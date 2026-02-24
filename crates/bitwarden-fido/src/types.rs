@@ -157,6 +157,36 @@ pub struct PublicKeyCredentialRpEntity {
     pub name: Option<String>,
 }
 
+impl From<PublicKeyCredentialRpEntity>
+    for passkey::types::ctap2::make_credential::PublicKeyCredentialRpEntity
+{
+    fn from(value: PublicKeyCredentialRpEntity) -> Self {
+        Self {
+            id: value.id,
+            name: value.name,
+        }
+    }
+}
+
+impl TryFrom<&bitwarden_api_api::models::PublicKeyCredentialRpEntity>
+    for PublicKeyCredentialRpEntity
+{
+    type Error = WebAuthnEntityError;
+    fn try_from(
+        value: &bitwarden_api_api::models::PublicKeyCredentialRpEntity,
+    ) -> Result<Self, Self::Error> {
+        let id = value
+            .id
+            .as_ref()
+            .ok_or(WebAuthnEntityError::InvalidRpId)?
+            .clone();
+        Ok(Self {
+            id,
+            name: value.name.clone(),
+        })
+    }
+}
+
 #[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct PublicKeyCredentialUserEntity {
@@ -165,10 +195,84 @@ pub struct PublicKeyCredentialUserEntity {
     pub name: String,
 }
 
+impl From<PublicKeyCredentialUserEntity>
+    for passkey::types::webauthn::PublicKeyCredentialUserEntity
+{
+    fn from(value: PublicKeyCredentialUserEntity) -> Self {
+        Self {
+            id: value.id.into(),
+            name: value.name,
+            display_name: value.display_name,
+        }
+    }
+}
+
+impl TryFrom<&bitwarden_api_api::models::Fido2User> for PublicKeyCredentialUserEntity {
+    type Error = WebAuthnEntityError;
+    fn try_from(value: &bitwarden_api_api::models::Fido2User) -> Result<Self, Self::Error> {
+        let mut missing_fields = Vec::with_capacity(0);
+        if value.id.is_none() {
+            missing_fields.push("id".to_string())
+        }
+        if value.display_name.is_none() {
+            missing_fields.push("displayName".to_string())
+        }
+        if value.name.is_none() {
+            missing_fields.push("name".to_string())
+        }
+        if missing_fields.is_empty() {
+            Ok(Self {
+                id: value.id.as_ref().expect("checked manually").clone(),
+                display_name: value
+                    .display_name
+                    .as_ref()
+                    .expect("checked manually")
+                    .clone(),
+                name: value.name.as_ref().expect("checked manually").clone(),
+            })
+        } else {
+            return Err(WebAuthnEntityError::MissingRequiredFields(missing_fields));
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum WebAuthnEntityError {
+    #[error("Missing required fields: {0:?}")]
+    MissingRequiredFields(Vec<String>),
+
+    #[error("Invalid RP ID")]
+    InvalidRpId,
+
+    #[error("Invalid public key credential parameters")]
+    PublicKeyCredentialParmametersError(#[from] PublicKeyCredentialParametersError),
+
+    #[error("Unknown type")]
+    UnknownEnum(#[from] UnknownEnumError),
+}
+
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct PublicKeyCredentialParameters {
     pub ty: String,
     pub alg: i64,
+}
+
+impl TryFrom<&bitwarden_api_api::models::PubKeyCredParam> for PublicKeyCredentialParameters {
+    type Error = PublicKeyCredentialParametersError;
+    fn try_from(value: &bitwarden_api_api::models::PubKeyCredParam) -> Result<Self, Self::Error> {
+        let ty = value
+            .r#type
+            .as_ref()
+            .ok_or(PublicKeyCredentialParametersError::UnknownEnum(
+                UnknownEnumError,
+            ))?
+            .to_string();
+        let alg = value
+            .alg
+            .ok_or(PublicKeyCredentialParametersError::InvalidAlgorithm)?
+            .as_i64();
+        Ok(Self { ty, alg })
+    }
 }
 
 #[derive(Debug, Error)]
@@ -223,6 +327,55 @@ impl TryFrom<PublicKeyCredentialDescriptor>
     }
 }
 
+impl TryFrom<&PublicKeyCredentialDescriptor>
+    for passkey::types::webauthn::PublicKeyCredentialDescriptor
+{
+    type Error = UnknownEnumError;
+
+    fn try_from(value: &PublicKeyCredentialDescriptor) -> Result<Self, Self::Error> {
+        Ok(Self {
+            ty: get_enum_from_string_name(&value.ty)?,
+            id: value.id.clone().into(),
+            transports: value
+                .transports
+                .as_ref()
+                .map(|tt| {
+                    tt.into_iter()
+                        .map(|t| get_enum_from_string_name(&t))
+                        .collect::<Result<Vec<_>, Self::Error>>()
+                })
+                .transpose()?,
+        })
+    }
+}
+
+impl TryFrom<&bitwarden_api_api::models::PublicKeyCredentialDescriptor>
+    for PublicKeyCredentialDescriptor
+{
+    type Error = WebAuthnEntityError;
+    fn try_from(
+        value: &bitwarden_api_api::models::PublicKeyCredentialDescriptor,
+    ) -> Result<Self, Self::Error> {
+        let ty = value
+            .r#type
+            .as_ref()
+            .ok_or(WebAuthnEntityError::UnknownEnum(UnknownEnumError))?
+            .to_string();
+        let id = value
+            .id
+            .as_ref()
+            .ok_or(WebAuthnEntityError::MissingRequiredFields(vec![
+                "id".to_string(),
+            ]))?
+            .clone();
+        let transports = value
+            .transports
+            .as_ref()
+            .map(|l| l.into_iter().map(|t| t.to_string()).collect());
+        Ok(Self { ty, id, transports })
+    }
+}
+
 #[allow(missing_docs)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct MakeCredentialRequest {
@@ -271,6 +424,28 @@ pub struct MakeCredentialResult {
     pub extensions: MakeCredentialExtensionsOutput,
 }
 
+impl TryFrom<passkey::types::ctap2::make_credential::Response> for MakeCredentialResult {
+    type Error = WebAuthnEntityError;
+
+    fn try_from(
+        value: passkey::types::ctap2::make_credential::Response,
+    ) -> Result<Self, Self::Error> {
+        let authenticator_data = value.auth_data.to_vec();
+        let attestation_object = value.as_webauthn_bytes().to_vec();
+        let attested_credential_data = value.auth_data.attested_credential_data.ok_or(
+            WebAuthnEntityError::MissingRequiredFields(vec!["attestedCredentialData".to_string()]),
+        )?;
+        let credential_id = attested_credential_data.credential_id().to_vec();
+        let extensions: MakeCredentialExtensionsOutput = value.unsigned_extension_outputs.into();
+        Ok(MakeCredentialResult {
+            authenticator_data,
+            attestation_object,
+            credential_id,
+            extensions,
+        })
+    }
+}
+
 /// WebAuthn extension input for WebAuthn registration extensions.
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[derive(Debug, Default)]
@@ -289,6 +464,19 @@ impl From<MakeCredentialExtensionsInput>
             prf: value
                 .prf
                 .map(passkey::types::ctap2::extensions::AuthenticatorPrfInputs::from),
+        }
+    }
+}
+
+impl From<bitwarden_api_api::models::AuthenticationExtensionsClientInputs>
+    for MakeCredentialExtensionsInput
+{
+    fn from(_value: bitwarden_api_api::models::AuthenticationExtensionsClientInputs) -> Self {
+        MakeCredentialExtensionsInput {
+            // The server doesn't support sending the PRF extension, but at this
+            // time we only use it for the device auth key, which uses a static,
+            // hard-coded value, so set it to `None` here.
+            prf: None,
         }
     }
 }
@@ -543,6 +731,17 @@ impl From<UV> for Verification {
             UV::Discouraged => Verification::Discouraged,
             UV::Preferred => Verification::Preferred,
             UV::Required => Verification::Required,
+        }
+    }
+}
+
+impl From<bitwarden_api_api::models::UserVerificationRequirement> for UV {
+    fn from(value: bitwarden_api_api::models::UserVerificationRequirement) -> Self {
+        match value {
+            bitwarden_api_api::models::UserVerificationRequirement::Discouraged => UV::Discouraged,
+            bitwarden_api_api::models::UserVerificationRequirement::Preferred => UV::Preferred,
+            bitwarden_api_api::models::UserVerificationRequirement::Required => UV::Required,
+            bitwarden_api_api::models::UserVerificationRequirement::__Unknown(_) => UV::Preferred,
         }
     }
 }
