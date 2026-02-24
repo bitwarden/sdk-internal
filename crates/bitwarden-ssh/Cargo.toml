@@ -16,6 +16,8 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
+ecdsa-keys = [
+] # Allow ECDSA key generation and import at runtime (disabled by default, since SSH Agent does not support ECDSA keys yet)
 wasm = [
     "bitwarden-error/wasm",
     "dep:tsify",
@@ -27,12 +29,15 @@ uniffi = ["dep:uniffi"] # Uniffi bindings
 [dependencies]
 bitwarden-error = { workspace = true }
 bitwarden-vault = { workspace = true }
-block-padding = { version = "=0.4.1" }
+block-padding = { version = "=0.4.2" }
 ed25519 = { version = "3.0.0-rc.2", features = ["pkcs8"] }
-ed25519-dalek = { version = "=3.0.0-pre.2", features = ["alloc", "pkcs8"] }
-getrandom = { version = "=0.3.3" }
+ed25519-dalek = { version = "=3.0.0-pre.6", features = ["alloc", "pkcs8"] }
+getrandom = { version = "0.4" }
+p256 = { version = "0.14.0-rc.7", features = ["alloc", "pkcs8"], default-features = false }
+p384 = { version = "0.14.0-rc.7", features = ["alloc", "pkcs8"], default-features = false }
+p521 = { version = "0.14.0-rc.7", features = ["alloc", "pkcs8"], default-features = false }
 pem-rfc7468 = "1.0.0-rc.3"
-pkcs8 = { version = "=0.11.0-rc.8", features = ["encryption"] }
+pkcs8 = { version = "=0.11.0-rc.11", features = ["encryption"] }
 rand = "0.10.0-rc.5"
 rand_core = "0.10.0-rc.2"
 rsa =  "0.10.0-rc.10"
@@ -41,6 +46,9 @@ ssh-cipher = "0.3.0-rc.4"
 ssh-key = { version = "0.7.0-rc.4", features = [
     "ed25519",
     "encryption",
+    "p256",
+    "p384",
+    "p521",
     "rsa",
 ], default-features = false }
 thiserror = { workspace = true }

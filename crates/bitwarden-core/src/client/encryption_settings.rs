@@ -7,7 +7,7 @@ use bitwarden_crypto::UnsignedSharedKey;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
 #[cfg(feature = "internal")]
-use tracing::instrument;
+use tracing::{info, instrument};
 
 #[cfg(any(feature = "secrets", feature = "internal"))]
 use crate::OrganizationId;
@@ -33,6 +33,10 @@ pub enum EncryptionSettingsError {
 
     #[error("Wrong Pin")]
     WrongPin,
+
+    /// The user-key could not be set to the state, and the sdk will remain locked
+    #[error("Unable to set user-key to state")]
+    UserKeyStateUpdateFailed,
 }
 
 #[allow(missing_docs)]
@@ -67,10 +71,12 @@ impl EncryptionSettings {
 
         // FIXME: [PM-11690] - Early abort to handle private key being corrupt
         if org_enc_keys.is_empty() {
+            info!("No organization keys to set");
             return Ok(());
         }
 
         if !ctx.has_private_key(PrivateKeyId::UserPrivateKey) {
+            info!("User private key is missing, cannot set organization keys");
             return Err(MissingPrivateKeyError.into());
         }
 
@@ -78,11 +84,28 @@ impl EncryptionSettings {
         // ones, which might be from organizations that the user is no longer a part of anymore
         ctx.retain_symmetric_keys(|key_ref| !matches!(key_ref, SymmetricKeyId::Organization(_)));
 
+        info!("Decrypting organization keys");
         // Decrypt the org keys with the private key
         for (org_id, org_enc_key) in org_enc_keys {
-            let org_symmetric_key =
-                org_enc_key.decapsulate(PrivateKeyId::UserPrivateKey, &mut ctx)?;
-            ctx.persist_symmetric_key(org_symmetric_key, SymmetricKeyId::Organization(org_id))?;
+            let _span =
+                tracing::span!(tracing::Level::INFO, "decapsulate_org_key", org_id = %org_id)
+                    .entered();
+            match org_enc_key.decapsulate(PrivateKeyId::UserPrivateKey, &mut ctx) {
+                Err(e) => {
+                    tracing::error!("Failed to decapsulate organization key: {}", e);
+                    return Err(e.into());
+                }
+                Ok(org_symmetric_key) => {
+                    tracing::info!(
+                        org_id = %org_id,
+                        "Successfully decapsulated organization key for org",
+                    );
+                    ctx.persist_symmetric_key(
+                        org_symmetric_key,
+                        SymmetricKeyId::Organization(org_id),
+                    )?;
+                }
+            }
         }
 
         Ok(())

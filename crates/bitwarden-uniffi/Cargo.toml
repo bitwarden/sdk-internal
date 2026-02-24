@@ -33,6 +33,7 @@ bitwarden-fido = { workspace = true, features = ["uniffi"] }
 bitwarden-generators = { workspace = true, features = ["uniffi"] }
 bitwarden-pm = { workspace = true, features = ["uniffi"] }
 bitwarden-send = { workspace = true, features = ["uniffi"] }
+bitwarden-server-communication-config = { workspace = true, features = ["uniffi"] }
 bitwarden-ssh = { workspace = true, features = ["uniffi"] }
 bitwarden-state = { workspace = true, features = ["uniffi"] }
 bitwarden-uniffi-error = { workspace = true }

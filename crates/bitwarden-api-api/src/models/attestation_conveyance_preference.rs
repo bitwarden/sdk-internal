@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 ///
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum AttestationConveyancePreference {
     #[serde(rename = "none")]
     None,
@@ -21,6 +21,10 @@ pub enum AttestationConveyancePreference {
     Indirect,
     #[serde(rename = "direct")]
     Direct,
+
+    /// Unknown value returned from the server. This is used to handle forward compatibility.
+    #[serde(untagged)]
+    __Unknown(String),
 }
 
 impl std::fmt::Display for AttestationConveyancePreference {
@@ -29,6 +33,7 @@ impl std::fmt::Display for AttestationConveyancePreference {
             Self::None => write!(f, "none"),
             Self::Indirect => write!(f, "indirect"),
             Self::Direct => write!(f, "direct"),
+            Self::__Unknown(s) => write!(f, "{}", s),
         }
     }
 }

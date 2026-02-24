@@ -370,6 +370,40 @@ struct ContentView: View {
         let _ = try await authenticator.silentlyDiscoverCredentials(rpId: "", userHandle: nil)
     }
 
+    func serverCommunicationConfigTest() {
+        // Test ServerCommunicationConfig types compilation
+        let directConfig = ServerCommunicationConfig(
+            bootstrap: BootstrapConfig.direct
+        )
+        print("Direct config: \(directConfig)")
+
+        let ssoCookieConfig = ServerCommunicationConfig(
+            bootstrap: BootstrapConfig.ssoCookieVendor(
+                SsoCookieVendorConfig(
+                    idpLoginUrl: "https://example.com/login",
+                    cookieName: "TestCookie",
+                    cookieDomain: "example.com",
+                    cookieValue: nil
+                )
+            )
+        )
+        print("SSO cookie config: \(ssoCookieConfig)")
+
+        // Test AcquiredCookie type - single name/value pair
+        let unshardedCookie = AcquiredCookie(
+            name: "TestCookie",
+            value: "cookie-value"
+        )
+        print("Unsharded cookie: \(unshardedCookie)")
+
+        // Test sharded cookies - multiple AcquiredCookie objects with -N suffix
+        let shardedCookies = [
+            AcquiredCookie(name: "TestCookie-0", value: "shard1"),
+            AcquiredCookie(name: "TestCookie-1", value: "shard2")
+        ]
+        print("Sharded cookies: \(shardedCookies)")
+    }
+
 }
 
 struct ContentView_Previews: PreviewProvider {

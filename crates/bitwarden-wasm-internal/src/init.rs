@@ -1,8 +1,6 @@
 use tracing::Level;
-use tracing_subscriber::{
-    EnvFilter, fmt::format::Pretty, layer::SubscriberExt as _, util::SubscriberInitExt as _,
-};
-use tracing_web::{MakeWebConsoleWriter, performance_layer};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt as _, util::SubscriberInitExt as _};
+use tracing_web::MakeWebConsoleWriter;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -40,13 +38,14 @@ pub fn init_sdk(log_level: Option<LogLevel>) {
         .without_time() // time is not supported in wasm
         .with_writer(MakeWebConsoleWriter::new()); // write events to the console
 
-    let perf_layer = performance_layer().with_details_from_fields(Pretty::default());
-
-    tracing_subscriber::registry()
-        .with(perf_layer)
-        .with(filter)
-        .with(fmt)
-        .init();
+    let tracing_subscriber = tracing_subscriber::registry().with(filter).with(fmt);
+    #[cfg(feature = "performance-tracing")]
+    let tracing_subscriber = {
+        let perf_layer = tracing_web::performance_layer()
+            .with_details_from_fields(tracing_subscriber::fmt::format::Pretty::default());
+        tracing_subscriber.with(perf_layer)
+    };
+    tracing_subscriber.init();
 
     #[cfg(feature = "dangerous-crypto-debug")]
     tracing::warn!(

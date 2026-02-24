@@ -5,11 +5,12 @@ mod commercial;
 
 use std::sync::Arc;
 
-use bitwarden_auth::AuthClientExt as _;
-use bitwarden_core::client::internal::ClientManagedTokens;
+use bitwarden_auth::{AuthClientExt as _, token_management::PasswordManagerTokenHandler};
+use bitwarden_core::auth::{ClientManagedTokenHandler, ClientManagedTokens};
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_send::SendClientExt as _;
+use bitwarden_user_crypto_management::UserCryptoManagementClientExt;
 use bitwarden_vault::VaultClientExt as _;
 
 #[cfg(feature = "uniffi")]
@@ -35,7 +36,11 @@ pub struct PasswordManagerClient(pub bitwarden_core::Client);
 impl PasswordManagerClient {
     /// Initialize a new instance of the SDK client
     pub fn new(settings: Option<bitwarden_core::ClientSettings>) -> Self {
-        Self(bitwarden_core::Client::new(settings))
+        let token_handler = Arc::new(PasswordManagerTokenHandler::default());
+        Self(bitwarden_core::Client::new_with_token_handler(
+            settings,
+            token_handler,
+        ))
     }
 
     /// Initialize a new instance of the SDK client with client-managed tokens
@@ -43,8 +48,9 @@ impl PasswordManagerClient {
         settings: Option<bitwarden_core::ClientSettings>,
         tokens: Arc<dyn ClientManagedTokens>,
     ) -> Self {
-        Self(bitwarden_core::Client::new_with_client_tokens(
-            settings, tokens,
+        Self(bitwarden_core::Client::new_with_token_handler(
+            settings,
+            ClientManagedTokenHandler::new(tokens),
         ))
     }
 
@@ -67,6 +73,13 @@ impl PasswordManagerClient {
     /// Crypto operations
     pub fn crypto(&self) -> bitwarden_core::key_management::CryptoClient {
         self.0.crypto()
+    }
+
+    /// Operations that manage the cryptographic machinery of a user account, including key-rotation
+    pub fn user_crypto_management(
+        &self,
+    ) -> bitwarden_user_crypto_management::UserCryptoManagementClient {
+        self.0.user_crypto_management()
     }
 
     /// Vault item operations

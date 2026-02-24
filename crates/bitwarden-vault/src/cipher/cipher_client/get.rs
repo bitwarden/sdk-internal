@@ -26,10 +26,8 @@ async fn get_cipher(
     repository: &dyn Repository<Cipher>,
     id: &str,
 ) -> Result<CipherView, GetCipherError> {
-    let cipher = repository
-        .get(id.to_string())
-        .await?
-        .ok_or(ItemNotFoundError)?;
+    let id = id.parse().map_err(|_| ItemNotFoundError)?;
+    let cipher = repository.get(id).await?.ok_or(ItemNotFoundError)?;
 
     Ok(store.decrypt(&cipher)?)
 }

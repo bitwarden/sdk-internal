@@ -63,7 +63,7 @@ subtle = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tsify = { workspace = true, optional = true }
-typenum = ">=1.18.0, <1.19.0"
+typenum = ">=1.18.0, <1.20.0"
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
@@ -71,7 +71,7 @@ zeroize = { version = ">=1.7.0, <2.0", features = ["derive", "aarch64"] }
 zeroizing-alloc = ">=0.1.0, <0.2"
 
 [dev-dependencies]
-criterion = "0.7.0"
+criterion = "0.8.0"
 rand_chacha = "0.3.1"
 serde_json = { workspace = true }
 

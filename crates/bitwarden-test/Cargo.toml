@@ -17,8 +17,17 @@ keywords.workspace = true
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-api-api.workspace = true
+bitwarden-crypto = { workspace = true }
 bitwarden-state = { workspace = true }
+bitwarden-test-macro = { workspace = true }
+futures = { workspace = true }
 reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
 wiremock = { workspace = true }
 
 [lints]
