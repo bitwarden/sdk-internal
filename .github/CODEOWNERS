@@ -35,6 +35,7 @@ crates/bitwarden-api-key-connector/src/** @bitwarden/team-key-management-dev
 bitwarden_license/bitwarden-sm/** @bitwarden/team-secrets-manager-dev @bitwarden/team-platform-dev
 crates/bitwarden-auth/** @bitwarden/team-auth-dev @bitwarden/team-platform-dev
 crates/bitwarden-crypto/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
+crates/bitwarden-user-crypto-management/** @bitwarden/team-key-management-dev @bitwarden/team-sdk-sme
 crates/bitwarden-vault/** @bitwarden/team-vault-dev @bitwarden/team-sdk-sme
 crates/bitwarden-generators/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
 crates/bitwarden-exporters/** @bitwarden/team-tools-dev @bitwarden/team-platform-dev
@@ -65,9 +66,9 @@ crates/bw/src/vault/** @bitwarden/team-vault-dev @bitwarden/team-sdk-sme
 **/entrypoint.sh @bitwarden/team-appsec @bitwarden/dept-bre
 **/docker-compose.yml @bitwarden/team-appsec @bitwarden/dept-bre
 
-## No ownership for dependency management files to allow Renovate to manage updates
-Cargo.lock
-Cargo.toml
-package-lock.json
-package.json
+## No ownership for root dependency management files to allow Renovate to manage updates
+/Cargo.lock
+/Cargo.toml
+/package-lock.json
+/package.json
 

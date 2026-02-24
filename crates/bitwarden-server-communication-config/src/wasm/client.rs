@@ -2,7 +2,10 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     ServerCommunicationConfig, ServerCommunicationConfigClient,
-    wasm::{JsServerCommunicationConfigRepository, RawJsServerCommunicationConfigRepository},
+    wasm::{
+        JsServerCommunicationConfigPlatformApi, JsServerCommunicationConfigRepository,
+        RawJsServerCommunicationConfigPlatformApi, RawJsServerCommunicationConfigRepository,
+    },
 };
 
 /// JavaScript wrapper for ServerCommunicationConfigClient
@@ -11,12 +14,15 @@ use crate::{
 /// allowing clients to check bootstrap requirements and retrieve cookies for HTTP requests.
 #[wasm_bindgen(js_name = ServerCommunicationConfigClient)]
 pub struct JsServerCommunicationConfigClient {
-    client: ServerCommunicationConfigClient<JsServerCommunicationConfigRepository>,
+    client: ServerCommunicationConfigClient<
+        JsServerCommunicationConfigRepository,
+        JsServerCommunicationConfigPlatformApi,
+    >,
 }
 
 #[wasm_bindgen(js_class = ServerCommunicationConfigClient)]
 impl JsServerCommunicationConfigClient {
-    /// Creates a new ServerCommunicationConfigClient with a JavaScript repository
+    /// Creates a new ServerCommunicationConfigClient with a JavaScript repository and platform API
     ///
     /// The repository should be backed by StateProvider (or equivalent
     /// storage mechanism) for persistence.
@@ -24,11 +30,16 @@ impl JsServerCommunicationConfigClient {
     /// # Arguments
     ///
     /// * `repository` - JavaScript implementation of the repository interface
+    /// * `platform_api` - JavaScript implementation of the platform API interface
     #[wasm_bindgen(constructor)]
-    pub fn new(repository: RawJsServerCommunicationConfigRepository) -> Self {
+    pub fn new(
+        repository: RawJsServerCommunicationConfigRepository,
+        platform_api: RawJsServerCommunicationConfigPlatformApi,
+    ) -> Self {
         let js_repository = JsServerCommunicationConfigRepository::new(repository);
+        let js_platform_api = JsServerCommunicationConfigPlatformApi::new(platform_api);
         Self {
-            client: ServerCommunicationConfigClient::new(js_repository),
+            client: ServerCommunicationConfigClient::new(js_repository, js_platform_api),
         }
     }
 
@@ -69,5 +80,51 @@ impl JsServerCommunicationConfigClient {
     pub async fn cookies(&self, hostname: String) -> Result<JsValue, JsError> {
         let cookies = self.client.cookies(hostname).await;
         serde_wasm_bindgen::to_value(&cookies).map_err(|e| JsError::new(&e.to_string()))
+    }
+
+    /// Sets the server communication configuration for a hostname
+    ///
+    /// This method saves the provided communication configuration to the repository.
+    /// Typically called when receiving the `/api/config` response from the server.
+    ///
+    /// # Arguments
+    ///
+    /// * `hostname` - The server hostname (e.g., "vault.acme.com")
+    /// * `config` - The server communication configuration to store
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the repository save operation fails
+    #[wasm_bindgen(js_name = setCommunicationType)]
+    pub async fn set_communication_type(
+        &self,
+        hostname: String,
+        config: ServerCommunicationConfig,
+    ) -> Result<(), String> {
+        self.client.set_communication_type(hostname, config).await
+    }
+
+    /// Acquires a cookie from the platform and saves it to the repository
+    ///
+    /// This method calls the platform API to trigger cookie acquisition (e.g., browser
+    /// redirect to IdP), then validates and stores the acquired cookie in the repository.
+    ///
+    /// # Arguments
+    ///
+    /// * `hostname` - The server hostname (e.g., "vault.acme.com")
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Cookie acquisition was cancelled by the user
+    /// - Server configuration doesn't support SSO cookies (Direct bootstrap)
+    /// - Acquired cookie name doesn't match expected name
+    /// - Repository operations fail
+    #[wasm_bindgen(js_name = acquireCookie)]
+    pub async fn acquire_cookie(&self, hostname: String) -> Result<(), String> {
+        self.client
+            .acquire_cookie(&hostname)
+            .await
+            .map_err(|e| e.to_string())
     }
 }

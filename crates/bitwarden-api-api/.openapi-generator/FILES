@@ -8,7 +8,6 @@ src/apis/auth_requests_api.rs
 src/apis/ciphers_api.rs
 src/apis/collections_api.rs
 src/apis/config_api.rs
-src/apis/configuration.rs
 src/apis/counts_api.rs
 src/apis/devices_api.rs
 src/apis/emergency_access_api.rs
@@ -36,6 +35,7 @@ src/apis/organization_users_api.rs
 src/apis/organizations_api.rs
 src/apis/plans_api.rs
 src/apis/policies_api.rs
+src/apis/preview_invoice_api.rs
 src/apis/projects_api.rs
 src/apis/provider_billing_api.rs
 src/apis/provider_billing_v_next_api.rs
@@ -59,9 +59,9 @@ src/apis/sends_api.rs
 src/apis/service_accounts_api.rs
 src/apis/settings_api.rs
 src/apis/slack_integration_api.rs
+src/apis/sso_cookie_vendor_api.rs
 src/apis/stripe_api.rs
 src/apis/sync_api.rs
-src/apis/tax_api.rs
 src/apis/teams_integration_api.rs
 src/apis/trash_api.rs
 src/apis/two_factor_api.rs
@@ -117,7 +117,6 @@ src/models/bulk_delete_response_model_list_response_model.rs
 src/models/bulk_deny_admin_auth_request_request_model.rs
 src/models/change_plan_frequency_request.rs
 src/models/checkout_billing_address_request.rs
-src/models/cipher.rs
 src/models/cipher_attachment_model.rs
 src/models/cipher_bulk_archive_request_model.rs
 src/models/cipher_bulk_delete_request_model.rs
@@ -162,11 +161,13 @@ src/models/collection_response_model.rs
 src/models/collection_response_model_list_response_model.rs
 src/models/collection_type.rs
 src/models/collection_with_id_request_model.rs
+src/models/communication_bootstrap_settings.rs
+src/models/communication_settings.rs
 src/models/config_response_model.rs
 src/models/create_client_organization_request_body.rs
 src/models/create_collection_request_model.rs
 src/models/credential_create_options.rs
-src/models/delete_attachment_response_data.rs
+src/models/delete_attachment_response_model.rs
 src/models/delete_recover_request_model.rs
 src/models/device_auth_request_response_model.rs
 src/models/device_auth_request_response_model_list_response_model.rs
@@ -352,10 +353,10 @@ src/models/plan_response_model.rs
 src/models/plan_response_model_list_response_model.rs
 src/models/plan_sponsorship_type.rs
 src/models/plan_type.rs
-src/models/policy_detail_response_model.rs
 src/models/policy_request_model.rs
 src/models/policy_response_model.rs
 src/models/policy_response_model_list_response_model.rs
+src/models/policy_status_response_model.rs
 src/models/policy_type.rs
 src/models/potential_grantee_response_model.rs
 src/models/potential_grantee_response_model_list_response_model.rs
@@ -365,6 +366,7 @@ src/models/preview_organization_subscription_plan_change_tax_request.rs
 src/models/preview_organization_subscription_purchase_tax_request.rs
 src/models/preview_organization_subscription_update_tax_request.rs
 src/models/preview_premium_subscription_purchase_tax_request.rs
+src/models/preview_premium_upgrade_proration_request.rs
 src/models/priority.rs
 src/models/private_keys_response_model.rs
 src/models/product_tier_type.rs
@@ -543,6 +545,8 @@ src/models/user_decryption_response_model.rs
 src/models/user_key_response_model.rs
 src/models/user_license.rs
 src/models/user_verification_requirement.rs
+src/models/v2_upgrade_token_request_model.rs
+src/models/v2_upgrade_token_response_model.rs
 src/models/verified_organization_domain_sso_detail_response_model.rs
 src/models/verified_organization_domain_sso_details_response_model.rs
 src/models/verify_delete_recover_request_model.rs

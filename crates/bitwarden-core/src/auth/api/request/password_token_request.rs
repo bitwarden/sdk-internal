@@ -1,3 +1,4 @@
+use bitwarden_api_api::Configuration;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 
@@ -7,7 +8,6 @@ use crate::{
         api::response::IdentityTokenResponse,
         login::{LoginError, TwoFactorProvider, TwoFactorRequest},
     },
-    client::ApiConfigurations,
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -62,8 +62,8 @@ impl PasswordTokenRequest {
 
     pub(crate) async fn send(
         &self,
-        configurations: &ApiConfigurations,
+        identity_config: &Configuration,
     ) -> Result<IdentityTokenResponse, LoginError> {
-        super::send_identity_connect_request(configurations, &self).await
+        super::send_identity_connect_request(identity_config, &self).await
     }
 }

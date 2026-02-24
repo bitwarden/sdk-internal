@@ -9,7 +9,7 @@ use common::bw;
 ///
 /// This test:
 /// 1. Creates a test user via the seeder API
-/// 2. Retrieves API key credentials
+/// 2. Retrieves API key credentials from the scene result
 /// 3. Performs API key login via the bw CLI
 /// 4. Verifies authentication succeeds
 /// 5. Automatically cleans up the test user when the test completes
@@ -18,9 +18,8 @@ use common::bw;
 async fn test_api_key_login(play: Play) {
     let args = SingleUserArgs {
         email: "e2e-apikey@bitwarden.test".to_string(),
-        verified: true,
-        id: Some("378538f1-2426-4788-87c5-df39a78618c1".parse().unwrap()),
-        api_key: Some("api_key".to_string()),
+        password: "asdfasdfasdf".to_string(),
+        email_verified: true,
         ..Default::default()
     };
 
@@ -31,12 +30,8 @@ async fn test_api_key_login(play: Play) {
         .await
         .expect("Failed to create SingleUserScene");
 
-    // Build credentials from the mangled scene data
-    let client_id = format!(
-        "user.{}",
-        scene.get_mangled("378538f1-2426-4788-87c5-df39a78618c1")
-    );
-    let client_secret = scene.get_mangled("api_key");
+    let client_id = format!("user.{}", scene.result().user_id);
+    let client_secret = &scene.result().api_key;
 
     let output = bw()
         .args(["login", "api-key", &client_id, client_secret])

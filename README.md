@@ -95,7 +95,8 @@ instructions in
 
 After completing these instructions, you'll have built an SDK artifact that includes either
 OSS-licensed code, or both OSS- and commercially-licensed code, based on your choice of build
-script.
+script. See [Licensing](#licensing) for details on why we have multiple packages and determine which
+one(s) you need to build.
 
 #### Linking
 
@@ -113,8 +114,10 @@ development.
 | Develop in clients using OSS-licensed code in the SDK          | `./build.sh`         | Artifact with OSS-licensed code                           | `npm link ../sdk-internal/crates/bitwarden-wasm-internal/npm`                   | SDK with OSS-licensed code linked to `clients`                       |
 | Develop in clients using commercially-licensed code in the SDK | `./build.sh -b`      | Artifact with **both** OSS and commercially-licensed code | `npm link ../sdk-internal/crates/bitwarden-wasm-internal/bitwarden_license/npm` | SDK with both OSS and commercially-licensed code linked to `clients` |
 
-Keep in mind that running `npm link` will restore any previously linked packages, so only the paths
-in the last run command will be linked.
+Running `npm link` will restore any previously linked packages, so only the paths in the last run
+command will be linked. If you want to bind multiple packages (e.g. if you are building OSS-licensed
+and commercially-licensed code), you will need to run `npm link` with **both** packages in the
+command.
 
 > [!WARNING]
 >
@@ -157,23 +160,36 @@ LOCAL_SDK=true ./Scripts/bootstrap.sh
 
 ## Integrating into clients from published artifacts
 
+> [!WARNING]
+>
+> **BREAKING CHANGES** When a pull request is opened to merge changes from `sdk-internal` into
+> `main`, a [Breaking Change Detection ](./.github/workflows/detect-breaking-changes.yml) workflow
+> will run and comment on the PR if breaking changes are detected on any clients. If your PR
+> includes breaking changes **you must be prepared to address them as soon as they merge with a
+> corresponding PR in the client application repository**. If not, any subsequent `sdk-internal`
+> integrations into clients will be blocked, as those other teams will not know how best to resolve
+> the breaking API contracts that you introduced.
+
 In addition to
 [linking to local builds](#integrating-builds-into-client-applications-for-local-development) during
 development, you will need to be able to integrate your `sdk-internal` changes into published
-artifacts.
+artifacts, so that the client applications can be tested and published with the requisite SDK
+changes included.
 
 The process for doing so varies based on the client, as the method by which the `sdk-internal`
 package is consumed differs.
 
 ### Web clients
 
-For our web clients, the `sdk-internal` packages for our OSS- and commercially-licensed SDK verions
+For our web clients, the `sdk-internal` packages for our OSS- and commercially-licensed SDK versions
 with their WebAssembly bindings is published to npm at:
 
 - https://www.npmjs.com/package/@bitwarden/sdk-internal and
-- https://www.npmjs.com/package/@bitwarden/commercial-sdk-internal These npm packages are referenced
-  as [dependencies](https://github.com/bitwarden/clients/blob/main/package.json) in our `clients`
-  repo.
+- https://www.npmjs.com/package/@bitwarden/commercial-sdk-internal
+
+These npm packages are referenced as
+[dependencies](https://github.com/bitwarden/clients/blob/main/package.json) in our `clients` repo.
+See [Licensing](#licensing) for details on why we have multiple packages.
 
 Every commit to `main` in `sdk-internal` will trigger a
 [publish](https://github.com/bitwarden/sdk-internal/blob/main/.github/workflows/publish-wasm-internal.yml)
@@ -194,50 +210,22 @@ For example:
 > To see what version is published to `npm` for a given publish action, you can check the Summary of
 > the publish action in Github.
 
-#### Automated Updates
+When you have completed development of changes in `sdk-internal` and need to consume them in the
+client application, you will need to update the npm dependency in your feature branch to reference
+the new SDK version:
 
-When you have completed development of changes in the SDK and need to integrate them into the client
-application, the process is now automated similar to iOS and Android:
+1. Merge the `sdk-internal` pull request. This will trigger a publish of the latest changes to npm.
+2. Update the versions of the `sdk-internal` dependencies in `clients` to reference this version.
+   You can do this either:
 
-**For Production (main branch):**
+- By updating to the latest version using `npm install @bitwarden/sdk-internal@latest` and
+  `npm install @bitwarden/commercial-sdk-internal@latest`, or
+- By referencing the specific published version, using
+  `npm install @bitwarden/sdk-internal@{version}` and
+  `npm install @bitwarden/commercial-sdk-internal@{version}`.
 
-1. Merge the `sdk-internal` pull request to `main`.
-2. Manually trigger the `Publish @bitwarden/sdk-internal`
-   [workflow](https://github.com/bitwarden/sdk-internal/actions/workflows/publish-wasm-internal.yml).
-3. Select "Release" to publish to npm.
-4. Leave "Client branch" as default (`main`).
-5. **Automated:** A pull request is automatically created in the `clients` repository with updated
-   SDK versions.
-6. Review and merge the auto-generated PR.
-
-The automated PR includes:
-
-- Updated `package.json` with both `@bitwarden/sdk-internal` and
-  `@bitwarden/commercial-sdk-internal` packages
-- CI validation (build + tests)
-- Links to SDK changes
-
-**For Feature Branch Testing:**
-
-To test SDK changes in a feature branch before merging to main:
-
-1. Create a feature branch in the `clients` repository (e.g., `feature/test-new-sdk`).
-2. Trigger the `Publish @bitwarden/sdk-internal` workflow.
-3. Select "Dry Run" (or "Release" for pre-release testing).
-4. Set "Client branch" to your feature branch name (e.g., `feature/test-new-sdk`).
-5. **Automated:** A PR is created in `clients` targeting your feature branch.
-6. Test the SDK integration in isolation on your feature branch.
-7. When satisfied, merge SDK changes to main for the production update.
-
-#### Manual Updates (Legacy)
-
-If the automated workflow is unavailable, you can still update manually:
-
-1. Merge the `sdk-internal` pull request (triggers npm publish).
-2. Update versions manually:
-   - `npm install @bitwarden/sdk-internal@{version}`
-   - `npm install @bitwarden/commercial-sdk-internal@{version}`
-3. Open a `clients` pull request with the changes.
+3. Open a `clients` pull request to merge the client application changes that include this new
+   `sdk-internal` version.
 
 ### Mobile clients
 
@@ -262,7 +250,7 @@ to ensure they stay in sync with the server.
 
 The bindings are exposed as multiple crates, one for each backend service:
 
-- [`bitwarden-api-api`](./crates//bitwarden-api-api/README.md): For the `Api` service that contains
+- [`bitwarden-api-api`](./crates/bitwarden-api-api/README.md): For the `Api` service that contains
   most of the server side functionality.
 - [`bitwarden-api-identity`](./crates/bitwarden-api-identity/README.md): For the `Identity` service
   that is used for authentication.
@@ -398,7 +386,7 @@ project. This requires a Java Runtime Environment, and also assumes the reposito
 ./support/build-api.sh
 ```
 
-This project uses customized templates that live in the `support/openapi-templates` directory. These
+This project uses customized templates that live in the `support/openapi-template` directory. These
 templates resolve some outstanding issues we've experienced with the Rust generator. But we strive
 towards modifying the templates as little as possible to ease future upgrades.
 
@@ -406,6 +394,20 @@ towards modifying the templates as little as possible to ease future upgrades.
 >
 > If you don't have the nightly toolchain installed, the `build-api.sh` script will install it for
 > you.
+
+## Licensing
+
+The Bitwarden internal SDK includes both OSS- and commercially-licensed code. This allows shared
+code to exist in our SDK to support commercially-licensed (also known as Bitwarden-licensed)
+clients.
+
+The OSS-licensed packages that are published from `sdk-internal` include only code licensed under
+the [GPL](./LICENSE_GPL.txt) license. The commercially-licensed packages that are published from
+`sdk-internal` include the OSS-licensed code, as well as code that is licensed under our
+[commercial](./LICENSE_SDK.txt) license.
+
+If you are developing in a client that needs both licensing models, you should be aware of the two
+and ensure that they are both updated when integrating new SDK changes into the client application.
 
 ## Developer tools
 

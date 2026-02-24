@@ -48,19 +48,25 @@ pub struct SendText {
     pub hidden: bool,
 }
 
+/// View model for decrypted SendText
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SendTextView {
+    /// The text content of the send
     pub text: Option<String>,
+    /// Whether the text is hidden-by-default (masked as ********).
     pub hidden: bool,
 }
 
+/// The type of Send, either text or file
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 pub enum SendType {
+    /// Text-based send
     Text = 0,
+    /// File-based send
     File = 1,
 }
 
@@ -168,6 +174,8 @@ pub struct SendListView {
     pub revision_date: DateTime<Utc>,
     pub deletion_date: DateTime<Utc>,
     pub expiration_date: Option<DateTime<Utc>>,
+
+    pub auth_type: AuthType,
 }
 
 impl Send {
@@ -330,6 +338,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, SendListView> for Send {
             revision_date: self.revision_date,
             deletion_date: self.deletion_date,
             expiration_date: self.expiration_date,
+
+            auth_type: self.auth_type,
         })
     }
 }
@@ -395,7 +405,7 @@ impl TryFrom<SendResponseModel> for Send {
 
     fn try_from(send: SendResponseModel) -> Result<Self, Self::Error> {
         let auth_type = match send.auth_type {
-            Some(t) => t.into(),
+            Some(t) => t.try_into()?,
             None => {
                 if send.password.is_some() {
                     AuthType::Password
@@ -413,7 +423,7 @@ impl TryFrom<SendResponseModel> for Send {
             notes: EncString::try_from_optional(send.notes)?,
             key: require!(send.key).parse()?,
             password: send.password,
-            r#type: require!(send.r#type).into(),
+            r#type: require!(send.r#type).try_into()?,
             file: send.file.map(|f| (*f).try_into()).transpose()?,
             text: send.text.map(|t| (*t).try_into()).transpose()?,
             max_access_count: send.max_access_count.map(|s| s as u32),
@@ -429,22 +439,32 @@ impl TryFrom<SendResponseModel> for Send {
     }
 }
 
-impl From<bitwarden_api_api::models::SendType> for SendType {
-    fn from(t: bitwarden_api_api::models::SendType) -> Self {
-        match t {
+impl TryFrom<bitwarden_api_api::models::SendType> for SendType {
+    type Error = bitwarden_core::MissingFieldError;
+
+    fn try_from(t: bitwarden_api_api::models::SendType) -> Result<Self, Self::Error> {
+        Ok(match t {
             bitwarden_api_api::models::SendType::Text => SendType::Text,
             bitwarden_api_api::models::SendType::File => SendType::File,
-        }
+            bitwarden_api_api::models::SendType::__Unknown(_) => {
+                return Err(bitwarden_core::MissingFieldError("type"));
+            }
+        })
     }
 }
 
-impl From<bitwarden_api_api::models::AuthType> for AuthType {
-    fn from(value: bitwarden_api_api::models::AuthType) -> Self {
-        match value {
+impl TryFrom<bitwarden_api_api::models::AuthType> for AuthType {
+    type Error = bitwarden_core::MissingFieldError;
+
+    fn try_from(value: bitwarden_api_api::models::AuthType) -> Result<Self, Self::Error> {
+        Ok(match value {
             bitwarden_api_api::models::AuthType::Email => AuthType::Email,
             bitwarden_api_api::models::AuthType::Password => AuthType::Password,
             bitwarden_api_api::models::AuthType::None => AuthType::None,
-        }
+            bitwarden_api_api::models::AuthType::__Unknown(_) => {
+                return Err(bitwarden_core::MissingFieldError("auth_type"));
+            }
+        })
     }
 }
 
@@ -715,22 +735,11 @@ mod tests {
             auth_type: AuthType::Email,
         };
 
-        let send: Send = crypto.encrypt(view).unwrap();
+        let send: Send = crypto.encrypt(view.clone()).unwrap();
 
-        assert_eq!(
-            send.emails,
-            Some("test1@mail.com,test2@mail.com".to_string())
-        );
-        assert_eq!(send.auth_type, AuthType::Email);
-
+        // Verify decrypted view matches original prior to encrypting
         let v: SendView = crypto.decrypt(&send).unwrap();
-        assert_eq!(
-            v.emails,
-            vec!(
-                String::from("test1@mail.com"),
-                String::from("test2@mail.com")
-            )
-        );
-        assert_eq!(v.auth_type, AuthType::Email);
+
+        assert_eq!(v, view);
     }
 }

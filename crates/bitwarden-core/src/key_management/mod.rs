@@ -18,15 +18,16 @@ pub mod account_cryptographic_state;
 pub mod crypto;
 #[cfg(feature = "internal")]
 mod crypto_client;
+use bitwarden_encoding::B64;
 #[cfg(feature = "internal")]
 pub use crypto_client::CryptoClient;
 
 #[cfg(feature = "internal")]
 mod master_password;
 #[cfg(feature = "internal")]
-pub use master_password::MasterPasswordError;
-#[cfg(feature = "internal")]
-pub use master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData};
+pub use master_password::{
+    MasterPasswordAuthenticationData, MasterPasswordError, MasterPasswordUnlockData,
+};
 #[cfg(feature = "internal")]
 mod security_state;
 #[cfg(feature = "internal")]
@@ -35,10 +36,28 @@ pub use security_state::{
 };
 #[cfg(feature = "internal")]
 mod user_decryption;
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
 #[cfg(feature = "internal")]
 pub use user_decryption::UserDecryptionData;
 
+#[cfg(all(feature = "internal", feature = "wasm"))]
+mod wasm_unlock_state;
+
 use crate::OrganizationId;
+
+/// Represents the decrypted symmetric user-key of a user. This is held in ephemeral state of the
+/// client.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[repr(transparent)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct UserKeyState {
+    decrypted_user_key: B64,
+}
+
+bitwarden_state::register_repository_item!(String => UserKeyState, "UserKey");
 
 key_ids! {
     #[symmetric]

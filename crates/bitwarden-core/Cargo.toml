@@ -40,21 +40,25 @@ wasm = [
 # It disables compile-time debug prevention for cryptographic keys, exposing sensitive key material
 # in debug output, and adds tracing debug logs to encrypt/decrypt operations.
 dangerous-crypto-debug = ["bitwarden-crypto/dangerous-crypto-debug"]
+test-fixtures = ["bitwarden-test"]
 
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-api-api = { workspace = true }
+bitwarden-api-base = { workspace = true }
 bitwarden-api-identity = { workspace = true }
 bitwarden-api-key-connector = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-state = { workspace = true }
+bitwarden-test = { workspace = true, optional = true }
 bitwarden-uniffi-error = { workspace = true, optional = true }
 bitwarden-uuid = { workspace = true }
 chrono = { workspace = true, features = ["std"] }
 # We don't use this directly (it's used by rand), but we need it here to enable WASM support
 getrandom = { version = ">=0.2.9, <0.3", features = ["js"] }
+http = { workspace = true }
 rand = ">=0.8.5, <0.9"
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
@@ -84,6 +88,7 @@ rustls-platform-verifier = "0.6.0"
 [dev-dependencies]
 rand_chacha = "0.3.1"
 tokio = { workspace = true, features = ["rt"] }
+wiremock = { workspace = true }
 zeroize = { version = ">=1.7.0, <2.0", features = ["derive", "aarch64"] }
 
 [lints]
