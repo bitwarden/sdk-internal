@@ -15,10 +15,7 @@ use crate::{
     KeyStoreContext, SymmetricCryptoKey, XChaCha20Poly1305Key,
     cose::{CONTAINED_KEY_ID, ContentNamespace, SafeObjectNamespace, XCHACHA20_POLY1305},
     keys::KeyId,
-    safe::{
-        cose_envelope_helpers::extract_contained_key_id,
-        helpers::{set_safe_namespaces, validate_safe_namespaces},
-    },
+    safe::helpers::{extract_contained_key_id, set_safe_namespaces, validate_safe_namespaces},
 };
 
 /// Errors that can occur when sealing or unsealing a symmetric key with envelope operations.
