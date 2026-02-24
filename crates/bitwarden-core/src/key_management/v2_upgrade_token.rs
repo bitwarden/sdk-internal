@@ -48,7 +48,7 @@ impl V2UpgradeToken {
     ///
     /// # Returns
     /// A validated V2UpgradeToken ready for serialization
-    #[instrument(skip_all)]
+    #[instrument(skip(ctx))]
     pub fn create<Ids: KeyIds>(
         v1_key_id: Ids::Symmetric,
         v2_key_id: Ids::Symmetric,
@@ -110,7 +110,7 @@ impl V2UpgradeToken {
     ///
     /// # Returns
     /// The key ID of the newly added V1 key in the KeyStore
-    #[instrument(skip_all)]
+    #[instrument(skip(self, ctx))]
     pub fn unwrap_v1<Ids: KeyIds>(
         &self,
         v2_key_id: Ids::Symmetric,
@@ -145,7 +145,7 @@ impl V2UpgradeToken {
     ///
     /// # Returns
     /// The key ID of the newly added V2 key in the KeyStore
-    #[instrument(skip_all)]
+    #[instrument(skip(self, ctx))]
     pub fn unwrap_v2<Ids: KeyIds>(
         &self,
         v1_key_id: Ids::Symmetric,
@@ -173,7 +173,7 @@ impl V2UpgradeToken {
     /// into the key store context.
     ///
     /// Uses [`SymmetricKeyId::User`] as the current user key, unwraps the other key, then
-    /// delegates to [`create`] for type validation, object construction, and bidirectional
+    /// delegates to [`Self::create`] for type validation, object construction, and bidirectional
     /// verification.
     ///
     /// # Arguments

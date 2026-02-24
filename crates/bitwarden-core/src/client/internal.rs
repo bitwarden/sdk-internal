@@ -10,7 +10,7 @@ use bitwarden_crypto::{
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 #[cfg(feature = "internal")]
-use tracing::{info, instrument};
+use tracing::{debug, info, instrument};
 
 use crate::{
     DeviceType, UserId, auth::auth_tokens::TokenHandler, client::login_method::LoginMethod,
@@ -256,7 +256,7 @@ impl InternalClient {
                     .map_err(|_| EncryptionSettingsError::InvalidUpgradeToken)?
             }
             (SymmetricCryptoKey::XChaCha20Poly1305Key(_), Some(_)) => {
-                info!("V2 user key already present, ignoring upgrade token");
+                debug!("V2 user key already present, ignoring upgrade token");
                 user_key_id
             }
             _ => user_key_id,
