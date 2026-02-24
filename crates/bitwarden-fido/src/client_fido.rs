@@ -3,8 +3,9 @@ use bitwarden_vault::CipherView;
 use thiserror::Error;
 
 use crate::{
-    Fido2Authenticator, Fido2Client, Fido2CredentialAutofillView, Fido2CredentialAutofillViewError,
-    Fido2CredentialStore, Fido2UserInterface,
+    DeviceAuthKeyAuthenticator, DeviceAuthKeyStore, Fido2Authenticator, Fido2Client,
+    Fido2CredentialAutofillView, Fido2CredentialAutofillViewError, Fido2CredentialStore,
+    Fido2UserInterface,
 };
 
 #[allow(missing_docs)]
@@ -44,6 +45,19 @@ impl ClientFido2 {
     ) -> Fido2Client<'a> {
         Fido2Client {
             authenticator: self.create_authenticator(user_interface, credential_store),
+        }
+    }
+
+    /// Create an authenticator intended to be used with a device-bound
+    /// credential to log into and unlock a Bitwarden vault.
+    /// `web_vault_hostname` is the fallback RP ID to use if the client does not specify it.
+    pub fn create_device_key_authenticator<'a>(
+        &'a self,
+        store: &'a mut dyn DeviceAuthKeyStore,
+    ) -> DeviceAuthKeyAuthenticator<'a> {
+        DeviceAuthKeyAuthenticator {
+            client: &self.client,
+            store,
         }
     }
 
