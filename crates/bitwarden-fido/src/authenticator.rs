@@ -42,8 +42,6 @@ pub enum MakeCredentialError {
     PublicKeyCredentialParameters(#[from] PublicKeyCredentialParametersError),
     #[error(transparent)]
     UnknownEnum(#[from] UnknownEnumError),
-    #[error(transparent)]
-    Serde(#[from] serde_json::Error),
     #[error("Missing attested_credential_data")]
     MissingAttestedCredentialData,
     #[error("make_credential error: {0}")]
@@ -56,8 +54,6 @@ pub enum MakeCredentialError {
 pub enum GetAssertionError {
     #[error(transparent)]
     UnknownEnum(#[from] UnknownEnumError),
-    #[error(transparent)]
-    Serde(#[from] serde_json::Error),
     #[error(transparent)]
     GetSelectedCredential(#[from] GetSelectedCredentialError),
     #[error(transparent)]
@@ -156,10 +152,12 @@ impl<'a> Fido2Authenticator<'a> {
                     .exclude_list
                     .map(|x| x.into_iter().map(TryInto::try_into).collect())
                     .transpose()?,
+                // TODO(PM-30510): Even though we forward the extensions to the
+                // authenticator, they will not be processed until they are
+                // enabled in the authenticator configuration.
                 extensions: request
                     .extensions
-                    .map(|e| serde_json::from_str(&e))
-                    .transpose()?,
+                    .map(passkey::types::ctap2::make_credential::ExtensionInputs::from),
                 options: passkey::types::ctap2::make_credential::Options {
                     rk: request.options.rk,
                     up: true,
@@ -182,11 +180,13 @@ impl<'a> Fido2Authenticator<'a> {
             .attested_credential_data
             .ok_or(MakeCredentialError::MissingAttestedCredentialData)?;
         let credential_id = attested_credential_data.credential_id().to_vec();
+        let extensions = response.unsigned_extension_outputs.into();
 
         Ok(MakeCredentialResult {
             authenticator_data,
             attestation_object,
             credential_id,
+            extensions,
         })
     }
 
@@ -215,10 +215,12 @@ impl<'a> Fido2Authenticator<'a> {
                             .collect::<Result<Vec<_>, _>>()
                     })
                     .transpose()?,
+                // TODO(PM-30510): Even though we forward the extensions to the
+                // authenticator, they will not be processed until they are
+                // enabled in the authenticator configuration.
                 extensions: request
                     .extensions
-                    .map(|e| serde_json::from_str(&e))
-                    .transpose()?,
+                    .map(passkey::types::ctap2::get_assertion::ExtensionInputs::from),
                 options: passkey::types::ctap2::make_credential::Options {
                     rk: request.options.rk,
                     up: true,
@@ -237,6 +239,7 @@ impl<'a> Fido2Authenticator<'a> {
         let selected_credential = self.get_selected_credential()?;
         let authenticator_data = response.auth_data.to_vec();
         let credential_id = string_to_guid_bytes(&selected_credential.credential.credential_id)?;
+        let extensions = response.unsigned_extension_outputs.into();
 
         Ok(GetAssertionResult {
             credential_id,
@@ -248,6 +251,7 @@ impl<'a> Fido2Authenticator<'a> {
                 .id
                 .into(),
             selected_credential,
+            extensions,
         })
     }
 
