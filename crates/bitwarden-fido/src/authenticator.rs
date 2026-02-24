@@ -1,14 +1,20 @@
 use std::sync::Mutex;
 
-use bitwarden_core::Client;
-use bitwarden_crypto::CryptoError;
+use bitwarden_core::{Client, UserId};
+use bitwarden_crypto::{CompositeEncryptable, CryptoError, SymmetricCryptoKey};
 use bitwarden_vault::{CipherError, CipherView, EncryptionContext};
 use itertools::Itertools;
 use passkey::{
-    authenticator::{Authenticator, DiscoverabilitySupport, StoreInfo, UiHint, UserCheck},
+    authenticator::{
+        Authenticator, DiscoverabilitySupport, StoreInfo, UiHint, UserCheck,
+        extensions::HmacSecretConfig,
+    },
     types::{
         Passkey,
-        ctap2::{self, Ctap2Error, StatusCode, VendorError},
+        ctap2::{
+            self, Ctap2Error, StatusCode, VendorError, get_assertion,
+            make_credential::ExtensionInputs,
+        },
     },
 };
 use thiserror::Error;
@@ -101,9 +107,11 @@ pub struct Fido2Authenticator<'a> {
     pub client: &'a Client,
     pub user_interface: &'a dyn Fido2UserInterface,
     pub credential_store: &'a dyn Fido2CredentialStore,
+    pub encryption_key: Option<SymmetricCryptoKey>,
 
     pub(crate) selected_cipher: Mutex<Option<CipherView>>,
     pub(crate) requested_uv: Mutex<Option<UV>>,
+    enable_hmac_secret: bool,
 }
 
 impl<'a> Fido2Authenticator<'a> {
@@ -112,11 +120,14 @@ impl<'a> Fido2Authenticator<'a> {
         client: &'a Client,
         user_interface: &'a dyn Fido2UserInterface,
         credential_store: &'a dyn Fido2CredentialStore,
+        options: Fido2AuthenticatorOptions,
     ) -> Fido2Authenticator<'a> {
         Fido2Authenticator {
             client,
             user_interface,
             credential_store,
+            encryption_key: options.external_encryption_key,
+            enable_hmac_secret: options.enable_hmac_secret,
             selected_cipher: Mutex::new(None),
             requested_uv: Mutex::new(None),
         }
@@ -156,10 +167,7 @@ impl<'a> Fido2Authenticator<'a> {
                     .exclude_list
                     .map(|x| x.into_iter().map(TryInto::try_into).collect())
                     .transpose()?,
-                extensions: request
-                    .extensions
-                    .map(|e| serde_json::from_str(&e))
-                    .transpose()?,
+                extensions: request.extensions.map(ExtensionInputs::from),
                 options: passkey::types::ctap2::make_credential::Options {
                     rk: request.options.rk,
                     up: true,
@@ -182,11 +190,13 @@ impl<'a> Fido2Authenticator<'a> {
             .attested_credential_data
             .ok_or(MakeCredentialError::MissingAttestedCredentialData)?;
         let credential_id = attested_credential_data.credential_id().to_vec();
+        let extensions = response.unsigned_extension_outputs.into();
 
         Ok(MakeCredentialResult {
             authenticator_data,
             attestation_object,
             credential_id,
+            extensions,
         })
     }
 
@@ -215,10 +225,7 @@ impl<'a> Fido2Authenticator<'a> {
                             .collect::<Result<Vec<_>, _>>()
                     })
                     .transpose()?,
-                extensions: request
-                    .extensions
-                    .map(|e| serde_json::from_str(&e))
-                    .transpose()?,
+                extensions: request.extensions.map(get_assertion::ExtensionInputs::from),
                 options: passkey::types::ctap2::make_credential::Options {
                     rk: request.options.rk,
                     up: true,
@@ -237,6 +244,7 @@ impl<'a> Fido2Authenticator<'a> {
         let selected_credential = self.get_selected_credential()?;
         let authenticator_data = response.auth_data.to_vec();
         let credential_id = string_to_guid_bytes(&selected_credential.credential.credential_id)?;
+        let extensions = response.unsigned_extension_outputs.into();
 
         Ok(GetAssertionResult {
             credential_id,
@@ -248,6 +256,7 @@ impl<'a> Fido2Authenticator<'a> {
                 .id
                 .into(),
             selected_credential,
+            extensions,
         })
     }
 
@@ -264,11 +273,15 @@ impl<'a> Fido2Authenticator<'a> {
             .await?;
 
         let mut ctx = key_store.context();
+        let key_id = self
+            .encryption_key
+            .as_ref()
+            .map(|key| ctx.add_local_symmetric_key(key.clone()));
         result
             .into_iter()
             .map(
                 |cipher| -> Result<Vec<Fido2CredentialAutofillView>, SilentlyDiscoverCredentialsError> {
-                    Ok(Fido2CredentialAutofillView::from_cipher_view(&cipher, &mut ctx)?)
+                    Ok(Fido2CredentialAutofillView::from_cipher_view(&cipher, &mut ctx, key_id)?)
                 },
             )
             .flatten_ok()
@@ -297,7 +310,7 @@ impl<'a> Fido2Authenticator<'a> {
         &self,
         create_credential: bool,
     ) -> Authenticator<CredentialStoreImpl<'_>, UserValidationMethodImpl<'_>> {
-        Authenticator::new(
+        let authenticator = Authenticator::new(
             AAGUID,
             CredentialStoreImpl {
                 authenticator: self,
@@ -306,7 +319,13 @@ impl<'a> Fido2Authenticator<'a> {
             UserValidationMethodImpl {
                 authenticator: self,
             },
-        )
+        );
+        if self.enable_hmac_secret {
+            authenticator
+                .hmac_secret(HmacSecretConfig::new_with_uv_only().enable_on_make_credential())
+        } else {
+            authenticator
+        }
     }
 
     fn convert_requested_uv(&self, uv: UV) -> bool {
@@ -331,7 +350,12 @@ impl<'a> Fido2Authenticator<'a> {
             .clone()
             .ok_or(GetSelectedCredentialError::NoSelectedCredential)?;
 
-        let creds = cipher.decrypt_fido2_credentials(&mut key_store.context())?;
+        let mut ctx = key_store.context();
+        let key_id = self
+            .encryption_key
+            .as_ref()
+            .map(|key| ctx.add_local_symmetric_key(key.clone()));
+        let creds = cipher.decrypt_fido2_credentials(&mut ctx, key_id)?;
 
         let credential = creds
             .first()
@@ -342,10 +366,56 @@ impl<'a> Fido2Authenticator<'a> {
     }
 }
 
+/// Options for configuring FIDO2 authenticator behavior.
+#[derive(Debug, Clone)]
+pub struct Fido2AuthenticatorOptions {
+    /// Whether to enable hmac-secret extension support on the authenticator.
+    pub enable_hmac_secret: bool,
+
+    /// External encryption key provided by the consumer. If specified, this key
+    /// will be used to encrypt any credentials created with the authenticator
+    /// instead of the user key.
+    pub external_encryption_key: Option<SymmetricCryptoKey>,
+}
+
 pub(super) struct CredentialStoreImpl<'a> {
     authenticator: &'a Fido2Authenticator<'a>,
     create_credential: bool,
 }
+
+impl CredentialStoreImpl<'_> {
+    async fn encrypt_and_store(
+        &self,
+        selected: CipherView,
+        user_id: UserId,
+    ) -> Result<(), CredentialStoreError> {
+        let key_store = self.authenticator.client.internal.get_key_store();
+        self.authenticator
+            .selected_cipher
+            .lock()
+            .expect("Mutex is not poisoned")
+            .replace(selected.clone());
+
+        // Encrypt with the specified encryption key if given, otherwise, use default key.
+        let cipher = if let Some(encryption_key) = &self.authenticator.encryption_key {
+            let mut ctx = key_store.context();
+            let key_id = ctx.add_local_symmetric_key(encryption_key.clone());
+            selected.encrypt_composite(&mut ctx, key_id)?
+        } else {
+            key_store.encrypt(selected)?
+        };
+
+        self.authenticator
+            .credential_store
+            .save_credential(EncryptionContext {
+                cipher,
+                encrypted_for: user_id,
+            })
+            .await?;
+        Ok(())
+    }
+}
+
 pub(super) struct UserValidationMethodImpl<'a> {
     authenticator: &'a Fido2Authenticator<'a>,
 }
@@ -400,9 +470,15 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
 
             // When using the credential for authentication we have to ask the user to pick one.
             if this.create_credential {
+                let mut ctx = key_store.context();
+                let key_id = this
+                    .authenticator
+                    .encryption_key
+                    .as_ref()
+                    .map(|key| ctx.add_local_symmetric_key(key.clone()));
                 Ok(creds
                     .into_iter()
-                    .map(|c| CipherViewContainer::new(c, &mut key_store.context()))
+                    .map(|c| CipherViewContainer::new(c, &mut ctx, key_id))
                     .collect::<Result<_, _>>()?)
             } else {
                 let picked = this
@@ -418,10 +494,13 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                     .expect("Mutex is not poisoned")
                     .replace(picked.clone());
 
-                Ok(vec![CipherViewContainer::new(
-                    picked,
-                    &mut key_store.context(),
-                )?])
+                let mut ctx = key_store.context();
+                let key_id = this
+                    .authenticator
+                    .encryption_key
+                    .as_ref()
+                    .map(|key| ctx.add_local_symmetric_key(key.clone()));
+                Ok(vec![CipherViewContainer::new(picked, &mut ctx, key_id)?])
             }
         }
 
@@ -440,23 +519,6 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
         rp: passkey::types::ctap2::make_credential::PublicKeyCredentialRpEntity,
         options: passkey::types::ctap2::get_assertion::Options,
     ) -> Result<(), StatusCode> {
-        #[derive(Debug, Error)]
-        enum InnerError {
-            #[error("Client User Id has not been set")]
-            MissingUserId,
-            #[error(transparent)]
-            FillCredential(#[from] FillCredentialError),
-            #[error(transparent)]
-            Cipher(#[from] CipherError),
-            #[error(transparent)]
-            Crypto(#[from] CryptoError),
-            #[error(transparent)]
-            Fido2Callback(#[from] Fido2CallbackError),
-
-            #[error("No selected credential available")]
-            NoSelectedCredential,
-        }
-
         // This is just a wrapper around the actual implementation to allow for ? error handling
         async fn inner(
             this: &mut CredentialStoreImpl<'_>,
@@ -464,13 +526,13 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             user: passkey::types::ctap2::make_credential::PublicKeyCredentialUserEntity,
             rp: passkey::types::ctap2::make_credential::PublicKeyCredentialRpEntity,
             options: passkey::types::ctap2::get_assertion::Options,
-        ) -> Result<(), InnerError> {
+        ) -> Result<(), CredentialStoreError> {
             let user_id = this
                 .authenticator
                 .client
                 .internal
                 .get_user_id()
-                .ok_or(InnerError::MissingUserId)?;
+                .ok_or(CredentialStoreError::MissingUserId)?;
             let cred = try_from_credential_full(cred, user, rp, options)?;
 
             // Get the previously selected cipher and add the new credential to it
@@ -480,30 +542,22 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
                 .lock()
                 .expect("Mutex is not poisoned")
                 .clone()
-                .ok_or(InnerError::NoSelectedCredential)?;
+                .ok_or(CredentialStoreError::NoSelectedCredential)?;
 
-            let key_store = this.authenticator.client.internal.get_key_store();
-
-            selected.set_new_fido2_credentials(&mut key_store.context(), vec![cred])?;
+            {
+                let key_store = this.authenticator.client.internal.get_key_store();
+                let mut ctx = key_store.context();
+                let key_id = this
+                    .authenticator
+                    .encryption_key
+                    .as_ref()
+                    .map(|key| ctx.add_local_symmetric_key(key.clone()));
+                selected.set_new_fido2_credentials(&mut ctx, key_id, vec![cred])?;
+            }
 
             // Store the updated credential for later use
-            this.authenticator
-                .selected_cipher
-                .lock()
-                .expect("Mutex is not poisoned")
-                .replace(selected.clone());
-
             // Encrypt the updated cipher before sending it to the clients to be stored
-            let encrypted = key_store.encrypt(selected)?;
-
-            this.authenticator
-                .credential_store
-                .save_credential(EncryptionContext {
-                    cipher: encrypted,
-                    encrypted_for: user_id,
-                })
-                .await?;
-
+            this.encrypt_and_store(selected, user_id).await?;
             Ok(())
         }
 
@@ -516,37 +570,17 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
     }
 
     async fn update_credential(&mut self, cred: Passkey) -> Result<(), StatusCode> {
-        #[derive(Debug, Error)]
-        enum InnerError {
-            #[error("Client User Id has not been set")]
-            MissingUserId,
-            #[error(transparent)]
-            InvalidGuid(#[from] InvalidGuidError),
-            #[error("Credential ID does not match selected credential")]
-            CredentialIdMismatch,
-            #[error(transparent)]
-            FillCredential(#[from] FillCredentialError),
-            #[error(transparent)]
-            Cipher(#[from] CipherError),
-            #[error(transparent)]
-            Crypto(#[from] CryptoError),
-            #[error(transparent)]
-            Fido2Callback(#[from] Fido2CallbackError),
-            #[error(transparent)]
-            GetSelectedCredential(#[from] GetSelectedCredentialError),
-        }
-
         // This is just a wrapper around the actual implementation to allow for ? error handling
         async fn inner(
             this: &mut CredentialStoreImpl<'_>,
             cred: Passkey,
-        ) -> Result<(), InnerError> {
+        ) -> Result<(), CredentialStoreError> {
             let user_id = this
                 .authenticator
                 .client
                 .internal
                 .get_user_id()
-                .ok_or(InnerError::MissingUserId)?;
+                .ok_or(CredentialStoreError::MissingUserId)?;
             // Get the previously selected cipher and update the credential
             let selected = this.authenticator.get_selected_credential()?;
 
@@ -554,33 +588,26 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             let new_id: &Vec<u8> = &cred.credential_id;
             let selected_id = string_to_guid_bytes(&selected.credential.credential_id)?;
             if new_id != &selected_id {
-                return Err(InnerError::CredentialIdMismatch);
+                return Err(CredentialStoreError::CredentialIdMismatch);
             }
 
             let cred = fill_with_credential(&selected.credential, cred)?;
 
-            let key_store = this.authenticator.client.internal.get_key_store();
+            let selected = {
+                let key_store = this.authenticator.client.internal.get_key_store();
+                let mut ctx = key_store.context();
+                let key_id = this
+                    .authenticator
+                    .encryption_key
+                    .as_ref()
+                    .map(|key| ctx.add_local_symmetric_key(key.clone()));
 
-            let mut selected = selected.cipher;
-            selected.set_new_fido2_credentials(&mut key_store.context(), vec![cred])?;
+                let mut selected = selected.cipher;
+                selected.set_new_fido2_credentials(&mut key_store.context(), key_id, vec![cred])?;
+                selected
+            };
 
-            // Store the updated credential for later use
-            this.authenticator
-                .selected_cipher
-                .lock()
-                .expect("Mutex is not poisoned")
-                .replace(selected.clone());
-
-            // Encrypt the updated cipher before sending it to the clients to be stored
-            let encrypted = key_store.encrypt(selected)?;
-
-            this.authenticator
-                .credential_store
-                .save_credential(EncryptionContext {
-                    cipher: encrypted,
-                    encrypted_for: user_id,
-                })
-                .await?;
+            this.encrypt_and_store(selected, user_id).await?;
 
             Ok(())
         }
@@ -598,6 +625,29 @@ impl passkey::authenticator::CredentialStore for CredentialStoreImpl<'_> {
             discoverability: DiscoverabilitySupport::Full,
         }
     }
+}
+
+/// Internal error type used when storing credentials.
+#[derive(Debug, Error)]
+enum CredentialStoreError {
+    #[error("Client User Id has not been set")]
+    MissingUserId,
+    #[error(transparent)]
+    InvalidGuid(#[from] InvalidGuidError),
+    #[error("Credential ID does not match selected credential")]
+    CredentialIdMismatch,
+    #[error(transparent)]
+    FillCredential(#[from] FillCredentialError),
+    #[error(transparent)]
+    Cipher(#[from] CipherError),
+    #[error(transparent)]
+    Crypto(#[from] CryptoError),
+    #[error(transparent)]
+    Fido2Callback(#[from] Fido2CallbackError),
+    #[error(transparent)]
+    GetSelectedCredential(#[from] GetSelectedCredentialError),
+    #[error("No selected credential available")]
+    NoSelectedCredential,
 }
 
 #[async_trait::async_trait]
