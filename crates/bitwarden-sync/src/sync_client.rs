@@ -55,8 +55,8 @@ impl SyncClient {
     ///
     /// This method:
     /// 1. Performs the sync with the Bitwarden API
-    /// 2. On success, triggers `on_sync_complete` with the sync response for all registered
-    ///    handlers
+    /// 2. On success, dispatches `on_sync` with the sync response to all registered handlers
+    /// 3. Dispatches `on_sync_complete` to all handlers for post-processing
     ///
     /// Handlers receive the raw API models and are responsible for converting to domain types
     /// as needed. This allows each handler to decide how to process the data.
@@ -66,8 +66,8 @@ impl SyncClient {
         // Perform actual sync
         let response = perform_sync(&self.client, &request).await?;
 
-        // Trigger post-sync events with response (stop on error)
-        self.registry.trigger_sync_complete(&response).await?;
+        // Trigger sync handlers (on_sync + on_sync_complete phases)
+        self.registry.trigger_sync(&response).await?;
 
         Ok(response)
     }

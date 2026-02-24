@@ -17,12 +17,14 @@ and applications to respond to sync operations. It follows the observer pattern 
 
 ### Handlers
 
-Handlers implement the `SyncHandler` trait which provides a single lifecycle hook:
+Handlers implement the `SyncHandler` trait which provides two lifecycle hooks:
 
-- `on_sync_complete()` - Called after successful sync with raw API response data
+- `on_sync(response)` - Called after a successful sync with the raw API response data
+- `on_sync_complete()` - Called after all handlers have finished `on_sync`, for post-processing
+  (default implementation is a no-op)
 
-Handlers are executed sequentially in registration order. If any handler returns an error, execution
-stops immediately and the error is propagated.
+Both phases execute handlers sequentially in registration order. If any handler returns an error,
+execution stops immediately and the error is propagated.
 
 #### Transactional Semantics
 

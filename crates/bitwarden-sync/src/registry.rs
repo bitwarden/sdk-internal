@@ -33,7 +33,7 @@
 //! registry.register(Arc::new(CipherSyncHandler::new()));
 //!
 //! // Later, during sync:
-//! registry.trigger_sync_complete(&response).await?;
+//! registry.trigger_sync(&response).await?;
 //! ```
 
 use std::sync::{Arc, RwLock};
@@ -67,24 +67,29 @@ impl SyncRegistry {
             .push(handler);
     }
 
-    /// Trigger on_sync_complete for all registered handlers
+    /// Trigger sync handlers for a completed sync operation
+    ///
+    /// Executes two phases sequentially:
+    /// 1. Calls [`SyncHandler::on_sync`] on all handlers with the response
+    /// 2. Calls [`SyncHandler::on_sync_complete`] on all handlers
     ///
     /// Stops on first error and returns it immediately.
-    pub async fn trigger_sync_complete(
-        &self,
-        response: &SyncResponseModel,
-    ) -> Result<(), SyncError> {
+    pub async fn trigger_sync(&self, response: &SyncResponseModel) -> Result<(), SyncError> {
         let handlers = self
             .handlers
             .read()
             .expect("Handler registry lock poisoned")
             .clone();
 
-        for handler in handlers {
+        for handler in &handlers {
             handler
-                .on_sync_complete(response)
+                .on_sync(response)
                 .await
                 .map_err(SyncError::HandlerFailed)?;
+        }
+
+        for handler in &handlers {
+            handler.on_sync_complete().await;
         }
 
         Ok(())
@@ -106,10 +111,7 @@ mod tests {
 
     #[async_trait::async_trait]
     impl SyncHandler for TestHandler {
-        async fn on_sync_complete(
-            &self,
-            _response: &SyncResponseModel,
-        ) -> Result<(), SyncHandlerError> {
+        async fn on_sync(&self, _response: &SyncResponseModel) -> Result<(), SyncHandlerError> {
             self.execution_log.lock().unwrap().push(self.name.clone());
             if self.should_fail {
                 Err("Handler failed".into())
@@ -141,7 +143,7 @@ mod tests {
         }));
 
         let response = SyncResponseModel::default();
-        registry.trigger_sync_complete(&response).await.unwrap();
+        registry.trigger_sync(&response).await.unwrap();
 
         assert_eq!(
             *log.lock().unwrap(),
@@ -172,7 +174,7 @@ mod tests {
         }));
 
         let response = SyncResponseModel::default();
-        let result = registry.trigger_sync_complete(&response).await;
+        let result = registry.trigger_sync(&response).await;
 
         assert!(
             result.is_err(),
@@ -190,7 +192,7 @@ mod tests {
         let registry = SyncRegistry::new();
         let response = SyncResponseModel::default();
 
-        let result = registry.trigger_sync_complete(&response).await;
+        let result = registry.trigger_sync(&response).await;
 
         assert!(
             result.is_ok(),
@@ -210,7 +212,7 @@ mod tests {
         }));
 
         let response = SyncResponseModel::default();
-        registry.trigger_sync_complete(&response).await.unwrap();
+        registry.trigger_sync(&response).await.unwrap();
 
         assert_eq!(
             *log.lock().unwrap(),
@@ -231,7 +233,7 @@ mod tests {
         }));
 
         let response = SyncResponseModel::default();
-        let result = registry.trigger_sync_complete(&response).await;
+        let result = registry.trigger_sync(&response).await;
 
         assert!(result.is_err(), "Should propagate handler failure");
         assert_eq!(

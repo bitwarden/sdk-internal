@@ -22,7 +22,7 @@ impl FolderSyncHandler {
 
 #[async_trait::async_trait]
 impl SyncHandler for FolderSyncHandler {
-    async fn on_sync_complete(
+    async fn on_sync(
         &self,
         response: &bitwarden_api_api::models::SyncResponseModel,
     ) -> Result<(), SyncHandlerError> {
@@ -61,12 +61,12 @@ impl SyncHandler for FolderSyncHandler {
 
         // TODO: Replace with bulk operations when supported
         for (id, folder) in folders_to_update {
-            repo.set(id.to_string(), folder).await?;
+            repo.set(id, folder).await?;
         }
 
         // TODO: Replace with bulk operations when supported
         for (id, _) in existing {
-            repo.remove(id.to_string()).await?;
+            repo.remove(id).await?;
         }
 
         Ok(())
