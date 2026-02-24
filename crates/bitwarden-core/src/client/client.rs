@@ -4,6 +4,7 @@ use bitwarden_crypto::KeyStore;
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
+use reqwest_middleware::Middleware;
 
 use super::internal::InternalClient;
 #[cfg(feature = "internal")]
@@ -30,7 +31,7 @@ pub struct Client {
 impl Client {
     /// Create a new Bitwarden client with default settings and a no-op token handler.
     pub fn new(settings: Option<ClientSettings>) -> Self {
-        Self::new_internal(settings, Arc::new(NoopTokenHandler))
+        Self::new_internal(settings, Arc::new(NoopTokenHandler), None)
     }
 
     /// Create a new Bitwarden client with the specified token handler for managing authentication
@@ -39,12 +40,44 @@ impl Client {
         settings: Option<ClientSettings>,
         token_handler: Arc<dyn TokenHandler>,
     ) -> Self {
-        Self::new_internal(settings, token_handler)
+        Self::new_internal(settings, token_handler, None)
+    }
+
+    /// Create a new Bitwarden client with SDK-managed tokens and cookie middleware.
+    ///
+    /// This constructor enables platform clients (TypeScript/Swift/Kotlin) to inject
+    /// cookie middleware for AWS ELB sharded cookie reconstruction in self-hosted
+    /// environments requiring SSO session affinity.
+    ///
+    /// # Arguments
+    /// * `settings` - Optional client settings (API URLs, user agent, device type)
+    /// * `cookie_middleware` - Middleware implementation wrapped in Arc<dyn Middleware>
+    ///
+    /// # Example
+    /// ```no_run
+    /// use std::sync::Arc;
+    /// use reqwest_middleware::Middleware;
+    /// use bitwarden_core::Client;
+    ///
+    /// let middleware: Arc<dyn Middleware> = /* platform constructs middleware */;
+    /// # let middleware: Arc<dyn Middleware> = unimplemented!();
+    /// let client = Client::new_with_cookie_middleware(None, middleware);
+    /// ```
+    pub fn new_with_cookie_middleware(
+        settings: Option<ClientSettings>,
+        cookie_middleware: Arc<dyn Middleware>,
+    ) -> Self {
+        Self::new_internal(
+            settings,
+            Arc::new(NoopTokenHandler),
+            Some(cookie_middleware),
+        )
     }
 
     fn new_internal(
         settings_input: Option<ClientSettings>,
         token_handler: Arc<dyn TokenHandler>,
+        cookie_middleware: Option<Arc<dyn Middleware>>,
     ) -> Self {
         let settings = settings_input.unwrap_or_default();
 
@@ -75,9 +108,11 @@ impl Client {
             identity.clone(),
             key_store.clone(),
         );
-        let bw_http_client = reqwest_middleware::ClientBuilder::new(bw_http_client)
-            .with_arc(auth_middleware)
-            .build();
+        let mut builder = reqwest_middleware::ClientBuilder::new(bw_http_client);
+        if let Some(middleware) = cookie_middleware {
+            builder = builder.with_arc(middleware);
+        }
+        let bw_http_client = builder.with_arc(auth_middleware).build();
         let api = bitwarden_api_api::Configuration {
             base_path: settings.api_url,
             user_agent: Some(settings.user_agent),
