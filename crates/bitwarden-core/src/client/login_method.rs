@@ -7,7 +7,7 @@ use bitwarden_crypto::Kdf;
 use crate::{OrganizationId, auth::AccessToken};
 
 #[derive(Debug)]
-pub(crate) enum LoginMethod {
+pub enum LoginMethod {
     #[allow(dead_code)]
     User(UserLoginMethod),
     // TODO: Organizations supports api key
@@ -18,7 +18,7 @@ pub(crate) enum LoginMethod {
 
 #[allow(dead_code)]
 #[derive(Debug)]
-pub(crate) enum UserLoginMethod {
+pub enum UserLoginMethod {
     Username {
         client_id: String,
         email: String,
@@ -35,7 +35,7 @@ pub(crate) enum UserLoginMethod {
 
 #[cfg(feature = "secrets")]
 #[derive(Debug)]
-pub(crate) enum ServiceAccountLoginMethod {
+pub enum ServiceAccountLoginMethod {
     AccessToken {
         access_token: AccessToken,
         organization_id: OrganizationId,

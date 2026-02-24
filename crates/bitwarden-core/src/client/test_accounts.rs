@@ -1,20 +1,31 @@
 #![allow(clippy::unwrap_used)]
+#[cfg(feature = "test-fixtures")]
 use std::collections::HashMap;
 
+#[cfg(feature = "test-fixtures")]
 use bitwarden_crypto::{EncString, Kdf};
+#[cfg(feature = "test-fixtures")]
+use bitwarden_test::MemoryRepository;
 
+#[cfg(feature = "test-fixtures")]
 use crate::{
     Client, UserId,
     key_management::{
-        MasterPasswordUnlockData,
+        MasterPasswordUnlockData, UserKeyState,
         account_cryptographic_state::WrappedAccountCryptographicState,
         crypto::{InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest},
     },
 };
 
+#[cfg(feature = "test-fixtures")]
 impl Client {
     pub async fn init_test_account(account: TestAccount) -> Self {
         let client = Client::new(None);
+        let repository = MemoryRepository::<UserKeyState>::default();
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
 
         client.internal.load_flags(HashMap::from([(
             "enableCipherKeyEncryption".to_owned(),
@@ -44,6 +55,7 @@ impl Client {
 /// **Disclaimer:** The server typically encrypts and protects certain fields. In order to allow
 /// accounts to be used on other servers this protection was explicitly removed from these data
 /// dumps.
+#[cfg(feature = "test-fixtures")]
 pub struct TestAccount {
     user: InitUserCryptoRequest,
     org: Option<InitOrgCryptoRequest>,
@@ -119,6 +131,7 @@ pub struct TestAccount {
 ///   null, null, 0
 /// );
 /// ```
+#[cfg(feature = "test-fixtures")]
 pub fn test_bitwarden_com_account() -> TestAccount {
     let kdf = Kdf::PBKDF2 {
         iterations: 600_000.try_into().unwrap(),
@@ -184,6 +197,7 @@ pub fn test_bitwarden_com_account() -> TestAccount {
 ///   0, 0, 0, null, null, null, null, null, null, null, N'2024-07-05 13:27:01.4033333'
 /// );
 /// ```
+#[cfg(feature = "test-fixtures")]
 pub fn test_legacy_user_key_account() -> TestAccount {
     let kdf = Kdf::PBKDF2 {
         iterations: 600_000.try_into().unwrap(),

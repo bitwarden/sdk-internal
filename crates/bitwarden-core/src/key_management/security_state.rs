@@ -87,7 +87,7 @@ impl SecurityState {
 }
 
 /// A signed and serialized `SecurityState` object.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SignedSecurityState(pub(crate) SignedObject);
 
 impl SignedSecurityState {

@@ -28,9 +28,11 @@ uniffi = [
     "bitwarden-policies/uniffi",
     "dep:uniffi",
 ] # Uniffi bindings
+secrets = ["bitwarden-core/secrets"] # Secrets Manager support
 
 # Note: dependencies must be alphabetized to pass the cargo sort check in the CI pipeline.
 [dependencies]
+async-trait = { workspace = true }
 bitwarden-api-api = { workspace = true }
 bitwarden-api-identity = { workspace = true }
 bitwarden-api-key-connector = { workspace = true }
@@ -40,6 +42,7 @@ bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-policies = { workspace = true }
 chrono = { workspace = true }
+http = { workspace = true }
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
 serde = { workspace = true }
