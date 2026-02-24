@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
 use bitwarden_encoding::{B64, FromStrVisitor, NotB64EncodedError};
-use ciborium::{Value, value::Integer};
 #[allow(unused_imports)]
 use coset::{CborSerializable, ProtectedHeader, RegisteredLabel, iana::CoapContentFormat};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -12,10 +11,8 @@ use wasm_bindgen::convert::FromWasmAbi;
 use crate::{
     CONTENT_TYPE_PADDED_CBOR, CoseEncrypt0Bytes, CryptoError, EncString, EncodingError, KeyIds,
     SerializedMessage, SymmetricCryptoKey, XChaCha20Poly1305Key,
-    cose::{
-        SAFE_CONTENT_NAMESPACE, SAFE_OBJECT_NAMESPACE, SafeObjectNamespace, XCHACHA20_POLY1305,
-    },
-    safe::{DataEnvelopeNamespace, extract_safe_content_namespace, extract_safe_object_namespace},
+    cose::{ContentNamespace, SafeObjectNamespace, XCHACHA20_POLY1305},
+    safe::helpers::{set_safe_namespaces, validate_safe_namespaces},
     utils::pad_bytes,
     xchacha20,
 };
@@ -121,15 +118,12 @@ impl DataEnvelope {
         let mut protected_header = coset::HeaderBuilder::new()
             .key_id(cek.key_id.to_vec())
             .content_type(CONTENT_TYPE_PADDED_CBOR.to_string())
-            .value(
-                SAFE_OBJECT_NAMESPACE,
-                Value::from(SafeObjectNamespace::DataEnvelope as i64),
-            )
-            .value(
-                SAFE_CONTENT_NAMESPACE,
-                ciborium::Value::Integer(Integer::from(namespace.as_i64())),
-            )
             .build();
+        set_safe_namespaces(
+            &mut protected_header,
+            SafeObjectNamespace::DataEnvelope,
+            namespace,
+        );
         protected_header.alg = Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305));
 
         // Encrypt the message
@@ -221,18 +215,12 @@ impl DataEnvelope {
             return Err(DataEnvelopeError::WrongKey);
         }
 
-        if let Ok(safe_object_namespace) = extract_safe_object_namespace(&msg.protected.header)
-            && safe_object_namespace != SafeObjectNamespace::DataEnvelope
-        {
-            return Err(DataEnvelopeError::InvalidNamespace);
-        }
-
-        if let Ok(envelope_namespace) =
-            extract_safe_content_namespace::<DataEnvelopeNamespace>(&msg.protected.header)
-            && envelope_namespace != namespace
-        {
-            return Err(DataEnvelopeError::InvalidNamespace);
-        }
+        validate_safe_namespaces(
+            &msg.protected.header,
+            SafeObjectNamespace::DataEnvelope,
+            namespace,
+        )
+        .map_err(|_| DataEnvelopeError::InvalidNamespace)?;
 
         if content_format != CONTENT_TYPE_PADDED_CBOR {
             return Err(DataEnvelopeError::UnsupportedContentFormat);
@@ -493,6 +481,62 @@ macro_rules! generate_versioned_sealable {
         )+
     };
 }
+
+/// Data envelopes are domain-separated within bitwarden, to prevent cross protocol attacks.
+///
+/// A new struct shall use a new data envelope namespace. Generally, this means
+/// that a data envelope namespace has exactly one associated valid message struct. Internal
+/// versioning within a namespace is permitted and up to the domain owner to ensure is done
+/// correctly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DataEnvelopeNamespace {
+    /// The namespace for vault items ("ciphers")
+    VaultItem = 1,
+    /// This namespace is only used in tests
+    #[cfg(test)]
+    ExampleNamespace = -1,
+    /// This namespace is only used in tests
+    #[cfg(test)]
+    ExampleNamespace2 = -2,
+}
+
+impl DataEnvelopeNamespace {
+    /// Returns the numeric value of the namespace.
+    pub fn as_i64(&self) -> i64 {
+        *self as i64
+    }
+}
+
+impl TryFrom<i128> for DataEnvelopeNamespace {
+    type Error = DataEnvelopeError;
+
+    fn try_from(value: i128) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(DataEnvelopeNamespace::VaultItem),
+            #[cfg(test)]
+            -1 => Ok(DataEnvelopeNamespace::ExampleNamespace),
+            #[cfg(test)]
+            -2 => Ok(DataEnvelopeNamespace::ExampleNamespace2),
+            _ => Err(DataEnvelopeError::InvalidNamespace),
+        }
+    }
+}
+
+impl TryFrom<i64> for DataEnvelopeNamespace {
+    type Error = DataEnvelopeError;
+
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        Self::try_from(i128::from(value))
+    }
+}
+
+impl From<DataEnvelopeNamespace> for i128 {
+    fn from(val: DataEnvelopeNamespace) -> Self {
+        val.as_i64().into()
+    }
+}
+
+impl ContentNamespace for DataEnvelopeNamespace {}
 
 #[cfg(test)]
 mod tests {

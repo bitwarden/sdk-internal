@@ -30,14 +30,11 @@ use crate::{
     KEY_ID_SIZE, KeyIds, KeyStoreContext, SymmetricCryptoKey,
     cose::{
         ALG_ARGON2ID13, ARGON2_ITERATIONS, ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
-        CONTAINED_KEY_ID, CoseExtractError, SAFE_CONTENT_NAMESPACE, SAFE_OBJECT_NAMESPACE,
-        SafeObjectNamespace, extract_bytes, extract_integer,
+        CONTAINED_KEY_ID, ContentNamespace, CoseExtractError, SafeObjectNamespace, extract_bytes,
+        extract_integer,
     },
     keys::KeyId,
-    safe::{
-        extract_safe_content_namespace, extract_safe_object_namespace,
-        password_protected_key_envelope_namespace::PasswordProtectedKeyEnvelopeNamespace,
-    },
+    safe::helpers::{set_safe_namespaces, validate_safe_namespaces},
     xchacha20,
 };
 
@@ -136,12 +133,13 @@ impl PasswordProtectedKeyEnvelope {
                 if let Some(key_id) = key_to_seal.key_id() {
                     hdr = hdr.value(CONTAINED_KEY_ID, Value::from(Vec::from(&key_id)));
                 }
-                hdr = hdr.value(
-                    SAFE_OBJECT_NAMESPACE,
-                    Value::from(SafeObjectNamespace::PasswordProtectedKeyEnvelope as i64),
+                let mut header = hdr.build();
+                set_safe_namespaces(
+                    &mut header,
+                    SafeObjectNamespace::PasswordProtectedKeyEnvelope,
+                    namespace,
                 );
-                hdr = hdr.value(SAFE_CONTENT_NAMESPACE, Value::from(namespace.as_i64()));
-                hdr.build()
+                header
             })
             .create_ciphertext(&key_to_seal_bytes, &[], |data, aad| {
                 let ciphertext = xchacha20::encrypt_xchacha20_poly1305(&envelope_key, data, aad);
@@ -190,24 +188,12 @@ impl PasswordProtectedKeyEnvelope {
             ));
         }
 
-        // Validate the object namespace, if present
-        //
-        // The first use-case - Pin-protected-key-envelopes - did not require the object
-        // namespace to be present. Therefore, without migration of persistent pin
-        // unlocks, this cannot yet be strongly enforced.
-        if let Ok(namespace) = extract_safe_object_namespace(&self.cose_encrypt.protected.header)
-            && namespace != SafeObjectNamespace::PasswordProtectedKeyEnvelope
-        {
-            return Err(PasswordProtectedKeyEnvelopeError::InvalidNamespace);
-        }
-
-        // Validate the content namespace, if present
-        if let Ok(namespace) = extract_safe_content_namespace::<PasswordProtectedKeyEnvelopeNamespace>(
-            &self.cose_encrypt.protected.header,
-        ) && namespace != content_namespace
-        {
-            return Err(PasswordProtectedKeyEnvelopeError::InvalidNamespace);
-        }
+        validate_safe_namespaces(
+            &recipient.protected.header,
+            SafeObjectNamespace::PasswordProtectedKeyEnvelope,
+            content_namespace,
+        )
+        .map_err(|_| PasswordProtectedKeyEnvelopeError::InvalidNamespace)?;
 
         let kdf_settings: Argon2RawSettings =
             (&recipient.unprotected).try_into().map_err(|_| {
@@ -529,6 +515,57 @@ impl FromWasmAbi for PasswordProtectedKeyEnvelope {
     }
 }
 
+/// The content-layer separation namespace for password protected key envelopes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PasswordProtectedKeyEnvelopeNamespace {
+    /// The namespace for unlocking vaults with a PIN.
+    PinUnlock = 1,
+    /// This namespace is only used in tests
+    #[cfg(test)]
+    ExampleNamespace = -1,
+    /// This namespace is only used in tests
+    #[cfg(test)]
+    ExampleNamespace2 = -2,
+}
+
+impl PasswordProtectedKeyEnvelopeNamespace {
+    /// Returns the numeric value of the namespace.
+    pub fn as_i64(&self) -> i64 {
+        *self as i64
+    }
+}
+
+impl TryFrom<i128> for PasswordProtectedKeyEnvelopeNamespace {
+    type Error = PasswordProtectedKeyEnvelopeError;
+
+    fn try_from(value: i128) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(PasswordProtectedKeyEnvelopeNamespace::PinUnlock),
+            #[cfg(test)]
+            -1 => Ok(PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace),
+            #[cfg(test)]
+            -2 => Ok(PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace2),
+            _ => Err(PasswordProtectedKeyEnvelopeError::InvalidNamespace),
+        }
+    }
+}
+
+impl TryFrom<i64> for PasswordProtectedKeyEnvelopeNamespace {
+    type Error = PasswordProtectedKeyEnvelopeError;
+
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        Self::try_from(i128::from(value))
+    }
+}
+
+impl From<PasswordProtectedKeyEnvelopeNamespace> for i128 {
+    fn from(val: PasswordProtectedKeyEnvelopeNamespace) -> Self {
+        val.as_i64().into()
+    }
+}
+
+impl ContentNamespace for PasswordProtectedKeyEnvelopeNamespace {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -793,7 +830,7 @@ mod tests {
             .rest
             .iter_mut()
             .find(|(label, _)| {
-                matches!(label, coset::Label::Int(label_value) if *label_value == SAFE_OBJECT_NAMESPACE)
+                matches!(label, coset::Label::Int(label_value) if *label_value == crate::cose::SAFE_OBJECT_NAMESPACE)
             })
         {
             *value = Value::Integer((SafeObjectNamespace::DataEnvelope as i64).into());

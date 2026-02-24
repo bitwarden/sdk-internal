@@ -80,7 +80,7 @@ impl TryFrom<i128> for SafeObjectNamespace {
     }
 }
 
-pub(crate) trait ContentNamespace: TryFrom<i128> + Into<i128> {}
+pub(crate) trait ContentNamespace: TryFrom<i128> + Into<i128> + PartialEq {}
 
 /// Each type of object has it's own namespace for strong domain separation to eliminate
 /// attacks which attempt to confuse object types. For signatures, this refers to signature
