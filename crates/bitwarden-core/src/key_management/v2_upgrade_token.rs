@@ -1,20 +1,17 @@
-//! V2 Upgrade Token allows secure bidirectional key rotation from V1 to V2 user keys.
+//! V2 Upgrade Token is created during V1→V2 key rotation and holds both user keys wrapped by
+//! each other. This allows V1 devices to retrieve the V2 key (to complete the upgrade), and V2
+//! devices to retrieve the V1 key (e.g. to rotate local device unlock methods still encrypted
+//! with V1).
 //!
-//! The token wraps each key with the other (V1 wrapped by V2, V2 wrapped by V1) and validates
-//! both directions decrypt correctly to prevent tampering. This enables clients to unlock with
-//! their existing V1 key and automatically receive the upgraded V2 key, or vice versa.
-//!
-//! The token validates bidirectional decryption on both creation and unwrapping:
-//! - Creating token: Encrypts both keys, then decrypts both to verify
-//! - Unwrapping: Decrypts requested key, then decrypts opposite direction to validate
-//!
-//! This ensures tampering is detected - an attacker can't modify one wrapped key without
-//! breaking the other direction's validation.
+//! On unwrapping, both directions are validated - an attacker can't modify one wrapped key
+//! without breaking the other direction's validation.
 
 use std::str::FromStr;
 
 use bitwarden_api_api::models::V2UpgradeTokenResponseModel;
-use bitwarden_crypto::{EncString, KeyDecryptable, KeyIds, KeyStoreContext, SymmetricCryptoKey};
+use bitwarden_crypto::{
+    Decryptable, EncString, KeyIds, KeyStoreContext, SymmetricCryptoKey, SymmetricKeyAlgorithm,
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::instrument;
@@ -23,166 +20,106 @@ use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::key_management::SymmetricKeyId;
 
-/// V2 Upgrade Token enables bidirectional key rotation from V1 to V2 user keys.
-///
-/// The token contains:
-/// - `wrapped_uk_1`: V1 user key encrypted with V2 key (Cose_Encrypt0_B64 format)
-/// - `wrapped_uk_2`: V2 user key encrypted with V1 key (Aes256Cbc_HmacSha256_B64 format)
-///
-/// Both wrapping directions are validated on creation and unwrapping to prevent tampering.
+/// Holds both V1 and V2 user keys, each wrapped by the other:
+/// - `wrapped_user_key_1`: V1 user key encrypted with V2 key (Cose_Encrypt0_B64 format)
+/// - `wrapped_user_key_2`: V2 user key encrypted with V1 key (Aes256Cbc_HmacSha256_B64 format)
 #[derive(Clone, Debug)]
 pub struct V2UpgradeToken {
-    wrapped_uk_1: EncString,
-    wrapped_uk_2: EncString,
+    wrapped_user_key_1: EncString,
+    wrapped_user_key_2: EncString,
 }
 
 impl V2UpgradeToken {
-    /// Creates a new V2UpgradeToken from key IDs in the KeyStore.
-    ///
-    /// This encrypts V1 with V2, V2 with V1, then validates bidirectional decryption.
-    ///
-    /// # Arguments
-    /// * `v1_key_id` - The key ID for the V1 (Aes256CbcHmac) key
-    /// * `v2_key_id` - The key ID for the V2 (XChaCha20Poly1305) key
-    /// * `ctx` - KeyStore context for accessing keys
-    ///
-    /// # Returns
-    /// A validated V2UpgradeToken ready for serialization
+    /// Creates a new [`V2UpgradeToken`] from `v1_key_id` (Aes256CbcHmac) and `v2_key_id`
+    /// (XChaCha20Poly1305) in the KeyStore. Type-checks both keys, then wraps V1 with V2 and
+    /// V2 with V1.
     #[instrument(skip(ctx))]
     pub fn create<Ids: KeyIds>(
         v1_key_id: Ids::Symmetric,
         v2_key_id: Ids::Symmetric,
         ctx: &KeyStoreContext<Ids>,
     ) -> Result<Self, V2UpgradeTokenError> {
-        // Get the keys from the KeyStore and type-check them
-        #[allow(deprecated)]
-        let v1_key = ctx
-            .dangerous_get_symmetric_key(v1_key_id)
-            .map_err(|_| V2UpgradeTokenError::KeyMissing)?;
-        match v1_key {
-            SymmetricCryptoKey::Aes256CbcHmacKey(_) => {}
-            _ => return Err(V2UpgradeTokenError::WrongKeyType),
+        // Type-check the keys
+        if ctx
+            .get_symmetric_key_algorithm(v1_key_id)
+            .map_err(|_| V2UpgradeTokenError::KeyMissing)?
+            != SymmetricKeyAlgorithm::Aes256CbcHmac
+        {
+            return Err(V2UpgradeTokenError::WrongKeyType);
         }
 
-        #[allow(deprecated)]
-        let v2_key = ctx
-            .dangerous_get_symmetric_key(v2_key_id)
-            .map_err(|_| V2UpgradeTokenError::KeyMissing)?;
-        match v2_key {
-            SymmetricCryptoKey::XChaCha20Poly1305Key(_) => {}
-            _ => return Err(V2UpgradeTokenError::WrongKeyType),
+        if ctx
+            .get_symmetric_key_algorithm(v2_key_id)
+            .map_err(|_| V2UpgradeTokenError::KeyMissing)?
+            != SymmetricKeyAlgorithm::XChaCha20Poly1305
+        {
+            return Err(V2UpgradeTokenError::WrongKeyType);
         }
 
-        // Wrap V1 key with V2 key (creates Cose_Encrypt0_B64)
-        let wrapped_uk_1 = ctx
+        // Wrap V1 key with V2 key
+        let wrapped_user_key_1 = ctx
             .wrap_symmetric_key(v2_key_id, v1_key_id)
             .map_err(|_| V2UpgradeTokenError::EncryptionFailed)?;
 
-        // Wrap V2 key with V1 key (creates Aes256Cbc_HmacSha256_B64)
-        let wrapped_uk_2 = ctx
+        // Wrap V2 key with V1 key
+        let wrapped_user_key_2 = ctx
             .wrap_symmetric_key(v1_key_id, v2_key_id)
             .map_err(|_| V2UpgradeTokenError::EncryptionFailed)?;
 
-        // Validate bidirectional decryption
-        // wrapped_uk_1 is V1 encrypted with V2, so decrypt with V2
-        let _: Vec<u8> = wrapped_uk_1
-            .decrypt_with_key(v2_key)
-            .map_err(|_| V2UpgradeTokenError::ValidationFailed)?;
-        // wrapped_uk_2 is V2 encrypted with V1, so decrypt with V1
-        let _: Vec<u8> = wrapped_uk_2
-            .decrypt_with_key(v1_key)
-            .map_err(|_| V2UpgradeTokenError::ValidationFailed)?;
-
         Ok(V2UpgradeToken {
-            wrapped_uk_1,
-            wrapped_uk_2,
+            wrapped_user_key_1,
+            wrapped_user_key_2,
         })
     }
 
-    /// Unwraps the V1 key from the token using the V2 key.
-    ///
-    /// This decrypts `wrapped_uk_1` with the V2 key, validates by decrypting `wrapped_uk_2`
-    /// with the extracted V1 key, then adds the V1 key to the KeyStore.
-    ///
-    /// # Arguments
-    /// * `v2_key_id` - The key ID for the V2 key used to decrypt V1
-    /// * `ctx` - Mutable KeyStore context for adding the unwrapped V1 key
-    ///
-    /// # Returns
-    /// The key ID of the newly added V1 key in the KeyStore
+    /// Unwraps `wrapped_user_key_1` using `v2_key_id`, validates the result can unwrap
+    /// `wrapped_user_key_2`, then adds the V1 key to the KeyStore and returns its key ID.
     #[instrument(skip(self, ctx))]
     pub fn unwrap_v1<Ids: KeyIds>(
         &self,
         v2_key_id: Ids::Symmetric,
         ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<Ids::Symmetric, V2UpgradeTokenError> {
-        // Decrypt wrapped_uk_1 with V2 key and add V1 key to the store
-        let new_v1_id = ctx
-            .unwrap_symmetric_key(v2_key_id, &self.wrapped_uk_1)
+        // Decrypt wrapped V1 key with V2 key and add V1 key to the store
+        let v1_key_id = ctx
+            .unwrap_symmetric_key(v2_key_id, &self.wrapped_user_key_1)
             .map_err(|_| V2UpgradeTokenError::DecryptionFailed)?;
 
-        // Validate: unwrapped V1 should be able to decrypt wrapped_uk_2
-        #[allow(deprecated)]
-        let v1_key = ctx
-            .dangerous_get_symmetric_key(new_v1_id)
-            .map_err(|_| V2UpgradeTokenError::DecryptionFailed)?;
+        // Validate: unwrapped V1 should be able to decrypt wrapped V2 key
         let _: Vec<u8> = self
-            .wrapped_uk_2
-            .decrypt_with_key(v1_key)
+            .wrapped_user_key_2
+            .decrypt(ctx, v1_key_id)
             .map_err(|_| V2UpgradeTokenError::ValidationFailed)?;
 
-        Ok(new_v1_id)
+        Ok(v1_key_id)
     }
 
-    /// Unwraps the V2 key from the token using the V1 key.
-    ///
-    /// This decrypts `wrapped_uk_2` with the V1 key, validates by decrypting `wrapped_uk_1`
-    /// with the extracted V2 key, then adds the V2 key to the KeyStore.
-    ///
-    /// # Arguments
-    /// * `v1_key_id` - The key ID for the V1 key used to decrypt V2
-    /// * `ctx` - Mutable KeyStore context for adding the unwrapped V2 key
-    ///
-    /// # Returns
-    /// The key ID of the newly added V2 key in the KeyStore
+    /// Unwraps `wrapped_user_key_2` using `v1_key_id`, validates the result can unwrap
+    /// `wrapped_user_key_1`, then adds the V2 key to the KeyStore and returns its key ID.
     #[instrument(skip(self, ctx))]
     pub fn unwrap_v2<Ids: KeyIds>(
         &self,
         v1_key_id: Ids::Symmetric,
         ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<Ids::Symmetric, V2UpgradeTokenError> {
-        // Decrypt wrapped_uk_2 with V1 key and add V2 key to the store
-        let new_v2_id = ctx
-            .unwrap_symmetric_key(v1_key_id, &self.wrapped_uk_2)
+        // Decrypt rapped V2 key with V1 key and add V2 key to the store
+        let v2_key_id = ctx
+            .unwrap_symmetric_key(v1_key_id, &self.wrapped_user_key_2)
             .map_err(|_| V2UpgradeTokenError::DecryptionFailed)?;
 
-        // Validate: unwrapped V2 should be able to decrypt wrapped_uk_1
-        #[allow(deprecated)]
-        let v2_key = ctx
-            .dangerous_get_symmetric_key(new_v2_id)
-            .map_err(|_| V2UpgradeTokenError::DecryptionFailed)?;
+        // Validate: unwrapped V2 should be able to decrypt wrapped V1 key
         let _: Vec<u8> = self
-            .wrapped_uk_1
-            .decrypt_with_key(v2_key)
+            .wrapped_user_key_1
+            .decrypt(ctx, v2_key_id)
             .map_err(|_| V2UpgradeTokenError::ValidationFailed)?;
 
-        Ok(new_v2_id)
+        Ok(v2_key_id)
     }
 
-    /// Parses a [`V2UpgradeToken`] from the server response model and loads both user keys
-    /// into the key store context.
-    ///
-    /// Uses [`SymmetricKeyId::User`] as the current user key, unwraps the other key, then
-    /// delegates to [`Self::create`] for type validation, object construction, and bidirectional
-    /// verification.
-    ///
-    /// # Arguments
-    /// * `response` - The `V2UpgradeTokenResponseModel` from the server
-    /// * `ctx` - Mutable KeyStore context containing the current user key at
-    ///   [`SymmetricKeyId::User`]
-    ///
-    /// # Returns
-    /// `(v1_key_id, v2_key_id, token)` — both key IDs available in the context
+    /// Parses a [`V2UpgradeToken`] from the server response model. Detects whether
+    /// [`SymmetricKeyId::User`] is V1 or V2, unwraps the other key, then delegates to
+    /// [`Self::create`] for type validation. Returns `(v1_key_id, v2_key_id, token)` with both
+    /// keys available in `ctx`.
     #[instrument(skip_all)]
     pub fn from_response_model(
         response: &V2UpgradeTokenResponseModel,
@@ -215,7 +152,7 @@ impl V2UpgradeToken {
             let v2_key_id = ctx
                 .unwrap_symmetric_key(SymmetricKeyId::User, &wrapped_user_key_2)
                 .map_err(|_| V2UpgradeTokenError::DecryptionFailed)?;
-            // create type-checks, re-wraps, and validates bidirectional decryption
+            // create type-checks and re-wraps
             let token = Self::create(SymmetricKeyId::User, v2_key_id, ctx)?;
             Ok((SymmetricKeyId::User, v2_key_id, token))
         } else {
@@ -244,8 +181,8 @@ impl FromStr for V2UpgradeToken {
             wrapped_uk_2,
         } = serde_json::from_str(s).map_err(|_| V2UpgradeTokenError::Serialization)?;
         Ok(V2UpgradeToken {
-            wrapped_uk_1,
-            wrapped_uk_2,
+            wrapped_user_key_1: wrapped_uk_1,
+            wrapped_user_key_2: wrapped_uk_2,
         })
     }
 }
@@ -258,8 +195,8 @@ impl From<V2UpgradeToken> for String {
             wrapped_uk_2: &'a EncString,
         }
         serde_json::to_string(&Fields {
-            wrapped_uk_1: &val.wrapped_uk_1,
-            wrapped_uk_2: &val.wrapped_uk_2,
+            wrapped_uk_1: &val.wrapped_user_key_1,
+            wrapped_uk_2: &val.wrapped_user_key_2,
         })
         .expect("Serialization to JSON should not fail")
     }

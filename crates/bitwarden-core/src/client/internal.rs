@@ -25,7 +25,7 @@ use crate::{
     },
     error::NotAuthenticatedError,
     key_management::{
-        MasterPasswordUnlockData, SecurityState,
+        MasterPasswordUnlockData, SecurityState, V2UpgradeToken,
         account_cryptographic_state::WrappedAccountCryptographicState,
     },
 };
@@ -228,7 +228,7 @@ impl InternalClient {
         master_key: MasterKey,
         user_key: EncString,
         account_crypto_state: WrappedAccountCryptographicState,
-        upgrade_token: Option<crate::key_management::V2UpgradeToken>,
+        upgrade_token: Option<V2UpgradeToken>,
     ) -> Result<(), EncryptionSettingsError> {
         let user_key = master_key.decrypt_user_key(user_key)?;
         self.initialize_user_crypto_decrypted_key(user_key, account_crypto_state, upgrade_token)
@@ -240,7 +240,7 @@ impl InternalClient {
         &self,
         user_key: SymmetricCryptoKey,
         account_crypto_state: WrappedAccountCryptographicState,
-        upgrade_token: Option<crate::key_management::V2UpgradeToken>,
+        upgrade_token: Option<V2UpgradeToken>,
     ) -> Result<(), EncryptionSettingsError> {
         let mut ctx = self.key_store.context_mut();
 
@@ -280,7 +280,7 @@ impl InternalClient {
         pin_key: PinKey,
         pin_protected_user_key: EncString,
         account_crypto_state: WrappedAccountCryptographicState,
-        upgrade_token: Option<crate::key_management::V2UpgradeToken>,
+        upgrade_token: Option<V2UpgradeToken>,
     ) -> Result<(), EncryptionSettingsError> {
         let decrypted_user_key = pin_key.decrypt_user_key(pin_protected_user_key)?;
         self.initialize_user_crypto_decrypted_key(
@@ -297,7 +297,7 @@ impl InternalClient {
         pin: String,
         pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
         account_crypto_state: WrappedAccountCryptographicState,
-        upgrade_token: Option<crate::key_management::V2UpgradeToken>,
+        upgrade_token: Option<V2UpgradeToken>,
     ) -> Result<(), EncryptionSettingsError> {
         let decrypted_user_key = {
             // Note: This block ensures ctx is dropped. Otherwise it would cause a deadlock when
@@ -345,7 +345,7 @@ impl InternalClient {
         password: String,
         master_password_unlock: MasterPasswordUnlockData,
         account_crypto_state: WrappedAccountCryptographicState,
-        upgrade_token: Option<crate::key_management::V2UpgradeToken>,
+        upgrade_token: Option<V2UpgradeToken>,
     ) -> Result<(), EncryptionSettingsError> {
         let master_key = MasterKey::derive(
             &password,
