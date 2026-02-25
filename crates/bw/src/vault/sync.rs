@@ -406,6 +406,7 @@ mod tests {
                     master_key_encrypted_user_key: Some(user_key.to_string()),
                 })),
                 web_authn_prf_options: None,
+                v2_upgrade_token: None,
             })),
             ..create_sync_response(user_id)
         };

@@ -293,9 +293,22 @@ impl TryFrom<&Vec<u8>> for PasswordProtectedKeyEnvelope {
 
 impl std::fmt::Debug for PasswordProtectedKeyEnvelope {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PasswordProtectedKeyEnvelope")
-            .field("cose_encrypt", &self.cose_encrypt)
-            .finish()
+        let mut s = f.debug_struct("PasswordProtectedKeyEnvelope");
+
+        if let Some(recipient) = self.cose_encrypt.recipients.first() {
+            let settings: Result<Argon2RawSettings, _> = (&recipient.unprotected).try_into();
+            if let Ok(settings) = settings {
+                s.field("argon2_iterations", &settings.iterations);
+                s.field("argon2_memory_kib", &settings.memory);
+                s.field("argon2_parallelism", &settings.parallelism);
+            }
+        }
+
+        if let Ok(Some(key_id)) = self.contained_key_id() {
+            s.field("contained_key_id", &key_id);
+        }
+
+        s.finish()
     }
 }
 
@@ -609,6 +622,14 @@ mod tests {
     ];
 
     const TESTVECTOR_PASSWORD: &str = "test_password";
+
+    #[test]
+    #[ignore = "Manual test to verify debug format"]
+    fn test_debug() {
+        let key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+        let envelope = PasswordProtectedKeyEnvelope::seal_ref(&key, "test_password").unwrap();
+        println!("{:?}", envelope);
+    }
 
     #[test]
     fn test_testvector_cosekey() {

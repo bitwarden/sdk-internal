@@ -667,6 +667,7 @@ dependencies = [
  "criterion",
  "ed25519-dalek 2.2.0",
  "generic-array",
+ "hex",
  "hkdf",
  "hmac 0.12.1",
  "num-bigint",
