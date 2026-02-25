@@ -472,6 +472,20 @@ pub struct DecryptCipherResult {
     pub failures: Vec<Cipher>,
 }
 
+/// Represents the result of fetching and decrypting all ciphers for an organization.
+///
+/// Contains the encrypted ciphers from the API alongside their decrypted list views.
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct ListOrganizationCiphersResult {
+    /// All encrypted ciphers returned from the API.
+    pub ciphers: Vec<Cipher>,
+    /// Successfully decrypted `CipherListView` objects.
+    pub list_views: Vec<CipherListView>,
+}
+
 impl CipherListView {
     pub(crate) fn get_totp_key(
         self,
