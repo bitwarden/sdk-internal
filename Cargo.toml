@@ -112,9 +112,11 @@ zxcvbn = ">=3.0.1, <4.0"
 
 [workspace.lints.clippy]
 disallowed-macros = "deny"
-unused_async = "deny"
-unwrap_used = "deny"
+print_stdout = "warn"
+print_stderr = "warn"
 string_slice = "warn"
+unused_async = "warn"
+unwrap_used = "deny"
 
 [workspace.lints.rust]
 missing_docs = "warn"

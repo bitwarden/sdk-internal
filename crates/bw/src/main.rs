@@ -1,4 +1,9 @@
 #![doc = include_str!("../README.md")]
+#![allow(
+    clippy::print_stdout,
+    clippy::print_stderr,
+    reason = "The CLI uses stdout/stderr for user interaction"
+)]
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use bitwarden_cli::install_color_eyre;
