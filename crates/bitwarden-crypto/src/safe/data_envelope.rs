@@ -12,7 +12,7 @@ use crate::{
     CONTENT_TYPE_PADDED_CBOR, CoseEncrypt0Bytes, CryptoError, EncString, EncodingError, KeyIds,
     SerializedMessage, SymmetricCryptoKey, XChaCha20Poly1305Key,
     cose::{ContentNamespace, SafeObjectNamespace, XCHACHA20_POLY1305},
-    safe::helpers::{set_safe_namespaces, validate_safe_namespaces},
+    safe::helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
     utils::pad_bytes,
     xchacha20,
 };
@@ -116,7 +116,7 @@ impl DataEnvelope {
 
         // Build the COSE headers
         let mut protected_header = coset::HeaderBuilder::new()
-            .key_id(cek.key_id.to_vec())
+            .key_id(cek.key_id.as_slice().to_vec())
             .content_type(CONTENT_TYPE_PADDED_CBOR.to_string())
             .build();
         set_safe_namespaces(
@@ -211,7 +211,7 @@ impl DataEnvelope {
         ) {
             return Err(DataEnvelopeError::DecryptionError);
         }
-        if msg.protected.header.key_id != cek.key_id {
+        if msg.protected.header.key_id != cek.key_id.as_slice() {
             return Err(DataEnvelopeError::WrongKey);
         }
 
@@ -288,9 +288,11 @@ impl From<Vec<u8>> for DataEnvelope {
 
 impl std::fmt::Debug for DataEnvelope {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DataEnvelope")
-            .field("envelope_data", &self.envelope_data)
-            .finish()
+        let mut s = f.debug_struct("DataEnvelope");
+        if let Ok(msg) = coset::CoseEncrypt0::from_slice(self.envelope_data.as_ref()) {
+            debug_fmt::<DataEnvelopeNamespace>(&mut s, &msg.protected.header);
+        }
+        s.finish()
     }
 }
 
@@ -502,7 +504,7 @@ pub enum DataEnvelopeNamespace {
 
 impl DataEnvelopeNamespace {
     /// Returns the numeric value of the namespace.
-    pub fn as_i64(&self) -> i64 {
+    fn as_i64(&self) -> i64 {
         *self as i64
     }
 }
@@ -562,6 +564,15 @@ mod tests {
     const TEST_VECTOR_CEK: &str =
         "pQEEAlB5RTKA0xXdA7C4iQE4QfVUAzoAARFvBIEEIFggQYqnsrAfeFFTaXGXB54YrksB6eQcctMpnaZ8rG6rMJ0B";
     const TEST_VECTOR_ENVELOPE: &str = "g1hLpQE6AAERbwN4I2FwcGxpY2F0aW9uL3guYml0d2FyZGVuLmNib3ItcGFkZGVkBFB5RTKA0xXdA7C4iQE4QfVUOgABOIECOgABOIAgoQVYGLfQrYHVWxRxO6A8m/yp5DPbBIn3h8nijlhQj4jFwDLWfFz7le1Oy8dTls5vdEFg/FjjsPvXicI2bdb5KDdJCz/YkEu0kqjpQwdCcALpJLVJwgQQeKIeU2klBHEPZjnlLpRRXeCUp5c5BYQ=";
+
+    #[test]
+    #[ignore = "Manual test to verify debug format"]
+    fn test_debug() {
+        let data: TestData = TestDataV1 { field: 42 }.into();
+        let (envelope, _cek) =
+            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace).unwrap();
+        println!("{:?}", envelope);
+    }
 
     #[test]
     #[ignore]

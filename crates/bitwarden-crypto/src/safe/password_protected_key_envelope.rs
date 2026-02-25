@@ -34,7 +34,7 @@ use crate::{
         extract_integer,
     },
     keys::KeyId,
-    safe::helpers::{set_safe_namespaces, validate_safe_namespaces},
+    safe::helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
     xchacha20,
 };
 
@@ -293,9 +293,27 @@ impl TryFrom<&Vec<u8>> for PasswordProtectedKeyEnvelope {
 
 impl std::fmt::Debug for PasswordProtectedKeyEnvelope {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PasswordProtectedKeyEnvelope")
-            .field("cose_encrypt", &self.cose_encrypt)
-            .finish()
+        let mut s = f.debug_struct("PasswordProtectedKeyEnvelope");
+
+        if let Some(recipient) = self.cose_encrypt.recipients.first() {
+            let settings: Result<Argon2RawSettings, _> = (&recipient.unprotected).try_into();
+            if let Ok(settings) = settings {
+                s.field("argon2_iterations", &settings.iterations);
+                s.field("argon2_memory_kib", &settings.memory);
+                s.field("argon2_parallelism", &settings.parallelism);
+            }
+        }
+
+        debug_fmt::<PasswordProtectedKeyEnvelopeNamespace>(
+            &mut s,
+            &self.cose_encrypt.protected.header,
+        );
+
+        if let Ok(Some(key_id)) = self.contained_key_id() {
+            s.field("contained_key_id", &key_id);
+        }
+
+        s.finish()
     }
 }
 
@@ -530,7 +548,7 @@ pub enum PasswordProtectedKeyEnvelopeNamespace {
 
 impl PasswordProtectedKeyEnvelopeNamespace {
     /// Returns the numeric value of the namespace.
-    pub fn as_i64(&self) -> i64 {
+    fn as_i64(&self) -> i64 {
         *self as i64
     }
 }
@@ -609,6 +627,19 @@ mod tests {
     ];
 
     const TESTVECTOR_PASSWORD: &str = "test_password";
+
+    #[test]
+    #[ignore = "Manual test to verify debug format"]
+    fn test_debug() {
+        let key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+        let envelope = PasswordProtectedKeyEnvelope::seal_ref(
+            &key,
+            "test_password",
+            PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+        )
+        .unwrap();
+        println!("{:?}", envelope);
+    }
 
     #[test]
     fn test_testvector_cosekey() {

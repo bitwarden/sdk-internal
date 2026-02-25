@@ -3,6 +3,8 @@
 //! unless there is a a clear benefit, such as a clear cryptographic benefit, which MUST
 //! be documented publicly.
 
+use std::fmt::Debug;
+
 use coset::{
     CborSerializable, ContentType, CoseEncrypt0, CoseEncrypt0Builder, Header, Label,
     iana::{self, CoapContentFormat, KeyOperation},
@@ -52,7 +54,7 @@ pub(crate) const SIGNING_NAMESPACE: i64 = -80000;
 // Domain separation / Namespaces
 //
 // Cryptographic objects are strongly domain separated so that items can only be decrypted
-// in the correct context, making cryptographic analylsis significantly easier and preventing
+// in the correct context, making cryptographic analysis significantly easier and preventing
 // misuse of cryptographic objects. For this, there is a partitioning at two layers. First,
 // the object types are partitioned into e.g. EncString, DataEnvelope, Signature, KeyEnvelope, and
 // so on. Second, within each of these types, each of these spans their own namespace for usages.
@@ -64,7 +66,7 @@ pub(crate) const SAFE_OBJECT_NAMESPACE: i64 = -80002;
 
 #[allow(clippy::enum_variant_names)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SafeObjectNamespace {
+pub(crate) enum SafeObjectNamespace {
     PasswordProtectedKeyEnvelope = 1,
     DataEnvelope = 2,
     SymmetricKeyEnvelope = 3,
@@ -92,7 +94,7 @@ impl From<SafeObjectNamespace> for i128 {
     }
 }
 
-pub(crate) trait ContentNamespace: TryFrom<i128> + Into<i128> + PartialEq {}
+pub(crate) trait ContentNamespace: TryFrom<i128> + Into<i128> + PartialEq + Debug {}
 
 /// Each type of object has it's own namespace for strong domain separation to eliminate
 /// attacks which attempt to confuse object types. For signatures, this refers to signature
@@ -152,7 +154,9 @@ pub(crate) fn encrypt_xchacha20_poly1305(
     let mut plaintext = plaintext.to_vec();
 
     let header_builder: coset::HeaderBuilder = content_format.into();
-    let mut protected_header = header_builder.key_id(key.key_id.to_vec()).build();
+    let mut protected_header = header_builder
+        .key_id(key.key_id.as_slice().to_vec())
+        .build();
     // This should be adjusted to use the builder pattern once implemented in coset.
     // The related coset upstream issue is:
     // https://github.com/google/coset/issues/105
@@ -204,7 +208,7 @@ pub(crate) fn decrypt_xchacha20_poly1305(
     let content_format = ContentFormat::try_from(&msg.protected.header)
         .map_err(|_| CryptoError::EncString(EncStringParseError::CoseMissingContentType))?;
 
-    if key.key_id != *msg.protected.header.key_id {
+    if key.key_id.as_slice() != msg.protected.header.key_id {
         return Err(CryptoError::WrongCoseKeyId);
     }
 
@@ -413,9 +417,25 @@ pub(crate) enum CoseExtractError {
     MissingValue(String),
 }
 
+/// Helper function to convert a COSE KeyOperation to a debug string
+pub(crate) fn debug_key_operation(key_operation: KeyOperation) -> &'static str {
+    match key_operation {
+        KeyOperation::Sign => "Sign",
+        KeyOperation::Verify => "Verify",
+        KeyOperation::Encrypt => "Encrypt",
+        KeyOperation::Decrypt => "Decrypt",
+        KeyOperation::WrapKey => "WrapKey",
+        KeyOperation::UnwrapKey => "UnwrapKey",
+        KeyOperation::DeriveKey => "DeriveKey",
+        KeyOperation::DeriveBits => "DeriveBits",
+        _ => "Unknown",
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::keys::KeyId;
 
     const KEY_ID: [u8; 16] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
     const KEY_DATA: [u8; 32] = [
@@ -496,7 +516,7 @@ mod test {
     #[test]
     fn test_decrypt_test_vector() {
         let key = XChaCha20Poly1305Key {
-            key_id: KEY_ID,
+            key_id: KeyId::from(KEY_ID),
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
             supported_operations: vec![
                 KeyOperation::Decrypt,
@@ -517,7 +537,7 @@ mod test {
     #[test]
     fn test_fail_wrong_key_id() {
         let key = XChaCha20Poly1305Key {
-            key_id: [1; 16], // Different key ID
+            key_id: KeyId::from([1; 16]), // Different key ID
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
             supported_operations: vec![
                 KeyOperation::Decrypt,
@@ -547,7 +567,7 @@ mod test {
         let serialized_message = CoseEncrypt0Bytes::from(cose_encrypt0.to_vec().unwrap());
 
         let key = XChaCha20Poly1305Key {
-            key_id: KEY_ID,
+            key_id: KeyId::from(KEY_ID),
             enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
             supported_operations: vec![
                 KeyOperation::Decrypt,

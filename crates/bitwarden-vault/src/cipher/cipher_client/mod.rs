@@ -22,6 +22,7 @@ use crate::{
 mod admin;
 mod create;
 mod delete;
+mod delete_attachment;
 mod edit;
 mod get;
 mod restore;

@@ -1,3 +1,5 @@
+use std::fmt::DebugStruct;
+
 use ciborium::Value;
 
 use crate::{
@@ -15,7 +17,7 @@ pub(super) enum ExtractionError {
     InvalidNamespace,
 }
 
-fn extract_safe_object_namespace(
+pub(super) fn extract_safe_object_namespace(
     header: &coset::Header,
 ) -> Result<SafeObjectNamespace, ExtractionError> {
     match extract_integer(header, SAFE_OBJECT_NAMESPACE, "safe object namespace") {
@@ -26,7 +28,7 @@ fn extract_safe_object_namespace(
     }
 }
 
-fn extract_safe_content_namespace<T: ContentNamespace>(
+pub(super) fn extract_safe_content_namespace<T: ContentNamespace>(
     header: &coset::Header,
 ) -> Result<T, ExtractionError> {
     match extract_integer(header, SAFE_CONTENT_NAMESPACE, "safe content namespace") {
@@ -34,6 +36,18 @@ fn extract_safe_content_namespace<T: ContentNamespace>(
             .try_into()
             .map_err(|_| ExtractionError::InvalidNamespace),
         Err(_) => Err(ExtractionError::MissingNamespace),
+    }
+}
+
+pub(super) fn debug_fmt<C: ContentNamespace>(
+    debug_struct: &mut DebugStruct,
+    header: &coset::Header,
+) {
+    if let Ok(object_namespace) = extract_safe_object_namespace(header) {
+        debug_struct.field("object_namespace", &object_namespace);
+    }
+    if let Ok(content_namespace) = extract_safe_content_namespace::<C>(header) {
+        debug_struct.field("content_namespace", &content_namespace);
     }
 }
 
@@ -76,9 +90,7 @@ pub(super) fn validate_safe_namespaces<T: ContentNamespace>(
     expected_object_namespace: SafeObjectNamespace,
     expected_content_namespace: T,
 ) -> Result<(), ExtractionError> {
-    let obj = extract_safe_object_namespace(header);
-    println!("Object namespace extraction result: {obj:?}");
-    match obj {
+    match extract_safe_object_namespace(header) {
         Ok(ns) if ns == expected_object_namespace => (),
         // If the namespace is present but doesn't match, return an error immediately.
         Ok(_) => return Err(ExtractionError::InvalidNamespace),
