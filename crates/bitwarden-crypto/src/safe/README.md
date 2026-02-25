@@ -58,4 +58,5 @@ authenticated data of each safe object contains a object namespace key value pai
 decrypting code to correctly identify whether an object that is being decrypted is actually the
 correct object type (e.g. a DataEnvelope). For each object type, there is then another layer of
 partitioning, since these objects can be used in many places. For instance, a DataEnvelope may have
-the partitioning vault item, account settings, and so on. This content namespace is also stored in the authenticated data of the safe object.
+the partitioning vault item, account settings, and so on. This content namespace is also stored in
+the authenticated data of the safe object.
