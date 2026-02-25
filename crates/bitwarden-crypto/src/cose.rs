@@ -63,7 +63,7 @@ pub(crate) const SIGNING_NAMESPACE: i64 = -80000;
 pub(crate) const SAFE_OBJECT_NAMESPACE: i64 = -80002;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SafeObjectNamespace {
+pub(crate) enum SafeObjectNamespace {
     PasswordProtectedKeyEnvelope = 1,
     DataEnvelope = 2,
 }

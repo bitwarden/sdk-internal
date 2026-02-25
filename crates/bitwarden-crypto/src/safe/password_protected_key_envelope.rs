@@ -530,7 +530,7 @@ pub enum PasswordProtectedKeyEnvelopeNamespace {
 
 impl PasswordProtectedKeyEnvelopeNamespace {
     /// Returns the numeric value of the namespace.
-   fn as_i64(&self) -> i64 {
+    fn as_i64(&self) -> i64 {
         *self as i64
     }
 }
