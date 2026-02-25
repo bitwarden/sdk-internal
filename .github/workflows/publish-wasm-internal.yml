@@ -152,10 +152,10 @@ jobs:
           _SDK_VERSION: ${{ needs.setup.outputs.release-version }}
           _CLIENT_BRANCH: ${{ inputs.client-branch || 'main' }}
         run: |
-          echo "🚀 Triggering sdlc-sdk-update.yml workflow in bitwarden/clients repo..."
+          echo "🚀 Triggering sdk-update.yml workflow in bitwarden/clients repo..."
           echo "   Target branch: $_CLIENT_BRANCH"
           echo "   SDK version: $_SDK_VERSION"
-          gh workflow run sdlc-sdk-update.yml \
+          gh workflow run sdk-update.yml \
             --repo bitwarden/clients \
             --ref $_CLIENT_BRANCH \
             -f run-mode=Update \
