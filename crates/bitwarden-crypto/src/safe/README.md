@@ -55,6 +55,6 @@ metadata about where an object appropriately can be used.
 The namespace partitioning happens in two layers, the object layer and the content layer. The
 authenticated data of each safe object contains a object namespace key value pair, which allows the
 decrypting code to correctly identify whether an object that is being decrypted is actually the
-correct object type (e.g. a DataEnvelope). Within each object type, there is then another layer of
+correct object type (e.g. a DataEnvelope). For each object type, there is then another layer of
 partitioning, since these objects can be used in many places. For instance, a DataEnvelope may have
-the partitioning vault item, account settings, and so on.
+the partitioning vault item, account settings, and so on. This content namespace is also stored in the authenticated data of the safe object.
