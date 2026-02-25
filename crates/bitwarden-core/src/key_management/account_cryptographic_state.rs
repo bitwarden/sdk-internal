@@ -26,7 +26,7 @@ use tracing::{info, instrument};
 use tsify::Tsify;
 
 use crate::{
-    MissingFieldError, UserId,
+    MissingFieldError,
     key_management::{
         KeyIds, PrivateKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
     },
@@ -272,14 +272,13 @@ impl WrappedAccountCryptographicState {
     /// state, but does set some keys to the local context.
     pub fn make(
         ctx: &mut KeyStoreContext<KeyIds>,
-        user_id: UserId,
     ) -> Result<(SymmetricKeyId, Self), AccountCryptographyInitializationError> {
         let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let signing_key = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
         let signed_public_key = ctx.make_signed_public_key(private_key, signing_key)?;
 
-        let security_state = SecurityState::initialize_for_user(user_id);
+        let security_state = SecurityState::new();
         let signed_security_state = security_state.sign(signing_key, ctx)?;
 
         Ok((
@@ -315,7 +314,6 @@ impl WrappedAccountCryptographicState {
         &self,
         current_user_key: &SymmetricKeyId,
         new_user_key: &SymmetricKeyId,
-        user_id: UserId,
         ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<Self, RotateCryptographyStateError> {
         match self {
@@ -346,7 +344,7 @@ impl WrappedAccountCryptographicState {
                     .map_err(|_| RotateCryptographyStateError::KeyMissing)?;
 
                 // 4. The security state is initialized and signed.
-                let security_state = SecurityState::initialize_for_user(user_id);
+                let security_state = SecurityState::new();
                 let signed_security_state = security_state
                     .sign(signing_key_id, ctx)
                     .map_err(|_| RotateCryptographyStateError::KeyMissing)?;
@@ -560,8 +558,7 @@ mod tests {
         let v1 = format!("{v1:?}");
         assert!(!v1.contains("private_key"));
 
-        let user_id = UserId::new_v4();
-        let (_, v2) = WrappedAccountCryptographicState::make(&mut ctx, user_id).unwrap();
+        let (_, v2) = WrappedAccountCryptographicState::make(&mut ctx).unwrap();
         println!("{:?}", v2);
 
         let v2 = format!("{v2:?}");
@@ -629,8 +626,7 @@ mod tests {
             .unwrap();
 
         // Sign and wrap security state
-        let user_id = UserId::new_v4();
-        let security_state = SecurityState::initialize_for_user(user_id);
+        let security_state = SecurityState::new();
         let signed_security_state = security_state.sign(signing_key_id, &mut temp_ctx).unwrap();
 
         // Wrap the private and signing keys with the user key
@@ -681,9 +677,8 @@ mod tests {
     fn test_to_private_keys_request_model_v2() {
         let temp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut temp_ctx = temp_store.context_mut();
-        let user_id = UserId::new_v4();
         let (user_key, wrapped_account_cryptography_state) =
-            WrappedAccountCryptographicState::make(&mut temp_ctx, user_id).unwrap();
+            WrappedAccountCryptographicState::make(&mut temp_ctx).unwrap();
 
         wrapped_account_cryptography_state
             .set_to_context(&RwLock::new(None), user_key, &temp_store, temp_ctx)
@@ -789,9 +784,8 @@ mod tests {
 
         let temp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut temp_ctx = temp_store.context_mut();
-        let user_id = UserId::new_v4();
         let (user_key, wrapped_state) =
-            WrappedAccountCryptographicState::make(&mut temp_ctx, user_id).unwrap();
+            WrappedAccountCryptographicState::make(&mut temp_ctx).unwrap();
 
         wrapped_state
             .set_to_context(&RwLock::new(None), user_key, &temp_store, temp_ctx)
@@ -899,9 +893,8 @@ mod tests {
         // Create a V2 state to get a COSE-encrypted private key
         let temp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut temp_ctx = temp_store.context_mut();
-        let user_id = UserId::new_v4();
         let (user_key, wrapped_state) =
-            WrappedAccountCryptographicState::make(&mut temp_ctx, user_id).unwrap();
+            WrappedAccountCryptographicState::make(&mut temp_ctx).unwrap();
 
         wrapped_state
             .set_to_context(&RwLock::new(None), user_key, &temp_store, temp_ctx)
@@ -984,7 +977,6 @@ mod tests {
         let mut ctx = store.context_mut();
 
         // Create a V1-style user key and add to context
-        let user_id = UserId::new_v4();
         let (old_user_key_id, wrapped_state) =
             WrappedAccountCryptographicState::make_v1(&mut ctx).unwrap();
         let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
@@ -1004,7 +996,7 @@ mod tests {
 
         // Rotate the state
         let rotated_state = wrapped_state
-            .rotate(&SymmetricKeyId::User, &new_user_key_id, user_id, &mut ctx)
+            .rotate(&SymmetricKeyId::User, &new_user_key_id, &mut ctx)
             .unwrap();
 
         // We need to ensure two things after a rotation from V1 to V2:
@@ -1046,9 +1038,8 @@ mod tests {
         let mut ctx = store.context_mut();
 
         // Create a V2-style user key and add to context
-        let user_id = UserId::new_v4();
         let (old_user_key_id, wrapped_state) =
-            WrappedAccountCryptographicState::make(&mut ctx, user_id).unwrap();
+            WrappedAccountCryptographicState::make(&mut ctx).unwrap();
         let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         #[allow(deprecated)]
         let new_user_key_owned = ctx
@@ -1066,7 +1057,7 @@ mod tests {
 
         // Rotate the state
         let rotated_state = wrapped_state
-            .rotate(&SymmetricKeyId::User, &new_user_key_id, user_id, &mut ctx)
+            .rotate(&SymmetricKeyId::User, &new_user_key_id, &mut ctx)
             .unwrap();
 
         // We need to ensure two things after a rotation from V1 to V2:

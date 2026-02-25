@@ -222,7 +222,6 @@ async fn post_rotate_user_keys(
             &sync.wrapped_account_cryptographic_state,
             &current_user_key_id,
             &new_user_key_id,
-            UserId::new(sync.user_id),
             &mut ctx,
         )
         .map_err(|_| RotateUserKeysError::CryptoError)?;

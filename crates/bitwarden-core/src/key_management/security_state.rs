@@ -48,9 +48,6 @@ export type SignedSecurityState = string;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SecurityState {
-    /// The entity ID is a permanent, unchangeable, unique identifier for the object this security
-    /// state applies to. For users, this is the user ID, which never changes.
-    entity_id: UserId,
     /// The version of the security state gates feature availability. It can only ever be
     /// incremented. Components can use it to gate format support of specific formats (like
     /// item url hashes).
@@ -60,11 +57,8 @@ pub struct SecurityState {
 impl SecurityState {
     /// Initialize a new `SecurityState` for the given user ID, to the lowest version possible.
     /// The user needs to be a v2 encryption user.
-    pub fn initialize_for_user(user_id: UserId) -> Self {
-        SecurityState {
-            entity_id: user_id,
-            version: 2,
-        }
+    pub fn new() -> Self {
+        SecurityState { version: 2 }
     }
 
     /// Returns the version of the security state
@@ -190,8 +184,7 @@ mod tests {
         let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
-        let user_id = UserId::new_v4();
-        let security_state = SecurityState::initialize_for_user(user_id);
+        let security_state = SecurityState::new();
         let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
         let key = ctx.add_local_signing_key(signing_key.clone());
         let signed_security_state = security_state.sign(key, &mut ctx).unwrap();
@@ -205,8 +198,7 @@ mod tests {
         let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
-        let user_id = UserId::new_v4();
-        let security_state = SecurityState::initialize_for_user(user_id);
+        let security_state = SecurityState::new();
         let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
         let key = ctx.add_local_signing_key(signing_key.clone());
         let signed_security_state = security_state.sign(key, &mut ctx).unwrap();
@@ -227,8 +219,7 @@ mod tests {
         let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
-        let user_id = UserId::new_v4();
-        let security_state = SecurityState::initialize_for_user(user_id);
+        let security_state = SecurityState::new();
         let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
         let key = ctx.add_local_signing_key(signing_key.clone());
         let signed_security_state = security_state.sign(key, &mut ctx).unwrap();
@@ -238,7 +229,6 @@ mod tests {
             .verify_and_unwrap(&verifying_key)
             .unwrap();
 
-        assert_eq!(verified_security_state.entity_id, user_id);
         assert_eq!(verified_security_state.version(), 2);
     }
 
