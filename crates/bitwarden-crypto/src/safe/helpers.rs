@@ -68,9 +68,7 @@ pub(super) fn validate_safe_namespaces<T: ContentNamespace>(
     expected_object_namespace: SafeObjectNamespace,
     expected_content_namespace: T,
 ) -> Result<(), ExtractionError> {
-    let obj = extract_safe_object_namespace(header);
-    println!("Object namespace extraction result: {obj:?}");
-    match obj {
+    match extract_safe_object_namespace(header) {
         Ok(ns) if ns == expected_object_namespace => (),
         // If the namespace is present but doesn't match, return an error immediately.
         Ok(_) => return Err(ExtractionError::InvalidNamespace),
