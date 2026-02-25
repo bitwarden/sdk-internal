@@ -52,7 +52,7 @@ pub(crate) const SIGNING_NAMESPACE: i64 = -80000;
 // Domain separation / Namespaces
 //
 // Cryptographic objects are strongly domain separated so that items can only be decrypted
-// in the correct context, making cryptographic analylsis significantly easier and preventing
+// in the correct context, making cryptographic analysis significantly easier and preventing
 // misuse of cryptographic objects. For this, there is a partitioning at two layers. First,
 // the object types are partitioned into e.g. EncString, DataEnvelope, Signature, KeyEnvelope, and
 // so on. Second, within each of these types, each of these spans their own namespace for usages.
