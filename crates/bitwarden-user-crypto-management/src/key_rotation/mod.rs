@@ -6,10 +6,7 @@ mod sync;
 mod unlock;
 
 use bitwarden_api_api::models::RotateUserAccountKeysAndDataRequestModel;
-use bitwarden_core::{
-    UserId,
-    key_management::{MasterPasswordAuthenticationData, SymmetricKeyId},
-};
+use bitwarden_core::key_management::{MasterPasswordAuthenticationData, SymmetricKeyId};
 use bitwarden_crypto::PublicKey;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};

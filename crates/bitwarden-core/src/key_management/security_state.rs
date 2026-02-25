@@ -52,6 +52,12 @@ pub struct SecurityState {
     version: u64,
 }
 
+impl Default for SecurityState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SecurityState {
     /// Initialize a new `SecurityState` for the given user ID, to the lowest version possible.
     /// The user needs to be a v2 encryption user.
@@ -208,7 +214,7 @@ mod tests {
         );
         println!(
             "const TEST_VERIFYING_KEY: &str = \"{}\";",
-            B64::from(verifying_key.to_cose()).to_string()
+            B64::from(verifying_key.to_cose())
         );
     }
 
