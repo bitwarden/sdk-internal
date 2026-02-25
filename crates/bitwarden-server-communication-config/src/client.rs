@@ -61,17 +61,20 @@ where
     ///
     /// Returns the stored cookies as-is. For sharded cookies, each entry includes
     /// the full cookie name with its `-{N}` suffix (e.g., `AWSELBAuthSessionCookie-0`).
-    pub async fn cookies(&self, hostname: String) -> Vec<(String, String)> {
-        if let Ok(Some(config)) = self.repository.get(hostname).await
-            && let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap
-            && let Some(acquired_cookies) = vendor_config.cookie_value
-        {
-            return acquired_cookies
-                .into_iter()
-                .map(|cookie| (cookie.name, cookie.value))
-                .collect();
+    #[allow(clippy::manual_async_fn)]
+    pub fn cookies(&self, hostname: String) -> impl std::future::Future<Output = Vec<(String, String)>> + Send + '_ {
+        async move {
+            if let Ok(Some(config)) = self.repository.get(hostname).await
+                && let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap
+                && let Some(acquired_cookies) = vendor_config.cookie_value
+            {
+                return acquired_cookies
+                    .into_iter()
+                    .map(|cookie| (cookie.name, cookie.value))
+                    .collect();
+            }
+            Vec::new()
         }
-        Vec::new()
     }
 
     /// Sets the server communication configuration for a hostname
