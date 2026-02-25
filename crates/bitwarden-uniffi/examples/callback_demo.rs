@@ -5,7 +5,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use bitwarden_core::client::internal::ClientManagedTokens;
+use bitwarden_core::auth::ClientManagedTokens;
 use bitwarden_uniffi::{Client, LogCallback};
 
 /// Mock token provider for demo

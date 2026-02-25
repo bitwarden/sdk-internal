@@ -117,7 +117,7 @@ impl DataEnvelope {
 
         // Build the COSE headers
         let mut protected_header = coset::HeaderBuilder::new()
-            .key_id(cek.key_id.to_vec())
+            .key_id(cek.key_id.as_slice().to_vec())
             .content_type(CONTENT_TYPE_PADDED_CBOR.to_string())
             .value(
                 DATA_ENVELOPE_NAMESPACE,
@@ -212,7 +212,7 @@ impl DataEnvelope {
         ) {
             return Err(DataEnvelopeError::DecryptionError);
         }
-        if msg.protected.header.key_id != cek.key_id {
+        if msg.protected.header.key_id != cek.key_id.as_slice() {
             return Err(DataEnvelopeError::WrongKey);
         }
         if envelope_namespace != *namespace {
@@ -311,9 +311,17 @@ impl From<Vec<u8>> for DataEnvelope {
 
 impl std::fmt::Debug for DataEnvelope {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DataEnvelope")
-            .field("envelope_data", &self.envelope_data)
-            .finish()
+        let mut s = f.debug_struct("DataEnvelope");
+        if let Ok(msg) = coset::CoseEncrypt0::from_slice(self.envelope_data.as_ref()) {
+            if let Ok(namespace) = extract_namespace(&msg.protected.header) {
+                s.field("namespace", &namespace);
+            }
+            if let Ok(key_id) = crate::keys::KeyId::try_from(msg.protected.header.key_id.as_slice())
+            {
+                s.field("key_id", &key_id);
+            }
+        }
+        s.finish()
     }
 }
 
@@ -529,6 +537,15 @@ mod tests {
     const TEST_VECTOR_CEK: &str =
         "pQEEAlAiZII8tW5Lu9YH2bND5qx4AzoAARFvBIEEIFggnlL+dg+plLs+YqbUS00NYjwvir9E7O5pTJgX/O++XuQB";
     const TEST_VECTOR_ENVELOPE: &str = "g1hFpAE6AAERbwN4I2FwcGxpY2F0aW9uL3guYml0d2FyZGVuLmNib3ItcGFkZGVkBFAiZII8tW5Lu9YH2bND5qx4OgABOIAgoQVYGDjsL+Q0npomBf7fVsefBkXNJT/OkMncuVhQ8VSz8YWHIRylVilXRDrQp3LRSnDHQKIU4F0A49yi8W2tmRATUcPkU87eI9xbRvxjdUY/X4wL26MoFsqbWxyMJHcj8svQWwL3Jq3OvK9VS6A=";
+
+    #[test]
+    #[ignore = "Manual test to verify debug format"]
+    fn test_debug() {
+        let data: TestData = TestDataV1 { field: 42 }.into();
+        let (envelope, _cek) =
+            DataEnvelope::seal_ref(&data, &DataEnvelopeNamespace::ExampleNamespace).unwrap();
+        println!("{:?}", envelope);
+    }
 
     #[test]
     #[ignore]
