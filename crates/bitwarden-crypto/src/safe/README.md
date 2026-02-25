@@ -37,6 +37,7 @@ When adding a new primitive there are a few considerations to make:
   - Replacing insecure functionality is a valid reason here
 - Is it easy to use for developers that are not cryptography experts
 - Does the API prevent (accidental) mis-use by developers that are not cryptography experts
+  - Avoid exposing many settings/configurations to API consumers
 - Is the format extensible and cover the use-case adequately
 - Does the new object have adequate security analysis performed?
 - Do we have cryptographic modularity?
