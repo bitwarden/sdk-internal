@@ -15,7 +15,9 @@ use crate::{
     KeyStoreContext, SymmetricCryptoKey, XChaCha20Poly1305Key,
     cose::{CONTAINED_KEY_ID, ContentNamespace, SafeObjectNamespace, XCHACHA20_POLY1305},
     keys::KeyId,
-    safe::helpers::{extract_contained_key_id, set_safe_namespaces, validate_safe_namespaces},
+    safe::helpers::{
+        debug_fmt, extract_contained_key_id, set_safe_namespaces, validate_safe_namespaces,
+    },
 };
 
 /// Errors that can occur when sealing or unsealing a symmetric key with envelope operations.
@@ -96,7 +98,7 @@ impl SymmetrickeyEnvelope {
             namespace,
         );
         protected_header.alg = Some(coset::Algorithm::PrivateUse(XCHACHA20_POLY1305));
-        protected_header.key_id = Vec::from(wrapping_key.key_id);
+        protected_header.key_id = wrapping_key.key_id.as_slice().into();
 
         let cose_encrypt0 = crate::cose::encrypt_cose(
             CoseEncrypt0Builder::new().protected(protected_header),
@@ -197,6 +199,8 @@ impl std::fmt::Debug for SymmetrickeyEnvelope {
             );
         }
 
+        debug_fmt::<SymmetricKeyEnvelopeNamespace>(&mut s, &self.cose_encrypt0.protected.header);
+
         if let Ok(Some(key_id)) = self.contained_key_id() {
             s.field("contained_key_id", &key_id);
         }
@@ -270,8 +274,9 @@ impl FromWasmAbi for SymmetrickeyEnvelope {
     }
 }
 
+/// Content namespace for the symmetric key envelope
 #[allow(clippy::enum_variant_names)]
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum SymmetricKeyEnvelopeNamespace {
     /// A key used for re-hydration of the SDK
     SessionKey = 1,
