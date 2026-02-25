@@ -25,7 +25,9 @@ use tracing::info;
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 #[cfg(feature = "wasm")]
-use crate::key_management::wasm_unlock_state::copy_user_key_to_client_managed_state;
+use crate::key_management::wasm_unlock_state::{
+    copy_user_key_to_client_managed_state, get_user_key_from_client_managed_state,
+};
 use crate::{
     Client, NotAuthenticatedError, OrganizationId, UserId, WrongPasswordError,
     client::{LoginMethod, UserLoginMethod, encryption_settings::EncryptionSettingsError},
@@ -90,6 +92,11 @@ pub enum InitUserCryptoMethod {
         /// Contains the data needed to unlock with the master password
         master_password_unlock: MasterPasswordUnlockData,
     },
+    /// Read the user-key directly from client-managed state
+    /// Note: In contrast to [`InitUserCryptoMethod::DecryptedKey`], this does not update the state
+    /// after initalizing
+    #[cfg(feature = "wasm")]
+    ClientManagedState {},
     /// Never lock and/or biometric unlock
     DecryptedKey {
         /// The user's decrypted encryption key, obtained using `get_user_encryption_key`
@@ -193,6 +200,16 @@ pub(super) async fn initialize_user_crypto(
             copy_user_key_to_client_managed_state(client)
                 .await
                 .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
+        }
+        #[cfg(feature = "wasm")]
+        InitUserCryptoMethod::ClientManagedState {} => {
+            drop(_span_guard);
+            let user_key = get_user_key_from_client_managed_state(client)
+                .await
+                .map_err(|_| EncryptionSettingsError::UserKeyStateRetrievalFailed)?;
+            client
+                .internal
+                .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
         }
         InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
             let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
