@@ -39,11 +39,14 @@ pub(crate) const ARGON2_PARALLELISM: i64 = -71004;
 /// key ID that contained key has
 pub(crate) const CONTAINED_KEY_ID: i64 = -71005;
 
+pub(crate) const IDENTITY_SEALED_ENVELOPE_RECIPIENT_FINGERPRINT: i64 = -71006;
+pub(crate) const IDENTITY_SEALED_ENVELOPE_SENDER_FINGERPRINT: i64 = -71007;
+
 // Note: These are in the "unregistered" tree: https://datatracker.ietf.org/doc/html/rfc6838#section-3.4
 // These are only used within Bitwarden, and not meant for exchange with other systems.
 const CONTENT_TYPE_PADDED_UTF8: &str = "application/x.bitwarden.utf8-padded";
 pub(crate) const CONTENT_TYPE_PADDED_CBOR: &str = "application/x.bitwarden.cbor-padded";
-const CONTENT_TYPE_BITWARDEN_LEGACY_KEY: &str = "application/x.bitwarden.legacy-key";
+pub(crate) const CONTENT_TYPE_BITWARDEN_LEGACY_KEY: &str = "application/x.bitwarden.legacy-key";
 const CONTENT_TYPE_SPKI_PUBLIC_KEY: &str = "application/x.bitwarden.spki-public-key";
 
 /// Namespaces
@@ -143,7 +146,7 @@ pub(crate) fn decrypt_xchacha20_poly1305(
         return Ok((data.to_vec(), content_format));
     }
 
-    Ok((decrypted_message, content_format))
+    Ok((decrypted_message.to_vec(), content_format))
 }
 
 const SYMMETRIC_KEY: Label = Label::Int(iana::SymmetricKeyParameter::K as i64);

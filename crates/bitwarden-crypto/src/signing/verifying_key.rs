@@ -8,6 +8,7 @@ use coset::{
     CborSerializable, RegisteredLabel, RegisteredLabelWithPrivate,
     iana::{Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter},
 };
+use sha2::Digest;
 
 use super::{SignatureAlgorithm, ed25519_verifying_key, key_id};
 use crate::{
@@ -16,6 +17,7 @@ use crate::{
     cose::CoseSerializable,
     error::{EncodingError, SignatureError},
     keys::KeyId,
+    traits::{DeriveFingerprint, KeyFingerprint},
 };
 
 /// A `VerifyingKey` without the key id. This enum contains a variant for each supported signature
@@ -59,7 +61,7 @@ impl VerifyingKey {
     /// Verifies the signature of the given data, for the given namespace.
     /// This should never be used directly, but only through the `verify` method, to enforce
     /// strong domain separation of the signatures.
-    pub(super) fn verify_raw(&self, signature: &[u8], data: &[u8]) -> Result<(), CryptoError> {
+    pub(crate) fn verify_raw(&self, signature: &[u8], data: &[u8]) -> Result<(), CryptoError> {
         match &self.inner {
             RawVerifyingKey::Ed25519(key) => {
                 let sig = ed25519_dalek::Signature::from_bytes(
@@ -69,6 +71,26 @@ impl VerifyingKey {
                 );
                 key.verify_strict(data, &sig)
                     .map_err(|_| SignatureError::InvalidSignature.into())
+            }
+        }
+    }
+}
+
+impl DeriveFingerprint for VerifyingKey {
+    fn fingerprint(&self) -> KeyFingerprint {
+        match &self.inner {
+            RawVerifyingKey::Ed25519(key) => {
+                // Ed25519 public keys are directly and trivially a canonical and non-colliding
+                // representation of the key pair. While Ed25519 keys are already
+                // 256 bits, they are not pseudo-randomly distributed and do not
+                // satisfy the properties of a fingerprint directly. Therefore, they are hashed
+                // using SHA-256 to get a pseudo-random distribution.
+                let digest = sha2::Sha256::digest(key.to_bytes());
+                let arr: [u8; 32] = digest
+                    .as_slice()
+                    .try_into()
+                    .expect("SHA-256 digest should be 32 bytes");
+                KeyFingerprint(arr)
             }
         }
     }

@@ -30,7 +30,7 @@ enum RawSigningKey {
 /// derived from it.
 #[derive(Clone)]
 pub struct SigningKey {
-    pub(super) id: KeyId,
+    pub(crate) id: KeyId,
     inner: RawSigningKey,
 }
 
@@ -71,7 +71,7 @@ impl SigningKey {
         }
     }
 
-    pub(super) fn cose_algorithm(&self) -> Algorithm {
+    pub(crate) fn cose_algorithm(&self) -> Algorithm {
         match &self.inner {
             RawSigningKey::Ed25519(_) => Algorithm::EdDSA,
         }
@@ -91,7 +91,7 @@ impl SigningKey {
     /// Signs the given byte array with the signing key.
     /// This should not be used directly other than for generating namespace separated signatures or
     /// signed objects.
-    pub(super) fn sign_raw(&self, data: &[u8]) -> Vec<u8> {
+    pub(crate) fn sign_raw(&self, data: &[u8]) -> Vec<u8> {
         match &self.inner {
             RawSigningKey::Ed25519(key) => key.sign(data).to_bytes().to_vec(),
         }
