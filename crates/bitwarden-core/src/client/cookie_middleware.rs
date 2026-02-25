@@ -7,6 +7,7 @@ use bitwarden_server_communication_config::{
     ServerCommunicationConfigClient, ServerCommunicationConfigPlatformApi,
     ServerCommunicationConfigRepository,
 };
+use http::Extensions;
 use reqwest::{Request, Response};
 use reqwest_middleware::{Middleware, Next, Result};
 
@@ -78,35 +79,30 @@ where
     async fn handle(
         &self,
         mut req: Request,
-        extensions: &mut reqwest::Extensions,
+        extensions: &mut Extensions,
         next: Next<'_>,
     ) -> Result<Response> {
         // Extract hostname from request URL
         if let Some(host) = req.url().host_str() {
             // Retrieve cookies from storage layer
-            match self.cookie_provider.cookies(host).await {
-                Ok(cookies) if !cookies.is_empty() => {
-                    // Build Cookie header value per RFC 6265 (semicolon-separated name=value pairs)
-                    let cookie_header = cookies
-                        .iter()
-                        .map(|(name, value)| format!("{}={}", name, value))
-                        .collect::<Vec<_>>()
-                        .join("; ");
+            let cookies = self.cookie_provider.cookies(host.to_string()).await;
 
-                    // Parse and inject Cookie header
-                    if let Ok(header_value) = cookie_header.parse() {
-                        req.headers_mut().insert(reqwest::header::COOKIE, header_value);
-                    }
-                    // Note: Invalid header values silently skipped (logged at debug level)
+            if !cookies.is_empty() {
+                // Build Cookie header value per RFC 6265 (semicolon-separated name=value pairs)
+                let cookie_header = cookies
+                    .iter()
+                    .map(|(name, value)| format!("{}={}", name, value))
+                    .collect::<Vec<_>>()
+                    .join("; ");
+
+                // Parse and inject Cookie header
+                if let Ok(header_value) = cookie_header.parse() {
+                    req.headers_mut()
+                        .insert(reqwest::header::COOKIE, header_value);
                 }
-                Ok(_) => {
-                    // Empty cookies Vec: normal case for non-SSO deployments, no action needed
-                }
-                Err(e) => {
-                    // Cookie retrieval failed: log and proceed without cookies (graceful degradation)
-                    tracing::debug!("Cookie retrieval failed for host {}: {:?}", host, e);
-                }
+                // Note: Invalid header values silently skipped (logged at debug level)
             }
+            // Empty cookies Vec: normal case for non-SSO deployments, no action needed
         }
         // No hostname or cookie injection failed: proceed with request as-is
 

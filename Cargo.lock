@@ -619,6 +619,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-server-communication-config",
  "bitwarden-state",
  "bitwarden-test",
  "bitwarden-uniffi-error",
