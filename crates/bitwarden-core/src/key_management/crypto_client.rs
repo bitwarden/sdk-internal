@@ -25,7 +25,7 @@ use crate::key_management::{
 };
 #[expect(deprecated)]
 use crate::{
-    Client, UserId,
+    Client,
     client::encryption_settings::EncryptionSettingsError,
     error::StatefulCryptoError,
     key_management::crypto::{
