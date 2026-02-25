@@ -29,7 +29,7 @@ The serialization of the data and the creation of a content encryption key is ha
 Calling the API with a decrypted struct, the content encryption key ID and the encrypted data are
 returned.
 
-## Guidelines for devs
+## Guidelines for developers
 
 When adding a new primitive there are a few considerations to make:
 
