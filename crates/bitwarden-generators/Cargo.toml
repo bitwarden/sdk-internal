@@ -37,7 +37,7 @@ uniffi = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
-rand_chacha = "0.3.1"
+rand_chacha = "0.10.0"
 tokio = { workspace = true, features = ["rt"] }
 wiremock = { workspace = true }
 
