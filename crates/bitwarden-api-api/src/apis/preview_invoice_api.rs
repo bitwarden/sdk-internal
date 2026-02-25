@@ -233,6 +233,7 @@ pub trait PreviewInvoiceApi: Send + Sync {
         last_key_rotation_date: Option<String>,
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
         preview_premium_upgrade_proration_request: Option<
             models::PreviewPremiumUpgradeProrationRequest,
         >,
@@ -1104,6 +1105,7 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
         last_key_rotation_date: Option<String>,
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
         preview_premium_upgrade_proration_request: Option<
             models::PreviewPremiumUpgradeProrationRequest,
         >,
@@ -1294,6 +1296,10 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
         if let Some(ref param_value) = verify_devices {
             local_var_req_builder =
                 local_var_req_builder.query(&[("verifyDevices", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = v2_upgrade_token {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
         }
         if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
             local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());

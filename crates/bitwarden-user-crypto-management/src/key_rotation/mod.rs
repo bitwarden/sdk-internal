@@ -82,7 +82,8 @@ impl UserCryptoManagementClient {
         .await
     }
 
-    /// Fetches the organization public keys for V1 organization memberships for the user.
+    /// Fetches the organization public keys for V1 organization memberships for the user for
+    /// organizations for which reset password is enrolled.
     /// These have to be trusted manually be the user before rotating.
     pub async fn get_untrusted_organization_public_keys(
         &self,
