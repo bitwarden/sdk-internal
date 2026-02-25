@@ -175,10 +175,14 @@ impl serde::Serialize for SignedSecurityState {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_crypto::{KeyStore, SignatureAlgorithm, SigningKey};
+    use bitwarden_crypto::{CoseKeyBytes, KeyStore, SignatureAlgorithm, SigningKey};
 
     use super::*;
     use crate::key_management::KeyIds;
+
+    const TEST_SIGNED_SECURITY_STATE: &str = "hFgepAEnAxg8BFBHo5ojcqDqbynNymOZGgJzOgABOH8CoFgkomhlbnRpdHlJZFBHmj2OTpBFO7aDLgeNnbZPZ3ZlcnNpb24CWEA4mQbYRRoPpc77tVHH4LlwY52Vz6tutThv8b/BV3ntQmjuKUxbzIGRxSyOhzCn3ouFJGEVnfsl6SqSm6K9XcME";
+    const TEST_VERIFYING_KEY: &str =
+        "pgEBAlBHo5ojcqDqbynNymOZGgJzAycEgQIgBiFYIK9hIvbLIdnzKhykPt8jT/ktXAlzPUfx4Nyx4EYTpIp7";
 
     #[test]
     #[ignore = "Manual test for debug logs"]
@@ -193,6 +197,29 @@ mod tests {
         let signed_security_state = security_state.sign(key, &mut ctx).unwrap();
 
         println!("{:?}", signed_security_state);
+    }
+
+    #[test]
+    #[ignore = "Make test vectors"]
+    fn test_make_test_vector() {
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let user_id = UserId::new_v4();
+        let security_state = SecurityState::initialize_for_user(user_id);
+        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
+        let key = ctx.add_local_signing_key(signing_key.clone());
+        let signed_security_state = security_state.sign(key, &mut ctx).unwrap();
+        let verifying_key = signing_key.to_verifying_key();
+
+        println!(
+            "const TEST_SIGNED_SECURITY_STATE: &str = \"{}\";",
+            String::from(&signed_security_state)
+        );
+        println!(
+            "const TEST_VERIFYING_KEY: &str = \"{}\";",
+            B64::from(verifying_key.to_cose()).to_string()
+        );
     }
 
     #[test]
@@ -212,6 +239,19 @@ mod tests {
             .unwrap();
 
         assert_eq!(verified_security_state.entity_id, user_id);
+        assert_eq!(verified_security_state.version(), 2);
+    }
+
+    #[test]
+    fn test_stable_testvector() {
+        let b64 = B64::try_from(TEST_VERIFYING_KEY).unwrap();
+        let verifying_key = VerifyingKey::from_cose(&CoseKeyBytes::from(&b64)).unwrap();
+        let signed_security_state =
+            SignedSecurityState::from_str(TEST_SIGNED_SECURITY_STATE).unwrap();
+        let verified_security_state = signed_security_state
+            .verify_and_unwrap(&verifying_key)
+            .unwrap();
+
         assert_eq!(verified_security_state.version(), 2);
     }
 }
