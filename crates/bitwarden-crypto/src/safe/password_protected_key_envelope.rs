@@ -34,7 +34,7 @@ use crate::{
         extract_integer,
     },
     keys::KeyId,
-    safe::helpers::{set_safe_namespaces, validate_safe_namespaces},
+    safe::helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
     xchacha20,
 };
 
@@ -303,6 +303,11 @@ impl std::fmt::Debug for PasswordProtectedKeyEnvelope {
                 s.field("argon2_parallelism", &settings.parallelism);
             }
         }
+
+        debug_fmt::<PasswordProtectedKeyEnvelopeNamespace>(
+            &mut s,
+            &self.cose_encrypt.protected.header,
+        );
 
         if let Ok(Some(key_id)) = self.contained_key_id() {
             s.field("contained_key_id", &key_id);
@@ -627,7 +632,12 @@ mod tests {
     #[ignore = "Manual test to verify debug format"]
     fn test_debug() {
         let key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
-        let envelope = PasswordProtectedKeyEnvelope::seal_ref(&key, "test_password").unwrap();
+        let envelope = PasswordProtectedKeyEnvelope::seal_ref(
+            &key,
+            "test_password",
+            PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+        )
+        .unwrap();
         println!("{:?}", envelope);
     }
 

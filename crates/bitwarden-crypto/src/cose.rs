@@ -3,6 +3,8 @@
 //! unless there is a a clear benefit, such as a clear cryptographic benefit, which MUST
 //! be documented publicly.
 
+use std::fmt::Debug;
+
 use coset::{
     CborSerializable, ContentType, Header, Label,
     iana::{self, CoapContentFormat, KeyOperation},
@@ -86,7 +88,7 @@ impl From<SafeObjectNamespace> for i128 {
     }
 }
 
-pub(crate) trait ContentNamespace: TryFrom<i128> + Into<i128> + PartialEq {}
+pub(crate) trait ContentNamespace: TryFrom<i128> + Into<i128> + PartialEq + Debug {}
 
 /// Each type of object has it's own namespace for strong domain separation to eliminate
 /// attacks which attempt to confuse object types. For signatures, this refers to signature

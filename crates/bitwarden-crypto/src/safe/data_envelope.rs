@@ -12,7 +12,7 @@ use crate::{
     CONTENT_TYPE_PADDED_CBOR, CoseEncrypt0Bytes, CryptoError, EncString, EncodingError, KeyIds,
     SerializedMessage, SymmetricCryptoKey, XChaCha20Poly1305Key,
     cose::{ContentNamespace, SafeObjectNamespace, XCHACHA20_POLY1305},
-    safe::helpers::{set_safe_namespaces, validate_safe_namespaces},
+    safe::helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
     utils::pad_bytes,
     xchacha20,
 };
@@ -290,13 +290,7 @@ impl std::fmt::Debug for DataEnvelope {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut s = f.debug_struct("DataEnvelope");
         if let Ok(msg) = coset::CoseEncrypt0::from_slice(self.envelope_data.as_ref()) {
-            if let Ok(namespace) = extract_namespace(&msg.protected.header) {
-                s.field("namespace", &namespace);
-            }
-            if let Ok(key_id) = crate::keys::KeyId::try_from(msg.protected.header.key_id.as_slice())
-            {
-                s.field("key_id", &key_id);
-            }
+            debug_fmt::<DataEnvelopeNamespace>(&mut s, &msg.protected.header);
         }
         s.finish()
     }
@@ -576,7 +570,7 @@ mod tests {
     fn test_debug() {
         let data: TestData = TestDataV1 { field: 42 }.into();
         let (envelope, _cek) =
-            DataEnvelope::seal_ref(&data, &DataEnvelopeNamespace::ExampleNamespace).unwrap();
+            DataEnvelope::seal_ref(&data, DataEnvelopeNamespace::ExampleNamespace).unwrap();
         println!("{:?}", envelope);
     }
 
