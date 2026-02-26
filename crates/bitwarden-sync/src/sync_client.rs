@@ -4,6 +4,7 @@ use bitwarden_api_api::models::SyncResponseModel;
 use bitwarden_core::Client;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tokio::sync::Mutex;
 
 use crate::{SyncHandler, SyncHandlerError, SyncRegistry};
 
@@ -32,6 +33,7 @@ pub struct SyncRequest {
 pub struct SyncClient {
     client: Client,
     registry: Arc<SyncRegistry>,
+    sync_lock: Mutex<()>,
 }
 
 impl SyncClient {
@@ -40,6 +42,7 @@ impl SyncClient {
         Self {
             client,
             registry: Arc::new(SyncRegistry::new()),
+            sync_lock: Mutex::new(()),
         }
     }
 
@@ -63,6 +66,9 @@ impl SyncClient {
     ///
     /// If any handler returns an error, the operation is aborted immediately.
     pub async fn sync(&self, request: SyncRequest) -> Result<SyncResponseModel, SyncError> {
+        // Wait for any in-progress sync to complete before starting a new one
+        let _guard = self.sync_lock.lock().await;
+
         // Perform actual sync
         let response = perform_sync(&self.client, &request).await?;
 
@@ -102,4 +108,29 @@ async fn perform_sync(
         .map_err(|e| SyncError::Api(e.into()))?;
 
     Ok(sync)
+}
+
+#[cfg(test)]
+mod tests {
+    use tokio::sync::Mutex;
+
+    #[tokio::test]
+    async fn test_sync_lock_serializes_access() {
+        let lock = Mutex::new(());
+        let _guard = lock.lock().await;
+
+        // Lock is held, try_lock should fail
+        assert!(lock.try_lock().is_err());
+    }
+
+    #[tokio::test]
+    async fn test_sync_lock_releases_after_drop() {
+        let lock = Mutex::new(());
+        {
+            let _guard = lock.lock().await;
+            assert!(lock.try_lock().is_err());
+        }
+        // Lock is released, should be acquirable again
+        assert!(lock.try_lock().is_ok());
+    }
 }

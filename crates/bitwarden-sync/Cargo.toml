@@ -20,6 +20,7 @@ bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
 serde = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt"] }
