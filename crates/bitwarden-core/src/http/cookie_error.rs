@@ -27,3 +27,37 @@ pub enum CookieError {
     #[error("Cookie security policy violation: {0}")]
     SecurityViolation(String),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_error_display_messages() {
+        let err = CookieError::StorageFailure("disk full".to_string());
+        assert_eq!(
+            err.to_string(),
+            "Cookie storage operation failed: disk full"
+        );
+
+        let err = CookieError::NotFound {
+            name: "session".to_string(),
+        };
+        assert_eq!(err.to_string(), "Cookie not found: session");
+
+        let err = CookieError::QuotaExceeded;
+        assert_eq!(err.to_string(), "Cookie storage quota exceeded");
+    }
+
+    #[test]
+    fn test_error_variant_matching() {
+        let err = CookieError::NotFound {
+            name: "test".to_string(),
+        };
+
+        match err {
+            CookieError::NotFound { name } => assert_eq!(name, "test"),
+            _ => panic!("Expected NotFound variant"),
+        }
+    }
+}

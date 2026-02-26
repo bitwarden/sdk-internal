@@ -144,4 +144,34 @@ mod tests {
         assert_eq!(list.len(), 1);
         assert_eq!(list[0], "active");
     }
+
+    #[tokio::test]
+    async fn test_concurrent_access() {
+        use std::sync::Arc;
+
+        let store = Arc::new(InMemoryCookieStore::new());
+        let mut handles = vec![];
+
+        // Spawn 100 concurrent tasks
+        for i in 0..100 {
+            let store = store.clone();
+            let handle = tokio::spawn(async move {
+                let cookie = Cookie::new(format!("cookie{}", i), format!("value{}", i));
+                store.set_cookie(cookie).await.unwrap();
+
+                let retrieved = store.get_cookie(&format!("cookie{}", i)).await.unwrap();
+                assert!(retrieved.is_some());
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all tasks
+        for handle in handles {
+            handle.await.unwrap();
+        }
+
+        // Verify all cookies stored
+        let list = store.list_cookies().await.unwrap();
+        assert_eq!(list.len(), 100);
+    }
 }
