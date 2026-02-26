@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`88fa59ae807d5a005533ce6efc30c829d51dddfd`](https://github.com/bitwarden/server/commit/88fa59ae807d5a005533ce6efc30c829d51dddfd)
+  [`b412826951d45c346b2adc9bd29cc3131c576a11`](https://github.com/bitwarden/server/commit/b412826951d45c346b2adc9bd29cc3131c576a11)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -241,7 +241,6 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationBillingApi_                  | [**get_billing**](docs/OrganizationBillingApi.md#organization_billing_get_billing)                                                                               | **GET** /organizations/{organizationId}/billing                                                          |
 | _OrganizationBillingApi_                  | [**get_history**](docs/OrganizationBillingApi.md#organization_billing_get_history)                                                                               | **GET** /organizations/{organizationId}/billing/history                                                  |
 | _OrganizationBillingApi_                  | [**get_invoices**](docs/OrganizationBillingApi.md#organization_billing_get_invoices)                                                                             | **GET** /organizations/{organizationId}/billing/invoices                                                 |
-| _OrganizationBillingApi_                  | [**get_metadata**](docs/OrganizationBillingApi.md#organization_billing_get_metadata)                                                                             | **GET** /organizations/{organizationId}/billing/metadata                                                 |
 | _OrganizationBillingApi_                  | [**get_transactions**](docs/OrganizationBillingApi.md#organization_billing_get_transactions)                                                                     | **GET** /organizations/{organizationId}/billing/transactions                                             |
 | _OrganizationBillingApi_                  | [**setup_business_unit**](docs/OrganizationBillingApi.md#organization_billing_setup_business_unit)                                                               | **POST** /organizations/{organizationId}/billing/setup-business-unit                                     |
 | _OrganizationBillingVNextApi_             | [**add_credit_via_bit_pay**](docs/OrganizationBillingVNextApi.md#organization_billing_v_next_add_credit_via_bit_pay)                                             | **POST** /organizations/{organizationId}/billing/vnext/credit/bitpay                                     |
@@ -992,6 +991,8 @@ All URIs are relative to *https://api.bitwarden.com*
 - [UserKeyResponseModel](docs/UserKeyResponseModel.md)
 - [UserLicense](docs/UserLicense.md)
 - [UserVerificationRequirement](docs/UserVerificationRequirement.md)
+- [V2UpgradeTokenRequestModel](docs/V2UpgradeTokenRequestModel.md)
+- [V2UpgradeTokenResponseModel](docs/V2UpgradeTokenResponseModel.md)
 - [VerifiedOrganizationDomainSsoDetailResponseModel](docs/VerifiedOrganizationDomainSsoDetailResponseModel.md)
 - [VerifiedOrganizationDomainSsoDetailsResponseModel](docs/VerifiedOrganizationDomainSsoDetailsResponseModel.md)
 - [VerifyDeleteRecoverRequestModel](docs/VerifyDeleteRecoverRequestModel.md)
