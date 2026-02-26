@@ -1,245 +1,113 @@
-//! Registry for managing sync handlers.
+//! Generic handler registry providing thread-safe handler storage.
 //!
-//! This module provides [`SyncRegistry`], a thread-safe registry that manages
-//! [`SyncHandler`] implementations. The registry follows an observer pattern,
-//! allowing multiple handlers to be notified when sync operations complete.
+//! This module provides [`HandlerRegistry`], a reusable building block for
+//! storing and iterating over trait object handlers behind `Arc`.
 //!
 //! # Architecture
 //!
-//! The registry uses interior mutability via `Arc<RwLock<...>>` to allow
+//! The registry uses interior mutability via `RwLock` to allow
 //! handler registration without requiring mutable access. This enables
 //! sharing the registry across async boundaries and multiple components.
 //!
 //! # Execution Model
 //!
-//! Handlers are executed **sequentially** in registration order. This design:
-//! - Provides predictable, deterministic execution
-//! - Allows handlers to depend on side effects from earlier handlers
-//! - Simplifies error handling with fail-fast semantics
-//!
-//! If any handler returns an error, execution stops immediately and the error
-//! is propagated to the caller. Subsequent handlers are **not** called.
-//!
-//! # Example
-//!
-//! ```ignore
-//! use std::sync::Arc;
-//! use bitwarden_sync::{SyncRegistry, SyncHandler};
-//!
-//! let registry = SyncRegistry::new();
-//!
-//! // Register handlers - they will be called in this order
-//! registry.register(Arc::new(FolderSyncHandler::new()));
-//! registry.register(Arc::new(CipherSyncHandler::new()));
-//!
-//! // Later, during sync:
-//! registry.trigger_sync(&response).await?;
-//! ```
+//! Handlers are stored in registration order. The registry itself does not
+//! define execution semantics — callers iterate over handlers and decide
+//! how to dispatch them (fail-fast, best-effort, etc.).
 
 use std::sync::{Arc, RwLock};
 
-use bitwarden_api_api::models::SyncResponseModel;
-
-use crate::{SyncError, SyncHandler};
-
-/// Registry for managing sync event handlers
+/// A thread-safe, ordered collection of handlers.
 ///
-/// Handlers are called sequentially in the order they were registered.
-/// If any handler fails, execution stops immediately and the error is propagated.
-#[derive(Default)]
-pub struct SyncRegistry {
-    handlers: Arc<RwLock<Vec<Arc<dyn SyncHandler>>>>,
+/// Supports registration via interior mutability and snapshot-based iteration.
+/// The type parameter `H` is typically a `dyn Trait` for trait object storage.
+///
+/// # Example
+///
+/// ```ignore
+/// let registry = HandlerRegistry::<dyn MyHandler>::new();
+/// registry.register(Arc::new(MyHandlerImpl));
+///
+/// for handler in &registry.handlers() {
+///     handler.handle();
+/// }
+/// ```
+pub(crate) struct HandlerRegistry<H: ?Sized> {
+    handlers: RwLock<Vec<Arc<H>>>,
 }
 
-impl SyncRegistry {
-    /// Create a new empty event registry
+impl<H: ?Sized> HandlerRegistry<H> {
+    /// Create a new empty handler registry.
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            handlers: RwLock::new(Vec::new()),
+        }
     }
 
-    /// Register a new event handler
+    /// Register a new handler.
     ///
-    /// Handlers are called in registration order during sync operations.
-    pub fn register(&self, handler: Arc<dyn SyncHandler>) {
+    /// Handlers are stored in registration order.
+    pub fn register(&self, handler: Arc<H>) {
         self.handlers
             .write()
             .expect("Handler registry lock poisoned")
             .push(handler);
     }
 
-    /// Trigger sync handlers for a completed sync operation
+    /// Get a snapshot of all registered handlers.
     ///
-    /// Executes two phases sequentially:
-    /// 1. Calls [`SyncHandler::on_sync`] on all handlers with the response
-    /// 2. Calls [`SyncHandler::on_sync_complete`] on all handlers
-    ///
-    /// Stops on first error and returns it immediately.
-    pub async fn trigger_sync(&self, response: &SyncResponseModel) -> Result<(), SyncError> {
-        let handlers = self
-            .handlers
+    /// Returns a cloned `Vec` so that iteration does not hold the lock.
+    pub fn handlers(&self) -> Vec<Arc<H>> {
+        self.handlers
             .read()
             .expect("Handler registry lock poisoned")
-            .clone();
+            .clone()
+    }
+}
 
-        for handler in &handlers {
-            handler
-                .on_sync(response)
-                .await
-                .map_err(SyncError::HandlerFailed)?;
-        }
-
-        for handler in &handlers {
-            handler.on_sync_complete().await;
-        }
-
-        Ok(())
+impl<H: ?Sized> Default for HandlerRegistry<H> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Mutex};
-
     use super::*;
-    use crate::SyncHandlerError;
 
-    struct TestHandler {
-        name: String,
-        execution_log: Arc<Mutex<Vec<String>>>,
-        should_fail: bool,
+    trait TestTrait: Send + Sync {
+        fn name(&self) -> &str;
     }
 
-    #[async_trait::async_trait]
-    impl SyncHandler for TestHandler {
-        async fn on_sync(&self, _response: &SyncResponseModel) -> Result<(), SyncHandlerError> {
-            self.execution_log.lock().unwrap().push(self.name.clone());
-            if self.should_fail {
-                Err("Handler failed".into())
-            } else {
-                Ok(())
-            }
+    struct Named(String);
+
+    impl TestTrait for Named {
+        fn name(&self) -> &str {
+            &self.0
         }
     }
 
-    #[tokio::test]
-    async fn test_handlers_execute_in_registration_order() {
-        let registry = SyncRegistry::new();
-        let log = Arc::new(Mutex::new(Vec::new()));
+    #[test]
+    fn test_register_and_retrieve_handlers() {
+        let registry = HandlerRegistry::<dyn TestTrait>::new();
+        registry.register(Arc::new(Named("a".into())));
+        registry.register(Arc::new(Named("b".into())));
 
-        registry.register(Arc::new(TestHandler {
-            name: "first".to_string(),
-            execution_log: log.clone(),
-            should_fail: false,
-        }));
-        registry.register(Arc::new(TestHandler {
-            name: "second".to_string(),
-            execution_log: log.clone(),
-            should_fail: false,
-        }));
-        registry.register(Arc::new(TestHandler {
-            name: "third".to_string(),
-            execution_log: log.clone(),
-            should_fail: false,
-        }));
-
-        let response = SyncResponseModel::default();
-        registry.trigger_sync(&response).await.unwrap();
-
-        assert_eq!(
-            *log.lock().unwrap(),
-            vec!["first", "second", "third"],
-            "Handlers should execute in registration order"
-        );
+        let handlers = registry.handlers();
+        assert_eq!(handlers.len(), 2);
+        assert_eq!(handlers[0].name(), "a");
+        assert_eq!(handlers[1].name(), "b");
     }
 
-    #[tokio::test]
-    async fn test_handler_error_stops_subsequent_handlers() {
-        let registry = SyncRegistry::new();
-        let log = Arc::new(Mutex::new(Vec::new()));
-
-        registry.register(Arc::new(TestHandler {
-            name: "first".to_string(),
-            execution_log: log.clone(),
-            should_fail: false,
-        }));
-        registry.register(Arc::new(TestHandler {
-            name: "second".to_string(),
-            execution_log: log.clone(),
-            should_fail: true,
-        }));
-        registry.register(Arc::new(TestHandler {
-            name: "third".to_string(),
-            execution_log: log.clone(),
-            should_fail: false,
-        }));
-
-        let response = SyncResponseModel::default();
-        let result = registry.trigger_sync(&response).await;
-
-        assert!(
-            result.is_err(),
-            "Registry should return error when handler fails"
-        );
-        assert_eq!(
-            *log.lock().unwrap(),
-            vec!["first", "second"],
-            "Third handler should not execute after second handler fails"
-        );
+    #[test]
+    fn test_empty_registry_returns_empty_vec() {
+        let registry = HandlerRegistry::<dyn TestTrait>::new();
+        assert!(registry.handlers().is_empty());
     }
 
-    #[tokio::test]
-    async fn test_empty_registry_succeeds() {
-        let registry = SyncRegistry::new();
-        let response = SyncResponseModel::default();
-
-        let result = registry.trigger_sync(&response).await;
-
-        assert!(
-            result.is_ok(),
-            "Empty registry should succeed without errors"
-        );
-    }
-
-    #[tokio::test]
-    async fn test_single_handler_success() {
-        let registry = SyncRegistry::new();
-        let log = Arc::new(Mutex::new(Vec::new()));
-
-        registry.register(Arc::new(TestHandler {
-            name: "only".to_string(),
-            execution_log: log.clone(),
-            should_fail: false,
-        }));
-
-        let response = SyncResponseModel::default();
-        registry.trigger_sync(&response).await.unwrap();
-
-        assert_eq!(
-            *log.lock().unwrap(),
-            vec!["only"],
-            "Single handler should execute successfully"
-        );
-    }
-
-    #[tokio::test]
-    async fn test_single_handler_failure() {
-        let registry = SyncRegistry::new();
-        let log = Arc::new(Mutex::new(Vec::new()));
-
-        registry.register(Arc::new(TestHandler {
-            name: "only".to_string(),
-            execution_log: log.clone(),
-            should_fail: true,
-        }));
-
-        let response = SyncResponseModel::default();
-        let result = registry.trigger_sync(&response).await;
-
-        assert!(result.is_err(), "Should propagate handler failure");
-        assert_eq!(
-            *log.lock().unwrap(),
-            vec!["only"],
-            "Failed handler should have been called"
-        );
+    #[test]
+    fn test_default_creates_empty_registry() {
+        let registry = HandlerRegistry::<dyn TestTrait>::default();
+        assert!(registry.handlers().is_empty());
     }
 }

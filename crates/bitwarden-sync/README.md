@@ -13,11 +13,11 @@ and applications to respond to sync operations. It follows the observer pattern 
 
 - **SyncClient**: Main client for performing sync operations
 - **SyncHandler**: Trait for implementing custom sync handlers
-- **SyncRegistry**: Manages handler registration and sync dispatch
+- **SyncErrorHandler**: Trait for receiving error notifications from sync operations
 
-### Handlers
+### Sync Handlers
 
-Handlers implement the `SyncHandler` trait which provides two lifecycle hooks:
+Sync handlers implement the `SyncHandler` trait which provides two lifecycle hooks:
 
 - `on_sync(response)` - Called after a successful sync with the raw API response data
 - `on_sync_complete()` - Called after all handlers have finished `on_sync`, for post-processing
@@ -25,6 +25,15 @@ Handlers implement the `SyncHandler` trait which provides two lifecycle hooks:
 
 Both phases execute handlers sequentially in registration order. If any handler returns an error,
 execution stops immediately and the error is propagated.
+
+### Error Handlers
+
+Error handlers implement the `SyncErrorHandler` trait:
+
+- `on_error(error)` - Called when a sync operation fails (API error or handler error)
+
+All error handlers are always called sequentially in registration order. Error handlers are
+called while the sync lock is still held, so implementations should avoid long-running operations.
 
 #### Transactional Semantics
 
@@ -47,8 +56,8 @@ use bitwarden_core::Client;
 async fn example(client: Client) -> Result<(), Box<dyn std::error::Error>> {
     let sync_client = client.sync();
 
-    // Register handlers
-    sync_client.register_handler(Arc::new(FolderSyncHandler::new(client.clone())));
+    // Register sync handlers
+    sync_client.register_sync_handler(Arc::new(FolderSyncHandler::new(client.clone())));
 
     let request = SyncRequest {
         exclude_subdomains: Some(false),
