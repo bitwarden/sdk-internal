@@ -876,13 +876,9 @@ dependencies = [
  "serde",
  "serde_repr",
  "sha2 0.10.9",
-<<<<<<< tools/pm-31067/move-sends-api-calls-to-sdk-2
- "thiserror 2.0.12",
+ "thiserror 2.0.18",
  "tokio",
  "tsify",
-=======
- "thiserror 2.0.18",
->>>>>>> main
  "uniffi",
  "uuid",
  "wasm-bindgen",

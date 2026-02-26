@@ -466,9 +466,6 @@ impl From<SendType> for bitwarden_api_api::models::SendType {
     }
 }
 
-impl From<bitwarden_api_api::models::AuthType> for AuthType {
-    fn from(value: bitwarden_api_api::models::AuthType) -> Self {
-        match value {
 impl TryFrom<bitwarden_api_api::models::AuthType> for AuthType {
     type Error = bitwarden_core::MissingFieldError;
 
