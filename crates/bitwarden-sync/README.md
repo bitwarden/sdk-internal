@@ -32,8 +32,8 @@ Error handlers implement the `SyncErrorHandler` trait:
 
 - `on_error(error)` - Called when a sync operation fails (API error or handler error)
 
-All error handlers are always called sequentially in registration order. Error handlers are
-called while the sync lock is still held, so implementations should avoid long-running operations.
+All error handlers are always called sequentially in registration order. Error handlers are called
+while the sync lock is still held, so implementations should avoid long-running operations.
 
 #### Transactional Semantics
 

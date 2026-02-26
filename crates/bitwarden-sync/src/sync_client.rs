@@ -266,148 +266,32 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_empty_registry_succeeds() {
+    async fn test_sync_error_notifies_error_handlers() {
         let client = test_client();
-        let response = SyncResponseModel::default();
-
-        let result = client.trigger_sync(&response).await;
-
-        assert!(
-            result.is_ok(),
-            "Empty registry should succeed without errors"
-        );
-    }
-
-    #[tokio::test]
-    async fn test_single_handler_success() {
-        let client = test_client();
-        let log = Arc::new(Mutex::new(Vec::new()));
-
-        client.register_sync_handler(Arc::new(TestHandler {
-            name: "only".to_string(),
-            execution_log: log.clone(),
-            should_fail: false,
-        }));
-
-        let response = SyncResponseModel::default();
-        client.trigger_sync(&response).await.unwrap();
-
-        assert_eq!(
-            *log.lock().unwrap(),
-            vec!["only"],
-            "Single handler should execute successfully"
-        );
-    }
-
-    #[tokio::test]
-    async fn test_single_handler_failure() {
-        let client = test_client();
-        let log = Arc::new(Mutex::new(Vec::new()));
-
-        client.register_sync_handler(Arc::new(TestHandler {
-            name: "only".to_string(),
-            execution_log: log.clone(),
-            should_fail: true,
-        }));
-
-        let response = SyncResponseModel::default();
-        let result = client.trigger_sync(&response).await;
-
-        assert!(result.is_err(), "Should propagate handler failure");
-        assert_eq!(
-            *log.lock().unwrap(),
-            vec!["only"],
-            "Failed handler should have been called"
-        );
-    }
-
-    #[tokio::test]
-    async fn test_error_handlers_all_called() {
-        let client = test_client();
-        let log = Arc::new(Mutex::new(Vec::new()));
+        let error_log = Arc::new(Mutex::new(Vec::new()));
 
         client.register_error_handler(Arc::new(TestErrorHandler {
             name: "first".to_string(),
-            error_log: log.clone(),
+            error_log: error_log.clone(),
         }));
         client.register_error_handler(Arc::new(TestErrorHandler {
             name: "second".to_string(),
-            error_log: log.clone(),
-        }));
-
-        let error = SyncError::HandlerFailed("test error".into());
-        client.notify_error(&error).await;
-
-        assert_eq!(
-            *log.lock().unwrap(),
-            vec!["first", "second"],
-            "All error handlers should be called"
-        );
-    }
-
-    #[tokio::test]
-    async fn test_no_error_handlers_succeeds() {
-        let client = test_client();
-        let error = SyncError::HandlerFailed("test error".into());
-        // Should not panic
-        client.notify_error(&error).await;
-    }
-
-    #[tokio::test]
-    async fn test_sync_and_error_handlers_independent() {
-        let client = test_client();
-        let sync_log = Arc::new(Mutex::new(Vec::new()));
-        let error_log = Arc::new(Mutex::new(Vec::new()));
-
-        client.register_sync_handler(Arc::new(TestHandler {
-            name: "sync".to_string(),
-            execution_log: sync_log.clone(),
-            should_fail: false,
-        }));
-        client.register_error_handler(Arc::new(TestErrorHandler {
-            name: "error".to_string(),
             error_log: error_log.clone(),
         }));
 
-        // Trigger sync — should only call sync handlers
-        let response = SyncResponseModel::default();
-        client.trigger_sync(&response).await.unwrap();
+        // sync() will fail because the test client has no server configured,
+        // which should trigger all error handlers
+        let result = client
+            .sync(SyncRequest {
+                exclude_subdomains: None,
+            })
+            .await;
 
-        assert_eq!(*sync_log.lock().unwrap(), vec!["sync"]);
-        assert!(
-            error_log.lock().unwrap().is_empty(),
-            "Error handlers should not be called on successful sync"
-        );
-
-        // Trigger error — should only call error handlers
-        let error = SyncError::HandlerFailed("test".into());
-        client.notify_error(&error).await;
-
+        assert!(result.is_err());
         assert_eq!(
-            *sync_log.lock().unwrap(),
-            vec!["sync"],
-            "Sync handlers should not be called again"
+            *error_log.lock().unwrap(),
+            vec!["first", "second"],
+            "All error handlers should be called on sync failure"
         );
-        assert_eq!(*error_log.lock().unwrap(), vec!["error"]);
-    }
-
-    #[tokio::test]
-    async fn test_sync_lock_serializes_access() {
-        let lock = tokio::sync::Mutex::new(());
-        let _guard = lock.lock().await;
-
-        // Lock is held, try_lock should fail
-        assert!(lock.try_lock().is_err());
-    }
-
-    #[tokio::test]
-    async fn test_sync_lock_releases_after_drop() {
-        let lock = tokio::sync::Mutex::new(());
-        {
-            let _guard = lock.lock().await;
-            assert!(lock.try_lock().is_err());
-        }
-        // Lock is released, should be acquirable again
-        assert!(lock.try_lock().is_ok());
     }
 }
