@@ -98,7 +98,7 @@ impl RegistrationClient {
         request: TdeRegistrationRequest,
     ) -> Result<TdeRegistrationResponse, RegistrationError> {
         let client = &self.client.internal;
-        let api_client = &client.get_api_configurations().await.api_client;
+        let api_client = &client.get_api_configurations().api_client;
         internal_post_keys_for_tde_registration(self, api_client, request).await
     }
 
@@ -110,7 +110,7 @@ impl RegistrationClient {
         sso_org_identifier: String,
     ) -> Result<KeyConnectorRegistrationResult, RegistrationError> {
         let client = &self.client.internal;
-        let configuration = &client.get_api_configurations().await;
+        let configuration = &client.get_api_configurations();
         let key_connector_client = client.get_key_connector_client(key_connector_url);
 
         internal_post_keys_for_key_connector_registration(
@@ -129,7 +129,7 @@ impl RegistrationClient {
         request: JitMasterPasswordRegistrationRequest,
     ) -> Result<JitMasterPasswordRegistrationResponse, RegistrationError> {
         let client = &self.client.internal;
-        let api_client = &client.get_api_configurations().await.api_client;
+        let api_client = &client.get_api_configurations().api_client;
         internal_post_keys_for_jit_password_registration(self, api_client, request).await
     }
 }

@@ -80,12 +80,7 @@ impl CipherAdminClient {
         &self,
         cipher_id: CipherId,
     ) -> Result<CipherView, RestoreCipherAdminError> {
-        let api_client = &self
-            .client
-            .internal
-            .get_api_configurations()
-            .await
-            .api_client;
+        let api_client = &self.client.internal.get_api_configurations().api_client;
         let key_store = self.client.internal.get_key_store();
 
         restore_as_admin(cipher_id, api_client, key_store).await
@@ -96,12 +91,7 @@ impl CipherAdminClient {
         cipher_ids: Vec<CipherId>,
         org_id: OrganizationId,
     ) -> Result<DecryptCipherListResult, RestoreCipherAdminError> {
-        let api_client = &self
-            .client
-            .internal
-            .get_api_configurations()
-            .await
-            .api_client;
+        let api_client = &self.client.internal.get_api_configurations().api_client;
         let key_store = self.client.internal.get_key_store();
 
         restore_many_as_admin(cipher_ids, org_id, api_client, key_store).await

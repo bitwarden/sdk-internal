@@ -62,12 +62,7 @@ impl UserCryptoManagementClient {
         &self,
         request: RotateUserKeysRequest,
     ) -> Result<(), RotateUserKeysError> {
-        let api_client = &self
-            .client
-            .internal
-            .get_api_configurations()
-            .await
-            .api_client;
+        let api_client = &self.client.internal.get_api_configurations().api_client;
 
         post_rotate_user_keys(
             self,
@@ -85,12 +80,7 @@ impl UserCryptoManagementClient {
     pub async fn get_untrusted_organization_public_keys(
         &self,
     ) -> Result<Vec<V1OrganizationMembership>, RotateUserKeysError> {
-        let api_client = &self
-            .client
-            .internal
-            .get_api_configurations()
-            .await
-            .api_client;
+        let api_client = &self.client.internal.get_api_configurations().api_client;
         let organizations = sync::sync_orgs(api_client)
             .await
             .map_err(|_| RotateUserKeysError::ApiError)?;
@@ -102,12 +92,7 @@ impl UserCryptoManagementClient {
     pub async fn get_untrusted_emergency_access_public_keys(
         &self,
     ) -> Result<Vec<V1EmergencyAccessMembership>, RotateUserKeysError> {
-        let api_client = &self
-            .client
-            .internal
-            .get_api_configurations()
-            .await
-            .api_client;
+        let api_client = &self.client.internal.get_api_configurations().api_client;
         let emergency_access = sync::sync_emergency_access(api_client)
             .await
             .map_err(|_| RotateUserKeysError::ApiError)?;
@@ -314,7 +299,6 @@ async fn post_rotate_user_keys(
         .client
         .internal
         .get_api_configurations()
-        .await
         .api_client
         .accounts_key_management_api()
         .rotate_user_account_keys(Some(request))

@@ -37,12 +37,7 @@ impl CipherAdminClient {
         Ok(delete_attachment(
             cipher_id,
             &attachment_id,
-            &self
-                .client
-                .internal
-                .get_api_configurations()
-                .await
-                .api_client,
+            &self.client.internal.get_api_configurations().api_client,
         )
         .await?)
     }

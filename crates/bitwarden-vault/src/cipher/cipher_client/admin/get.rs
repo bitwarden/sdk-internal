@@ -60,12 +60,7 @@ impl CipherAdminClient {
         list_org_ciphers(
             org_id,
             include_member_items,
-            &self
-                .client
-                .internal
-                .get_api_configurations()
-                .await
-                .api_client,
+            &self.client.internal.get_api_configurations().api_client,
             self.client.internal.get_key_store(),
         )
         .await

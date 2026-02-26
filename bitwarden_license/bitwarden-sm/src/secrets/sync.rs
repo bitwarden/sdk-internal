@@ -22,7 +22,7 @@ pub(crate) async fn sync_secrets(
     client: &Client,
     input: &SecretsSyncRequest,
 ) -> Result<SecretsSyncResponse, SecretsManagerError> {
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
     let last_synced_date = input.last_synced_date.map(|date| date.to_rfc3339());
 
     let res = config

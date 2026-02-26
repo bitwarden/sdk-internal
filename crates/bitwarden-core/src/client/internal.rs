@@ -174,8 +174,9 @@ impl InternalClient {
             .get_key_connector_client(key_connector_url)
     }
 
-    #[allow(missing_docs, clippy::unused_async)]
-    pub async fn get_api_configurations(&self) -> Arc<ApiConfigurations> {
+    /// Get the `ApiConfigurations` containing API clients and configurations for making requests to
+    /// the Bitwarden services.
+    pub fn get_api_configurations(&self) -> Arc<ApiConfigurations> {
         self.api_configurations.clone()
     }
 
