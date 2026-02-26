@@ -22,7 +22,7 @@ use syn::{DeriveInput, parse_macro_input};
 /// #[derive(FromClient)]
 /// pub struct FoldersClient {
 ///     key_store: KeyStore<KeyIds>,
-///     api_config_provider: Arc<dyn ApiProvider>,
+///     api_configurations: Arc<ApiConfigurations>,
 ///     repository: Arc<dyn Repository<Folder>>,
 /// }
 /// ```
@@ -34,7 +34,7 @@ use syn::{DeriveInput, parse_macro_input};
 ///     fn from_client(client: &Client) -> Result<Self, String> {
 ///         Ok(Self {
 ///             key_store: FromClientPart::<KeyStore<KeyIds>>::get_part(client).map_err(|e| e.to_string())?,
-///             api_config_provider: FromClientPart::<Arc<dyn ApiProvider>>::get_part(client).map_err(|e| e.to_string())?,
+///             api_configs: FromClientPart::<Arc<ApiConfigurations>>::get_part(client).map_err(|e| e.to_string())?,
 ///             repository: FromClientPart::<Arc<dyn Repository<Folder>>>::get_part(client).map_err(|e| e.to_string())?,
 ///         })
 ///     }
