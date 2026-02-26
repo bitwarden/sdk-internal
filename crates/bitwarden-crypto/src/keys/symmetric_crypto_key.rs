@@ -14,10 +14,7 @@ use subtle::{Choice, ConstantTimeEq};
 use typenum::U32;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use super::{
-    key_encryptable::CryptoKey,
-    key_id::{KEY_ID_SIZE, KeyId},
-};
+use super::{key_encryptable::CryptoKey, key_id::KeyId};
 use crate::{BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, cose};
 
 /// The symmetric key algorithm to use when generating a new symmetric key.
@@ -78,7 +75,7 @@ impl PartialEq for Aes256CbcHmacKey {
 /// CoseEncrypt0 messages.
 #[derive(Zeroize, Clone)]
 pub struct XChaCha20Poly1305Key {
-    pub(crate) key_id: [u8; KEY_ID_SIZE],
+    pub(crate) key_id: KeyId,
     pub(crate) enc_key: Pin<Box<GenericArray<u8, U32>>>,
     /// Controls which key operations are allowed with this key. Note: Only checking decrypt is
     /// implemented right now, and implementing is tracked here <https://bitwarden.atlassian.net/browse/PM-27513>.
@@ -94,8 +91,7 @@ impl XChaCha20Poly1305Key {
         let mut rng = rand::thread_rng();
         let mut enc_key = Box::pin(GenericArray::<u8, U32>::default());
         rng.fill(enc_key.as_mut_slice());
-        let mut key_id = [0u8; KEY_ID_SIZE];
-        rng.fill(&mut key_id);
+        let key_id = KeyId::make();
 
         Self {
             enc_key,
@@ -183,7 +179,7 @@ impl SymmetricCryptoKey {
         rng.fill(enc_key.as_mut_slice());
         Self::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
             enc_key,
-            key_id: KeyId::make().into(),
+            key_id: KeyId::make(),
             supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
@@ -255,7 +251,7 @@ impl SymmetricCryptoKey {
             }
             Self::XChaCha20Poly1305Key(key) => {
                 let builder = coset::CoseKeyBuilder::new_symmetric_key(key.enc_key.to_vec());
-                let mut cose_key = builder.key_id(key.key_id.to_vec());
+                let mut cose_key = builder.key_id((&key.key_id).into());
                 for op in &key.supported_operations {
                     cose_key = cose_key.add_key_op(*op);
                 }
@@ -291,7 +287,7 @@ impl SymmetricCryptoKey {
         match self {
             Self::Aes256CbcKey(_) => None,
             Self::Aes256CbcHmacKey(_) => None,
-            Self::XChaCha20Poly1305Key(key) => Some(KeyId::from(key.key_id)),
+            Self::XChaCha20Poly1305Key(key) => Some(key.key_id.clone()),
         }
     }
 }
@@ -397,45 +393,48 @@ impl CryptoKey for SymmetricCryptoKey {}
 // We manually implement these to make sure we don't print any sensitive data
 impl std::fmt::Debug for SymmetricCryptoKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SymmetricCryptoKey")
-            .field(
-                "inner_type",
-                match self {
-                    SymmetricCryptoKey::Aes256CbcKey(key) => key,
-                    SymmetricCryptoKey::Aes256CbcHmacKey(key) => key,
-                    SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key,
-                },
-            )
-            .finish()
+        match self {
+            SymmetricCryptoKey::Aes256CbcKey(key) => key.fmt(f),
+            SymmetricCryptoKey::Aes256CbcHmacKey(key) => key.fmt(f),
+            SymmetricCryptoKey::XChaCha20Poly1305Key(key) => key.fmt(f),
+        }
     }
 }
 
 impl std::fmt::Debug for Aes256CbcKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut debug_struct = f.debug_struct("Aes256CbcKey");
+        let mut debug_struct = f.debug_struct("SymmetricKey::Aes256Cbc");
         #[cfg(feature = "dangerous-crypto-debug")]
-        debug_struct.field("enc_key", &self.enc_key.as_slice());
+        debug_struct.field("key", &hex::encode(self.enc_key.as_slice()));
         debug_struct.finish()
     }
 }
 
 impl std::fmt::Debug for Aes256CbcHmacKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut debug_struct = f.debug_struct("Aes256CbcHmacKey");
+        let mut debug_struct = f.debug_struct("SymmetricKey::Aes256CbcHmac");
         #[cfg(feature = "dangerous-crypto-debug")]
         debug_struct
-            .field("enc_key", &self.enc_key.as_slice())
-            .field("mac_key", &self.mac_key.as_slice());
+            .field("enc_key", &hex::encode(self.enc_key.as_slice()))
+            .field("mac_key", &hex::encode(self.mac_key.as_slice()));
         debug_struct.finish()
     }
 }
 
 impl std::fmt::Debug for XChaCha20Poly1305Key {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut debug_struct = f.debug_struct("XChaCha20Poly1305Key");
+        let mut debug_struct = f.debug_struct("SymmetricKey::XChaCha20Poly1305");
         debug_struct.field("key_id", &self.key_id);
+        debug_struct.field(
+            "supported_operations",
+            &self
+                .supported_operations
+                .iter()
+                .map(|key_operation: &KeyOperation| cose::debug_key_operation(*key_operation))
+                .collect::<Vec<_>>(),
+        );
         #[cfg(feature = "dangerous-crypto-debug")]
-        debug_struct.field("enc_key", &self.enc_key.as_slice());
+        debug_struct.field("key", &hex::encode(self.enc_key.as_slice()));
         debug_struct.finish()
     }
 }
@@ -516,8 +515,20 @@ mod tests {
     use super::{SymmetricCryptoKey, derive_symmetric_key};
     use crate::{
         Aes256CbcHmacKey, Aes256CbcKey, BitwardenLegacyKeyBytes, XChaCha20Poly1305Key,
-        keys::symmetric_crypto_key::{pad_key, unpad_key},
+        keys::{
+            KeyId,
+            symmetric_crypto_key::{pad_key, unpad_key},
+        },
     };
+
+    #[test]
+    #[ignore = "Manual test to verify debug format"]
+    fn test_key_debug() {
+        let aes_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
+        println!("{:?}", aes_key);
+        let xchacha_key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+        println!("{:?}", xchacha_key);
+    }
 
     #[test]
     fn test_symmetric_crypto_key() {
@@ -632,7 +643,7 @@ mod tests {
         });
         let key2 = SymmetricCryptoKey::XChaCha20Poly1305Key(XChaCha20Poly1305Key {
             enc_key: Box::pin(GenericArray::<u8, U32>::default()),
-            key_id: [0; 16],
+            key_id: KeyId::from([0; 16]),
             supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
@@ -700,7 +711,7 @@ mod tests {
             enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
                 vec![1u8; 32].as_slice(),
             )),
-            key_id: [0; 16],
+            key_id: KeyId::from([0; 16]),
             supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
@@ -712,7 +723,7 @@ mod tests {
             enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
                 vec![1u8; 32].as_slice(),
             )),
-            key_id: [0; 16],
+            key_id: KeyId::from([0; 16]),
             supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
@@ -724,7 +735,7 @@ mod tests {
             enc_key: Box::pin(GenericArray::<u8, U32>::clone_from_slice(
                 vec![2u8; 32].as_slice(),
             )),
-            key_id: [1; 16],
+            key_id: KeyId::from([1; 16]),
             supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
@@ -740,7 +751,7 @@ mod tests {
     fn test_neq_different_key_id() {
         let key1 = XChaCha20Poly1305Key {
             enc_key: Box::pin(GenericArray::<u8, U32>::default()),
-            key_id: [0; 16],
+            key_id: KeyId::from([0; 16]),
             supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
@@ -750,7 +761,7 @@ mod tests {
         };
         let key2 = XChaCha20Poly1305Key {
             enc_key: Box::pin(GenericArray::<u8, U32>::default()),
-            key_id: [1; 16],
+            key_id: KeyId::from([1; 16]),
             supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,

@@ -14,6 +14,10 @@ use crate::{
     key_management::{self, SymmetricKeyId},
 };
 
+// The repository pattern requires us to specify a key. Here we use an empty string as the only
+// key for this repository map.
+const USER_KEY_REPOSITORY_KEY: &str = "";
+
 /// Error indicating inability to set the user key into state
 pub(crate) struct UnableToSetError;
 /// Sets the decrypted user key into the client-managed state, so that it survives re-creation of
@@ -21,10 +25,6 @@ pub(crate) struct UnableToSetError;
 pub(crate) async fn copy_user_key_to_client_managed_state(
     client: &Client,
 ) -> Result<(), UnableToSetError> {
-    // The repository pattern requires us to specify a key. Here we use an empty string as the only
-    // key for this repository map.
-    const USER_KEY_REPOSITORY_KEY: &str = "";
-
     // Read the user-key from key-store. There should be no other reason to do this in other parts
     // of the SDK. Do not use this as an example.
     let user_key = {
@@ -36,30 +36,34 @@ pub(crate) async fn copy_user_key_to_client_managed_state(
             .clone()
     };
 
-    // Get the current key
-    let existing_key = client
+    if let Ok(user_key_repository) = client
         .platform()
         .state()
         .get::<key_management::UserKeyState>()
-        .map_err(|_| UnableToSetError)?
-        .get(USER_KEY_REPOSITORY_KEY.to_string())
-        .await
-        .map_err(|_| UnableToSetError)?;
-
-    // We do not want to set the user-key if it is already set as that may trigger an observable
-    // loop in the client side which subscribes to the state
-    if let Some(existing_key) = existing_key {
-        if SymmetricCryptoKey::try_from(existing_key.decrypted_user_key)
-            .map_err(|_| UnableToSetError)?
-            == user_key
+    {
+        // We do not want to set the user-key if it is already set as that may trigger an observable
+        // loop in the client side which subscribes to the state
+        if let Ok(Some(existing_key)) = user_key_repository
+            .get(USER_KEY_REPOSITORY_KEY.to_string())
+            .await
         {
-            info!("User-key in client managed state is already up to date, skipping set");
-            return Ok(());
+            if SymmetricCryptoKey::try_from(existing_key.decrypted_user_key)
+                .map_err(|_| UnableToSetError)?
+                == user_key
+            {
+                info!("User-key in client managed state is already up to date, skipping set");
+                return Ok(());
+            } else {
+                info!("User-key in client managed state is outdated, updating it");
+            }
         } else {
-            info!("User-key in client managed state is outdated, updating it");
+            info!("No user-key in client managed state, setting it");
         }
     } else {
-        info!("No user-key in client managed state, setting it");
+        // UserKeyState repository does not exist, older clients should
+        // just return gracefully.
+        info!("No UserKeyState repository exists in client managed state, exiting gracefully");
+        return Ok(());
     }
 
     info!("Setting the user-key to client managed-state from SDK");
@@ -77,4 +81,22 @@ pub(crate) async fn copy_user_key_to_client_managed_state(
         )
         .await
         .map_err(|_| UnableToSetError)
+}
+
+pub(crate) struct UnableToGetError;
+pub(crate) async fn get_user_key_from_client_managed_state(
+    client: &Client,
+) -> Result<SymmetricCryptoKey, UnableToGetError> {
+    info!("Getting the user-key from client managed-state in SDK");
+    // Get the user-key from the state repository.
+    let user_key_state = client
+        .platform()
+        .state()
+        .get::<key_management::UserKeyState>()
+        .map_err(|_| UnableToGetError)?
+        .get(USER_KEY_REPOSITORY_KEY.to_string())
+        .await
+        .map_err(|_| UnableToGetError)?
+        .ok_or(UnableToGetError)?;
+    SymmetricCryptoKey::try_from(user_key_state.decrypted_user_key).map_err(|_| UnableToGetError)
 }

@@ -34,6 +34,12 @@ pub struct UnlockDataRequestModel {
     pub passkey_unlock_data: Option<Vec<models::WebAuthnLoginRotateKeyRequestModel>>,
     #[serde(rename = "deviceKeyUnlockData", alias = "DeviceKeyUnlockData")]
     pub device_key_unlock_data: Option<Vec<models::OtherDeviceKeysUpdateRequestModel>>,
+    #[serde(
+        rename = "v2UpgradeToken",
+        alias = "V2UpgradeToken",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub v2_upgrade_token: Option<Box<models::V2UpgradeTokenRequestModel>>,
 }
 
 impl UnlockDataRequestModel {
@@ -52,6 +58,7 @@ impl UnlockDataRequestModel {
             organization_account_recovery_unlock_data,
             passkey_unlock_data,
             device_key_unlock_data,
+            v2_upgrade_token: None,
         }
     }
 }

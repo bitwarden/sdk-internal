@@ -41,7 +41,7 @@ impl FromWasmAbi for PublicKey {
 }
 
 /// Algorithm / public key encryption scheme used for encryption/decryption.
-#[derive(Serialize_repr, Deserialize_repr)]
+#[derive(Debug, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 pub enum PublicKeyEncryptionAlgorithm {
     /// RSA with OAEP padding and SHA-1 hashing.
@@ -58,6 +58,23 @@ pub(crate) enum RawPublicKey {
 #[derive(Clone, PartialEq)]
 pub struct PublicKey {
     inner: RawPublicKey,
+}
+
+impl std::fmt::Debug for PublicKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let key_suffix = match &self.inner {
+            RawPublicKey::RsaOaepSha1(_) => "RsaOaepSha1",
+        };
+        let mut debug_struct = f.debug_struct(format!("PublicKey::{}", key_suffix).as_str());
+        match &self.inner {
+            RawPublicKey::RsaOaepSha1(_) => {
+                if let Ok(der) = self.to_der() {
+                    debug_struct.field("key", &hex::encode(der.as_ref()));
+                }
+            }
+        }
+        debug_struct.finish()
+    }
 }
 
 impl PublicKey {
@@ -231,13 +248,15 @@ impl PrivateKey {
 // We manually implement these to make sure we don't print any sensitive data
 impl std::fmt::Debug for PrivateKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut debug_struct = f.debug_struct("PrivateKey");
+        let key_suffix = match &self.inner {
+            RawPrivateKey::RsaOaepSha1(_) => "RsaOaepSha1",
+        };
+        let mut debug_struct = f.debug_struct(format!("PrivateKey::{}", key_suffix).as_str());
         #[cfg(feature = "dangerous-crypto-debug")]
         match &self.inner {
-            RawPrivateKey::RsaOaepSha1(_key) => {
-                debug_struct.field("algorithm", &"RsaOaepSha1");
+            RawPrivateKey::RsaOaepSha1(_) => {
                 if let Ok(der) = self.to_der() {
-                    debug_struct.field("private_key_der", &der.as_ref());
+                    debug_struct.field("key", &hex::encode(der.as_ref()));
                 }
             }
         }
@@ -251,10 +270,19 @@ mod tests {
     use bitwarden_encoding::B64;
 
     use crate::{
-        Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
-        UnsignedSharedKey,
+        Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm,
+        SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey,
         content_format::{Bytes, Pkcs8PrivateKeyDerContentFormat},
     };
+
+    #[test]
+    #[ignore = "Manual test to verify debug format"]
+    fn test_debug() {
+        let private_key = PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
+        println!("{:?}", private_key);
+        let public_key = private_key.to_public_key();
+        println!("{:?}", public_key);
+    }
 
     #[test]
     fn test_asymmetric_crypto_key() {
