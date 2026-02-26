@@ -17,7 +17,7 @@ pub(crate) async fn get_project(
     client: &Client,
     input: &ProjectGetRequest,
 ) -> Result<ProjectResponse, SecretsManagerError> {
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
 
     let res = config.api_client.projects_api().get(input.id).await?;
 
