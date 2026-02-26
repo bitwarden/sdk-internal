@@ -6,10 +6,7 @@ mod sync;
 mod unlock;
 
 use bitwarden_api_api::models::RotateUserAccountKeysAndDataRequestModel;
-use bitwarden_core::{
-    UserId,
-    key_management::{MasterPasswordAuthenticationData, SymmetricKeyId},
-};
+use bitwarden_core::key_management::{MasterPasswordAuthenticationData, SymmetricKeyId};
 use bitwarden_crypto::PublicKey;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
@@ -222,7 +219,6 @@ async fn post_rotate_user_keys(
             &sync.wrapped_account_cryptographic_state,
             &current_user_key_id,
             &new_user_key_id,
-            UserId::new(sync.user_id),
             &mut ctx,
         )
         .map_err(|_| RotateUserKeysError::CryptoError)?;
