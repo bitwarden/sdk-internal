@@ -62,7 +62,7 @@ impl CiphersClient {
         cipher_id: CipherId,
         attachment_id: String,
     ) -> Result<Cipher, CipherDeleteAttachmentError> {
-        let configs = self.client.internal.get_api_configurations().await;
+        let configs = self.client.internal.get_api_configurations();
         delete_attachment(
             cipher_id,
             &attachment_id,
