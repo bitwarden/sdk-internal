@@ -1,3 +1,8 @@
+---
+category: features
+---
+
 # Bitwarden Send
 
-Contains the implementation of the send functionality for the Bitwarden Password Manager.
+All Bitwarden Send related domain logic. Bitwarden Send allows users to securely share temporary
+secrets with others.
