@@ -6,23 +6,24 @@
 //! On unwrapping, both directions are validated - an attacker can't modify one wrapped key
 //! without breaking the other direction's validation.
 
-use std::str::FromStr;
-
 use bitwarden_api_api::models::V2UpgradeTokenResponseModel;
 use bitwarden_crypto::{Decryptable, EncString, KeyIds, KeyStoreContext, SymmetricKeyAlgorithm};
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::instrument;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::convert::FromWasmAbi;
 
-/// Holds both V1 and V2 user keys, each wrapped by the other:
-/// - `wrapped_user_key_1`: V1 user key encrypted with V2 key (Cose_Encrypt0_B64 format)
-/// - `wrapped_user_key_2`: V2 user key encrypted with V1 key (Aes256Cbc_HmacSha256_B64 format)
-#[derive(Clone, Debug)]
+/// Holds both V1 and V2 user keys, each wrapped by the other.
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct V2UpgradeToken {
-    wrapped_user_key_1: EncString,
-    wrapped_user_key_2: EncString,
+    /// V1 user key encrypted with V2 key (Cose_Encrypt0_B64 format)
+    pub wrapped_user_key_1: EncString,
+    /// V2 user key encrypted with V1 key (Aes256Cbc_HmacSha256_B64 format)
+    pub wrapped_user_key_2: EncString,
 }
 
 impl V2UpgradeToken {
@@ -138,60 +139,6 @@ impl TryFrom<&V2UpgradeTokenResponseModel> for V2UpgradeToken {
     }
 }
 
-impl FromStr for V2UpgradeToken {
-    type Err = V2UpgradeTokenError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        #[derive(Deserialize)]
-        struct Fields {
-            wrapped_uk_1: EncString,
-            wrapped_uk_2: EncString,
-        }
-        let Fields {
-            wrapped_uk_1,
-            wrapped_uk_2,
-        } = serde_json::from_str(s).map_err(|_| V2UpgradeTokenError::Serialization)?;
-        Ok(V2UpgradeToken {
-            wrapped_user_key_1: wrapped_uk_1,
-            wrapped_user_key_2: wrapped_uk_2,
-        })
-    }
-}
-
-impl From<V2UpgradeToken> for String {
-    fn from(val: V2UpgradeToken) -> Self {
-        #[derive(Serialize)]
-        struct Fields<'a> {
-            wrapped_uk_1: &'a EncString,
-            wrapped_uk_2: &'a EncString,
-        }
-        serde_json::to_string(&Fields {
-            wrapped_uk_1: &val.wrapped_user_key_1,
-            wrapped_uk_2: &val.wrapped_user_key_2,
-        })
-        .expect("Serialization to JSON should not fail")
-    }
-}
-
-impl<'de> Deserialize<'de> for V2UpgradeToken {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        V2UpgradeToken::from_str(&s).map_err(serde::de::Error::custom)
-    }
-}
-
-impl Serialize for V2UpgradeToken {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(&String::from(self.clone()))
-    }
-}
-
 /// Errors that can occur when working with V2UpgradeToken
 #[derive(Debug, Error)]
 pub enum V2UpgradeTokenError {
@@ -218,30 +165,6 @@ pub enum V2UpgradeTokenError {
     ResponseModelMalformed,
 }
 
-#[cfg(feature = "wasm")]
-#[wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)]
-const TS_CUSTOM_TYPES: &'static str = r#"
-export type V2UpgradeToken = Tagged<string, "V2UpgradeToken">;
-"#;
-
-#[cfg(feature = "wasm")]
-impl wasm_bindgen::describe::WasmDescribe for V2UpgradeToken {
-    fn describe() {
-        <String as wasm_bindgen::describe::WasmDescribe>::describe();
-    }
-}
-
-#[cfg(feature = "wasm")]
-impl FromWasmAbi for V2UpgradeToken {
-    type Abi = <String as FromWasmAbi>::Abi;
-
-    unsafe fn from_abi(abi: Self::Abi) -> Self {
-        use wasm_bindgen::UnwrapThrowExt;
-        let string = unsafe { String::from_abi(abi) };
-        V2UpgradeToken::from_str(&string).unwrap_throw()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use bitwarden_crypto::{KeyStore, SymmetricKeyAlgorithm};
@@ -263,9 +186,9 @@ mod tests {
             .expect("Token creation should succeed");
 
         // Serialize and deserialize
-        let serialized = String::from(token.clone());
-        let deserialized =
-            V2UpgradeToken::from_str(&serialized).expect("Deserialization should succeed");
+        let serialized = serde_json::to_string(&token).expect("Serialization should succeed");
+        let deserialized: V2UpgradeToken =
+            serde_json::from_str(&serialized).expect("Deserialization should succeed");
 
         // Unwrap V2 using V1
         let unwrapped_v2_id = deserialized
@@ -281,7 +204,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bidirectional_unwrap() {
+    fn test_unwrap_bidirectional() {
         let key_store = KeyStore::<KeyIds>::default();
         let mut ctx = key_store.context_mut();
 
@@ -318,7 +241,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wrong_key_type_error() {
+    fn test_create_wrong_key_type_error() {
         let key_store = KeyStore::<KeyIds>::default();
         let mut ctx = key_store.context_mut();
 
@@ -331,7 +254,7 @@ mod tests {
     }
 
     #[test]
-    fn test_serialization_format() {
+    fn test_serialization_round_trip() {
         let key_store = KeyStore::<KeyIds>::default();
         let mut ctx = key_store.context_mut();
 
@@ -342,15 +265,19 @@ mod tests {
             .expect("Token creation should succeed");
 
         // Verify serialization produces a JSON object with the expected fields
-        let serialized = String::from(token.clone());
+        let serialized = serde_json::to_string(&token).expect("Serialization should succeed");
         let json: serde_json::Value =
             serde_json::from_str(&serialized).expect("Should be valid JSON");
-        assert!(json.get("wrapped_uk_1").is_some());
-        assert!(json.get("wrapped_uk_2").is_some());
+        assert!(json.is_object());
+        assert!(json.get("wrapped_user_key_1").is_some());
+        assert!(json.get("wrapped_user_key_2").is_some());
 
-        // Verify deserialization round-trips
-        let deserialized = V2UpgradeToken::from_str(&serialized);
-        assert!(deserialized.is_ok());
+        // Verify round-trip: deserialize and re-serialize produces identical output
+        let deserialized: V2UpgradeToken =
+            serde_json::from_str(&serialized).expect("Deserialization should succeed");
+        let reserialized =
+            serde_json::to_string(&deserialized).expect("Reserialization should succeed");
+        assert_eq!(serialized, reserialized);
     }
 
     fn build_response_model<Ids: bitwarden_crypto::KeyIds>(
@@ -406,14 +333,8 @@ mod tests {
         let token = V2UpgradeToken::create(v1_key_id, v2_key_id, &ctx)
             .expect("Token creation should succeed");
 
-        // Serialize via serde — must produce a JSON string (not an object)
+        // Serialize via serde — produces a JSON object
         let serialized = serde_json::to_string(&token).expect("Serialization should succeed");
-        let as_value: serde_json::Value =
-            serde_json::from_str(&serialized).expect("Should be valid JSON");
-        assert!(
-            as_value.is_string(),
-            "serde should serialize V2UpgradeToken as a JSON string, got: {as_value}"
-        );
 
         // Deserialize back and verify the token is still functional
         let deserialized: V2UpgradeToken =
@@ -427,27 +348,5 @@ mod tests {
         #[allow(deprecated)]
         let unwrapped_v2 = ctx.dangerous_get_symmetric_key(unwrapped_v2_id).unwrap();
         assert_eq!(original_v2, unwrapped_v2);
-    }
-
-    #[test]
-    fn test_from_str_invalid_json() {
-        let result = V2UpgradeToken::from_str("not valid json");
-        assert!(matches!(result, Err(V2UpgradeTokenError::Serialization)));
-    }
-
-    #[test]
-    fn test_from_str_missing_fields() {
-        // Empty object is missing both required fields
-        let result = V2UpgradeToken::from_str("{}");
-        assert!(matches!(result, Err(V2UpgradeTokenError::Serialization)));
-    }
-
-    #[test]
-    fn test_deserialize_non_string_fails() {
-        // Deserialize expects a JSON string, not an object
-        let result = serde_json::from_str::<V2UpgradeToken>(
-            r#"{"wrapped_uk_1":"2.abc","wrapped_uk_2":"2.abc"}"#,
-        );
-        assert!(result.is_err(), "Deserializing a JSON object should fail");
     }
 }
