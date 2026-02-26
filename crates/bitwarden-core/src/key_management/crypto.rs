@@ -7,6 +7,7 @@
 use std::collections::HashMap;
 
 use bitwarden_api_api::models::AccountKeysRequestModel;
+use bitwarden_crypto::safe::PasswordProtectedKeyEnvelopeNamespace;
 #[expect(deprecated)]
 use bitwarden_crypto::{
     CoseSerializable, CryptoError, DeviceKey, EncString, Kdf, KeyConnectorKey, KeyDecryptable,
@@ -24,6 +25,10 @@ use tracing::info;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
+#[cfg(feature = "wasm")]
+use crate::key_management::wasm_unlock_state::{
+    copy_user_key_to_client_managed_state, get_user_key_from_client_managed_state,
+};
 use crate::{
     Client, NotAuthenticatedError, OrganizationId, UserId, WrongPasswordError,
     client::{LoginMethod, UserLoginMethod, encryption_settings::EncryptionSettingsError},
@@ -88,6 +93,11 @@ pub enum InitUserCryptoMethod {
         /// Contains the data needed to unlock with the master password
         master_password_unlock: MasterPasswordUnlockData,
     },
+    /// Read the user-key directly from client-managed state
+    /// Note: In contrast to [`InitUserCryptoMethod::DecryptedKey`], this does not update the state
+    /// after initalizing
+    #[cfg(feature = "wasm")]
+    ClientManagedState {},
     /// Never lock and/or biometric unlock
     DecryptedKey {
         /// The user's decrypted encryption key, obtained using `get_user_encryption_key`
@@ -185,12 +195,34 @@ pub(super) async fn initialize_user_crypto(
                     master_password_unlock,
                     account_crypto_state,
                 )?;
+
+            drop(_span_guard);
+            #[cfg(feature = "wasm")]
+            copy_user_key_to_client_managed_state(client)
+                .await
+                .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
+        }
+        #[cfg(feature = "wasm")]
+        InitUserCryptoMethod::ClientManagedState {} => {
+            drop(_span_guard);
+            let user_key = get_user_key_from_client_managed_state(client)
+                .await
+                .map_err(|_| EncryptionSettingsError::UserKeyStateRetrievalFailed)?;
+            client
+                .internal
+                .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
         }
         InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
             let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
             client
                 .internal
                 .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
+
+            drop(_span_guard);
+            #[cfg(feature = "wasm")]
+            copy_user_key_to_client_managed_state(client)
+                .await
+                .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
         }
         InitUserCryptoMethod::Pin {
             pin,
@@ -212,6 +244,12 @@ pub(super) async fn initialize_user_crypto(
                 pin_protected_user_key_envelope,
                 account_crypto_state,
             )?;
+
+            drop(_span_guard);
+            #[cfg(feature = "wasm")]
+            copy_user_key_to_client_managed_state(client)
+                .await
+                .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
         }
         InitUserCryptoMethod::AuthRequest {
             request_private_key,
@@ -430,7 +468,12 @@ pub(super) fn enroll_pin(
     let key_store = client.internal.get_key_store();
     let mut ctx = key_store.context_mut();
 
-    let key_envelope = PasswordProtectedKeyEnvelope::seal(SymmetricKeyId::User, &pin, &ctx)?;
+    let key_envelope = PasswordProtectedKeyEnvelope::seal(
+        SymmetricKeyId::User,
+        &pin,
+        PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
+        &ctx,
+    )?;
     let encrypted_pin = pin.encrypt(&mut ctx, SymmetricKeyId::User)?;
     Ok(EnrollPinResponse {
         pin_protected_user_key_envelope: key_envelope,
@@ -768,12 +811,7 @@ pub(crate) fn make_v2_keys_for_v1_user(
     let public_key = private_key.to_public_key();
 
     // Initialize security state for the user
-    let security_state = SecurityState::initialize_for_user(
-        client
-            .internal
-            .get_user_id()
-            .ok_or(StatefulCryptoError::MissingSecurityState)?,
-    );
+    let security_state = SecurityState::new();
     let signed_security_state = security_state.sign(temporary_signing_key_id, &mut ctx)?;
 
     Ok(UserCryptoV2KeysResponse {
@@ -894,11 +932,10 @@ pub enum MakeKeysError {
 /// Create the data needed to register for TDE (Trusted Device Enrollment)
 pub(crate) fn make_user_tde_registration(
     client: &Client,
-    user_id: UserId,
     org_public_key: B64,
 ) -> Result<MakeTdeRegistrationResponse, MakeKeysError> {
     let mut ctx = client.internal.get_key_store().context_mut();
-    let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx, user_id)
+    let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx)
         .map_err(MakeKeysError::AccountCryptographyInitialization)?;
     // TDE unlock method
     #[expect(deprecated)]
@@ -945,10 +982,9 @@ pub struct MakeKeyConnectorRegistrationResponse {
 /// Create the data needed to register for Key Connector
 pub(crate) fn make_user_key_connector_registration(
     client: &Client,
-    user_id: UserId,
 ) -> Result<MakeKeyConnectorRegistrationResponse, MakeKeysError> {
     let mut ctx = client.internal.get_key_store().context_mut();
-    let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx, user_id)
+    let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx)
         .map_err(MakeKeysError::AccountCryptographyInitialization)?;
     #[expect(deprecated)]
     let user_key = ctx.dangerous_get_symmetric_key(user_key_id)?.to_owned();
@@ -977,13 +1013,12 @@ pub(crate) fn make_user_key_connector_registration(
 /// Create the data needed to register for JIT master password
 pub(crate) fn make_user_jit_master_password_registration(
     client: &Client,
-    user_id: UserId,
     master_password: String,
     salt: String,
     org_public_key: B64,
 ) -> Result<MakeJitMasterPasswordRegistrationResponse, MakeKeysError> {
     let mut ctx = client.internal.get_key_store().context_mut();
-    let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx, user_id)
+    let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx)
         .map_err(MakeKeysError::AccountCryptographyInitialization)?;
 
     let kdf = Kdf::default_argon2();
@@ -1026,9 +1061,10 @@ mod tests {
     use bitwarden_crypto::{
         PrivateKey, PublicKeyEncryptionAlgorithm, RsaKeyPair, SymmetricKeyAlgorithm,
     };
+    use bitwarden_test::MemoryRepository;
 
     use super::*;
-    use crate::Client;
+    use crate::{Client, key_management::UserKeyState};
 
     const TEST_VECTOR_USER_KEY_V2_B64: &str = "pQEEAlACHUUoybNAuJoZzqNMxz2bAzoAARFvBIQDBAUGIFggAvGl4ifaUAomQdCdUPpXLHtypiQxHjZwRHeI83caZM4B";
     const TEST_VECTOR_PRIVATE_KEY_V2: &str = "7.g1gdowE6AAERbwMZARwEUAIdRSjJs0C4mhnOo0zHPZuhBVgYthGLGqVLPeidY8mNMxpLJn3fyeSxyaWsWQTR6pxmRV2DyGZXly/0l9KK+Rsfetl9wvYIz0O4/RW3R6wf7eGxo5XmicV3WnFsoAmIQObxkKWShxFyjzg+ocKItQDzG7Gp6+MW4biTrAlfK51ML/ZS+PCjLmgI1QQr4eMHjiwA2TBKtKkxfjoTJkMXECpRVLEXOo8/mbIGYkuabbSA7oU+TJ0yXlfKDtD25gnyO7tjW/0JMFUaoEKRJOuKoXTN4n/ks4Hbxk0X5/DzfG05rxWad2UNBjNg7ehW99WrQ+33ckdQFKMQOri/rt8JzzrF1k11/jMJ+Y2TADKNHr91NalnUX+yqZAAe3sRt5Pv5ZhLIwRMKQi/1NrLcsQPRuUnogVSPOoMnE/eD6F70iU60Z6pvm1iBw2IvELZcrs/oxpO2SeCue08fIZW/jNZokbLnm90tQ7QeZTUpiPALhUgfGOa3J9VOJ7jQGCqDjd9CzV2DCVfhKCapeTbldm+RwEWBz5VvorH5vMx1AzbPRJxdIQuxcg3NqRrXrYC7fyZljWaPB9qP1tztiPtd1PpGEgxLByIfR6fqyZMCvOBsWbd0H6NhF8mNVdDw60+skFRdbRBTSCjCtKZeLVuVFb8ioH45PR5oXjtx4atIDzu6DKm6TTMCbR6DjZuZZ8GbwHxuUD2mDD3pAFhaof9kR3lQdjy7Zb4EzUUYskQxzcLPcqzp9ZgB3Rg91SStBCCMhdQ6AnhTy+VTGt/mY5AbBXNRSL6fI0r+P9K8CcEI4bNZCDkwwQr5v4O4ykSUzIvmVU0zKzDngy9bteIZuhkvGUoZlQ9UATNGPhoLfqq2eSvqEXkCbxTVZ5D+Ww9pHmWeVcvoBhcl5MvicfeQt++dY3tPjIfZq87nlugG4HiNbcv9nbVpgwe3v8cFetWXQgnO4uhx8JHSwGoSuxHFZtl2sdahjTHavRHnYjSABEFrViUKgb12UDD5ow1GAL62wVdSJKRf9HlLbJhN3PBxuh5L/E0wy1wGA9ecXtw/R1ktvXZ7RklGAt1TmNzZv6vI2J/CMXvndOX9rEpjKMbwbIDAjQ9PxiWdcnmc5SowT9f6yfIjbjXnRMWWidPAua7sgrtej4HP4Qjz1fpgLMLCRyF97tbMTmsAI5Cuj98Buh9PwcdyXj5SbVuHdJS1ehv9b5SWPsD4pwOm3+otVNK6FTazhoUl47AZoAoQzXfsXxrzqYzvF0yJkCnk9S1dcij1L569gQ43CJO6o6jIZFJvA4EmZDl95ELu+BC+x37Ip8dq4JLPsANDVSqvXO9tfDUIXEx25AaOYhW2KAUoDve/fbsU8d0UZR1o/w+ZrOQwawCIPeVPtbh7KFRVQi/rPI+Abl6XR6qMJbKPegliYGUuGF2oEMEc6QLTsMRCEPuw0S3kxbNfVPqml8nGhB2r8zUHBY1diJEmipVghnwH74gIKnyJ2C9nKjV8noUfKzqyV8vxUX2G5yXgodx8Jn0cWs3XhWuApFla9z4R28W/4jA1jK2WQMlx+b6xKUWgRk8+fYsc0HSt2fDrQ9pLpnjb8ME59RCxSPV++PThpnR2JtastZBZur2hBIJsGILCAmufUU4VC4gBKPhNfu/OK4Ktgz+uQlUa9fEC/FnkpTRQPxHuQjSQSNrIIyW1bIRBtnwjvvvNoui9FZJ";
@@ -1050,6 +1086,11 @@ mod tests {
     #[tokio::test]
     async fn test_update_kdf() {
         let client = Client::new(None);
+        let repository = MemoryRepository::<UserKeyState>::default();
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
 
         let priv_key: EncString = "2.kmLY8NJVuiKBFJtNd/ZFpA==|qOodlRXER+9ogCe3yOibRHmUcSNvjSKhdDuztLlucs10jLiNoVVVAc+9KfNErLSpx5wmUF1hBOJM8zwVPjgQTrmnNf/wuDpwiaCxNYb/0v4FygPy7ccAHK94xP1lfqq7U9+tv+/yiZSwgcT+xF0wFpoxQeNdNRFzPTuD9o4134n8bzacD9DV/WjcrXfRjbBCzzuUGj1e78+A7BWN7/5IWLz87KWk8G7O/W4+8PtEzlwkru6Wd1xO19GYU18oArCWCNoegSmcGn7w7NDEXlwD403oY8Oa7ylnbqGE28PVJx+HLPNIdSC6YKXeIOMnVs7Mctd/wXC93zGxAWD6ooTCzHSPVV50zKJmWIG2cVVUS7j35H3rGDtUHLI+ASXMEux9REZB8CdVOZMzp2wYeiOpggebJy6MKOZqPT1R3X0fqF2dHtRFPXrNsVr1Qt6bS9qTyO4ag1/BCvXF3P1uJEsI812BFAne3cYHy5bIOxuozPfipJrTb5WH35bxhElqwT3y/o/6JWOGg3HLDun31YmiZ2HScAsUAcEkA4hhoTNnqy4O2s3yVbCcR7jF7NLsbQc0MDTbnjxTdI4VnqUIn8s2c9hIJy/j80pmO9Bjxp+LQ9a2hUkfHgFhgHxZUVaeGVth8zG2kkgGdrp5VHhxMVFfvB26Ka6q6qE/UcS2lONSv+4T8niVRJz57qwctj8MNOkA3PTEfe/DP/LKMefke31YfT0xogHsLhDkx+mS8FCc01HReTjKLktk/Jh9mXwC5oKwueWWwlxI935ecn+3I2kAuOfMsgPLkoEBlwgiREC1pM7VVX1x8WmzIQVQTHd4iwnX96QewYckGRfNYWz/zwvWnjWlfcg8kRSe+68EHOGeRtC5r27fWLqRc0HNcjwpgHkI/b6czerCe8+07TWql4keJxJxhBYj3iOH7r9ZS8ck51XnOb8tGL1isimAJXodYGzakwktqHAD7MZhS+P02O+6jrg7d+yPC2ZCuS/3TOplYOCHQIhnZtR87PXTUwr83zfOwAwCyv6KP84JUQ45+DItrXLap7nOVZKQ5QxYIlbThAO6eima6Zu5XHfqGPMNWv0bLf5+vAjIa5np5DJrSwz9no/hj6CUh0iyI+SJq4RGI60lKtypMvF6MR3nHLEHOycRUQbZIyTHWl4QQLdHzuwN9lv10ouTEvNr6sFflAX2yb6w3hlCo7oBytH3rJekjb3IIOzBpeTPIejxzVlh0N9OT5MZdh4sNKYHUoWJ8mnfjdM+L4j5Q2Kgk/XiGDgEebkUxiEOQUdVpePF5uSCE+TPav/9FIRGXGiFn6NJMaU7aBsDTFBLloffFLYDpd8/bTwoSvifkj7buwLYM+h/qcnfdy5FWau1cKav+Blq/ZC0qBpo658RTC8ZtseAFDgXoQZuksM10hpP9bzD04Bx30xTGX81QbaSTNwSEEVrOtIhbDrj9OI43KH4O6zLzK+t30QxAv5zjk10RZ4+5SAdYndIlld9Y62opCfPDzRy3ubdve4ZEchpIKWTQvIxq3T5ogOhGaWBVYnkMtM2GVqvWV//46gET5SH/MdcwhACUcZ9kCpMnWH9CyyUwYvTT3UlNyV+DlS27LMPvaw7tx7qa+GfNCoCBd8S4esZpQYK/WReiS8=|pc7qpD42wxyXemdNPuwxbh8iIaryrBPu8f/DGwYdHTw=".parse().unwrap();
 
@@ -1083,6 +1124,11 @@ mod tests {
         let new_kdf_response = make_update_kdf(&client, "123412341234", &new_kdf).unwrap();
 
         let client2 = Client::new(None);
+        let repository = MemoryRepository::<UserKeyState>::default();
+        client2
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
 
         initialize_user_crypto(
             &client2,
@@ -1150,6 +1196,11 @@ mod tests {
     #[tokio::test]
     async fn test_update_password() {
         let client = Client::new(None);
+        let repository = MemoryRepository::<UserKeyState>::default();
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
 
         let priv_key: EncString = "2.kmLY8NJVuiKBFJtNd/ZFpA==|qOodlRXER+9ogCe3yOibRHmUcSNvjSKhdDuztLlucs10jLiNoVVVAc+9KfNErLSpx5wmUF1hBOJM8zwVPjgQTrmnNf/wuDpwiaCxNYb/0v4FygPy7ccAHK94xP1lfqq7U9+tv+/yiZSwgcT+xF0wFpoxQeNdNRFzPTuD9o4134n8bzacD9DV/WjcrXfRjbBCzzuUGj1e78+A7BWN7/5IWLz87KWk8G7O/W4+8PtEzlwkru6Wd1xO19GYU18oArCWCNoegSmcGn7w7NDEXlwD403oY8Oa7ylnbqGE28PVJx+HLPNIdSC6YKXeIOMnVs7Mctd/wXC93zGxAWD6ooTCzHSPVV50zKJmWIG2cVVUS7j35H3rGDtUHLI+ASXMEux9REZB8CdVOZMzp2wYeiOpggebJy6MKOZqPT1R3X0fqF2dHtRFPXrNsVr1Qt6bS9qTyO4ag1/BCvXF3P1uJEsI812BFAne3cYHy5bIOxuozPfipJrTb5WH35bxhElqwT3y/o/6JWOGg3HLDun31YmiZ2HScAsUAcEkA4hhoTNnqy4O2s3yVbCcR7jF7NLsbQc0MDTbnjxTdI4VnqUIn8s2c9hIJy/j80pmO9Bjxp+LQ9a2hUkfHgFhgHxZUVaeGVth8zG2kkgGdrp5VHhxMVFfvB26Ka6q6qE/UcS2lONSv+4T8niVRJz57qwctj8MNOkA3PTEfe/DP/LKMefke31YfT0xogHsLhDkx+mS8FCc01HReTjKLktk/Jh9mXwC5oKwueWWwlxI935ecn+3I2kAuOfMsgPLkoEBlwgiREC1pM7VVX1x8WmzIQVQTHd4iwnX96QewYckGRfNYWz/zwvWnjWlfcg8kRSe+68EHOGeRtC5r27fWLqRc0HNcjwpgHkI/b6czerCe8+07TWql4keJxJxhBYj3iOH7r9ZS8ck51XnOb8tGL1isimAJXodYGzakwktqHAD7MZhS+P02O+6jrg7d+yPC2ZCuS/3TOplYOCHQIhnZtR87PXTUwr83zfOwAwCyv6KP84JUQ45+DItrXLap7nOVZKQ5QxYIlbThAO6eima6Zu5XHfqGPMNWv0bLf5+vAjIa5np5DJrSwz9no/hj6CUh0iyI+SJq4RGI60lKtypMvF6MR3nHLEHOycRUQbZIyTHWl4QQLdHzuwN9lv10ouTEvNr6sFflAX2yb6w3hlCo7oBytH3rJekjb3IIOzBpeTPIejxzVlh0N9OT5MZdh4sNKYHUoWJ8mnfjdM+L4j5Q2Kgk/XiGDgEebkUxiEOQUdVpePF5uSCE+TPav/9FIRGXGiFn6NJMaU7aBsDTFBLloffFLYDpd8/bTwoSvifkj7buwLYM+h/qcnfdy5FWau1cKav+Blq/ZC0qBpo658RTC8ZtseAFDgXoQZuksM10hpP9bzD04Bx30xTGX81QbaSTNwSEEVrOtIhbDrj9OI43KH4O6zLzK+t30QxAv5zjk10RZ4+5SAdYndIlld9Y62opCfPDzRy3ubdve4ZEchpIKWTQvIxq3T5ogOhGaWBVYnkMtM2GVqvWV//46gET5SH/MdcwhACUcZ9kCpMnWH9CyyUwYvTT3UlNyV+DlS27LMPvaw7tx7qa+GfNCoCBd8S4esZpQYK/WReiS8=|pc7qpD42wxyXemdNPuwxbh8iIaryrBPu8f/DGwYdHTw=".parse().unwrap();
 
@@ -1180,6 +1231,11 @@ mod tests {
         let new_password_response = make_update_password(&client, "123412341234".into()).unwrap();
 
         let client2 = Client::new(None);
+        let repository = MemoryRepository::<UserKeyState>::default();
+        client2
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
 
         initialize_user_crypto(
             &client2,
@@ -1240,6 +1296,11 @@ mod tests {
     #[tokio::test]
     async fn test_initialize_user_crypto_pin() {
         let client = Client::new(None);
+        let repository = MemoryRepository::<UserKeyState>::default();
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
 
         let priv_key: EncString = "2.kmLY8NJVuiKBFJtNd/ZFpA==|qOodlRXER+9ogCe3yOibRHmUcSNvjSKhdDuztLlucs10jLiNoVVVAc+9KfNErLSpx5wmUF1hBOJM8zwVPjgQTrmnNf/wuDpwiaCxNYb/0v4FygPy7ccAHK94xP1lfqq7U9+tv+/yiZSwgcT+xF0wFpoxQeNdNRFzPTuD9o4134n8bzacD9DV/WjcrXfRjbBCzzuUGj1e78+A7BWN7/5IWLz87KWk8G7O/W4+8PtEzlwkru6Wd1xO19GYU18oArCWCNoegSmcGn7w7NDEXlwD403oY8Oa7ylnbqGE28PVJx+HLPNIdSC6YKXeIOMnVs7Mctd/wXC93zGxAWD6ooTCzHSPVV50zKJmWIG2cVVUS7j35H3rGDtUHLI+ASXMEux9REZB8CdVOZMzp2wYeiOpggebJy6MKOZqPT1R3X0fqF2dHtRFPXrNsVr1Qt6bS9qTyO4ag1/BCvXF3P1uJEsI812BFAne3cYHy5bIOxuozPfipJrTb5WH35bxhElqwT3y/o/6JWOGg3HLDun31YmiZ2HScAsUAcEkA4hhoTNnqy4O2s3yVbCcR7jF7NLsbQc0MDTbnjxTdI4VnqUIn8s2c9hIJy/j80pmO9Bjxp+LQ9a2hUkfHgFhgHxZUVaeGVth8zG2kkgGdrp5VHhxMVFfvB26Ka6q6qE/UcS2lONSv+4T8niVRJz57qwctj8MNOkA3PTEfe/DP/LKMefke31YfT0xogHsLhDkx+mS8FCc01HReTjKLktk/Jh9mXwC5oKwueWWwlxI935ecn+3I2kAuOfMsgPLkoEBlwgiREC1pM7VVX1x8WmzIQVQTHd4iwnX96QewYckGRfNYWz/zwvWnjWlfcg8kRSe+68EHOGeRtC5r27fWLqRc0HNcjwpgHkI/b6czerCe8+07TWql4keJxJxhBYj3iOH7r9ZS8ck51XnOb8tGL1isimAJXodYGzakwktqHAD7MZhS+P02O+6jrg7d+yPC2ZCuS/3TOplYOCHQIhnZtR87PXTUwr83zfOwAwCyv6KP84JUQ45+DItrXLap7nOVZKQ5QxYIlbThAO6eima6Zu5XHfqGPMNWv0bLf5+vAjIa5np5DJrSwz9no/hj6CUh0iyI+SJq4RGI60lKtypMvF6MR3nHLEHOycRUQbZIyTHWl4QQLdHzuwN9lv10ouTEvNr6sFflAX2yb6w3hlCo7oBytH3rJekjb3IIOzBpeTPIejxzVlh0N9OT5MZdh4sNKYHUoWJ8mnfjdM+L4j5Q2Kgk/XiGDgEebkUxiEOQUdVpePF5uSCE+TPav/9FIRGXGiFn6NJMaU7aBsDTFBLloffFLYDpd8/bTwoSvifkj7buwLYM+h/qcnfdy5FWau1cKav+Blq/ZC0qBpo658RTC8ZtseAFDgXoQZuksM10hpP9bzD04Bx30xTGX81QbaSTNwSEEVrOtIhbDrj9OI43KH4O6zLzK+t30QxAv5zjk10RZ4+5SAdYndIlld9Y62opCfPDzRy3ubdve4ZEchpIKWTQvIxq3T5ogOhGaWBVYnkMtM2GVqvWV//46gET5SH/MdcwhACUcZ9kCpMnWH9CyyUwYvTT3UlNyV+DlS27LMPvaw7tx7qa+GfNCoCBd8S4esZpQYK/WReiS8=|pc7qpD42wxyXemdNPuwxbh8iIaryrBPu8f/DGwYdHTw=".parse().unwrap();
 
@@ -1271,6 +1332,11 @@ mod tests {
 
         // Verify we can unlock with the pin
         let client2 = Client::new(None);
+        let repository = MemoryRepository::<UserKeyState>::default();
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
         initialize_user_crypto(
             &client2,
             InitUserCryptoRequest {
@@ -1363,6 +1429,11 @@ mod tests {
         let test_pin = "1234";
 
         let client1 = Client::new(None);
+        let repository = MemoryRepository::<UserKeyState>::default();
+        client1
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
         initialize_user_crypto(
             &client1,
             InitUserCryptoRequest {
@@ -1387,6 +1458,11 @@ mod tests {
         let enroll_response = client1.crypto().enroll_pin(test_pin.to_string()).unwrap();
 
         let client2 = Client::new(None);
+        let repository = MemoryRepository::<UserKeyState>::default();
+        client2
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
         initialize_user_crypto(
             &client2,
             InitUserCryptoRequest {
@@ -1569,6 +1645,11 @@ mod tests {
     #[tokio::test]
     async fn test_make_v2_keys_for_v1_user() {
         let client = Client::new(None);
+        let repository = MemoryRepository::<UserKeyState>::default();
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
 
         let priv_key: EncString = "2.kmLY8NJVuiKBFJtNd/ZFpA==|qOodlRXER+9ogCe3yOibRHmUcSNvjSKhdDuztLlucs10jLiNoVVVAc+9KfNErLSpx5wmUF1hBOJM8zwVPjgQTrmnNf/wuDpwiaCxNYb/0v4FygPy7ccAHK94xP1lfqq7U9+tv+/yiZSwgcT+xF0wFpoxQeNdNRFzPTuD9o4134n8bzacD9DV/WjcrXfRjbBCzzuUGj1e78+A7BWN7/5IWLz87KWk8G7O/W4+8PtEzlwkru6Wd1xO19GYU18oArCWCNoegSmcGn7w7NDEXlwD403oY8Oa7ylnbqGE28PVJx+HLPNIdSC6YKXeIOMnVs7Mctd/wXC93zGxAWD6ooTCzHSPVV50zKJmWIG2cVVUS7j35H3rGDtUHLI+ASXMEux9REZB8CdVOZMzp2wYeiOpggebJy6MKOZqPT1R3X0fqF2dHtRFPXrNsVr1Qt6bS9qTyO4ag1/BCvXF3P1uJEsI812BFAne3cYHy5bIOxuozPfipJrTb5WH35bxhElqwT3y/o/6JWOGg3HLDun31YmiZ2HScAsUAcEkA4hhoTNnqy4O2s3yVbCcR7jF7NLsbQc0MDTbnjxTdI4VnqUIn8s2c9hIJy/j80pmO9Bjxp+LQ9a2hUkfHgFhgHxZUVaeGVth8zG2kkgGdrp5VHhxMVFfvB26Ka6q6qE/UcS2lONSv+4T8niVRJz57qwctj8MNOkA3PTEfe/DP/LKMefke31YfT0xogHsLhDkx+mS8FCc01HReTjKLktk/Jh9mXwC5oKwueWWwlxI935ecn+3I2kAuOfMsgPLkoEBlwgiREC1pM7VVX1x8WmzIQVQTHd4iwnX96QewYckGRfNYWz/zwvWnjWlfcg8kRSe+68EHOGeRtC5r27fWLqRc0HNcjwpgHkI/b6czerCe8+07TWql4keJxJxhBYj3iOH7r9ZS8ck51XnOb8tGL1isimAJXodYGzakwktqHAD7MZhS+P02O+6jrg7d+yPC2ZCuS/3TOplYOCHQIhnZtR87PXTUwr83zfOwAwCyv6KP84JUQ45+DItrXLap7nOVZKQ5QxYIlbThAO6eima6Zu5XHfqGPMNWv0bLf5+vAjIa5np5DJrSwz9no/hj6CUh0iyI+SJq4RGI60lKtypMvF6MR3nHLEHOycRUQbZIyTHWl4QQLdHzuwN9lv10ouTEvNr6sFflAX2yb6w3hlCo7oBytH3rJekjb3IIOzBpeTPIejxzVlh0N9OT5MZdh4sNKYHUoWJ8mnfjdM+L4j5Q2Kgk/XiGDgEebkUxiEOQUdVpePF5uSCE+TPav/9FIRGXGiFn6NJMaU7aBsDTFBLloffFLYDpd8/bTwoSvifkj7buwLYM+h/qcnfdy5FWau1cKav+Blq/ZC0qBpo658RTC8ZtseAFDgXoQZuksM10hpP9bzD04Bx30xTGX81QbaSTNwSEEVrOtIhbDrj9OI43KH4O6zLzK+t30QxAv5zjk10RZ4+5SAdYndIlld9Y62opCfPDzRy3ubdve4ZEchpIKWTQvIxq3T5ogOhGaWBVYnkMtM2GVqvWV//46gET5SH/MdcwhACUcZ9kCpMnWH9CyyUwYvTT3UlNyV+DlS27LMPvaw7tx7qa+GfNCoCBd8S4esZpQYK/WReiS8=|pc7qpD42wxyXemdNPuwxbh8iIaryrBPu8f/DGwYdHTw=".parse().unwrap();
         let encrypted_userkey: EncString = "2.u2HDQ/nH2J7f5tYHctZx6Q==|NnUKODz8TPycWJA5svexe1wJIz2VexvLbZh2RDfhj5VI3wP8ZkR0Vicvdv7oJRyLI1GyaZDBCf9CTBunRTYUk39DbZl42Rb+Xmzds02EQhc=|rwuo5wgqvTJf3rgwOUfabUyzqhguMYb3sGBjOYqjevc=".parse().unwrap();
@@ -1616,6 +1697,12 @@ mod tests {
             .unwrap();
 
         let client2 = Client::new(None);
+        let repository = MemoryRepository::<UserKeyState>::default();
+        client2
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
+
         initialize_user_crypto(
             &client2,
             InitUserCryptoRequest {
@@ -1649,6 +1736,12 @@ mod tests {
     #[tokio::test]
     async fn test_make_v2_keys_for_v1_user_with_v2_user_fails() {
         let client = Client::new(None);
+        let repository = MemoryRepository::<UserKeyState>::default();
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
+
         initialize_user_crypto(
             &client,
             InitUserCryptoRequest {
@@ -1705,6 +1798,12 @@ mod tests {
     #[tokio::test]
     async fn test_get_v2_rotated_account_keys() {
         let client = Client::new(None);
+        let repository = MemoryRepository::<UserKeyState>::default();
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
+
         initialize_user_crypto(
             &client,
             InitUserCryptoRequest {
@@ -1735,6 +1834,11 @@ mod tests {
     #[tokio::test]
     async fn test_initialize_user_crypto_master_password_unlock() {
         let client = Client::new(None);
+        let repository = MemoryRepository::<UserKeyState>::default();
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(repository));
 
         initialize_user_crypto(
             &client,
@@ -1807,7 +1911,7 @@ mod tests {
         let registration_client = Client::new(None);
         let make_keys_response = registration_client
             .crypto()
-            .make_user_tde_registration(user_id, org_public_key)
+            .make_user_tde_registration(org_public_key)
             .expect("TDE registration should succeed");
 
         // Initialize a new client using the TDE device key
@@ -1865,8 +1969,7 @@ mod tests {
         let email = "test@bitwarden.com";
         let registration_client = Client::new(None);
 
-        let make_keys_response =
-            make_user_key_connector_registration(&registration_client, user_id);
+        let make_keys_response = make_user_key_connector_registration(&registration_client);
         assert!(make_keys_response.is_ok());
         let make_keys_response = make_keys_response.unwrap();
 

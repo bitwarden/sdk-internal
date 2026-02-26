@@ -74,12 +74,7 @@ impl CipherAdminClient {
     pub async fn delete(&self, cipher_id: CipherId) -> Result<(), DeleteCipherAdminError> {
         Ok(delete_cipher(
             cipher_id,
-            &self
-                .client
-                .internal
-                .get_api_configurations()
-                .await
-                .api_client,
+            &self.client.internal.get_api_configurations().api_client,
         )
         .await?)
     }
@@ -89,12 +84,7 @@ impl CipherAdminClient {
     pub async fn soft_delete(&self, cipher_id: CipherId) -> Result<(), DeleteCipherAdminError> {
         Ok(soft_delete(
             cipher_id,
-            &self
-                .client
-                .internal
-                .get_api_configurations()
-                .await
-                .api_client,
+            &self.client.internal.get_api_configurations().api_client,
         )
         .await?)
     }
@@ -109,12 +99,7 @@ impl CipherAdminClient {
         Ok(delete_ciphers_many(
             cipher_ids,
             organization_id,
-            &self
-                .client
-                .internal
-                .get_api_configurations()
-                .await
-                .api_client,
+            &self.client.internal.get_api_configurations().api_client,
         )
         .await?)
     }
@@ -129,12 +114,7 @@ impl CipherAdminClient {
         Ok(soft_delete_many(
             cipher_ids,
             organization_id,
-            &self
-                .client
-                .internal
-                .get_api_configurations()
-                .await
-                .api_client,
+            &self.client.internal.get_api_configurations().api_client,
         )
         .await?)
     }

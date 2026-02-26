@@ -42,9 +42,7 @@ pub async fn restore<R: Repository<Cipher> + ?Sized>(
     let api = api_client.ciphers_api();
 
     let cipher: Cipher = api.put_restore(cipher_id.into()).await?.try_into()?;
-    repository
-        .set(cipher_id.to_string(), cipher.clone())
-        .await?;
+    repository.set(cipher_id, cipher.clone()).await?;
 
     Ok(key_store.decrypt(&cipher)?)
 }
@@ -71,8 +69,8 @@ pub async fn restore_many<R: Repository<Cipher> + ?Sized>(
         .collect::<Result<Vec<Cipher>, _>>()?;
 
     for cipher in &ciphers {
-        if let Some(id) = &cipher.id {
-            repository.set(id.to_string(), cipher.clone()).await?;
+        if let Some(id) = cipher.id {
+            repository.set(id, cipher.clone()).await?;
         }
     }
 
@@ -87,12 +85,7 @@ pub async fn restore_many<R: Repository<Cipher> + ?Sized>(
 impl CiphersClient {
     /// Restores a soft-deleted cipher on the server.
     pub async fn restore(&self, cipher_id: CipherId) -> Result<CipherView, RestoreCipherError> {
-        let api_client = &self
-            .client
-            .internal
-            .get_api_configurations()
-            .await
-            .api_client;
+        let api_client = &self.client.internal.get_api_configurations().api_client;
         let key_store = self.client.internal.get_key_store();
 
         restore(cipher_id, api_client, &*self.get_repository()?, key_store).await
@@ -103,12 +96,7 @@ impl CiphersClient {
         &self,
         cipher_ids: Vec<CipherId>,
     ) -> Result<DecryptCipherListResult, RestoreCipherError> {
-        let api_client = &self
-            .client
-            .internal
-            .get_api_configurations()
-            .await
-            .api_client;
+        let api_client = &self.client.internal.get_api_configurations().api_client;
         let key_store = self.client.internal.get_key_store();
         let repository = &*self.get_repository()?;
 
@@ -209,7 +197,7 @@ mod tests {
         cipher.deleted_date = Some(Utc::now());
 
         repository
-            .set(TEST_CIPHER_ID.to_string(), cipher)
+            .set(TEST_CIPHER_ID.parse().unwrap(), cipher)
             .await
             .unwrap();
 
@@ -230,7 +218,7 @@ mod tests {
         );
 
         let repo_cipher = repository
-            .get(TEST_CIPHER_ID.to_string())
+            .get(TEST_CIPHER_ID.parse().unwrap())
             .await
             .unwrap()
             .unwrap();
@@ -295,14 +283,8 @@ mod tests {
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
 
-        repository
-            .set(cipher_id.to_string(), cipher_1)
-            .await
-            .unwrap();
-        repository
-            .set(TEST_CIPHER_ID_2.to_string(), cipher_2)
-            .await
-            .unwrap();
+        repository.set(cipher_id, cipher_1).await.unwrap();
+        repository.set(cipher_id_2, cipher_2).await.unwrap();
 
         let start_time = Utc::now();
         let ciphers = restore_many(
@@ -321,16 +303,8 @@ mod tests {
         assert_eq!(ciphers.successes[1].deleted_date, None,);
 
         // Confirm repository was updated
-        let cipher_1 = repository
-            .get(cipher_id.to_string())
-            .await
-            .unwrap()
-            .unwrap();
-        let cipher_2 = repository
-            .get(cipher_id_2.to_string())
-            .await
-            .unwrap()
-            .unwrap();
+        let cipher_1 = repository.get(cipher_id).await.unwrap().unwrap();
+        let cipher_2 = repository.get(cipher_id_2).await.unwrap().unwrap();
         assert!(cipher_1.deleted_date.is_none());
         assert!(cipher_2.deleted_date.is_none());
         assert!(cipher_1.revision_date >= start_time && cipher_1.revision_date <= end_time);

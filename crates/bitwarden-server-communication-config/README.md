@@ -26,7 +26,9 @@ The crate follows the architecture pattern of other foundation layer SDK exports
 - **`ServerCommunicationConfig`**: Data structures for bootstrap configuration and SSO cookie
   settings
 - **`ServerCommunicationConfigRepository`**: Storage abstraction trait for WASM interop with
-  TypeScript
+  TypeScript (implemented by the platform)
+- **`ServerCommunicationConfigPlatformApi`**: Platform-specific operations trait for cookie
+  acquisition (implemented by the platform)
 - **`ServerCommunicationConfigClient`**: High-level client for retrieving configuration and cookies
   by hostname
 
@@ -37,27 +39,66 @@ Configuration is stored per-hostname and supports two bootstrap modes:
 1. **Direct**: Standard direct connection (no special cookies required)
 2. **SSO Cookie Vendor**: Load balancer requires SSO authentication cookies for session affinity
 
+### Integration Pattern
+
+SDK platforms inject logic for platform-specific operations:
+
+- **Repository**: The platform provides a storage implementation (e.g., State Provider)
+- **Platform API**: The platform provides cookie acquisition implementation (e.g., browser
+  redirects, WebView handling)
+
+This allows the SDK to remain platform-agnostic while delegating browser/WebView operations to the
+client application.
+
 ## Usage
 
-The SDK client is instantiated by TypeScript with a State Provider-backed repository:
+The SDK client is instantiated by TypeScript with State Provider-backed repository and platform API:
 
 ```typescript
 import { ServerCommunicationConfigClient } from "@bitwarden/sdk-internal";
 
 // State Provider provides the repository implementation
 const repository = stateProvider.getGlobal(ServerCommunicationConfig);
-const client = new ServerCommunicationConfigClient(repository);
 
-// Check if bootstrap is needed
-await client.needsBootstrap("vault.example.com");
+// Platform provides cookie acquisition implementation
+const platformApi = {
+  async acquireCookies(hostname: string): Promise<AcquiredCookie[] | undefined> {
+    // Platform-specific logic to:
+    // 1. Open browser/WebView to IdP login URL
+    // 2. Wait for authentication
+    // 3. Extract cookies from browser
+    // 4. Return as array of {name, value} objects
+    //
+    // For sharded cookies (AWS ALB), extract all shards:
+    // [
+    //   { name: "AWSELBAuthSessionCookie-0", value: "..." },
+    //   { name: "AWSELBAuthSessionCookie-1", value: "..." }
+    // ]
+    //
+    // For unsharded cookies, return single entry:
+    // [{ name: "SessionCookie", value: "..." }]
+  },
+};
 
-// Get cookies for HTTP requests
-await client.cookies("vault.example.com");
+const client = new ServerCommunicationConfigClient(repository, platformApi);
+
+// Check if bootstrap is needed (no cookie acquired yet)
+const needsBootstrap = await client.needsBootstrap("vault.example.com");
+
+if (needsBootstrap) {
+  // Trigger cookie acquisition flow
+  await client.acquireCookie("vault.example.com");
+}
+
+// Get cookies for HTTP requests (returns name-value pairs)
+const cookies = await client.cookies("vault.example.com");
+// cookies = [["CookieName-0", "value0"], ["CookieName-1", "value1"]]
 ```
 
 ## Features
 
 - `wasm`: Enables WebAssembly bindings for TypeScript integration
+- `uniffi`: Enables UniFFI bindings for mobile platforms
 
 ## Non-Goals
 

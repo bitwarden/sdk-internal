@@ -63,16 +63,15 @@ async fn generate_with_api_url(
     let status = response.status();
     let response: Response = response.json().await?;
 
-    if status.is_success() {
-        if let Some(name) = response.name {
-            if let Some(response_domain) = response.domain {
-                return Ok(format!(
-                    "{}@{}",
-                    name,
-                    response_domain.name.unwrap_or(domain)
-                ));
-            }
-        }
+    if status.is_success()
+        && let Some(name) = response.name
+        && let Some(response_domain) = response.domain
+    {
+        return Ok(format!(
+            "{}@{}",
+            name,
+            response_domain.name.unwrap_or(domain)
+        ));
     }
 
     if let Some(message) = response.message {

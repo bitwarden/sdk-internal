@@ -44,6 +44,7 @@ ciborium = { version = ">=0.2.2, <0.3" }
 coset = { version = ">=0.4.0, <0.5" }
 ed25519-dalek = { workspace = true, features = ["rand_core"] }
 generic-array = { version = ">=0.14.7, <1.0", features = ["zeroize"] }
+hex = { version = ">=0.4.0, <0.5" }
 hkdf = ">=0.12.3, <0.13"
 hmac = ">=0.12.1, <0.13"
 num-bigint = ">=0.4, <0.5"
@@ -71,7 +72,7 @@ zeroize = { version = ">=1.7.0, <2.0", features = ["derive", "aarch64"] }
 zeroizing-alloc = ">=0.1.0, <0.2"
 
 [dev-dependencies]
-criterion = "0.7.0"
+criterion = "0.8.0"
 rand_chacha = "0.3.1"
 serde_json = { workspace = true }
 
