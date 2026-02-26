@@ -38,6 +38,9 @@ pub enum EncryptionSettingsError {
     #[error("Unable to set user-key to state")]
     UserKeyStateUpdateFailed,
 
+    #[error("Unable to retrieve user-key from state")]
+    UserKeyStateRetrievalFailed,
+
     #[error("Invalid upgrade token")]
     InvalidUpgradeToken,
 }

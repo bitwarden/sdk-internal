@@ -129,8 +129,9 @@ impl std::fmt::Debug for WrappedAccountCryptographicState {
             WrappedAccountCryptographicState::V1 { .. } => f
                 .debug_struct("WrappedAccountCryptographicState::V1")
                 .finish(),
-            WrappedAccountCryptographicState::V2 { .. } => f
+            WrappedAccountCryptographicState::V2 { security_state, .. } => f
                 .debug_struct("WrappedAccountCryptographicState::V2")
+                .field("security_state", security_state)
                 .finish(),
         }
     }
@@ -411,7 +412,7 @@ impl WrappedAccountCryptographicState {
 
         match self {
             WrappedAccountCryptographicState::V1 { private_key } => {
-                info!("Initializing V1 account cryptographic state");
+                info!(state = ?self, "Initializing V1 account cryptographic state");
                 if ctx.get_symmetric_key_algorithm(user_key)?
                     != SymmetricKeyAlgorithm::Aes256CbcHmac
                 {
@@ -429,6 +430,23 @@ impl WrappedAccountCryptographicState {
                 }
 
                 ctx.persist_symmetric_key(user_key, SymmetricKeyId::User)?;
+                #[cfg(feature = "dangerous-crypto-debug")]
+                #[allow(deprecated)]
+                {
+                    let user_key = ctx
+                        .dangerous_get_symmetric_key(SymmetricKeyId::User)
+                        .expect("User key should be set");
+                    let private_key = ctx
+                        .dangerous_get_private_key(PrivateKeyId::UserPrivateKey)
+                        .ok();
+                    let public_key = ctx.get_public_key(PrivateKeyId::UserPrivateKey).ok();
+                    info!(
+                        ?user_key,
+                        ?private_key,
+                        ?public_key,
+                        "V1 account cryptographic state set to context"
+                    );
+                }
             }
             WrappedAccountCryptographicState::V2 {
                 private_key,
@@ -436,7 +454,7 @@ impl WrappedAccountCryptographicState {
                 signing_key,
                 security_state,
             } => {
-                info!("Initializing V2 account cryptographic state");
+                info!(state = ?self, "Initializing V2 account cryptographic state");
                 if ctx.get_symmetric_key_algorithm(user_key)?
                     != SymmetricKeyAlgorithm::XChaCha20Poly1305
                 {
@@ -457,13 +475,46 @@ impl WrappedAccountCryptographicState {
                         .map_err(|_| AccountCryptographyInitializationError::TamperedData)?;
                 }
 
+                let verifying_key = ctx.get_verifying_key(signing_key_id)?;
                 let security_state: SecurityState = security_state
                     .to_owned()
-                    .verify_and_unwrap(&ctx.get_verifying_key(signing_key_id)?)
+                    .verify_and_unwrap(&verifying_key)
                     .map_err(|_| AccountCryptographyInitializationError::TamperedData)?;
+                info!(
+                    security_state_version = security_state.version(),
+                    verifying_key = ?verifying_key,
+                    "V2 account cryptographic state verified"
+                );
                 ctx.persist_private_key(private_key_id, PrivateKeyId::UserPrivateKey)?;
                 ctx.persist_signing_key(signing_key_id, SigningKeyId::UserSigningKey)?;
                 ctx.persist_symmetric_key(user_key, SymmetricKeyId::User)?;
+
+                #[cfg(feature = "dangerous-crypto-debug")]
+                #[allow(deprecated)]
+                {
+                    let user_key = ctx
+                        .dangerous_get_symmetric_key(SymmetricKeyId::User)
+                        .expect("User key should be set");
+                    let private_key = ctx
+                        .dangerous_get_private_key(PrivateKeyId::UserPrivateKey)
+                        .ok();
+                    let signing_key = ctx
+                        .dangerous_get_signing_key(SigningKeyId::UserSigningKey)
+                        .ok();
+                    let verifying_key = ctx.get_verifying_key(SigningKeyId::UserSigningKey).ok();
+                    let public_key = ctx.get_public_key(PrivateKeyId::UserPrivateKey).ok();
+                    info!(
+                        ?user_key,
+                        ?private_key,
+                        ?signing_key,
+                        ?verifying_key,
+                        ?public_key,
+                        ?signed_public_key,
+                        ?security_state,
+                        "V2 account cryptographic state set to context."
+                    );
+                }
+
                 // Not manually dropping ctx here would lead to a deadlock, since storing the state
                 // needs to acquire a lock on the inner key store
                 drop(ctx);
@@ -496,6 +547,28 @@ mod tests {
 
     use super::*;
     use crate::key_management::{PrivateKeyId, SigningKeyId, SymmetricKeyId};
+
+    #[test]
+    #[ignore = "Manual test to verify debug format"]
+    fn test_debug() {
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let (_, v1) = WrappedAccountCryptographicState::make_v1(&mut ctx).unwrap();
+        println!("{:?}", v1);
+
+        let v1 = format!("{v1:?}");
+        assert!(!v1.contains("private_key"));
+
+        let user_id = UserId::new_v4();
+        let (_, v2) = WrappedAccountCryptographicState::make(&mut ctx, user_id).unwrap();
+        println!("{:?}", v2);
+
+        let v2 = format!("{v2:?}");
+        assert!(!v2.contains("private_key"));
+        assert!(!v2.contains("signed_public_key"));
+        assert!(!v2.contains("signing_key"));
+    }
 
     #[test]
     fn test_set_to_context_v1() {
