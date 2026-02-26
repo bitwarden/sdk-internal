@@ -25,7 +25,7 @@ pub(super) async fn get_send(
     id: Uuid,
 ) -> Result<SendView, GetSendError> {
     let send = repository
-        .get(id.to_string())
+        .get(id)
         .await?
         .ok_or(ItemNotFoundError)?;
 
@@ -91,7 +91,7 @@ mod tests {
         };
         let mut send = store.encrypt(send_view).unwrap();
         send.id = Some(send_id);
-        repository.set(send_id.to_string(), send).await.unwrap();
+        repository.set(send_id, send).await.unwrap();
 
         // Test getting the send
         let result = get_send(&store, &repository, send_id).await.unwrap();
@@ -197,7 +197,7 @@ mod tests {
         };
         let mut send_2 = store.encrypt(send_view_2).unwrap();
         send_2.id = Some(send_id_2);
-        repository.set(send_id_2.to_string(), send_2).await.unwrap();
+        repository.set(send_id_2, send_2).await.unwrap();
 
         // Test listing all sends
         let result = list_sends(&store, &repository).await.unwrap();

@@ -43,7 +43,7 @@ pub(super) async fn edit_send<R: Repository<Send> + ?Sized>(
     let id = send_id.to_string();
 
     // Verify the send we're updating exists
-    repository.get(id.clone()).await?.ok_or(ItemNotFoundError)?;
+    repository.get(send_id.clone()).await?.ok_or(ItemNotFoundError)?;
 
     let send_request = key_store.encrypt(request)?;
 
@@ -57,7 +57,7 @@ pub(super) async fn edit_send<R: Repository<Send> + ?Sized>(
 
     debug_assert!(send.id.unwrap_or_default() == send_id);
 
-    repository.set(id, send.clone()).await?;
+    repository.set(send_id, send.clone()).await?;
 
     Ok(key_store.decrypt(&send)?)
 }
@@ -115,7 +115,7 @@ mod tests {
         let mut existing_send = store.encrypt(existing_send_view).unwrap();
         existing_send.id = Some(send_id); // Set the ID after encryption
         repository
-            .set(send_id.to_string(), existing_send)
+            .set(send_id, existing_send)
             .await
             .unwrap();
 

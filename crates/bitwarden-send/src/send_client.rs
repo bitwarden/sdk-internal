@@ -7,6 +7,8 @@ use bitwarden_crypto::{
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
 use uuid::Uuid;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use crate::{
     Send, SendListView, SendView,

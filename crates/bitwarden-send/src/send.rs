@@ -13,6 +13,8 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use uuid::Uuid;
 use zeroize::Zeroizing;
+#[cfg(feature = "wasm")]
+use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 use crate::SendParseError;
 
@@ -118,7 +120,7 @@ pub struct Send {
     pub auth_type: AuthType,
 }
 
-bitwarden_state::register_repository_item!(Send, "Send");
+bitwarden_state::register_repository_item!(Uuid => Send, "Send");
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]

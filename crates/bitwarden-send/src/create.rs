@@ -150,7 +150,7 @@ pub(super) async fn create_send<R: Repository<Send> + ?Sized>(
     let send: Send = resp.try_into()?;
 
     repository
-        .set(require!(send.id).to_string(), send.clone())
+        .set(require!(send.id), send.clone())
         .await?;
 
     Ok(key_store.decrypt(&send)?)
@@ -261,7 +261,7 @@ mod tests {
         // Confirm the send was stored in the repository
         assert_eq!(
             store
-                .decrypt::<SymmetricKeyId, Send, SendView>(&repository.get(send_id.to_string()).await.unwrap().unwrap())
+                .decrypt::<SymmetricKeyId, Send, SendView>(&repository.get(send_id).await.unwrap().unwrap())
                 .unwrap(),
             result
         );
