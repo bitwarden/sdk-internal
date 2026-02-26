@@ -9,16 +9,12 @@
 use std::str::FromStr;
 
 use bitwarden_api_api::models::V2UpgradeTokenResponseModel;
-use bitwarden_crypto::{
-    Decryptable, EncString, KeyIds, KeyStoreContext, SymmetricCryptoKey, SymmetricKeyAlgorithm,
-};
+use bitwarden_crypto::{Decryptable, EncString, KeyIds, KeyStoreContext, SymmetricKeyAlgorithm};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::instrument;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::convert::FromWasmAbi;
-
-use crate::key_management::SymmetricKeyId;
 
 /// Holds both V1 and V2 user keys, each wrapped by the other:
 /// - `wrapped_user_key_1`: V1 user key encrypted with V2 key (Cose_Encrypt0_B64 format)
@@ -115,55 +111,30 @@ impl V2UpgradeToken {
 
         Ok(v2_key_id)
     }
+}
 
-    /// Parses a [`V2UpgradeToken`] from the server response model. Detects whether
-    /// [`SymmetricKeyId::User`] is V1 or V2, unwraps the other key, then delegates to
-    /// [`Self::create`] for type validation. Returns `(v1_key_id, v2_key_id, token)` with both
-    /// keys available in `ctx`.
-    #[instrument(skip_all)]
-    pub fn from_response_model(
-        response: &V2UpgradeTokenResponseModel,
-        ctx: &mut KeyStoreContext<super::KeyIds>,
-    ) -> Result<(SymmetricKeyId, SymmetricKeyId, Self), V2UpgradeTokenError> {
-        let wrapped_user_key_1: EncString = response
+impl TryFrom<&V2UpgradeTokenResponseModel> for V2UpgradeToken {
+    type Error = V2UpgradeTokenError;
+
+    fn try_from(response: &V2UpgradeTokenResponseModel) -> Result<Self, Self::Error> {
+        let wrapped_user_key_1 = response
             .wrapped_user_key1
             .as_deref()
             .ok_or(V2UpgradeTokenError::ResponseModelMalformed)?
             .parse()
             .map_err(|_| V2UpgradeTokenError::ResponseModelMalformed)?;
 
-        let wrapped_user_key_2: EncString = response
+        let wrapped_user_key_2 = response
             .wrapped_user_key2
             .as_deref()
             .ok_or(V2UpgradeTokenError::ResponseModelMalformed)?
             .parse()
             .map_err(|_| V2UpgradeTokenError::ResponseModelMalformed)?;
 
-        // Detect key type; `matches!` drops the borrow immediately so &mut ctx is usable after.
-        #[allow(deprecated)]
-        let is_v1 = matches!(
-            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
-                .map_err(|_| V2UpgradeTokenError::KeyMissing)?,
-            SymmetricCryptoKey::Aes256CbcHmacKey(_)
-        );
-
-        if is_v1 {
-            // Unwrap V2 (wrapped_user_key_2 = V2 key wrapped with V1) using the current V1 key
-            let v2_key_id = ctx
-                .unwrap_symmetric_key(SymmetricKeyId::User, &wrapped_user_key_2)
-                .map_err(|_| V2UpgradeTokenError::DecryptionFailed)?;
-            // create type-checks and re-wraps
-            let token = Self::create(SymmetricKeyId::User, v2_key_id, ctx)?;
-            Ok((SymmetricKeyId::User, v2_key_id, token))
-        } else {
-            // Assume current key is V2
-            // Unwrap V1 (wrapped_user_key_1 = V1 key wrapped with V2) using the current V2 key
-            let v1_key_id = ctx
-                .unwrap_symmetric_key(SymmetricKeyId::User, &wrapped_user_key_1)
-                .map_err(|_| V2UpgradeTokenError::DecryptionFailed)?;
-            let token = Self::create(v1_key_id, SymmetricKeyId::User, ctx)?;
-            Ok((v1_key_id, SymmetricKeyId::User, token))
-        }
+        Ok(V2UpgradeToken {
+            wrapped_user_key_1,
+            wrapped_user_key_2,
+        })
     }
 }
 
@@ -396,95 +367,13 @@ mod tests {
     }
 
     #[test]
-    fn test_from_response_model_v1_current_key() {
-        let key_store = KeyStore::<KeyIds>::default();
-        let mut ctx = key_store.context_mut();
-
-        // Set a V1 key as the current user key
-        #[allow(deprecated)]
-        ctx.set_symmetric_key(
-            SymmetricKeyId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-        )
-        .unwrap();
-        let v1_key_id = SymmetricKeyId::User;
-        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-
-        let response = build_response_model(v1_key_id, v2_key_id, &ctx);
-
-        let (returned_v1_id, returned_v2_id, _token) =
-            V2UpgradeToken::from_response_model(&response, &mut ctx)
-                .expect("from_response_model with V1 user key should succeed");
-
-        // Both IDs should be in the context and match the originals
-        #[allow(deprecated)]
-        let original_v1 = ctx.dangerous_get_symmetric_key(v1_key_id).unwrap();
-        #[allow(deprecated)]
-        let original_v2 = ctx.dangerous_get_symmetric_key(v2_key_id).unwrap();
-        #[allow(deprecated)]
-        let result_v1 = ctx.dangerous_get_symmetric_key(returned_v1_id).unwrap();
-        #[allow(deprecated)]
-        let result_v2 = ctx.dangerous_get_symmetric_key(returned_v2_id).unwrap();
-
-        assert_eq!(original_v1, result_v1);
-        assert_eq!(original_v2, result_v2);
-    }
-
-    #[test]
-    fn test_from_response_model_v2_current_key() {
-        let key_store = KeyStore::<KeyIds>::default();
-        let mut ctx = key_store.context_mut();
-
-        let v1_key_id = ctx.generate_symmetric_key();
-        // Set a V2 key as the current user key
-        #[allow(deprecated)]
-        ctx.set_symmetric_key(
-            SymmetricKeyId::User,
-            SymmetricCryptoKey::make_xchacha20_poly1305_key(),
-        )
-        .unwrap();
-        let v2_key_id = SymmetricKeyId::User;
-
-        let response = build_response_model(v1_key_id, v2_key_id, &ctx);
-
-        let (returned_v1_id, returned_v2_id, _token) =
-            V2UpgradeToken::from_response_model(&response, &mut ctx)
-                .expect("from_response_model with V2 user key should succeed");
-
-        // Both IDs should be in the context and match the originals
-        #[allow(deprecated)]
-        let original_v1 = ctx.dangerous_get_symmetric_key(v1_key_id).unwrap();
-        #[allow(deprecated)]
-        let original_v2 = ctx.dangerous_get_symmetric_key(v2_key_id).unwrap();
-        #[allow(deprecated)]
-        let result_v1 = ctx.dangerous_get_symmetric_key(returned_v1_id).unwrap();
-        #[allow(deprecated)]
-        let result_v2 = ctx.dangerous_get_symmetric_key(returned_v2_id).unwrap();
-
-        assert_eq!(original_v1, result_v1);
-        assert_eq!(original_v2, result_v2);
-    }
-
-    #[test]
     fn test_from_response_model_missing_wrapped_uk1() {
-        let key_store = KeyStore::<KeyIds>::default();
-        let mut ctx = key_store.context_mut();
-
-        #[allow(deprecated)]
-        ctx.set_symmetric_key(
-            SymmetricKeyId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-        )
-        .unwrap();
-        let v1_key_id = SymmetricKeyId::User;
-        let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-
-        let mut response = build_response_model(v1_key_id, v2_key_id, &ctx);
-        response.wrapped_user_key1 = None;
-
-        let result = V2UpgradeToken::from_response_model(&response, &mut ctx);
+        let response = V2UpgradeTokenResponseModel {
+            wrapped_user_key1: None,
+            wrapped_user_key2: None,
+        };
         assert!(matches!(
-            result,
+            V2UpgradeToken::try_from(&response),
             Err(V2UpgradeTokenError::ResponseModelMalformed)
         ));
     }
@@ -494,21 +383,14 @@ mod tests {
         let key_store = KeyStore::<KeyIds>::default();
         let mut ctx = key_store.context_mut();
 
-        #[allow(deprecated)]
-        ctx.set_symmetric_key(
-            SymmetricKeyId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-        )
-        .unwrap();
-        let v1_key_id = SymmetricKeyId::User;
+        let v1_key_id = ctx.generate_symmetric_key();
         let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         let mut response = build_response_model(v1_key_id, v2_key_id, &ctx);
         response.wrapped_user_key2 = None;
 
-        let result = V2UpgradeToken::from_response_model(&response, &mut ctx);
         assert!(matches!(
-            result,
+            V2UpgradeToken::try_from(&response),
             Err(V2UpgradeTokenError::ResponseModelMalformed)
         ));
     }
@@ -567,31 +449,5 @@ mod tests {
             r#"{"wrapped_uk_1":"2.abc","wrapped_uk_2":"2.abc"}"#,
         );
         assert!(result.is_err(), "Deserializing a JSON object should fail");
-    }
-
-    #[test]
-    fn test_from_response_model_wrong_key_type() {
-        let key_store = KeyStore::<KeyIds>::default();
-        let mut ctx = key_store.context_mut();
-
-        // Build a response where both "keys" are V2 (XChaCha20Poly1305).
-        // from_response_model uses SymmetricKeyId::User as the current key (V2 here),
-        // unwraps wrapped_user_key_1 to get another V2 key, then create() returns WrongKeyType.
-        let v2_key_id_other = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-        #[allow(deprecated)]
-        ctx.set_symmetric_key(
-            SymmetricKeyId::User,
-            SymmetricCryptoKey::make_xchacha20_poly1305_key(),
-        )
-        .unwrap();
-        let v2_key_id_user = SymmetricKeyId::User;
-
-        // wrapped_user_key_1 = v2_other wrapped with v2_user
-        // from_response_model: is_v1=false → unwrap wrapped_user_key_1 → v2_other
-        // create(v2_other, v2_user) → WrongKeyType (both V2)
-        let response = build_response_model(v2_key_id_other, v2_key_id_user, &ctx);
-
-        let result = V2UpgradeToken::from_response_model(&response, &mut ctx);
-        assert!(matches!(result, Err(V2UpgradeTokenError::WrongKeyType)));
     }
 }
