@@ -8,6 +8,8 @@ mod uniffi_support;
 pub mod auth;
 pub mod client;
 mod error;
+/// HTTP utilities including cookie storage and middleware.
+pub mod http;
 pub mod key_management;
 pub use error::{
     ApiError, MissingFieldError, MissingPrivateKeyError, NotAuthenticatedError, WrongPasswordError,
