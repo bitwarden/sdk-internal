@@ -12,8 +12,8 @@ use bitwarden_crypto::KeyStore;
 #[cfg(feature = "internal")]
 use bitwarden_state::repository::{Repository, RepositoryItem};
 
-use super::{ApiProvider, Client};
-use crate::key_management::KeyIds;
+use super::Client;
+use crate::{client::ApiConfigurations, key_management::KeyIds};
 
 /// Trait for types that can be constructed from a [`Client`].
 ///
@@ -30,7 +30,7 @@ use crate::key_management::KeyIds;
 /// #[derive(FromClient)]
 /// pub struct FoldersClient {
 ///     key_store: KeyStore<KeyIds>,
-///     api_config_provider: Arc<dyn ApiProvider>,
+///     api_configurations: Arc<ApiConfigurations>,
 ///     repository: Arc<dyn Repository<Folder>>,
 /// }
 ///
@@ -63,11 +63,11 @@ impl FromClientPart<KeyStore<KeyIds>> for Client {
     }
 }
 
-impl FromClientPart<Arc<dyn ApiProvider>> for Client {
+impl FromClientPart<Arc<ApiConfigurations>> for Client {
     type Error = std::convert::Infallible;
 
-    fn get_part(&self) -> Result<Arc<dyn ApiProvider>, Self::Error> {
-        Ok(Arc::new(self.internal.clone()))
+    fn get_part(&self) -> Result<Arc<ApiConfigurations>, Self::Error> {
+        Ok(self.internal.get_api_configurations())
     }
 }
 

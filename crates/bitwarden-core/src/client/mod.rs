@@ -10,7 +10,7 @@ mod from_client_part;
 #[allow(missing_docs)]
 pub mod internal;
 pub use from_client_part::{FromClient, FromClientPart};
-pub use internal::{ApiConfigurations, ApiProvider};
+pub use internal::ApiConfigurations;
 #[allow(missing_docs)]
 pub mod login_method;
 #[cfg(feature = "secrets")]
