@@ -14,6 +14,7 @@ use crate::{
         client_settings::{ClientName, ClientSettings},
         internal::ApiConfigurations,
     },
+    http::{CookieInjectionMiddleware, InMemoryCookieStore},
 };
 
 /// The main struct to interact with the Bitwarden SDK.
@@ -75,8 +76,13 @@ impl Client {
             identity.clone(),
             key_store.clone(),
         );
+
+        let cookie_store: Arc<dyn crate::http::CookieStore> = Arc::new(InMemoryCookieStore::new());
+        let cookie_middleware = Arc::new(CookieInjectionMiddleware::new(cookie_store));
+
         let bw_http_client = reqwest_middleware::ClientBuilder::new(bw_http_client)
             .with_arc(auth_middleware)
+            .with_arc(cookie_middleware)
             .build();
         let api = bitwarden_api_api::Configuration {
             base_path: settings.api_url,
