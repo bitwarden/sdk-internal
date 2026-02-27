@@ -1,14 +1,15 @@
-//! Base types and utilities for Bitwarden API clients.
-//!
-//! This crate provides common functionality shared across all Bitwarden API client crates:
-//! - Configuration types for API clients
-//! - Error handling types
-//! - URL encoding and query parameter utilities
+#![doc = include_str!("../README.md")]
+
+#[cfg(feature = "uniffi")]
+uniffi::setup_scaffolding!();
+
+#[cfg(feature = "uniffi")]
+mod uniffi_support;
 
 mod configuration;
 mod error;
 mod util;
 
 pub use configuration::Configuration;
-pub use error::{Error, ResponseContent};
+pub use error::Error;
 pub use util::{AuthRequired, ContentType, parse_deep_object, urlencode};

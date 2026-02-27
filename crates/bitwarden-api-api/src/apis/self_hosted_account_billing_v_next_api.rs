@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -77,7 +77,7 @@ pub trait SelfHostedAccountBillingVNextApi: Send + Sync {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
-    ) -> Result<(), Error<UploadLicenseError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct SelfHostedAccountBillingVNextApiClient {
@@ -143,7 +143,7 @@ impl SelfHostedAccountBillingVNextApi for SelfHostedAccountBillingVNextApiClient
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
-    ) -> Result<(), Error<UploadLicenseError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -348,21 +348,10 @@ impl SelfHostedAccountBillingVNextApi for SelfHostedAccountBillingVNextApiClient
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<UploadLicenseError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`SelfHostedAccountBillingVNextApi::upload_license`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UploadLicenseError {
-    UnknownValue(serde_json::Value),
 }

@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -27,10 +27,10 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait PlansApi: Send + Sync {
     /// GET /plans
-    async fn get(&self) -> Result<models::PlanResponseModelListResponseModel, Error<GetError>>;
+    async fn get(&self) -> Result<models::PlanResponseModelListResponseModel, Error>;
 
     /// GET /plans/premium
-    async fn get_premium_plan(&self) -> Result<(), Error<GetPremiumPlanError>>;
+    async fn get_premium_plan(&self) -> Result<(), Error>;
 }
 
 pub struct PlansApiClient {
@@ -46,7 +46,7 @@ impl PlansApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl PlansApi for PlansApiClient {
-    async fn get(&self) -> Result<models::PlanResponseModelListResponseModel, Error<GetError>> {
+    async fn get(&self) -> Result<models::PlanResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -83,17 +83,14 @@ impl PlansApi for PlansApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn get_premium_plan(&self) -> Result<(), Error<GetPremiumPlanError>> {
+    async fn get_premium_plan(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -112,27 +109,10 @@ impl PlansApi for PlansApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<GetPremiumPlanError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`PlansApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`PlansApi::get_premium_plan`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetPremiumPlanError {
-    UnknownValue(serde_json::Value),
 }

@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -30,14 +30,14 @@ pub trait SecretsManagerPortingApi: Send + Sync {
     async fn export<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::SmExportResponseModel, Error<ExportError>>;
+    ) -> Result<models::SmExportResponseModel, Error>;
 
     /// POST /sm/{organizationId}/import
     async fn import<'a>(
         &self,
         organization_id: uuid::Uuid,
         sm_import_request_model: Option<models::SmImportRequestModel>,
-    ) -> Result<(), Error<ImportError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct SecretsManagerPortingApiClient {
@@ -56,7 +56,7 @@ impl SecretsManagerPortingApi for SecretsManagerPortingApiClient {
     async fn export<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::SmExportResponseModel, Error<ExportError>> {
+    ) -> Result<models::SmExportResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -97,14 +97,10 @@ impl SecretsManagerPortingApi for SecretsManagerPortingApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<ExportError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -112,7 +108,7 @@ impl SecretsManagerPortingApi for SecretsManagerPortingApiClient {
         &self,
         organization_id: uuid::Uuid,
         sm_import_request_model: Option<models::SmImportRequestModel>,
-    ) -> Result<(), Error<ImportError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -136,27 +132,10 @@ impl SecretsManagerPortingApi for SecretsManagerPortingApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<ImportError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`SecretsManagerPortingApi::export`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ExportError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SecretsManagerPortingApi::import`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ImportError {
-    UnknownValue(serde_json::Value),
 }

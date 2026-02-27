@@ -12,4 +12,4 @@
 pub mod apis;
 pub mod models;
 
-pub use bitwarden_api_base::{Configuration, ContentType, Error, ResponseContent};
+pub use bitwarden_api_base::{Configuration, ContentType, Error};

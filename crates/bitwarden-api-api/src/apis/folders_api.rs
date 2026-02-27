@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -27,31 +27,29 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait FoldersApi: Send + Sync {
     /// DELETE /folders/{id}
-    async fn delete<'a>(&self, id: &'a str) -> Result<(), Error<DeleteError>>;
+    async fn delete<'a>(&self, id: &'a str) -> Result<(), Error>;
 
     /// DELETE /folders/all
-    async fn delete_all(&self) -> Result<(), Error<DeleteAllError>>;
+    async fn delete_all(&self) -> Result<(), Error>;
 
     /// GET /folders/{id}
-    async fn get<'a>(&self, id: &'a str) -> Result<models::FolderResponseModel, Error<GetError>>;
+    async fn get<'a>(&self, id: &'a str) -> Result<models::FolderResponseModel, Error>;
 
     /// GET /folders
-    async fn get_all(
-        &self,
-    ) -> Result<models::FolderResponseModelListResponseModel, Error<GetAllError>>;
+    async fn get_all(&self) -> Result<models::FolderResponseModelListResponseModel, Error>;
 
     /// POST /folders
     async fn post<'a>(
         &self,
         folder_request_model: Option<models::FolderRequestModel>,
-    ) -> Result<models::FolderResponseModel, Error<PostError>>;
+    ) -> Result<models::FolderResponseModel, Error>;
 
     /// PUT /folders/{id}
     async fn put<'a>(
         &self,
         id: &'a str,
         folder_request_model: Option<models::FolderRequestModel>,
-    ) -> Result<models::FolderResponseModel, Error<PutError>>;
+    ) -> Result<models::FolderResponseModel, Error>;
 }
 
 pub struct FoldersApiClient {
@@ -67,7 +65,7 @@ impl FoldersApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl FoldersApi for FoldersApiClient {
-    async fn delete<'a>(&self, id: &'a str) -> Result<(), Error<DeleteError>> {
+    async fn delete<'a>(&self, id: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -90,18 +88,14 @@ impl FoldersApi for FoldersApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<DeleteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn delete_all(&self) -> Result<(), Error<DeleteAllError>> {
+    async fn delete_all(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -120,18 +114,14 @@ impl FoldersApi for FoldersApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<DeleteAllError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn get<'a>(&self, id: &'a str) -> Result<models::FolderResponseModel, Error<GetError>> {
+    async fn get<'a>(&self, id: &'a str) -> Result<models::FolderResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -172,19 +162,14 @@ impl FoldersApi for FoldersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn get_all(
-        &self,
-    ) -> Result<models::FolderResponseModelListResponseModel, Error<GetAllError>> {
+    async fn get_all(&self) -> Result<models::FolderResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -221,21 +206,17 @@ impl FoldersApi for FoldersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetAllError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post<'a>(
         &self,
         folder_request_model: Option<models::FolderRequestModel>,
-    ) -> Result<models::FolderResponseModel, Error<PostError>> {
+    ) -> Result<models::FolderResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -273,13 +254,10 @@ impl FoldersApi for FoldersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PostError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -287,7 +265,7 @@ impl FoldersApi for FoldersApiClient {
         &self,
         id: &'a str,
         folder_request_model: Option<models::FolderRequestModel>,
-    ) -> Result<models::FolderResponseModel, Error<PutError>> {
+    ) -> Result<models::FolderResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -329,50 +307,10 @@ impl FoldersApi for FoldersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`FoldersApi::delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`FoldersApi::delete_all`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteAllError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`FoldersApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`FoldersApi::get_all`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAllError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`FoldersApi::post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`FoldersApi::put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutError {
-    UnknownValue(serde_json::Value),
 }

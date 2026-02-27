@@ -46,8 +46,7 @@ impl LoginClient {
             .identity_client
             .accounts_api()
             .post_password_prelogin(Some(request_model))
-            .await
-            .map_err(ApiError::from)?;
+            .await?;
 
         Ok(PasswordPreloginResponse::try_from(response)?)
     }
@@ -263,13 +262,10 @@ mod tests {
 
         assert!(result.is_err());
         match result.unwrap_err() {
-            PasswordPreloginError::Api(bitwarden_core::ApiError::ResponseContent {
-                status,
-                message: _,
-            }) => {
+            PasswordPreloginError::Api(bitwarden_core::ApiError::Response { status, .. }) => {
                 assert_eq!(status, reqwest::StatusCode::INTERNAL_SERVER_ERROR);
             }
-            other => panic!("Expected Api ResponseContent error, got {:?}", other),
+            other => panic!("Expected Api Response error, got {:?}", other),
         }
     }
 }

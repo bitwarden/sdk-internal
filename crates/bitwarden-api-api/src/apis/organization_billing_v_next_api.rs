@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -93,7 +93,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
-    ) -> Result<(), Error<AddCreditViaBitPayError>>;
+    ) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/billing/vnext/address
     async fn get_billing_address<'a>(
@@ -161,7 +161,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
-    ) -> Result<(), Error<GetBillingAddressError>>;
+    ) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/billing/vnext/credit
     async fn get_credit<'a>(
@@ -229,7 +229,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
-    ) -> Result<(), Error<GetCreditError>>;
+    ) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/billing/vnext/metadata
     async fn get_metadata<'a>(
@@ -297,7 +297,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
-    ) -> Result<(), Error<GetMetadataError>>;
+    ) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/billing/vnext/payment-method
     async fn get_payment_method<'a>(
@@ -365,7 +365,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
-    ) -> Result<(), Error<GetPaymentMethodError>>;
+    ) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/billing/vnext/warnings
     async fn get_warnings<'a>(
@@ -433,7 +433,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
-    ) -> Result<(), Error<GetWarningsError>>;
+    ) -> Result<(), Error>;
 
     /// POST /organizations/{organizationId}/billing/vnext/subscription/restart
     async fn restart_subscription<'a>(
@@ -502,7 +502,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
         restart_subscription_request: Option<models::RestartSubscriptionRequest>,
-    ) -> Result<(), Error<RestartSubscriptionError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /organizations/{organizationId}/billing/vnext/address
     async fn update_billing_address<'a>(
@@ -571,7 +571,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
         billing_address_request: Option<models::BillingAddressRequest>,
-    ) -> Result<(), Error<UpdateBillingAddressError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /organizations/{organizationId}/billing/vnext/payment-method
     async fn update_payment_method<'a>(
@@ -640,7 +640,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
-    ) -> Result<(), Error<UpdatePaymentMethodError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct OrganizationBillingVNextApiClient {
@@ -722,7 +722,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
-    ) -> Result<(), Error<AddCreditViaBitPayError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -996,14 +996,10 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<AddCreditViaBitPayError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1072,7 +1068,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
-    ) -> Result<(), Error<GetBillingAddressError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1345,14 +1341,10 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<GetBillingAddressError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1421,7 +1413,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
-    ) -> Result<(), Error<GetCreditError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1694,14 +1686,10 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<GetCreditError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1770,7 +1758,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
-    ) -> Result<(), Error<GetMetadataError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2043,14 +2031,10 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<GetMetadataError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -2119,7 +2103,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
-    ) -> Result<(), Error<GetPaymentMethodError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2392,14 +2376,10 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<GetPaymentMethodError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -2468,7 +2448,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
-    ) -> Result<(), Error<GetWarningsError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2741,14 +2721,10 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<GetWarningsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -2818,7 +2794,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
         restart_subscription_request: Option<models::RestartSubscriptionRequest>,
-    ) -> Result<(), Error<RestartSubscriptionError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -3092,14 +3068,10 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<RestartSubscriptionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -3169,7 +3141,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
         billing_address_request: Option<models::BillingAddressRequest>,
-    ) -> Result<(), Error<UpdateBillingAddressError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -3443,14 +3415,10 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<UpdateBillingAddressError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -3520,7 +3488,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
-    ) -> Result<(), Error<UpdatePaymentMethodError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -3794,69 +3762,10 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<UpdatePaymentMethodError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`OrganizationBillingVNextApi::add_credit_via_bit_pay`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AddCreditViaBitPayError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingVNextApi::get_billing_address`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetBillingAddressError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingVNextApi::get_credit`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetCreditError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingVNextApi::get_metadata`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetMetadataError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingVNextApi::get_payment_method`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetPaymentMethodError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingVNextApi::get_warnings`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetWarningsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingVNextApi::restart_subscription`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RestartSubscriptionError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingVNextApi::update_billing_address`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateBillingAddressError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingVNextApi::update_payment_method`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdatePaymentMethodError {
-    UnknownValue(serde_json::Value),
 }

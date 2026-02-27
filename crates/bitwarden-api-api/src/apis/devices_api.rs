@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -27,83 +27,80 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait DevicesApi: Send + Sync {
     /// DELETE /devices/{id}
-    async fn deactivate<'a>(&self, id: &'a str) -> Result<(), Error<DeactivateError>>;
+    async fn deactivate<'a>(&self, id: &'a str) -> Result<(), Error>;
 
     /// GET /devices/{id}
-    async fn get<'a>(&self, id: &'a str) -> Result<models::DeviceResponseModel, Error<GetError>>;
+    async fn get<'a>(&self, id: &'a str) -> Result<models::DeviceResponseModel, Error>;
 
     /// GET /devices
     async fn get_all(
         &self,
-    ) -> Result<models::DeviceAuthRequestResponseModelListResponseModel, Error<GetAllError>>;
+    ) -> Result<models::DeviceAuthRequestResponseModelListResponseModel, Error>;
 
     /// GET /devices/identifier/{identifier}
     async fn get_by_identifier<'a>(
         &self,
         identifier: &'a str,
-    ) -> Result<models::DeviceResponseModel, Error<GetByIdentifierError>>;
+    ) -> Result<models::DeviceResponseModel, Error>;
 
     /// GET /devices/knowndevice
     async fn get_by_identifier_query<'a>(
         &self,
         x_request_email: &'a str,
         x_device_identifier: &'a str,
-    ) -> Result<bool, Error<GetByIdentifierQueryError>>;
+    ) -> Result<bool, Error>;
 
     /// POST /devices
     async fn post<'a>(
         &self,
         device_request_model: Option<models::DeviceRequestModel>,
-    ) -> Result<models::DeviceResponseModel, Error<PostError>>;
+    ) -> Result<models::DeviceResponseModel, Error>;
 
     /// POST /devices/lost-trust
-    async fn post_lost_trust(&self) -> Result<(), Error<PostLostTrustError>>;
+    async fn post_lost_trust(&self) -> Result<(), Error>;
 
     /// POST /devices/untrust
     async fn post_untrust<'a>(
         &self,
         untrust_devices_request_model: Option<models::UntrustDevicesRequestModel>,
-    ) -> Result<(), Error<PostUntrustError>>;
+    ) -> Result<(), Error>;
 
     /// POST /devices/update-trust
     async fn post_update_trust<'a>(
         &self,
         update_devices_trust_request_model: Option<models::UpdateDevicesTrustRequestModel>,
-    ) -> Result<(), Error<PostUpdateTrustError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /devices/{id}
     async fn put<'a>(
         &self,
         id: &'a str,
         device_request_model: Option<models::DeviceRequestModel>,
-    ) -> Result<models::DeviceResponseModel, Error<PutError>>;
+    ) -> Result<models::DeviceResponseModel, Error>;
 
     /// PUT /devices/identifier/{identifier}/clear-token
-    async fn put_clear_token<'a>(
-        &self,
-        identifier: &'a str,
-    ) -> Result<(), Error<PutClearTokenError>>;
+    async fn put_clear_token<'a>(&self, identifier: &'a str) -> Result<(), Error>;
 
     /// PUT /devices/{identifier}/keys
     async fn put_keys<'a>(
         &self,
         identifier: &'a str,
         device_keys_request_model: Option<models::DeviceKeysRequestModel>,
-    ) -> Result<models::DeviceResponseModel, Error<PutKeysError>>;
+    ) -> Result<models::DeviceResponseModel, Error>;
 
     /// PUT /devices/identifier/{identifier}/token
     async fn put_token<'a>(
         &self,
         identifier: &'a str,
         device_token_request_model: Option<models::DeviceTokenRequestModel>,
-    ) -> Result<(), Error<PutTokenError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /devices/identifier/{identifier}/web-push-auth
     async fn put_web_push_auth<'a>(
         &self,
         identifier: &'a str,
         web_push_auth_request_model: Option<models::WebPushAuthRequestModel>,
-    ) -> Result<(), Error<PutWebPushAuthError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct DevicesApiClient {
@@ -119,7 +116,7 @@ impl DevicesApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl DevicesApi for DevicesApiClient {
-    async fn deactivate<'a>(&self, id: &'a str) -> Result<(), Error<DeactivateError>> {
+    async fn deactivate<'a>(&self, id: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -142,18 +139,14 @@ impl DevicesApi for DevicesApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<DeactivateError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn get<'a>(&self, id: &'a str) -> Result<models::DeviceResponseModel, Error<GetError>> {
+    async fn get<'a>(&self, id: &'a str) -> Result<models::DeviceResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -194,19 +187,16 @@ impl DevicesApi for DevicesApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn get_all(
         &self,
-    ) -> Result<models::DeviceAuthRequestResponseModelListResponseModel, Error<GetAllError>> {
+    ) -> Result<models::DeviceAuthRequestResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -243,21 +233,17 @@ impl DevicesApi for DevicesApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetAllError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn get_by_identifier<'a>(
         &self,
         identifier: &'a str,
-    ) -> Result<models::DeviceResponseModel, Error<GetByIdentifierError>> {
+    ) -> Result<models::DeviceResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -298,14 +284,10 @@ impl DevicesApi for DevicesApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetByIdentifierError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -313,7 +295,7 @@ impl DevicesApi for DevicesApiClient {
         &self,
         x_request_email: &'a str,
         x_device_identifier: &'a str,
-    ) -> Result<bool, Error<GetByIdentifierQueryError>> {
+    ) -> Result<bool, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -355,21 +337,17 @@ impl DevicesApi for DevicesApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetByIdentifierQueryError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post<'a>(
         &self,
         device_request_model: Option<models::DeviceRequestModel>,
-    ) -> Result<models::DeviceResponseModel, Error<PostError>> {
+    ) -> Result<models::DeviceResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -407,17 +385,14 @@ impl DevicesApi for DevicesApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PostError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn post_lost_trust(&self) -> Result<(), Error<PostLostTrustError>> {
+    async fn post_lost_trust(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -436,21 +411,17 @@ impl DevicesApi for DevicesApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostLostTrustError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post_untrust<'a>(
         &self,
         untrust_devices_request_model: Option<models::UntrustDevicesRequestModel>,
-    ) -> Result<(), Error<PostUntrustError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -470,21 +441,17 @@ impl DevicesApi for DevicesApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostUntrustError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post_update_trust<'a>(
         &self,
         update_devices_trust_request_model: Option<models::UpdateDevicesTrustRequestModel>,
-    ) -> Result<(), Error<PostUpdateTrustError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -505,14 +472,10 @@ impl DevicesApi for DevicesApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostUpdateTrustError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -520,7 +483,7 @@ impl DevicesApi for DevicesApiClient {
         &self,
         id: &'a str,
         device_request_model: Option<models::DeviceRequestModel>,
-    ) -> Result<models::DeviceResponseModel, Error<PutError>> {
+    ) -> Result<models::DeviceResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -562,20 +525,14 @@ impl DevicesApi for DevicesApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn put_clear_token<'a>(
-        &self,
-        identifier: &'a str,
-    ) -> Result<(), Error<PutClearTokenError>> {
+    async fn put_clear_token<'a>(&self, identifier: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -598,14 +555,10 @@ impl DevicesApi for DevicesApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PutClearTokenError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -613,7 +566,7 @@ impl DevicesApi for DevicesApiClient {
         &self,
         identifier: &'a str,
         device_keys_request_model: Option<models::DeviceKeysRequestModel>,
-    ) -> Result<models::DeviceResponseModel, Error<PutKeysError>> {
+    ) -> Result<models::DeviceResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -655,14 +608,10 @@ impl DevicesApi for DevicesApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutKeysError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -670,7 +619,7 @@ impl DevicesApi for DevicesApiClient {
         &self,
         identifier: &'a str,
         device_token_request_model: Option<models::DeviceTokenRequestModel>,
-    ) -> Result<(), Error<PutTokenError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -694,14 +643,10 @@ impl DevicesApi for DevicesApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PutTokenError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -709,7 +654,7 @@ impl DevicesApi for DevicesApiClient {
         &self,
         identifier: &'a str,
         web_push_auth_request_model: Option<models::WebPushAuthRequestModel>,
-    ) -> Result<(), Error<PutWebPushAuthError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -733,99 +678,10 @@ impl DevicesApi for DevicesApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PutWebPushAuthError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`DevicesApi::deactivate`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeactivateError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`DevicesApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`DevicesApi::get_all`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAllError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`DevicesApi::get_by_identifier`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetByIdentifierError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`DevicesApi::get_by_identifier_query`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetByIdentifierQueryError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`DevicesApi::post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`DevicesApi::post_lost_trust`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostLostTrustError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`DevicesApi::post_untrust`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostUntrustError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`DevicesApi::post_update_trust`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostUpdateTrustError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`DevicesApi::put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`DevicesApi::put_clear_token`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutClearTokenError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`DevicesApi::put_keys`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutKeysError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`DevicesApi::put_token`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutTokenError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`DevicesApi::put_web_push_auth`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutWebPushAuthError {
-    UnknownValue(serde_json::Value),
 }

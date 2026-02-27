@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -30,13 +30,13 @@ pub trait SettingsApi: Send + Sync {
     async fn get_domains<'a>(
         &self,
         excluded: Option<bool>,
-    ) -> Result<models::DomainsResponseModel, Error<GetDomainsError>>;
+    ) -> Result<models::DomainsResponseModel, Error>;
 
     /// PUT /settings/domains
     async fn put_domains<'a>(
         &self,
         update_domains_request_model: Option<models::UpdateDomainsRequestModel>,
-    ) -> Result<models::DomainsResponseModel, Error<PutDomainsError>>;
+    ) -> Result<models::DomainsResponseModel, Error>;
 }
 
 pub struct SettingsApiClient {
@@ -55,7 +55,7 @@ impl SettingsApi for SettingsApiClient {
     async fn get_domains<'a>(
         &self,
         excluded: Option<bool>,
-    ) -> Result<models::DomainsResponseModel, Error<GetDomainsError>> {
+    ) -> Result<models::DomainsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -96,21 +96,17 @@ impl SettingsApi for SettingsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetDomainsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn put_domains<'a>(
         &self,
         update_domains_request_model: Option<models::UpdateDomainsRequestModel>,
-    ) -> Result<models::DomainsResponseModel, Error<PutDomainsError>> {
+    ) -> Result<models::DomainsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -148,27 +144,10 @@ impl SettingsApi for SettingsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutDomainsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`SettingsApi::get_domains`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetDomainsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SettingsApi::put_domains`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutDomainsError {
-    UnknownValue(serde_json::Value),
 }

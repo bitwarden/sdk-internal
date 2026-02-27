@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -33,23 +33,16 @@ pub trait ProviderOrganizationsApi: Send + Sync {
         provider_organization_add_request_model: Option<
             models::ProviderOrganizationAddRequestModel,
         >,
-    ) -> Result<(), Error<AddError>>;
+    ) -> Result<(), Error>;
 
     /// DELETE /providers/{providerId}/organizations/{id}
-    async fn delete<'a>(
-        &self,
-        provider_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<DeleteError>>;
+    async fn delete<'a>(&self, provider_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
 
     /// GET /providers/{providerId}/organizations
     async fn get<'a>(
         &self,
         provider_id: uuid::Uuid,
-    ) -> Result<
-        models::ProviderOrganizationOrganizationDetailsResponseModelListResponseModel,
-        Error<GetError>,
-    >;
+    ) -> Result<models::ProviderOrganizationOrganizationDetailsResponseModelListResponseModel, Error>;
 
     /// POST /providers/{providerId}/organizations
     async fn post<'a>(
@@ -58,7 +51,7 @@ pub trait ProviderOrganizationsApi: Send + Sync {
         provider_organization_create_request_model: Option<
             models::ProviderOrganizationCreateRequestModel,
         >,
-    ) -> Result<models::ProviderOrganizationResponseModel, Error<PostError>>;
+    ) -> Result<models::ProviderOrganizationResponseModel, Error>;
 }
 
 pub struct ProviderOrganizationsApiClient {
@@ -80,7 +73,7 @@ impl ProviderOrganizationsApi for ProviderOrganizationsApiClient {
         provider_organization_add_request_model: Option<
             models::ProviderOrganizationAddRequestModel,
         >,
-    ) -> Result<(), Error<AddError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -105,21 +98,14 @@ impl ProviderOrganizationsApi for ProviderOrganizationsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<AddError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn delete<'a>(
-        &self,
-        provider_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<DeleteError>> {
+    async fn delete<'a>(&self, provider_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -143,24 +129,18 @@ impl ProviderOrganizationsApi for ProviderOrganizationsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<DeleteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn get<'a>(
         &self,
         provider_id: uuid::Uuid,
-    ) -> Result<
-        models::ProviderOrganizationOrganizationDetailsResponseModelListResponseModel,
-        Error<GetError>,
-    > {
+    ) -> Result<models::ProviderOrganizationOrganizationDetailsResponseModelListResponseModel, Error>
+    {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -201,13 +181,10 @@ impl ProviderOrganizationsApi for ProviderOrganizationsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -217,7 +194,7 @@ impl ProviderOrganizationsApi for ProviderOrganizationsApiClient {
         provider_organization_create_request_model: Option<
             models::ProviderOrganizationCreateRequestModel,
         >,
-    ) -> Result<models::ProviderOrganizationResponseModel, Error<PostError>> {
+    ) -> Result<models::ProviderOrganizationResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -260,38 +237,10 @@ impl ProviderOrganizationsApi for ProviderOrganizationsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PostError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`ProviderOrganizationsApi::add`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AddError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderOrganizationsApi::delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderOrganizationsApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderOrganizationsApi::post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostError {
-    UnknownValue(serde_json::Value),
 }

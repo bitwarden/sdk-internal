@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -30,27 +30,22 @@ pub trait AccountsKeyManagementApi: Send + Sync {
     async fn get_key_connector_confirmation_details<'a>(
         &self,
         org_sso_identifier: &'a str,
-    ) -> Result<
-        models::KeyConnectorConfirmationDetailsResponseModel,
-        Error<GetKeyConnectorConfirmationDetailsError>,
-    >;
+    ) -> Result<models::KeyConnectorConfirmationDetailsResponseModel, Error>;
 
     /// POST /accounts/convert-to-key-connector
-    async fn post_convert_to_key_connector(
-        &self,
-    ) -> Result<(), Error<PostConvertToKeyConnectorError>>;
+    async fn post_convert_to_key_connector(&self) -> Result<(), Error>;
 
     /// POST /accounts/set-key-connector-key
     async fn post_set_key_connector_key<'a>(
         &self,
         set_key_connector_key_request_model: Option<models::SetKeyConnectorKeyRequestModel>,
-    ) -> Result<(), Error<PostSetKeyConnectorKeyError>>;
+    ) -> Result<(), Error>;
 
     /// POST /accounts/key-management/regenerate-keys
     async fn regenerate_keys<'a>(
         &self,
         key_regeneration_request_model: Option<models::KeyRegenerationRequestModel>,
-    ) -> Result<(), Error<RegenerateKeysError>>;
+    ) -> Result<(), Error>;
 
     /// POST /accounts/key-management/rotate-user-account-keys
     async fn rotate_user_account_keys<'a>(
@@ -58,7 +53,7 @@ pub trait AccountsKeyManagementApi: Send + Sync {
         rotate_user_account_keys_and_data_request_model: Option<
             models::RotateUserAccountKeysAndDataRequestModel,
         >,
-    ) -> Result<(), Error<RotateUserAccountKeysError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct AccountsKeyManagementApiClient {
@@ -77,10 +72,7 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
     async fn get_key_connector_confirmation_details<'a>(
         &self,
         org_sso_identifier: &'a str,
-    ) -> Result<
-        models::KeyConnectorConfirmationDetailsResponseModel,
-        Error<GetKeyConnectorConfirmationDetailsError>,
-    > {
+    ) -> Result<models::KeyConnectorConfirmationDetailsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -121,20 +113,14 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetKeyConnectorConfirmationDetailsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn post_convert_to_key_connector(
-        &self,
-    ) -> Result<(), Error<PostConvertToKeyConnectorError>> {
+    async fn post_convert_to_key_connector(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -156,21 +142,17 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostConvertToKeyConnectorError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post_set_key_connector_key<'a>(
         &self,
         set_key_connector_key_request_model: Option<models::SetKeyConnectorKeyRequestModel>,
-    ) -> Result<(), Error<PostSetKeyConnectorKeyError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -193,21 +175,17 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostSetKeyConnectorKeyError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn regenerate_keys<'a>(
         &self,
         key_regeneration_request_model: Option<models::KeyRegenerationRequestModel>,
-    ) -> Result<(), Error<RegenerateKeysError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -230,14 +208,10 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<RegenerateKeysError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -246,7 +220,7 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
         rotate_user_account_keys_and_data_request_model: Option<
             models::RotateUserAccountKeysAndDataRequestModel,
         >,
-    ) -> Result<(), Error<RotateUserAccountKeysError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -270,46 +244,10 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<RotateUserAccountKeysError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method
-/// [`AccountsKeyManagementApi::get_key_connector_confirmation_details`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetKeyConnectorConfirmationDetailsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsKeyManagementApi::post_convert_to_key_connector`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostConvertToKeyConnectorError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsKeyManagementApi::post_set_key_connector_key`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostSetKeyConnectorKeyError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsKeyManagementApi::regenerate_keys`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RegenerateKeysError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsKeyManagementApi::rotate_user_account_keys`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RotateUserAccountKeysError {
-    UnknownValue(serde_json::Value),
 }

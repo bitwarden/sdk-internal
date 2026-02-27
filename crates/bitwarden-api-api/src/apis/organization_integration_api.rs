@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -31,20 +31,20 @@ pub trait OrganizationIntegrationApi: Send + Sync {
         &self,
         organization_id: uuid::Uuid,
         organization_integration_request_model: Option<models::OrganizationIntegrationRequestModel>,
-    ) -> Result<models::OrganizationIntegrationResponseModel, Error<CreateError>>;
+    ) -> Result<models::OrganizationIntegrationResponseModel, Error>;
 
     /// DELETE /organizations/{organizationId}/integrations/{integrationId}
     async fn delete<'a>(
         &self,
         organization_id: uuid::Uuid,
         integration_id: uuid::Uuid,
-    ) -> Result<(), Error<DeleteError>>;
+    ) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/integrations
     async fn get<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<Vec<models::OrganizationIntegrationResponseModel>, Error<GetError>>;
+    ) -> Result<Vec<models::OrganizationIntegrationResponseModel>, Error>;
 
     /// PUT /organizations/{organizationId}/integrations/{integrationId}
     async fn update<'a>(
@@ -52,7 +52,7 @@ pub trait OrganizationIntegrationApi: Send + Sync {
         organization_id: uuid::Uuid,
         integration_id: uuid::Uuid,
         organization_integration_request_model: Option<models::OrganizationIntegrationRequestModel>,
-    ) -> Result<models::OrganizationIntegrationResponseModel, Error<UpdateError>>;
+    ) -> Result<models::OrganizationIntegrationResponseModel, Error>;
 }
 
 pub struct OrganizationIntegrationApiClient {
@@ -72,7 +72,7 @@ impl OrganizationIntegrationApi for OrganizationIntegrationApiClient {
         &self,
         organization_id: uuid::Uuid,
         organization_integration_request_model: Option<models::OrganizationIntegrationRequestModel>,
-    ) -> Result<models::OrganizationIntegrationResponseModel, Error<CreateError>> {
+    ) -> Result<models::OrganizationIntegrationResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -114,14 +114,10 @@ impl OrganizationIntegrationApi for OrganizationIntegrationApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<CreateError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -129,7 +125,7 @@ impl OrganizationIntegrationApi for OrganizationIntegrationApiClient {
         &self,
         organization_id: uuid::Uuid,
         integration_id: uuid::Uuid,
-    ) -> Result<(), Error<DeleteError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -153,21 +149,17 @@ impl OrganizationIntegrationApi for OrganizationIntegrationApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<DeleteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn get<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<Vec<models::OrganizationIntegrationResponseModel>, Error<GetError>> {
+    ) -> Result<Vec<models::OrganizationIntegrationResponseModel>, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -208,13 +200,10 @@ impl OrganizationIntegrationApi for OrganizationIntegrationApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -223,7 +212,7 @@ impl OrganizationIntegrationApi for OrganizationIntegrationApiClient {
         organization_id: uuid::Uuid,
         integration_id: uuid::Uuid,
         organization_integration_request_model: Option<models::OrganizationIntegrationRequestModel>,
-    ) -> Result<models::OrganizationIntegrationResponseModel, Error<UpdateError>> {
+    ) -> Result<models::OrganizationIntegrationResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -266,39 +255,10 @@ impl OrganizationIntegrationApi for OrganizationIntegrationApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<UpdateError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`OrganizationIntegrationApi::create`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationIntegrationApi::delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationIntegrationApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationIntegrationApi::update`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateError {
-    UnknownValue(serde_json::Value),
 }

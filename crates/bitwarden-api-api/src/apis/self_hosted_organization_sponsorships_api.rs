@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -32,7 +32,7 @@ pub trait SelfHostedOrganizationSponsorshipsApi: Send + Sync {
         &self,
         sponsoring_org_id: uuid::Uuid,
         sponsored_friendly_name: &'a str,
-    ) -> Result<(), Error<AdminInitiatedRevokeSponsorshipError>>;
+    ) -> Result<(), Error>;
 
     /// POST /organization/sponsorship/self-hosted/{sponsoringOrgId}/families-for-enterprise
     async fn create_sponsorship<'a>(
@@ -41,22 +41,16 @@ pub trait SelfHostedOrganizationSponsorshipsApi: Send + Sync {
         organization_sponsorship_create_request_model: Option<
             models::OrganizationSponsorshipCreateRequestModel,
         >,
-    ) -> Result<(), Error<CreateSponsorshipError>>;
+    ) -> Result<(), Error>;
 
     /// GET /organization/sponsorship/self-hosted/{orgId}/sponsored
     async fn get_sponsored_organizations<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<
-        models::OrganizationSponsorshipInvitesResponseModelListResponseModel,
-        Error<GetSponsoredOrganizationsError>,
-    >;
+    ) -> Result<models::OrganizationSponsorshipInvitesResponseModelListResponseModel, Error>;
 
     /// DELETE /organization/sponsorship/self-hosted/{sponsoringOrgId}
-    async fn revoke_sponsorship<'a>(
-        &self,
-        sponsoring_org_id: uuid::Uuid,
-    ) -> Result<(), Error<RevokeSponsorshipError>>;
+    async fn revoke_sponsorship<'a>(&self, sponsoring_org_id: uuid::Uuid) -> Result<(), Error>;
 }
 
 pub struct SelfHostedOrganizationSponsorshipsApiClient {
@@ -76,7 +70,7 @@ impl SelfHostedOrganizationSponsorshipsApi for SelfHostedOrganizationSponsorship
         &self,
         sponsoring_org_id: uuid::Uuid,
         sponsored_friendly_name: &'a str,
-    ) -> Result<(), Error<AdminInitiatedRevokeSponsorshipError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -100,14 +94,10 @@ impl SelfHostedOrganizationSponsorshipsApi for SelfHostedOrganizationSponsorship
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<AdminInitiatedRevokeSponsorshipError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -117,7 +107,7 @@ impl SelfHostedOrganizationSponsorshipsApi for SelfHostedOrganizationSponsorship
         organization_sponsorship_create_request_model: Option<
             models::OrganizationSponsorshipCreateRequestModel,
         >,
-    ) -> Result<(), Error<CreateSponsorshipError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -142,24 +132,17 @@ impl SelfHostedOrganizationSponsorshipsApi for SelfHostedOrganizationSponsorship
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<CreateSponsorshipError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn get_sponsored_organizations<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<
-        models::OrganizationSponsorshipInvitesResponseModelListResponseModel,
-        Error<GetSponsoredOrganizationsError>,
-    > {
+    ) -> Result<models::OrganizationSponsorshipInvitesResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -200,21 +183,14 @@ impl SelfHostedOrganizationSponsorshipsApi for SelfHostedOrganizationSponsorship
                 }
             }
         } else {
-            let local_var_entity: Option<GetSponsoredOrganizationsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn revoke_sponsorship<'a>(
-        &self,
-        sponsoring_org_id: uuid::Uuid,
-    ) -> Result<(), Error<RevokeSponsorshipError>> {
+    async fn revoke_sponsorship<'a>(&self, sponsoring_org_id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -237,41 +213,10 @@ impl SelfHostedOrganizationSponsorshipsApi for SelfHostedOrganizationSponsorship
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<RevokeSponsorshipError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method
-/// [`SelfHostedOrganizationSponsorshipsApi::admin_initiated_revoke_sponsorship`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AdminInitiatedRevokeSponsorshipError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SelfHostedOrganizationSponsorshipsApi::create_sponsorship`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateSponsorshipError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method
-/// [`SelfHostedOrganizationSponsorshipsApi::get_sponsored_organizations`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetSponsoredOrganizationsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SelfHostedOrganizationSponsorshipsApi::revoke_sponsorship`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RevokeSponsorshipError {
-    UnknownValue(serde_json::Value),
 }

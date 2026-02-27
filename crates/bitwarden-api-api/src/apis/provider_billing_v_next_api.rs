@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -51,7 +51,7 @@ pub trait ProviderBillingVNextApi: Send + Sync {
         gateway_subscription_id: Option<&'a str>,
         discount_id: Option<&'a str>,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
-    ) -> Result<(), Error<AddCreditViaBitPayError>>;
+    ) -> Result<(), Error>;
 
     /// GET /providers/{providerId}/billing/vnext/address
     async fn get_billing_address<'a>(
@@ -77,7 +77,7 @@ pub trait ProviderBillingVNextApi: Send + Sync {
         gateway_customer_id: Option<&'a str>,
         gateway_subscription_id: Option<&'a str>,
         discount_id: Option<&'a str>,
-    ) -> Result<(), Error<GetBillingAddressError>>;
+    ) -> Result<(), Error>;
 
     /// GET /providers/{providerId}/billing/vnext/credit
     async fn get_credit<'a>(
@@ -103,7 +103,7 @@ pub trait ProviderBillingVNextApi: Send + Sync {
         gateway_customer_id: Option<&'a str>,
         gateway_subscription_id: Option<&'a str>,
         discount_id: Option<&'a str>,
-    ) -> Result<(), Error<GetCreditError>>;
+    ) -> Result<(), Error>;
 
     /// GET /providers/{providerId}/billing/vnext/payment-method
     async fn get_payment_method<'a>(
@@ -129,7 +129,7 @@ pub trait ProviderBillingVNextApi: Send + Sync {
         gateway_customer_id: Option<&'a str>,
         gateway_subscription_id: Option<&'a str>,
         discount_id: Option<&'a str>,
-    ) -> Result<(), Error<GetPaymentMethodError>>;
+    ) -> Result<(), Error>;
 
     /// GET /providers/{providerId}/billing/vnext/warnings
     async fn get_warnings<'a>(
@@ -155,7 +155,7 @@ pub trait ProviderBillingVNextApi: Send + Sync {
         gateway_customer_id: Option<&'a str>,
         gateway_subscription_id: Option<&'a str>,
         discount_id: Option<&'a str>,
-    ) -> Result<(), Error<GetWarningsError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /providers/{providerId}/billing/vnext/address
     async fn update_billing_address<'a>(
@@ -182,7 +182,7 @@ pub trait ProviderBillingVNextApi: Send + Sync {
         gateway_subscription_id: Option<&'a str>,
         discount_id: Option<&'a str>,
         billing_address_request: Option<models::BillingAddressRequest>,
-    ) -> Result<(), Error<UpdateBillingAddressError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /providers/{providerId}/billing/vnext/payment-method
     async fn update_payment_method<'a>(
@@ -209,7 +209,7 @@ pub trait ProviderBillingVNextApi: Send + Sync {
         gateway_subscription_id: Option<&'a str>,
         discount_id: Option<&'a str>,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
-    ) -> Result<(), Error<UpdatePaymentMethodError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct ProviderBillingVNextApiClient {
@@ -249,7 +249,7 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         gateway_subscription_id: Option<&'a str>,
         discount_id: Option<&'a str>,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
-    ) -> Result<(), Error<AddCreditViaBitPayError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -353,14 +353,10 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<AddCreditViaBitPayError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -387,7 +383,7 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         gateway_customer_id: Option<&'a str>,
         gateway_subscription_id: Option<&'a str>,
         discount_id: Option<&'a str>,
-    ) -> Result<(), Error<GetBillingAddressError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -490,14 +486,10 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<GetBillingAddressError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -524,7 +516,7 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         gateway_customer_id: Option<&'a str>,
         gateway_subscription_id: Option<&'a str>,
         discount_id: Option<&'a str>,
-    ) -> Result<(), Error<GetCreditError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -627,14 +619,10 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<GetCreditError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -661,7 +649,7 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         gateway_customer_id: Option<&'a str>,
         gateway_subscription_id: Option<&'a str>,
         discount_id: Option<&'a str>,
-    ) -> Result<(), Error<GetPaymentMethodError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -764,14 +752,10 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<GetPaymentMethodError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -798,7 +782,7 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         gateway_customer_id: Option<&'a str>,
         gateway_subscription_id: Option<&'a str>,
         discount_id: Option<&'a str>,
-    ) -> Result<(), Error<GetWarningsError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -901,14 +885,10 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<GetWarningsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -936,7 +916,7 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         gateway_subscription_id: Option<&'a str>,
         discount_id: Option<&'a str>,
         billing_address_request: Option<models::BillingAddressRequest>,
-    ) -> Result<(), Error<UpdateBillingAddressError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1040,14 +1020,10 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<UpdateBillingAddressError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1075,7 +1051,7 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         gateway_subscription_id: Option<&'a str>,
         discount_id: Option<&'a str>,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
-    ) -> Result<(), Error<UpdatePaymentMethodError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1179,57 +1155,10 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<UpdatePaymentMethodError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`ProviderBillingVNextApi::add_credit_via_bit_pay`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AddCreditViaBitPayError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderBillingVNextApi::get_billing_address`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetBillingAddressError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderBillingVNextApi::get_credit`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetCreditError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderBillingVNextApi::get_payment_method`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetPaymentMethodError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderBillingVNextApi::get_warnings`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetWarningsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderBillingVNextApi::update_billing_address`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateBillingAddressError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderBillingVNextApi::update_payment_method`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdatePaymentMethodError {
-    UnknownValue(serde_json::Value),
 }

@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -77,7 +77,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
-    ) -> Result<(), Error<AddCreditViaBitPayError>>;
+    ) -> Result<(), Error>;
 
     /// POST /account/billing/vnext/subscription
     async fn create_subscription<'a>(
@@ -132,7 +132,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         premium_cloud_hosted_subscription_request: Option<
             models::PremiumCloudHostedSubscriptionRequest,
         >,
-    ) -> Result<(), Error<CreateSubscriptionError>>;
+    ) -> Result<(), Error>;
 
     /// GET /account/billing/vnext/credit
     async fn get_credit<'a>(
@@ -184,7 +184,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
-    ) -> Result<(), Error<GetCreditError>>;
+    ) -> Result<(), Error>;
 
     /// GET /account/billing/vnext/license
     async fn get_license<'a>(
@@ -236,7 +236,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
-    ) -> Result<(), Error<GetLicenseError>>;
+    ) -> Result<(), Error>;
 
     /// GET /account/billing/vnext/payment-method
     async fn get_payment_method<'a>(
@@ -288,7 +288,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
-    ) -> Result<(), Error<GetPaymentMethodError>>;
+    ) -> Result<(), Error>;
 
     /// GET /account/billing/vnext/subscription
     async fn get_subscription<'a>(
@@ -340,7 +340,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
-    ) -> Result<(), Error<GetSubscriptionError>>;
+    ) -> Result<(), Error>;
 
     /// POST /account/billing/vnext/subscription/reinstate
     async fn reinstate_subscription<'a>(
@@ -392,7 +392,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
-    ) -> Result<(), Error<ReinstateSubscriptionError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /account/billing/vnext/payment-method
     async fn update_payment_method<'a>(
@@ -445,7 +445,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
-    ) -> Result<(), Error<UpdatePaymentMethodError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /account/billing/vnext/subscription/storage
     async fn update_subscription_storage<'a>(
@@ -498,7 +498,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
         storage_update_request: Option<models::StorageUpdateRequest>,
-    ) -> Result<(), Error<UpdateSubscriptionStorageError>>;
+    ) -> Result<(), Error>;
 
     /// POST /account/billing/vnext/upgrade
     async fn upgrade_premium_to_organization<'a>(
@@ -553,7 +553,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         upgrade_premium_to_organization_request: Option<
             models::UpgradePremiumToOrganizationRequest,
         >,
-    ) -> Result<(), Error<UpgradePremiumToOrganizationError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct AccountBillingVNextApiClient {
@@ -619,7 +619,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
-    ) -> Result<(), Error<AddCreditViaBitPayError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -822,14 +822,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<AddCreditViaBitPayError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -885,7 +881,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         premium_cloud_hosted_subscription_request: Option<
             models::PremiumCloudHostedSubscriptionRequest,
         >,
-    ) -> Result<(), Error<CreateSubscriptionError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1089,14 +1085,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<CreateSubscriptionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1149,7 +1141,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
-    ) -> Result<(), Error<GetCreditError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1351,14 +1343,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<GetCreditError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1411,7 +1399,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
-    ) -> Result<(), Error<GetLicenseError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1613,14 +1601,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<GetLicenseError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1673,7 +1657,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
-    ) -> Result<(), Error<GetPaymentMethodError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1875,14 +1859,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<GetPaymentMethodError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1935,7 +1915,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
-    ) -> Result<(), Error<GetSubscriptionError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2137,14 +2117,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<GetSubscriptionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -2197,7 +2173,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
-    ) -> Result<(), Error<ReinstateSubscriptionError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2399,14 +2375,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<ReinstateSubscriptionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -2460,7 +2432,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
-    ) -> Result<(), Error<UpdatePaymentMethodError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2663,14 +2635,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<UpdatePaymentMethodError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -2724,7 +2692,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
         storage_update_request: Option<models::StorageUpdateRequest>,
-    ) -> Result<(), Error<UpdateSubscriptionStorageError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2927,14 +2895,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<UpdateSubscriptionStorageError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -2990,7 +2954,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         upgrade_premium_to_organization_request: Option<
             models::UpgradePremiumToOrganizationRequest,
         >,
-    ) -> Result<(), Error<UpgradePremiumToOrganizationError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -3194,75 +3158,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<UpgradePremiumToOrganizationError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`AccountBillingVNextApi::add_credit_via_bit_pay`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AddCreditViaBitPayError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::create_subscription`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateSubscriptionError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::get_credit`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetCreditError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::get_license`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetLicenseError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::get_payment_method`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetPaymentMethodError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::get_subscription`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetSubscriptionError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::reinstate_subscription`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ReinstateSubscriptionError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::update_payment_method`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdatePaymentMethodError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::update_subscription_storage`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateSubscriptionStorageError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::upgrade_premium_to_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpgradePremiumToOrganizationError {
-    UnknownValue(serde_json::Value),
 }

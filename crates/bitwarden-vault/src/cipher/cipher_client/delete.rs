@@ -18,12 +18,6 @@ pub enum DeleteCipherError {
     Repository(#[from] RepositoryError),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for DeleteCipherError {
-    fn from(value: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(value.into())
-    }
-}
-
 async fn delete_cipher<R: Repository<Cipher> + ?Sized>(
     cipher_id: CipherId,
     api_client: &bitwarden_api_api::apis::ApiClient,

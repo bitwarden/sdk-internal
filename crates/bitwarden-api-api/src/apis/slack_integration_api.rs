@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -27,14 +27,10 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait SlackIntegrationApi: Send + Sync {
     /// GET /organizations/integrations/slack/create
-    async fn create<'a>(
-        &self,
-        code: Option<&'a str>,
-        state: Option<&'a str>,
-    ) -> Result<(), Error<CreateError>>;
+    async fn create<'a>(&self, code: Option<&'a str>, state: Option<&'a str>) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/integrations/slack/redirect
-    async fn redirect<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error<RedirectError>>;
+    async fn redirect<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error>;
 }
 
 pub struct SlackIntegrationApiClient {
@@ -50,11 +46,7 @@ impl SlackIntegrationApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl SlackIntegrationApi for SlackIntegrationApiClient {
-    async fn create<'a>(
-        &self,
-        code: Option<&'a str>,
-        state: Option<&'a str>,
-    ) -> Result<(), Error<CreateError>> {
+    async fn create<'a>(&self, code: Option<&'a str>, state: Option<&'a str>) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -84,18 +76,14 @@ impl SlackIntegrationApi for SlackIntegrationApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<CreateError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn redirect<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error<RedirectError>> {
+    async fn redirect<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -118,27 +106,10 @@ impl SlackIntegrationApi for SlackIntegrationApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<RedirectError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`SlackIntegrationApi::create`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SlackIntegrationApi::redirect`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RedirectError {
-    UnknownValue(serde_json::Value),
 }

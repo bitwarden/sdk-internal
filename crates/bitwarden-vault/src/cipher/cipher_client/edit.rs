@@ -49,12 +49,6 @@ pub enum EditCipherError {
     Uuid(#[from] uuid::Error),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for EditCipherError {
-    fn from(val: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(val.into())
-    }
-}
-
 /// Request to edit a cipher.
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -345,8 +339,7 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     let cipher: Cipher = api_client
         .ciphers_api()
         .put(cipher_id.into(), Some(cipher_request))
-        .await
-        .map_err(ApiError::from)?
+        .await?
         .try_into()?;
     debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
     repository.set(cipher_id, cipher.clone()).await?;
@@ -670,9 +663,7 @@ mod tests {
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.ciphers_api.expect_put().returning(move |_id, _body| {
-                Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
-                    "Simulated error",
-                )))
+                Err(bitwarden_api_api::Error::Other("Simulated error".into()))
             });
         });
 

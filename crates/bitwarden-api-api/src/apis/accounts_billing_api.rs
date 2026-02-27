@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -27,22 +27,17 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait AccountsBillingApi: Send + Sync {
     /// GET /accounts/billing/history
-    async fn get_billing_history(
-        &self,
-    ) -> Result<models::BillingHistoryResponseModel, Error<GetBillingHistoryError>>;
+    async fn get_billing_history(&self) -> Result<models::BillingHistoryResponseModel, Error>;
 
     /// GET /accounts/billing/invoices
     async fn get_invoices<'a>(
         &self,
         status: Option<&'a str>,
         start_after: Option<&'a str>,
-    ) -> Result<(), Error<GetInvoicesError>>;
+    ) -> Result<(), Error>;
 
     /// GET /accounts/billing/transactions
-    async fn get_transactions<'a>(
-        &self,
-        start_after: Option<String>,
-    ) -> Result<(), Error<GetTransactionsError>>;
+    async fn get_transactions<'a>(&self, start_after: Option<String>) -> Result<(), Error>;
 }
 
 pub struct AccountsBillingApiClient {
@@ -58,9 +53,7 @@ impl AccountsBillingApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl AccountsBillingApi for AccountsBillingApiClient {
-    async fn get_billing_history(
-        &self,
-    ) -> Result<models::BillingHistoryResponseModel, Error<GetBillingHistoryError>> {
+    async fn get_billing_history(&self) -> Result<models::BillingHistoryResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -100,14 +93,10 @@ impl AccountsBillingApi for AccountsBillingApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetBillingHistoryError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -115,7 +104,7 @@ impl AccountsBillingApi for AccountsBillingApiClient {
         &self,
         status: Option<&'a str>,
         start_after: Option<&'a str>,
-    ) -> Result<(), Error<GetInvoicesError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -145,21 +134,14 @@ impl AccountsBillingApi for AccountsBillingApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<GetInvoicesError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn get_transactions<'a>(
-        &self,
-        start_after: Option<String>,
-    ) -> Result<(), Error<GetTransactionsError>> {
+    async fn get_transactions<'a>(&self, start_after: Option<String>) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -185,33 +167,10 @@ impl AccountsBillingApi for AccountsBillingApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<GetTransactionsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`AccountsBillingApi::get_billing_history`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetBillingHistoryError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsBillingApi::get_invoices`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetInvoicesError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsBillingApi::get_transactions`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetTransactionsError {
-    UnknownValue(serde_json::Value),
 }

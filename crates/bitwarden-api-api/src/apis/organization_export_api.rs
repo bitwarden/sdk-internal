@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -27,7 +27,7 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait OrganizationExportApi: Send + Sync {
     /// GET /organizations/{organizationId}/export
-    async fn export<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error<ExportError>>;
+    async fn export<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error>;
 }
 
 pub struct OrganizationExportApiClient {
@@ -43,7 +43,7 @@ impl OrganizationExportApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl OrganizationExportApi for OrganizationExportApiClient {
-    async fn export<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error<ExportError>> {
+    async fn export<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -66,21 +66,10 @@ impl OrganizationExportApi for OrganizationExportApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<ExportError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`OrganizationExportApi::export`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ExportError {
-    UnknownValue(serde_json::Value),
 }

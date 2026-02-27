@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -30,25 +30,23 @@ pub trait WebAuthnApi: Send + Sync {
     async fn assertion_options<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::WebAuthnLoginAssertionOptionsResponseModel, Error<AssertionOptionsError>>;
+    ) -> Result<models::WebAuthnLoginAssertionOptionsResponseModel, Error>;
 
     /// POST /webauthn/attestation-options
     async fn attestation_options<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::WebAuthnCredentialCreateOptionsResponseModel, Error<AttestationOptionsError>>;
+    ) -> Result<models::WebAuthnCredentialCreateOptionsResponseModel, Error>;
 
     /// POST /webauthn/{id}/delete
     async fn delete<'a>(
         &self,
         id: uuid::Uuid,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<(), Error<DeleteError>>;
+    ) -> Result<(), Error>;
 
     /// GET /webauthn
-    async fn get(
-        &self,
-    ) -> Result<models::WebAuthnCredentialResponseModelListResponseModel, Error<GetError>>;
+    async fn get(&self) -> Result<models::WebAuthnCredentialResponseModelListResponseModel, Error>;
 
     /// POST /webauthn
     async fn post<'a>(
@@ -56,7 +54,7 @@ pub trait WebAuthnApi: Send + Sync {
         web_authn_login_credential_create_request_model: Option<
             models::WebAuthnLoginCredentialCreateRequestModel,
         >,
-    ) -> Result<(), Error<PostError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /webauthn
     async fn update_credential<'a>(
@@ -64,7 +62,7 @@ pub trait WebAuthnApi: Send + Sync {
         web_authn_login_credential_update_request_model: Option<
             models::WebAuthnLoginCredentialUpdateRequestModel,
         >,
-    ) -> Result<(), Error<UpdateCredentialError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct WebAuthnApiClient {
@@ -83,8 +81,7 @@ impl WebAuthnApi for WebAuthnApiClient {
     async fn assertion_options<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::WebAuthnLoginAssertionOptionsResponseModel, Error<AssertionOptionsError>>
-    {
+    ) -> Result<models::WebAuthnLoginAssertionOptionsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -125,22 +122,17 @@ impl WebAuthnApi for WebAuthnApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<AssertionOptionsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn attestation_options<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::WebAuthnCredentialCreateOptionsResponseModel, Error<AttestationOptionsError>>
-    {
+    ) -> Result<models::WebAuthnCredentialCreateOptionsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -181,14 +173,10 @@ impl WebAuthnApi for WebAuthnApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<AttestationOptionsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -196,7 +184,7 @@ impl WebAuthnApi for WebAuthnApiClient {
         &self,
         id: uuid::Uuid,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<(), Error<DeleteError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -220,20 +208,14 @@ impl WebAuthnApi for WebAuthnApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<DeleteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn get(
-        &self,
-    ) -> Result<models::WebAuthnCredentialResponseModelListResponseModel, Error<GetError>> {
+    async fn get(&self) -> Result<models::WebAuthnCredentialResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -270,13 +252,10 @@ impl WebAuthnApi for WebAuthnApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -285,7 +264,7 @@ impl WebAuthnApi for WebAuthnApiClient {
         web_authn_login_credential_create_request_model: Option<
             models::WebAuthnLoginCredentialCreateRequestModel,
         >,
-    ) -> Result<(), Error<PostError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -306,13 +285,10 @@ impl WebAuthnApi for WebAuthnApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -321,7 +297,7 @@ impl WebAuthnApi for WebAuthnApiClient {
         web_authn_login_credential_update_request_model: Option<
             models::WebAuthnLoginCredentialUpdateRequestModel,
         >,
-    ) -> Result<(), Error<UpdateCredentialError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -342,51 +318,10 @@ impl WebAuthnApi for WebAuthnApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<UpdateCredentialError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`WebAuthnApi::assertion_options`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AssertionOptionsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`WebAuthnApi::attestation_options`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AttestationOptionsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`WebAuthnApi::delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`WebAuthnApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`WebAuthnApi::post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`WebAuthnApi::update_credential`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateCredentialError {
-    UnknownValue(serde_json::Value),
 }

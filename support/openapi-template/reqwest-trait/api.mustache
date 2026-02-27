@@ -8,7 +8,7 @@ use mockall::automock;
 use reqwest;
 use std::sync::Arc;
 use serde::{Deserialize, Serialize, de::Error as _};
-use crate::{apis::{ResponseContent, AuthRequired}, models};
+use crate::{apis::AuthRequired, models};
 use super::{Error, configuration};
 use crate::apis::ContentType;
 
@@ -62,7 +62,7 @@ pub trait {{{classname}}}: Send + Sync {
     ### Regular return type
     }}{{^supportMultipleResponses}}{{^returnType}}(){{/returnType}}{{{returnType}}}{{/supportMultipleResponses}}{{!
     ### Error Type
-    }}, Error<{{{vendorExtensions.x-action-name}}}Error>>;
+    }}, Error>;
 {{/vendorExtensions.x-group-parameters}}
 {{/isDeprecated}}
 {{/operation}}
@@ -141,7 +141,7 @@ impl {{classname}} for {{classname}}Client {
     ### Regular return type
     }}{{^supportMultipleResponses}}{{^returnType}}(){{/returnType}}{{{returnType}}}{{/supportMultipleResponses}}{{!
     ### Error Type
-    }}, Error<{{{vendorExtensions.x-action-name}}}Error>> {
+    }}, Error> {
         {{#allParams}}{{#-first}}
         let {{{vendorExtensions.x-action-name}}}Params {
             {{#allParams}}
@@ -176,7 +176,7 @@ impl {{classname}} for {{classname}}Client {
     ### Regular return type
     }}{{^supportMultipleResponses}}{{^returnType}}(){{/returnType}}{{{returnType}}}{{/supportMultipleResponses}}{{!
     ### Regular return type
-    }}, Error<{{{vendorExtensions.x-action-name}}}Error>> {
+    }}, Error> {
     {{/vendorExtensions.x-group-parameters}}
         let local_var_configuration = &self.configuration;
 
@@ -451,9 +451,7 @@ impl {{classname}} for {{classname}}Client {
             Ok(local_var_result)
             {{/supportMultipleResponses}}
         } else {
-            let local_var_entity: Option<{{{vendorExtensions.x-action-name}}}Error> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent { status: local_var_status, content: local_var_content, entity: local_var_entity };
-            Err(Error::ResponseError(local_var_error))
+            Err(Error::Response{ status: local_var_status, content: local_var_content })
         }
     }
     {{/isDeprecated}}
@@ -484,26 +482,3 @@ pub enum {{{vendorExtensions.x-action-name}}}Success {
 {{/operation}}
 {{/operations}}
 {{/supportMultipleResponses}}
-{{#operations}}
-{{#operation}}
-{{^isDeprecated}}
-/// struct for typed errors of method [`{{{classname}}}::{{vendorExtensions.x-action-name-snake-case}}`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum {{{vendorExtensions.x-action-name}}}Error {
-    {{#responses}}
-    {{#is4xx}}
-    Status{{code}}({{#isEnum}}{{{enumName}}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}),
-    {{/is4xx}}
-    {{#is5xx}}
-    Status{{code}}({{#isEnum}}{{{enumName}}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}),
-    {{/is5xx}}
-    {{#isDefault}}
-    DefaultResponse({{#isEnum}}{{{enumName}}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}),
-    {{/isDefault}}
-    {{/responses}}
-    UnknownValue(serde_json::Value),
-}
-{{/isDeprecated}}
-{{/operation}}
-{{/operations}}

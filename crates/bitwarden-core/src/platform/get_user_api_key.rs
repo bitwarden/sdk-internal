@@ -58,8 +58,7 @@ pub(crate) async fn get_user_api_key(
         .api_client
         .accounts_api()
         .api_key(Some(request))
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
     UserApiKeyResponse::process_response(response)
 }
 

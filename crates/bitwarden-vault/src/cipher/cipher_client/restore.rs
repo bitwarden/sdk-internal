@@ -26,12 +26,6 @@ pub enum RestoreCipherError {
     Crypto(#[from] CryptoError),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for RestoreCipherError {
-    fn from(val: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(val.into())
-    }
-}
-
 /// Restores a soft-deleted cipher on the server.
 pub async fn restore<R: Repository<Cipher> + ?Sized>(
     cipher_id: CipherId,

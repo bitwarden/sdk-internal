@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -30,7 +30,7 @@ pub trait ImportCiphersApi: Send + Sync {
     async fn post_import<'a>(
         &self,
         import_ciphers_request_model: Option<models::ImportCiphersRequestModel>,
-    ) -> Result<(), Error<PostImportError>>;
+    ) -> Result<(), Error>;
 
     /// POST /ciphers/import-organization
     async fn post_import_organization<'a>(
@@ -39,7 +39,7 @@ pub trait ImportCiphersApi: Send + Sync {
         import_organization_ciphers_request_model: Option<
             models::ImportOrganizationCiphersRequestModel,
         >,
-    ) -> Result<(), Error<PostImportOrganizationError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct ImportCiphersApiClient {
@@ -58,7 +58,7 @@ impl ImportCiphersApi for ImportCiphersApiClient {
     async fn post_import<'a>(
         &self,
         import_ciphers_request_model: Option<models::ImportCiphersRequestModel>,
-    ) -> Result<(), Error<PostImportError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -78,14 +78,10 @@ impl ImportCiphersApi for ImportCiphersApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostImportError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -95,7 +91,7 @@ impl ImportCiphersApi for ImportCiphersApiClient {
         import_organization_ciphers_request_model: Option<
             models::ImportOrganizationCiphersRequestModel,
         >,
-    ) -> Result<(), Error<PostImportOrganizationError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -123,27 +119,10 @@ impl ImportCiphersApi for ImportCiphersApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostImportOrganizationError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`ImportCiphersApi::post_import`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostImportError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ImportCiphersApi::post_import_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostImportOrganizationError {
-    UnknownValue(serde_json::Value),
 }

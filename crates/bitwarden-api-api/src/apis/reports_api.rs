@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -32,10 +32,7 @@ pub trait ReportsApi: Send + Sync {
         password_health_report_application_model: Option<
             models::PasswordHealthReportApplicationModel,
         >,
-    ) -> Result<
-        models::PasswordHealthReportApplication,
-        Error<AddPasswordHealthReportApplicationError>,
-    >;
+    ) -> Result<models::PasswordHealthReportApplication, Error>;
 
     /// POST /reports/password-health-report-applications
     async fn add_password_health_report_applications<'a>(
@@ -43,10 +40,7 @@ pub trait ReportsApi: Send + Sync {
         password_health_report_application_model: Option<
             Vec<models::PasswordHealthReportApplicationModel>,
         >,
-    ) -> Result<
-        Vec<models::PasswordHealthReportApplication>,
-        Error<AddPasswordHealthReportApplicationsError>,
-    >;
+    ) -> Result<Vec<models::PasswordHealthReportApplication>, Error>;
 
     /// DELETE /reports/password-health-report-application
     async fn drop_password_health_report_application<'a>(
@@ -54,28 +48,25 @@ pub trait ReportsApi: Send + Sync {
         drop_password_health_report_application_request: Option<
             models::DropPasswordHealthReportApplicationRequest,
         >,
-    ) -> Result<(), Error<DropPasswordHealthReportApplicationError>>;
+    ) -> Result<(), Error>;
 
     /// GET /reports/member-access/{orgId}
     async fn get_member_access_report<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<Vec<models::MemberAccessDetailReportResponseModel>, Error<GetMemberAccessReportError>>;
+    ) -> Result<Vec<models::MemberAccessDetailReportResponseModel>, Error>;
 
     /// GET /reports/member-cipher-details/{orgId}
     async fn get_member_cipher_details<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<Vec<models::MemberCipherDetailsResponseModel>, Error<GetMemberCipherDetailsError>>;
+    ) -> Result<Vec<models::MemberCipherDetailsResponseModel>, Error>;
 
     /// GET /reports/password-health-report-applications/{orgId}
     async fn get_password_health_report_applications<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<
-        Vec<models::PasswordHealthReportApplication>,
-        Error<GetPasswordHealthReportApplicationsError>,
-    >;
+    ) -> Result<Vec<models::PasswordHealthReportApplication>, Error>;
 }
 
 pub struct ReportsApiClient {
@@ -96,10 +87,7 @@ impl ReportsApi for ReportsApiClient {
         password_health_report_application_model: Option<
             models::PasswordHealthReportApplicationModel,
         >,
-    ) -> Result<
-        models::PasswordHealthReportApplication,
-        Error<AddPasswordHealthReportApplicationError>,
-    > {
+    ) -> Result<models::PasswordHealthReportApplication, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -141,14 +129,10 @@ impl ReportsApi for ReportsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<AddPasswordHealthReportApplicationError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -157,10 +141,7 @@ impl ReportsApi for ReportsApiClient {
         password_health_report_application_model: Option<
             Vec<models::PasswordHealthReportApplicationModel>,
         >,
-    ) -> Result<
-        Vec<models::PasswordHealthReportApplication>,
-        Error<AddPasswordHealthReportApplicationsError>,
-    > {
+    ) -> Result<Vec<models::PasswordHealthReportApplication>, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -202,14 +183,10 @@ impl ReportsApi for ReportsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<AddPasswordHealthReportApplicationsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -218,7 +195,7 @@ impl ReportsApi for ReportsApiClient {
         drop_password_health_report_application_request: Option<
             models::DropPasswordHealthReportApplicationRequest,
         >,
-    ) -> Result<(), Error<DropPasswordHealthReportApplicationError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -242,22 +219,17 @@ impl ReportsApi for ReportsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<DropPasswordHealthReportApplicationError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn get_member_access_report<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<Vec<models::MemberAccessDetailReportResponseModel>, Error<GetMemberAccessReportError>>
-    {
+    ) -> Result<Vec<models::MemberAccessDetailReportResponseModel>, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -298,22 +270,17 @@ impl ReportsApi for ReportsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetMemberAccessReportError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn get_member_cipher_details<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<Vec<models::MemberCipherDetailsResponseModel>, Error<GetMemberCipherDetailsError>>
-    {
+    ) -> Result<Vec<models::MemberCipherDetailsResponseModel>, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -354,24 +321,17 @@ impl ReportsApi for ReportsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetMemberCipherDetailsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn get_password_health_report_applications<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<
-        Vec<models::PasswordHealthReportApplication>,
-        Error<GetPasswordHealthReportApplicationsError>,
-    > {
+    ) -> Result<Vec<models::PasswordHealthReportApplication>, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -412,51 +372,10 @@ impl ReportsApi for ReportsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetPasswordHealthReportApplicationsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`ReportsApi::add_password_health_report_application`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AddPasswordHealthReportApplicationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ReportsApi::add_password_health_report_applications`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AddPasswordHealthReportApplicationsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ReportsApi::drop_password_health_report_application`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DropPasswordHealthReportApplicationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ReportsApi::get_member_access_report`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetMemberAccessReportError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ReportsApi::get_member_cipher_details`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetMemberCipherDetailsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ReportsApi::get_password_health_report_applications`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetPasswordHealthReportApplicationsError {
-    UnknownValue(serde_json::Value),
 }

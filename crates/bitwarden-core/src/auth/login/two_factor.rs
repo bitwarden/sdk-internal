@@ -58,8 +58,7 @@ pub(crate) async fn send_two_factor_email(
             auth_request_id: None,
             sso_email2_fa_session_token: None,
         }))
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
 
     Ok(())
 }

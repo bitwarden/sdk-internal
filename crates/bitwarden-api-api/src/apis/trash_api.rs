@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -31,20 +31,20 @@ pub trait TrashApi: Send + Sync {
         &self,
         organization_id: uuid::Uuid,
         uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-    ) -> Result<(), Error<EmptyTrashError>>;
+    ) -> Result<(), Error>;
 
     /// GET /secrets/{organizationId}/trash
     async fn list_by_organization<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::SecretWithProjectsListResponseModel, Error<ListByOrganizationError>>;
+    ) -> Result<models::SecretWithProjectsListResponseModel, Error>;
 
     /// POST /secrets/{organizationId}/trash/restore
     async fn restore_trash<'a>(
         &self,
         organization_id: uuid::Uuid,
         uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-    ) -> Result<(), Error<RestoreTrashError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct TrashApiClient {
@@ -64,7 +64,7 @@ impl TrashApi for TrashApiClient {
         &self,
         organization_id: uuid::Uuid,
         uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-    ) -> Result<(), Error<EmptyTrashError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -88,21 +88,17 @@ impl TrashApi for TrashApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<EmptyTrashError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn list_by_organization<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::SecretWithProjectsListResponseModel, Error<ListByOrganizationError>> {
+    ) -> Result<models::SecretWithProjectsListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -143,14 +139,10 @@ impl TrashApi for TrashApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<ListByOrganizationError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -158,7 +150,7 @@ impl TrashApi for TrashApiClient {
         &self,
         organization_id: uuid::Uuid,
         uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-    ) -> Result<(), Error<RestoreTrashError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -182,33 +174,10 @@ impl TrashApi for TrashApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<RestoreTrashError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`TrashApi::empty_trash`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum EmptyTrashError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TrashApi::list_by_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ListByOrganizationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TrashApi::restore_trash`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RestoreTrashError {
-    UnknownValue(serde_json::Value),
 }

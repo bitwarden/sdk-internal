@@ -42,12 +42,6 @@ pub enum CreateCipherError {
     Repository(#[from] RepositoryError),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for CreateCipherError {
-    fn from(val: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(val.into())
-    }
-}
-
 /// Request to add a cipher.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -239,16 +233,14 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
                 collection_ids: Some(collection_ids.into_iter().map(Into::into).collect()),
                 cipher: Box::new(cipher_request),
             }))
-            .await
-            .map_err(ApiError::from)?
+            .await?
             .try_into()?;
         repository.set(require!(cipher.id), cipher.clone()).await?;
     } else {
         cipher = api_client
             .ciphers_api()
             .post(Some(cipher_request))
-            .await
-            .map_err(ApiError::from)?
+            .await?
             .try_into()?;
         repository.set(require!(cipher.id), cipher.clone()).await?;
     }
@@ -448,9 +440,7 @@ mod tests {
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.ciphers_api.expect_post().returning(move |_body| {
-                Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
-                    "Simulated error",
-                )))
+                Err(bitwarden_api_api::Error::Other("Simulated error".into()))
             });
         });
 

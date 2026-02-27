@@ -70,11 +70,7 @@ pub(super) async fn create_folder<R: Repository<Folder> + ?Sized>(
 ) -> Result<FolderView, CreateFolderError> {
     let folder_request = key_store.encrypt(request)?;
 
-    let resp = api_client
-        .folders_api()
-        .post(Some(folder_request))
-        .await
-        .map_err(ApiError::from)?;
+    let resp = api_client.folders_api().post(Some(folder_request)).await?;
 
     let folder: Folder = resp.try_into()?;
 
@@ -164,9 +160,7 @@ mod tests {
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.folders_api.expect_post().returning(move |_model| {
-                Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
-                    "Simulated error",
-                )))
+                Err(bitwarden_api_api::Error::Other("Simulated error".into()))
             });
         });
 

@@ -14,10 +14,16 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
+[features]
+uniffi = ["dep:bitwarden-uniffi-error", "dep:uniffi"] # Uniffi bindings
+
 [dependencies]
+bitwarden-uniffi-error = { workspace = true, optional = true }
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
 serde_json = { workspace = true }
+thiserror = { workspace = true }
+uniffi = { workspace = true, optional = true }
 url = ">=2.5, <3"
 
 [lints]

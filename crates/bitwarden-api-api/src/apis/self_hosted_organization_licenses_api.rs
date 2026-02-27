@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -34,17 +34,17 @@ pub trait SelfHostedOrganizationLicensesApi: Send + Sync {
         keys_encrypted_private_key: &'a str,
         license: std::path::PathBuf,
         collection_name: Option<&'a str>,
-    ) -> Result<models::OrganizationResponseModel, Error<CreateLicenseError>>;
+    ) -> Result<models::OrganizationResponseModel, Error>;
 
     /// POST /organizations/licenses/self-hosted/{id}/sync
-    async fn sync_license<'a>(&self, id: &'a str) -> Result<(), Error<SyncLicenseError>>;
+    async fn sync_license<'a>(&self, id: &'a str) -> Result<(), Error>;
 
     /// POST /organizations/licenses/self-hosted/{id}
     async fn update_license<'a>(
         &self,
         id: &'a str,
         license: std::path::PathBuf,
-    ) -> Result<(), Error<UpdateLicenseError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct SelfHostedOrganizationLicensesApiClient {
@@ -67,7 +67,7 @@ impl SelfHostedOrganizationLicensesApi for SelfHostedOrganizationLicensesApiClie
         keys_encrypted_private_key: &'a str,
         license: std::path::PathBuf,
         collection_name: Option<&'a str>,
-    ) -> Result<models::OrganizationResponseModel, Error<CreateLicenseError>> {
+    ) -> Result<models::OrganizationResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -121,18 +121,14 @@ impl SelfHostedOrganizationLicensesApi for SelfHostedOrganizationLicensesApiClie
                 }
             }
         } else {
-            let local_var_entity: Option<CreateLicenseError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn sync_license<'a>(&self, id: &'a str) -> Result<(), Error<SyncLicenseError>> {
+    async fn sync_license<'a>(&self, id: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -155,14 +151,10 @@ impl SelfHostedOrganizationLicensesApi for SelfHostedOrganizationLicensesApiClie
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<SyncLicenseError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -170,7 +162,7 @@ impl SelfHostedOrganizationLicensesApi for SelfHostedOrganizationLicensesApiClie
         &self,
         id: &'a str,
         license: std::path::PathBuf,
-    ) -> Result<(), Error<UpdateLicenseError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -196,33 +188,10 @@ impl SelfHostedOrganizationLicensesApi for SelfHostedOrganizationLicensesApiClie
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<UpdateLicenseError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`SelfHostedOrganizationLicensesApi::create_license`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateLicenseError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SelfHostedOrganizationLicensesApi::sync_license`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum SyncLicenseError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SelfHostedOrganizationLicensesApi::update_license`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateLicenseError {
-    UnknownValue(serde_json::Value),
 }

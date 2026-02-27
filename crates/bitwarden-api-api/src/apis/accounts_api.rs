@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -30,44 +30,36 @@ pub trait AccountsApi: Send + Sync {
     async fn api_key<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::ApiKeyResponseModel, Error<ApiKeyError>>;
+    ) -> Result<models::ApiKeyResponseModel, Error>;
 
     /// DELETE /accounts
     async fn delete<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<(), Error<DeleteError>>;
+    ) -> Result<(), Error>;
 
     /// DELETE /accounts/sso/{organizationId}
-    async fn delete_sso_user<'a>(
-        &self,
-        organization_id: &'a str,
-    ) -> Result<(), Error<DeleteSsoUserError>>;
+    async fn delete_sso_user<'a>(&self, organization_id: &'a str) -> Result<(), Error>;
 
     /// GET /accounts/revision-date
-    async fn get_account_revision_date(&self) -> Result<i64, Error<GetAccountRevisionDateError>>;
+    async fn get_account_revision_date(&self) -> Result<i64, Error>;
 
     /// GET /accounts/keys
-    async fn get_keys(&self) -> Result<models::KeysResponseModel, Error<GetKeysError>>;
+    async fn get_keys(&self) -> Result<models::KeysResponseModel, Error>;
 
     /// GET /accounts/organizations
     async fn get_organizations(
         &self,
-    ) -> Result<
-        models::ProfileOrganizationResponseModelListResponseModel,
-        Error<GetOrganizationsError>,
-    >;
+    ) -> Result<models::ProfileOrganizationResponseModelListResponseModel, Error>;
 
     /// GET /accounts/profile
-    async fn get_profile(&self) -> Result<models::ProfileResponseModel, Error<GetProfileError>>;
+    async fn get_profile(&self) -> Result<models::ProfileResponseModel, Error>;
 
     /// GET /accounts/sso/user-identifier
-    async fn get_sso_user_identifier(&self) -> Result<String, Error<GetSsoUserIdentifierError>>;
+    async fn get_sso_user_identifier(&self) -> Result<String, Error>;
 
     /// GET /accounts/subscription
-    async fn get_subscription(
-        &self,
-    ) -> Result<models::SubscriptionResponseModel, Error<GetSubscriptionError>>;
+    async fn get_subscription(&self) -> Result<models::SubscriptionResponseModel, Error>;
 
     /// POST /accounts/cancel
     async fn post_cancel<'a>(
@@ -75,112 +67,109 @@ pub trait AccountsApi: Send + Sync {
         subscription_cancellation_request_model: Option<
             models::SubscriptionCancellationRequestModel,
         >,
-    ) -> Result<(), Error<PostCancelError>>;
+    ) -> Result<(), Error>;
 
     /// POST /accounts/delete-recover
     async fn post_delete_recover<'a>(
         &self,
         delete_recover_request_model: Option<models::DeleteRecoverRequestModel>,
-    ) -> Result<(), Error<PostDeleteRecoverError>>;
+    ) -> Result<(), Error>;
 
     /// POST /accounts/delete-recover-token
     async fn post_delete_recover_token<'a>(
         &self,
         verify_delete_recover_request_model: Option<models::VerifyDeleteRecoverRequestModel>,
-    ) -> Result<(), Error<PostDeleteRecoverTokenError>>;
+    ) -> Result<(), Error>;
 
     /// POST /accounts/email
     async fn post_email<'a>(
         &self,
         email_request_model: Option<models::EmailRequestModel>,
-    ) -> Result<(), Error<PostEmailError>>;
+    ) -> Result<(), Error>;
 
     /// POST /accounts/email-token
     async fn post_email_token<'a>(
         &self,
         email_token_request_model: Option<models::EmailTokenRequestModel>,
-    ) -> Result<(), Error<PostEmailTokenError>>;
+    ) -> Result<(), Error>;
 
     /// POST /accounts/kdf
     async fn post_kdf<'a>(
         &self,
         password_request_model: Option<models::PasswordRequestModel>,
-    ) -> Result<(), Error<PostKdfError>>;
+    ) -> Result<(), Error>;
 
     /// POST /accounts/keys
     async fn post_keys<'a>(
         &self,
         keys_request_model: Option<models::KeysRequestModel>,
-    ) -> Result<models::KeysResponseModel, Error<PostKeysError>>;
+    ) -> Result<models::KeysResponseModel, Error>;
 
     /// POST /accounts/license
-    async fn post_license<'a>(
-        &self,
-        license: std::path::PathBuf,
-    ) -> Result<(), Error<PostLicenseError>>;
+    async fn post_license<'a>(&self, license: std::path::PathBuf) -> Result<(), Error>;
 
     /// POST /accounts/password
     async fn post_password<'a>(
         &self,
         password_request_model: Option<models::PasswordRequestModel>,
-    ) -> Result<(), Error<PostPasswordError>>;
+    ) -> Result<(), Error>;
 
     /// POST /accounts/password-hint
     async fn post_password_hint<'a>(
         &self,
         password_hint_request_model: Option<models::PasswordHintRequestModel>,
-    ) -> Result<(), Error<PostPasswordHintError>>;
+    ) -> Result<(), Error>;
 
     /// POST /accounts/reinstate-premium
-    async fn post_reinstate(&self) -> Result<(), Error<PostReinstateError>>;
+    async fn post_reinstate(&self) -> Result<(), Error>;
 
     /// POST /accounts/request-otp
-    async fn post_request_otp(&self) -> Result<(), Error<PostRequestOTPError>>;
+    async fn post_request_otp(&self) -> Result<(), Error>;
 
     /// POST /accounts/security-stamp
     async fn post_security_stamp<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<(), Error<PostSecurityStampError>>;
+    ) -> Result<(), Error>;
 
     /// POST /accounts/set-password
     async fn post_set_password<'a>(
         &self,
         set_initial_password_request_model: Option<models::SetInitialPasswordRequestModel>,
-    ) -> Result<(), Error<PostSetPasswordError>>;
+    ) -> Result<(), Error>;
 
     /// POST /accounts/storage
     async fn post_storage<'a>(
         &self,
         storage_request_model: Option<models::StorageRequestModel>,
-    ) -> Result<models::PaymentResponseModel, Error<PostStorageError>>;
+    ) -> Result<models::PaymentResponseModel, Error>;
 
     /// POST /accounts/verify-email
-    async fn post_verify_email(&self) -> Result<(), Error<PostVerifyEmailError>>;
+    async fn post_verify_email(&self) -> Result<(), Error>;
 
     /// POST /accounts/verify-email-token
     async fn post_verify_email_token<'a>(
         &self,
         verify_email_request_model: Option<models::VerifyEmailRequestModel>,
-    ) -> Result<(), Error<PostVerifyEmailTokenError>>;
+    ) -> Result<(), Error>;
 
     /// POST /accounts/verify-password
     async fn post_verify_password<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::MasterPasswordPolicyResponseModel, Error<PostVerifyPasswordError>>;
+    ) -> Result<models::MasterPasswordPolicyResponseModel, Error>;
 
     /// PUT /accounts/avatar
     async fn put_avatar<'a>(
         &self,
         update_avatar_request_model: Option<models::UpdateAvatarRequestModel>,
-    ) -> Result<models::ProfileResponseModel, Error<PutAvatarError>>;
+    ) -> Result<models::ProfileResponseModel, Error>;
 
     /// PUT /accounts/profile
     async fn put_profile<'a>(
         &self,
         update_profile_request_model: Option<models::UpdateProfileRequestModel>,
-    ) -> Result<models::ProfileResponseModel, Error<PutProfileError>>;
+    ) -> Result<models::ProfileResponseModel, Error>;
 
     /// PUT /accounts/update-tde-offboarding-password
     async fn put_update_tde_password<'a>(
@@ -188,13 +177,13 @@ pub trait AccountsApi: Send + Sync {
         update_tde_offboarding_password_request_model: Option<
             models::UpdateTdeOffboardingPasswordRequestModel,
         >,
-    ) -> Result<(), Error<PutUpdateTdePasswordError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /accounts/update-temp-password
     async fn put_update_temp_password<'a>(
         &self,
         update_temp_password_request_model: Option<models::UpdateTempPasswordRequestModel>,
-    ) -> Result<(), Error<PutUpdateTempPasswordError>>;
+    ) -> Result<(), Error>;
 
     /// POST /accounts/resend-new-device-otp
     async fn resend_new_device_otp<'a>(
@@ -202,25 +191,25 @@ pub trait AccountsApi: Send + Sync {
         unauthenticated_secret_verification_request_model: Option<
             models::UnauthenticatedSecretVerificationRequestModel,
         >,
-    ) -> Result<(), Error<ResendNewDeviceOtpError>>;
+    ) -> Result<(), Error>;
 
     /// POST /accounts/rotate-api-key
     async fn rotate_api_key<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::ApiKeyResponseModel, Error<RotateApiKeyError>>;
+    ) -> Result<models::ApiKeyResponseModel, Error>;
 
     /// PUT /accounts/verify-devices
     async fn set_user_verify_devices<'a>(
         &self,
         set_verify_devices_request_model: Option<models::SetVerifyDevicesRequestModel>,
-    ) -> Result<(), Error<SetUserVerifyDevicesError>>;
+    ) -> Result<(), Error>;
 
     /// POST /accounts/verify-otp
     async fn verify_otp<'a>(
         &self,
         verify_otp_request_model: Option<models::VerifyOtpRequestModel>,
-    ) -> Result<(), Error<VerifyOTPError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct AccountsApiClient {
@@ -239,7 +228,7 @@ impl AccountsApi for AccountsApiClient {
     async fn api_key<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::ApiKeyResponseModel, Error<ApiKeyError>> {
+    ) -> Result<models::ApiKeyResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -277,21 +266,17 @@ impl AccountsApi for AccountsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<ApiKeyError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn delete<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<(), Error<DeleteError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -311,21 +296,14 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<DeleteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn delete_sso_user<'a>(
-        &self,
-        organization_id: &'a str,
-    ) -> Result<(), Error<DeleteSsoUserError>> {
+    async fn delete_sso_user<'a>(&self, organization_id: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -348,18 +326,14 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<DeleteSsoUserError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn get_account_revision_date(&self) -> Result<i64, Error<GetAccountRevisionDateError>> {
+    async fn get_account_revision_date(&self) -> Result<i64, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -399,18 +373,14 @@ impl AccountsApi for AccountsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetAccountRevisionDateError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn get_keys(&self) -> Result<models::KeysResponseModel, Error<GetKeysError>> {
+    async fn get_keys(&self) -> Result<models::KeysResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -447,23 +417,16 @@ impl AccountsApi for AccountsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetKeysError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn get_organizations(
         &self,
-    ) -> Result<
-        models::ProfileOrganizationResponseModelListResponseModel,
-        Error<GetOrganizationsError>,
-    > {
+    ) -> Result<models::ProfileOrganizationResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -503,18 +466,14 @@ impl AccountsApi for AccountsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetOrganizationsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn get_profile(&self) -> Result<models::ProfileResponseModel, Error<GetProfileError>> {
+    async fn get_profile(&self) -> Result<models::ProfileResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -551,18 +510,14 @@ impl AccountsApi for AccountsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetProfileError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn get_sso_user_identifier(&self) -> Result<String, Error<GetSsoUserIdentifierError>> {
+    async fn get_sso_user_identifier(&self) -> Result<String, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -598,20 +553,14 @@ impl AccountsApi for AccountsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetSsoUserIdentifierError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn get_subscription(
-        &self,
-    ) -> Result<models::SubscriptionResponseModel, Error<GetSubscriptionError>> {
+    async fn get_subscription(&self) -> Result<models::SubscriptionResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -651,14 +600,10 @@ impl AccountsApi for AccountsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetSubscriptionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -667,7 +612,7 @@ impl AccountsApi for AccountsApiClient {
         subscription_cancellation_request_model: Option<
             models::SubscriptionCancellationRequestModel,
         >,
-    ) -> Result<(), Error<PostCancelError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -688,21 +633,17 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostCancelError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post_delete_recover<'a>(
         &self,
         delete_recover_request_model: Option<models::DeleteRecoverRequestModel>,
-    ) -> Result<(), Error<PostDeleteRecoverError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -725,21 +666,17 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostDeleteRecoverError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post_delete_recover_token<'a>(
         &self,
         verify_delete_recover_request_model: Option<models::VerifyDeleteRecoverRequestModel>,
-    ) -> Result<(), Error<PostDeleteRecoverTokenError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -762,21 +699,17 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostDeleteRecoverTokenError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post_email<'a>(
         &self,
         email_request_model: Option<models::EmailRequestModel>,
-    ) -> Result<(), Error<PostEmailError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -796,21 +729,17 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostEmailError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post_email_token<'a>(
         &self,
         email_token_request_model: Option<models::EmailTokenRequestModel>,
-    ) -> Result<(), Error<PostEmailTokenError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -831,21 +760,17 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostEmailTokenError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post_kdf<'a>(
         &self,
         password_request_model: Option<models::PasswordRequestModel>,
-    ) -> Result<(), Error<PostKdfError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -865,21 +790,17 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostKdfError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post_keys<'a>(
         &self,
         keys_request_model: Option<models::KeysRequestModel>,
-    ) -> Result<models::KeysResponseModel, Error<PostKeysError>> {
+    ) -> Result<models::KeysResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -917,21 +838,14 @@ impl AccountsApi for AccountsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PostKeysError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn post_license<'a>(
-        &self,
-        license: std::path::PathBuf,
-    ) -> Result<(), Error<PostLicenseError>> {
+    async fn post_license<'a>(&self, license: std::path::PathBuf) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -953,21 +867,17 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostLicenseError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post_password<'a>(
         &self,
         password_request_model: Option<models::PasswordRequestModel>,
-    ) -> Result<(), Error<PostPasswordError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -987,21 +897,17 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostPasswordError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post_password_hint<'a>(
         &self,
         password_hint_request_model: Option<models::PasswordHintRequestModel>,
-    ) -> Result<(), Error<PostPasswordHintError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1024,18 +930,14 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostPasswordHintError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn post_reinstate(&self) -> Result<(), Error<PostReinstateError>> {
+    async fn post_reinstate(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1057,18 +959,14 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostReinstateError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn post_request_otp(&self) -> Result<(), Error<PostRequestOTPError>> {
+    async fn post_request_otp(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1088,21 +986,17 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostRequestOTPError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post_security_stamp<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<(), Error<PostSecurityStampError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1125,21 +1019,17 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostSecurityStampError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post_set_password<'a>(
         &self,
         set_initial_password_request_model: Option<models::SetInitialPasswordRequestModel>,
-    ) -> Result<(), Error<PostSetPasswordError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1162,21 +1052,17 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostSetPasswordError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post_storage<'a>(
         &self,
         storage_request_model: Option<models::StorageRequestModel>,
-    ) -> Result<models::PaymentResponseModel, Error<PostStorageError>> {
+    ) -> Result<models::PaymentResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1214,18 +1100,14 @@ impl AccountsApi for AccountsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PostStorageError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn post_verify_email(&self) -> Result<(), Error<PostVerifyEmailError>> {
+    async fn post_verify_email(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1247,21 +1129,17 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostVerifyEmailError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post_verify_email_token<'a>(
         &self,
         verify_email_request_model: Option<models::VerifyEmailRequestModel>,
-    ) -> Result<(), Error<PostVerifyEmailTokenError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1284,21 +1162,17 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostVerifyEmailTokenError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post_verify_password<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::MasterPasswordPolicyResponseModel, Error<PostVerifyPasswordError>> {
+    ) -> Result<models::MasterPasswordPolicyResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1339,21 +1213,17 @@ impl AccountsApi for AccountsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PostVerifyPasswordError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn put_avatar<'a>(
         &self,
         update_avatar_request_model: Option<models::UpdateAvatarRequestModel>,
-    ) -> Result<models::ProfileResponseModel, Error<PutAvatarError>> {
+    ) -> Result<models::ProfileResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1391,21 +1261,17 @@ impl AccountsApi for AccountsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutAvatarError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn put_profile<'a>(
         &self,
         update_profile_request_model: Option<models::UpdateProfileRequestModel>,
-    ) -> Result<models::ProfileResponseModel, Error<PutProfileError>> {
+    ) -> Result<models::ProfileResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1443,14 +1309,10 @@ impl AccountsApi for AccountsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutProfileError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1459,7 +1321,7 @@ impl AccountsApi for AccountsApiClient {
         update_tde_offboarding_password_request_model: Option<
             models::UpdateTdeOffboardingPasswordRequestModel,
         >,
-    ) -> Result<(), Error<PutUpdateTdePasswordError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1483,21 +1345,17 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PutUpdateTdePasswordError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn put_update_temp_password<'a>(
         &self,
         update_temp_password_request_model: Option<models::UpdateTempPasswordRequestModel>,
-    ) -> Result<(), Error<PutUpdateTempPasswordError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1520,14 +1378,10 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PutUpdateTempPasswordError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1536,7 +1390,7 @@ impl AccountsApi for AccountsApiClient {
         unauthenticated_secret_verification_request_model: Option<
             models::UnauthenticatedSecretVerificationRequestModel,
         >,
-    ) -> Result<(), Error<ResendNewDeviceOtpError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1560,21 +1414,17 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<ResendNewDeviceOtpError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn rotate_api_key<'a>(
         &self,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<models::ApiKeyResponseModel, Error<RotateApiKeyError>> {
+    ) -> Result<models::ApiKeyResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1615,21 +1465,17 @@ impl AccountsApi for AccountsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<RotateApiKeyError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn set_user_verify_devices<'a>(
         &self,
         set_verify_devices_request_model: Option<models::SetVerifyDevicesRequestModel>,
-    ) -> Result<(), Error<SetUserVerifyDevicesError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1652,21 +1498,17 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<SetUserVerifyDevicesError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn verify_otp<'a>(
         &self,
         verify_otp_request_model: Option<models::VerifyOtpRequestModel>,
-    ) -> Result<(), Error<VerifyOTPError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1687,225 +1529,10 @@ impl AccountsApi for AccountsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<VerifyOTPError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`AccountsApi::api_key`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ApiKeyError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::delete_sso_user`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteSsoUserError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::get_account_revision_date`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAccountRevisionDateError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::get_keys`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetKeysError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::get_organizations`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetOrganizationsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::get_profile`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetProfileError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::get_sso_user_identifier`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetSsoUserIdentifierError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::get_subscription`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetSubscriptionError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_cancel`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostCancelError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_delete_recover`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostDeleteRecoverError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_delete_recover_token`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostDeleteRecoverTokenError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_email`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostEmailError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_email_token`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostEmailTokenError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_kdf`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostKdfError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_keys`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostKeysError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_license`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostLicenseError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_password`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostPasswordError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_password_hint`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostPasswordHintError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_reinstate`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostReinstateError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_request_otp`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostRequestOTPError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_security_stamp`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostSecurityStampError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_set_password`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostSetPasswordError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_storage`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostStorageError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_verify_email`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostVerifyEmailError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_verify_email_token`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostVerifyEmailTokenError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::post_verify_password`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostVerifyPasswordError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::put_avatar`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutAvatarError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::put_profile`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutProfileError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::put_update_tde_password`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutUpdateTdePasswordError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::put_update_temp_password`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutUpdateTempPasswordError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::resend_new_device_otp`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ResendNewDeviceOtpError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::rotate_api_key`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RotateApiKeyError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::set_user_verify_devices`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum SetUserVerifyDevicesError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountsApi::verify_otp`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum VerifyOTPError {
-    UnknownValue(serde_json::Value),
 }

@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -27,7 +27,7 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait ConfigApi: Send + Sync {
     /// GET /config
-    async fn get_configs(&self) -> Result<models::ConfigResponseModel, Error<GetConfigsError>>;
+    async fn get_configs(&self) -> Result<models::ConfigResponseModel, Error>;
 }
 
 pub struct ConfigApiClient {
@@ -43,7 +43,7 @@ impl ConfigApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl ConfigApi for ConfigApiClient {
-    async fn get_configs(&self) -> Result<models::ConfigResponseModel, Error<GetConfigsError>> {
+    async fn get_configs(&self) -> Result<models::ConfigResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -80,21 +80,10 @@ impl ConfigApi for ConfigApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetConfigsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`ConfigApi::get_configs`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetConfigsError {
-    UnknownValue(serde_json::Value),
 }

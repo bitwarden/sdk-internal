@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -30,7 +30,7 @@ pub trait RequestSmAccessApi: Send + Sync {
     async fn request_sm_access_from_admins<'a>(
         &self,
         request_sm_access_request_model: Option<models::RequestSmAccessRequestModel>,
-    ) -> Result<(), Error<RequestSMAccessFromAdminsError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct RequestSmAccessApiClient {
@@ -49,7 +49,7 @@ impl RequestSmAccessApi for RequestSmAccessApiClient {
     async fn request_sm_access_from_admins<'a>(
         &self,
         request_sm_access_request_model: Option<models::RequestSmAccessRequestModel>,
-    ) -> Result<(), Error<RequestSMAccessFromAdminsError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -72,21 +72,10 @@ impl RequestSmAccessApi for RequestSmAccessApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<RequestSMAccessFromAdminsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`RequestSmAccessApi::request_sm_access_from_admins`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RequestSMAccessFromAdminsError {
-    UnknownValue(serde_json::Value),
 }

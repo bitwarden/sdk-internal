@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use super::LoginError;
 use crate::{
-    ApiError, Client,
+    Client,
     auth::{
         api::{request::AuthRequestTokenRequest, response::IdentityTokenResponse},
         auth_request::new_auth_request,
@@ -49,8 +49,7 @@ pub(crate) async fn send_new_auth_request(
         .api_client
         .auth_requests_api()
         .post(Some(req))
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
 
     Ok(NewAuthRequestResponse {
         fingerprint: auth.fingerprint,
@@ -71,8 +70,7 @@ pub(crate) async fn complete_auth_request(
         .api_client
         .auth_requests_api()
         .get_response(auth_req.auth_request_id, Some(&auth_req.access_code))
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
 
     let approved = res.request_approved.unwrap_or(false);
 

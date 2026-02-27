@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -31,7 +31,7 @@ pub trait LicensesApi: Send + Sync {
         &self,
         id: &'a str,
         key: Option<&'a str>,
-    ) -> Result<models::UserLicense, Error<GetUserError>>;
+    ) -> Result<models::UserLicense, Error>;
 
     /// GET /licenses/organization/{id}
     async fn organization_sync<'a>(
@@ -40,7 +40,7 @@ pub trait LicensesApi: Send + Sync {
         self_hosted_organization_license_request_model: Option<
             models::SelfHostedOrganizationLicenseRequestModel,
         >,
-    ) -> Result<models::OrganizationLicense, Error<OrganizationSyncError>>;
+    ) -> Result<models::OrganizationLicense, Error>;
 }
 
 pub struct LicensesApiClient {
@@ -60,7 +60,7 @@ impl LicensesApi for LicensesApiClient {
         &self,
         id: &'a str,
         key: Option<&'a str>,
-    ) -> Result<models::UserLicense, Error<GetUserError>> {
+    ) -> Result<models::UserLicense, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -105,14 +105,10 @@ impl LicensesApi for LicensesApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetUserError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -122,7 +118,7 @@ impl LicensesApi for LicensesApiClient {
         self_hosted_organization_license_request_model: Option<
             models::SelfHostedOrganizationLicenseRequestModel,
         >,
-    ) -> Result<models::OrganizationLicense, Error<OrganizationSyncError>> {
+    ) -> Result<models::OrganizationLicense, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -165,27 +161,10 @@ impl LicensesApi for LicensesApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<OrganizationSyncError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`LicensesApi::get_user`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetUserError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`LicensesApi::organization_sync`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrganizationSyncError {
-    UnknownValue(serde_json::Value),
 }

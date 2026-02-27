@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -27,17 +27,13 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait TeamsIntegrationApi: Send + Sync {
     /// GET /organizations/integrations/teams/create
-    async fn create<'a>(
-        &self,
-        code: Option<&'a str>,
-        state: Option<&'a str>,
-    ) -> Result<(), Error<CreateError>>;
+    async fn create<'a>(&self, code: Option<&'a str>, state: Option<&'a str>) -> Result<(), Error>;
 
     /// POST /organizations/integrations/teams/incoming
-    async fn incoming_post(&self) -> Result<(), Error<IncomingPostError>>;
+    async fn incoming_post(&self) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/integrations/teams/redirect
-    async fn redirect<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error<RedirectError>>;
+    async fn redirect<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error>;
 }
 
 pub struct TeamsIntegrationApiClient {
@@ -53,11 +49,7 @@ impl TeamsIntegrationApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl TeamsIntegrationApi for TeamsIntegrationApiClient {
-    async fn create<'a>(
-        &self,
-        code: Option<&'a str>,
-        state: Option<&'a str>,
-    ) -> Result<(), Error<CreateError>> {
+    async fn create<'a>(&self, code: Option<&'a str>, state: Option<&'a str>) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -87,18 +79,14 @@ impl TeamsIntegrationApi for TeamsIntegrationApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<CreateError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn incoming_post(&self) -> Result<(), Error<IncomingPostError>> {
+    async fn incoming_post(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -120,18 +108,14 @@ impl TeamsIntegrationApi for TeamsIntegrationApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<IncomingPostError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn redirect<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error<RedirectError>> {
+    async fn redirect<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -154,33 +138,10 @@ impl TeamsIntegrationApi for TeamsIntegrationApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<RedirectError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`TeamsIntegrationApi::create`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TeamsIntegrationApi::incoming_post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum IncomingPostError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`TeamsIntegrationApi::redirect`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RedirectError {
-    UnknownValue(serde_json::Value),
 }

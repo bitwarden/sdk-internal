@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -33,7 +33,7 @@ pub trait EventsApi: Send + Sync {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetCipherError>>;
+    ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{id}/events
     async fn get_organization<'a>(
@@ -42,7 +42,7 @@ pub trait EventsApi: Send + Sync {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetOrganizationError>>;
+    ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{orgId}/users/{id}/events
     async fn get_organization_user<'a>(
@@ -52,7 +52,7 @@ pub trait EventsApi: Send + Sync {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetOrganizationUserError>>;
+    ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
     /// GET /organization/{orgId}/projects/{id}/events
     async fn get_projects<'a>(
@@ -62,7 +62,7 @@ pub trait EventsApi: Send + Sync {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetProjectsError>>;
+    ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
     /// GET /providers/{providerId}/events
     async fn get_provider<'a>(
@@ -71,7 +71,7 @@ pub trait EventsApi: Send + Sync {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetProviderError>>;
+    ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
     /// GET /providers/{providerId}/users/{id}/events
     async fn get_provider_user<'a>(
@@ -81,7 +81,7 @@ pub trait EventsApi: Send + Sync {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetProviderUserError>>;
+    ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
     /// GET /organization/{orgId}/secrets/{id}/events
     async fn get_secrets<'a>(
@@ -91,7 +91,7 @@ pub trait EventsApi: Send + Sync {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetSecretsError>>;
+    ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
     /// GET /organization/{orgId}/service-account/{id}/events
     async fn get_service_accounts<'a>(
@@ -101,7 +101,7 @@ pub trait EventsApi: Send + Sync {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetServiceAccountsError>>;
+    ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
     /// GET /events
     async fn get_user<'a>(
@@ -109,7 +109,7 @@ pub trait EventsApi: Send + Sync {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetUserError>>;
+    ) -> Result<models::EventResponseModelListResponseModel, Error>;
 }
 
 pub struct EventsApiClient {
@@ -131,7 +131,7 @@ impl EventsApi for EventsApiClient {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetCipherError>> {
+    ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -184,14 +184,10 @@ impl EventsApi for EventsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetCipherError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -201,7 +197,7 @@ impl EventsApi for EventsApiClient {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetOrganizationError>> {
+    ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -254,14 +250,10 @@ impl EventsApi for EventsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetOrganizationError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -272,7 +264,7 @@ impl EventsApi for EventsApiClient {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetOrganizationUserError>> {
+    ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -326,14 +318,10 @@ impl EventsApi for EventsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetOrganizationUserError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -344,7 +332,7 @@ impl EventsApi for EventsApiClient {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetProjectsError>> {
+    ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -398,14 +386,10 @@ impl EventsApi for EventsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetProjectsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -415,7 +399,7 @@ impl EventsApi for EventsApiClient {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetProviderError>> {
+    ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -468,14 +452,10 @@ impl EventsApi for EventsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetProviderError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -486,7 +466,7 @@ impl EventsApi for EventsApiClient {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetProviderUserError>> {
+    ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -540,14 +520,10 @@ impl EventsApi for EventsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetProviderUserError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -558,7 +534,7 @@ impl EventsApi for EventsApiClient {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetSecretsError>> {
+    ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -612,14 +588,10 @@ impl EventsApi for EventsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetSecretsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -630,7 +602,7 @@ impl EventsApi for EventsApiClient {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetServiceAccountsError>> {
+    ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -684,14 +656,10 @@ impl EventsApi for EventsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetServiceAccountsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -700,7 +668,7 @@ impl EventsApi for EventsApiClient {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetUserError>> {
+    ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -749,69 +717,10 @@ impl EventsApi for EventsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetUserError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`EventsApi::get_cipher`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetCipherError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`EventsApi::get_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetOrganizationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`EventsApi::get_organization_user`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetOrganizationUserError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`EventsApi::get_projects`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetProjectsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`EventsApi::get_provider`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetProviderError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`EventsApi::get_provider_user`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetProviderUserError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`EventsApi::get_secrets`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetSecretsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`EventsApi::get_service_accounts`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetServiceAccountsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`EventsApi::get_user`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetUserError {
-    UnknownValue(serde_json::Value),
 }

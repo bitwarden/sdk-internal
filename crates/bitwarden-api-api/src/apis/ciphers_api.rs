@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -27,124 +27,112 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait CiphersApi: Send + Sync {
     /// POST /ciphers/attachment/validate/azure
-    async fn azure_validate_file(&self) -> Result<(), Error<AzureValidateFileError>>;
+    async fn azure_validate_file(&self) -> Result<(), Error>;
 
     /// DELETE /ciphers/{id}
-    async fn delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error<DeleteError>>;
+    async fn delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error>;
 
     /// DELETE /ciphers/{id}/admin
-    async fn delete_admin<'a>(&self, id: uuid::Uuid) -> Result<(), Error<DeleteAdminError>>;
+    async fn delete_admin<'a>(&self, id: uuid::Uuid) -> Result<(), Error>;
 
     /// DELETE /ciphers/{id}/attachment/{attachmentId}
     async fn delete_attachment<'a>(
         &self,
         id: uuid::Uuid,
         attachment_id: &'a str,
-    ) -> Result<models::DeleteAttachmentResponseModel, Error<DeleteAttachmentError>>;
+    ) -> Result<models::DeleteAttachmentResponseModel, Error>;
 
     /// DELETE /ciphers/{id}/attachment/{attachmentId}/admin
     async fn delete_attachment_admin<'a>(
         &self,
         id: uuid::Uuid,
         attachment_id: &'a str,
-    ) -> Result<models::DeleteAttachmentResponseModel, Error<DeleteAttachmentAdminError>>;
+    ) -> Result<models::DeleteAttachmentResponseModel, Error>;
 
     /// DELETE /ciphers
     async fn delete_many<'a>(
         &self,
         cipher_bulk_delete_request_model: Option<models::CipherBulkDeleteRequestModel>,
-    ) -> Result<(), Error<DeleteManyError>>;
+    ) -> Result<(), Error>;
 
     /// DELETE /ciphers/admin
     async fn delete_many_admin<'a>(
         &self,
         cipher_bulk_delete_request_model: Option<models::CipherBulkDeleteRequestModel>,
-    ) -> Result<(), Error<DeleteManyAdminError>>;
+    ) -> Result<(), Error>;
 
     /// GET /ciphers/{id}
-    async fn get<'a>(&self, id: uuid::Uuid)
-    -> Result<models::CipherResponseModel, Error<GetError>>;
+    async fn get<'a>(&self, id: uuid::Uuid) -> Result<models::CipherResponseModel, Error>;
 
     /// GET /ciphers/{id}/admin
-    async fn get_admin<'a>(
-        &self,
-        id: &'a str,
-    ) -> Result<models::CipherMiniResponseModel, Error<GetAdminError>>;
+    async fn get_admin<'a>(&self, id: &'a str) -> Result<models::CipherMiniResponseModel, Error>;
 
     /// GET /ciphers
-    async fn get_all(
-        &self,
-    ) -> Result<models::CipherDetailsResponseModelListResponseModel, Error<GetAllError>>;
+    async fn get_all(&self) -> Result<models::CipherDetailsResponseModelListResponseModel, Error>;
 
     /// GET /ciphers/organization-details/assigned
     async fn get_assigned_organization_ciphers<'a>(
         &self,
         organization_id: Option<uuid::Uuid>,
-    ) -> Result<
-        models::CipherDetailsResponseModelListResponseModel,
-        Error<GetAssignedOrganizationCiphersError>,
-    >;
+    ) -> Result<models::CipherDetailsResponseModelListResponseModel, Error>;
 
     /// GET /ciphers/{id}/attachment/{attachmentId}
     async fn get_attachment_data<'a>(
         &self,
         id: uuid::Uuid,
         attachment_id: &'a str,
-    ) -> Result<models::AttachmentResponseModel, Error<GetAttachmentDataError>>;
+    ) -> Result<models::AttachmentResponseModel, Error>;
 
     /// GET /ciphers/{id}/attachment/{attachmentId}/admin
     async fn get_attachment_data_admin<'a>(
         &self,
         id: uuid::Uuid,
         attachment_id: &'a str,
-    ) -> Result<models::AttachmentResponseModel, Error<GetAttachmentDataAdminError>>;
+    ) -> Result<models::AttachmentResponseModel, Error>;
 
     /// GET /ciphers/{id}/details
     async fn get_details<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::CipherDetailsResponseModel, Error<GetDetailsError>>;
+    ) -> Result<models::CipherDetailsResponseModel, Error>;
 
     /// GET /ciphers/organization-details
     async fn get_organization_ciphers<'a>(
         &self,
         organization_id: Option<uuid::Uuid>,
         include_member_items: Option<bool>,
-    ) -> Result<
-        models::CipherMiniDetailsResponseModelListResponseModel,
-        Error<GetOrganizationCiphersError>,
-    >;
+    ) -> Result<models::CipherMiniDetailsResponseModelListResponseModel, Error>;
 
     /// PUT /ciphers/move
     async fn move_many<'a>(
         &self,
         cipher_bulk_move_request_model: Option<models::CipherBulkMoveRequestModel>,
-    ) -> Result<(), Error<MoveManyError>>;
+    ) -> Result<(), Error>;
 
     /// POST /ciphers
     async fn post<'a>(
         &self,
         cipher_request_model: Option<models::CipherRequestModel>,
-    ) -> Result<models::CipherResponseModel, Error<PostError>>;
+    ) -> Result<models::CipherResponseModel, Error>;
 
     /// POST /ciphers/admin
     async fn post_admin<'a>(
         &self,
         cipher_create_request_model: Option<models::CipherCreateRequestModel>,
-    ) -> Result<models::CipherMiniResponseModel, Error<PostAdminError>>;
+    ) -> Result<models::CipherMiniResponseModel, Error>;
 
     /// POST /ciphers/{id}/attachment/v2
     async fn post_attachment<'a>(
         &self,
         id: uuid::Uuid,
         attachment_request_model: Option<models::AttachmentRequestModel>,
-    ) -> Result<models::AttachmentUploadDataResponseModel, Error<PostAttachmentError>>;
+    ) -> Result<models::AttachmentUploadDataResponseModel, Error>;
 
     /// POST /ciphers/{id}/attachment-admin
     async fn post_attachment_admin<'a>(
         &self,
         id: &'a str,
-    ) -> Result<models::CipherMiniResponseModel, Error<PostAttachmentAdminError>>;
+    ) -> Result<models::CipherMiniResponseModel, Error>;
 
     /// POST /ciphers/{id}/attachment/{attachmentId}/share
     async fn post_attachment_share<'a>(
@@ -152,7 +140,7 @@ pub trait CiphersApi: Send + Sync {
         id: &'a str,
         attachment_id: &'a str,
         organization_id: Option<uuid::Uuid>,
-    ) -> Result<(), Error<PostAttachmentShareError>>;
+    ) -> Result<(), Error>;
 
     /// POST /ciphers/bulk-collections
     async fn post_bulk_collections<'a>(
@@ -160,155 +148,147 @@ pub trait CiphersApi: Send + Sync {
         cipher_bulk_update_collections_request_model: Option<
             models::CipherBulkUpdateCollectionsRequestModel,
         >,
-    ) -> Result<(), Error<PostBulkCollectionsError>>;
+    ) -> Result<(), Error>;
 
     /// POST /ciphers/create
     async fn post_create<'a>(
         &self,
         cipher_create_request_model: Option<models::CipherCreateRequestModel>,
-    ) -> Result<models::CipherResponseModel, Error<PostCreateError>>;
+    ) -> Result<models::CipherResponseModel, Error>;
 
     /// POST /ciphers/{id}/attachment/{attachmentId}
     async fn post_file_for_existing_attachment<'a>(
         &self,
         id: uuid::Uuid,
         attachment_id: &'a str,
-    ) -> Result<(), Error<PostFileForExistingAttachmentError>>;
+    ) -> Result<(), Error>;
 
     /// POST /ciphers/purge
     async fn post_purge<'a>(
         &self,
         organization_id: Option<uuid::Uuid>,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<(), Error<PostPurgeError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /ciphers/{id}
     async fn put<'a>(
         &self,
         id: uuid::Uuid,
         cipher_request_model: Option<models::CipherRequestModel>,
-    ) -> Result<models::CipherResponseModel, Error<PutError>>;
+    ) -> Result<models::CipherResponseModel, Error>;
 
     /// PUT /ciphers/{id}/admin
     async fn put_admin<'a>(
         &self,
         id: uuid::Uuid,
         cipher_request_model: Option<models::CipherRequestModel>,
-    ) -> Result<models::CipherMiniResponseModel, Error<PutAdminError>>;
+    ) -> Result<models::CipherMiniResponseModel, Error>;
 
     /// PUT /ciphers/{id}/archive
-    async fn put_archive<'a>(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<models::CipherResponseModel, Error<PutArchiveError>>;
+    async fn put_archive<'a>(&self, id: uuid::Uuid) -> Result<models::CipherResponseModel, Error>;
 
     /// PUT /ciphers/archive
     async fn put_archive_many<'a>(
         &self,
         cipher_bulk_archive_request_model: Option<models::CipherBulkArchiveRequestModel>,
-    ) -> Result<models::CipherResponseModelListResponseModel, Error<PutArchiveManyError>>;
+    ) -> Result<models::CipherResponseModelListResponseModel, Error>;
 
     /// PUT /ciphers/{id}/collections
     async fn put_collections<'a>(
         &self,
         id: uuid::Uuid,
         cipher_collections_request_model: Option<models::CipherCollectionsRequestModel>,
-    ) -> Result<models::CipherDetailsResponseModel, Error<PutCollectionsError>>;
+    ) -> Result<models::CipherDetailsResponseModel, Error>;
 
     /// PUT /ciphers/{id}/collections-admin
     async fn put_collections_admin<'a>(
         &self,
         id: &'a str,
         cipher_collections_request_model: Option<models::CipherCollectionsRequestModel>,
-    ) -> Result<models::CipherMiniDetailsResponseModel, Error<PutCollectionsAdminError>>;
+    ) -> Result<models::CipherMiniDetailsResponseModel, Error>;
 
     /// PUT /ciphers/{id}/collections_v2
     async fn put_collections_v_next<'a>(
         &self,
         id: uuid::Uuid,
         cipher_collections_request_model: Option<models::CipherCollectionsRequestModel>,
-    ) -> Result<models::OptionalCipherDetailsResponseModel, Error<PutCollections_vNextError>>;
+    ) -> Result<models::OptionalCipherDetailsResponseModel, Error>;
 
     /// PUT /ciphers/{id}/delete
-    async fn put_delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error<PutDeleteError>>;
+    async fn put_delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error>;
 
     /// PUT /ciphers/{id}/delete-admin
-    async fn put_delete_admin<'a>(&self, id: uuid::Uuid) -> Result<(), Error<PutDeleteAdminError>>;
+    async fn put_delete_admin<'a>(&self, id: uuid::Uuid) -> Result<(), Error>;
 
     /// PUT /ciphers/delete
     async fn put_delete_many<'a>(
         &self,
         cipher_bulk_delete_request_model: Option<models::CipherBulkDeleteRequestModel>,
-    ) -> Result<(), Error<PutDeleteManyError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /ciphers/delete-admin
     async fn put_delete_many_admin<'a>(
         &self,
         cipher_bulk_delete_request_model: Option<models::CipherBulkDeleteRequestModel>,
-    ) -> Result<(), Error<PutDeleteManyAdminError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /ciphers/{id}/partial
     async fn put_partial<'a>(
         &self,
         id: uuid::Uuid,
         cipher_partial_request_model: Option<models::CipherPartialRequestModel>,
-    ) -> Result<models::CipherResponseModel, Error<PutPartialError>>;
+    ) -> Result<models::CipherResponseModel, Error>;
 
     /// PUT /ciphers/{id}/restore
-    async fn put_restore<'a>(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<models::CipherResponseModel, Error<PutRestoreError>>;
+    async fn put_restore<'a>(&self, id: uuid::Uuid) -> Result<models::CipherResponseModel, Error>;
 
     /// PUT /ciphers/{id}/restore-admin
     async fn put_restore_admin<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::CipherMiniResponseModel, Error<PutRestoreAdminError>>;
+    ) -> Result<models::CipherMiniResponseModel, Error>;
 
     /// PUT /ciphers/restore
     async fn put_restore_many<'a>(
         &self,
         cipher_bulk_restore_request_model: Option<models::CipherBulkRestoreRequestModel>,
-    ) -> Result<models::CipherMiniResponseModelListResponseModel, Error<PutRestoreManyError>>;
+    ) -> Result<models::CipherMiniResponseModelListResponseModel, Error>;
 
     /// PUT /ciphers/restore-admin
     async fn put_restore_many_admin<'a>(
         &self,
         cipher_bulk_restore_request_model: Option<models::CipherBulkRestoreRequestModel>,
-    ) -> Result<models::CipherMiniResponseModelListResponseModel, Error<PutRestoreManyAdminError>>;
+    ) -> Result<models::CipherMiniResponseModelListResponseModel, Error>;
 
     /// PUT /ciphers/{id}/share
     async fn put_share<'a>(
         &self,
         id: uuid::Uuid,
         cipher_share_request_model: Option<models::CipherShareRequestModel>,
-    ) -> Result<models::CipherResponseModel, Error<PutShareError>>;
+    ) -> Result<models::CipherResponseModel, Error>;
 
     /// PUT /ciphers/share
     async fn put_share_many<'a>(
         &self,
         cipher_bulk_share_request_model: Option<models::CipherBulkShareRequestModel>,
-    ) -> Result<models::CipherMiniResponseModelListResponseModel, Error<PutShareManyError>>;
+    ) -> Result<models::CipherMiniResponseModelListResponseModel, Error>;
 
     /// PUT /ciphers/{id}/unarchive
-    async fn put_unarchive<'a>(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<models::CipherResponseModel, Error<PutUnarchiveError>>;
+    async fn put_unarchive<'a>(&self, id: uuid::Uuid)
+    -> Result<models::CipherResponseModel, Error>;
 
     /// PUT /ciphers/unarchive
     async fn put_unarchive_many<'a>(
         &self,
         cipher_bulk_unarchive_request_model: Option<models::CipherBulkUnarchiveRequestModel>,
-    ) -> Result<models::CipherResponseModelListResponseModel, Error<PutUnarchiveManyError>>;
+    ) -> Result<models::CipherResponseModelListResponseModel, Error>;
 
     /// GET /ciphers/{id}/attachment/{attachmentId}/renew
     async fn renew_file_upload_url<'a>(
         &self,
         id: uuid::Uuid,
         attachment_id: &'a str,
-    ) -> Result<models::AttachmentUploadDataResponseModel, Error<RenewFileUploadUrlError>>;
+    ) -> Result<models::AttachmentUploadDataResponseModel, Error>;
 }
 
 pub struct CiphersApiClient {
@@ -324,7 +304,7 @@ impl CiphersApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl CiphersApi for CiphersApiClient {
-    async fn azure_validate_file(&self) -> Result<(), Error<AzureValidateFileError>> {
+    async fn azure_validate_file(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -346,18 +326,14 @@ impl CiphersApi for CiphersApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<AzureValidateFileError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error<DeleteError>> {
+    async fn delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -380,18 +356,14 @@ impl CiphersApi for CiphersApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<DeleteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn delete_admin<'a>(&self, id: uuid::Uuid) -> Result<(), Error<DeleteAdminError>> {
+    async fn delete_admin<'a>(&self, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -414,14 +386,10 @@ impl CiphersApi for CiphersApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<DeleteAdminError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -429,7 +397,7 @@ impl CiphersApi for CiphersApiClient {
         &self,
         id: uuid::Uuid,
         attachment_id: &'a str,
-    ) -> Result<models::DeleteAttachmentResponseModel, Error<DeleteAttachmentError>> {
+    ) -> Result<models::DeleteAttachmentResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -471,14 +439,10 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<DeleteAttachmentError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -486,7 +450,7 @@ impl CiphersApi for CiphersApiClient {
         &self,
         id: uuid::Uuid,
         attachment_id: &'a str,
-    ) -> Result<models::DeleteAttachmentResponseModel, Error<DeleteAttachmentAdminError>> {
+    ) -> Result<models::DeleteAttachmentResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -528,21 +492,17 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<DeleteAttachmentAdminError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn delete_many<'a>(
         &self,
         cipher_bulk_delete_request_model: Option<models::CipherBulkDeleteRequestModel>,
-    ) -> Result<(), Error<DeleteManyError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -562,21 +522,17 @@ impl CiphersApi for CiphersApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<DeleteManyError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn delete_many_admin<'a>(
         &self,
         cipher_bulk_delete_request_model: Option<models::CipherBulkDeleteRequestModel>,
-    ) -> Result<(), Error<DeleteManyAdminError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -596,21 +552,14 @@ impl CiphersApi for CiphersApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<DeleteManyAdminError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn get<'a>(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<models::CipherResponseModel, Error<GetError>> {
+    async fn get<'a>(&self, id: uuid::Uuid) -> Result<models::CipherResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -651,20 +600,14 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn get_admin<'a>(
-        &self,
-        id: &'a str,
-    ) -> Result<models::CipherMiniResponseModel, Error<GetAdminError>> {
+    async fn get_admin<'a>(&self, id: &'a str) -> Result<models::CipherMiniResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -705,20 +648,14 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetAdminError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn get_all(
-        &self,
-    ) -> Result<models::CipherDetailsResponseModelListResponseModel, Error<GetAllError>> {
+    async fn get_all(&self) -> Result<models::CipherDetailsResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -755,24 +692,17 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetAllError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn get_assigned_organization_ciphers<'a>(
         &self,
         organization_id: Option<uuid::Uuid>,
-    ) -> Result<
-        models::CipherDetailsResponseModelListResponseModel,
-        Error<GetAssignedOrganizationCiphersError>,
-    > {
+    ) -> Result<models::CipherDetailsResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -816,14 +746,10 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetAssignedOrganizationCiphersError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -831,7 +757,7 @@ impl CiphersApi for CiphersApiClient {
         &self,
         id: uuid::Uuid,
         attachment_id: &'a str,
-    ) -> Result<models::AttachmentResponseModel, Error<GetAttachmentDataError>> {
+    ) -> Result<models::AttachmentResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -873,14 +799,10 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetAttachmentDataError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -888,7 +810,7 @@ impl CiphersApi for CiphersApiClient {
         &self,
         id: uuid::Uuid,
         attachment_id: &'a str,
-    ) -> Result<models::AttachmentResponseModel, Error<GetAttachmentDataAdminError>> {
+    ) -> Result<models::AttachmentResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -930,21 +852,17 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetAttachmentDataAdminError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn get_details<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::CipherDetailsResponseModel, Error<GetDetailsError>> {
+    ) -> Result<models::CipherDetailsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -985,14 +903,10 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetDetailsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1000,10 +914,7 @@ impl CiphersApi for CiphersApiClient {
         &self,
         organization_id: Option<uuid::Uuid>,
         include_member_items: Option<bool>,
-    ) -> Result<
-        models::CipherMiniDetailsResponseModelListResponseModel,
-        Error<GetOrganizationCiphersError>,
-    > {
+    ) -> Result<models::CipherMiniDetailsResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1051,21 +962,17 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetOrganizationCiphersError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn move_many<'a>(
         &self,
         cipher_bulk_move_request_model: Option<models::CipherBulkMoveRequestModel>,
-    ) -> Result<(), Error<MoveManyError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1085,21 +992,17 @@ impl CiphersApi for CiphersApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<MoveManyError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post<'a>(
         &self,
         cipher_request_model: Option<models::CipherRequestModel>,
-    ) -> Result<models::CipherResponseModel, Error<PostError>> {
+    ) -> Result<models::CipherResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1137,20 +1040,17 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PostError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post_admin<'a>(
         &self,
         cipher_create_request_model: Option<models::CipherCreateRequestModel>,
-    ) -> Result<models::CipherMiniResponseModel, Error<PostAdminError>> {
+    ) -> Result<models::CipherMiniResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1188,14 +1088,10 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PostAdminError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1203,7 +1099,7 @@ impl CiphersApi for CiphersApiClient {
         &self,
         id: uuid::Uuid,
         attachment_request_model: Option<models::AttachmentRequestModel>,
-    ) -> Result<models::AttachmentUploadDataResponseModel, Error<PostAttachmentError>> {
+    ) -> Result<models::AttachmentUploadDataResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1245,21 +1141,17 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PostAttachmentError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post_attachment_admin<'a>(
         &self,
         id: &'a str,
-    ) -> Result<models::CipherMiniResponseModel, Error<PostAttachmentAdminError>> {
+    ) -> Result<models::CipherMiniResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1300,14 +1192,10 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PostAttachmentAdminError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1316,7 +1204,7 @@ impl CiphersApi for CiphersApiClient {
         id: &'a str,
         attachment_id: &'a str,
         organization_id: Option<uuid::Uuid>,
-    ) -> Result<(), Error<PostAttachmentShareError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1344,14 +1232,10 @@ impl CiphersApi for CiphersApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostAttachmentShareError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1360,7 +1244,7 @@ impl CiphersApi for CiphersApiClient {
         cipher_bulk_update_collections_request_model: Option<
             models::CipherBulkUpdateCollectionsRequestModel,
         >,
-    ) -> Result<(), Error<PostBulkCollectionsError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1384,21 +1268,17 @@ impl CiphersApi for CiphersApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostBulkCollectionsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post_create<'a>(
         &self,
         cipher_create_request_model: Option<models::CipherCreateRequestModel>,
-    ) -> Result<models::CipherResponseModel, Error<PostCreateError>> {
+    ) -> Result<models::CipherResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1436,14 +1316,10 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PostCreateError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1451,7 +1327,7 @@ impl CiphersApi for CiphersApiClient {
         &self,
         id: uuid::Uuid,
         attachment_id: &'a str,
-    ) -> Result<(), Error<PostFileForExistingAttachmentError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1475,14 +1351,10 @@ impl CiphersApi for CiphersApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostFileForExistingAttachmentError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1490,7 +1362,7 @@ impl CiphersApi for CiphersApiClient {
         &self,
         organization_id: Option<uuid::Uuid>,
         secret_verification_request_model: Option<models::SecretVerificationRequestModel>,
-    ) -> Result<(), Error<PostPurgeError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1514,14 +1386,10 @@ impl CiphersApi for CiphersApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostPurgeError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1529,7 +1397,7 @@ impl CiphersApi for CiphersApiClient {
         &self,
         id: uuid::Uuid,
         cipher_request_model: Option<models::CipherRequestModel>,
-    ) -> Result<models::CipherResponseModel, Error<PutError>> {
+    ) -> Result<models::CipherResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1571,13 +1439,10 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1585,7 +1450,7 @@ impl CiphersApi for CiphersApiClient {
         &self,
         id: uuid::Uuid,
         cipher_request_model: Option<models::CipherRequestModel>,
-    ) -> Result<models::CipherMiniResponseModel, Error<PutAdminError>> {
+    ) -> Result<models::CipherMiniResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1627,21 +1492,14 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutAdminError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn put_archive<'a>(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<models::CipherResponseModel, Error<PutArchiveError>> {
+    async fn put_archive<'a>(&self, id: uuid::Uuid) -> Result<models::CipherResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1682,21 +1540,17 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutArchiveError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn put_archive_many<'a>(
         &self,
         cipher_bulk_archive_request_model: Option<models::CipherBulkArchiveRequestModel>,
-    ) -> Result<models::CipherResponseModelListResponseModel, Error<PutArchiveManyError>> {
+    ) -> Result<models::CipherResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1734,14 +1588,10 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutArchiveManyError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1749,7 +1599,7 @@ impl CiphersApi for CiphersApiClient {
         &self,
         id: uuid::Uuid,
         cipher_collections_request_model: Option<models::CipherCollectionsRequestModel>,
-    ) -> Result<models::CipherDetailsResponseModel, Error<PutCollectionsError>> {
+    ) -> Result<models::CipherDetailsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1791,14 +1641,10 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutCollectionsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1806,7 +1652,7 @@ impl CiphersApi for CiphersApiClient {
         &self,
         id: &'a str,
         cipher_collections_request_model: Option<models::CipherCollectionsRequestModel>,
-    ) -> Result<models::CipherMiniDetailsResponseModel, Error<PutCollectionsAdminError>> {
+    ) -> Result<models::CipherMiniDetailsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1848,14 +1694,10 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutCollectionsAdminError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -1863,7 +1705,7 @@ impl CiphersApi for CiphersApiClient {
         &self,
         id: uuid::Uuid,
         cipher_collections_request_model: Option<models::CipherCollectionsRequestModel>,
-    ) -> Result<models::OptionalCipherDetailsResponseModel, Error<PutCollections_vNextError>> {
+    ) -> Result<models::OptionalCipherDetailsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1905,18 +1747,14 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutCollections_vNextError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn put_delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error<PutDeleteError>> {
+    async fn put_delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1939,18 +1777,14 @@ impl CiphersApi for CiphersApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PutDeleteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn put_delete_admin<'a>(&self, id: uuid::Uuid) -> Result<(), Error<PutDeleteAdminError>> {
+    async fn put_delete_admin<'a>(&self, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -1973,21 +1807,17 @@ impl CiphersApi for CiphersApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PutDeleteAdminError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn put_delete_many<'a>(
         &self,
         cipher_bulk_delete_request_model: Option<models::CipherBulkDeleteRequestModel>,
-    ) -> Result<(), Error<PutDeleteManyError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2007,21 +1837,17 @@ impl CiphersApi for CiphersApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PutDeleteManyError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn put_delete_many_admin<'a>(
         &self,
         cipher_bulk_delete_request_model: Option<models::CipherBulkDeleteRequestModel>,
-    ) -> Result<(), Error<PutDeleteManyAdminError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2042,14 +1868,10 @@ impl CiphersApi for CiphersApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PutDeleteManyAdminError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -2057,7 +1879,7 @@ impl CiphersApi for CiphersApiClient {
         &self,
         id: uuid::Uuid,
         cipher_partial_request_model: Option<models::CipherPartialRequestModel>,
-    ) -> Result<models::CipherResponseModel, Error<PutPartialError>> {
+    ) -> Result<models::CipherResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2099,21 +1921,14 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutPartialError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn put_restore<'a>(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<models::CipherResponseModel, Error<PutRestoreError>> {
+    async fn put_restore<'a>(&self, id: uuid::Uuid) -> Result<models::CipherResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2154,21 +1969,17 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutRestoreError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn put_restore_admin<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::CipherMiniResponseModel, Error<PutRestoreAdminError>> {
+    ) -> Result<models::CipherMiniResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2209,21 +2020,17 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutRestoreAdminError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn put_restore_many<'a>(
         &self,
         cipher_bulk_restore_request_model: Option<models::CipherBulkRestoreRequestModel>,
-    ) -> Result<models::CipherMiniResponseModelListResponseModel, Error<PutRestoreManyError>> {
+    ) -> Result<models::CipherMiniResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2261,22 +2068,17 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutRestoreManyError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn put_restore_many_admin<'a>(
         &self,
         cipher_bulk_restore_request_model: Option<models::CipherBulkRestoreRequestModel>,
-    ) -> Result<models::CipherMiniResponseModelListResponseModel, Error<PutRestoreManyAdminError>>
-    {
+    ) -> Result<models::CipherMiniResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2317,14 +2119,10 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutRestoreManyAdminError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -2332,7 +2130,7 @@ impl CiphersApi for CiphersApiClient {
         &self,
         id: uuid::Uuid,
         cipher_share_request_model: Option<models::CipherShareRequestModel>,
-    ) -> Result<models::CipherResponseModel, Error<PutShareError>> {
+    ) -> Result<models::CipherResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2374,21 +2172,17 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutShareError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn put_share_many<'a>(
         &self,
         cipher_bulk_share_request_model: Option<models::CipherBulkShareRequestModel>,
-    ) -> Result<models::CipherMiniResponseModelListResponseModel, Error<PutShareManyError>> {
+    ) -> Result<models::CipherMiniResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2426,21 +2220,17 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutShareManyError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn put_unarchive<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::CipherResponseModel, Error<PutUnarchiveError>> {
+    ) -> Result<models::CipherResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2481,21 +2271,17 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutUnarchiveError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn put_unarchive_many<'a>(
         &self,
         cipher_bulk_unarchive_request_model: Option<models::CipherBulkUnarchiveRequestModel>,
-    ) -> Result<models::CipherResponseModelListResponseModel, Error<PutUnarchiveManyError>> {
+    ) -> Result<models::CipherResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2533,14 +2319,10 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutUnarchiveManyError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -2548,7 +2330,7 @@ impl CiphersApi for CiphersApiClient {
         &self,
         id: uuid::Uuid,
         attachment_id: &'a str,
-    ) -> Result<models::AttachmentUploadDataResponseModel, Error<RenewFileUploadUrlError>> {
+    ) -> Result<models::AttachmentUploadDataResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -2590,291 +2372,10 @@ impl CiphersApi for CiphersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<RenewFileUploadUrlError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`CiphersApi::azure_validate_file`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AzureValidateFileError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::delete_admin`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteAdminError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::delete_attachment`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteAttachmentError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::delete_attachment_admin`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteAttachmentAdminError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::delete_many`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteManyError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::delete_many_admin`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteManyAdminError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::get_admin`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAdminError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::get_all`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAllError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::get_assigned_organization_ciphers`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAssignedOrganizationCiphersError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::get_attachment_data`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAttachmentDataError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::get_attachment_data_admin`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAttachmentDataAdminError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::get_details`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetDetailsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::get_organization_ciphers`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetOrganizationCiphersError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::move_many`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum MoveManyError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::post_admin`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostAdminError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::post_attachment`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostAttachmentError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::post_attachment_admin`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostAttachmentAdminError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::post_attachment_share`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostAttachmentShareError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::post_bulk_collections`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostBulkCollectionsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::post_create`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostCreateError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::post_file_for_existing_attachment`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostFileForExistingAttachmentError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::post_purge`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostPurgeError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::put_admin`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutAdminError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::put_archive`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutArchiveError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::put_archive_many`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutArchiveManyError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::put_collections`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutCollectionsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::put_collections_admin`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutCollectionsAdminError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::put_collections_v_next`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutCollections_vNextError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::put_delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutDeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::put_delete_admin`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutDeleteAdminError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::put_delete_many`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutDeleteManyError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::put_delete_many_admin`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutDeleteManyAdminError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::put_partial`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutPartialError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::put_restore`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutRestoreError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::put_restore_admin`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutRestoreAdminError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::put_restore_many`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutRestoreManyError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::put_restore_many_admin`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutRestoreManyAdminError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::put_share`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutShareError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::put_share_many`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutShareManyError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::put_unarchive`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutUnarchiveError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::put_unarchive_many`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutUnarchiveManyError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CiphersApi::renew_file_upload_url`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RenewFileUploadUrlError {
-    UnknownValue(serde_json::Value),
 }

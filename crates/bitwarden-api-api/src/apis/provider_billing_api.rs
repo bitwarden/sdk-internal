@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -31,19 +31,13 @@ pub trait ProviderBillingApi: Send + Sync {
         &self,
         provider_id: uuid::Uuid,
         invoice_id: &'a str,
-    ) -> Result<(), Error<GenerateClientInvoiceReportError>>;
+    ) -> Result<(), Error>;
 
     /// GET /providers/{providerId}/billing/invoices
-    async fn get_invoices<'a>(
-        &self,
-        provider_id: uuid::Uuid,
-    ) -> Result<(), Error<GetInvoicesError>>;
+    async fn get_invoices<'a>(&self, provider_id: uuid::Uuid) -> Result<(), Error>;
 
     /// GET /providers/{providerId}/billing/subscription
-    async fn get_subscription<'a>(
-        &self,
-        provider_id: uuid::Uuid,
-    ) -> Result<(), Error<GetSubscriptionError>>;
+    async fn get_subscription<'a>(&self, provider_id: uuid::Uuid) -> Result<(), Error>;
 }
 
 pub struct ProviderBillingApiClient {
@@ -63,7 +57,7 @@ impl ProviderBillingApi for ProviderBillingApiClient {
         &self,
         provider_id: uuid::Uuid,
         invoice_id: &'a str,
-    ) -> Result<(), Error<GenerateClientInvoiceReportError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -87,21 +81,14 @@ impl ProviderBillingApi for ProviderBillingApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<GenerateClientInvoiceReportError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn get_invoices<'a>(
-        &self,
-        provider_id: uuid::Uuid,
-    ) -> Result<(), Error<GetInvoicesError>> {
+    async fn get_invoices<'a>(&self, provider_id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -124,21 +111,14 @@ impl ProviderBillingApi for ProviderBillingApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<GetInvoicesError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn get_subscription<'a>(
-        &self,
-        provider_id: uuid::Uuid,
-    ) -> Result<(), Error<GetSubscriptionError>> {
+    async fn get_subscription<'a>(&self, provider_id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -161,33 +141,10 @@ impl ProviderBillingApi for ProviderBillingApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<GetSubscriptionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`ProviderBillingApi::generate_client_invoice_report`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GenerateClientInvoiceReportError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderBillingApi::get_invoices`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetInvoicesError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderBillingApi::get_subscription`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetSubscriptionError {
-    UnknownValue(serde_json::Value),
 }

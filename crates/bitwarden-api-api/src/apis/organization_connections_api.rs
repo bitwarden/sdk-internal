@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -27,33 +27,33 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait OrganizationConnectionsApi: Send + Sync {
     /// GET /organizations/connections/enabled
-    async fn connections_enabled(&self) -> Result<bool, Error<ConnectionsEnabledError>>;
+    async fn connections_enabled(&self) -> Result<bool, Error>;
 
     /// POST /organizations/connections
     async fn create_connection<'a>(
         &self,
         organization_connection_request_model: Option<models::OrganizationConnectionRequestModel>,
-    ) -> Result<models::OrganizationConnectionResponseModel, Error<CreateConnectionError>>;
+    ) -> Result<models::OrganizationConnectionResponseModel, Error>;
 
     /// DELETE /organizations/connections/{organizationConnectionId}
     async fn delete_connection<'a>(
         &self,
         organization_connection_id: uuid::Uuid,
-    ) -> Result<(), Error<DeleteConnectionError>>;
+    ) -> Result<(), Error>;
 
     /// GET /organizations/connections/{organizationId}/{type}
     async fn get_connection<'a>(
         &self,
         organization_id: uuid::Uuid,
         r#type: models::OrganizationConnectionType,
-    ) -> Result<models::OrganizationConnectionResponseModel, Error<GetConnectionError>>;
+    ) -> Result<models::OrganizationConnectionResponseModel, Error>;
 
     /// PUT /organizations/connections/{organizationConnectionId}
     async fn update_connection<'a>(
         &self,
         organization_connection_id: uuid::Uuid,
         organization_connection_request_model: Option<models::OrganizationConnectionRequestModel>,
-    ) -> Result<models::OrganizationConnectionResponseModel, Error<UpdateConnectionError>>;
+    ) -> Result<models::OrganizationConnectionResponseModel, Error>;
 }
 
 pub struct OrganizationConnectionsApiClient {
@@ -69,7 +69,7 @@ impl OrganizationConnectionsApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl OrganizationConnectionsApi for OrganizationConnectionsApiClient {
-    async fn connections_enabled(&self) -> Result<bool, Error<ConnectionsEnabledError>> {
+    async fn connections_enabled(&self) -> Result<bool, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -109,21 +109,17 @@ impl OrganizationConnectionsApi for OrganizationConnectionsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<ConnectionsEnabledError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn create_connection<'a>(
         &self,
         organization_connection_request_model: Option<models::OrganizationConnectionRequestModel>,
-    ) -> Result<models::OrganizationConnectionResponseModel, Error<CreateConnectionError>> {
+    ) -> Result<models::OrganizationConnectionResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -164,21 +160,17 @@ impl OrganizationConnectionsApi for OrganizationConnectionsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<CreateConnectionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn delete_connection<'a>(
         &self,
         organization_connection_id: uuid::Uuid,
-    ) -> Result<(), Error<DeleteConnectionError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -201,14 +193,10 @@ impl OrganizationConnectionsApi for OrganizationConnectionsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<DeleteConnectionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -216,7 +204,7 @@ impl OrganizationConnectionsApi for OrganizationConnectionsApiClient {
         &self,
         organization_id: uuid::Uuid,
         r#type: models::OrganizationConnectionType,
-    ) -> Result<models::OrganizationConnectionResponseModel, Error<GetConnectionError>> {
+    ) -> Result<models::OrganizationConnectionResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -253,14 +241,10 @@ impl OrganizationConnectionsApi for OrganizationConnectionsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetConnectionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -268,7 +252,7 @@ impl OrganizationConnectionsApi for OrganizationConnectionsApiClient {
         &self,
         organization_connection_id: uuid::Uuid,
         organization_connection_request_model: Option<models::OrganizationConnectionRequestModel>,
-    ) -> Result<models::OrganizationConnectionResponseModel, Error<UpdateConnectionError>> {
+    ) -> Result<models::OrganizationConnectionResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -310,45 +294,10 @@ impl OrganizationConnectionsApi for OrganizationConnectionsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<UpdateConnectionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`OrganizationConnectionsApi::connections_enabled`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ConnectionsEnabledError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationConnectionsApi::create_connection`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateConnectionError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationConnectionsApi::delete_connection`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteConnectionError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationConnectionsApi::get_connection`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetConnectionError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationConnectionsApi::update_connection`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateConnectionError {
-    UnknownValue(serde_json::Value),
 }

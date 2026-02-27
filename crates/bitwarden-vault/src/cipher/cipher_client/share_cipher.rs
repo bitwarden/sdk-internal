@@ -618,11 +618,9 @@ mod tests {
     #[tokio::test]
     async fn test_share_cipher_api_handles_404() {
         let api_client = ApiClient::new_mocked(|mock| {
-            mock.ciphers_api.expect_put_share().returning(|_id, _body| {
-                Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
-                    "Not found",
-                )))
-            });
+            mock.ciphers_api
+                .expect_put_share()
+                .returning(|_id, _body| Err(bitwarden_api_api::Error::Other("Not found".into())));
         });
 
         let repository = MemoryRepository::<Cipher>::default();
@@ -753,11 +751,9 @@ mod tests {
     #[tokio::test]
     async fn test_share_ciphers_bulk_api_handles_error() {
         let api_client = ApiClient::new_mocked(|mock| {
-            mock.ciphers_api.expect_put_share_many().returning(|_body| {
-                Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
-                    "Server error",
-                )))
-            });
+            mock.ciphers_api
+                .expect_put_share_many()
+                .returning(|_body| Err(bitwarden_api_api::Error::Other("Server error".into())));
         });
 
         let repository = MemoryRepository::<Cipher>::default();

@@ -8,7 +8,6 @@ This crate provides common functionality shared across all Bitwarden API client 
 
 - `Configuration` - HTTP client configuration with authentication options
 - `Error` - Error type for API operations
-- `ResponseContent` - Container for error response data
 - `urlencode` - URL encoding utility
 - `parse_deep_object` - Deep object query parameter serialization
 - `ContentType` - Content type parsing

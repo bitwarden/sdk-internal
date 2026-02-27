@@ -636,11 +636,7 @@ mod tests {
             mock.accounts_api
                 .expect_post_keys()
                 .once()
-                .returning(move |_body| {
-                    Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other("API error")),
-                    ))
-                });
+                .returning(move |_body| Err(bitwarden_api_api::Error::Other("API error".into())));
             // Subsequent API calls should not be made if post_keys fails
             mock.organization_users_api
                 .expect_put_reset_password_enrollment()
@@ -693,9 +689,7 @@ mod tests {
                 .expect_put_reset_password_enrollment()
                 .once()
                 .returning(move |_org_id, _user_id, _body| {
-                    Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other("API error")),
-                    ))
+                    Err(bitwarden_api_api::Error::Other("API error".into()))
                 });
             // Device key enrollment should not be made if reset password enrollment fails
             mock.devices_api.expect_put_keys().never();
@@ -750,9 +744,7 @@ mod tests {
                 .expect_put_keys()
                 .once()
                 .returning(move |_device_id, _body| {
-                    Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other("API error")),
-                    ))
+                    Err(bitwarden_api_api::Error::Other("API error".into()))
                 });
         });
 
@@ -899,11 +891,7 @@ mod tests {
             mock.accounts_key_management_api
                 .expect_post_set_key_connector_key()
                 .once()
-                .returning(move |_body| {
-                    Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other("API error")),
-                    ))
-                });
+                .returning(move |_body| Err(bitwarden_api_api::Error::Other("API error".into())));
         });
 
         let key_connector_api_client =
@@ -1095,11 +1083,7 @@ mod tests {
             mock.accounts_api
                 .expect_post_set_password()
                 .once()
-                .returning(move |_body| {
-                    Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other("API error")),
-                    ))
-                });
+                .returning(move |_body| Err(bitwarden_api_api::Error::Other("API error".into())));
             mock.organization_users_api
                 .expect_put_reset_password_enrollment()
                 .never();
@@ -1147,9 +1131,7 @@ mod tests {
                 .expect_put_reset_password_enrollment()
                 .once()
                 .returning(move |_org_id, _user_id, _body| {
-                    Err(bitwarden_api_api::apis::Error::Serde(
-                        serde_json::Error::io(std::io::Error::other("API error")),
-                    ))
+                    Err(bitwarden_api_api::Error::Other("API error".into()))
                 });
         });
 

@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -27,49 +27,41 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait AuthRequestsApi: Send + Sync {
     /// GET /auth-requests/{id}
-    async fn get<'a>(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<models::AuthRequestResponseModel, Error<GetError>>;
+    async fn get<'a>(&self, id: uuid::Uuid) -> Result<models::AuthRequestResponseModel, Error>;
 
     /// GET /auth-requests
-    async fn get_all(
-        &self,
-    ) -> Result<models::AuthRequestResponseModelListResponseModel, Error<GetAllError>>;
+    async fn get_all(&self) -> Result<models::AuthRequestResponseModelListResponseModel, Error>;
 
     /// GET /auth-requests/pending
     async fn get_pending_auth_requests(
         &self,
-    ) -> Result<
-        models::PendingAuthRequestResponseModelListResponseModel,
-        Error<GetPendingAuthRequestsError>,
-    >;
+    ) -> Result<models::PendingAuthRequestResponseModelListResponseModel, Error>;
 
     /// GET /auth-requests/{id}/response
     async fn get_response<'a>(
         &self,
         id: uuid::Uuid,
         code: Option<&'a str>,
-    ) -> Result<models::AuthRequestResponseModel, Error<GetResponseError>>;
+    ) -> Result<models::AuthRequestResponseModel, Error>;
 
     /// POST /auth-requests
     async fn post<'a>(
         &self,
         auth_request_create_request_model: Option<models::AuthRequestCreateRequestModel>,
-    ) -> Result<models::AuthRequestResponseModel, Error<PostError>>;
+    ) -> Result<models::AuthRequestResponseModel, Error>;
 
     /// POST /auth-requests/admin-request
     async fn post_admin_request<'a>(
         &self,
         auth_request_create_request_model: Option<models::AuthRequestCreateRequestModel>,
-    ) -> Result<models::AuthRequestResponseModel, Error<PostAdminRequestError>>;
+    ) -> Result<models::AuthRequestResponseModel, Error>;
 
     /// PUT /auth-requests/{id}
     async fn put<'a>(
         &self,
         id: uuid::Uuid,
         auth_request_update_request_model: Option<models::AuthRequestUpdateRequestModel>,
-    ) -> Result<models::AuthRequestResponseModel, Error<PutError>>;
+    ) -> Result<models::AuthRequestResponseModel, Error>;
 }
 
 pub struct AuthRequestsApiClient {
@@ -85,10 +77,7 @@ impl AuthRequestsApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl AuthRequestsApi for AuthRequestsApiClient {
-    async fn get<'a>(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<models::AuthRequestResponseModel, Error<GetError>> {
+    async fn get<'a>(&self, id: uuid::Uuid) -> Result<models::AuthRequestResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -129,19 +118,14 @@ impl AuthRequestsApi for AuthRequestsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn get_all(
-        &self,
-    ) -> Result<models::AuthRequestResponseModelListResponseModel, Error<GetAllError>> {
+    async fn get_all(&self) -> Result<models::AuthRequestResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -178,23 +162,16 @@ impl AuthRequestsApi for AuthRequestsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetAllError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn get_pending_auth_requests(
         &self,
-    ) -> Result<
-        models::PendingAuthRequestResponseModelListResponseModel,
-        Error<GetPendingAuthRequestsError>,
-    > {
+    ) -> Result<models::PendingAuthRequestResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -234,14 +211,10 @@ impl AuthRequestsApi for AuthRequestsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetPendingAuthRequestsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -249,7 +222,7 @@ impl AuthRequestsApi for AuthRequestsApiClient {
         &self,
         id: uuid::Uuid,
         code: Option<&'a str>,
-    ) -> Result<models::AuthRequestResponseModel, Error<GetResponseError>> {
+    ) -> Result<models::AuthRequestResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -294,21 +267,17 @@ impl AuthRequestsApi for AuthRequestsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetResponseError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post<'a>(
         &self,
         auth_request_create_request_model: Option<models::AuthRequestCreateRequestModel>,
-    ) -> Result<models::AuthRequestResponseModel, Error<PostError>> {
+    ) -> Result<models::AuthRequestResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -346,20 +315,17 @@ impl AuthRequestsApi for AuthRequestsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PostError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn post_admin_request<'a>(
         &self,
         auth_request_create_request_model: Option<models::AuthRequestCreateRequestModel>,
-    ) -> Result<models::AuthRequestResponseModel, Error<PostAdminRequestError>> {
+    ) -> Result<models::AuthRequestResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -400,14 +366,10 @@ impl AuthRequestsApi for AuthRequestsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PostAdminRequestError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -415,7 +377,7 @@ impl AuthRequestsApi for AuthRequestsApiClient {
         &self,
         id: uuid::Uuid,
         auth_request_update_request_model: Option<models::AuthRequestUpdateRequestModel>,
-    ) -> Result<models::AuthRequestResponseModel, Error<PutError>> {
+    ) -> Result<models::AuthRequestResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -457,56 +419,10 @@ impl AuthRequestsApi for AuthRequestsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`AuthRequestsApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AuthRequestsApi::get_all`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAllError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AuthRequestsApi::get_pending_auth_requests`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetPendingAuthRequestsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AuthRequestsApi::get_response`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetResponseError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AuthRequestsApi::post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AuthRequestsApi::post_admin_request`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostAdminRequestError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AuthRequestsApi::put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutError {
-    UnknownValue(serde_json::Value),
 }

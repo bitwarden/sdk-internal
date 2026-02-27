@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -31,10 +31,10 @@ pub trait GroupsApi: Send + Sync {
         &self,
         org_id: &'a str,
         group_bulk_request_model: Option<models::GroupBulkRequestModel>,
-    ) -> Result<(), Error<BulkDeleteError>>;
+    ) -> Result<(), Error>;
 
     /// DELETE /organizations/{orgId}/groups/{id}
-    async fn delete<'a>(&self, org_id: &'a str, id: &'a str) -> Result<(), Error<DeleteError>>;
+    async fn delete<'a>(&self, org_id: &'a str, id: &'a str) -> Result<(), Error>;
 
     /// DELETE /organizations/{orgId}/groups/{id}/user/{orgUserId}
     async fn delete_user<'a>(
@@ -42,50 +42,43 @@ pub trait GroupsApi: Send + Sync {
         org_id: &'a str,
         id: &'a str,
         org_user_id: &'a str,
-    ) -> Result<(), Error<DeleteUserError>>;
+    ) -> Result<(), Error>;
 
     /// GET /organizations/{orgId}/groups/{id}
     async fn get<'a>(
         &self,
         org_id: &'a str,
         id: &'a str,
-    ) -> Result<models::GroupResponseModel, Error<GetError>>;
+    ) -> Result<models::GroupResponseModel, Error>;
 
     /// GET /organizations/{orgId}/groups/{id}/details
     async fn get_details<'a>(
         &self,
         org_id: &'a str,
         id: &'a str,
-    ) -> Result<models::GroupDetailsResponseModel, Error<GetDetailsError>>;
+    ) -> Result<models::GroupDetailsResponseModel, Error>;
 
     /// GET /organizations/{orgId}/groups/details
     async fn get_organization_group_details<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<
-        models::GroupDetailsResponseModelListResponseModel,
-        Error<GetOrganizationGroupDetailsError>,
-    >;
+    ) -> Result<models::GroupDetailsResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{orgId}/groups
     async fn get_organization_groups<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<models::GroupResponseModelListResponseModel, Error<GetOrganizationGroupsError>>;
+    ) -> Result<models::GroupResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{orgId}/groups/{id}/users
-    async fn get_users<'a>(
-        &self,
-        org_id: &'a str,
-        id: &'a str,
-    ) -> Result<Vec<uuid::Uuid>, Error<GetUsersError>>;
+    async fn get_users<'a>(&self, org_id: &'a str, id: &'a str) -> Result<Vec<uuid::Uuid>, Error>;
 
     /// POST /organizations/{orgId}/groups
     async fn post<'a>(
         &self,
         org_id: uuid::Uuid,
         group_request_model: Option<models::GroupRequestModel>,
-    ) -> Result<models::GroupResponseModel, Error<PostError>>;
+    ) -> Result<models::GroupResponseModel, Error>;
 
     /// PUT /organizations/{orgId}/groups/{id}
     async fn put<'a>(
@@ -93,7 +86,7 @@ pub trait GroupsApi: Send + Sync {
         org_id: uuid::Uuid,
         id: uuid::Uuid,
         group_request_model: Option<models::GroupRequestModel>,
-    ) -> Result<models::GroupResponseModel, Error<PutError>>;
+    ) -> Result<models::GroupResponseModel, Error>;
 }
 
 pub struct GroupsApiClient {
@@ -113,7 +106,7 @@ impl GroupsApi for GroupsApiClient {
         &self,
         org_id: &'a str,
         group_bulk_request_model: Option<models::GroupBulkRequestModel>,
-    ) -> Result<(), Error<BulkDeleteError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -137,18 +130,14 @@ impl GroupsApi for GroupsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<BulkDeleteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn delete<'a>(&self, org_id: &'a str, id: &'a str) -> Result<(), Error<DeleteError>> {
+    async fn delete<'a>(&self, org_id: &'a str, id: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -172,14 +161,10 @@ impl GroupsApi for GroupsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<DeleteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -188,7 +173,7 @@ impl GroupsApi for GroupsApiClient {
         org_id: &'a str,
         id: &'a str,
         org_user_id: &'a str,
-    ) -> Result<(), Error<DeleteUserError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -213,14 +198,10 @@ impl GroupsApi for GroupsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<DeleteUserError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -228,7 +209,7 @@ impl GroupsApi for GroupsApiClient {
         &self,
         org_id: &'a str,
         id: &'a str,
-    ) -> Result<models::GroupResponseModel, Error<GetError>> {
+    ) -> Result<models::GroupResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -270,13 +251,10 @@ impl GroupsApi for GroupsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -284,7 +262,7 @@ impl GroupsApi for GroupsApiClient {
         &self,
         org_id: &'a str,
         id: &'a str,
-    ) -> Result<models::GroupDetailsResponseModel, Error<GetDetailsError>> {
+    ) -> Result<models::GroupDetailsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -326,24 +304,17 @@ impl GroupsApi for GroupsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetDetailsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn get_organization_group_details<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<
-        models::GroupDetailsResponseModelListResponseModel,
-        Error<GetOrganizationGroupDetailsError>,
-    > {
+    ) -> Result<models::GroupDetailsResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -384,22 +355,17 @@ impl GroupsApi for GroupsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetOrganizationGroupDetailsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn get_organization_groups<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<models::GroupResponseModelListResponseModel, Error<GetOrganizationGroupsError>>
-    {
+    ) -> Result<models::GroupResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -440,22 +406,14 @@ impl GroupsApi for GroupsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetOrganizationGroupsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn get_users<'a>(
-        &self,
-        org_id: &'a str,
-        id: &'a str,
-    ) -> Result<Vec<uuid::Uuid>, Error<GetUsersError>> {
+    async fn get_users<'a>(&self, org_id: &'a str, id: &'a str) -> Result<Vec<uuid::Uuid>, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -497,14 +455,10 @@ impl GroupsApi for GroupsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetUsersError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -512,7 +466,7 @@ impl GroupsApi for GroupsApiClient {
         &self,
         org_id: uuid::Uuid,
         group_request_model: Option<models::GroupRequestModel>,
-    ) -> Result<models::GroupResponseModel, Error<PostError>> {
+    ) -> Result<models::GroupResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -554,13 +508,10 @@ impl GroupsApi for GroupsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PostError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -569,7 +520,7 @@ impl GroupsApi for GroupsApiClient {
         org_id: uuid::Uuid,
         id: uuid::Uuid,
         group_request_model: Option<models::GroupRequestModel>,
-    ) -> Result<models::GroupResponseModel, Error<PutError>> {
+    ) -> Result<models::GroupResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -612,74 +563,10 @@ impl GroupsApi for GroupsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`GroupsApi::bulk_delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkDeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`GroupsApi::delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`GroupsApi::delete_user`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteUserError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`GroupsApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`GroupsApi::get_details`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetDetailsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`GroupsApi::get_organization_group_details`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetOrganizationGroupDetailsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`GroupsApi::get_organization_groups`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetOrganizationGroupsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`GroupsApi::get_users`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetUsersError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`GroupsApi::post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`GroupsApi::put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutError {
-    UnknownValue(serde_json::Value),
 }

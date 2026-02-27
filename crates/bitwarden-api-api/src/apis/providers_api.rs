@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -27,13 +27,10 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait ProvidersApi: Send + Sync {
     /// DELETE /providers/{id}
-    async fn delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error<DeleteError>>;
+    async fn delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error>;
 
     /// GET /providers/{id}
-    async fn get<'a>(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<models::ProviderResponseModel, Error<GetError>>;
+    async fn get<'a>(&self, id: uuid::Uuid) -> Result<models::ProviderResponseModel, Error>;
 
     /// POST /providers/{id}/delete-recover-token
     async fn post_delete_recover_token<'a>(
@@ -42,21 +39,21 @@ pub trait ProvidersApi: Send + Sync {
         provider_verify_delete_recover_request_model: Option<
             models::ProviderVerifyDeleteRecoverRequestModel,
         >,
-    ) -> Result<(), Error<PostDeleteRecoverTokenError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /providers/{id}
     async fn put<'a>(
         &self,
         id: uuid::Uuid,
         provider_update_request_model: Option<models::ProviderUpdateRequestModel>,
-    ) -> Result<models::ProviderResponseModel, Error<PutError>>;
+    ) -> Result<models::ProviderResponseModel, Error>;
 
     /// POST /providers/{id}/setup
     async fn setup<'a>(
         &self,
         id: uuid::Uuid,
         provider_setup_request_model: Option<models::ProviderSetupRequestModel>,
-    ) -> Result<models::ProviderResponseModel, Error<SetupError>>;
+    ) -> Result<models::ProviderResponseModel, Error>;
 }
 
 pub struct ProvidersApiClient {
@@ -72,7 +69,7 @@ impl ProvidersApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl ProvidersApi for ProvidersApiClient {
-    async fn delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error<DeleteError>> {
+    async fn delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -95,21 +92,14 @@ impl ProvidersApi for ProvidersApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<DeleteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn get<'a>(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<models::ProviderResponseModel, Error<GetError>> {
+    async fn get<'a>(&self, id: uuid::Uuid) -> Result<models::ProviderResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -150,13 +140,10 @@ impl ProvidersApi for ProvidersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -166,7 +153,7 @@ impl ProvidersApi for ProvidersApiClient {
         provider_verify_delete_recover_request_model: Option<
             models::ProviderVerifyDeleteRecoverRequestModel,
         >,
-    ) -> Result<(), Error<PostDeleteRecoverTokenError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -191,14 +178,10 @@ impl ProvidersApi for ProvidersApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<PostDeleteRecoverTokenError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -206,7 +189,7 @@ impl ProvidersApi for ProvidersApiClient {
         &self,
         id: uuid::Uuid,
         provider_update_request_model: Option<models::ProviderUpdateRequestModel>,
-    ) -> Result<models::ProviderResponseModel, Error<PutError>> {
+    ) -> Result<models::ProviderResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -248,13 +231,10 @@ impl ProvidersApi for ProvidersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PutError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -262,7 +242,7 @@ impl ProvidersApi for ProvidersApiClient {
         &self,
         id: uuid::Uuid,
         provider_setup_request_model: Option<models::ProviderSetupRequestModel>,
-    ) -> Result<models::ProviderResponseModel, Error<SetupError>> {
+    ) -> Result<models::ProviderResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -304,45 +284,10 @@ impl ProvidersApi for ProvidersApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<SetupError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`ProvidersApi::delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProvidersApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProvidersApi::post_delete_recover_token`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostDeleteRecoverTokenError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProvidersApi::put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProvidersApi::setup`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum SetupError {
-    UnknownValue(serde_json::Value),
 }

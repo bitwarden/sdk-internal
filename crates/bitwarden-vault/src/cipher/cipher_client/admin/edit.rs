@@ -41,12 +41,6 @@ pub enum EditCipherAdminError {
     Decrypt(#[from] DecryptError),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for EditCipherAdminError {
-    fn from(val: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(val.into())
-    }
-}
-
 async fn edit_cipher(
     key_store: &KeyStore<KeyIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
@@ -65,8 +59,7 @@ async fn edit_cipher(
     let cipher: Cipher = api_client
         .ciphers_api()
         .put_admin(cipher_id.into(), Some(cipher_request))
-        .await
-        .map_err(ApiError::from)?
+        .await?
         .merge_with_cipher(Some(orig_cipher))?;
 
     Ok(key_store.decrypt(&cipher)?)
@@ -283,9 +276,7 @@ mod tests {
             mock.ciphers_api
                 .expect_put_admin()
                 .returning(move |_id, _body| {
-                    Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
-                        "Simulated error",
-                    )))
+                    Err(bitwarden_api_api::Error::Other("Simulated error".into()))
                 });
         });
         let orig_cipher_view = generate_test_cipher();

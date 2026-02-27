@@ -44,8 +44,7 @@ pub(crate) async fn sync(client: &Client, input: &SyncRequest) -> Result<SyncRes
         .api_client
         .sync_api()
         .get(input.exclude_subdomains)
-        .await
-        .map_err(|e| SyncError::Api(e.into()))?;
+        .await?;
 
     let master_password_unlock = sync
         .user_decryption

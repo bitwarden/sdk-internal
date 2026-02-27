@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -30,19 +30,19 @@ pub trait CountsApi: Send + Sync {
     async fn get_by_organization<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::OrganizationCountsResponseModel, Error<GetByOrganizationError>>;
+    ) -> Result<models::OrganizationCountsResponseModel, Error>;
 
     /// GET /projects/{projectId}/sm-counts
     async fn get_by_project<'a>(
         &self,
         project_id: uuid::Uuid,
-    ) -> Result<models::ProjectCountsResponseModel, Error<GetByProjectError>>;
+    ) -> Result<models::ProjectCountsResponseModel, Error>;
 
     /// GET /service-accounts/{serviceAccountId}/sm-counts
     async fn get_by_service_account<'a>(
         &self,
         service_account_id: uuid::Uuid,
-    ) -> Result<models::ServiceAccountCountsResponseModel, Error<GetByServiceAccountError>>;
+    ) -> Result<models::ServiceAccountCountsResponseModel, Error>;
 }
 
 pub struct CountsApiClient {
@@ -61,7 +61,7 @@ impl CountsApi for CountsApiClient {
     async fn get_by_organization<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::OrganizationCountsResponseModel, Error<GetByOrganizationError>> {
+    ) -> Result<models::OrganizationCountsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -102,21 +102,17 @@ impl CountsApi for CountsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetByOrganizationError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn get_by_project<'a>(
         &self,
         project_id: uuid::Uuid,
-    ) -> Result<models::ProjectCountsResponseModel, Error<GetByProjectError>> {
+    ) -> Result<models::ProjectCountsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -157,21 +153,17 @@ impl CountsApi for CountsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetByProjectError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn get_by_service_account<'a>(
         &self,
         service_account_id: uuid::Uuid,
-    ) -> Result<models::ServiceAccountCountsResponseModel, Error<GetByServiceAccountError>> {
+    ) -> Result<models::ServiceAccountCountsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -212,33 +204,10 @@ impl CountsApi for CountsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetByServiceAccountError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`CountsApi::get_by_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetByOrganizationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CountsApi::get_by_project`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetByProjectError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`CountsApi::get_by_service_account`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetByServiceAccountError {
-    UnknownValue(serde_json::Value),
 }

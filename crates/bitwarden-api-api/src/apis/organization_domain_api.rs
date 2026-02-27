@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -31,13 +31,13 @@ pub trait OrganizationDomainApi: Send + Sync {
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<models::OrganizationDomainResponseModel, Error<GetError>>;
+    ) -> Result<models::OrganizationDomainResponseModel, Error>;
 
     /// GET /organizations/{orgId}/domain
     async fn get_all<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<models::OrganizationDomainResponseModelListResponseModel, Error<GetAllError>>;
+    ) -> Result<models::OrganizationDomainResponseModelListResponseModel, Error>;
 
     /// POST /organizations/domain/sso/details
     async fn get_org_domain_sso_details<'a>(
@@ -45,7 +45,7 @@ pub trait OrganizationDomainApi: Send + Sync {
         organization_domain_sso_details_request_model: Option<
             models::OrganizationDomainSsoDetailsRequestModel,
         >,
-    ) -> Result<models::OrganizationDomainSsoDetailsResponseModel, Error<GetOrgDomainSsoDetailsError>>;
+    ) -> Result<models::OrganizationDomainSsoDetailsResponseModel, Error>;
 
     /// POST /organizations/domain/sso/verified
     async fn get_verified_org_domain_sso_details<'a>(
@@ -53,31 +53,24 @@ pub trait OrganizationDomainApi: Send + Sync {
         organization_domain_sso_details_request_model: Option<
             models::OrganizationDomainSsoDetailsRequestModel,
         >,
-    ) -> Result<
-        models::VerifiedOrganizationDomainSsoDetailsResponseModel,
-        Error<GetVerifiedOrgDomainSsoDetailsError>,
-    >;
+    ) -> Result<models::VerifiedOrganizationDomainSsoDetailsResponseModel, Error>;
 
     /// POST /organizations/{orgId}/domain
     async fn post<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_domain_request_model: Option<models::OrganizationDomainRequestModel>,
-    ) -> Result<models::OrganizationDomainResponseModel, Error<PostError>>;
+    ) -> Result<models::OrganizationDomainResponseModel, Error>;
 
     /// DELETE /organizations/{orgId}/domain/{id}
-    async fn remove_domain<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<RemoveDomainError>>;
+    async fn remove_domain<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
 
     /// POST /organizations/{orgId}/domain/{id}/verify
     async fn verify<'a>(
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<models::OrganizationDomainResponseModel, Error<VerifyError>>;
+    ) -> Result<models::OrganizationDomainResponseModel, Error>;
 }
 
 pub struct OrganizationDomainApiClient {
@@ -97,7 +90,7 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<models::OrganizationDomainResponseModel, Error<GetError>> {
+    ) -> Result<models::OrganizationDomainResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -139,20 +132,17 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn get_all<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<models::OrganizationDomainResponseModelListResponseModel, Error<GetAllError>> {
+    ) -> Result<models::OrganizationDomainResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -193,14 +183,10 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetAllError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -209,8 +195,7 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
         organization_domain_sso_details_request_model: Option<
             models::OrganizationDomainSsoDetailsRequestModel,
         >,
-    ) -> Result<models::OrganizationDomainSsoDetailsResponseModel, Error<GetOrgDomainSsoDetailsError>>
-    {
+    ) -> Result<models::OrganizationDomainSsoDetailsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -252,14 +237,10 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetOrgDomainSsoDetailsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -268,10 +249,7 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
         organization_domain_sso_details_request_model: Option<
             models::OrganizationDomainSsoDetailsRequestModel,
         >,
-    ) -> Result<
-        models::VerifiedOrganizationDomainSsoDetailsResponseModel,
-        Error<GetVerifiedOrgDomainSsoDetailsError>,
-    > {
+    ) -> Result<models::VerifiedOrganizationDomainSsoDetailsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -313,14 +291,10 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetVerifiedOrgDomainSsoDetailsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -328,7 +302,7 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
         &self,
         org_id: uuid::Uuid,
         organization_domain_request_model: Option<models::OrganizationDomainRequestModel>,
-    ) -> Result<models::OrganizationDomainResponseModel, Error<PostError>> {
+    ) -> Result<models::OrganizationDomainResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -370,21 +344,14 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<PostError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn remove_domain<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<RemoveDomainError>> {
+    async fn remove_domain<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -408,14 +375,10 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<RemoveDomainError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -423,7 +386,7 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<models::OrganizationDomainResponseModel, Error<VerifyError>> {
+    ) -> Result<models::OrganizationDomainResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -465,57 +428,10 @@ impl OrganizationDomainApi for OrganizationDomainApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<VerifyError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`OrganizationDomainApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationDomainApi::get_all`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAllError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationDomainApi::get_org_domain_sso_details`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetOrgDomainSsoDetailsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationDomainApi::get_verified_org_domain_sso_details`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetVerifiedOrgDomainSsoDetailsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationDomainApi::post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationDomainApi::remove_domain`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RemoveDomainError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationDomainApi::verify`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum VerifyError {
-    UnknownValue(serde_json::Value),
 }

@@ -23,12 +23,6 @@ pub enum RestoreCipherAdminError {
     Crypto(#[from] CryptoError),
 }
 
-impl<T> From<bitwarden_api_api::apis::Error<T>> for RestoreCipherAdminError {
-    fn from(val: bitwarden_api_api::apis::Error<T>) -> Self {
-        Self::Api(val.into())
-    }
-}
-
 /// Restores a soft-deleted cipher on the server, using the admin endpoint.
 pub async fn restore_as_admin(
     cipher_id: CipherId,

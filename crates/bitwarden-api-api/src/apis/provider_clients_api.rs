@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -31,7 +31,7 @@ pub trait ProviderClientsApi: Send + Sync {
         &self,
         provider_id: uuid::Uuid,
         add_existing_organization_request_body: Option<models::AddExistingOrganizationRequestBody>,
-    ) -> Result<(), Error<AddExistingOrganizationError>>;
+    ) -> Result<(), Error>;
 
     /// POST /providers/{providerId}/clients
     async fn create<'a>(
@@ -40,13 +40,10 @@ pub trait ProviderClientsApi: Send + Sync {
         create_client_organization_request_body: Option<
             models::CreateClientOrganizationRequestBody,
         >,
-    ) -> Result<(), Error<CreateError>>;
+    ) -> Result<(), Error>;
 
     /// GET /providers/{providerId}/clients/addable
-    async fn get_addable_organizations<'a>(
-        &self,
-        provider_id: uuid::Uuid,
-    ) -> Result<(), Error<GetAddableOrganizationsError>>;
+    async fn get_addable_organizations<'a>(&self, provider_id: uuid::Uuid) -> Result<(), Error>;
 
     /// PUT /providers/{providerId}/clients/{providerOrganizationId}
     async fn update<'a>(
@@ -56,7 +53,7 @@ pub trait ProviderClientsApi: Send + Sync {
         update_client_organization_request_body: Option<
             models::UpdateClientOrganizationRequestBody,
         >,
-    ) -> Result<(), Error<UpdateError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct ProviderClientsApiClient {
@@ -76,7 +73,7 @@ impl ProviderClientsApi for ProviderClientsApiClient {
         &self,
         provider_id: uuid::Uuid,
         add_existing_organization_request_body: Option<models::AddExistingOrganizationRequestBody>,
-    ) -> Result<(), Error<AddExistingOrganizationError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -100,14 +97,10 @@ impl ProviderClientsApi for ProviderClientsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<AddExistingOrganizationError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -117,7 +110,7 @@ impl ProviderClientsApi for ProviderClientsApiClient {
         create_client_organization_request_body: Option<
             models::CreateClientOrganizationRequestBody,
         >,
-    ) -> Result<(), Error<CreateError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -142,21 +135,14 @@ impl ProviderClientsApi for ProviderClientsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<CreateError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
-    async fn get_addable_organizations<'a>(
-        &self,
-        provider_id: uuid::Uuid,
-    ) -> Result<(), Error<GetAddableOrganizationsError>> {
+    async fn get_addable_organizations<'a>(&self, provider_id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -179,14 +165,10 @@ impl ProviderClientsApi for ProviderClientsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<GetAddableOrganizationsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -197,7 +179,7 @@ impl ProviderClientsApi for ProviderClientsApiClient {
         update_client_organization_request_body: Option<
             models::UpdateClientOrganizationRequestBody,
         >,
-    ) -> Result<(), Error<UpdateError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -223,39 +205,10 @@ impl ProviderClientsApi for ProviderClientsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<UpdateError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`ProviderClientsApi::add_existing_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AddExistingOrganizationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderClientsApi::create`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderClientsApi::get_addable_organizations`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAddableOrganizationsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderClientsApi::update`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateError {
-    UnknownValue(serde_json::Value),
 }

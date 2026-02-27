@@ -35,9 +35,9 @@ pub(crate) fn parse_identity_response(
     } else if let Ok(r) = serde_json::from_str::<IdentityTokenFailResponse>(&response) {
         Err(LoginError::IdentityFail(r))
     } else {
-        Err(ApiError::ResponseContent {
+        Err(ApiError::Response {
             status,
-            message: response,
+            content: response,
         }
         .into())
     }

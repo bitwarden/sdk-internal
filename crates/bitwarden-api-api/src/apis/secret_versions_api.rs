@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{AuthRequired, ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType},
     models,
 };
 
@@ -30,35 +30,32 @@ pub trait SecretVersionsApi: Send + Sync {
     async fn bulk_delete<'a>(
         &self,
         uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-    ) -> Result<(), Error<BulkDeleteError>>;
+    ) -> Result<(), Error>;
 
     /// GET /secret-versions/{id}
     async fn get_by_id<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::SecretVersionResponseModel, Error<GetByIdError>>;
+    ) -> Result<models::SecretVersionResponseModel, Error>;
 
     /// POST /secret-versions/get-by-ids
     async fn get_many_by_ids<'a>(
         &self,
         uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-    ) -> Result<models::SecretVersionResponseModelListResponseModel, Error<GetManyByIdsError>>;
+    ) -> Result<models::SecretVersionResponseModelListResponseModel, Error>;
 
     /// GET /secrets/{secretId}/versions
     async fn get_versions_by_secret_id<'a>(
         &self,
         secret_id: uuid::Uuid,
-    ) -> Result<
-        models::SecretVersionResponseModelListResponseModel,
-        Error<GetVersionsBySecretIdError>,
-    >;
+    ) -> Result<models::SecretVersionResponseModelListResponseModel, Error>;
 
     /// PUT /secrets/{secretId}/versions/restore
     async fn restore_version<'a>(
         &self,
         secret_id: uuid::Uuid,
         restore_secret_version_request_model: Option<models::RestoreSecretVersionRequestModel>,
-    ) -> Result<models::SecretResponseModel, Error<RestoreVersionError>>;
+    ) -> Result<models::SecretResponseModel, Error>;
 }
 
 pub struct SecretVersionsApiClient {
@@ -77,7 +74,7 @@ impl SecretVersionsApi for SecretVersionsApiClient {
     async fn bulk_delete<'a>(
         &self,
         uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-    ) -> Result<(), Error<BulkDeleteError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -100,21 +97,17 @@ impl SecretVersionsApi for SecretVersionsApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<BulkDeleteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn get_by_id<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::SecretVersionResponseModel, Error<GetByIdError>> {
+    ) -> Result<models::SecretVersionResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -155,21 +148,17 @@ impl SecretVersionsApi for SecretVersionsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetByIdError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn get_many_by_ids<'a>(
         &self,
         uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-    ) -> Result<models::SecretVersionResponseModelListResponseModel, Error<GetManyByIdsError>> {
+    ) -> Result<models::SecretVersionResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -210,24 +199,17 @@ impl SecretVersionsApi for SecretVersionsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetManyByIdsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
     async fn get_versions_by_secret_id<'a>(
         &self,
         secret_id: uuid::Uuid,
-    ) -> Result<
-        models::SecretVersionResponseModelListResponseModel,
-        Error<GetVersionsBySecretIdError>,
-    > {
+    ) -> Result<models::SecretVersionResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -268,14 +250,10 @@ impl SecretVersionsApi for SecretVersionsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<GetVersionsBySecretIdError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
 
@@ -283,7 +261,7 @@ impl SecretVersionsApi for SecretVersionsApiClient {
         &self,
         secret_id: uuid::Uuid,
         restore_secret_version_request_model: Option<models::RestoreSecretVersionRequestModel>,
-    ) -> Result<models::SecretResponseModel, Error<RestoreVersionError>> {
+    ) -> Result<models::SecretResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -325,45 +303,10 @@ impl SecretVersionsApi for SecretVersionsApiClient {
                 }
             }
         } else {
-            let local_var_entity: Option<RestoreVersionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
+            Err(Error::Response {
                 status: local_var_status,
                 content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
+            })
         }
     }
-}
-
-/// struct for typed errors of method [`SecretVersionsApi::bulk_delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkDeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SecretVersionsApi::get_by_id`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetByIdError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SecretVersionsApi::get_many_by_ids`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetManyByIdsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SecretVersionsApi::get_versions_by_secret_id`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetVersionsBySecretIdError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SecretVersionsApi::restore_version`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RestoreVersionError {
-    UnknownValue(serde_json::Value),
 }

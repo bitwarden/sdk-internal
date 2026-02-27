@@ -45,8 +45,7 @@ pub(super) async fn edit_folder<R: Repository<Folder> + ?Sized>(
     let resp = api_client
         .folders_api()
         .put(&id, Some(folder_request))
-        .await
-        .map_err(ApiError::from)?;
+        .await?;
 
     let folder: Folder = resp.try_into()?;
 
@@ -177,9 +176,7 @@ mod tests {
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.folders_api.expect_put().returning(move |_id, _model| {
-                Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
-                    "Simulated error",
-                )))
+                Err(bitwarden_api_api::Error::Other("Simulated error".into()))
             });
         });
 
