@@ -48,6 +48,7 @@ bitwarden-server-communication-config = { path = "crates/bitwarden-server-commun
 bitwarden-sm = { path = "bitwarden_license/bitwarden-sm", version = "=2.0.0" }
 bitwarden-ssh = { path = "crates/bitwarden-ssh", version = "=2.0.0" }
 bitwarden-state = { path = "crates/bitwarden-state", version = "=2.0.0" }
+bitwarden-sync = { path = "crates/bitwarden-sync", version = "=2.0.0" }
 bitwarden-test = { path = "crates/bitwarden-test", version = "=2.0.0" }
 bitwarden-test-macro = { path = "crates/bitwarden-test-macro", version = "=2.0.0" }
 bitwarden-threading = { path = "crates/bitwarden-threading", version = "=2.0.0" }
