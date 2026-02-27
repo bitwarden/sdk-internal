@@ -63,7 +63,7 @@ impl FoldersClient {
         request: FolderAddEditRequest,
     ) -> Result<FolderView, CreateFolderError> {
         let key_store = self.client.internal.get_key_store();
-        let config = self.client.internal.get_api_configurations().await;
+        let config = self.client.internal.get_api_configurations();
         let repository = self.get_repository()?;
 
         create_folder(key_store, &config.api_client, repository.as_ref(), request).await
@@ -76,7 +76,7 @@ impl FoldersClient {
         request: FolderAddEditRequest,
     ) -> Result<FolderView, EditFolderError> {
         let key_store = self.client.internal.get_key_store();
-        let config = self.client.internal.get_api_configurations().await;
+        let config = self.client.internal.get_api_configurations();
         let repository = self.get_repository()?;
 
         edit_folder(

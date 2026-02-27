@@ -3,6 +3,8 @@
 //! unless there is a a clear benefit, such as a clear cryptographic benefit, which MUST
 //! be documented publicly.
 
+use std::fmt::Debug;
+
 use coset::{
     CborSerializable, ContentType, Header, Label,
     iana::{self, CoapContentFormat, KeyOperation},
@@ -46,11 +48,52 @@ pub(crate) const CONTENT_TYPE_PADDED_CBOR: &str = "application/x.bitwarden.cbor-
 const CONTENT_TYPE_BITWARDEN_LEGACY_KEY: &str = "application/x.bitwarden.legacy-key";
 const CONTENT_TYPE_SPKI_PUBLIC_KEY: &str = "application/x.bitwarden.spki-public-key";
 
-/// Namespaces
 /// The label used for the namespace ensuring strong domain separation when using signatures.
 pub(crate) const SIGNING_NAMESPACE: i64 = -80000;
-/// The label used for the namespace ensuring strong domain separation when using data envelopes.
-pub(crate) const DATA_ENVELOPE_NAMESPACE: i64 = -80001;
+
+// Domain separation / Namespaces
+//
+// Cryptographic objects are strongly domain separated so that items can only be decrypted
+// in the correct context, making cryptographic analysis significantly easier and preventing
+// misuse of cryptographic objects. For this, there is a partitioning at two layers. First,
+// the object types are partitioned into e.g. EncString, DataEnvelope, Signature, KeyEnvelope, and
+// so on. Second, within each of these types, each of these spans their own namespace for usages.
+// For instance, a DataEnvelope may describe that the contained item is only valid as a vault item,
+// or as account settings.
+
+/// MUST be placed in the protected header of cose objects
+pub(crate) const SAFE_OBJECT_NAMESPACE: i64 = -80002;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SafeObjectNamespace {
+    PasswordProtectedKeyEnvelope = 1,
+    DataEnvelope = 2,
+}
+
+impl TryFrom<i128> for SafeObjectNamespace {
+    type Error = ();
+
+    fn try_from(value: i128) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(SafeObjectNamespace::PasswordProtectedKeyEnvelope),
+            2 => Ok(SafeObjectNamespace::DataEnvelope),
+            _ => Err(()),
+        }
+    }
+}
+
+impl From<SafeObjectNamespace> for i128 {
+    fn from(namespace: SafeObjectNamespace) -> Self {
+        namespace as i128
+    }
+}
+
+pub(crate) trait ContentNamespace: TryFrom<i128> + Into<i128> + PartialEq + Debug {}
+
+/// Each type of object has it's own namespace for strong domain separation to eliminate
+/// attacks which attempt to confuse object types. For signatures, this refers to signature
+/// namespaces, for data envelopes to data envelope namespaces and so on.
+pub(crate) const SAFE_CONTENT_NAMESPACE: i64 = -80001;
 
 const XCHACHA20_TEXT_PAD_BLOCK_SIZE: usize = 32;
 

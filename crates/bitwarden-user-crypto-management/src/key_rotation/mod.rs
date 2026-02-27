@@ -6,10 +6,7 @@ mod sync;
 mod unlock;
 
 use bitwarden_api_api::models::RotateUserAccountKeysAndDataRequestModel;
-use bitwarden_core::{
-    UserId,
-    key_management::{MasterPasswordAuthenticationData, SymmetricKeyId},
-};
+use bitwarden_core::key_management::{MasterPasswordAuthenticationData, SymmetricKeyId};
 use bitwarden_crypto::PublicKey;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
@@ -65,12 +62,7 @@ impl UserCryptoManagementClient {
         &self,
         request: RotateUserKeysRequest,
     ) -> Result<(), RotateUserKeysError> {
-        let api_client = &self
-            .client
-            .internal
-            .get_api_configurations()
-            .await
-            .api_client;
+        let api_client = &self.client.internal.get_api_configurations().api_client;
 
         post_rotate_user_keys(
             self,
@@ -88,12 +80,7 @@ impl UserCryptoManagementClient {
     pub async fn get_untrusted_organization_public_keys(
         &self,
     ) -> Result<Vec<V1OrganizationMembership>, RotateUserKeysError> {
-        let api_client = &self
-            .client
-            .internal
-            .get_api_configurations()
-            .await
-            .api_client;
+        let api_client = &self.client.internal.get_api_configurations().api_client;
         let organizations = sync::sync_orgs(api_client)
             .await
             .map_err(|_| RotateUserKeysError::ApiError)?;
@@ -105,12 +92,7 @@ impl UserCryptoManagementClient {
     pub async fn get_untrusted_emergency_access_public_keys(
         &self,
     ) -> Result<Vec<V1EmergencyAccessMembership>, RotateUserKeysError> {
-        let api_client = &self
-            .client
-            .internal
-            .get_api_configurations()
-            .await
-            .api_client;
+        let api_client = &self.client.internal.get_api_configurations().api_client;
         let emergency_access = sync::sync_emergency_access(api_client)
             .await
             .map_err(|_| RotateUserKeysError::ApiError)?;
@@ -222,7 +204,6 @@ async fn post_rotate_user_keys(
             &sync.wrapped_account_cryptographic_state,
             &current_user_key_id,
             &new_user_key_id,
-            UserId::new(sync.user_id),
             &mut ctx,
         )
         .map_err(|_| RotateUserKeysError::CryptoError)?;
@@ -318,7 +299,6 @@ async fn post_rotate_user_keys(
         .client
         .internal
         .get_api_configurations()
-        .await
         .api_client
         .accounts_key_management_api()
         .rotate_user_account_keys(Some(request))

@@ -26,7 +26,7 @@ pub(crate) async fn list_secrets(
     client: &Client,
     input: &SecretIdentifiersRequest,
 ) -> Result<SecretIdentifiersResponse, SecretsManagerError> {
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
     let res = config
         .api_client
         .secrets_api()
@@ -50,7 +50,7 @@ pub(crate) async fn list_secrets_by_project(
     client: &Client,
     input: &SecretIdentifiersByProjectRequest,
 ) -> Result<SecretIdentifiersResponse, SecretsManagerError> {
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
     let res = config
         .api_client
         .secrets_api()
