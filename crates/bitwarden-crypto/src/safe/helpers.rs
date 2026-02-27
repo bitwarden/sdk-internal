@@ -2,9 +2,13 @@ use std::fmt::DebugStruct;
 
 use ciborium::Value;
 
-use crate::cose::{
-    ContentNamespace, SAFE_CONTENT_NAMESPACE, SAFE_OBJECT_NAMESPACE, SafeObjectNamespace,
-    extract_integer,
+use crate::{
+    KEY_ID_SIZE,
+    cose::{
+        CONTAINED_KEY_ID, ContentNamespace, SAFE_CONTENT_NAMESPACE, SAFE_OBJECT_NAMESPACE,
+        SafeObjectNamespace, extract_bytes, extract_integer,
+    },
+    keys::KeyId,
 };
 
 #[derive(Debug)]
@@ -77,6 +81,10 @@ pub(super) fn set_safe_namespaces<T: ContentNamespace>(
     );
 }
 
+/// Validates the provided header contains the expected object and content namespace.
+/// For backward compatibility, missing values are OK, but incorrect values are not.
+/// The validation happens individually for both namespace layers, and either one
+/// missing with the other being present is OK.
 pub(super) fn validate_safe_namespaces<T: ContentNamespace>(
     header: &coset::Header,
     expected_object_namespace: SafeObjectNamespace,
@@ -102,6 +110,18 @@ pub(super) fn validate_safe_namespaces<T: ContentNamespace>(
         // If the namespace is present but invalid (e.g., not an integer or out of range), return an
         // error.
         Err(ExtractionError::InvalidNamespace) => Err(ExtractionError::InvalidNamespace),
+    }
+}
+
+/// Extract the contained key ID from a COSE header, if present.
+pub(super) fn extract_contained_key_id(header: &coset::Header) -> Result<Option<KeyId>, ()> {
+    let key_id_bytes = extract_bytes(header, CONTAINED_KEY_ID, "key id");
+
+    if let Ok(bytes) = key_id_bytes {
+        let key_id_array: [u8; KEY_ID_SIZE] = bytes.as_slice().try_into().map_err(|_| ())?;
+        Ok(Some(KeyId::from(key_id_array)))
+    } else {
+        Ok(None)
     }
 }
 
