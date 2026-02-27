@@ -20,7 +20,7 @@ pub(crate) async fn delete_projects(
     client: &Client,
     input: ProjectsDeleteRequest,
 ) -> Result<ProjectsDeleteResponse, SecretsManagerError> {
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
     let res = config
         .api_client
         .projects_api()

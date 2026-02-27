@@ -25,7 +25,7 @@ use crate::key_management::{
 };
 #[expect(deprecated)]
 use crate::{
-    Client, UserId,
+    Client,
     client::encryption_settings::EncryptionSettingsError,
     error::StatefulCryptoError,
     key_management::crypto::{
@@ -209,10 +209,9 @@ impl CryptoClient {
     /// and security state) wrapped with a new user key.
     pub fn make_user_tde_registration(
         &self,
-        user_id: UserId,
         org_public_key: B64,
     ) -> Result<MakeTdeRegistrationResponse, MakeKeysError> {
-        make_user_tde_registration(&self.client, user_id, org_public_key)
+        make_user_tde_registration(&self.client, org_public_key)
     }
 
     /// Creates a new V2 account cryptographic state for Key Connector registration.
@@ -220,9 +219,8 @@ impl CryptoClient {
     /// and security state) wrapped with a new user key.
     pub fn make_user_key_connector_registration(
         &self,
-        user_id: UserId,
     ) -> Result<MakeKeyConnectorRegistrationResponse, MakeKeysError> {
-        make_user_key_connector_registration(&self.client, user_id)
+        make_user_key_connector_registration(&self.client)
     }
 
     /// Creates a new V2 account cryptographic state for SSO JIT master password registration.
@@ -230,14 +228,12 @@ impl CryptoClient {
     /// and security state) wrapped with a new user key.
     pub fn make_user_jit_master_password_registration(
         &self,
-        user_id: UserId,
         master_password: String,
         salt: String,
         org_public_key: B64,
     ) -> Result<MakeJitMasterPasswordRegistrationResponse, MakeKeysError> {
         make_user_jit_master_password_registration(
             &self.client,
-            user_id,
             master_password,
             salt,
             org_public_key,

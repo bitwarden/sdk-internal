@@ -44,11 +44,11 @@ pub enum SymmetricKeyEnvelopeError {
 }
 
 /// A symmetric key protected by another symmetric key
-pub struct SymmetrickeyEnvelope {
+pub struct SymmetricKeyEnvelope {
     cose_encrypt0: coset::CoseEncrypt0,
 }
 
-impl SymmetrickeyEnvelope {
+impl SymmetricKeyEnvelope {
     /// Seals a symmetric key with another symmetric key from the key store.
     ///
     /// This should never fail, except for memory allocation errors.
@@ -106,7 +106,7 @@ impl SymmetrickeyEnvelope {
             wrapping_key,
         );
 
-        Ok(SymmetrickeyEnvelope { cose_encrypt0 })
+        Ok(SymmetricKeyEnvelope { cose_encrypt0 })
     }
 
     /// Unseals a symmetric key from the envelope and stores it in the key store context.
@@ -170,8 +170,8 @@ impl SymmetrickeyEnvelope {
     }
 }
 
-impl From<&SymmetrickeyEnvelope> for Vec<u8> {
-    fn from(val: &SymmetrickeyEnvelope) -> Self {
+impl From<&SymmetricKeyEnvelope> for Vec<u8> {
+    fn from(val: &SymmetricKeyEnvelope) -> Self {
         val.cose_encrypt0
             .clone()
             .to_vec()
@@ -179,16 +179,16 @@ impl From<&SymmetrickeyEnvelope> for Vec<u8> {
     }
 }
 
-impl TryFrom<&Vec<u8>> for SymmetrickeyEnvelope {
+impl TryFrom<&Vec<u8>> for SymmetricKeyEnvelope {
     type Error = coset::CoseError;
 
     fn try_from(value: &Vec<u8>) -> Result<Self, Self::Error> {
         let cose_encrypt0 = coset::CoseEncrypt0::from_slice(value)?;
-        Ok(SymmetrickeyEnvelope { cose_encrypt0 })
+        Ok(SymmetricKeyEnvelope { cose_encrypt0 })
     }
 }
 
-impl std::fmt::Debug for SymmetrickeyEnvelope {
+impl std::fmt::Debug for SymmetricKeyEnvelope {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut s = f.debug_struct("SymmetricKeyEnvelope");
 
@@ -209,7 +209,7 @@ impl std::fmt::Debug for SymmetrickeyEnvelope {
     }
 }
 
-impl FromStr for SymmetrickeyEnvelope {
+impl FromStr for SymmetricKeyEnvelope {
     type Err = SymmetricKeyEnvelopeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -224,14 +224,14 @@ impl FromStr for SymmetrickeyEnvelope {
     }
 }
 
-impl From<SymmetrickeyEnvelope> for String {
-    fn from(val: SymmetrickeyEnvelope) -> Self {
+impl From<SymmetricKeyEnvelope> for String {
+    fn from(val: SymmetricKeyEnvelope) -> Self {
         let serialized: Vec<u8> = (&val).into();
         B64::from(serialized).to_string()
     }
 }
 
-impl<'de> Deserialize<'de> for SymmetrickeyEnvelope {
+impl<'de> Deserialize<'de> for SymmetricKeyEnvelope {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -240,7 +240,7 @@ impl<'de> Deserialize<'de> for SymmetrickeyEnvelope {
     }
 }
 
-impl Serialize for SymmetrickeyEnvelope {
+impl Serialize for SymmetricKeyEnvelope {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -257,20 +257,20 @@ export type SymmetricKeyEnvelope = Tagged<string, "SymmetricKeyEnvelope">;
 "#;
 
 #[cfg(feature = "wasm")]
-impl wasm_bindgen::describe::WasmDescribe for SymmetrickeyEnvelope {
+impl wasm_bindgen::describe::WasmDescribe for SymmetricKeyEnvelope {
     fn describe() {
         <String as wasm_bindgen::describe::WasmDescribe>::describe();
     }
 }
 
 #[cfg(feature = "wasm")]
-impl FromWasmAbi for SymmetrickeyEnvelope {
+impl FromWasmAbi for SymmetricKeyEnvelope {
     type Abi = <String as FromWasmAbi>::Abi;
 
     unsafe fn from_abi(abi: Self::Abi) -> Self {
         use wasm_bindgen::UnwrapThrowExt;
         let string = unsafe { String::from_abi(abi) };
-        SymmetrickeyEnvelope::from_str(&string).unwrap_throw()
+        SymmetricKeyEnvelope::from_str(&string).unwrap_throw()
     }
 }
 
@@ -343,7 +343,7 @@ mod tests {
         let key1 = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         let key2 = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = SymmetrickeyEnvelope::seal(
+        let envelope = SymmetricKeyEnvelope::seal(
             key1,
             key2,
             SymmetricKeyEnvelopeNamespace::ExampleNamespace,
@@ -360,7 +360,7 @@ mod tests {
         let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = SymmetrickeyEnvelope::seal(
+        let envelope = SymmetricKeyEnvelope::seal(
             key_to_seal,
             wrapping_key,
             SymmetricKeyEnvelopeNamespace::ExampleNamespace,
@@ -395,7 +395,7 @@ mod tests {
         let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = SymmetrickeyEnvelope::seal(
+        let envelope = SymmetricKeyEnvelope::seal(
             key_to_seal,
             wrapping_key,
             SymmetricKeyEnvelopeNamespace::ExampleNamespace,
@@ -420,7 +420,7 @@ mod tests {
         let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = SymmetrickeyEnvelope::seal(
+        let envelope = SymmetricKeyEnvelope::seal(
             key_to_seal,
             wrapping_key,
             SymmetricKeyEnvelopeNamespace::ExampleNamespace,
@@ -429,7 +429,7 @@ mod tests {
         .unwrap();
 
         let serialized: String = envelope.into();
-        let deserialized = SymmetrickeyEnvelope::from_str(&serialized).unwrap();
+        let deserialized = SymmetricKeyEnvelope::from_str(&serialized).unwrap();
 
         let unsealed_key = deserialized
             .unseal(
@@ -459,7 +459,7 @@ mod tests {
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         let wrong_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = SymmetrickeyEnvelope::seal(
+        let envelope = SymmetricKeyEnvelope::seal(
             key_to_seal,
             wrapping_key,
             SymmetricKeyEnvelopeNamespace::ExampleNamespace,
@@ -485,7 +485,7 @@ mod tests {
         let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = SymmetrickeyEnvelope::seal(
+        let envelope = SymmetricKeyEnvelope::seal(
             key_to_seal,
             wrapping_key,
             SymmetricKeyEnvelopeNamespace::ExampleNamespace,
@@ -512,7 +512,7 @@ mod tests {
         let key_to_seal = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         let wrapping_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let envelope = SymmetrickeyEnvelope::seal(
+        let envelope = SymmetricKeyEnvelope::seal(
             key_to_seal,
             wrapping_key,
             SymmetricKeyEnvelopeNamespace::ExampleNamespace,
@@ -557,7 +557,7 @@ mod tests {
 
         let sealing_key_id = ctx.add_local_symmetric_key(sealing_key);
 
-        let envelope = SymmetrickeyEnvelope::from_str(TEST_VECTOR_ENVELOPE).unwrap();
+        let envelope = SymmetricKeyEnvelope::from_str(TEST_VECTOR_ENVELOPE).unwrap();
 
         let unsealed_key_id = envelope
             .unseal(

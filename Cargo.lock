@@ -616,6 +616,7 @@ dependencies = [
  "bitwarden-api-base",
  "bitwarden-api-identity",
  "bitwarden-api-key-connector",
+ "bitwarden-core-macro",
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
@@ -649,6 +650,15 @@ dependencies = [
  "wiremock",
  "zeroize",
  "zxcvbn",
+]
+
+[[package]]
+name = "bitwarden-core-macro"
+version = "2.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

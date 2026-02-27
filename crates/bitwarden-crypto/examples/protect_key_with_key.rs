@@ -3,7 +3,7 @@
 
 use bitwarden_crypto::{
     KeyStore, KeyStoreContext, key_ids,
-    safe::{SymmetricKeyEnvelopeError, SymmetricKeyEnvelopeNamespace, SymmetrickeyEnvelope},
+    safe::{SymmetricKeyEnvelope, SymmetricKeyEnvelopeError, SymmetricKeyEnvelopeNamespace},
 };
 
 fn main() {
@@ -17,7 +17,7 @@ fn main() {
     let wrapping_key = ctx.generate_symmetric_key();
 
     // Seal the vault key with the wrapping key, then store the envelope on disk.
-    let envelope = SymmetrickeyEnvelope::seal(
+    let envelope = SymmetricKeyEnvelope::seal(
         vault_key,
         wrapping_key,
         // IMPORTANT: Use a unique namespace for your use-case.
@@ -28,7 +28,7 @@ fn main() {
     disk.save("vault_key_envelope", (&envelope).into());
 
     // Load the envelope from disk and unseal it using the wrapping key.
-    let deserialized = SymmetrickeyEnvelope::try_from(
+    let deserialized = SymmetricKeyEnvelope::try_from(
         disk.load("vault_key_envelope")
             .expect("Loading from disk should work"),
     )

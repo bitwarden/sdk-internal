@@ -104,7 +104,7 @@ impl CipherAdminClient {
         original_cipher_view: CipherView,
     ) -> Result<CipherView, EditCipherAdminError> {
         let key_store = self.client.internal.get_key_store();
-        let config = self.client.internal.get_api_configurations().await;
+        let config = self.client.internal.get_api_configurations();
 
         let user_id = self
             .client
@@ -144,12 +144,7 @@ impl CipherAdminClient {
         add_to_collections(
             cipher_id,
             collection_ids,
-            &self
-                .client
-                .internal
-                .get_api_configurations()
-                .await
-                .api_client,
+            &self.client.internal.get_api_configurations().api_client,
             self.client.internal.get_key_store(),
         )
         .await

@@ -41,7 +41,7 @@ impl LoginClient {
         email: String,
     ) -> Result<PasswordPreloginResponse, PasswordPreloginError> {
         let request_model = PasswordPreloginRequestModel::new(email);
-        let api_configs = self.client.internal.get_api_configurations().await;
+        let api_configs = self.client.internal.get_api_configurations();
         let response = api_configs
             .identity_client
             .accounts_api()
