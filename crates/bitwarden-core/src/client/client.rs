@@ -42,6 +42,45 @@ impl Client {
         Self::new_internal(settings, token_handler, None)
     }
 
+    /// Creates a new Client with optional cookie middleware.
+    ///
+    /// This constructor variant allows callers to inject cookie middleware for
+    /// attaching ServerCommunicationConfig cookies to HTTP requests. The middleware
+    /// is registered before authentication middleware in the request pipeline.
+    ///
+    /// # Arguments
+    ///
+    /// * `settings` - Optional client settings (API URLs, device type, user agent)
+    /// * `token_handler` - Token management implementation for authentication
+    /// * `cookie_middleware` - Optional middleware for attaching cookies (typically
+    ///   ServerCommunicationConfigMiddleware wrapped in Arc)
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use std::sync::Arc;
+    /// use bitwarden_core::Client;
+    /// use bitwarden_server_communication_config::{
+    ///     ServerCommunicationConfigClient,
+    ///     ServerCommunicationConfigMiddleware,
+    /// };
+    ///
+    /// let cookie_client = Arc::new(ServerCommunicationConfigClient::new(repo, platform_api));
+    /// let cookie_middleware = Arc::new(ServerCommunicationConfigMiddleware::new(cookie_client));
+    /// let client = Client::new_with_middleware(
+    ///     Some(settings),
+    ///     Arc::new(token_handler),
+    ///     Some(cookie_middleware),
+    /// );
+    /// ```
+    pub fn new_with_middleware(
+        settings: Option<ClientSettings>,
+        token_handler: Arc<dyn TokenHandler>,
+        cookie_middleware: Option<Arc<dyn reqwest_middleware::Middleware>>,
+    ) -> Self {
+        Self::new_internal(settings, token_handler, cookie_middleware)
+    }
+
     fn new_internal(
         settings_input: Option<ClientSettings>,
         token_handler: Arc<dyn TokenHandler>,
