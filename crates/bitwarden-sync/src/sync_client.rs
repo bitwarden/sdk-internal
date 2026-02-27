@@ -287,6 +287,44 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_sync_success_calls_handlers_and_returns_response() {
+        let client = test_client(bitwarden_api_api::apis::ApiClient::new_mocked(|mock| {
+            mock.sync_api
+                .expect_get()
+                .returning(|_| Ok(SyncResponseModel::default()));
+        }));
+        let sync_log = Arc::new(Mutex::new(Vec::new()));
+        let error_log = Arc::new(Mutex::new(Vec::new()));
+
+        client.register_sync_handler(Arc::new(TestHandler {
+            name: "handler".to_string(),
+            execution_log: sync_log.clone(),
+            should_fail: false,
+        }));
+        client.register_error_handler(Arc::new(TestErrorHandler {
+            name: "error_handler".to_string(),
+            error_log: error_log.clone(),
+        }));
+
+        let result = client
+            .sync(SyncRequest {
+                exclude_subdomains: None,
+            })
+            .await;
+
+        assert!(result.is_ok(), "Sync should succeed");
+        assert_eq!(
+            *sync_log.lock().unwrap(),
+            vec!["handler"],
+            "Sync handler should be called on success"
+        );
+        assert!(
+            error_log.lock().unwrap().is_empty(),
+            "Error handlers should not be called on success"
+        );
+    }
+
+    #[tokio::test]
     async fn test_sync_error_notifies_error_handlers() {
         let client = test_client(bitwarden_api_api::apis::ApiClient::new_mocked(|mock| {
             mock.sync_api.expect_get().returning(|_| {
