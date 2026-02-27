@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Skill(read_memory)",
+      "Skill(todo-writer)",
+      "Skill(create_memory)",
+      "Bash(~/.claude/skills/read_memory/read_memory.sh:*)"
+    ]
+  }
+}

@@ -1,14 +1,15 @@
 //! WASM bindings for Flight Recorder.
 
-use bitwarden_flight_recorder::{drain_flight_recorder, flight_recorder_count};
+use bitwarden_flight_recorder::{flight_recorder_count, read_flight_recorder};
 use wasm_bindgen::prelude::*;
 
 // TypeScript type definition for proper IDE support
 #[wasm_bindgen(typescript_custom_section)]
 const TS_APPEND_CONTENT: &'static str = r#"
 export interface FlightRecorderClient {
-    drain(): FlightRecorderEvent[];
+    read(): FlightRecorderEvent[];
     count(): number;
+    inject_test_logs(count: number): void;
 }
 "#;
 
@@ -30,7 +31,7 @@ impl FlightRecorderClient {
         Self
     }
 
-    /// Drain all events from the Flight Recorder buffer.
+    /// Read all events from the Flight Recorder buffer.
     ///
     /// Returns events as JsValue (serialized via serde_wasm_bindgen).
     /// After calling this, the buffer is empty.
@@ -38,14 +39,22 @@ impl FlightRecorderClient {
     /// Note: We return JsValue and use serde_wasm_bindgen for serialization
     /// because Vec<CustomType> requires explicit conversion across WASM boundary.
     /// The TypeScript type is defined via typescript_custom_section above.
-    pub fn drain(&self) -> JsValue {
-        let events = drain_flight_recorder();
+    pub fn read(&self) -> JsValue {
+        let events = read_flight_recorder();
         tsify::serde_wasm_bindgen::to_value(&events).unwrap_or(JsValue::UNDEFINED)
     }
 
     /// Get current event count without draining.
     pub fn count(&self) -> usize {
         flight_recorder_count()
+    }
+
+    /// TEMPORARY: Inject test logs for eviction testing.
+    /// Generates `count` INFO-level log events to test buffer behavior.
+    pub fn inject_test_logs(&self, count: usize) {
+        for i in 0..count {
+            tracing::info!(test_index = i, "Test log for eviction testing");
+        }
     }
 }
 

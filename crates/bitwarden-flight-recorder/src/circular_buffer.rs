@@ -55,11 +55,12 @@ impl<T: Clone> CircularBuffer<T> {
         evicted
     }
 
-    /// Drain all items from the buffer.
+    /// Read all items from the buffer.
     ///
-    /// This empties the buffer and returns all items in order (oldest first).
+    /// Returns a snapshot of current buffer contents in order (oldest first).
+    /// This empties the buffer as items are read.
     #[must_use]
-    pub fn drain(&self) -> Vec<T> {
+    pub fn read(&self) -> Vec<T> {
         let mut buffer = self.buffer.lock().expect("CircularBuffer mutex poisoned");
         buffer.drain(..).collect()
     }
@@ -101,7 +102,7 @@ mod tests {
         let evicted = buffer.push("event4".to_string());
         assert_eq!(evicted, Some("event1".to_string()));
 
-        let contents = buffer.drain();
+        let contents = buffer.read();
         assert_eq!(contents, vec!["event2", "event3", "event4"]);
     }
 
@@ -116,20 +117,20 @@ mod tests {
         assert!(!buffer.is_empty());
         assert_eq!(buffer.len(), 1);
 
-        let _ = buffer.drain();
+        let _ = buffer.read();
         assert!(buffer.is_empty());
         assert_eq!(buffer.len(), 0);
     }
 
     #[test]
-    fn test_drain_returns_items_in_order() {
+    fn test_read_returns_items_in_order() {
         let buffer = CircularBuffer::new(5);
 
         buffer.push("first".to_string());
         buffer.push("second".to_string());
         buffer.push("third".to_string());
 
-        let items = buffer.drain();
+        let items = buffer.read();
         assert_eq!(items, vec!["first", "second", "third"]);
     }
 }

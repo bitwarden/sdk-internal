@@ -6,14 +6,14 @@
 //! # Usage
 //!
 //! ```ignore
-//! use bitwarden_flight_recorder::{init_flight_recorder, drain_flight_recorder, FlightRecorderConfig};
+//! use bitwarden_flight_recorder::{init_flight_recorder, read_flight_recorder, FlightRecorderConfig};
 //!
 //! // Initialize during SDK startup
 //! let layer = init_flight_recorder(FlightRecorderConfig::default());
 //! // Add layer to tracing subscriber...
 //!
 //! // Later, export logs
-//! let events = drain_flight_recorder();
+//! let events = read_flight_recorder();
 //! ```
 
 mod circular_buffer;
@@ -60,17 +60,17 @@ pub fn get_flight_recorder_buffer() -> Option<Arc<CircularBuffer<FlightRecorderE
     FLIGHT_RECORDER_BUFFER.get().cloned()
 }
 
-/// Drain all events from the Flight Recorder buffer.
+/// Read all events from the Flight Recorder buffer.
 ///
 /// Returns an empty `Vec` if not initialized (graceful degradation).
-/// This is intentional: calling `drain()` before `init_sdk()` returns an empty
+/// This is intentional: calling `read()` before `init_sdk()` returns an empty
 /// array rather than erroring, allowing safe usage during early bootstrapping.
 ///
 /// After calling this, the buffer is empty.
 #[must_use]
-pub fn drain_flight_recorder() -> Vec<FlightRecorderEvent> {
+pub fn read_flight_recorder() -> Vec<FlightRecorderEvent> {
     get_flight_recorder_buffer()
-        .map(|buffer| buffer.drain())
+        .map(|buffer| buffer.read())
         .unwrap_or_default()
 }
 
