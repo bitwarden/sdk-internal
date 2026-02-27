@@ -9,18 +9,15 @@ use bitwarden_crypto::{
 };
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
-use chrono::Utc;
 #[cfg(feature = "internal")]
 use tracing::{info, instrument};
 
-#[cfg(any(feature = "internal", feature = "secrets"))]
-use crate::client::encryption_settings::EncryptionSettings;
-#[cfg(feature = "secrets")]
-use crate::client::login_method::ServiceAccountLoginMethod;
 use crate::{
-    DeviceType, OrganizationId, UserId, auth::renew::renew_token,
-    client::login_method::LoginMethod, error::UserIdAlreadySetError, key_management::KeyIds,
+    DeviceType, UserId, auth::auth_tokens::TokenHandler, client::login_method::LoginMethod,
+    error::UserIdAlreadySetError, key_management::KeyIds,
 };
+#[cfg(any(feature = "internal", feature = "secrets"))]
+use crate::{OrganizationId, client::encryption_settings::EncryptionSettings};
 #[cfg(feature = "internal")]
 use crate::{
     client::{
@@ -69,16 +66,6 @@ impl ApiConfigurations {
         })
     }
 
-    pub fn set_tokens(self: &mut Arc<Self>, token: String) {
-        let mut identity = self.identity_config.clone();
-        let mut api = self.api_config.clone();
-
-        identity.oauth_access_token = Some(token.clone());
-        api.oauth_access_token = Some(token);
-
-        *self = ApiConfigurations::new(identity, api, self.device_type);
-    }
-
     pub(crate) fn get_key_connector_client(
         self: &Arc<Self>,
         key_connector_url: String,
@@ -96,48 +83,24 @@ impl ApiConfigurations {
     }
 }
 
-/// Access and refresh tokens used for authentication and authorization.
-#[derive(Debug, Clone)]
-pub(crate) enum Tokens {
-    SdkManaged(SdkManagedTokens),
-    ClientManaged(Arc<dyn ClientManagedTokens>),
-}
-
-/// Access tokens managed by client applications, such as the web or mobile apps.
-#[cfg_attr(feature = "uniffi", uniffi::export(with_foreign))]
-#[async_trait::async_trait]
-pub trait ClientManagedTokens: std::fmt::Debug + Send + Sync {
-    /// Returns the access token, if available.
-    async fn get_access_token(&self) -> Option<String>;
-}
-
-/// Tokens managed by the SDK, the SDK will automatically handle token renewal.
-#[derive(Debug, Default, Clone)]
-pub(crate) struct SdkManagedTokens {
-    // These two fields are always written to, but they are not read
-    // from the secrets manager SDK.
-    #[allow(dead_code)]
-    access_token: Option<String>,
-    pub(crate) expires_on: Option<i64>,
-
-    #[cfg_attr(not(feature = "internal"), allow(dead_code))]
-    pub(crate) refresh_token: Option<String>,
-}
-
 #[allow(missing_docs)]
-#[derive(Debug)]
 pub struct InternalClient {
     pub(crate) user_id: OnceLock<UserId>,
-    pub(crate) tokens: RwLock<Tokens>,
-    pub(crate) login_method: RwLock<Option<Arc<LoginMethod>>>,
+    #[allow(
+        unused,
+        reason = "This is not used directly by SM, but it's used via the middleware"
+    )]
+    pub(crate) token_handler: Arc<dyn TokenHandler>,
+    #[allow(
+        unused,
+        reason = "This is not used directly by SM, but it's used via the middleware"
+    )]
+    pub(crate) login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
 
     #[cfg(feature = "internal")]
     pub(super) flags: RwLock<Flags>,
 
-    /// Use Client::get_api_configurations().await to access this.
-    /// It should only be used directly in renew_token
-    #[doc(hidden)]
-    pub(crate) __api_configurations: RwLock<Arc<ApiConfigurations>>,
+    pub(super) api_configurations: Arc<ApiConfigurations>,
 
     /// Reqwest client useable for external integrations like email forwarders, HIBP.
     #[allow(unused)]
@@ -173,23 +136,6 @@ impl InternalClient {
             .clone()
     }
 
-    #[allow(missing_docs)]
-    pub fn get_access_token_organization(&self) -> Option<OrganizationId> {
-        match self
-            .login_method
-            .read()
-            .expect("RwLock is not poisoned")
-            .as_deref()
-        {
-            #[cfg(feature = "secrets")]
-            Some(LoginMethod::ServiceAccount(ServiceAccountLoginMethod::AccessToken {
-                organization_id,
-                ..
-            })) => Some(*organization_id),
-            _ => None,
-        }
-    }
-
     #[cfg(any(feature = "internal", feature = "secrets"))]
     pub(crate) fn set_login_method(&self, login_method: LoginMethod) {
         use tracing::debug;
@@ -198,22 +144,10 @@ impl InternalClient {
         *self.login_method.write().expect("RwLock is not poisoned") = Some(Arc::new(login_method));
     }
 
+    #[cfg(any(feature = "internal", feature = "secrets"))]
     pub(crate) fn set_tokens(&self, token: String, refresh_token: Option<String>, expires_in: u64) {
-        *self.tokens.write().expect("RwLock is not poisoned") =
-            Tokens::SdkManaged(SdkManagedTokens {
-                access_token: Some(token.clone()),
-                expires_on: Some(Utc::now().timestamp() + expires_in as i64),
-                refresh_token,
-            });
-        self.set_api_tokens_internal(token);
-    }
-
-    /// Sets api tokens for only internal API clients, use `set_tokens` for SdkManagedTokens.
-    pub(crate) fn set_api_tokens_internal(&self, token: String) {
-        self.__api_configurations
-            .write()
-            .expect("RwLock is not poisoned")
-            .set_tokens(token);
+        self.token_handler
+            .set_tokens(token, refresh_token, expires_in);
     }
 
     #[allow(missing_docs)]
@@ -236,21 +170,14 @@ impl InternalClient {
         &self,
         key_connector_url: String,
     ) -> bitwarden_api_key_connector::apis::ApiClient {
-        self.__api_configurations
-            .read()
-            .expect("RwLock is not poisoned")
+        self.api_configurations
             .get_key_connector_client(key_connector_url)
     }
 
-    #[allow(missing_docs)]
-    pub async fn get_api_configurations(&self) -> Arc<ApiConfigurations> {
-        // At the moment we ignore the error result from the token renewal, if it fails,
-        // the token will end up expiring and the next operation is going to fail anyway.
-        renew_token(self).await.ok();
-        self.__api_configurations
-            .read()
-            .expect("RwLock is not poisoned")
-            .clone()
+    /// Get the `ApiConfigurations` containing API clients and configurations for making requests to
+    /// the Bitwarden services.
+    pub fn get_api_configurations(&self) -> Arc<ApiConfigurations> {
+        self.api_configurations.clone()
     }
 
     #[allow(missing_docs)]
@@ -348,12 +275,13 @@ impl InternalClient {
         pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
         account_crypto_state: WrappedAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
+        // Note: This block ensures the ctx that is created in the block is dropped. Otherwise it
+        // would cause a deadlock when initializing the user crypto
         let decrypted_user_key = {
-            // Note: This block ensures ctx is dropped. Otherwise it would cause a deadlock when
-            // initializing the user crypto
+            use bitwarden_crypto::safe::PasswordProtectedKeyEnvelopeNamespace;
             let ctx = &mut self.key_store.context_mut();
             let decrypted_user_key_id = pin_protected_user_key_envelope
-                .unseal(&pin, ctx)
+                .unseal(&pin, PasswordProtectedKeyEnvelopeNamespace::PinUnlock, ctx)
                 .map_err(|_| EncryptionSettingsError::WrongPin)?;
 
             // Allowing deprecated here, until a refactor to pass the Local key ids to

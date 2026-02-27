@@ -108,9 +108,9 @@ async fn request_access_token(
     client: &Client,
     input: &AccessToken,
 ) -> Result<IdentityTokenResponse, LoginError> {
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
     AccessTokenRequest::new(input.access_token_id, &input.client_secret)
-        .send(&config)
+        .send(&config.identity_config)
         .await
 }
 

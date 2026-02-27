@@ -9,6 +9,7 @@ mod auth_client;
 pub mod login;
 pub mod registration;
 pub mod send_access;
+pub mod token_management;
 
 pub(crate) mod api; // keep internal to crate
 

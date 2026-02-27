@@ -3,7 +3,10 @@
 
 use bitwarden_crypto::{
     KeyStore, KeyStoreContext, key_ids,
-    safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError},
+    safe::{
+        PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError,
+        PasswordProtectedKeyEnvelopeNamespace,
+    },
 };
 
 fn main() {
@@ -26,8 +29,13 @@ fn main() {
     // The KDF settings are chosen for you, and do not need to be separately tracked or synced
     // Next, store this protected key envelope on disk.
     let pin = "1234";
-    let envelope =
-        PasswordProtectedKeyEnvelope::seal(vault_key, pin, &ctx).expect("Sealing should work");
+    let envelope = PasswordProtectedKeyEnvelope::seal(
+        vault_key,
+        pin,
+        PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
+        &ctx,
+    )
+    .expect("Sealing should work");
     disk.save("vault_key_envelope", (&envelope).into());
 
     // Wipe the context to simulate new session
@@ -40,25 +48,42 @@ fn main() {
     )
     .expect("Deserializing envelope should work");
     deserialized
-        .unseal(pin, &mut ctx)
+        .unseal(
+            pin,
+            PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
+            &mut ctx,
+        )
         .expect("Unsealing should work");
 
     // Alice wants to change her password; also her KDF settings are below the minimums.
     // Re-sealing will update the password, and KDF settings.
     let envelope = envelope
-        .reseal(pin, "0000")
+        .reseal(
+            pin,
+            "0000",
+            PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
+        )
         .expect("The password should be valid");
     disk.save("vault_key_envelope", (&envelope).into());
 
     // Alice wants to change the protected key. This requires creating a new envelope
     let vault_key = ctx.generate_symmetric_key();
-    let envelope =
-        PasswordProtectedKeyEnvelope::seal(vault_key, "0000", &ctx).expect("Sealing should work");
+    let envelope = PasswordProtectedKeyEnvelope::seal(
+        vault_key,
+        "0000",
+        PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
+        &ctx,
+    )
+    .expect("Sealing should work");
     disk.save("vault_key_envelope", (&envelope).into());
 
     // Alice tries the password but it is wrong
     assert!(matches!(
-        envelope.unseal("9999", &mut ctx),
+        envelope.unseal(
+            "9999",
+            PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
+            &mut ctx
+        ),
         Err(PasswordProtectedKeyEnvelopeError::WrongPassword)
     ));
 }

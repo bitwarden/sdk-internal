@@ -165,7 +165,7 @@ LOCAL_SDK=true ./Scripts/bootstrap.sh
 > **BREAKING CHANGES** When a pull request is opened to merge changes from `sdk-internal` into
 > `main`, a [Breaking Change Detection ](./.github/workflows/detect-breaking-changes.yml) workflow
 > will run and comment on the PR if breaking changes are detected on any clients. If your PR
-> includes breaking changes **you must be prepared to address them as as soon as they merge with a
+> includes breaking changes **you must be prepared to address them as soon as they merge with a
 > corresponding PR in the client application repository**. If not, any subsequent `sdk-internal`
 > integrations into clients will be blocked, as those other teams will not know how best to resolve
 > the breaking API contracts that you introduced.
@@ -181,13 +181,13 @@ package is consumed differs.
 
 ### Web clients
 
-For our web clients, the `sdk-internal` packages for our OSS- and commercially-licensed SDK verions
+For our web clients, the `sdk-internal` packages for our OSS- and commercially-licensed SDK versions
 with their WebAssembly bindings is published to npm at:
 
 - https://www.npmjs.com/package/@bitwarden/sdk-internal and
 - https://www.npmjs.com/package/@bitwarden/commercial-sdk-internal
 
-These npm packages are referenced bas
+These npm packages are referenced as
 [dependencies](https://github.com/bitwarden/clients/blob/main/package.json) in our `clients` repo.
 See [Licensing](#licensing) for details on why we have multiple packages.
 
@@ -250,7 +250,7 @@ to ensure they stay in sync with the server.
 
 The bindings are exposed as multiple crates, one for each backend service:
 
-- [`bitwarden-api-api`](./crates//bitwarden-api-api/README.md): For the `Api` service that contains
+- [`bitwarden-api-api`](./crates/bitwarden-api-api/README.md): For the `Api` service that contains
   most of the server side functionality.
 - [`bitwarden-api-identity`](./crates/bitwarden-api-identity/README.md): For the `Identity` service
   that is used for authentication.
@@ -386,7 +386,7 @@ project. This requires a Java Runtime Environment, and also assumes the reposito
 ./support/build-api.sh
 ```
 
-This project uses customized templates that live in the `support/openapi-templates` directory. These
+This project uses customized templates that live in the `support/openapi-template` directory. These
 templates resolve some outstanding issues we've experienced with the Rust generator. But we strive
 towards modifying the templates as little as possible to ease future upgrades.
 

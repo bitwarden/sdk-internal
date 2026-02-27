@@ -90,16 +90,12 @@ impl SelfHostedOrganizationLicensesApi for SelfHostedOrganizationLicensesApiClie
             "keys.encryptedPrivateKey",
             &keys_encrypted_private_key.to_string(),
         )]);
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         let mut local_var_form = reqwest::multipart::Form::new();
         // TODO: support file upload for 'license' parameter
         local_var_req_builder = local_var_req_builder.multipart(local_var_form);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -149,13 +145,9 @@ impl SelfHostedOrganizationLicensesApi for SelfHostedOrganizationLicensesApiClie
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -191,16 +183,12 @@ impl SelfHostedOrganizationLicensesApi for SelfHostedOrganizationLicensesApiClie
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         let mut local_var_form = reqwest::multipart::Form::new();
         // TODO: support file upload for 'license' parameter
         local_var_req_builder = local_var_req_builder.multipart(local_var_form);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
