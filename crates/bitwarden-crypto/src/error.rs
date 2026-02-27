@@ -82,6 +82,8 @@ pub enum CryptoError {
 pub enum UnsupportedOperationError {
     #[error("Encryption is not implemented for key")]
     EncryptionNotImplementedForKey,
+    #[error("Decryption is not implemented for key")]
+    DecryptionNotImplementedForKey,
 }
 
 #[derive(Debug, Error)]

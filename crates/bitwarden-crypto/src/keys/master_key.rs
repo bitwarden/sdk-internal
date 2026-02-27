@@ -152,11 +152,10 @@ pub(super) fn decrypt_user_key(
         // Legacy. user_keys were encrypted using `Aes256Cbc_B64` a long time ago. We've since
         // moved to using `Aes256Cbc_HmacSha256_B64`. However, we still need to support
         // decrypting these old keys.
-        EncString::Aes256Cbc_B64 { .. } => {
-            let legacy_key = SymmetricCryptoKey::Aes256CbcKey(super::Aes256CbcKey {
-                enc_key: Box::pin(GenericArray::clone_from_slice(key)),
-            });
-            user_key.decrypt_with_key(&legacy_key)?
+        EncString::Aes256Cbc_B64 { iv, ref data } => {
+            let legacy_key = Box::pin(GenericArray::clone_from_slice(key));
+            crate::aes::decrypt_aes256(&iv, data.clone(), &legacy_key)
+                .map_err(|_| CryptoError::Decrypt)?
         }
         EncString::Aes256Cbc_HmacSha256_B64 { .. } => {
             let stretched_key = SymmetricCryptoKey::Aes256CbcHmacKey(stretch_key(key));
@@ -164,7 +163,7 @@ pub(super) fn decrypt_user_key(
         }
         EncString::Cose_Encrypt0_B64 { .. } => {
             return Err(CryptoError::OperationNotSupported(
-                crate::error::UnsupportedOperationError::EncryptionNotImplementedForKey,
+                crate::error::UnsupportedOperationError::DecryptionNotImplementedForKey,
             ));
         }
     };
@@ -336,6 +335,40 @@ mod tests {
             [
                 186, 215, 234, 137, 24, 169, 227, 29, 218, 57, 180, 237, 73, 91, 189, 51, 253, 26,
                 17, 52, 226, 4, 134, 75, 194, 208, 178, 133, 128, 224, 140, 167
+            ]
+        );
+    }
+
+    #[test]
+    fn test_decrypt_cbc256() {
+        let master_key = "hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe08=".to_string();
+        let master_key = SymmetricCryptoKey::try_from(master_key).unwrap();
+        let SymmetricCryptoKey::Aes256CbcKey(master_key) = &master_key else {
+            panic!("Incorrect key type for test used");
+        };
+
+        let master_key = MasterKey::KdfKey(KdfDerivedKeyMaterial(master_key.enc_key.clone()));
+
+        let enc_str = "0.tn/heK4HLbbEe+yEkC+kvw==|8QM94f7aVTtjm/bmvRdVxOxiLiiZtHYYO7+oBdjFCkilncesx0iVrXPl+tMKqW+Jo7+FtZdPNsTrL6RdoG7i5QbCRVwK+9010+xm7MTQY8s=";
+        let enc_string: EncString = enc_str.parse().unwrap();
+
+        let decrypted = master_key.decrypt_user_key(enc_string).unwrap();
+        let SymmetricCryptoKey::Aes256CbcHmacKey(decrypted) = &decrypted else {
+            panic!("Failed to decrypt Aes256CbcHmacKey from Aes256CbcKey encrypted EncString")
+        };
+
+        assert_eq!(
+            decrypted.enc_key.as_slice(),
+            [
+                116, 170, 187, 43, 80, 212, 193, 202, 234, 181, 57, 66, 151, 249, 59, 47, 70, 16,
+                57, 4, 170, 78, 85, 241, 152, 232, 91, 57, 9, 87, 209, 245,
+            ]
+        );
+        assert_eq!(
+            decrypted.mac_key.as_slice(),
+            [
+                40, 245, 106, 140, 2, 225, 138, 213, 98, 223, 92, 168, 135, 208, 22, 194, 31, 21,
+                178, 252, 203, 198, 35, 174, 53, 218, 254, 151, 235, 57, 7, 98,
             ]
         );
     }
