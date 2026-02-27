@@ -30,7 +30,7 @@ pub struct Client {
 impl Client {
     /// Create a new Bitwarden client with default settings and a no-op token handler.
     pub fn new(settings: Option<ClientSettings>) -> Self {
-        Self::new_internal(settings, Arc::new(NoopTokenHandler))
+        Self::new_internal(settings, Arc::new(NoopTokenHandler), None)
     }
 
     /// Create a new Bitwarden client with the specified token handler for managing authentication
@@ -39,12 +39,13 @@ impl Client {
         settings: Option<ClientSettings>,
         token_handler: Arc<dyn TokenHandler>,
     ) -> Self {
-        Self::new_internal(settings, token_handler)
+        Self::new_internal(settings, token_handler, None)
     }
 
     fn new_internal(
         settings_input: Option<ClientSettings>,
         token_handler: Arc<dyn TokenHandler>,
+        cookie_middleware: Option<Arc<dyn reqwest_middleware::Middleware>>,
     ) -> Self {
         let settings = settings_input.unwrap_or_default();
 
@@ -75,9 +76,13 @@ impl Client {
             identity.clone(),
             key_store.clone(),
         );
-        let bw_http_client = reqwest_middleware::ClientBuilder::new(bw_http_client)
-            .with_arc(auth_middleware)
-            .build();
+
+        // Register cookie middleware BEFORE auth middleware per ADR-056
+        let mut client_builder = reqwest_middleware::ClientBuilder::new(bw_http_client);
+        if let Some(cookie_mw) = cookie_middleware {
+            client_builder = client_builder.with_arc(cookie_mw);
+        }
+        let bw_http_client = client_builder.with_arc(auth_middleware).build();
         let api = bitwarden_api_api::Configuration {
             base_path: settings.api_url,
             user_agent: Some(settings.user_agent),
