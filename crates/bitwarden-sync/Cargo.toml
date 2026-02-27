@@ -23,6 +23,10 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
+bitwarden-api-api = { workspace = true, features = ["mockall"] }
+bitwarden-api-identity = { workspace = true, features = ["mockall"] }
+reqwest = { workspace = true }
+reqwest-middleware = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
 
 [lints]

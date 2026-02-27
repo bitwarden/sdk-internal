@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use bitwarden_api_api::models::SyncResponseModel;
-use bitwarden_core::Client;
+use bitwarden_core::{
+    Client,
+    client::{ApiConfigurations, FromClientPart},
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::Mutex;
@@ -31,7 +34,7 @@ pub struct SyncRequest {
 /// This client wraps the core sync functionality and provides hooks
 /// for registering event handlers that can respond to sync operations.
 pub struct SyncClient {
-    client: Client,
+    api_configurations: Arc<ApiConfigurations>,
     sync_handlers: HandlerRegistry<dyn SyncHandler>,
     error_handlers: HandlerRegistry<dyn SyncErrorHandler>,
     sync_lock: Mutex<()>,
@@ -41,7 +44,9 @@ impl SyncClient {
     /// Create a new SyncClient from a Bitwarden client
     pub fn new(client: Client) -> Self {
         Self {
-            client,
+            api_configurations: client
+                .get_part()
+                .expect("ApiConfigurations should never fail"),
             sync_handlers: HandlerRegistry::new(),
             error_handlers: HandlerRegistry::new(),
             sync_lock: Mutex::new(()),
@@ -83,7 +88,7 @@ impl SyncClient {
         let _guard = self.sync_lock.lock().await;
 
         let result = async {
-            let response = perform_sync(&self.client, &request).await?;
+            let response = perform_sync(&self.api_configurations, &request).await?;
             self.trigger_sync(&response).await?;
             Ok(response)
         }
@@ -147,11 +152,10 @@ impl SyncClientExt for Client {
 
 /// Performs the actual sync operation with the Bitwarden API
 async fn perform_sync(
-    client: &Client,
+    api_configurations: &Arc<ApiConfigurations>,
     input: &SyncRequest,
 ) -> Result<SyncResponseModel, SyncError> {
-    let config = client.internal.get_api_configurations().await;
-    let sync = config
+    let sync = api_configurations
         .api_client
         .sync_api()
         .get(input.exclude_subdomains)
@@ -197,14 +201,31 @@ mod tests {
         }
     }
 
-    /// Helper to create a SyncClient without a real server connection.
-    fn test_client() -> SyncClient {
-        SyncClient::new(bitwarden_core::Client::new(None))
+    /// Helper to create a SyncClient with a mocked API client.
+    fn test_client(api_client: bitwarden_api_api::apis::ApiClient) -> SyncClient {
+        let dummy_config = bitwarden_api_api::Configuration {
+            base_path: String::new(),
+            client: reqwest_middleware::ClientBuilder::new(reqwest::Client::new()).build(),
+            oauth_access_token: None,
+            user_agent: None,
+        };
+        SyncClient {
+            api_configurations: Arc::new(ApiConfigurations {
+                api_client,
+                identity_client: bitwarden_api_identity::apis::ApiClient::new_mocked(|_| {}),
+                api_config: dummy_config.clone(),
+                identity_config: dummy_config,
+                device_type: bitwarden_core::client::DeviceType::SDK,
+            }),
+            sync_handlers: HandlerRegistry::new(),
+            error_handlers: HandlerRegistry::new(),
+            sync_lock: tokio::sync::Mutex::new(()),
+        }
     }
 
     #[tokio::test]
     async fn test_handlers_execute_in_registration_order() {
-        let client = test_client();
+        let client = test_client(bitwarden_api_api::apis::ApiClient::new_mocked(|_| {}));
         let log = Arc::new(Mutex::new(Vec::new()));
 
         client.register_sync_handler(Arc::new(TestHandler {
@@ -235,7 +256,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_handler_error_stops_subsequent_handlers() {
-        let client = test_client();
+        let client = test_client(bitwarden_api_api::apis::ApiClient::new_mocked(|_| {}));
         let log = Arc::new(Mutex::new(Vec::new()));
 
         client.register_sync_handler(Arc::new(TestHandler {
@@ -267,7 +288,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_sync_error_notifies_error_handlers() {
-        let client = test_client();
+        let client = test_client(bitwarden_api_api::apis::ApiClient::new_mocked(|mock| {
+            mock.sync_api.expect_get().returning(|_| {
+                Err(bitwarden_api_api::Error::Io(std::io::Error::other(
+                    "test error",
+                )))
+            });
+        }));
         let error_log = Arc::new(Mutex::new(Vec::new()));
 
         client.register_error_handler(Arc::new(TestErrorHandler {
@@ -279,8 +306,7 @@ mod tests {
             error_log: error_log.clone(),
         }));
 
-        // sync() will fail because the test client has no server configured,
-        // which should trigger all error handlers
+        // sync() will fail due to the mocked error, which should trigger all error handlers
         let result = client
             .sync(SyncRequest {
                 exclude_subdomains: None,

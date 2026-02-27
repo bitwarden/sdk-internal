@@ -987,7 +987,10 @@ version = "2.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-api-api",
+ "bitwarden-api-identity",
  "bitwarden-core",
+ "reqwest",
+ "reqwest-middleware",
  "serde",
  "thiserror 1.0.69",
  "tokio",
