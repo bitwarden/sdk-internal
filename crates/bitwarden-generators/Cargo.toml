@@ -26,7 +26,7 @@ wasm = [
 bitwarden-core = { workspace = true, features = ["internal"] }
 bitwarden-crypto = { workspace = true }
 bitwarden-error = { workspace = true }
-rand = ">=0.8.5, <0.9"
+rand = ">=0.8.5, <0.11"
 reqwest = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
