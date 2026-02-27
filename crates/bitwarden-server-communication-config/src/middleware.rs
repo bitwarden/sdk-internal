@@ -140,3 +140,87 @@ fn format_cookie_header(
 
     HeaderValue::from_str(&formatted)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn format_cookie_header_single_cookie() {
+        let cookies = vec![("SessionID".to_string(), "abc123".to_string())];
+        let header = format_cookie_header(cookies).unwrap();
+        assert_eq!(header.to_str().unwrap(), "SessionID=abc123");
+    }
+
+    #[test]
+    fn format_cookie_header_multiple_cookies() {
+        let cookies = vec![
+            ("SessionID".to_string(), "abc123".to_string()),
+            ("UserToken".to_string(), "xyz789".to_string()),
+            ("Preferences".to_string(), "theme=dark".to_string()),
+        ];
+        let header = format_cookie_header(cookies).unwrap();
+        assert_eq!(
+            header.to_str().unwrap(),
+            "SessionID=abc123; UserToken=xyz789; Preferences=theme=dark"
+        );
+    }
+
+    #[test]
+    fn format_cookie_header_aws_elb_sharded_cookies() {
+        // AWS ELB shards cookies > 4KB with -N suffixes
+        let cookies = vec![
+            (
+                "AWSELBAuthSessionCookie-0".to_string(),
+                "shard0data".to_string(),
+            ),
+            (
+                "AWSELBAuthSessionCookie-1".to_string(),
+                "shard1data".to_string(),
+            ),
+            (
+                "AWSELBAuthSessionCookie-2".to_string(),
+                "shard2data".to_string(),
+            ),
+        ];
+        let header = format_cookie_header(cookies).unwrap();
+        assert_eq!(
+            header.to_str().unwrap(),
+            "AWSELBAuthSessionCookie-0=shard0data; AWSELBAuthSessionCookie-1=shard1data; AWSELBAuthSessionCookie-2=shard2data"
+        );
+    }
+
+    #[test]
+    fn format_cookie_header_empty_vec_produces_empty_header() {
+        let cookies = vec![];
+        let header = format_cookie_header(cookies).unwrap();
+        assert_eq!(header.to_str().unwrap(), "");
+    }
+
+    #[test]
+    fn format_cookie_header_rejects_invalid_ascii() {
+        // HeaderValue::from_str() rejects control characters like newlines
+        let cookies = vec![(
+            "InvalidCookie".to_string(),
+            "value\nwith\nnewlines".to_string(),
+        )];
+        let result = format_cookie_header(cookies);
+        assert!(
+            result.is_err(),
+            "Expected InvalidHeaderValue error for control characters"
+        );
+    }
+
+    #[test]
+    fn format_cookie_header_preserves_cookie_order() {
+        // RFC 6265 does not require specific ordering, but we preserve input order
+        // for consistency with ServerCommunicationConfigClient.cookies() return order
+        let cookies = vec![
+            ("First".to_string(), "1".to_string()),
+            ("Second".to_string(), "2".to_string()),
+            ("Third".to_string(), "3".to_string()),
+        ];
+        let header = format_cookie_header(cookies).unwrap();
+        assert_eq!(header.to_str().unwrap(), "First=1; Second=2; Third=3");
+    }
+}
