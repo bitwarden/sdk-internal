@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! This example demonstrates how to sign and verify structs.
 
 use bitwarden_crypto::{CoseSerializable, CoseSign1Bytes, SignedObject, SigningNamespace};
