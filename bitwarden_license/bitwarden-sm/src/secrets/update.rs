@@ -54,7 +54,7 @@ pub(crate) async fn update_secret(
         })
     };
 
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
     let res = config
         .api_client
         .secrets_api()

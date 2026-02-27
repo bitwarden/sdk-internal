@@ -174,8 +174,9 @@ impl InternalClient {
             .get_key_connector_client(key_connector_url)
     }
 
-    #[allow(missing_docs, clippy::unused_async)]
-    pub async fn get_api_configurations(&self) -> Arc<ApiConfigurations> {
+    /// Get the `ApiConfigurations` containing API clients and configurations for making requests to
+    /// the Bitwarden services.
+    pub fn get_api_configurations(&self) -> Arc<ApiConfigurations> {
         self.api_configurations.clone()
     }
 
@@ -274,12 +275,13 @@ impl InternalClient {
         pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
         account_crypto_state: WrappedAccountCryptographicState,
     ) -> Result<(), EncryptionSettingsError> {
+        // Note: This block ensures the ctx that is created in the block is dropped. Otherwise it
+        // would cause a deadlock when initializing the user crypto
         let decrypted_user_key = {
-            // Note: This block ensures ctx is dropped. Otherwise it would cause a deadlock when
-            // initializing the user crypto
+            use bitwarden_crypto::safe::PasswordProtectedKeyEnvelopeNamespace;
             let ctx = &mut self.key_store.context_mut();
             let decrypted_user_key_id = pin_protected_user_key_envelope
-                .unseal(&pin, ctx)
+                .unseal(&pin, PasswordProtectedKeyEnvelopeNamespace::PinUnlock, ctx)
                 .map_err(|_| EncryptionSettingsError::WrongPin)?;
 
             // Allowing deprecated here, until a refactor to pass the Local key ids to

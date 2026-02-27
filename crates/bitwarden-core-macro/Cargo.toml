@@ -1,5 +1,5 @@
 [package]
-name = "bitwarden-test-macro"
+name = "bitwarden-core-macro"
 description = """
 Internal crate for the bitwarden crate. Do not use.
 """
@@ -20,7 +20,7 @@ proc-macro = true
 [dependencies]
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
-syn = { workspace = true, features = ["full"] }
+syn = { workspace = true }
 
 [lints]
 workspace = true

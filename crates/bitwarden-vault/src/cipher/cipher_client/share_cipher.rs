@@ -187,12 +187,7 @@ impl CiphersClient {
 
         let encrypted_cipher = self.encrypt(cipher_view)?;
 
-        let api_client = &self
-            .client
-            .internal
-            .get_api_configurations()
-            .await
-            .api_client;
+        let api_client = &self.client.internal.get_api_configurations().api_client;
 
         share_cipher(
             api_client.ciphers_api(),
@@ -269,12 +264,7 @@ impl CiphersClient {
             )
             .await?;
 
-        let api_client = &self
-            .client
-            .internal
-            .get_api_configurations()
-            .await
-            .api_client;
+        let api_client = &self.client.internal.get_api_configurations().api_client;
 
         share_ciphers_bulk(
             api_client.ciphers_api(),

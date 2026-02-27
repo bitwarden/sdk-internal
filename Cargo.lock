@@ -616,6 +616,7 @@ dependencies = [
  "bitwarden-api-base",
  "bitwarden-api-identity",
  "bitwarden-api-key-connector",
+ "bitwarden-core-macro",
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
@@ -652,6 +653,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-core-macro"
+version = "2.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "bitwarden-crypto"
 version = "2.0.0"
 dependencies = [
@@ -667,6 +677,7 @@ dependencies = [
  "criterion",
  "ed25519-dalek 2.2.0",
  "generic-array",
+ "hex",
  "hkdf",
  "hmac 0.12.1",
  "num-bigint",
