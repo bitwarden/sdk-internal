@@ -1,13 +1,11 @@
 #![allow(missing_docs)]
 
-use std::hint::black_box;
-use std::sync::Arc;
-
-use criterion::{Criterion, Throughput, criterion_group, criterion_main};
+use std::{hint::black_box, sync::Arc};
 
 use bitwarden_flight_recorder::{
     CircularBuffer, FlightRecorderConfig, FlightRecorderEvent, FlightRecorderLayer,
 };
+use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use tracing_subscriber::{Registry, layer::SubscriberExt};
 
 /// Benchmark 1: Event Construction
