@@ -35,7 +35,12 @@ wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
 
 [dev-dependencies]
+criterion = "0.8.0"
 tokio = { workspace = true, features = ["rt", "macros"] }
+
+[[bench]]
+name = "flight_recorder_performance"
+harness = false
 
 [lints]
 workspace = true
