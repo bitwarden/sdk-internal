@@ -19,7 +19,7 @@ pub(crate) async fn list_projects(
     client: &Client,
     input: &ProjectsListRequest,
 ) -> Result<ProjectsResponse, SecretsManagerError> {
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
     let res = config
         .api_client
         .projects_api()

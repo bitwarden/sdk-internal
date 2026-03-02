@@ -7,6 +7,7 @@
 use std::collections::HashMap;
 
 use bitwarden_api_api::models::AccountKeysRequestModel;
+use bitwarden_crypto::safe::PasswordProtectedKeyEnvelopeNamespace;
 #[expect(deprecated)]
 use bitwarden_crypto::{
     CoseSerializable, CryptoError, DeviceKey, EncString, Kdf, KeyConnectorKey, KeyDecryptable,
@@ -488,7 +489,12 @@ pub(super) fn enroll_pin(
     let key_store = client.internal.get_key_store();
     let mut ctx = key_store.context_mut();
 
-    let key_envelope = PasswordProtectedKeyEnvelope::seal(SymmetricKeyId::User, &pin, &ctx)?;
+    let key_envelope = PasswordProtectedKeyEnvelope::seal(
+        SymmetricKeyId::User,
+        &pin,
+        PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
+        &ctx,
+    )?;
     let encrypted_pin = pin.encrypt(&mut ctx, SymmetricKeyId::User)?;
     Ok(EnrollPinResponse {
         pin_protected_user_key_envelope: key_envelope,
@@ -826,12 +832,7 @@ pub(crate) fn make_v2_keys_for_v1_user(
     let public_key = private_key.to_public_key();
 
     // Initialize security state for the user
-    let security_state = SecurityState::initialize_for_user(
-        client
-            .internal
-            .get_user_id()
-            .ok_or(StatefulCryptoError::MissingSecurityState)?,
-    );
+    let security_state = SecurityState::new();
     let signed_security_state = security_state.sign(temporary_signing_key_id, &mut ctx)?;
 
     Ok(UserCryptoV2KeysResponse {
@@ -952,11 +953,10 @@ pub enum MakeKeysError {
 /// Create the data needed to register for TDE (Trusted Device Enrollment)
 pub(crate) fn make_user_tde_registration(
     client: &Client,
-    user_id: UserId,
     org_public_key: B64,
 ) -> Result<MakeTdeRegistrationResponse, MakeKeysError> {
     let mut ctx = client.internal.get_key_store().context_mut();
-    let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx, user_id)
+    let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx)
         .map_err(MakeKeysError::AccountCryptographyInitialization)?;
     // TDE unlock method
     #[expect(deprecated)]
@@ -1003,10 +1003,9 @@ pub struct MakeKeyConnectorRegistrationResponse {
 /// Create the data needed to register for Key Connector
 pub(crate) fn make_user_key_connector_registration(
     client: &Client,
-    user_id: UserId,
 ) -> Result<MakeKeyConnectorRegistrationResponse, MakeKeysError> {
     let mut ctx = client.internal.get_key_store().context_mut();
-    let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx, user_id)
+    let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx)
         .map_err(MakeKeysError::AccountCryptographyInitialization)?;
     #[expect(deprecated)]
     let user_key = ctx.dangerous_get_symmetric_key(user_key_id)?.to_owned();
@@ -1035,13 +1034,12 @@ pub(crate) fn make_user_key_connector_registration(
 /// Create the data needed to register for JIT master password
 pub(crate) fn make_user_jit_master_password_registration(
     client: &Client,
-    user_id: UserId,
     master_password: String,
     salt: String,
     org_public_key: B64,
 ) -> Result<MakeJitMasterPasswordRegistrationResponse, MakeKeysError> {
     let mut ctx = client.internal.get_key_store().context_mut();
-    let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx, user_id)
+    let (user_key_id, wrapped_state) = WrappedAccountCryptographicState::make(&mut ctx)
         .map_err(MakeKeysError::AccountCryptographyInitialization)?;
 
     let kdf = Kdf::default_argon2();
@@ -1953,7 +1951,7 @@ mod tests {
         let registration_client = Client::new(None);
         let make_keys_response = registration_client
             .crypto()
-            .make_user_tde_registration(user_id, org_public_key)
+            .make_user_tde_registration(org_public_key)
             .expect("TDE registration should succeed");
 
         // Initialize a new client using the TDE device key
@@ -2012,8 +2010,7 @@ mod tests {
         let email = "test@bitwarden.com";
         let registration_client = Client::new(None);
 
-        let make_keys_response =
-            make_user_key_connector_registration(&registration_client, user_id);
+        let make_keys_response = make_user_key_connector_registration(&registration_client);
         assert!(make_keys_response.is_ok());
         let make_keys_response = make_keys_response.unwrap();
 

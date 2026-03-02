@@ -101,7 +101,7 @@ authentication token if required.
 # use bitwarden_core::Client;
 # async fn example(client: &Client) -> Result<(), Box<dyn std::error::Error>> {
 // Example API call
-let api_config = client.internal.get_api_configurations().await;
+let api_config = client.internal.get_api_configurations();
 let response = api_config.api_client.ciphers_api().get_all().await?;
 # Ok(())
 # }

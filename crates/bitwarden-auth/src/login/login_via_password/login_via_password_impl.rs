@@ -29,7 +29,7 @@ impl LoginClient {
         let api_request: LoginApiRequest<PasswordLoginApiRequest> =
             (request, master_password_authentication).into();
 
-        let api_configs = self.client.internal.get_api_configurations().await;
+        let api_configs = self.client.internal.get_api_configurations();
 
         let response = send_login_request(&api_configs.identity_config, &api_request).await;
 
