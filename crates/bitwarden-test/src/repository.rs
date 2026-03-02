@@ -45,6 +45,17 @@ impl<V: RepositoryItem + Clone> Repository<V> for MemoryRepository<V> {
         Ok(())
     }
 
+    async fn set_bulk(&self, values: Vec<(V::Key, V)>) -> Result<(), RepositoryError> {
+        let mut store = self
+            .store
+            .lock()
+            .map_err(|e| RepositoryError::Internal(e.to_string()))?;
+        for (key, value) in values {
+            store.insert(key.to_string(), value);
+        }
+        Ok(())
+    }
+
     async fn remove(&self, key: V::Key) -> Result<(), RepositoryError> {
         let mut store = self
             .store
@@ -52,6 +63,26 @@ impl<V: RepositoryItem + Clone> Repository<V> for MemoryRepository<V> {
             .map_err(|e| RepositoryError::Internal(e.to_string()))?;
         let key = key.to_string();
         store.remove(&key);
+        Ok(())
+    }
+
+    async fn remove_bulk(&self, keys: Vec<V::Key>) -> Result<(), RepositoryError> {
+        let mut store = self
+            .store
+            .lock()
+            .map_err(|e| RepositoryError::Internal(e.to_string()))?;
+        for key in keys {
+            store.remove(&key.to_string());
+        }
+        Ok(())
+    }
+
+    async fn remove_all(&self) -> Result<(), RepositoryError> {
+        let mut store = self
+            .store
+            .lock()
+            .map_err(|e| RepositoryError::Internal(e.to_string()))?;
+        store.clear();
         Ok(())
     }
 }
