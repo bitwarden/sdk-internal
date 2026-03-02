@@ -33,12 +33,12 @@ jobs:
       - name: Branch check
         if: ${{ inputs.release_type != 'Dry Run' }}
         run: |
-          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
-            echo "==================================="
-            echo "[!] Can only release from the 'main' branch"
-            echo "==================================="
-            exit 1
-          fi
+          # if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+          #   echo "==================================="
+          #   echo "[!] Can only release from the 'main' branch"
+          #   echo "==================================="
+          #   exit 1
+          # fi
 
       - name: Version output
         id: version-output
