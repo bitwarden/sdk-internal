@@ -186,7 +186,7 @@ macro_rules! create_wasm_repositories {
                     value: $qualified_type_name,
                 ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue>;
                 #[wasm_bindgen(method, catch, js_name = "setBulk")]
-                async fn set_bulk_js(
+                async fn set_bulk(
                     this: &$repo_name,
                     values: ::wasm_bindgen::JsValue,
                 ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue>;
@@ -196,7 +196,7 @@ macro_rules! create_wasm_repositories {
                     id: String,
                 ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue>;
                 #[wasm_bindgen(method, catch, js_name = "removeBulk")]
-                async fn remove_bulk_js(
+                async fn remove_bulk(
                     this: &$repo_name,
                     keys: ::wasm_bindgen::JsValue,
                 ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue>;
@@ -229,7 +229,7 @@ macro_rules! create_wasm_repositories {
                 ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue> {
                     let js_val = ::tsify::serde_wasm_bindgen::to_value(&values)
                         .map_err(|e| ::wasm_bindgen::JsValue::from_str(&e.to_string()))?;
-                    self.set_bulk_js(js_val).await
+                    self.set_bulk(js_val).await
                 }
                 async fn remove(
                     &self,
@@ -243,7 +243,7 @@ macro_rules! create_wasm_repositories {
                 ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue> {
                     let js_val = ::tsify::serde_wasm_bindgen::to_value(&keys)
                         .map_err(|e| ::wasm_bindgen::JsValue::from_str(&e.to_string()))?;
-                    self.remove_bulk_js(js_val).await
+                    self.remove_bulk(js_val).await
                 }
                 async fn remove_all(&self) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue> {
                     self.remove_all().await
