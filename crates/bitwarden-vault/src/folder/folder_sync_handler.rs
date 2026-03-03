@@ -1,23 +1,17 @@
-use std::collections::HashMap;
+use std::sync::Arc;
 
-use bitwarden_core::{Client, require};
+use bitwarden_core::{FromClient, require};
+use bitwarden_state::repository::Repository;
 use bitwarden_sync::{SyncHandler, SyncHandlerError};
 
 use crate::{Folder, FolderId};
 
 /// Sync handler for folders
 ///
-/// This handler persists folders to SDK-managed storage, comparing
-/// revision dates to avoid unnecessary writes and handling deletions.
+/// This handler persists folders to SDK-managed storage.
+#[derive(FromClient)]
 pub struct FolderSyncHandler {
-    client: Client,
-}
-
-impl FolderSyncHandler {
-    /// Create a new FolderSyncHandler
-    pub fn new(client: Client) -> Self {
-        Self { client }
-    }
+    repository: Arc<dyn Repository<Folder>>,
 }
 
 #[async_trait::async_trait]
@@ -26,49 +20,85 @@ impl SyncHandler for FolderSyncHandler {
         &self,
         response: &bitwarden_api_api::models::SyncResponseModel,
     ) -> Result<(), SyncHandlerError> {
-        let state = self.client.platform().state();
-        let repo = state.get::<Folder>()?;
-
-        // Get existing folders for revision_date comparison
-        let mut existing: HashMap<FolderId, Folder> = repo
-            .list()
-            .await?
-            .into_iter()
-            .filter_map(|folder| folder.id.map(|id| (id, folder)))
-            .collect();
-
         let api_folders = require!(response.folders.as_ref());
 
-        // Convert and validate all folders first (fail fast if any conversion fails)
-        // This ensures atomicity - either all conversions succeed or none are persisted
-        let mut folders_to_update = Vec::new();
-        for folder_response in api_folders {
-            let folder = Folder::try_from(folder_response.clone())?;
-            let folder_id = require!(folder.id);
+        let folders: Vec<(FolderId, Folder)> = api_folders
+            .iter()
+            .filter_map(|f| {
+                let folder = Folder::try_from(f.clone()).ok()?;
+                let id = folder.id?;
+                Some((id, folder))
+            })
+            .collect();
 
-            // Check if folder needs to be updated
-            let needs_update = existing
-                .get(&folder_id)
-                .is_none_or(|existing_folder| folder.revision_date > existing_folder.revision_date);
-
-            if needs_update {
-                folders_to_update.push((folder_id, folder));
-            }
-
-            // Mark as processed (remaining entries in map will be deleted)
-            existing.remove(&folder_id);
-        }
-
-        // TODO: Replace with bulk operations when supported
-        for (id, folder) in folders_to_update {
-            repo.set(id, folder).await?;
-        }
-
-        // TODO: Replace with bulk operations when supported
-        for (id, _) in existing {
-            repo.remove(id).await?;
-        }
+        self.repository.replace_all(folders).await?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use bitwarden_api_api::models::{FolderResponseModel, SyncResponseModel};
+    use bitwarden_test::MemoryRepository;
+
+    use super::*;
+
+    /// Valid EncString in type 2 format (Aes256CbcHmac): `2.<iv>|<data>|<mac>`
+    const ENCRYPTED_NAME: &str = "2.AAAAAAAAAAAAAAAAAAAAAA==|AAAAAAAAAAAAAAAAAAAAAA==|AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+
+    fn make_folder_response(id: uuid::Uuid) -> FolderResponseModel {
+        FolderResponseModel {
+            object: Some("folder".to_string()),
+            id: Some(id),
+            name: Some(ENCRYPTED_NAME.to_string()),
+            revision_date: Some("2025-01-01T00:00:00Z".to_string()),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_on_sync_replaces_existing_folders() {
+        let repository = Arc::new(MemoryRepository::<Folder>::default());
+        let handler = FolderSyncHandler {
+            repository: repository.clone(),
+        };
+
+        // First sync with two folders
+        let id1 = uuid::Uuid::new_v4();
+        let id2 = uuid::Uuid::new_v4();
+        let response = SyncResponseModel {
+            folders: Some(vec![make_folder_response(id1), make_folder_response(id2)]),
+            ..Default::default()
+        };
+        handler.on_sync(&response).await.unwrap();
+        assert_eq!(repository.list().await.unwrap().len(), 2);
+
+        // Second sync with only one folder — old ones should be gone
+        let id3 = uuid::Uuid::new_v4();
+        let response = SyncResponseModel {
+            folders: Some(vec![make_folder_response(id3)]),
+            ..Default::default()
+        };
+        handler.on_sync(&response).await.unwrap();
+
+        let stored = repository.list().await.unwrap();
+        assert_eq!(stored.len(), 1);
+        assert!(repository.get(FolderId::new(id1)).await.unwrap().is_none());
+        assert!(repository.get(FolderId::new(id2)).await.unwrap().is_none());
+        assert!(repository.get(FolderId::new(id3)).await.unwrap().is_some());
+    }
+
+    #[tokio::test]
+    async fn test_on_sync_no_folders_returns_error() {
+        let repository = Arc::new(MemoryRepository::<Folder>::default());
+        let handler = FolderSyncHandler {
+            repository: repository.clone(),
+        };
+
+        let response = SyncResponseModel::default();
+        let result = handler.on_sync(&response).await;
+        assert!(result.is_err());
     }
 }
