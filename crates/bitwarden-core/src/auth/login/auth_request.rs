@@ -135,6 +135,7 @@ pub(crate) async fn complete_auth_request(
                     request_private_key: auth_req.private_key,
                     method,
                 },
+                upgrade_token: None,
             })
             .await?;
 
