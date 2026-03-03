@@ -62,7 +62,7 @@ pub(crate) async fn login_password(
                     input.password.clone(),
                     master_password_unlock.clone(),
                     user_key_state,
-                    None,
+                    &None,
                 )?;
 
             client

@@ -110,7 +110,7 @@ mod tests {
                 WrappedAccountCryptographicState::V1 {
                     private_key: private_key.parse().unwrap(),
                 },
-                None,
+                &None,
             )
             .unwrap();
 

@@ -154,7 +154,7 @@ mod tests {
                     salt: email.to_string(),
                 },
                 WrappedAccountCryptographicState::V1 { private_key },
-                None,
+                &None,
             )
             .unwrap();
 
@@ -207,7 +207,7 @@ mod tests {
                     salt: email.to_string(),
                 },
                 WrappedAccountCryptographicState::V1 { private_key },
-                None,
+                &None,
             )
             .unwrap();
 

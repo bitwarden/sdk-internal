@@ -35,7 +35,7 @@ use crate::{
     error::StatefulCryptoError,
     key_management::{
         MasterPasswordError, PrivateKeyId, SecurityState, SignedSecurityState, SigningKeyId,
-        SymmetricKeyId,
+        SymmetricKeyId, V2UpgradeToken,
         account_cryptographic_state::{
             AccountCryptographyInitializationError, WrappedAccountCryptographicState,
         },
@@ -85,7 +85,7 @@ pub struct InitUserCryptoRequest {
     pub method: InitUserCryptoMethod,
     /// Optional V2 upgrade token for automatic key rotation from V1 to V2
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub upgrade_token: Option<crate::key_management::V2UpgradeToken>,
+    pub upgrade_token: Option<V2UpgradeToken>,
 }
 
 /// The crypto method used to initialize the user cryptographic state.
@@ -203,7 +203,7 @@ pub(super) async fn initialize_user_crypto(
                     password,
                     master_password_unlock,
                     account_crypto_state,
-                    req.upgrade_token.clone(),
+                    &req.upgrade_token,
                 )?;
 
             drop(_span_guard);
@@ -221,7 +221,7 @@ pub(super) async fn initialize_user_crypto(
             client.internal.initialize_user_crypto_decrypted_key(
                 user_key,
                 account_crypto_state,
-                req.upgrade_token.clone(),
+                &req.upgrade_token,
             )?;
         }
         InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
@@ -229,7 +229,7 @@ pub(super) async fn initialize_user_crypto(
             client.internal.initialize_user_crypto_decrypted_key(
                 user_key,
                 account_crypto_state,
-                req.upgrade_token.clone(),
+                &req.upgrade_token,
             )?;
 
             drop(_span_guard);
@@ -247,7 +247,7 @@ pub(super) async fn initialize_user_crypto(
                 pin_key,
                 pin_protected_user_key,
                 account_crypto_state,
-                req.upgrade_token.clone(),
+                &req.upgrade_token,
             )?;
         }
         InitUserCryptoMethod::PinEnvelope {
@@ -258,7 +258,7 @@ pub(super) async fn initialize_user_crypto(
                 pin,
                 pin_protected_user_key_envelope,
                 account_crypto_state,
-                req.upgrade_token.clone(),
+                &req.upgrade_token,
             )?;
 
             drop(_span_guard);
@@ -287,7 +287,7 @@ pub(super) async fn initialize_user_crypto(
             client.internal.initialize_user_crypto_decrypted_key(
                 user_key,
                 account_crypto_state,
-                req.upgrade_token.clone(),
+                &req.upgrade_token,
             )?;
         }
         InitUserCryptoMethod::DeviceKey {
@@ -302,7 +302,7 @@ pub(super) async fn initialize_user_crypto(
             client.internal.initialize_user_crypto_decrypted_key(
                 user_key,
                 account_crypto_state,
-                req.upgrade_token.clone(),
+                &req.upgrade_token,
             )?;
         }
         InitUserCryptoMethod::KeyConnector {
@@ -316,7 +316,7 @@ pub(super) async fn initialize_user_crypto(
                 master_key,
                 user_key,
                 account_crypto_state,
-                req.upgrade_token.clone(),
+                &req.upgrade_token,
             )?;
         }
     }
@@ -1541,7 +1541,7 @@ mod tests {
                     salt: "test@bitwarden.com".to_string(),
                 },
                 WrappedAccountCryptographicState::V1 { private_key },
-                None,
+                &None,
             )
             .unwrap();
 

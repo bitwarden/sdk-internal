@@ -166,7 +166,7 @@ mod tests {
                     salt: "test@bitwarden.com".to_string(),
                 },
                 WrappedAccountCryptographicState::V1 { private_key },
-                None,
+                &None,
             )
             .unwrap();
 
@@ -241,7 +241,7 @@ mod tests {
                 WrappedAccountCryptographicState::V1 {
                     private_key: private_key.clone(),
                 },
-                None,
+                &None,
             )
             .unwrap();
 

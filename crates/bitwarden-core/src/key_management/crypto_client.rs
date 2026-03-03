@@ -14,6 +14,7 @@ use super::crypto::{
     derive_key_connector, make_key_pair, make_user_jit_master_password_registration,
     make_user_key_connector_registration, verify_asymmetric_keys,
 };
+use crate::key_management::V2UpgradeToken;
 #[cfg(feature = "internal")]
 use crate::key_management::{
     SymmetricKeyId,
@@ -245,7 +246,7 @@ impl CryptoClient {
     /// If the current key is V1 and a token is provided, extracts the V2 key.
     pub fn get_upgraded_user_key(
         &self,
-        upgrade_token: Option<crate::key_management::V2UpgradeToken>,
+        upgrade_token: Option<V2UpgradeToken>,
     ) -> Result<B64, CryptoClientError> {
         let mut ctx = self.client.internal.get_key_store().context_mut();
 
