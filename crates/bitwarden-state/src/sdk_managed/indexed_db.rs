@@ -142,6 +142,30 @@ impl Database for IndexedDbDatabase {
         Ok(())
     }
 
+    async fn set_bulk<T: Serialize + DeserializeOwned + RepositoryItem>(
+        &self,
+        values: Vec<(String, T)>,
+    ) -> Result<(), DatabaseError> {
+        self.0
+            .run_in_thread(move |db| async move {
+                db.transaction(&[T::NAME])
+                    .rw()
+                    .run(|t| async move {
+                        let store = t.object_store(T::NAME)?;
+                        for (key, value) in values {
+                            let value = ::tsify::serde_wasm_bindgen::to_value(&value)
+                                .map_err(IndexedDbInternalError::from)?;
+                            store.put_kv(&JsString::from(key), &value).await?;
+                        }
+                        Ok(())
+                    })
+                    .await
+            })
+            .await??;
+
+        Ok(())
+    }
+
     async fn remove<T: Serialize + DeserializeOwned + RepositoryItem>(
         &self,
         key: &str,
@@ -155,6 +179,47 @@ impl Database for IndexedDbDatabase {
                     .run(|t| async move {
                         let store = t.object_store(T::NAME)?;
                         store.delete(&JsString::from(key)).await?;
+                        Ok(())
+                    })
+                    .await
+            })
+            .await??;
+
+        Ok(())
+    }
+
+    async fn remove_bulk<T: Serialize + DeserializeOwned + RepositoryItem>(
+        &self,
+        keys: Vec<String>,
+    ) -> Result<(), DatabaseError> {
+        self.0
+            .run_in_thread(move |db| async move {
+                db.transaction(&[T::NAME])
+                    .rw()
+                    .run(|t| async move {
+                        let store = t.object_store(T::NAME)?;
+                        for key in keys {
+                            store.delete(&JsString::from(key)).await?;
+                        }
+                        Ok(())
+                    })
+                    .await
+            })
+            .await??;
+
+        Ok(())
+    }
+
+    async fn remove_all<T: Serialize + DeserializeOwned + RepositoryItem>(
+        &self,
+    ) -> Result<(), DatabaseError> {
+        self.0
+            .run_in_thread(move |db| async move {
+                db.transaction(&[T::NAME])
+                    .rw()
+                    .run(|t| async move {
+                        let store = t.object_store(T::NAME)?;
+                        store.clear().await?;
                         Ok(())
                     })
                     .await
