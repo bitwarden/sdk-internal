@@ -39,7 +39,7 @@ pub(crate) async fn create_project(
             .to_string(),
     });
 
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
     let res = config
         .api_client
         .projects_api()

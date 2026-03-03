@@ -20,7 +20,7 @@ pub(crate) async fn delete_secrets(
     client: &Client,
     input: SecretsDeleteRequest,
 ) -> Result<SecretsDeleteResponse, SecretsManagerError> {
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
     let res = config
         .api_client
         .secrets_api()

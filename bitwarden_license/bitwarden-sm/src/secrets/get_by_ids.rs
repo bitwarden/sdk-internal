@@ -20,7 +20,7 @@ pub(crate) async fn get_secrets_by_ids(
 ) -> Result<SecretsResponse, SecretsManagerError> {
     let request = Some(GetSecretsRequestModel { ids: input.ids });
 
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
 
     let res = config
         .api_client

@@ -19,8 +19,12 @@ pub mod platform;
 #[cfg(feature = "secrets")]
 pub mod secrets_manager;
 
+/// Derive macro for implementing the [`FromClient`] trait.
+///
+/// See [`FromClient`] for usage details.
+pub use bitwarden_core_macro::FromClient;
 pub use bitwarden_crypto::ZeroizingAllocator;
-pub use client::{Client, ClientName, ClientSettings, DeviceType};
+pub use client::{Client, ClientName, ClientSettings, DeviceType, FromClient};
 
 mod ids;
 pub use ids::*;

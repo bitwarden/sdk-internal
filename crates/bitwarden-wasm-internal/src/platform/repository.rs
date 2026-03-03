@@ -46,7 +46,10 @@ pub(crate) trait WasmRepository<T> {
     async fn get(&self, id: String) -> Result<JsValue, JsValue>;
     async fn list(&self) -> Result<JsValue, JsValue>;
     async fn set(&self, id: String, value: T) -> Result<JsValue, JsValue>;
+    async fn set_bulk(&self, values: Vec<(String, T)>) -> Result<JsValue, JsValue>;
     async fn remove(&self, id: String) -> Result<JsValue, JsValue>;
+    async fn remove_bulk(&self, keys: Vec<String>) -> Result<JsValue, JsValue>;
+    async fn remove_all(&self) -> Result<JsValue, JsValue>;
 }
 
 /// This struct wraps a [WasmRepository] in a [ThreadBoundRunner] to allow it to be used as a
@@ -82,9 +85,31 @@ impl<T: RepositoryItem, R: WasmRepository<T> + 'static> Repository<T>
         )
         .await
     }
+    async fn set_bulk(&self, values: Vec<(T::Key, T)>) -> Result<(), RepositoryError> {
+        let values: Vec<(String, T)> = values
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v))
+            .collect();
+        run_convert(
+            &self.0,
+            |s| async move { s.set_bulk(values).await.and(UNIT) },
+        )
+        .await
+    }
     async fn remove(&self, key: T::Key) -> Result<(), RepositoryError> {
         let key = key.to_string();
         run_convert(&self.0, |s| async move { s.remove(key).await.and(UNIT) }).await
+    }
+    async fn remove_bulk(&self, keys: Vec<T::Key>) -> Result<(), RepositoryError> {
+        let keys: Vec<String> = keys.into_iter().map(|k| k.to_string()).collect();
+        run_convert(
+            &self.0,
+            |s| async move { s.remove_bulk(keys).await.and(UNIT) },
+        )
+        .await
+    }
+    async fn remove_all(&self) -> Result<(), RepositoryError> {
+        run_convert(&self.0, |s| async move { s.remove_all().await.and(UNIT) }).await
     }
 }
 
@@ -94,7 +119,10 @@ export interface Repository<T> {
     get(id: string): Promise<T | null>;
     list(): Promise<T[]>;
     set(id: string, value: T): Promise<void>;
+    setBulk(values: [string, T][]): Promise<void>;
     remove(id: string): Promise<void>;
+    removeBulk(keys: string[]): Promise<void>;
+    removeAll(): Promise<void>;
 }
 "#;
 
@@ -157,10 +185,24 @@ macro_rules! create_wasm_repositories {
                     id: String,
                     value: $qualified_type_name,
                 ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue>;
+                #[wasm_bindgen(method, catch, js_name = "setBulk")]
+                async fn set_bulk(
+                    this: &$repo_name,
+                    values: ::wasm_bindgen::JsValue,
+                ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue>;
                 #[wasm_bindgen(method, catch)]
                 async fn remove(
                     this: &$repo_name,
                     id: String,
+                ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue>;
+                #[wasm_bindgen(method, catch, js_name = "removeBulk")]
+                async fn remove_bulk(
+                    this: &$repo_name,
+                    keys: ::wasm_bindgen::JsValue,
+                ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue>;
+                #[wasm_bindgen(method, catch, js_name = "removeAll")]
+                async fn remove_all(
+                    this: &$repo_name,
                 ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue>;
             }
 
@@ -181,11 +223,30 @@ macro_rules! create_wasm_repositories {
                 ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue> {
                     self.set(id, value).await
                 }
+                async fn set_bulk(
+                    &self,
+                    values: Vec<(String, $qualified_type_name)>,
+                ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue> {
+                    let js_val = ::tsify::serde_wasm_bindgen::to_value(&values)
+                        .map_err(|e| ::wasm_bindgen::JsValue::from_str(&e.to_string()))?;
+                    self.set_bulk(js_val).await
+                }
                 async fn remove(
                     &self,
                     id: String,
                 ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue> {
                     self.remove(id).await
+                }
+                async fn remove_bulk(
+                    &self,
+                    keys: Vec<String>,
+                ) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue> {
+                    let js_val = ::tsify::serde_wasm_bindgen::to_value(&keys)
+                        .map_err(|e| ::wasm_bindgen::JsValue::from_str(&e.to_string()))?;
+                    self.remove_bulk(js_val).await
+                }
+                async fn remove_all(&self) -> Result<::wasm_bindgen::JsValue, ::wasm_bindgen::JsValue> {
+                    self.remove_all().await
                 }
             }
 

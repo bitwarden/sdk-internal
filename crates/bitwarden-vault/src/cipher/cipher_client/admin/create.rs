@@ -71,7 +71,7 @@ impl CipherAdminClient {
         request: CipherCreateRequest,
     ) -> Result<CipherView, CreateCipherAdminError> {
         let key_store = self.client.internal.get_key_store();
-        let config = self.client.internal.get_api_configurations().await;
+        let config = self.client.internal.get_api_configurations();
         let mut internal_request: CipherCreateRequestInternal = request.into();
 
         let user_id = self

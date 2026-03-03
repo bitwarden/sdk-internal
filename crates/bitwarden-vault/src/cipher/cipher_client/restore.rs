@@ -85,12 +85,7 @@ pub async fn restore_many<R: Repository<Cipher> + ?Sized>(
 impl CiphersClient {
     /// Restores a soft-deleted cipher on the server.
     pub async fn restore(&self, cipher_id: CipherId) -> Result<CipherView, RestoreCipherError> {
-        let api_client = &self
-            .client
-            .internal
-            .get_api_configurations()
-            .await
-            .api_client;
+        let api_client = &self.client.internal.get_api_configurations().api_client;
         let key_store = self.client.internal.get_key_store();
 
         restore(cipher_id, api_client, &*self.get_repository()?, key_store).await
@@ -101,12 +96,7 @@ impl CiphersClient {
         &self,
         cipher_ids: Vec<CipherId>,
     ) -> Result<DecryptCipherListResult, RestoreCipherError> {
-        let api_client = &self
-            .client
-            .internal
-            .get_api_configurations()
-            .await
-            .api_client;
+        let api_client = &self.client.internal.get_api_configurations().api_client;
         let key_store = self.client.internal.get_key_store();
         let repository = &*self.get_repository()?;
 

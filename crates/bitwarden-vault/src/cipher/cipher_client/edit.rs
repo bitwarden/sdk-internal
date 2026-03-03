@@ -362,7 +362,7 @@ impl CiphersClient {
         mut request: CipherEditRequest,
     ) -> Result<CipherView, EditCipherError> {
         let key_store = self.client.internal.get_key_store();
-        let config = self.client.internal.get_api_configurations().await;
+        let config = self.client.internal.get_api_configurations();
         let repository = self.get_repository()?;
 
         let user_id = self
@@ -409,7 +409,7 @@ impl CiphersClient {
         };
         let repository = self.get_repository()?;
 
-        let api_config = self.client.internal.get_api_configurations().await;
+        let api_config = self.client.internal.get_api_configurations();
         let api = api_config.api_client.ciphers_api();
         let orig_cipher = repository.get(cipher_id).await?;
         let cipher = if is_admin {
