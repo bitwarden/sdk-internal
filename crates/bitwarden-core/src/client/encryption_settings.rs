@@ -41,6 +41,9 @@ pub enum EncryptionSettingsError {
     #[error("Unable to retrieve user-key from state")]
     UserKeyStateRetrievalFailed,
 
+    #[error("Invalid upgrade token")]
+    InvalidUpgradeToken,
+
     /// The local user data key could not be initialized.
     #[error("Unable to initialize local user data key")]
     LocalUserDataKeyInitFailed,

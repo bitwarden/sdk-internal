@@ -155,7 +155,19 @@ mod tests {
                 async fn set(&self, _key: String, _value: $ty) -> Result<(), RepositoryError> {
                     unimplemented!()
                 }
+                async fn set_bulk(
+                    &self,
+                    _values: Vec<(String, $ty)>,
+                ) -> Result<(), RepositoryError> {
+                    unimplemented!()
+                }
                 async fn remove(&self, _key: String) -> Result<(), RepositoryError> {
+                    unimplemented!()
+                }
+                async fn remove_bulk(&self, _keys: Vec<String>) -> Result<(), RepositoryError> {
+                    unimplemented!()
+                }
+                async fn remove_all(&self) -> Result<(), RepositoryError> {
                     unimplemented!()
                 }
             }
