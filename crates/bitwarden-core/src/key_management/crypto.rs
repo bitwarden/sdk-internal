@@ -26,8 +26,6 @@ use tracing::info;
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 #[cfg(feature = "wasm")]
-use crate::key_management::local_user_data_key_state::initialize_local_user_data_key;
-#[cfg(feature = "wasm")]
 use crate::key_management::wasm_unlock_state::{
     copy_user_key_to_client_managed_state, get_user_key_from_client_managed_state,
 };
@@ -41,6 +39,7 @@ use crate::{
         account_cryptographic_state::{
             AccountCryptographyInitializationError, WrappedAccountCryptographicState,
         },
+        local_user_data_key_state::initialize_local_user_data_key,
         master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData},
     },
 };
@@ -180,6 +179,7 @@ pub(super) async fn initialize_user_crypto(
 
     let account_crypto_state = req.account_cryptographic_state.to_owned();
 
+    #[cfg(feature = "wasm")]
     let should_copy_user_key = matches!(
         req.method,
         InitUserCryptoMethod::MasterPasswordUnlock { .. }
@@ -293,20 +293,18 @@ pub(super) async fn initialize_user_crypto(
                 )?;
             }
         }
-    }
+    } // drop span guard before any awaits
 
     #[cfg(feature = "wasm")]
-    {
-        if should_copy_user_key {
-            copy_user_key_to_client_managed_state(client)
-                .await
-                .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
-        }
-
-        initialize_local_user_data_key(client)
+    if should_copy_user_key {
+        copy_user_key_to_client_managed_state(client)
             .await
-            .map_err(|_| EncryptionSettingsError::LocalUserDataKeyInitFailed)?;
+            .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
     }
+
+    initialize_local_user_data_key(client)
+        .await
+        .map_err(|_| EncryptionSettingsError::LocalUserDataKeyInitFailed)?;
 
     client
         .internal

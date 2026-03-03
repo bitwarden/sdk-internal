@@ -45,7 +45,7 @@ pub use user_decryption::UserDecryptionData;
 #[cfg(all(feature = "internal", feature = "wasm"))]
 mod wasm_unlock_state;
 
-#[cfg(all(feature = "internal", feature = "wasm"))]
+#[cfg(feature = "internal")]
 mod local_user_data_key_state;
 
 use crate::OrganizationId;
