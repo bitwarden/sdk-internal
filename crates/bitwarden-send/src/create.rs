@@ -19,7 +19,7 @@ use tsify::Tsify;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    AuthType, Send, SendFileView, SendParseError, SendTextView, SendType, SendView,
+    AuthType, Send, SendParseError, SendViewType, SendView,
 };
 
 #[allow(missing_docs)]
@@ -47,9 +47,7 @@ pub struct SendAddEditRequest {
     pub key: Option<String>,
     pub password: Option<String>,
 
-    pub r#type: SendType,
-    pub file: Option<SendFileView>,
-    pub text: Option<SendTextView>,
+    pub view_type: SendViewType,
 
     pub max_access_count: Option<u32>,
     pub disabled: bool,
@@ -90,8 +88,34 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
         // Derive the shareable send key for encrypting content
         let send_key = Send::derive_shareable_key(ctx, &k)?;
 
+        let file = if let SendViewType::File(f) = self.view_type.clone() {
+            Some(Box::new(bitwarden_api_api::models::SendFileModel {
+                id: f.id.clone(),
+                file_name: Some(f.file_name.encrypt(ctx, send_key)?.to_string()),
+                size: f.size.as_ref().and_then(|s| s.parse::<i64>().ok()),
+                size_name: f.size_name.clone(),
+            }))
+        } else {
+            None
+        };
+
+        let text = if let SendViewType::Text(t) = self.view_type.clone() {
+            Some(Box::new(bitwarden_api_api::models::SendTextModel {
+                text: t.text.as_ref().map(|txt| txt.encrypt(ctx, send_key)).transpose()?.map(|e| e.to_string()),
+                hidden: Some(t.hidden),
+            }))
+        } else {
+            None
+        };
+
+        let t = if let SendViewType::File(_) = self.view_type {
+            bitwarden_api_api::models::SendType::File
+        } else {
+            bitwarden_api_api::models::SendType::Text
+        };
+
         Ok(bitwarden_api_api::models::SendRequestModel {
-            r#type: Some(self.r#type.into()),
+            r#type: Some(t),
             auth_type: Some(self.auth_type.into()),
             file_length: None,
             name: Some(self.name.encrypt(ctx, send_key)?.to_string()),
@@ -101,20 +125,8 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
             max_access_count: self.max_access_count.map(|c| c as i32),
             expiration_date: self.expiration_date.map(|d| d.to_rfc3339()),
             deletion_date: self.deletion_date.to_rfc3339(),
-            file: self.file.as_ref().map(|f| -> Result<_, CryptoError> {
-                Ok(Box::new(bitwarden_api_api::models::SendFileModel {
-                    id: f.id.clone(),
-                    file_name: Some(f.file_name.encrypt(ctx, send_key)?.to_string()),
-                    size: f.size.as_ref().and_then(|s| s.parse::<i64>().ok()),
-                    size_name: f.size_name.clone(),
-                }))
-            }).transpose()?,
-            text: self.text.as_ref().map(|t| -> Result<_, CryptoError> {
-                Ok(Box::new(bitwarden_api_api::models::SendTextModel {
-                    text: t.text.as_ref().map(|txt| txt.encrypt(ctx, send_key)).transpose()?.map(|e| e.to_string()),
-                    hidden: Some(t.hidden),
-                }))
-            }).transpose()?,
+            file: file,
+            text: text,
             password: self.password.clone(),
             emails: if self.emails.is_empty() {
                 None
@@ -161,6 +173,8 @@ mod tests {
     use bitwarden_crypto::SymmetricKeyAlgorithm;
     use bitwarden_test::MemoryRepository;
     use uuid::uuid;
+
+    use crate::{SendType, SendView, SendTextView};
 
     use super::*;
 
@@ -217,9 +231,7 @@ mod tests {
                 notes: Some("notes".to_string()),
                 key: None,
                 password: None,
-                r#type: SendType::Text,
-                file: None,
-                text: Some(SendTextView {
+                view_type: SendViewType::Text(SendTextView {
                     text: Some("test".to_string()),
                     hidden: false,
                 }),
@@ -296,9 +308,7 @@ mod tests {
                 notes: Some("notes".to_string()),
                 key: None,
                 password: None,
-                r#type: SendType::Text,
-                file: None,
-                text: Some(SendTextView {
+                view_type: SendViewType::Text(SendTextView {
                     text: Some("test".to_string()),
                     hidden: false,
                 }),

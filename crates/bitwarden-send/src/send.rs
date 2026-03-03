@@ -87,6 +87,12 @@ pub enum AuthType {
     None = 2,
 }
 
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub enum SendViewType {
+    File(SendFileView),
+    Text(SendTextView),
+}
+
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

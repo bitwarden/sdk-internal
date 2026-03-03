@@ -72,7 +72,7 @@ mod tests {
     use uuid::uuid;
 
     use super::*;
-    use crate::{AuthType, SendTextView, SendType};
+    use crate::{AuthType, SendTextView, SendType, SendViewType};
 
     #[tokio::test]
     async fn test_edit_send() {
@@ -159,9 +159,7 @@ mod tests {
                 notes: Some("updated notes".to_string()),
                 key: None,
                 password: None,
-                r#type: SendType::Text,
-                file: None,
-                text: Some(SendTextView {
+                view_type: SendViewType::Text(SendTextView {
                     text: Some("updated text".to_string()),
                     hidden: false,
                 }),
@@ -185,7 +183,7 @@ mod tests {
         assert_eq!(result.revision_date, "2025-01-02T00:00:00Z".parse::<DateTime<Utc>>().unwrap());
 
         // Confirm the send was updated in the repository
-        let stored = repository.get(send_id.to_string()).await.unwrap().unwrap();
+        let stored = repository.get(send_id).await.unwrap().unwrap();
         assert_eq!(
             store
                 .decrypt::<SymmetricKeyId, Send, SendView>(&stored)
@@ -219,9 +217,7 @@ mod tests {
                 notes: None,
                 key: None,
                 password: None,
-                r#type: SendType::Text,
-                file: None,
-                text: Some(SendTextView {
+                view_type: SendViewType::Text(SendTextView {
                     text: Some("test".to_string()),
                     hidden: false,
                 }),
@@ -281,7 +277,7 @@ mod tests {
         let mut existing_send = store.encrypt(existing_send_view).unwrap();
         existing_send.id = Some(send_id); // Set the ID after encryption
         repository
-            .set(send_id.to_string(), existing_send)
+            .set(send_id, existing_send)
             .await
             .unwrap();
 
@@ -303,9 +299,7 @@ mod tests {
                 notes: None,
                 key: None,
                 password: None,
-                r#type: SendType::Text,
-                file: None,
-                text: Some(SendTextView {
+                view_type: SendViewType::Text(SendTextView {
                     text: Some("test".to_string()),
                     hidden: false,
                 }),

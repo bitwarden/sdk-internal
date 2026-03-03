@@ -168,7 +168,7 @@ mod tests {
         };
         let mut send_1 = store.encrypt(send_view_1).unwrap();
         send_1.id = Some(send_id_1);
-        repository.set(send_id_1.to_string(), send_1).await.unwrap();
+        repository.set(send_id_1, send_1).await.unwrap();
 
         let send_id_2 = uuid!("36afb22c-9c95-4db5-8bac-c21cb204a3f2");
         let send_view_2 = SendView {
