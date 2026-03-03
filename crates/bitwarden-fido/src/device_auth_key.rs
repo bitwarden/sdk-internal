@@ -23,8 +23,6 @@ use passkey::{
         },
     },
 };
-use uuid::Uuid;
-
 use crate::{
     GetAssertionRequest, MakeCredentialResult, PublicKeyCredentialRpEntity,
     PublicKeyCredentialUserEntity,
@@ -87,7 +85,13 @@ impl DeviceAuthKeyAuthenticator<'_> {
             DeviceAuthKeyError::RetrieveRegistrationOptionsFailure
         })?;
 
-        // Create credential with passkey-rs, store on device with given trait implementation
+        // Extract user/RP data from request before make_credential consumes it.
+        let rp_id = request.rp.id.clone();
+        let user_handle = request.user.id.to_vec();
+        let user_name = request.user.name.clone();
+        let user_display_name = request.user.display_name.clone();
+
+        // Create credential with passkey-rs, store record on device with given trait implementation
         let store = DeviceAuthKeyStoreInternal { store: self.store };
         let ui = DeviceAuthKeyUiInternal {};
         let mut authenticator =
@@ -130,6 +134,7 @@ impl DeviceAuthKeyAuthenticator<'_> {
         };
 
         // Send registration request to server
+        let credential_id = result.credential_id.clone();
         let create_request = WebAuthnLoginCredentialCreateRequestModel {
             device_response: Box::new(AuthenticatorAttestationRawResponse {
                 id: Some(result.credential_id.clone()),
@@ -148,11 +153,32 @@ impl DeviceAuthKeyAuthenticator<'_> {
             encrypted_public_key: Some(key_set.encrypted_encapsulation_key.to_string()),
             encrypted_private_key: Some(key_set.encrypted_decapsulation_key.to_string()),
         };
-        api_client
+        let server_response = api_client
             .web_authn_api()
             .post(Some(create_request))
             .await
             .map_err(|_| DeviceAuthKeyError::SubmitRegistrationFailure)?;
+        let record_identifier = server_response
+            .id
+            .ok_or(DeviceAuthKeyError::SubmitRegistrationFailure)?;
+
+        // Save metadata now that we have the server-assigned record identifier
+        let metadata = DeviceAuthKeyMetadata {
+            record_identifier,
+            creation_date: chrono::offset::Utc::now(),
+            credential_id,
+            rp_id,
+            user_handle,
+            user_name,
+            user_display_name,
+        };
+        self.store
+            .create_metadata(metadata)
+            .await
+            .map_err(|err| {
+                tracing::error!(%err, "Failed to save device auth key metadata");
+                err
+            })?;
         Ok(())
     }
 
@@ -639,14 +665,20 @@ pub enum DeviceAuthKeyError {
 /// A trait used to interact with the device auth key data on the device.
 #[async_trait::async_trait]
 pub trait DeviceAuthKeyStore: Send + Sync {
-    /// Create a record and its metadata.
+    /// Create a record (private key material).
     ///
     /// The record should be stored in device-bound storage and protected with user-verifying access
-    /// controls. The metadata should be stored separately without access controls that require
-    /// UI.
-    async fn create_record_and_metadata(
+    /// controls.
+    async fn create_record(
         &mut self,
         record: DeviceAuthKeyRecord,
+    ) -> Result<(), DeviceAuthKeyError>;
+
+    /// Create metadata for the device auth key.
+    ///
+    /// The metadata should be stored separately without access controls that require UI.
+    async fn create_metadata(
+        &mut self,
         metadata: DeviceAuthKeyMetadata,
     ) -> Result<(), DeviceAuthKeyError>;
 
@@ -684,36 +716,16 @@ impl passkey::authenticator::CredentialStore for DeviceAuthKeyStoreInternal<'_> 
     async fn save_credential(
         &mut self,
         cred: Passkey,
-        user: passkey::types::ctap2::make_credential::PublicKeyCredentialUserEntity,
-        rp: passkey::types::ctap2::make_credential::PublicKeyCredentialRpEntity,
+        _user: passkey::types::ctap2::make_credential::PublicKeyCredentialUserEntity,
+        _rp: passkey::types::ctap2::make_credential::PublicKeyCredentialRpEntity,
         _options: passkey::types::ctap2::get_assertion::Options,
     ) -> Result<(), StatusCode> {
-        // TODO: we need to modify the server to return the ID returned from the
-        // server when registering the credential, then save it as the record
-        // identifier so we can unregister it later.
-        //
-        // If we add a delete-by-cred-id method to the server instead, we can reuse the credential
-        // ID here.
-        let record_identifier = Uuid::new_v4().to_string();
-        // We require the user name in our implementation. We should document this on the server.
-        let (Some(user_name), Some(user_display_name)) = (user.name, user.display_name) else {
-            return Err(UnknownSpecError::try_from(0xdf).unwrap().into());
-        };
-        let metadata = DeviceAuthKeyMetadata {
-            record_identifier,
-            creation_date: chrono::offset::Utc::now(),
-            credential_id: cred.credential_id.to_vec(),
-            rp_id: rp.id,
-            user_handle: user.id.to_vec(),
-            user_name,
-            user_display_name,
-        };
         let record = cred
             .try_into()
             .map_err(|_| UnknownSpecError::try_from(0xdf).unwrap())?;
 
         self.store
-            .create_record_and_metadata(record, metadata)
+            .create_record(record)
             .await
             .map_err(|_| StatusCode::from(UnknownSpecError::try_from(0xdf).unwrap()))?;
         Ok(())

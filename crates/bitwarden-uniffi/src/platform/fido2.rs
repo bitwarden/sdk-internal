@@ -332,9 +332,12 @@ impl ClientDeviceAuthKeyAuthenticator {
 #[uniffi::export(with_foreign)]
 #[async_trait::async_trait]
 pub trait DeviceAuthKeyStore: Send + Sync {
-    async fn create_record_and_metadata(
+    async fn create_record(
         &self,
         record: DeviceAuthKeyRecord,
+    ) -> Result<(), DeviceAuthKeyError>;
+    async fn create_metadata(
+        &self,
         metadata: DeviceAuthKeyMetadata,
     ) -> Result<(), DeviceAuthKeyError>;
     async fn get_metadata(&self) -> Result<Option<DeviceAuthKeyMetadata>, DeviceAuthKeyError>;
@@ -345,12 +348,18 @@ pub trait DeviceAuthKeyStore: Send + Sync {
 // See note on UniffiTraitBridge below
 #[async_trait::async_trait]
 impl bitwarden_fido::DeviceAuthKeyStore for UniffiTraitBridge<&dyn DeviceAuthKeyStore> {
-    async fn create_record_and_metadata(
+    async fn create_record(
         &mut self,
         record: DeviceAuthKeyRecord,
+    ) -> Result<(), DeviceAuthKeyError> {
+        self.0.create_record(record).await
+    }
+
+    async fn create_metadata(
+        &mut self,
         metadata: DeviceAuthKeyMetadata,
     ) -> Result<(), DeviceAuthKeyError> {
-        self.0.create_record_and_metadata(record, metadata).await
+        self.0.create_metadata(metadata).await
     }
 
     async fn get_metadata(&self) -> Result<Option<DeviceAuthKeyMetadata>, DeviceAuthKeyError> {
