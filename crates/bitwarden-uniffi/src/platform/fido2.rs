@@ -278,9 +278,8 @@ impl ClientDeviceAuthKeyAuthenticator {
         client_name: String,
         web_vault_hostname: String,
         origin: String,
-        // TODO: Should I just ask for the SecretVerificationRequestModel instead?
         email: String,
-        master_password: String,
+        secret_verification_request: SecretVerificationRequest,
         kdf: Kdf,
     ) -> Result<()> {
         let mut store = UniffiTraitBridge(self.store.as_ref());
@@ -291,7 +290,7 @@ impl ClientDeviceAuthKeyAuthenticator {
                 web_vault_hostname,
                 origin,
                 email,
-                master_password,
+                secret_verification_request,
                 kdf,
             )
             .await
@@ -332,10 +331,7 @@ impl ClientDeviceAuthKeyAuthenticator {
 #[uniffi::export(with_foreign)]
 #[async_trait::async_trait]
 pub trait DeviceAuthKeyStore: Send + Sync {
-    async fn create_record(
-        &self,
-        record: DeviceAuthKeyRecord,
-    ) -> Result<(), DeviceAuthKeyError>;
+    async fn create_record(&self, record: DeviceAuthKeyRecord) -> Result<(), DeviceAuthKeyError>;
     async fn create_metadata(
         &self,
         metadata: DeviceAuthKeyMetadata,
