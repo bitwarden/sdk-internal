@@ -20,6 +20,7 @@ use crate::SendParseError;
 
 const SEND_ITERATIONS: u32 = 100_000;
 
+/// File-based send content
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -31,17 +32,22 @@ pub struct SendFile {
     pub size_name: Option<String>,
 }
 
+/// View model for decrypted SendFile
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SendFileView {
+    /// The file's ID
     pub id: Option<String>,
+    /// The file name
     pub file_name: String,
+    /// The file size in bytes as a string
     pub size: Option<String>,
     /// Readable size, ex: "4.2 KB" or "1.43 GB"
     pub size_name: Option<String>,
 }
 
+/// Text-based send content
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -87,9 +93,12 @@ pub enum AuthType {
     None = 2,
 }
 
+/// View model for decrypted Send type
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum SendViewType {
+    /// File-based send
     File(SendFileView),
+    /// Text-based send
     Text(SendTextView),
 }
 

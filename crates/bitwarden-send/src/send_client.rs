@@ -147,7 +147,7 @@ impl SendClient {
     /// Create a new [Send] and save it to the server.
     pub async fn create(&self, request: SendAddRequest) -> Result<SendView, CreateSendError> {
         let key_store = self.client.internal.get_key_store();
-        let config = self.client.internal.get_api_configurations().await;
+        let config = self.client.internal.get_api_configurations();
         let repository = self.get_repository()?;
 
         create_send(key_store, &config.api_client, repository.as_ref(), request).await
@@ -160,7 +160,7 @@ impl SendClient {
         request: SendEditRequest,
     ) -> Result<SendView, EditSendError> {
         let key_store = self.client.internal.get_key_store();
-        let config = self.client.internal.get_api_configurations().await;
+        let config = self.client.internal.get_api_configurations();
         let repository = self.get_repository()?;
 
         edit_send(

@@ -123,8 +123,8 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
             max_access_count: self.max_access_count.map(|c| c as i32),
             expiration_date: self.expiration_date.map(|d| d.to_rfc3339()),
             deletion_date: self.deletion_date.to_rfc3339(),
-            file: file,
-            text: text,
+            file,
+            text,
             password: self.password.clone(),
             emails: if self.emails.is_empty() {
                 None
@@ -153,7 +153,7 @@ pub(super) async fn edit_send<R: Repository<Send> + ?Sized>(
     let id = send_id.to_string();
 
     // Verify the send we're updating exists
-    repository.get(send_id.clone()).await?.ok_or(ItemNotFoundError)?;
+    repository.get(send_id).await?.ok_or(ItemNotFoundError)?;
 
     let send_request = key_store.encrypt(request)?;
 
