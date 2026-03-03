@@ -1,16 +1,19 @@
-use bitwarden_core::{ApiError, MissingFieldError, key_management::KeyIds};
-use bitwarden_crypto::{CryptoError, KeyStore};
+use bitwarden_core::{ApiError, MissingFieldError, key_management::{KeyIds, SymmetricKeyId}};
+use bitwarden_crypto::{CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext, OctetStreamBytes, PrimitiveEncryptable, generate_random_bytes};
+use bitwarden_encoding::B64Url;
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    Send, SendView,
-    create::SendAddEditRequest,
-    error::{ItemNotFoundError, SendParseError},
+    AuthType, Send, SendView, SendViewType, error::{ItemNotFoundError, SendParseError}
 };
 
 #[allow(missing_docs)]
@@ -33,12 +36,119 @@ pub enum EditSendError {
     SendParse(#[from] SendParseError),
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct SendEditRequest {
+    pub name: String,
+    pub notes: Option<String>,
+    pub key: Option<String>,
+    pub password: Option<String>,
+
+    pub view_type: SendViewType,
+
+    pub max_access_count: Option<u32>,
+    pub disabled: bool,
+    pub hide_email: bool,
+
+    pub deletion_date: DateTime<Utc>,
+    pub expiration_date: Option<DateTime<Utc>>,
+
+    /// Email addresses for OTP authentication.
+    /// **Note**: Mutually exclusive with `new_password`. If both are set,
+    /// only password authentication will be used.
+    pub emails: Vec<String>,
+    pub auth_type: AuthType,
+}
+
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::SendRequestModel>
+    for SendEditRequest
+{
+    fn encrypt_composite(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<bitwarden_api_api::models::SendRequestModel, CryptoError> {
+        // Generate or decode the send key
+        let k = match &self.key {
+            // Existing send, decode key
+            Some(k) => B64Url::try_from(k.as_str())
+                .map_err(|_| CryptoError::InvalidKey)?
+                .as_bytes()
+                .to_vec(),
+            // New send, generate random key
+            None => {
+                let key = generate_random_bytes::<[u8; 16]>();
+                key.to_vec()
+            }
+        };
+
+        // Derive the shareable send key for encrypting content
+        let send_key = Send::derive_shareable_key(ctx, &k)?;
+
+        let file = if let SendViewType::File(f) = self.view_type.clone() {
+            Some(Box::new(bitwarden_api_api::models::SendFileModel {
+                id: f.id.clone(),
+                file_name: Some(f.file_name.encrypt(ctx, send_key)?.to_string()),
+                size: f.size.as_ref().and_then(|s| s.parse::<i64>().ok()),
+                size_name: f.size_name.clone(),
+            }))
+        } else {
+            None
+        };
+
+        let text = if let SendViewType::Text(t) = self.view_type.clone() {
+            Some(Box::new(bitwarden_api_api::models::SendTextModel {
+                text: t.text.as_ref().map(|txt| txt.encrypt(ctx, send_key)).transpose()?.map(|e| e.to_string()),
+                hidden: Some(t.hidden),
+            }))
+        } else {
+            None
+        };
+
+        let t = if let SendViewType::File(_) = self.view_type {
+            bitwarden_api_api::models::SendType::File
+        } else {
+            bitwarden_api_api::models::SendType::Text
+        };
+
+        Ok(bitwarden_api_api::models::SendRequestModel {
+            r#type: Some(t),
+            auth_type: Some(self.auth_type.into()),
+            file_length: None,
+            name: Some(self.name.encrypt(ctx, send_key)?.to_string()),
+            notes: self.notes.as_ref().map(|n| n.encrypt(ctx, send_key)).transpose()?.map(|e| e.to_string()),
+            // Encrypt the send key itself with the user key
+            key: OctetStreamBytes::from(k).encrypt(ctx, key)?.to_string(),
+            max_access_count: self.max_access_count.map(|c| c as i32),
+            expiration_date: self.expiration_date.map(|d| d.to_rfc3339()),
+            deletion_date: self.deletion_date.to_rfc3339(),
+            file: file,
+            text: text,
+            password: self.password.clone(),
+            emails: if self.emails.is_empty() {
+                None
+            } else {
+                Some(self.emails.join(","))
+            },
+            disabled: self.disabled,
+            hide_email: Some(self.hide_email),
+        })
+    }
+}
+
+impl IdentifyKey<SymmetricKeyId> for SendEditRequest {
+    fn key_identifier(&self) -> SymmetricKeyId {
+        SymmetricKeyId::User
+    }
+}
+
 pub(super) async fn edit_send<R: Repository<Send> + ?Sized>(
     key_store: &KeyStore<KeyIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
     send_id: Uuid,
-    request: SendAddEditRequest,
+    request: SendEditRequest,
 ) -> Result<SendView, EditSendError> {
     let id = send_id.to_string();
 
@@ -154,7 +264,7 @@ mod tests {
             &api_client,
             &repository,
             send_id,
-            SendAddEditRequest {
+            SendEditRequest {
                 name: "updated".to_string(),
                 notes: Some("updated notes".to_string()),
                 key: None,
@@ -212,7 +322,7 @@ mod tests {
             &api_client,
             &repository,
             send_id,
-            SendAddEditRequest {
+            SendEditRequest {
                 name: "test".to_string(),
                 notes: None,
                 key: None,
@@ -294,7 +404,7 @@ mod tests {
             &api_client,
             &repository,
             send_id,
-            SendAddEditRequest {
+            SendEditRequest {
                 name: "test".to_string(),
                 notes: None,
                 key: None,

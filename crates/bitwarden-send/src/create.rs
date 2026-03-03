@@ -7,7 +7,6 @@ use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext, OctetStreamBytes,
     PrimitiveEncryptable, generate_random_bytes,
 };
-use bitwarden_encoding::B64Url;
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use chrono::{DateTime, Utc};
@@ -41,10 +40,9 @@ pub enum CreateSendError {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct SendAddEditRequest {
+pub struct SendAddRequest {
     pub name: String,
     pub notes: Option<String>,
-    pub key: Option<String>,
     pub password: Option<String>,
 
     pub view_type: SendViewType,
@@ -64,26 +62,15 @@ pub struct SendAddEditRequest {
 }
 
 impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::SendRequestModel>
-    for SendAddEditRequest
+    for SendAddRequest
 {
     fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<bitwarden_api_api::models::SendRequestModel, CryptoError> {
-        // Generate or decode the send key
-        let k = match &self.key {
-            // Existing send, decode key
-            Some(k) => B64Url::try_from(k.as_str())
-                .map_err(|_| CryptoError::InvalidKey)?
-                .as_bytes()
-                .to_vec(),
-            // New send, generate random key
-            None => {
-                let key = generate_random_bytes::<[u8; 16]>();
-                key.to_vec()
-            }
-        };
+        // Generate the send key
+        let k = generate_random_bytes::<[u8; 16]>().to_vec();
 
         // Derive the shareable send key for encrypting content
         let send_key = Send::derive_shareable_key(ctx, &k)?;
@@ -139,7 +126,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
     }
 }
 
-impl IdentifyKey<SymmetricKeyId> for SendAddEditRequest {
+impl IdentifyKey<SymmetricKeyId> for SendAddRequest {
     fn key_identifier(&self) -> SymmetricKeyId {
         SymmetricKeyId::User
     }
@@ -149,7 +136,7 @@ pub(super) async fn create_send<R: Repository<Send> + ?Sized>(
     key_store: &KeyStore<KeyIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
-    request: SendAddEditRequest,
+    request: SendAddRequest,
 ) -> Result<SendView, CreateSendError> {
     let send_request = key_store.encrypt(request)?;
 
@@ -226,10 +213,9 @@ mod tests {
             &store,
             &api_client,
             &repository,
-            SendAddEditRequest {
+            SendAddRequest {
                 name: "test".to_string(),
                 notes: Some("notes".to_string()),
-                key: None,
                 password: None,
                 view_type: SendViewType::Text(SendTextView {
                     text: Some("test".to_string()),
@@ -303,10 +289,9 @@ mod tests {
             &store,
             &api_client,
             &repository,
-            SendAddEditRequest {
+            SendAddRequest {
                 name: "test".to_string(),
                 notes: Some("notes".to_string()),
-                key: None,
                 password: None,
                 view_type: SendViewType::Text(SendTextView {
                     text: Some("test".to_string()),

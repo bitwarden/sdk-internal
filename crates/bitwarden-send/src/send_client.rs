@@ -12,8 +12,8 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     Send, SendListView, SendView,
-    create::{CreateSendError, SendAddEditRequest, create_send},
-    edit::{EditSendError, edit_send},
+    create::{CreateSendError, SendAddRequest, create_send},
+    edit::{EditSendError, SendEditRequest, edit_send},
     get_list::{GetSendError, get_send, list_sends},
 };
 
@@ -145,7 +145,7 @@ impl SendClient {
     }
 
     /// Create a new [Send] and save it to the server.
-    pub async fn create(&self, request: SendAddEditRequest) -> Result<SendView, CreateSendError> {
+    pub async fn create(&self, request: SendAddRequest) -> Result<SendView, CreateSendError> {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations().await;
         let repository = self.get_repository()?;
@@ -157,7 +157,7 @@ impl SendClient {
     pub async fn edit(
         &self,
         send_id: Uuid,
-        request: SendAddEditRequest,
+        request: SendEditRequest,
     ) -> Result<SendView, EditSendError> {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations().await;
