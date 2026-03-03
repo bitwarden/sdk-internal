@@ -45,6 +45,9 @@ pub use user_decryption::UserDecryptionData;
 #[cfg(all(feature = "internal", feature = "wasm"))]
 mod wasm_unlock_state;
 
+#[cfg(all(feature = "internal", feature = "wasm"))]
+mod local_user_data_key_state;
+
 use crate::OrganizationId;
 
 /// Represents the decrypted symmetric user-key of a user. This is held in ephemeral state of the
@@ -58,6 +61,17 @@ pub struct UserKeyState {
 }
 
 bitwarden_state::register_repository_item!(String => UserKeyState, "UserKey");
+
+/// Represents the encrypted local user data key held in client-managed state.
+/// This key is used to encrypt local user data (e.g., password generator history).
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct LocalUserDataKeyState {
+    encrypted_key: B64,
+}
+
+bitwarden_state::register_repository_item!(String => LocalUserDataKeyState, "LocalUserDataKey");
 
 key_ids! {
     #[symmetric]

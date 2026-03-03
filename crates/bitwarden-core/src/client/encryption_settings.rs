@@ -40,6 +40,10 @@ pub enum EncryptionSettingsError {
 
     #[error("Unable to retrieve user-key from state")]
     UserKeyStateRetrievalFailed,
+
+    /// The local user data key could not be initialized.
+    #[error("Unable to initialize local user data key")]
+    LocalUserDataKeyInitFailed,
 }
 
 #[allow(missing_docs)]

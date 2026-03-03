@@ -26,6 +26,8 @@ use tracing::info;
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 #[cfg(feature = "wasm")]
+use crate::key_management::local_user_data_key_state::initialize_local_user_data_key;
+#[cfg(feature = "wasm")]
 use crate::key_management::wasm_unlock_state::{
     copy_user_key_to_client_managed_state, get_user_key_from_client_managed_state,
 };
@@ -234,6 +236,7 @@ pub(super) async fn initialize_user_crypto(
                 pin_protected_user_key,
                 account_crypto_state,
             )?;
+            drop(_span_guard);
         }
         InitUserCryptoMethod::PinEnvelope {
             pin,
@@ -271,6 +274,7 @@ pub(super) async fn initialize_user_crypto(
             client
                 .internal
                 .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
+            drop(_span_guard);
         }
         InitUserCryptoMethod::DeviceKey {
             device_key,
@@ -284,6 +288,7 @@ pub(super) async fn initialize_user_crypto(
             client
                 .internal
                 .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
+            drop(_span_guard);
         }
         InitUserCryptoMethod::KeyConnector {
             master_key,
@@ -297,8 +302,14 @@ pub(super) async fn initialize_user_crypto(
                 user_key,
                 account_crypto_state,
             )?;
+            drop(_span_guard);
         }
     }
+
+    #[cfg(feature = "wasm")]
+    initialize_local_user_data_key(client)
+        .await
+        .map_err(|_| EncryptionSettingsError::LocalUserDataKeyInitFailed)?;
 
     info!("User crypto initialized successfully");
 
