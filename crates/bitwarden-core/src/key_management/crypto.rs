@@ -298,20 +298,21 @@ pub(super) async fn initialize_user_crypto(
                     account_crypto_state,
                     &req.upgrade_token,
                 )?;
-        }
-        InitUserCryptoMethod::KeyConnector {
-            master_key,
-            user_key,
-        } => {
-            let mut bytes = master_key.into_bytes();
-            let master_key = MasterKey::try_from(bytes.as_mut_slice())?;
-
-            client.internal.initialize_user_crypto_key_connector_key(
+            }
+            InitUserCryptoMethod::KeyConnector {
                 master_key,
                 user_key,
-                account_crypto_state,
-                &req.upgrade_token,
-            )?;
+            } => {
+                let mut bytes = master_key.into_bytes();
+                let master_key = MasterKey::try_from(bytes.as_mut_slice())?;
+
+                client.internal.initialize_user_crypto_key_connector_key(
+                    master_key,
+                    user_key,
+                    account_crypto_state,
+                    &req.upgrade_token,
+                )?;
+            }
         }
     }
 
