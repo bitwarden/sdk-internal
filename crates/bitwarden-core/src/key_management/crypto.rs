@@ -330,6 +330,7 @@ pub(super) async fn initialize_user_crypto(
             url,
             key_connector_key_wrapped_user_key,
         } => {
+            drop(_span_guard);
             let api_client = client.internal.get_key_connector_client(url);
             let key_connector_key = api_client
                 .user_keys_api()
