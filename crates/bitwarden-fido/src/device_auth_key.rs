@@ -1,3 +1,11 @@
+use crate::{
+    GetAssertionRequest, MakeCredentialResult, PublicKeyCredentialRpEntity,
+    PublicKeyCredentialUserEntity,
+    types::{
+        GetAssertionExtensionsOutput, PublicKeyCredentialDescriptor, PublicKeyCredentialParameters,
+        UV, WebAuthnEntityError,
+    },
+};
 use bitwarden_api_api::models::{
     AuthenticatorAttestationRawResponse, CredentialCreateOptions, PublicKeyCredentialType,
     ResponseData, SecretVerificationRequestModel, UserVerificationRequirement,
@@ -21,14 +29,6 @@ use passkey::{
             extensions::{AuthenticatorPrfInputs, AuthenticatorPrfValues},
             make_credential::Options,
         },
-    },
-};
-use crate::{
-    GetAssertionRequest, MakeCredentialResult, PublicKeyCredentialRpEntity,
-    PublicKeyCredentialUserEntity,
-    types::{
-        GetAssertionExtensionsOutput, PublicKeyCredentialDescriptor, PublicKeyCredentialParameters,
-        UV, WebAuthnEntityError,
     },
 };
 
@@ -172,13 +172,10 @@ impl DeviceAuthKeyAuthenticator<'_> {
             user_name,
             user_display_name,
         };
-        self.store
-            .create_metadata(metadata)
-            .await
-            .map_err(|err| {
-                tracing::error!(%err, "Failed to save device auth key metadata");
-                err
-            })?;
+        self.store.create_metadata(metadata).await.map_err(|err| {
+            tracing::error!(%err, "Failed to save device auth key metadata");
+            err
+        })?;
         Ok(())
     }
 
@@ -268,41 +265,47 @@ impl DeviceAuthKeyAuthenticator<'_> {
     /// Delete the device auth key from the device and unregister it from the server.
     pub async fn unregister_device_auth_key(
         &mut self,
-        _credential_id: Vec<u8>,
-        _secret_request_verification: SecretVerificationRequest,
+        email: String,
+        secret_verification_request: SecretVerificationRequest,
+        kdf_params: Kdf,
     ) -> Result<(), DeviceAuthKeyError> {
-        self.store.delete_record_and_metadata().await?;
-        // TODO: This cannot be implemented because there's no way to get the
-        // database record ID from a credential ID. This needs server work.
+        // Retrieve metadata before we delete it
+        let metadata = self
+            .store
+            .get_metadata()
+            .await?
+            .ok_or(DeviceAuthKeyError::MissingDeviceAuthKey)?;
 
-        /*
-        let record_id = loop {
-            let responses = self
-                .api
-                .web_authn_api()
-                .get()
-                .await
-                .map_err(|_| DeviceAuthKeyError::Unknown)?;
-            let Some(data) = responses.data else {
-                break None;
-            };
-            let id = data.iter().find_map(|m| match m.credential_id {
-                Some(cred_id) if cred_id == credential_id => Some(m.id),
-                None => None,
-            });
-            if id.is_some() {
-                break id;
-            }
-        };
-        if let Some(id) = {
-            self.api
-                .web_authn_api()
-                .delete(id, Some(secret_request_verification_model))
-                .await
-                .map_err(|_| DeviceAuthKeyError::Unknown)?;
-        }
-        */
-        Err(DeviceAuthKeyError::NotImplemented)
+        self.store.delete_record_and_metadata().await?;
+
+        let record_id = metadata
+            .record_identifier
+            .parse::<uuid::Uuid>()
+            .map_err(|err| {
+                tracing::error!(%err, "Failed to parse record identifier as UUID");
+                DeviceAuthKeyError::InvalidRecordIdentifier
+            })?;
+
+        // Attempt to unregister the device auth key from the server.
+        let config = self.client.internal.get_api_configurations();
+        let api_client = &config.api_client;
+        let secret_verification_request_model = build_secret_verification_request(
+            &secret_verification_request,
+            email,
+            kdf_params,
+            &self.client.kdf(),
+        )
+        .await?;
+        api_client
+            .web_authn_api()
+            .delete(record_id, Some(secret_verification_request_model))
+            .await
+            .map_err(|err| {
+                tracing::error!(%err, "Failed to unregister device auth key from server");
+                DeviceAuthKeyError::UnregisterFailure
+            })?;
+
+        Ok(())
     }
 }
 
@@ -619,6 +622,18 @@ pub enum DeviceAuthKeyError {
     #[error("Failed to convert between Rust types")]
     ConversionError,
 
+    /// The record identifier stored in metadata is not a valid UUID.
+    #[error("The record identifier is not a valid UUID")]
+    InvalidRecordIdentifier,
+
+    /// No device auth key exists on this device.
+    #[error("No device auth key exists on this device")]
+    MissingDeviceAuthKey,
+
+    /// Failed to unregister device auth key from server.
+    #[error("Failed to unregister device auth key from server")]
+    UnregisterFailure,
+
     /// Failed to de-/serialize COSE key data.
     #[error("Failed to de-/serialize COSE key data")]
     InvalidCoseKey,
@@ -660,6 +675,10 @@ pub enum DeviceAuthKeyError {
     /// Failed to submit registration request to the server.
     #[error("Failed to submit registration request to the server")]
     SubmitRegistrationFailure,
+
+    /// User cancelled the operation.
+    #[error("User cancelled the operation")]
+    UserCancelled,
 }
 
 /// A trait used to interact with the device auth key data on the device.
