@@ -316,13 +316,14 @@ impl ClientDeviceAuthKeyAuthenticator {
     /// Deletes a device auth key and unregisters it from the server.
     async fn unregister_device_auth_key(
         &self,
-        credential_id: Vec<u8>,
+        email: String,
         secret_verification_request: SecretVerificationRequest,
+        kdf: Kdf,
     ) -> Result<()> {
         let mut store = UniffiTraitBridge(self.store.as_ref());
         let mut authenticator = self.client.create_device_key_authenticator(&mut store);
         authenticator
-            .unregister_device_auth_key(credential_id, secret_verification_request)
+            .unregister_device_auth_key(email, secret_verification_request, kdf)
             .await
             .map_err(Error::DeviceAuthKeyError)
     }
