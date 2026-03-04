@@ -167,9 +167,8 @@ mod tests {
     use bitwarden_test::MemoryRepository;
     use uuid::uuid;
 
-    use crate::{SendTextView, SendType, SendView};
-
     use super::*;
+    use crate::{SendTextView, SendType, SendView};
 
     #[tokio::test]
     async fn test_create_send() {
