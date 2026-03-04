@@ -10,7 +10,7 @@
 //!   [CompositeEncryptable](bitwarden_crypto::CompositeEncryptable), and
 //!   [Decryptable](bitwarden_crypto::Decryptable).
 
-use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, key_ids};
+use bitwarden_crypto::{EncString, KeyStore, SymmetricCryptoKey, key_ids};
 
 #[cfg(feature = "internal")]
 pub mod account_cryptographic_state;
@@ -72,7 +72,7 @@ bitwarden_state::register_repository_item!(String => UserKeyState, "UserKey");
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct LocalUserDataKeyState {
-    encrypted_key: B64,
+    encrypted_key: EncString,
 }
 
 bitwarden_state::register_repository_item!(String => LocalUserDataKeyState, "LocalUserDataKey");

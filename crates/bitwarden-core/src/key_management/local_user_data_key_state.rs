@@ -1,5 +1,4 @@
 use bitwarden_crypto::LocalUserDataKey;
-use bitwarden_encoding::B64;
 use tracing::info;
 
 use crate::{
@@ -47,10 +46,7 @@ pub(crate) async fn initialize_local_user_data_key(
     let local_key = LocalUserDataKey::from_user_key(&user_key);
     let encrypted_key = local_key
         .encrypt_with_user_key(&user_key)
-        .map_err(|_| InitLocalUserDataKeyError)?
-        .to_buffer()
-        .map_err(|_| InitLocalUserDataKeyError)
-        .map(B64::from)?;
+        .map_err(|_| InitLocalUserDataKeyError)?;
 
     repo.set(
         LOCAL_USER_DATA_KEY_REPOSITORY_KEY.to_string(),
