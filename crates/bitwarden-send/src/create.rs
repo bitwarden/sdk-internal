@@ -17,9 +17,7 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::{
-    AuthType, Send, SendParseError, SendViewType, SendView,
-};
+use crate::{AuthType, Send, SendParseError, SendView, SendViewType};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -88,7 +86,12 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
 
         let text = if let SendViewType::Text(t) = self.view_type.clone() {
             Some(Box::new(bitwarden_api_api::models::SendTextModel {
-                text: t.text.as_ref().map(|txt| txt.encrypt(ctx, send_key)).transpose()?.map(|e| e.to_string()),
+                text: t
+                    .text
+                    .as_ref()
+                    .map(|txt| txt.encrypt(ctx, send_key))
+                    .transpose()?
+                    .map(|e| e.to_string()),
                 hidden: Some(t.hidden),
             }))
         } else {
@@ -106,7 +109,12 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
             auth_type: Some(self.auth_type.into()),
             file_length: None,
             name: Some(self.name.encrypt(ctx, send_key)?.to_string()),
-            notes: self.notes.as_ref().map(|n| n.encrypt(ctx, send_key)).transpose()?.map(|e| e.to_string()),
+            notes: self
+                .notes
+                .as_ref()
+                .map(|n| n.encrypt(ctx, send_key))
+                .transpose()?
+                .map(|e| e.to_string()),
             // Encrypt the send key itself with the user key
             key: OctetStreamBytes::from(k).encrypt(ctx, key)?.to_string(),
             max_access_count: self.max_access_count.map(|c| c as i32),
@@ -148,9 +156,7 @@ pub(super) async fn create_send<R: Repository<Send> + ?Sized>(
 
     let send: Send = resp.try_into()?;
 
-    repository
-        .set(require!(send.id), send.clone())
-        .await?;
+    repository.set(require!(send.id), send.clone()).await?;
 
     Ok(key_store.decrypt(&send)?)
 }
@@ -161,7 +167,7 @@ mod tests {
     use bitwarden_test::MemoryRepository;
     use uuid::uuid;
 
-    use crate::{SendType, SendView, SendTextView};
+    use crate::{SendTextView, SendType, SendView};
 
     use super::*;
 
@@ -242,24 +248,35 @@ mod tests {
         assert_eq!(result.has_password, false);
         assert_eq!(result.r#type, SendType::Text);
         assert_eq!(result.file, None);
-        assert_eq!(result.text, Some(SendTextView {
-            text: Some("test".to_string()),
-            hidden: false,
-        }));
+        assert_eq!(
+            result.text,
+            Some(SendTextView {
+                text: Some("test".to_string()),
+                hidden: false,
+            })
+        );
         assert_eq!(result.max_access_count, None);
         assert_eq!(result.access_count, 0);
         assert_eq!(result.disabled, false);
         assert_eq!(result.hide_email, false);
-        assert_eq!(result.deletion_date, "2025-01-10T00:00:00Z".parse::<DateTime<Utc>>().unwrap());
+        assert_eq!(
+            result.deletion_date,
+            "2025-01-10T00:00:00Z".parse::<DateTime<Utc>>().unwrap()
+        );
         assert_eq!(result.expiration_date, None);
         assert_eq!(result.emails, Vec::<String>::new());
         assert_eq!(result.auth_type, AuthType::None);
-        assert_eq!(result.revision_date, "2025-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap());
+        assert_eq!(
+            result.revision_date,
+            "2025-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap()
+        );
 
         // Confirm the send was stored in the repository
         assert_eq!(
             store
-                .decrypt::<SymmetricKeyId, Send, SendView>(&repository.get(send_id).await.unwrap().unwrap())
+                .decrypt::<SymmetricKeyId, Send, SendView>(
+                    &repository.get(send_id).await.unwrap().unwrap()
+                )
                 .unwrap(),
             result
         );

@@ -1,19 +1,26 @@
-use bitwarden_core::{ApiError, MissingFieldError, key_management::{KeyIds, SymmetricKeyId}};
-use bitwarden_crypto::{CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext, OctetStreamBytes, PrimitiveEncryptable, generate_random_bytes};
+use bitwarden_core::{
+    ApiError, MissingFieldError,
+    key_management::{KeyIds, SymmetricKeyId},
+};
+use bitwarden_crypto::{
+    CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext, OctetStreamBytes,
+    PrimitiveEncryptable, generate_random_bytes,
+};
 use bitwarden_encoding::B64Url;
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
+use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    AuthType, Send, SendView, SendViewType, error::{ItemNotFoundError, SendParseError}
+    AuthType, Send, SendView, SendViewType,
+    error::{ItemNotFoundError, SendParseError},
 };
 
 #[allow(missing_docs)]
@@ -99,7 +106,12 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
 
         let text = if let SendViewType::Text(t) = self.view_type.clone() {
             Some(Box::new(bitwarden_api_api::models::SendTextModel {
-                text: t.text.as_ref().map(|txt| txt.encrypt(ctx, send_key)).transpose()?.map(|e| e.to_string()),
+                text: t
+                    .text
+                    .as_ref()
+                    .map(|txt| txt.encrypt(ctx, send_key))
+                    .transpose()?
+                    .map(|e| e.to_string()),
                 hidden: Some(t.hidden),
             }))
         } else {
@@ -117,7 +129,12 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
             auth_type: Some(self.auth_type.into()),
             file_length: None,
             name: Some(self.name.encrypt(ctx, send_key)?.to_string()),
-            notes: self.notes.as_ref().map(|n| n.encrypt(ctx, send_key)).transpose()?.map(|e| e.to_string()),
+            notes: self
+                .notes
+                .as_ref()
+                .map(|n| n.encrypt(ctx, send_key))
+                .transpose()?
+                .map(|e| e.to_string()),
             // Encrypt the send key itself with the user key
             key: OctetStreamBytes::from(k).encrypt(ctx, key)?.to_string(),
             max_access_count: self.max_access_count.map(|c| c as i32),
@@ -224,10 +241,7 @@ mod tests {
         };
         let mut existing_send = store.encrypt(existing_send_view).unwrap();
         existing_send.id = Some(send_id); // Set the ID after encryption
-        repository
-            .set(send_id, existing_send)
-            .await
-            .unwrap();
+        repository.set(send_id, existing_send).await.unwrap();
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.sends_api
@@ -290,7 +304,10 @@ mod tests {
         assert_eq!(result.name, "updated");
         assert_eq!(result.notes, Some("updated notes".to_string()));
         assert!(result.key.is_some(), "Expected a key");
-        assert_eq!(result.revision_date, "2025-01-02T00:00:00Z".parse::<DateTime<Utc>>().unwrap());
+        assert_eq!(
+            result.revision_date,
+            "2025-01-02T00:00:00Z".parse::<DateTime<Utc>>().unwrap()
+        );
 
         // Confirm the send was updated in the repository
         let stored = repository.get(send_id).await.unwrap().unwrap();
@@ -343,7 +360,10 @@ mod tests {
         .await;
 
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), EditSendError::ItemNotFound(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            EditSendError::ItemNotFound(_)
+        ));
     }
 
     #[tokio::test]
@@ -386,10 +406,7 @@ mod tests {
         };
         let mut existing_send = store.encrypt(existing_send_view).unwrap();
         existing_send.id = Some(send_id); // Set the ID after encryption
-        repository
-            .set(send_id, existing_send)
-            .await
-            .unwrap();
+        repository.set(send_id, existing_send).await.unwrap();
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.sends_api.expect_put().returning(move |_id, _model| {
@@ -428,4 +445,3 @@ mod tests {
         assert!(matches!(result.unwrap_err(), EditSendError::Api(_)));
     }
 }
-

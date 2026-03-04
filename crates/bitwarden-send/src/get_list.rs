@@ -24,10 +24,7 @@ pub(super) async fn get_send(
     repository: &dyn Repository<Send>,
     id: Uuid,
 ) -> Result<SendView, GetSendError> {
-    let send = repository
-        .get(id)
-        .await?
-        .ok_or(ItemNotFoundError)?;
+    let send = repository.get(id).await?.ok_or(ItemNotFoundError)?;
 
     Ok(store.decrypt(&send)?)
 }
@@ -230,4 +227,3 @@ mod tests {
         assert_eq!(result.len(), 0);
     }
 }
-
