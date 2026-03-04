@@ -63,7 +63,6 @@ pub struct SendClient {
     client: Client,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl SendClient {
     fn new(client: Client) -> Self {
         Self { client }
@@ -143,7 +142,10 @@ impl SendClient {
         let encrypted = OctetStreamBytes::from(buffer).encrypt(&mut ctx, key)?;
         Ok(encrypted.to_buffer()?)
     }
+}
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl SendClient {
     /// Create a new [Send] and save it to the server.
     pub async fn create(&self, request: SendAddRequest) -> Result<SendView, CreateSendError> {
         let key_store = self.client.internal.get_key_store();

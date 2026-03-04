@@ -1,4 +1,4 @@
-use bitwarden_core::key_management::KeyIds;
+use bitwarden_core::{MissingFieldError, key_management::KeyIds};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -15,6 +15,8 @@ pub enum GetSendError {
     ItemNotFound(#[from] ItemNotFoundError),
     #[error(transparent)]
     Crypto(#[from] CryptoError),
+    #[error(transparent)]
+    MissingField(#[from] MissingFieldError),
     #[error(transparent)]
     Repository(#[from] RepositoryError),
 }

@@ -24,6 +24,7 @@ const SEND_ITERATIONS: u32 = 100_000;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendFile {
     pub id: Option<String>,
     pub file_name: EncString,
@@ -51,6 +52,7 @@ pub struct SendFileView {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendText {
     pub text: Option<EncString>,
     pub hidden: bool,
@@ -95,6 +97,7 @@ pub enum AuthType {
 
 /// View model for decrypted Send type
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum SendViewType {
     /// File-based send
     File(SendFileView),
@@ -106,6 +109,7 @@ pub enum SendViewType {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Send {
     pub id: Option<Uuid>,
     pub access_id: Option<String>,
