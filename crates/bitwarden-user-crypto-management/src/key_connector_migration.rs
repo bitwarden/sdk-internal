@@ -1,8 +1,7 @@
 //! Client operations for migrating an initialized account to Key Connector unlock.
 
-use bitwarden_api_api::models::SetKeyConnectorKeyRequestModel;
 use bitwarden_core::key_management::SymmetricKeyId;
-use bitwarden_crypto::KeyConnectorKey;
+use bitwarden_crypto::{EncString, KeyConnectorKey};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
@@ -20,7 +19,6 @@ impl UserCryptoManagementClient {
     pub async fn migrate_to_key_connector(
         &self,
         key_connector_url: String,
-        sso_org_identifier: String,
     ) -> Result<(), MigrateToKeyConnectorError> {
         let internal = &self.client.internal;
         let api_configuration = internal.get_api_configurations();
@@ -30,7 +28,6 @@ impl UserCryptoManagementClient {
             self,
             &api_configuration.api_client,
             &key_connector_api_client,
-            sso_org_identifier,
         )
         .await
     }
@@ -40,9 +37,8 @@ async fn internal_migrate_to_key_connector(
     user_crypto_management_client: &UserCryptoManagementClient,
     api_client: &bitwarden_api_api::apis::ApiClient,
     key_connector_api_client: &bitwarden_api_key_connector::apis::ApiClient,
-    sso_org_identifier: String,
 ) -> Result<(), MigrateToKeyConnectorError> {
-    let (wrapped_user_key, key_connector_key): (String, B64) = {
+    let (_wrapped_user_key, key_connector_key): (EncString, B64) = {
         let key_store = user_crypto_management_client
             .client
             .internal
@@ -57,8 +53,7 @@ async fn internal_migrate_to_key_connector(
         let key_connector_key = KeyConnectorKey::make();
         let wrapped_user_key = key_connector_key
             .encrypt_user_key(user_key)
-            .map_err(|_| MigrateToKeyConnectorError::CryptoError)?
-            .to_string();
+            .map_err(|_| MigrateToKeyConnectorError::CryptoError)?;
 
         (wrapped_user_key, key_connector_key.into())
     };
@@ -67,14 +62,9 @@ async fn internal_migrate_to_key_connector(
     post_key_to_key_connector(key_connector_api_client, &key_connector_key).await?;
 
     info!("Posting wrapped user key for key connector migration");
-    let request = SetKeyConnectorKeyRequestModel {
-        key_connector_key_wrapped_user_key: Some(wrapped_user_key),
-        ..SetKeyConnectorKeyRequestModel::new(sso_org_identifier)
-    };
-
     api_client
         .accounts_key_management_api()
-        .post_set_key_connector_key(Some(request))
+        .post_convert_to_key_connector()
         .await
         .map_err(|e| {
             error!("Failed to post key connector migration request: {e:?}");
@@ -139,8 +129,6 @@ mod tests {
 
     use super::*;
 
-    const TEST_SSO_ORG_IDENTIFIER: &str = "test-org";
-
     fn unlocked_client() -> UserCryptoManagementClient {
         let client = Client::new(None);
         {
@@ -191,7 +179,6 @@ mod tests {
             &user_crypto_management_client,
             &api_client,
             &key_connector_api_client,
-            TEST_SSO_ORG_IDENTIFIER.to_string(),
         )
         .await;
 
@@ -244,7 +231,6 @@ mod tests {
             &user_crypto_management_client,
             &api_client,
             &key_connector_api_client,
-            TEST_SSO_ORG_IDENTIFIER.to_string(),
         )
         .await;
 
@@ -301,7 +287,6 @@ mod tests {
             &user_crypto_management_client,
             &api_client,
             &key_connector_api_client,
-            TEST_SSO_ORG_IDENTIFIER.to_string(),
         )
         .await;
 
@@ -338,7 +323,6 @@ mod tests {
             &user_crypto_management_client,
             &api_client,
             &key_connector_api_client,
-            TEST_SSO_ORG_IDENTIFIER.to_string(),
         )
         .await;
 
