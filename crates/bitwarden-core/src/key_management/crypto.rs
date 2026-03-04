@@ -339,9 +339,11 @@ pub(super) async fn initialize_user_crypto(
             let key_connector_key = KeyConnectorKey::try_from(key_connector_key.key)?;
             let user_key =
                 key_connector_key.decrypt_user_key(key_connector_key_wrapped_user_key)?;
-            client
-                .internal
-                .initialize_user_crypto_decrypted_key(user_key, account_crypto_state)?;
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                account_crypto_state,
+                &req.upgrade_token,
+            )?;
         }
     }
 
