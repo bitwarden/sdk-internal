@@ -13,14 +13,18 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use uuid::Uuid;
 use zeroize::Zeroizing;
+#[cfg(feature = "wasm")]
+use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 use crate::SendParseError;
 
 const SEND_ITERATIONS: u32 = 100_000;
 
-#[derive(Serialize, Deserialize, Debug)]
+/// File-based send content
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendFile {
     pub id: Option<String>,
     pub file_name: EncString,
@@ -29,20 +33,26 @@ pub struct SendFile {
     pub size_name: Option<String>,
 }
 
+/// View model for decrypted SendFile
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct SendFileView {
+    /// The file's ID
     pub id: Option<String>,
+    /// The file name
     pub file_name: String,
+    /// The file size in bytes as a string
     pub size: Option<String>,
     /// Readable size, ex: "4.2 KB" or "1.43 GB"
     pub size_name: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+/// Text-based send content
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendText {
     pub text: Option<EncString>,
     pub hidden: bool,
@@ -85,10 +95,21 @@ pub enum AuthType {
     None = 2,
 }
 
+/// View model for decrypted Send type
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub enum SendViewType {
+    /// File-based send
+    File(SendFileView),
+    /// Text-based send
+    Text(SendTextView),
+}
+
 #[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Send {
     pub id: Option<Uuid>,
     pub access_id: Option<String>,
@@ -118,10 +139,13 @@ pub struct Send {
     pub auth_type: AuthType,
 }
 
+bitwarden_state::register_repository_item!(Uuid => Send, "Send");
+
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendView {
     pub id: Option<Uuid>,
     pub access_id: Option<String>,
@@ -162,6 +186,7 @@ pub struct SendView {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendListView {
     pub id: Option<Uuid>,
     pub access_id: Option<String>,
@@ -189,7 +214,7 @@ impl Send {
         Self::derive_shareable_key(ctx, &key)
     }
 
-    fn derive_shareable_key(
+    pub(crate) fn derive_shareable_key(
         ctx: &mut KeyStoreContext<KeyIds>,
         key: &[u8],
     ) -> Result<SymmetricKeyId, CryptoError> {
@@ -453,6 +478,15 @@ impl TryFrom<bitwarden_api_api::models::SendType> for SendType {
     }
 }
 
+impl From<SendType> for bitwarden_api_api::models::SendType {
+    fn from(t: SendType) -> Self {
+        match t {
+            SendType::Text => bitwarden_api_api::models::SendType::Text,
+            SendType::File => bitwarden_api_api::models::SendType::File,
+        }
+    }
+}
+
 impl TryFrom<bitwarden_api_api::models::AuthType> for AuthType {
     type Error = bitwarden_core::MissingFieldError;
 
@@ -465,6 +499,16 @@ impl TryFrom<bitwarden_api_api::models::AuthType> for AuthType {
                 return Err(bitwarden_core::MissingFieldError("auth_type"));
             }
         })
+    }
+}
+
+impl From<AuthType> for bitwarden_api_api::models::AuthType {
+    fn from(value: AuthType) -> Self {
+        match value {
+            AuthType::Email => bitwarden_api_api::models::AuthType::Email,
+            AuthType::Password => bitwarden_api_api::models::AuthType::Password,
+            AuthType::None => bitwarden_api_api::models::AuthType::None,
+        }
     }
 }
 
