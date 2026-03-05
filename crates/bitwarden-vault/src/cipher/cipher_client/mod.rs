@@ -11,13 +11,12 @@ use bitwarden_state::repository::{Repository, RepositoryError};
 use wasm_bindgen::prelude::*;
 
 use super::EncryptionContext;
-#[cfg(feature = "wasm")]
-use crate::Fido2CredentialFullView;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
-    cipher::cipher::{DecryptCipherListResult, DecryptCipherResult},
-    cipher_client::admin::CipherAdminClient,
+    cipher::cipher::DecryptCipherListResult, cipher_client::admin::CipherAdminClient,
 };
+#[cfg(feature = "wasm")]
+use crate::{Fido2CredentialFullView, cipher::cipher::DecryptCipherResult};
 
 mod admin;
 mod create;
@@ -271,7 +270,7 @@ mod tests {
     use bitwarden_crypto::CryptoError;
 
     use super::*;
-    use crate::{Attachment, CipherRepromptType, CipherType, Login, LoginView, VaultClientExt};
+    use crate::{Attachment, CipherRepromptType, CipherType, Login, VaultClientExt};
 
     fn test_cipher() -> Cipher {
         Cipher {
@@ -314,11 +313,12 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "wasm")]
     fn test_cipher_view() -> CipherView {
         let test_id = "fd411a1a-fec8-4070-985d-0e6560860e69".parse().unwrap();
         CipherView {
             r#type: CipherType::Login,
-            login: Some(LoginView {
+            login: Some(crate::LoginView {
                 username: Some("test_username".to_string()),
                 password: Some("test_password".to_string()),
                 password_revision_date: None,
@@ -705,6 +705,7 @@ mod tests {
         ));
     }
 
+    #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn test_encrypt_list() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
@@ -723,6 +724,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn test_encrypt_list_empty() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
@@ -733,6 +735,7 @@ mod tests {
         assert!(result.unwrap().is_empty());
     }
 
+    #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn test_encrypt_list_roundtrip() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
@@ -757,6 +760,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "wasm")]
     #[tokio::test]
     async fn test_encrypt_list_preserves_user_id() {
         let client = Client::init_test_account(test_bitwarden_com_account()).await;
