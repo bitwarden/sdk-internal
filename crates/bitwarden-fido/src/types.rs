@@ -974,10 +974,4 @@ mod tests {
         let transformed = GetAssertionExtensionsOutput::from(output);
         assert_eq!(prf1, transformed.prf.unwrap().results.first);
     }
-
-    /// TODO(PM-30510): Even though we forward the extensions to the
-    /// authenticator, we have disabled the configuration.
-    /// When we implement PRF, this test should be updated to test that PRF _is_ evaluated.
-    #[test]
-    fn test_prf_is_not_evaluated() {}
 }
