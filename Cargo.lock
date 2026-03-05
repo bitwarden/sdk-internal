@@ -798,6 +798,7 @@ dependencies = [
  "bitwarden-error",
  "chrono",
  "criterion 0.8.2",
+ "js-sys",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -807,6 +808,7 @@ dependencies = [
  "tsify",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-bindgen-test",
 ]
 
 [[package]]
@@ -1715,8 +1717,6 @@ dependencies = [
  "num-traits",
  "oorandom",
  "page_size",
- "plotters",
- "rayon",
  "regex",
  "serde",
  "serde_json",
