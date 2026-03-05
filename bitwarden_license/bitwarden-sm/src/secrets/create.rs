@@ -38,7 +38,9 @@ pub(crate) async fn create_secret(
     input.validate()?;
 
     let key_store = core_client.internal.get_key_store();
-    let organization_id = client.get_access_token_organization().expect("Access token isn't associated with an organization");
+    let organization_id = client
+        .get_access_token_organization()
+        .expect("Access token isn't associated with an organization");
 
     let key = SymmetricKeyId::Organization(organization_id);
 
