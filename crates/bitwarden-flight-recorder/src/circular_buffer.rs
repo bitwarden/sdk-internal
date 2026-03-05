@@ -6,7 +6,8 @@ use std::{collections::VecDeque, sync::Mutex};
 // This is required because the buffer is stored in a global OnceLock and accessed
 // from multiple threads. This assertion documents the requirement and will cause
 // a compile error if future changes break thread safety.
-// Note: T only needs Send, not Sync, because Mutex<VecDeque<T>> provides interior mutability with Sync guarantee
+// Note: T only needs Send, not Sync, because Mutex<VecDeque<T>> provides interior mutability with
+// Sync guarantee
 const _: () = {
     fn assert_send_sync<T: Send>() {
         fn _check<U: Send + Sync>() {}

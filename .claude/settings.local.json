@@ -5,7 +5,13 @@
       "Skill(read_memory)",
       "Skill(todo-writer)",
       "Skill(create_memory)",
-      "Bash(~/.claude/skills/read_memory/read_memory.sh:*)"
+      "Bash(~/.claude/skills/read_memory/read_memory.sh:*)",
+      "Bash(cargo test --target wasm32-unknown-unknown --all-features -- --nocapture)",
+      "Bash(cargo clippy --all-features --all-targets)"
     ]
+  },
+  "sandbox": {
+    "enabled": false,
+    "autoAllowBashIfSandboxed": false
   }
 }
