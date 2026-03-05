@@ -1,24 +1,21 @@
-use bitwarden_core::Client;
-
 use crate::{
-    error::SecretsManagerError,
-    secrets::{
+    SecretsManagerClient, error::SecretsManagerError, secrets::{
         SecretCreateRequest, SecretGetRequest, SecretIdentifiersByProjectRequest,
         SecretIdentifiersRequest, SecretIdentifiersResponse, SecretPutRequest, SecretResponse,
         SecretsDeleteRequest, SecretsDeleteResponse, SecretsGetRequest, SecretsResponse,
         SecretsSyncRequest, SecretsSyncResponse, create_secret, delete_secrets, get_secret,
         get_secrets_by_ids, list_secrets, list_secrets_by_project, sync_secrets, update_secret,
-    },
+    }
 };
 
 #[allow(missing_docs)]
 pub struct SecretsClient {
-    client: Client,
+    client: SecretsManagerClient,
 }
 
 impl SecretsClient {
     #[allow(missing_docs)]
-    pub fn new(client: Client) -> Self {
+    pub fn new(client: SecretsManagerClient) -> Self {
         Self { client }
     }
 
