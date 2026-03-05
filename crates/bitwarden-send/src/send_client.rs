@@ -11,7 +11,12 @@ use uuid::Uuid;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    Send, SendListView, SendView, create::{CreateSendError, SendAddRequest, create_send}, edit::{EditSendError, SendEditRequest, edit_send}, error::ItemNotFoundError, get_list::{GetSendError, get_send, list_sends}, send
+    Send, SendListView, SendView,
+    create::{CreateSendError, SendAddRequest, create_send},
+    edit::{EditSendError, SendEditRequest, edit_send},
+    error::ItemNotFoundError,
+    get_list::{GetSendError, get_send, list_sends},
+    send,
 };
 
 /// Generic error type for send encryption errors.
@@ -161,7 +166,8 @@ impl SendClient {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations();
         let repository = self.get_repository()?;
-        let send_id = Uuid::parse_str(&send_id).map_err(|_| EditSendError::ItemNotFound(ItemNotFoundError))?;
+        let send_id = Uuid::parse_str(&send_id)
+            .map_err(|_| EditSendError::ItemNotFound(ItemNotFoundError))?;
 
         edit_send(
             key_store,
@@ -185,7 +191,8 @@ impl SendClient {
     pub async fn get(&self, send_id: String) -> Result<SendView, GetSendError> {
         let key_store = self.client.internal.get_key_store();
         let repository = self.get_repository()?;
-        let send_id = Uuid::parse_str(&send_id).map_err(|_| GetSendError::ItemNotFound(ItemNotFoundError))?;
+        let send_id =
+            Uuid::parse_str(&send_id).map_err(|_| GetSendError::ItemNotFound(ItemNotFoundError))?;
 
         get_send(key_store, repository.as_ref(), send_id).await
     }
