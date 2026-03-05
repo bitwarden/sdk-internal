@@ -1,11 +1,3 @@
-use crate::{
-    GetAssertionRequest, MakeCredentialResult, PublicKeyCredentialRpEntity,
-    PublicKeyCredentialUserEntity,
-    types::{
-        GetAssertionExtensionsOutput, PublicKeyCredentialDescriptor, PublicKeyCredentialParameters,
-        UV, WebAuthnEntityError,
-    },
-};
 use bitwarden_api_api::models::{
     AuthenticatorAttestationRawResponse, CredentialCreateOptions, PublicKeyCredentialType,
     ResponseData, SecretVerificationRequestModel, UserVerificationRequirement,
@@ -25,10 +17,19 @@ use passkey::{
         CredentialExtensions, Passkey, StoredHmacSecret,
         crypto::sha256,
         ctap2::{
-            self, Ctap2Error, StatusCode, UnknownSpecError, VendorError,
+            self, Ctap2Error, StatusCode, VendorError,
             extensions::{AuthenticatorPrfInputs, AuthenticatorPrfValues},
             make_credential::Options,
         },
+    },
+};
+
+use crate::{
+    GetAssertionRequest, MakeCredentialResult, PublicKeyCredentialRpEntity,
+    PublicKeyCredentialUserEntity,
+    types::{
+        GetAssertionExtensionsOutput, PublicKeyCredentialDescriptor, PublicKeyCredentialParameters,
+        UV, WebAuthnEntityError,
     },
 };
 
@@ -43,15 +44,18 @@ pub struct DeviceAuthKeyAuthenticator<'a> {
 
 impl DeviceAuthKeyAuthenticator<'_> {
     /// Create a device auth key by registering an unlock passkey and PRF keyset with the server.
-    /// The passkey private key and metadata will be stored on the device using the provided trait implementation.
+    /// The passkey private key and metadata will be stored on the device using the provided trait
+    /// implementation.
     pub async fn create_device_auth_key(
         &mut self,
         client_name: String,
         web_vault_hostname: String,
         origin: String,
         // TODO: These parameters are limiting:
-        // - Is there some way to accept the master password hash directly instead of having to do it in here?
-        // - Do we need to support all the options (master password hash, OTP, secret, auth access token)? Or just master password hash and OTP?
+        // - Is there some way to accept the master password hash directly instead of having to do
+        //   it in here?
+        // - Do we need to support all the options (master password hash, OTP, secret, auth access
+        //   token)? Or just master password hash and OTP?
         // We do this in get_user_api_key, consider centralizing this logic
         email: String,
         secret_verification_request: SecretVerificationRequest,
@@ -341,8 +345,9 @@ async fn build_secret_verification_request(
     })
 }
 
-/// Create a CTAP2 makeCredential request and clientDataJSON from the WebAuthn credential attestations options received from the server.
-/// Generates clientDataJSON from given origin and challenge, and injects the default RP ID if it's missing.
+/// Create a CTAP2 makeCredential request and clientDataJSON from the WebAuthn credential
+/// attestations options received from the server. Generates clientDataJSON from given origin and
+/// challenge, and injects the default RP ID if it's missing.
 fn convert_creation_options(
     options: &CredentialCreateOptions,
     default_rp_id: String,
@@ -397,7 +402,7 @@ fn convert_creation_options(
 
     let user_entity = TryInto::<PublicKeyCredentialUserEntity>::try_into(user.as_ref())?.into();
     let pub_key_cred_params = pub_key_cred_params
-        .into_iter()
+        .iter()
         .map(|p| {
             PublicKeyCredentialParameters::try_from(p).and_then(|ours| {
                 passkey::types::webauthn::PublicKeyCredentialParameters::try_from(ours)
@@ -407,7 +412,7 @@ fn convert_creation_options(
     let exclude_list = exclude_credentials
         .as_ref()
         .map(|l| {
-            l.into_iter()
+            l.iter()
                 .map(|c| {
                     let descriptor = PublicKeyCredentialDescriptor::try_from(c);
 
@@ -420,11 +425,10 @@ fn convert_creation_options(
         .as_ref()
         .map(|o| Options {
             rk: o.require_resident_key.unwrap_or_default(),
-            uv: if let Some(UserVerificationRequirement::Discouraged) = o.user_verification {
-                false
-            } else {
-                true
-            },
+            uv: !matches!(
+                o.user_verification,
+                Some(UserVerificationRequirement::Discouraged)
+            ),
             up: true,
         })
         .unwrap_or_else(|| Options {
@@ -465,7 +469,8 @@ fn convert_creation_options(
 /// Fields corresponding to a WebAuthn [PublicKeyCredential][pub-key-cred]
 /// with an [AuthenticatorAssertionResponse][authenticator-assertion-response].
 ///
-/// Similar to [GetAssertionResult][crate::GetAssertionResult], but without the reference to the vault cipher.
+/// Similar to [GetAssertionResult][crate::GetAssertionResult], but without the reference to the
+/// vault cipher.
 ///
 /// [pub-key-cred]: https://www.w3.org/TR/webauthn-3/#publickeycredential
 /// [authenticator-assertion-response]: https://www.w3.org/TR/webauthn-3/#authenticatorassertionresponse
@@ -728,7 +733,9 @@ impl passkey::authenticator::CredentialStore for DeviceAuthKeyStoreInternal<'_> 
         match self.store.get_record().await {
             Ok(Some(key)) => Ok(vec![key]),
             Ok(None) => return Ok(vec![]),
-            Err(_) => Err(VendorError::try_from(0xf0).unwrap().into()),
+            Err(_) => Err(VendorError::try_from(0xf0)
+                .expect("valid vendor error")
+                .into()),
         }
     }
 
@@ -741,12 +748,11 @@ impl passkey::authenticator::CredentialStore for DeviceAuthKeyStoreInternal<'_> 
     ) -> Result<(), StatusCode> {
         let record = cred
             .try_into()
-            .map_err(|_| UnknownSpecError::try_from(0xdf).unwrap())?;
+            .map_err(|_| VendorError::try_from(0xf0).expect("valid vendor error"))?;
 
-        self.store
-            .create_record(record)
-            .await
-            .map_err(|_| StatusCode::from(UnknownSpecError::try_from(0xdf).unwrap()))?;
+        self.store.create_record(record).await.map_err(|_| {
+            StatusCode::from(VendorError::try_from(0xf0).expect("valid vendor error"))
+        })?;
         Ok(())
     }
 

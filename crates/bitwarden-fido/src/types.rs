@@ -231,7 +231,7 @@ impl TryFrom<&bitwarden_api_api::models::Fido2User> for PublicKeyCredentialUserE
                 name: value.name.as_ref().expect("checked manually").clone(),
             })
         } else {
-            return Err(WebAuthnEntityError::MissingRequiredFields(missing_fields));
+            Err(WebAuthnEntityError::MissingRequiredFields(missing_fields))
         }
     }
 }
@@ -340,8 +340,8 @@ impl TryFrom<&PublicKeyCredentialDescriptor>
                 .transports
                 .as_ref()
                 .map(|tt| {
-                    tt.into_iter()
-                        .map(|t| get_enum_from_string_name(&t))
+                    tt.iter()
+                        .map(|t| get_enum_from_string_name(t))
                         .collect::<Result<Vec<_>, Self::Error>>()
                 })
                 .transpose()?,
@@ -371,7 +371,7 @@ impl TryFrom<&bitwarden_api_api::models::PublicKeyCredentialDescriptor>
         let transports = value
             .transports
             .as_ref()
-            .map(|l| l.into_iter().map(|t| t.to_string()).collect());
+            .map(|l| l.iter().map(|t| t.to_string()).collect());
         Ok(Self { ty, id, transports })
     }
 }
