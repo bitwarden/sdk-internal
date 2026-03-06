@@ -176,7 +176,10 @@ impl DeviceAuthKeyAuthenticator<'_> {
             .web_authn_api()
             .post(Some(create_request))
             .await
-            .map_err(|_| DeviceAuthKeyError::SubmitRegistrationFailure)?;
+            .map_err(|err| {
+                tracing::error!(%err, "Failed to submit passkey and PRF key set to server");
+                DeviceAuthKeyError::SubmitRegistrationFailure
+            })?;
         let record_identifier = server_response
             .id
             .ok_or(DeviceAuthKeyError::SubmitRegistrationFailure)?;
