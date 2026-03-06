@@ -36,50 +36,50 @@ impl ServerCommunicationConfigClient {
 
 #[uniffi::export]
 impl ServerCommunicationConfigClient {
-    /// Retrieves the server communication configuration for a hostname
-    pub async fn get_config(&self, hostname: String) -> Result<ServerCommunicationConfig> {
-        self.client.get_config(hostname).await
+    /// Retrieves the server communication configuration for a domain
+    pub async fn get_config(&self, domain: String) -> Result<ServerCommunicationConfig> {
+        self.client.get_config(domain).await
     }
 
-    /// Determines if cookie bootstrapping is needed for this hostname
-    pub async fn needs_bootstrap(&self, hostname: String) -> bool {
-        self.client.needs_bootstrap(hostname).await
+    /// Determines if cookie bootstrapping is needed for this domain
+    pub async fn needs_bootstrap(&self, domain: String) -> bool {
+        self.client.needs_bootstrap(domain).await
     }
 
     /// Returns all cookies that should be included in requests to this server
-    pub async fn cookies(&self, hostname: String) -> Vec<AcquiredCookie> {
+    pub async fn cookies(&self, domain: String) -> Vec<AcquiredCookie> {
         self.client
-            .cookies(hostname)
+            .cookies(domain)
             .await
             .into_iter()
             .map(|(name, value)| AcquiredCookie { name, value })
             .collect()
     }
 
-    pub async fn get_cookies(&self, hostname: String) -> Result<Vec<AcquiredCookie>> {
-        let cookies = self.client.get_cookies(hostname).await?;
+    pub async fn get_cookies(&self, domain: String) -> Result<Vec<AcquiredCookie>> {
+        let cookies = self.client.get_cookies(domain).await?;
         Ok(cookies)
     }
 
-    /// Sets the server communication configuration for a hostname
+    /// Sets the server communication configuration for a domain
     ///
     /// This method saves the provided communication configuration to the repository.
     /// Typically called when receiving the `/api/config` response from the server.
     /// Previously acquired cookies are preserved automatically.
     pub async fn set_communication_type(
         &self,
-        hostname: String,
+        domain: String,
         request: SetCommunicationTypeRequest,
     ) -> Result<()> {
         self.client
-            .set_communication_type(hostname, request)
+            .set_communication_type(domain, request)
             .await?;
         Ok(())
     }
 
     /// Acquires a cookie from the platform and saves it to the repository
-    pub async fn acquire_cookie(&self, hostname: String) -> Result<()> {
-        self.client.acquire_cookie(&hostname).await?;
+    pub async fn acquire_cookie(&self, domain: String) -> Result<()> {
+        self.client.acquire_cookie(&domain).await?;
         Ok(())
     }
 }
@@ -88,11 +88,11 @@ impl ServerCommunicationConfigClient {
 #[uniffi::export(with_foreign)]
 #[async_trait::async_trait]
 pub trait ServerCommunicationConfigRepository: Send + Sync {
-    /// Get configuration for a hostname
-    async fn get(&self, hostname: String) -> Result<Option<ServerCommunicationConfig>>;
+    /// Get configuration for a domain
+    async fn get(&self, domain: String) -> Result<Option<ServerCommunicationConfig>>;
 
-    /// Save configuration for a hostname
-    async fn save(&self, hostname: String, config: ServerCommunicationConfig) -> Result<()>;
+    /// Save configuration for a domain
+    async fn save(&self, domain: String, config: ServerCommunicationConfig) -> Result<()>;
 }
 
 /// Bridge from UniFFI trait to internal repository trait
@@ -119,17 +119,17 @@ impl<'a> bitwarden_server_communication_config::ServerCommunicationConfigReposit
 
     async fn get(
         &self,
-        hostname: String,
+        domain: String,
     ) -> std::result::Result<Option<ServerCommunicationConfig>, Self::GetError> {
-        self.0.get(hostname).await
+        self.0.get(domain).await
     }
 
     async fn save(
         &self,
-        hostname: String,
+        domain: String,
         config: ServerCommunicationConfig,
     ) -> std::result::Result<(), Self::SaveError> {
-        self.0.save(hostname, config).await
+        self.0.save(domain, config).await
     }
 }
 

@@ -32,14 +32,14 @@ where
         }
     }
 
-    /// Retrieves the server communication configuration for a hostname
+    /// Retrieves the server communication configuration for a domain
     pub async fn get_config(
         &self,
-        hostname: String,
+        domain: String,
     ) -> Result<ServerCommunicationConfig, R::GetError> {
         Ok(self
             .repository
-            .get(hostname)
+            .get(domain)
             .await?
             .unwrap_or(ServerCommunicationConfig {
                 bootstrap: BootstrapConfig::Direct,
@@ -66,8 +66,8 @@ where
     #[deprecated(
         note = "Use get_cookies() instead, which will acquire cookies if not present in the config"
     )]
-    pub async fn cookies(&self, hostname: String) -> Vec<(String, String)> {
-        if let Ok(Some(config)) = self.repository.get(hostname).await
+    pub async fn cookies(&self, domain: String) -> Vec<(String, String)> {
+        if let Ok(Some(config)) = self.repository.get(domain).await
             && let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap
             && let Some(acquired_cookies) = vendor_config.cookie_value
         {
@@ -107,7 +107,7 @@ where
         }
     }
 
-    /// Sets the server communication configuration for a hostname
+    /// Sets the server communication configuration for a domain
     ///
     /// This method saves the provided communication configuration to the repository.
     /// Typically called when receiving the `/api/config` response from the server.
@@ -118,7 +118,7 @@ where
     ///
     /// # Arguments
     ///
-    /// * `hostname` - The server hostname (e.g., "vault.acme.com")
+    /// * `domain` - The server domain (e.g., "vault.acme.com")
     /// * `request` - The server communication configuration to store
     ///
     /// # Errors
@@ -126,13 +126,13 @@ where
     /// Returns an error if the repository save operation fails
     pub async fn set_communication_type(
         &self,
-        hostname: String,
+        domain: String,
         request: SetCommunicationTypeRequest,
     ) -> Result<(), R::SaveError> {
         let existing_cookie_value = match &request.bootstrap {
             BootstrapConfigRequest::SsoCookieVendor(_) => self
                 .repository
-                .get(hostname.clone())
+                .get(domain.clone())
                 .await
                 .ok()
                 .flatten()
@@ -158,7 +158,7 @@ where
             },
         };
 
-        self.repository.save(hostname, config).await
+        self.repository.save(domain, config).await
     }
 
     /// Acquires a cookie from the platform and saves it to the repository
@@ -168,7 +168,7 @@ where
     ///
     /// # Arguments
     ///
-    /// * `hostname` - The server hostname (e.g., "vault.acme.com")
+    /// * `domain` - The server domain (e.g., "vault.acme.com")
     ///
     /// # Errors
     ///
@@ -182,12 +182,12 @@ where
     ///   [`AcquireCookieError::RepositorySaveError`])
     pub async fn acquire_cookie(
         &self,
-        hostname: &str,
+        domain: &str,
     ) -> Result<Vec<AcquiredCookie>, AcquireCookieError> {
         // Get existing configuration - we need this to know what cookie to expect
         let mut config = self
             .repository
-            .get(hostname.to_string())
+            .get(domain.to_string())
             .await
             .map_err(|e| AcquireCookieError::RepositoryGetError(format!("{:?}", e)))?
             .ok_or(AcquireCookieError::UnsupportedConfiguration)?;
@@ -256,7 +256,7 @@ where
 
         // Save the updated config
         self.repository
-            .save(hostname.to_string(), config)
+            .save(domain.to_string(), config)
             .await
             .map_err(|e| AcquireCookieError::RepositorySaveError(format!("{:?}", e)))?;
 
@@ -283,16 +283,12 @@ mod tests {
         type GetError = ();
         type SaveError = ();
 
-        async fn get(&self, hostname: String) -> Result<Option<ServerCommunicationConfig>, ()> {
-            Ok(self.storage.read().await.get(&hostname).cloned())
+        async fn get(&self, domain: String) -> Result<Option<ServerCommunicationConfig>, ()> {
+            Ok(self.storage.read().await.get(&domain).cloned())
         }
 
-        async fn save(
-            &self,
-            hostname: String,
-            config: ServerCommunicationConfig,
-        ) -> Result<(), ()> {
-            self.storage.write().await.insert(hostname, config);
+        async fn save(&self, domain: String, config: ServerCommunicationConfig) -> Result<(), ()> {
+            self.storage.write().await.insert(domain, config);
             Ok(())
         }
     }
@@ -746,7 +742,7 @@ mod tests {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
 
-        // No config saved for this hostname
+        // No config saved for this domain
 
         let client = ServerCommunicationConfigClient::new(repo, platform_api);
 
@@ -1175,7 +1171,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn set_communication_type_preserves_per_hostname_isolation() {
+    async fn set_communication_type_preserves_per_domain_isolation() {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
         let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);

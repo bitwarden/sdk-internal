@@ -44,30 +44,30 @@ impl JsServerCommunicationConfigClient {
         }
     }
 
-    /// Retrieves the server communication configuration for a hostname
+    /// Retrieves the server communication configuration for a domain
     ///
     /// If no configuration exists, returns a default Direct bootstrap configuration.
     ///
     /// # Arguments
     ///
-    /// * `hostname` - The server hostname (e.g., "vault.acme.com")
+    /// * `domain` - The server domain (e.g., "vault.acme.com")
     ///
     /// # Errors
     ///
     /// Returns an error if the repository fails to retrieve the configuration.
     #[wasm_bindgen(js_name = getConfig)]
-    pub async fn get_config(&self, hostname: String) -> Result<ServerCommunicationConfig, String> {
-        self.client.get_config(hostname).await
+    pub async fn get_config(&self, domain: String) -> Result<ServerCommunicationConfig, String> {
+        self.client.get_config(domain).await
     }
 
-    /// Determines if cookie bootstrapping is needed for this hostname
+    /// Determines if cookie bootstrapping is needed for this domain
     ///
     /// # Arguments
     ///
-    /// * `hostname` - The server hostname (e.g., "vault.acme.com")
+    /// * `domain` - The server domain (e.g., "vault.acme.com")
     #[wasm_bindgen(js_name = needsBootstrap)]
-    pub async fn needs_bootstrap(&self, hostname: String) -> bool {
-        self.client.needs_bootstrap(hostname).await
+    pub async fn needs_bootstrap(&self, domain: String) -> bool {
+        self.client.needs_bootstrap(domain).await
     }
 
     /// Returns all cookies that should be included in requests to this server
@@ -76,14 +76,14 @@ impl JsServerCommunicationConfigClient {
     ///
     /// # Arguments
     ///
-    /// * `hostname` - The server hostname (e.g., "vault.acme.com")
+    /// * `domain` - The server domain (e.g., "vault.acme.com")
     #[wasm_bindgen(js_name = cookies)]
     #[deprecated(
         note = "Use get_cookies() instead, which will acquire cookies if not present in the config"
     )]
-    pub async fn cookies(&self, hostname: String) -> Result<JsValue, JsError> {
+    pub async fn cookies(&self, domain: String) -> Result<JsValue, JsError> {
         #[allow(deprecated)]
-        let cookies = self.client.cookies(hostname).await;
+        let cookies = self.client.cookies(domain).await;
         serde_wasm_bindgen::to_value(&cookies).map_err(|e| JsError::new(&e.to_string()))
     }
 
@@ -99,7 +99,7 @@ impl JsServerCommunicationConfigClient {
         cookies.map_err(|e| JsError::new(&e.to_string()))
     }
 
-    /// Sets the server communication configuration for a hostname
+    /// Sets the server communication configuration for a domain
     ///
     /// This method saves the provided communication configuration to the repository.
     /// Typically called when receiving the `/api/config` response from the server.
@@ -107,7 +107,7 @@ impl JsServerCommunicationConfigClient {
     ///
     /// # Arguments
     ///
-    /// * `hostname` - The server hostname (e.g., "vault.acme.com")
+    /// * `domain` - The server domain (e.g., "vault.acme.com")
     /// * `request` - The server communication configuration to store
     ///
     /// # Errors
@@ -116,10 +116,10 @@ impl JsServerCommunicationConfigClient {
     #[wasm_bindgen(js_name = setCommunicationType)]
     pub async fn set_communication_type(
         &self,
-        hostname: String,
+        domain: String,
         request: SetCommunicationTypeRequest,
     ) -> Result<(), String> {
-        self.client.set_communication_type(hostname, request).await
+        self.client.set_communication_type(domain, request).await
     }
 
     /// Acquires a cookie from the platform and saves it to the repository
@@ -129,7 +129,7 @@ impl JsServerCommunicationConfigClient {
     ///
     /// # Arguments
     ///
-    /// * `hostname` - The server hostname (e.g., "vault.acme.com")
+    /// * `domain` - The server domain (e.g., "vault.acme.com")
     ///
     /// # Errors
     ///
@@ -139,9 +139,9 @@ impl JsServerCommunicationConfigClient {
     /// - Acquired cookie name doesn't match expected name
     /// - Repository operations fail
     #[wasm_bindgen(js_name = acquireCookie)]
-    pub async fn acquire_cookie(&self, hostname: String) -> Result<Vec<AcquiredCookie>, String> {
+    pub async fn acquire_cookie(&self, domain: String) -> Result<Vec<AcquiredCookie>, String> {
         self.client
-            .acquire_cookie(&hostname)
+            .acquire_cookie(&domain)
             .await
             .map_err(|e| e.to_string())
     }
