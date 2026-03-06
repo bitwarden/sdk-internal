@@ -1,6 +1,6 @@
 //! WASM bindings for Flight Recorder.
 
-use bitwarden_flight_recorder::{FlightRecorderEvent, flight_recorder_count, read_flight_recorder};
+use bitwarden_logging::{FlightRecorderEvent, flight_recorder_count, read_flight_recorder};
 use wasm_bindgen::prelude::*;
 
 // TypeScript type definition for the FlightRecorderClient class interface.

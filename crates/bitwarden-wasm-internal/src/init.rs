@@ -1,4 +1,4 @@
-use bitwarden_flight_recorder::{FlightRecorderConfig, init_flight_recorder};
+use bitwarden_logging::{FlightRecorderConfig, init_flight_recorder};
 use tracing::Level;
 use tracing_subscriber::{
     EnvFilter, fmt::format::Pretty, layer::SubscriberExt as _, util::SubscriberInitExt as _,

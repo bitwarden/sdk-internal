@@ -1,5 +1,5 @@
 [package]
-name = "bitwarden-flight-recorder"
+name = "bitwarden-logging"
 description = """
 Flight Recorder infrastructure for capturing and exporting diagnostic logs.
 Internal crate for the bitwarden crate. Do not use.

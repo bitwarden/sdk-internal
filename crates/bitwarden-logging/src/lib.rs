@@ -6,7 +6,7 @@
 //! # Usage
 //!
 //! ```ignore
-//! use bitwarden_flight_recorder::{init_flight_recorder, read_flight_recorder, FlightRecorderConfig};
+//! use bitwarden_logging::{init_flight_recorder, read_flight_recorder, FlightRecorderConfig};
 //!
 //! // Initialize during SDK startup
 //! let layer = init_flight_recorder(FlightRecorderConfig::default());

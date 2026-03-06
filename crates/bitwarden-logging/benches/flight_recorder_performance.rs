@@ -2,7 +2,7 @@
 
 use std::{hint::black_box, sync::Arc};
 
-use bitwarden_flight_recorder::{
+use bitwarden_logging::{
     CircularBuffer, FlightRecorderConfig, FlightRecorderEvent, FlightRecorderLayer,
 };
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};

@@ -792,24 +792,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bitwarden-flight-recorder"
-version = "2.0.0"
-dependencies = [
- "bitwarden-error",
- "chrono",
- "criterion 0.8.2",
- "serde",
- "serde_json",
- "thiserror 2.0.12",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "tsify",
- "wasm-bindgen",
- "wasm-bindgen-futures",
-]
-
-[[package]]
 name = "bitwarden-generators"
 version = "2.0.0"
 dependencies = [
@@ -846,6 +828,24 @@ dependencies = [
  "tracing",
  "tsify",
  "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "bitwarden-logging"
+version = "2.0.0"
+dependencies = [
+ "bitwarden-error",
+ "chrono",
+ "criterion 0.8.2",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "tsify",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
@@ -1096,8 +1096,8 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-error",
- "bitwarden-flight-recorder",
  "bitwarden-ipc",
+ "bitwarden-logging",
  "bitwarden-pm",
  "bitwarden-ssh",
  "bitwarden-state",
