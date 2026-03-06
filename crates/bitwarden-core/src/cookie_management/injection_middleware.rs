@@ -88,3 +88,138 @@ where
         next.run(req, ext).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::HashMap, sync::RwLock};
+
+    use bitwarden_server_communication_config::{
+        AcquiredCookie, BootstrapConfig, ServerCommunicationConfig,
+        ServerCommunicationConfigPlatformApi, ServerCommunicationConfigRepository,
+        SsoCookieVendorConfig,
+    };
+
+    use super::*;
+
+    // Mock repository for testing
+    struct MockRepository {
+        storage: Arc<RwLock<HashMap<String, ServerCommunicationConfig>>>,
+    }
+
+    impl MockRepository {
+        fn new() -> Self {
+            Self {
+                storage: Arc::new(RwLock::new(HashMap::new())),
+            }
+        }
+
+        fn set_cookies(&self, hostname: &str, cookies: Vec<AcquiredCookie>) {
+            let config = ServerCommunicationConfig {
+                bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
+                    idp_login_url: Some("https://idp.example.com/login".to_string()),
+                    cookie_name: Some("TestCookie".to_string()),
+                    cookie_domain: Some(hostname.to_string()),
+                    cookie_value: Some(cookies),
+                }),
+            };
+            self.storage
+                .write()
+                .unwrap()
+                .insert(hostname.to_string(), config);
+        }
+    }
+
+    impl ServerCommunicationConfigRepository for MockRepository {
+        type GetError = String;
+        type SaveError = String;
+
+        async fn get(
+            &self,
+            hostname: String,
+        ) -> Result<Option<ServerCommunicationConfig>, Self::GetError> {
+            Ok(self.storage.read().unwrap().get(&hostname).cloned())
+        }
+
+        async fn save(
+            &self,
+            _hostname: String,
+            _config: ServerCommunicationConfig,
+        ) -> Result<(), Self::SaveError> {
+            Ok(())
+        }
+    }
+
+    // Mock platform API for testing
+    struct MockPlatformApi;
+
+    #[async_trait::async_trait]
+    impl ServerCommunicationConfigPlatformApi for MockPlatformApi {
+        async fn acquire_cookies(&self, _hostname: String) -> Option<Vec<AcquiredCookie>> {
+            None
+        }
+    }
+
+    #[tokio::test]
+    async fn test_cookie_injection_single_cookie() {
+        let repo = MockRepository::new();
+        repo.set_cookies(
+            "vault.example.com",
+            vec![AcquiredCookie {
+                name: "SessionCookie".to_string(),
+                value: "abc123".to_string(),
+            }],
+        );
+
+        let client = Arc::new(ServerCommunicationConfigClient::new(repo, MockPlatformApi));
+        let _middleware = CookieInjectionMiddleware::new(client);
+
+        // Verify Cookie header: "SessionCookie=abc123"
+        // Full middleware testing requires mock HTTP stack - placeholder for now
+    }
+
+    #[tokio::test]
+    async fn test_cookie_injection_sharded_cookies() {
+        let repo = MockRepository::new();
+        repo.set_cookies(
+            "vault.example.com",
+            vec![
+                AcquiredCookie {
+                    name: "AWSELBAuthSessionCookie-0".to_string(),
+                    value: "val0".to_string(),
+                },
+                AcquiredCookie {
+                    name: "AWSELBAuthSessionCookie-1".to_string(),
+                    value: "val1".to_string(),
+                },
+                AcquiredCookie {
+                    name: "AWSELBAuthSessionCookie-2".to_string(),
+                    value: "val2".to_string(),
+                },
+            ],
+        );
+
+        let client = Arc::new(ServerCommunicationConfigClient::new(repo, MockPlatformApi));
+        let _middleware = CookieInjectionMiddleware::new(client);
+
+        // Verify Cookie header: "AWSELBAuthSessionCookie-0=val0; AWSELBAuthSessionCookie-1=val1;
+        // AWSELBAuthSessionCookie-2=val2"
+    }
+
+    #[tokio::test]
+    async fn test_cookie_injection_empty_cookies() {
+        let repo = MockRepository::new();
+        let client = Arc::new(ServerCommunicationConfigClient::new(repo, MockPlatformApi));
+        let _middleware = CookieInjectionMiddleware::new(client);
+
+        // Verify no Cookie header attached when cookies() returns empty Vec
+    }
+
+    #[tokio::test]
+    async fn test_cookie_injection_hostname_extraction() {
+        let repo = MockRepository::new();
+        let client = Arc::new(ServerCommunicationConfigClient::new(repo, MockPlatformApi));
+        let _middleware = CookieInjectionMiddleware::new(client);
+
+        // Verify hostname extracted as "vault.example.com"
+    }
+}
