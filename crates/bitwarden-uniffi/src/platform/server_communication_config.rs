@@ -55,6 +55,11 @@ impl ServerCommunicationConfigClient {
             .collect()
     }
 
+    pub async fn get_cookies(&self, hostname: String) -> Result<Vec<AcquiredCookie>> {
+        let cookies = self.client.get_cookies(hostname).await?;
+        Ok(cookies)
+    }
+
     /// Sets the server communication configuration for a hostname
     ///
     /// This method saves the provided communication configuration to the repository.
