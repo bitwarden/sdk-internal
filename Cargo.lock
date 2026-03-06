@@ -543,6 +543,7 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-policies",
+ "bitwarden-server-communication-config",
  "bitwarden-test",
  "chrono",
  "http",
