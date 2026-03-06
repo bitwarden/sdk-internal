@@ -7,6 +7,7 @@ mod uniffi_support;
 
 pub mod auth;
 pub mod client;
+pub mod cookie_management;
 mod error;
 pub mod key_management;
 pub use error::{

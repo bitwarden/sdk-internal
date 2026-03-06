@@ -534,7 +534,6 @@ dependencies = [
 name = "bitwarden-auth"
 version = "2.0.0"
 dependencies = [
- "anyhow",
  "async-trait",
  "bitwarden-api-api",
  "bitwarden-api-identity",
@@ -544,11 +543,9 @@ dependencies = [
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-policies",
- "bitwarden-server-communication-config",
  "bitwarden-test",
  "chrono",
  "http",
- "regex",
  "reqwest",
  "reqwest-middleware",
  "serde",
@@ -614,6 +611,7 @@ dependencies = [
 name = "bitwarden-core"
 version = "2.0.0"
 dependencies = [
+ "anyhow",
  "async-trait",
  "bitwarden-api-api",
  "bitwarden-api-base",
@@ -622,6 +620,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
+ "bitwarden-server-communication-config",
  "bitwarden-state",
  "bitwarden-test",
  "bitwarden-uniffi-error",
@@ -631,6 +630,7 @@ dependencies = [
  "http",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
+ "regex",
  "reqwest",
  "reqwest-middleware",
  "rustls",

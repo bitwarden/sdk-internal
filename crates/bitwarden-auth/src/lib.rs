@@ -6,7 +6,6 @@ uniffi::setup_scaffolding!();
 
 mod auth_client;
 
-pub mod cookie_management;
 pub mod login;
 pub mod registration;
 pub mod send_access;
