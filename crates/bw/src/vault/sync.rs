@@ -39,7 +39,7 @@ pub struct SyncRequest {
 }
 
 pub(crate) async fn sync(client: &Client, input: &SyncRequest) -> Result<SyncResponse, SyncError> {
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
     let sync = config
         .api_client
         .sync_api()
@@ -300,6 +300,7 @@ mod tests {
                     salt: TEST_USER_EMAIL.to_string(),
                 },
             },
+            upgrade_token: None,
         }
     }
 

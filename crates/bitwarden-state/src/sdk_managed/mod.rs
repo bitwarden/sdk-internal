@@ -55,7 +55,16 @@ pub trait Database {
 
     async fn set<T: RepositoryItem>(&self, key: &str, value: T) -> Result<(), DatabaseError>;
 
+    async fn set_bulk<T: RepositoryItem>(
+        &self,
+        values: Vec<(String, T)>,
+    ) -> Result<(), DatabaseError>;
+
     async fn remove<T: RepositoryItem>(&self, key: &str) -> Result<(), DatabaseError>;
+
+    async fn remove_bulk<T: RepositoryItem>(&self, keys: Vec<String>) -> Result<(), DatabaseError>;
+
+    async fn remove_all<T: RepositoryItem>(&self) -> Result<(), DatabaseError>;
 }
 
 struct DBRepository<T: RepositoryItem> {
@@ -78,9 +87,23 @@ impl<V: RepositoryItem> Repository<V> for DBRepository<V> {
         let key = key.to_string();
         Ok(self.database.set::<V>(&key, value).await?)
     }
+    async fn set_bulk(&self, values: Vec<(V::Key, V)>) -> Result<(), RepositoryError> {
+        let values = values
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v))
+            .collect();
+        Ok(self.database.set_bulk::<V>(values).await?)
+    }
     async fn remove(&self, key: V::Key) -> Result<(), RepositoryError> {
         let key = key.to_string();
         Ok(self.database.remove::<V>(&key).await?)
+    }
+    async fn remove_bulk(&self, keys: Vec<V::Key>) -> Result<(), RepositoryError> {
+        let keys = keys.into_iter().map(|k| k.to_string()).collect();
+        Ok(self.database.remove_bulk::<V>(keys).await?)
+    }
+    async fn remove_all(&self) -> Result<(), RepositoryError> {
+        Ok(self.database.remove_all::<V>().await?)
     }
 }
 

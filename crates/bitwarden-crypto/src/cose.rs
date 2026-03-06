@@ -3,8 +3,10 @@
 //! unless there is a a clear benefit, such as a clear cryptographic benefit, which MUST
 //! be documented publicly.
 
+use std::fmt::Debug;
+
 use coset::{
-    CborSerializable, ContentType, Header, Label,
+    CborSerializable, ContentType, CoseEncrypt0, CoseEncrypt0Builder, Header, Label,
     iana::{self, CoapContentFormat, KeyOperation},
 };
 use generic_array::GenericArray;
@@ -46,13 +48,102 @@ pub(crate) const CONTENT_TYPE_PADDED_CBOR: &str = "application/x.bitwarden.cbor-
 const CONTENT_TYPE_BITWARDEN_LEGACY_KEY: &str = "application/x.bitwarden.legacy-key";
 const CONTENT_TYPE_SPKI_PUBLIC_KEY: &str = "application/x.bitwarden.spki-public-key";
 
-/// Namespaces
 /// The label used for the namespace ensuring strong domain separation when using signatures.
 pub(crate) const SIGNING_NAMESPACE: i64 = -80000;
-/// The label used for the namespace ensuring strong domain separation when using data envelopes.
-pub(crate) const DATA_ENVELOPE_NAMESPACE: i64 = -80001;
+
+// Domain separation / Namespaces
+//
+// Cryptographic objects are strongly domain separated so that items can only be decrypted
+// in the correct context, making cryptographic analysis significantly easier and preventing
+// misuse of cryptographic objects. For this, there is a partitioning at two layers. First,
+// the object types are partitioned into e.g. EncString, DataEnvelope, Signature, KeyEnvelope, and
+// so on. Second, within each of these types, each of these spans their own namespace for usages.
+// For instance, a DataEnvelope may describe that the contained item is only valid as a vault item,
+// or as account settings.
+
+/// MUST be placed in the protected header of cose objects
+pub(crate) const SAFE_OBJECT_NAMESPACE: i64 = -80002;
+
+#[allow(clippy::enum_variant_names)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SafeObjectNamespace {
+    PasswordProtectedKeyEnvelope = 1,
+    DataEnvelope = 2,
+    SymmetricKeyEnvelope = 3,
+    //Reserved:
+    //PrivateKeyEnvelope = 4,
+    //SigningKeyEnvelope = 5,
+}
+
+impl TryFrom<i128> for SafeObjectNamespace {
+    type Error = ();
+
+    fn try_from(value: i128) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(SafeObjectNamespace::PasswordProtectedKeyEnvelope),
+            2 => Ok(SafeObjectNamespace::DataEnvelope),
+            3 => Ok(SafeObjectNamespace::SymmetricKeyEnvelope),
+            _ => Err(()),
+        }
+    }
+}
+
+impl From<SafeObjectNamespace> for i128 {
+    fn from(namespace: SafeObjectNamespace) -> Self {
+        namespace as i128
+    }
+}
+
+pub(crate) trait ContentNamespace: TryFrom<i128> + Into<i128> + PartialEq + Debug {}
+
+/// Each type of object has it's own namespace for strong domain separation to eliminate
+/// attacks which attempt to confuse object types. For signatures, this refers to signature
+/// namespaces, for data envelopes to data envelope namespaces and so on.
+pub(crate) const SAFE_CONTENT_NAMESPACE: i64 = -80001;
 
 const XCHACHA20_TEXT_PAD_BLOCK_SIZE: usize = 32;
+
+/// Encrypt a plaintext message with a given key
+pub(crate) fn encrypt_cose(
+    cose_encrypt0_builder: CoseEncrypt0Builder,
+    plaintext: &[u8],
+    key: &XChaCha20Poly1305Key,
+) -> CoseEncrypt0 {
+    let mut nonce = [0u8; xchacha20::NONCE_SIZE];
+    cose_encrypt0_builder
+        .create_ciphertext(plaintext, &[], |data, aad| {
+            let ciphertext =
+                crate::xchacha20::encrypt_xchacha20_poly1305(&(*key.enc_key).into(), data, aad);
+            nonce = ciphertext.nonce();
+            ciphertext.encrypted_bytes().to_vec()
+        })
+        .unprotected(coset::HeaderBuilder::new().iv(nonce.to_vec()).build())
+        .build()
+}
+
+pub struct DecryptFailed;
+/// Decrypt a CoseEncrypt0 message with a CoseKey
+pub(crate) fn decrypt_cose(
+    cose_encrypt0: &CoseEncrypt0,
+    key: &XChaCha20Poly1305Key,
+) -> Result<Vec<u8>, DecryptFailed> {
+    let nonce: [u8; xchacha20::NONCE_SIZE] = cose_encrypt0
+        .unprotected
+        .iv
+        .clone()
+        .try_into()
+        .map_err(|_| DecryptFailed)?;
+    cose_encrypt0
+        .clone()
+        .decrypt_ciphertext(
+            &[],
+            || CryptoError::MissingField("ciphertext"),
+            |data, aad| {
+                xchacha20::decrypt_xchacha20_poly1305(&nonce, &(*key.enc_key).into(), data, aad)
+            },
+        )
+        .map_err(|_| DecryptFailed)
+}
 
 /// Encrypts a plaintext message using XChaCha20Poly1305 and returns a COSE Encrypt0 message
 pub(crate) fn encrypt_xchacha20_poly1305(

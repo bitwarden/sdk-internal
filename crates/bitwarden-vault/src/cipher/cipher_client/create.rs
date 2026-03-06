@@ -263,7 +263,7 @@ impl CiphersClient {
         request: CipherCreateRequest,
     ) -> Result<CipherView, CreateCipherError> {
         let key_store = self.client.internal.get_key_store();
-        let config = self.client.internal.get_api_configurations().await;
+        let config = self.client.internal.get_api_configurations();
         let repository = self.get_repository()?;
         let mut internal_request: CipherCreateRequestInternal = request.into();
 

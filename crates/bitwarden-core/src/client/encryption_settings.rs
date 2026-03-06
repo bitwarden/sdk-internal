@@ -40,6 +40,9 @@ pub enum EncryptionSettingsError {
 
     #[error("Unable to retrieve user-key from state")]
     UserKeyStateRetrievalFailed,
+
+    #[error("Invalid upgrade token")]
+    InvalidUpgradeToken,
 }
 
 #[allow(missing_docs)]

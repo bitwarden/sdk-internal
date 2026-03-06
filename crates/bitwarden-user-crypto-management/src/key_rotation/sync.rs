@@ -41,7 +41,6 @@ pub(super) struct SyncedAccountData {
     pub(super) trusted_devices: Vec<PartialRotateableKeyset>,
     pub(super) passkeys: Vec<PartialRotateableKeyset>,
     pub(super) kdf_and_salt: Option<(Kdf, String)>,
-    pub(super) user_id: uuid::Uuid,
 }
 
 #[derive(Debug, Error)]
@@ -340,11 +339,6 @@ pub(super) async fn sync_current_account_data(
     let wrapped_account_cryptographic_state =
         WrappedAccountCryptographicState::try_from(account_cryptographic_state.as_ref())
             .debug_map_err(SyncError::DataError)?;
-    let user_id = sync
-        .profile
-        .as_ref()
-        .and_then(|p| p.id)
-        .ok_or(SyncError::DataError)?;
 
     // Concurrently sync organization memberships, emergency access memberships, trusted devices,
     // and passkeys
@@ -366,7 +360,6 @@ pub(super) async fn sync_current_account_data(
         trusted_devices,
         passkeys,
         kdf_and_salt,
-        user_id,
     })
 }
 
@@ -660,8 +653,6 @@ mod tests {
 
         let result = sync_current_account_data(&api_client).await;
         let data = result.unwrap();
-
-        assert_eq!(data.user_id, user_id);
 
         // Verify folders
         assert_eq!(data.folders.len(), 1);
