@@ -19,6 +19,7 @@ uniffi = ["dep:uniffi", "bitwarden-core/uniffi", "bitwarden-vault/uniffi"]
 
 [dependencies]
 async-trait = { workspace = true }
+bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
@@ -38,6 +39,9 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
 
 [lints]
 workspace = true

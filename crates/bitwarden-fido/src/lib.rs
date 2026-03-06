@@ -18,6 +18,7 @@ mod authenticator;
 mod client;
 mod client_fido;
 mod crypto;
+mod device_auth_key;
 mod traits;
 mod types;
 pub use authenticator::{
@@ -26,6 +27,10 @@ pub use authenticator::{
 };
 pub use client::{Fido2Client, Fido2ClientError};
 pub use client_fido::{ClientFido2, ClientFido2Ext, DecryptFido2AutofillCredentialsError};
+pub use device_auth_key::{
+    DeviceAuthKeyAuthenticator, DeviceAuthKeyError, DeviceAuthKeyGetAssertionResult,
+    DeviceAuthKeyMetadata, DeviceAuthKeyRecord, DeviceAuthKeyStore,
+};
 pub use passkey::authenticator::UiHint;
 use thiserror::Error;
 pub use traits::{
@@ -34,8 +39,11 @@ pub use traits::{
 };
 pub use types::{
     AuthenticatorAssertionResponse, AuthenticatorAttestationResponse, ClientData,
-    Fido2CredentialAutofillView, Fido2CredentialAutofillViewError, GetAssertionRequest,
-    GetAssertionResult, MakeCredentialRequest, MakeCredentialResult, Options, Origin,
+    Fido2CredentialAutofillView, Fido2CredentialAutofillViewError, GetAssertionExtensionsInput,
+    GetAssertionExtensionsOutput, GetAssertionPrfInput, GetAssertionPrfOutput, GetAssertionRequest,
+    GetAssertionResult, MakeCredentialExtensionsInput, MakeCredentialExtensionsOutput,
+    MakeCredentialPrfInput, MakeCredentialPrfOutput, MakeCredentialRequest, MakeCredentialResult,
+    Options, Origin, PrfInputValues, PrfOutputValues,
     PublicKeyCredentialAuthenticatorAssertionResponse,
     PublicKeyCredentialAuthenticatorAttestationResponse, PublicKeyCredentialRpEntity,
     PublicKeyCredentialUserEntity, UnverifiedAssetLink,
