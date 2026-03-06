@@ -37,5 +37,3 @@ pub use prf::derive_symmetric_key_from_prf;
 
 mod key_connector_key;
 pub use key_connector_key::KeyConnectorKey;
-mod local_user_data_key;
-pub use local_user_data_key::LocalUserDataKey;

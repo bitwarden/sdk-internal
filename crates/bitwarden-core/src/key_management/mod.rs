@@ -50,6 +50,8 @@ pub use v2_upgrade_token::{V2UpgradeToken, V2UpgradeTokenError};
 mod wasm_unlock_state;
 
 #[cfg(feature = "internal")]
+mod local_user_data_key;
+#[cfg(feature = "internal")]
 mod local_user_data_key_state;
 
 use crate::OrganizationId;
@@ -66,13 +68,13 @@ pub struct UserKeyState {
 
 bitwarden_state::register_repository_item!(String => UserKeyState, "UserKey");
 
-/// Represents the encrypted local user data key held in client-managed state.
+/// Represents the local user data key, wrapped by user key.
 /// This key is used to encrypt local user data (e.g., password generator history).
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct LocalUserDataKeyState {
-    encrypted_key: EncString,
+    wrapped_key: EncString,
 }
 
 bitwarden_state::register_repository_item!(String => LocalUserDataKeyState, "LocalUserDataKey");
@@ -83,6 +85,7 @@ key_ids! {
         Master,
         User,
         Organization(OrganizationId),
+        LocalUserData,
         #[local]
         Local(LocalId),
     }

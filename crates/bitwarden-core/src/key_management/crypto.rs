@@ -174,6 +174,7 @@ pub enum AuthRequestMethod {
 }
 
 /// Initialize the user's cryptographic state.
+#[tracing::instrument(skip(client), err)]
 pub(super) async fn initialize_user_crypto(
     client: &Client,
     req: InitUserCryptoRequest,
@@ -186,6 +187,11 @@ pub(super) async fn initialize_user_crypto(
         client.internal.init_user_id(user_id)?;
     }
 
+    tracing::Span::current().record(
+        "user_id",
+        client.internal.get_user_id().map(|id| id.to_string()),
+    );
+
     let account_crypto_state = req.account_cryptographic_state.to_owned();
 
     #[cfg(feature = "wasm")]
@@ -196,123 +202,113 @@ pub(super) async fn initialize_user_crypto(
             | InitUserCryptoMethod::PinEnvelope { .. }
     );
 
-    {
-        let _span_guard = tracing::info_span!(
-            "User Crypto Initialization",
-            user_id = ?client.internal.get_user_id(),
-        )
-        .entered();
-
-        match req.method {
-            InitUserCryptoMethod::MasterPasswordUnlock {
-                password,
-                master_password_unlock,
-            } => {
-                client
-                    .internal
-                    .initialize_user_crypto_master_password_unlock(
-                        password,
-                        master_password_unlock,
-                        account_crypto_state,
-                        &req.upgrade_token,
-                    )?;
-            }
-            #[cfg(feature = "wasm")]
-            InitUserCryptoMethod::ClientManagedState {} => {
-                drop(_span_guard); // must drop before awaiting — WASM async-first path
-                let user_key = get_user_key_from_client_managed_state(client)
-                    .await
-                    .map_err(|_| EncryptionSettingsError::UserKeyStateRetrievalFailed)?;
-                client.internal.initialize_user_crypto_decrypted_key(
-                    user_key,
+    match req.method {
+        InitUserCryptoMethod::MasterPasswordUnlock {
+            password,
+            master_password_unlock,
+        } => {
+            client
+                .internal
+                .initialize_user_crypto_master_password_unlock(
+                    password,
+                    master_password_unlock,
                     account_crypto_state,
                     &req.upgrade_token,
                 )?;
-            }
-            InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
-                let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
-                client.internal.initialize_user_crypto_decrypted_key(
-                    user_key,
-                    account_crypto_state,
-                    &req.upgrade_token,
-                )?;
-            }
-            InitUserCryptoMethod::Pin {
-                pin,
+        }
+        #[cfg(feature = "wasm")]
+        InitUserCryptoMethod::ClientManagedState {} => {
+            let user_key = get_user_key_from_client_managed_state(client)
+                .await
+                .map_err(|_| EncryptionSettingsError::UserKeyStateRetrievalFailed)?;
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                account_crypto_state,
+                &req.upgrade_token,
+            )?;
+        }
+        InitUserCryptoMethod::DecryptedKey { decrypted_user_key } => {
+            let user_key = SymmetricCryptoKey::try_from(decrypted_user_key)?;
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                account_crypto_state,
+                &req.upgrade_token,
+            )?;
+        }
+        InitUserCryptoMethod::Pin {
+            pin,
+            pin_protected_user_key,
+        } => {
+            let pin_key = PinKey::derive(pin.as_bytes(), req.email.as_bytes(), &req.kdf_params)?;
+            client.internal.initialize_user_crypto_pin(
+                pin_key,
                 pin_protected_user_key,
-            } => {
-                let pin_key =
-                    PinKey::derive(pin.as_bytes(), req.email.as_bytes(), &req.kdf_params)?;
-                client.internal.initialize_user_crypto_pin(
-                    pin_key,
-                    pin_protected_user_key,
-                    account_crypto_state,
-                    &req.upgrade_token,
-                )?;
-            }
-            InitUserCryptoMethod::PinEnvelope {
+                account_crypto_state,
+                &req.upgrade_token,
+            )?;
+        }
+        InitUserCryptoMethod::PinEnvelope {
+            pin,
+            pin_protected_user_key_envelope,
+        } => {
+            client.internal.initialize_user_crypto_pin_envelope(
                 pin,
                 pin_protected_user_key_envelope,
-            } => {
-                client.internal.initialize_user_crypto_pin_envelope(
-                    pin,
-                    pin_protected_user_key_envelope,
-                    account_crypto_state,
-                    &req.upgrade_token,
-                )?;
-            }
-            InitUserCryptoMethod::AuthRequest {
-                request_private_key,
-                method,
-            } => {
-                let user_key = match method {
-                    AuthRequestMethod::UserKey { protected_user_key } => {
-                        auth_request_decrypt_user_key(request_private_key, protected_user_key)?
-                    }
-                    AuthRequestMethod::MasterKey {
-                        protected_master_key,
-                        auth_request_key,
-                    } => auth_request_decrypt_master_key(
-                        request_private_key,
-                        protected_master_key,
-                        auth_request_key,
-                    )?,
-                };
-                client.internal.initialize_user_crypto_decrypted_key(
-                    user_key,
-                    account_crypto_state,
-                    &req.upgrade_token,
-                )?;
-            }
-            InitUserCryptoMethod::DeviceKey {
-                device_key,
-                protected_device_private_key,
-                device_protected_user_key,
-            } => {
-                let device_key = DeviceKey::try_from(device_key)?;
-                let user_key = device_key
-                    .decrypt_user_key(protected_device_private_key, device_protected_user_key)?;
+                account_crypto_state,
+                &req.upgrade_token,
+            )?;
+        }
+        InitUserCryptoMethod::AuthRequest {
+            request_private_key,
+            method,
+        } => {
+            let user_key = match method {
+                AuthRequestMethod::UserKey { protected_user_key } => {
+                    auth_request_decrypt_user_key(request_private_key, protected_user_key)?
+                }
+                AuthRequestMethod::MasterKey {
+                    protected_master_key,
+                    auth_request_key,
+                } => auth_request_decrypt_master_key(
+                    request_private_key,
+                    protected_master_key,
+                    auth_request_key,
+                )?,
+            };
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                account_crypto_state,
+                &req.upgrade_token,
+            )?;
+        }
+        InitUserCryptoMethod::DeviceKey {
+            device_key,
+            protected_device_private_key,
+            device_protected_user_key,
+        } => {
+            let device_key = DeviceKey::try_from(device_key)?;
+            let user_key = device_key
+                .decrypt_user_key(protected_device_private_key, device_protected_user_key)?;
 
-                client.internal.initialize_user_crypto_decrypted_key(
-                    user_key,
-                    account_crypto_state,
-                    &req.upgrade_token,
-                )?;
-            }
-            InitUserCryptoMethod::KeyConnector {
+            client.internal.initialize_user_crypto_decrypted_key(
+                user_key,
+                account_crypto_state,
+                &req.upgrade_token,
+            )?;
+        }
+        InitUserCryptoMethod::KeyConnector {
+            master_key,
+            user_key,
+        } => {
+            let mut bytes = master_key.into_bytes();
+            let master_key = MasterKey::try_from(bytes.as_mut_slice())?;
+
+            client.internal.initialize_user_crypto_key_connector_key(
                 master_key,
                 user_key,
-            } => {
-                let mut bytes = master_key.into_bytes();
-                let master_key = MasterKey::try_from(bytes.as_mut_slice())?;
-
-                client.internal.initialize_user_crypto_key_connector_key(
-                    master_key,
-                    user_key,
-                    account_crypto_state,
-                    &req.upgrade_token,
-                )?;
-            }
+                account_crypto_state,
+                &req.upgrade_token,
+            )?;
         }
     }
 
