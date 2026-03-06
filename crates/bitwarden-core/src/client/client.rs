@@ -3,7 +3,10 @@ use std::sync::{Arc, OnceLock, RwLock};
 use bitwarden_crypto::KeyStore;
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
-use reqwest::header::{self, HeaderValue};
+use reqwest::{
+    header::{self, HeaderValue},
+    redirect::{Attempt, Policy},
+};
 
 use super::internal::InternalClient;
 #[cfg(feature = "internal")]
@@ -122,6 +125,18 @@ fn new_http_client_builder() -> reqwest::ClientBuilder {
             client_builder = client_builder.https_only(true);
         }
     }
+
+    // Custom redirect policy for cookie acquisition middleware visibility (ADR-065)
+    // Allows middleware to inspect 3xx responses before automatic following
+    client_builder = client_builder.redirect(Policy::custom(|attempt: Attempt| {
+        if attempt.previous().len() >= 10 {
+            // Enforce 10 redirect limit (matching reqwest default)
+            attempt.error("too many redirects")
+        } else {
+            // Allow middleware to see 3xx before following
+            attempt.follow()
+        }
+    }));
 
     client_builder
 }
