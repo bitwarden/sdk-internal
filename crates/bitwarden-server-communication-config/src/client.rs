@@ -89,21 +89,23 @@ where
         &self,
         domain: String,
     ) -> Result<Vec<AcquiredCookie>, AcquireCookieError> {
-        if let Ok(Some(config)) = self.repository.get(domain.clone()).await
-            && let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap
-        {
-            match vendor_config.cookie_value {
-                Some(ref cookies) => {
-                    // Return existing cookies if present
-                    Ok(cookies.clone())
-                }
-                None => {
-                    // No cookies present, need to acquire
-                    Ok(self.acquire_cookie(&domain).await?)
-                }
-            }
-        } else {
-            Ok(vec![])
+        let config = self
+            .repository
+            .get(domain.clone())
+            .await
+            .map_err(|e| AcquireCookieError::RepositoryGetError(format!("{:?}", e)))?;
+
+        let Some(config) = config else {
+            return Ok(vec![]);
+        };
+
+        let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap else {
+            return Ok(vec![]);
+        };
+
+        match vendor_config.cookie_value {
+            Some(ref cookies) => Ok(cookies.clone()),
+            None => Ok(self.acquire_cookie(&domain).await?),
         }
     }
 
