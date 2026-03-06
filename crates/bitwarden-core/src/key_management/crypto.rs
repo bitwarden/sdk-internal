@@ -39,7 +39,9 @@ use crate::{
         account_cryptographic_state::{
             AccountCryptographyInitializationError, WrappedAccountCryptographicState,
         },
-        local_user_data_key_state::initialize_local_user_data_key,
+        local_user_data_key_state::{
+            get_local_user_data_key_from_state, initialize_local_user_data_key_into_state,
+        },
         master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData},
     },
 };
@@ -319,9 +321,7 @@ pub(super) async fn initialize_user_crypto(
             .map_err(|_| EncryptionSettingsError::UserKeyStateUpdateFailed)?;
     }
 
-    initialize_local_user_data_key(client)
-        .await
-        .map_err(|_| EncryptionSettingsError::LocalUserDataKeyInitFailed)?;
+    initialize_user_local_data_key(client).await?;
 
     client
         .internal
@@ -1033,6 +1033,36 @@ pub(crate) fn make_user_key_connector_registration(
     })
 }
 
+/// Ensures the [`SymmetricKeyId::LocalUserData`] key is loaded into the key store context.
+///
+/// On first call the key is generated (wrapping the user key with itself) and persisted to state.
+/// Subsequent calls are idempotent: if the key already exists in state it is loaded as-is,
+/// preserving any data that was previously encrypted with it (e.g. after a key rotation).
+async fn initialize_user_local_data_key(client: &Client) -> Result<(), EncryptionSettingsError> {
+    // In tests, repositories are not always registered; skip gracefully.
+    #[cfg(test)]
+    if client
+        .platform()
+        .state()
+        .get::<crate::key_management::LocalUserDataKeyState>()
+        .is_err()
+    {
+        return Ok(());
+    }
+
+    initialize_local_user_data_key_into_state(client)
+        .await
+        .map_err(|_| EncryptionSettingsError::LocalUserDataKeyInitFailed)?;
+
+    let wrapped_key = get_local_user_data_key_from_state(client)
+        .await
+        .map_err(|_| EncryptionSettingsError::LocalUserDataKeyLoadFailed)?;
+    let mut ctx = client.internal.get_key_store().context_mut();
+    wrapped_key
+        .unwrap_to_context(&mut ctx)
+        .map_err(|_| EncryptionSettingsError::LocalUserDataKeyLoadFailed)
+}
+
 /// Create the data needed to register for JIT master password
 pub(crate) fn make_user_jit_master_password_registration(
     client: &Client,
@@ -1082,15 +1112,16 @@ mod tests {
     use std::num::NonZeroU32;
 
     use bitwarden_crypto::{
-        KeyStore, PrivateKey, PublicKeyEncryptionAlgorithm, RsaKeyPair, SymmetricKeyAlgorithm,
+        Decryptable, KeyStore, PrivateKey, PublicKeyEncryptionAlgorithm, RsaKeyPair,
+        SymmetricKeyAlgorithm,
     };
     use bitwarden_test::MemoryRepository;
 
     use super::*;
     use crate::{
         Client,
-        client::test_accounts::test_bitwarden_com_account,
-        key_management::{KeyIds, UserKeyState, V2UpgradeToken},
+        client::test_accounts::{test_bitwarden_com_account, test_bitwarden_com_account_v2},
+        key_management::{KeyIds, LocalUserDataKeyState, UserKeyState, V2UpgradeToken},
     };
 
     const TEST_VECTOR_USER_KEY_V2_B64: &str = "pQEEAlACHUUoybNAuJoZzqNMxz2bAzoAARFvBIQDBAUGIFggAvGl4ifaUAomQdCdUPpXLHtypiQxHjZwRHeI83caZM4B";
@@ -2215,5 +2246,68 @@ mod tests {
             matches!(result, Err(EncryptionSettingsError::InvalidUpgradeToken)),
             "Initialization with a mismatched upgrade token should fail"
         );
+    }
+
+    #[tokio::test]
+    async fn test_initialize_user_local_data_key_sets_local_user_data_key_equal_to_user_key() {
+        let client = Client::init_test_account(test_bitwarden_com_account_v2()).await;
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(
+                MemoryRepository::<LocalUserDataKeyState>::default(),
+            ));
+        initialize_user_local_data_key(&client)
+            .await
+            .expect("initialize_user_local_data_key should succeed");
+
+        // Verify LocalUserData key equals the User key: data encrypted with User
+        // must be decryptable with LocalUserData.
+        let key_store = client.internal.get_key_store();
+        let mut ctx = key_store.context_mut();
+        let plaintext = "test";
+        let ciphertext = plaintext
+            .encrypt(&mut ctx, SymmetricKeyId::User)
+            .expect("encryption with user key should succeed");
+        let decrypted: String = ciphertext
+            .decrypt(&mut ctx, SymmetricKeyId::LocalUserData)
+            .expect("decryption with local user data key should succeed");
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[tokio::test]
+    async fn test_initialize_user_local_data_key_idempotent() {
+        let client = Client::init_test_account(test_bitwarden_com_account_v2()).await;
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(
+                MemoryRepository::<LocalUserDataKeyState>::default(),
+            ));
+        initialize_user_local_data_key(&client)
+            .await
+            .expect("first initialization should succeed");
+
+        // Encrypt something with the key established on the first call.
+        let ciphertext = {
+            let key_store = client.internal.get_key_store();
+            let mut ctx = key_store.context_mut();
+            "test"
+                .encrypt(&mut ctx, SymmetricKeyId::LocalUserData)
+                .expect("encryption should succeed")
+        };
+
+        initialize_user_local_data_key(&client)
+            .await
+            .expect("second initialization should succeed");
+
+        // The key must not have changed: data encrypted before the second call
+        // must still be decryptable.
+        let key_store = client.internal.get_key_store();
+        let mut ctx = key_store.context_mut();
+        let decrypted: String = ciphertext
+            .decrypt(&mut ctx, SymmetricKeyId::LocalUserData)
+            .expect("decryption after second initialization should succeed");
+        assert_eq!(decrypted, "test");
     }
 }

@@ -85,6 +85,7 @@ key_ids! {
         Master,
         User,
         Organization(OrganizationId),
+        LocalUserData,
         #[local]
         Local(LocalId),
     }

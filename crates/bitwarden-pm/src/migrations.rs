@@ -16,8 +16,8 @@ pub fn get_sdk_managed_migrations() -> RepositoryMigrations {
         Add(Cipher::data()),
         Add(Folder::data()),
         Add(UserKeyState::data()),
-        Add(LocalUserDataKeyState::data()),
         Add(SettingItem::data()),
+        Add(LocalUserDataKeyState::data()),
     ])
 }
 

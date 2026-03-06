@@ -12,7 +12,7 @@ use crate::{
 /// Enables offline decryption of local data after a key rotation: only the wrapped key is
 /// re-encrypted; the local user data key itself stays intact.
 #[derive(Debug, Clone)]
-pub(crate) struct WrappedLocalUserDataKey(EncString);
+pub(crate) struct WrappedLocalUserDataKey(pub(crate) EncString);
 
 impl WrappedLocalUserDataKey {
     /// Create a user key, wrapped by the user key.
@@ -26,20 +26,19 @@ impl WrappedLocalUserDataKey {
         Ok(WrappedLocalUserDataKey(wrapped_local_user_data_key))
     }
 
-    /// Decrypt the wrapped key and sets it to context.
-    ///
-    /// # Arguments
-    ///
-    /// * `wrapping_key` - The key id of the key used to unwrap the local user data key. It must
-    ///   already exist in the context.
-    #[allow(unused)]
+    /// Unwrap the local user data key and set it in the context under the
+    /// [`SymmetricKeyId::LocalUserData`] key id.
     #[instrument(skip(self, ctx), err)]
-    pub(crate) fn set_to_context(
+    pub(crate) fn unwrap_to_context(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
-    ) -> Result<SymmetricKeyId, LocalUserDataKeyError> {
-        ctx.unwrap_symmetric_key(SymmetricKeyId::User, &self.0)
-            .map_err(|_| LocalUserDataKeyError::DecryptionFailed)
+    ) -> Result<(), LocalUserDataKeyError> {
+        let local_id = ctx
+            .unwrap_symmetric_key(SymmetricKeyId::User, &self.0)
+            .map_err(|_| LocalUserDataKeyError::DecryptionFailed)?;
+        ctx.persist_symmetric_key(local_id, SymmetricKeyId::LocalUserData)
+            .map_err(|_| LocalUserDataKeyError::DecryptionFailed)?;
+        Ok(())
     }
 }
 
@@ -80,30 +79,31 @@ mod tests {
     }
 
     #[test]
-    fn test_round_trip() {
+    fn test_from_user_key_wraps_user_key() {
         let key_store = make_key_store_with_user_key();
         let mut ctx = key_store.context_mut();
 
-        let plaintext = "test local user data";
+        let plaintext = "test data";
         let ciphertext = plaintext
             .encrypt(&mut ctx, SymmetricKeyId::User)
-            .expect("encryption should succeed");
+            .expect("encryption with user key should succeed");
 
         let wrapped =
             WrappedLocalUserDataKey::from_user_key(&mut ctx).expect("wrapping should succeed");
-
-        let unwrapped_key = wrapped
-            .set_to_context(&mut ctx)
+        wrapped
+            .unwrap_to_context(&mut ctx)
             .expect("unwrapping should succeed");
 
+        // Verify LocalUserData key is the same as User key: data encrypted with User
+        // must be decryptable with LocalUserData.
         let decrypted: String = ciphertext
-            .decrypt(&mut ctx, unwrapped_key)
-            .expect("decryption with unwrapped key should succeed");
+            .decrypt(&mut ctx, SymmetricKeyId::LocalUserData)
+            .expect("decryption with local user data key should succeed");
         assert_eq!(decrypted, plaintext);
     }
 
     #[test]
-    fn test_set_to_context_fails_with_wrong_key() {
+    fn test_unwrap_to_context_fails_with_wrong_key() {
         let key_store_a = make_key_store_with_user_key();
         let wrapped = {
             let mut ctx = key_store_a.context_mut();
@@ -113,7 +113,7 @@ mod tests {
         let key_store_b = make_key_store_with_user_key();
         let mut ctx_b = key_store_b.context_mut();
         assert!(
-            wrapped.set_to_context(&mut ctx_b).is_err(),
+            wrapped.unwrap_to_context(&mut ctx_b).is_err(),
             "unwrapping with a different key should fail"
         );
     }
