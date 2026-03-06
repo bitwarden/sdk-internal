@@ -124,7 +124,7 @@ impl NoiseStateMachine {
     pub(crate) fn receive(&mut self, transport_frame: TransportFrame) -> Result<ReceiveResult, ()> {
         match self {
             NoiseStateMachine::Initial { transport_state } => {
-                let message = transport_state.receive(&transport_frame)?;
+                let message = transport_state.receive(&transport_frame).map_err(|_| ())?;
 
                 // Guard against invalid messages. Only Initial -> HandshakeStart is a valid
                 // transition
@@ -149,7 +149,7 @@ impl NoiseStateMachine {
                 transport_state,
                 handshake_state,
             } => {
-                let message = transport_state.receive(&transport_frame)?;
+                let message = transport_state.receive(&transport_frame).map_err(|_| ())?;
 
                 // Guard against invalid messages. Only HandshakeStart -> HandshakeFinish is a valid
                 // transition

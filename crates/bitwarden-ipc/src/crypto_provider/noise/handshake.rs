@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::crypto_provider::noise::transport_state::{PersistentTransportState, SymmetricKey};
@@ -9,11 +11,11 @@ pub(crate) enum CipherSuite {
     Noise_NN_25519_ChaChaPoly_BLAKE2s,
 }
 
-impl CipherSuite {
-    pub(crate) fn to_string(&self) -> String {
+impl Display for CipherSuite {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Noise_NN_25519_ChaChaPoly_BLAKE2s => {
-                "Noise_NN_25519_ChaChaPoly_BLAKE2s".to_string()
+                write!(f, "Noise_NN_25519_ChaChaPoly_BLAKE2s")
             }
         }
     }
@@ -38,8 +40,8 @@ pub(crate) struct HandshakeInitiator {
 
 impl HandshakeInitiator {
     pub(crate) fn new(cipher_suite: &CipherSuite) -> Result<Self, ()> {
-        let builder = snow::Builder::new(cipher_suite.to_string().parse().unwrap());
-        let handshake_state = builder.build_initiator().unwrap();
+        let builder = snow::Builder::new(cipher_suite.to_string().parse().map_err(|_| ())?);
+        let handshake_state = builder.build_initiator().map_err(|_| ())?;
         Ok(Self {
             cipher_suite: *cipher_suite,
             state: handshake_state,

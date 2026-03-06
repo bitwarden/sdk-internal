@@ -64,25 +64,6 @@ impl PersistentTransportState {
     pub(crate) fn last_handshake_epoch_secs(&self) -> u64 {
         self.last_handshake_time
     }
-
-    /// Creates a new transport state with an explicit handshake timestamp.
-    /// Only used in tests to construct states with backdated timestamps.
-    #[cfg(test)]
-    pub(crate) fn new_with_handshake_time(
-        send_key: SymmetricKey,
-        receive_key: SymmetricKey,
-        last_handshake_time: u64,
-    ) -> Self {
-        Self {
-            cipher: Cipher::ChaCha20Poly1305,
-            send_key,
-            receive_key,
-            send_nonce: 0,
-            receive_nonce: 0,
-            allow_payload_sending: true,
-            last_handshake_time,
-        }
-    }
 }
 
 /// Plaintext payload carried inside the encrypted noise tunnel.
@@ -175,15 +156,21 @@ impl PersistentTransportState {
         })
     }
 
-    pub(crate) fn receive(&mut self, transport_frame: &TransportFrame) -> Result<Message, ()> {
+    pub(crate) fn receive(
+        &mut self,
+        transport_frame: &TransportFrame,
+    ) -> Result<Message, ReceiveError> {
         // Try decryption with current receive key first.
         if transport_frame.nonce > self.receive_nonce {
             if let Ok(plaintext) = self.try_decrypt(&self.receive_key, transport_frame) {
                 self.receive_nonce = transport_frame.nonce;
-                return Message::from_cbor(&plaintext).map_err(|_| ());
+                Message::from_cbor(&plaintext).map_err(|_| ReceiveError::Parsing)
+            } else {
+                Err(ReceiveError::Decryption)
             }
+        } else {
+            Err(ReceiveError::NonceReplay)
         }
-        Err(())
     }
 
     fn try_decrypt(
@@ -203,6 +190,13 @@ impl PersistentTransportState {
             .map_err(|_| ())?;
         Ok(buffer[..len].to_vec())
     }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum ReceiveError {
+    NonceReplay,
+    Decryption,
+    Parsing,
 }
 
 /// Returns the current time as seconds since the Unix epoch.
