@@ -23,6 +23,7 @@ use passkey::{
         },
     },
 };
+use reqwest::Url;
 
 use crate::{
     GetAssertionRequest, MakeCredentialResult, PublicKeyCredentialRpEntity,
@@ -49,8 +50,7 @@ impl DeviceAuthKeyAuthenticator<'_> {
     pub async fn create_device_auth_key(
         &mut self,
         client_name: String,
-        web_vault_hostname: String,
-        origin: String,
+        web_vault_url: String,
         // TODO: These parameters are limiting:
         // - Is there some way to accept the master password hash directly instead of having to do
         //   it in here?
@@ -84,8 +84,17 @@ impl DeviceAuthKeyAuthenticator<'_> {
         let WebAuthnCredentialCreateOptionsResponseModel { options, token, .. } = options_response;
 
         // Convert creation options
-        let (request, client_data_json) = convert_creation_options(options.as_ref(), web_vault_hostname, origin).map_err(|err| {
-            tracing::error!(%err, ?options, "Received invalid WebAuthn, attestation options from server");
+        let (default_rp_id, origin) = {
+            let url =
+                Url::parse(&web_vault_url).map_err(|_| DeviceAuthKeyError::InvalidWebVaultUrl)?;
+            let Some(default_rp_id) = url.host().map(|host| host.to_string()) else {
+                return Err(DeviceAuthKeyError::InvalidWebVaultUrl);
+            };
+            let origin = url.origin().ascii_serialization();
+            (default_rp_id, origin)
+        };
+        let (request, client_data_json) = convert_creation_options(options.as_ref(), default_rp_id, origin).map_err(|err| {
+            tracing::error!(%err, ?options, "Received invalid WebAuthn attestation options from server");
             DeviceAuthKeyError::RetrieveRegistrationOptionsFailure
         })?;
 
@@ -640,6 +649,10 @@ pub enum DeviceAuthKeyError {
     /// The record identifier stored in metadata is not a valid UUID.
     #[error("The record identifier is not a valid UUID")]
     InvalidRecordIdentifier,
+
+    /// Invalid Web Vault URL specified.
+    #[error("Invalid Web Vault URL specified")]
+    InvalidWebVaultUrl,
 
     /// No device auth key exists on this device.
     #[error("No device auth key exists on this device")]
