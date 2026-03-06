@@ -1,5 +1,6 @@
 mod communication_backend;
 mod discover;
+#[cfg(feature = "noise")]
 mod generic_session_repository;
 mod ipc_client;
 mod js_session_repository;
