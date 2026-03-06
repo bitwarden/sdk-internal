@@ -1,4 +1,3 @@
-use bitwarden_crypto::SymmetricCryptoKey;
 use tracing::info;
 
 use crate::{
