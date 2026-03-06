@@ -76,6 +76,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
     ) -> Result<(), Error<AddCreditViaBitPayError>>;
 
@@ -129,6 +130,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
         premium_cloud_hosted_subscription_request: Option<
             models::PremiumCloudHostedSubscriptionRequest,
         >,
@@ -184,6 +186,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
     ) -> Result<(), Error<GetApplicableDiscountsError>>;
 
     /// GET /account/billing/vnext/credit
@@ -236,6 +239,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
     ) -> Result<(), Error<GetCreditError>>;
 
     /// GET /account/billing/vnext/license
@@ -288,6 +292,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
     ) -> Result<(), Error<GetLicenseError>>;
 
     /// GET /account/billing/vnext/payment-method
@@ -340,6 +345,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
     ) -> Result<(), Error<GetPaymentMethodError>>;
 
     /// GET /account/billing/vnext/subscription
@@ -392,6 +398,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
     ) -> Result<(), Error<GetSubscriptionError>>;
 
     /// POST /account/billing/vnext/subscription/reinstate
@@ -444,6 +451,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
     ) -> Result<(), Error<ReinstateSubscriptionError>>;
 
     /// PUT /account/billing/vnext/payment-method
@@ -496,6 +504,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
     ) -> Result<(), Error<UpdatePaymentMethodError>>;
 
@@ -549,6 +558,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
         storage_update_request: Option<models::StorageUpdateRequest>,
     ) -> Result<(), Error<UpdateSubscriptionStorageError>>;
 
@@ -602,6 +612,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
         upgrade_premium_to_organization_request: Option<
             models::UpgradePremiumToOrganizationRequest,
         >,
@@ -670,6 +681,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
     ) -> Result<(), Error<AddCreditViaBitPayError>> {
         let local_var_configuration = &self.configuration;
@@ -863,6 +875,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = master_password_salt {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordSalt", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&bit_pay_credit_request);
 
@@ -934,6 +950,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
         premium_cloud_hosted_subscription_request: Option<
             models::PremiumCloudHostedSubscriptionRequest,
         >,
@@ -1129,6 +1146,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = master_password_salt {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordSalt", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&premium_cloud_hosted_subscription_request);
@@ -1201,6 +1222,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
     ) -> Result<(), Error<GetApplicableDiscountsError>> {
         let local_var_configuration = &self.configuration;
 
@@ -1393,6 +1415,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = master_password_salt {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordSalt", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         let local_var_resp = local_var_req_builder.send().await?;
@@ -1463,6 +1489,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
     ) -> Result<(), Error<GetCreditError>> {
         let local_var_configuration = &self.configuration;
 
@@ -1655,6 +1682,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = master_password_salt {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordSalt", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         let local_var_resp = local_var_req_builder.send().await?;
@@ -1725,6 +1756,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
     ) -> Result<(), Error<GetLicenseError>> {
         let local_var_configuration = &self.configuration;
 
@@ -1917,6 +1949,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = master_password_salt {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordSalt", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         let local_var_resp = local_var_req_builder.send().await?;
@@ -1987,6 +2023,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
     ) -> Result<(), Error<GetPaymentMethodError>> {
         let local_var_configuration = &self.configuration;
 
@@ -2179,6 +2216,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = master_password_salt {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordSalt", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         let local_var_resp = local_var_req_builder.send().await?;
@@ -2249,6 +2290,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
     ) -> Result<(), Error<GetSubscriptionError>> {
         let local_var_configuration = &self.configuration;
 
@@ -2441,6 +2483,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = master_password_salt {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordSalt", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         let local_var_resp = local_var_req_builder.send().await?;
@@ -2511,6 +2557,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
     ) -> Result<(), Error<ReinstateSubscriptionError>> {
         let local_var_configuration = &self.configuration;
 
@@ -2703,6 +2750,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = master_password_salt {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordSalt", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         let local_var_resp = local_var_req_builder.send().await?;
@@ -2773,6 +2824,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
     ) -> Result<(), Error<UpdatePaymentMethodError>> {
         let local_var_configuration = &self.configuration;
@@ -2966,6 +3018,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = master_password_salt {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordSalt", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&tokenized_payment_method_request);
 
@@ -3037,6 +3093,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
         storage_update_request: Option<models::StorageUpdateRequest>,
     ) -> Result<(), Error<UpdateSubscriptionStorageError>> {
         let local_var_configuration = &self.configuration;
@@ -3230,6 +3287,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = master_password_salt {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordSalt", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&storage_update_request);
 
@@ -3301,6 +3362,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
         upgrade_premium_to_organization_request: Option<
             models::UpgradePremiumToOrganizationRequest,
         >,
@@ -3495,6 +3557,10 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         if let Some(ref param_value) = v2_upgrade_token {
             local_var_req_builder =
                 local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password_salt {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordSalt", &param_value.to_string())]);
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
