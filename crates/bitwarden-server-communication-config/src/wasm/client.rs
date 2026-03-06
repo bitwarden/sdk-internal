@@ -113,13 +113,38 @@ impl JsServerCommunicationConfigClient {
     /// # Errors
     ///
     /// Returns an error if the repository save operation fails
+    #[deprecated(
+        note = "Use set_communication_type_v2() instead, which extracts the domain from the config"
+    )]
     #[wasm_bindgen(js_name = setCommunicationType)]
     pub async fn set_communication_type(
         &self,
         domain: String,
         request: SetCommunicationTypeRequest,
     ) -> Result<(), String> {
+        #[allow(deprecated)]
         self.client.set_communication_type(domain, request).await
+    }
+
+    /// Sets the server communication configuration using the domain from the config
+    ///
+    /// Extracts the `cookie_domain` from the `SsoCookieVendor` config and uses it as the
+    /// storage key. If the config is `Direct` or `cookie_domain` is not set, the call
+    /// is silently ignored.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The server communication configuration to store
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the repository save operation fails
+    #[wasm_bindgen(js_name = setCommunicationTypeV2)]
+    pub async fn set_communication_type_v2(
+        &self,
+        config: ServerCommunicationConfig,
+    ) -> Result<(), String> {
+        self.client.set_communication_type_v2(config).await
     }
 
     /// Acquires a cookie from the platform and saves it to the repository

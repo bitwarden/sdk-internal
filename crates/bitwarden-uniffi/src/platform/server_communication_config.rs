@@ -66,14 +66,28 @@ impl ServerCommunicationConfigClient {
     /// This method saves the provided communication configuration to the repository.
     /// Typically called when receiving the `/api/config` response from the server.
     /// Previously acquired cookies are preserved automatically.
+    #[deprecated(
+        note = "Use set_communication_type_v2() instead, which extracts the domain from the config"
+    )]
     pub async fn set_communication_type(
         &self,
         domain: String,
         request: SetCommunicationTypeRequest,
     ) -> Result<()> {
+        #[allow(deprecated)]
         self.client
             .set_communication_type(domain, request)
             .await?;
+        Ok(())
+    }
+
+    /// Sets the server communication configuration using the domain from the config
+    ///
+    /// Extracts the `cookie_domain` from the `SsoCookieVendor` config and uses it as the
+    /// storage key. If the config is `Direct` or `cookie_domain` is not set, the call
+    /// is silently ignored.
+    pub async fn set_communication_type_v2(&self, config: ServerCommunicationConfig) -> Result<()> {
+        self.client.set_communication_type_v2(config).await?;
         Ok(())
     }
 

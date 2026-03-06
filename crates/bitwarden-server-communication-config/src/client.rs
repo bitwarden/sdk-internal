@@ -124,6 +124,9 @@ where
     /// # Errors
     ///
     /// Returns an error if the repository save operation fails
+    #[deprecated(
+        note = "Use set_communication_type_v2() instead, which extracts the domain from the config"
+    )]
     pub async fn set_communication_type(
         &self,
         domain: String,
@@ -159,6 +162,33 @@ where
         };
 
         self.repository.save(domain, config).await
+    }
+
+    /// Sets the server communication configuration using the domain from the config itself
+    ///
+    /// Extracts the `cookie_domain` from the `SsoCookieVendor` config and uses it as the
+    /// storage key. If the config is `Direct` or the `cookie_domain` is not set, the call
+    /// is silently ignored.
+    ///
+    /// Typically called when receiving the `/api/config` response from the server.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The server communication configuration to store
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the repository save operation fails
+    pub async fn set_communication_type_v2(
+        &self,
+        config: ServerCommunicationConfig,
+    ) -> Result<(), R::SaveError> {
+        if let BootstrapConfig::SsoCookieVendor(ref vendor_config) = config.bootstrap
+            && let Some(ref domain) = vendor_config.cookie_domain
+        {
+            self.repository.save(domain.clone(), config).await?;
+        }
+        Ok(())
     }
 
     /// Acquires a cookie from the platform and saves it to the repository
@@ -1058,6 +1088,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(deprecated)]
     async fn set_communication_type_saves_direct_config() {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
@@ -1082,6 +1113,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(deprecated)]
     async fn set_communication_type_saves_sso_cookie_vendor_config() {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
@@ -1124,6 +1156,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(deprecated)]
     async fn set_communication_type_overwrites_existing_config() {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
@@ -1171,6 +1204,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(deprecated)]
     async fn set_communication_type_preserves_per_domain_isolation() {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
@@ -1274,6 +1308,42 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn set_communication_type_v2_saves_using_cookie_domain() {
+        let repo = MockRepository::default();
+        let platform_api = MockPlatformApi::new();
+        let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
+
+        let config = ServerCommunicationConfig {
+            bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
+                idp_login_url: Some("https://idp.example.com/login".to_string()),
+                cookie_name: Some("SessionCookie".to_string()),
+                cookie_domain: Some("vault.example.com".to_string()),
+                vault_url: None,
+                cookie_value: None,
+            }),
+        };
+
+        client.set_communication_type_v2(config).await.unwrap();
+
+        // Verify config was saved under the cookie_domain key
+        let saved_config = repo
+            .get("vault.example.com".to_string())
+            .await
+            .unwrap()
+            .unwrap();
+
+        if let BootstrapConfig::SsoCookieVendor(vendor_config) = saved_config.bootstrap {
+            assert_eq!(
+                vendor_config.idp_login_url,
+                Some("https://idp.example.com/login".to_string())
+            );
+            assert_eq!(vendor_config.cookie_name, Some("SessionCookie".to_string()));
+        } else {
+            panic!("Expected SsoCookieVendor config");
+        }
+    }
+
+    #[tokio::test]
     async fn acquire_cookie_returns_unsupported_when_vault_url_none() {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
@@ -1347,5 +1417,43 @@ mod tests {
             result,
             Err(AcquireCookieError::UnsupportedConfiguration)
         ));
+    }
+
+    #[tokio::test]
+    async fn set_communication_type_v2_ignores_direct_config() {
+        let repo = MockRepository::default();
+        let platform_api = MockPlatformApi::new();
+        let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
+
+        let config = ServerCommunicationConfig {
+            bootstrap: BootstrapConfig::Direct,
+        };
+
+        client.set_communication_type_v2(config).await.unwrap();
+
+        // Verify nothing was saved
+        assert!(repo.storage.read().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn set_communication_type_v2_ignores_missing_cookie_domain() {
+        let repo = MockRepository::default();
+        let platform_api = MockPlatformApi::new();
+        let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
+
+        let config = ServerCommunicationConfig {
+            bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
+                idp_login_url: Some("https://idp.example.com/login".to_string()),
+                cookie_name: Some("SessionCookie".to_string()),
+                cookie_domain: None,
+                vault_url: None,
+                cookie_value: None,
+            }),
+        };
+
+        client.set_communication_type_v2(config).await.unwrap();
+
+        // Verify nothing was saved
+        assert!(repo.storage.read().await.is_empty());
     }
 }
