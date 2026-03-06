@@ -44,17 +44,47 @@ where
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 impl<R, P> Middleware for CookieInjectionMiddleware<R, P>
 where
-    R: bitwarden_server_communication_config::ServerCommunicationConfigRepository + 'static,
-    P: bitwarden_server_communication_config::ServerCommunicationConfigPlatformApi + 'static,
+    R: bitwarden_server_communication_config::ServerCommunicationConfigRepository
+        + Send
+        + Sync
+        + 'static,
+    P: bitwarden_server_communication_config::ServerCommunicationConfigPlatformApi
+        + Send
+        + Sync
+        + 'static,
 {
     async fn handle(
         &self,
-        req: reqwest::Request,
+        mut req: reqwest::Request,
         ext: &mut http::Extensions,
         next: Next<'_>,
     ) -> Result<reqwest::Response, reqwest_middleware::Error> {
-        // TODO: Extract hostname, query cookies, attach Cookie header
-        // For now, forward request unchanged (skeleton implementation)
+        // Extract hostname from request URL
+        let hostname = req.url().host_str().unwrap_or_default().to_string();
+
+        // Query stored cookies for this hostname
+        let cookies = self.client.cookies(hostname).await;
+
+        // If cookies exist, construct Cookie header and attach to request
+        if !cookies.is_empty() {
+            // Format: "name1=value1; name2=value2; name3=value3"
+            // RFC 6265 Section 4.2: Cookie header uses semicolon-separated name=value pairs
+            let cookie_header_value = cookies
+                .into_iter()
+                .map(|(name, value)| format!("{}={}", name, value))
+                .collect::<Vec<_>>()
+                .join("; ");
+
+            if let Ok(header_value) = http::HeaderValue::from_str(&cookie_header_value) {
+                req.headers_mut().insert(http::header::COOKIE, header_value);
+            } else {
+                tracing::warn!(
+                    "Failed to construct Cookie header value (invalid characters), skipping cookie attachment"
+                );
+            }
+        }
+        // If no cookies, graceful degradation: forward request without Cookie header
+
         next.run(req, ext).await
     }
 }
