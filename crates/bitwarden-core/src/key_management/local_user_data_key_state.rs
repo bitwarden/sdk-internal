@@ -45,10 +45,12 @@ pub(crate) async fn initialize_local_user_data_key_into_state(
 }
 
 pub(crate) struct UnableToGetError;
+
+/// Retrieves the [`WrappedLocalUserDataKey`] from state.
 pub(crate) async fn get_local_user_data_key_from_state(
     client: &Client,
 ) -> Result<WrappedLocalUserDataKey, UnableToGetError> {
-    info!("Getting the LocalUserDataKey from state");
+    info!("Getting the WrappedLocalUserDataKey from state");
     let user_local_data_key_state = client
         .platform()
         .state()
