@@ -1,7 +1,8 @@
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    ServerCommunicationConfig, ServerCommunicationConfigClient, SetCommunicationTypeRequest,
+    AcquiredCookie, ServerCommunicationConfig, ServerCommunicationConfigClient,
+    SetCommunicationTypeRequest,
     wasm::{
         JsServerCommunicationConfigPlatformApi, JsServerCommunicationConfigRepository,
         RawJsServerCommunicationConfigPlatformApi, RawJsServerCommunicationConfigRepository,
@@ -77,9 +78,25 @@ impl JsServerCommunicationConfigClient {
     ///
     /// * `hostname` - The server hostname (e.g., "vault.acme.com")
     #[wasm_bindgen(js_name = cookies)]
+    #[deprecated(
+        note = "Use get_cookies() instead, which will acquire cookies if not present in the config"
+    )]
     pub async fn cookies(&self, hostname: String) -> Result<JsValue, JsError> {
+        #[allow(deprecated)]
         let cookies = self.client.cookies(hostname).await;
         serde_wasm_bindgen::to_value(&cookies).map_err(|e| JsError::new(&e.to_string()))
+    }
+
+    /// Returns all cookies that should be included in requests to this server
+    /// and triggers cookie acquisition if needed
+    ///
+    /// # Arguments
+    ///
+    /// * `domain` - The server domain (e.g., "vault.acme.com")
+    #[wasm_bindgen(js_name = getCookies)]
+    pub async fn get_cookies(&self, domain: String) -> Result<Vec<AcquiredCookie>, JsError> {
+        let cookies = self.client.get_cookies(domain).await;
+        cookies.map_err(|e| JsError::new(&e.to_string()))
     }
 
     /// Sets the server communication configuration for a hostname
@@ -122,7 +139,7 @@ impl JsServerCommunicationConfigClient {
     /// - Acquired cookie name doesn't match expected name
     /// - Repository operations fail
     #[wasm_bindgen(js_name = acquireCookie)]
-    pub async fn acquire_cookie(&self, hostname: String) -> Result<(), String> {
+    pub async fn acquire_cookie(&self, hostname: String) -> Result<Vec<AcquiredCookie>, String> {
         self.client
             .acquire_cookie(&hostname)
             .await
