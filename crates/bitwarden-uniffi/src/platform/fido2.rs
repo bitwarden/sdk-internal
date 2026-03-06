@@ -276,8 +276,7 @@ impl ClientDeviceAuthKeyAuthenticator {
     pub async fn create_device_auth_key(
         &self,
         client_name: String,
-        web_vault_hostname: String,
-        origin: String,
+        web_vault_url: String,
         email: String,
         secret_verification_request: SecretVerificationRequest,
         kdf: Kdf,
@@ -287,8 +286,7 @@ impl ClientDeviceAuthKeyAuthenticator {
         authenticator
             .create_device_auth_key(
                 client_name,
-                web_vault_hostname,
-                origin,
+                web_vault_url,
                 email,
                 secret_verification_request,
                 kdf,
