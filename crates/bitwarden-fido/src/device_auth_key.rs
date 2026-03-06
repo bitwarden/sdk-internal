@@ -17,7 +17,7 @@ use passkey::{
         CredentialExtensions, Passkey, StoredHmacSecret,
         crypto::sha256,
         ctap2::{
-            self, Ctap2Error, StatusCode, VendorError,
+            self, Ctap2Code, Ctap2Error, StatusCode, VendorError,
             extensions::{AuthenticatorPrfInputs, AuthenticatorPrfValues},
             make_credential::Options,
         },
@@ -106,7 +106,13 @@ impl DeviceAuthKeyAuthenticator<'_> {
             .await
             .map_err(|status_code| {
                 tracing::error!(?status_code, "Failed to make FIDO credential");
-                DeviceAuthKeyError::AuthenticatorFailure
+                if let StatusCode::Ctap2(Ctap2Code::Known(Ctap2Error::CredentialExcluded)) =
+                    status_code
+                {
+                    DeviceAuthKeyError::CredentialExcluded
+                } else {
+                    DeviceAuthKeyError::AuthenticatorFailure
+                }
             })?;
 
         // Convert response
@@ -626,6 +632,10 @@ pub enum DeviceAuthKeyError {
     /// Failed to convert between Rust types.
     #[error("Failed to convert between Rust types")]
     ConversionError,
+
+    /// Credential excluded.
+    #[error("The existing device auth key is already registered on the server.")]
+    CredentialExcluded,
 
     /// The record identifier stored in metadata is not a valid UUID.
     #[error("The record identifier is not a valid UUID")]
