@@ -272,7 +272,8 @@ pub struct ClientDeviceAuthKeyAuthenticator {
 #[uniffi::export]
 impl ClientDeviceAuthKeyAuthenticator {
     /// Create a device auth key by registering an unlock passkey and PRF keyset with the server.
-    /// The passkey private key and metadata will be stored on the device using the provided trait implementation.
+    /// The passkey private key and metadata will be stored on the device using the provided trait
+    /// implementation.
     pub async fn create_device_auth_key(
         &self,
         client_name: String,
