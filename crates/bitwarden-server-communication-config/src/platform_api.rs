@@ -63,7 +63,7 @@ pub enum AcquireCookieError {
 #[cfg_attr(feature = "uniffi", uniffi::export(with_foreign))]
 #[async_trait::async_trait]
 pub trait ServerCommunicationConfigPlatformApi: Send + Sync {
-    /// Acquires cookies for the given hostname
+    /// Acquires cookies for the given domain
     ///
     /// The platform client should trigger any necessary user interaction
     /// (e.g., browser redirect to IdP) to acquire cookies from the
@@ -74,11 +74,11 @@ pub trait ServerCommunicationConfigPlatformApi: Send + Sync {
     ///
     /// # Arguments
     ///
-    /// * `hostname` - The server hostname (e.g., "vault.acme.com")
+    /// * `domain` - The server domain (e.g., "vault.acme.com")
     ///
     /// # Returns
     ///
     /// - `Some(cookies)` - Cookies were successfully acquired
     /// - `None` - Cookie acquisition failed or was cancelled
-    async fn acquire_cookies(&self, hostname: String) -> Option<Vec<AcquiredCookie>>;
+    async fn acquire_cookies(&self, domain: String) -> Option<Vec<AcquiredCookie>>;
 }
