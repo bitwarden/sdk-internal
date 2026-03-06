@@ -7,12 +7,11 @@ use bitwarden_crypto::{EncString, Kdf};
 #[cfg(feature = "test-fixtures")]
 use bitwarden_test::MemoryRepository;
 
-use crate::key_management::LocalUserDataKeyState;
 #[cfg(feature = "test-fixtures")]
 use crate::{
     Client, UserId,
     key_management::{
-        MasterPasswordUnlockData, UserKeyState,
+        LocalUserDataKeyState, MasterPasswordUnlockData, UserKeyState,
         account_cryptographic_state::WrappedAccountCryptographicState,
         crypto::{InitOrgCryptoRequest, InitUserCryptoMethod, InitUserCryptoRequest},
     },
