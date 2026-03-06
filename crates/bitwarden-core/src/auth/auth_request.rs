@@ -246,7 +246,7 @@ mod tests {
             .unwrap();
 
         // Initialize a new device which will request to be logged in
-        let new_device = Client::new(None);
+        let new_device = Client::new_test();
 
         // Initialize an auth request, and approve it on the existing device
         let auth_req = new_auth_request(email).unwrap();

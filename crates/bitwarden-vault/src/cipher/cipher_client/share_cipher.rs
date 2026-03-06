@@ -286,7 +286,7 @@ mod tests {
         Client,
         client::test_accounts::test_bitwarden_com_account,
         key_management::{
-            MasterPasswordUnlockData, UserKeyState,
+            LocalUserDataKeyState, MasterPasswordUnlockData, UserKeyState,
             account_cryptographic_state::WrappedAccountCryptographicState,
         },
     };
@@ -795,11 +795,18 @@ mod tests {
         };
 
         let client = Client::new(Some(settings));
-        let repository = MemoryRepository::<UserKeyState>::default();
         client
             .platform()
             .state()
-            .register_client_managed(std::sync::Arc::new(repository));
+            .register_client_managed(std::sync::Arc::new(
+                MemoryRepository::<UserKeyState>::default(),
+            ));
+        client
+            .platform()
+            .state()
+            .register_client_managed(std::sync::Arc::new(
+                MemoryRepository::<LocalUserDataKeyState>::default(),
+            ));
 
         client
             .internal
