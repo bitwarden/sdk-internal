@@ -1,7 +1,18 @@
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use bitwarden_server_communication_config::ServerCommunicationConfigClient;
+use regex::Regex;
 use reqwest_middleware::{Middleware, Next};
+
+// Static regex for auth endpoint matching (compiled once per process)
+static AUTH_ENDPOINT_REGEX: OnceLock<Regex> = OnceLock::new();
+
+fn get_auth_endpoint_regex() -> &'static Regex {
+    AUTH_ENDPOINT_REGEX.get_or_init(|| {
+        Regex::new(r"(?i)/(login|auth|signin|authorize|sso-cookie-vendor)/")
+            .expect("AUTH_ENDPOINT_REGEX should be valid")
+    })
+}
 
 /// Middleware that detects authentication redirects and triggers cookie acquisition.
 ///
@@ -14,7 +25,8 @@ use reqwest_middleware::{Middleware, Next};
 /// # Trigger Patterns (ADR-065)
 ///
 /// - **401 + WWW-Authenticate**: Standards-compliant credential-missing signal (RFC 7235)
-/// - **302/303 to auth endpoints**: OAuth/OIDC pattern matching regex `/(login|auth|signin|authorize|sso-cookie-vendor)/`
+/// - **302/303 to auth endpoints**: OAuth/OIDC pattern matching regex
+///   `/(login|auth|signin|authorize|sso-cookie-vendor)/`
 ///
 /// # Integration Pattern
 ///
@@ -67,9 +79,50 @@ where
         ext: &mut http::Extensions,
         next: Next<'_>,
     ) -> Result<reqwest::Response, reqwest_middleware::Error> {
-        // TODO: Get response from next middleware, check trigger conditions,
-        // call acquire_cookie if triggered, retry request
-        // For now, forward request unchanged (skeleton implementation)
-        next.run(req, ext).await
+        // Extract hostname from request URL for potential cookie acquisition
+        let hostname = req.url().host_str().unwrap_or_default().to_string();
+
+        // Forward request through middleware chain
+        let response = next.run(req, ext).await?;
+
+        // Hybrid trigger detection per ADR-065
+        let is_401_auth = response.status() == 401
+            && response
+                .headers()
+                .contains_key(http::header::WWW_AUTHENTICATE);
+
+        let is_302_to_auth = (response.status() == 302 || response.status() == 303)
+            && response
+                .headers()
+                .get(http::header::LOCATION)
+                .and_then(|v| v.to_str().ok())
+                .map(|loc| get_auth_endpoint_regex().is_match(loc))
+                .unwrap_or(false);
+
+        if is_401_auth || is_302_to_auth {
+            tracing::info!(
+                "Cookie acquisition triggered for hostname: {} (401={}, 302/303_to_auth={})",
+                hostname,
+                is_401_auth,
+                is_302_to_auth
+            );
+
+            // Trigger platform-specific cookie acquisition
+            // Note: Cookies stored for future requests. Application layer must retry
+            // the original request, at which point CookieInjectionMiddleware will
+            // attach the acquired cookies.
+            match self.client.acquire_cookie(&hostname).await {
+                Ok(()) => {
+                    tracing::info!("Cookie acquisition succeeded (stored for future requests)");
+                }
+                Err(e) => {
+                    tracing::warn!("Cookie acquisition failed: {:?}", e);
+                }
+            }
+        }
+
+        // Forward original response unchanged
+        // Application layer handles retry, which will include acquired cookies
+        Ok(response)
     }
 }
