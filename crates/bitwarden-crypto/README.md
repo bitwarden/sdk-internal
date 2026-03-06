@@ -1,8 +1,12 @@
+---
+category: core
+---
+
 # Bitwarden Cryptographic primitives
 
-This crate contains the cryptographic primitives used throughout the SDK. The general aspiration is
-for this crate to handle all the difficult cryptographic operations and expose higher level concepts
-to the rest of the SDK.
+Cryptographic primitives and protocols for the Bitwarden SDK, including key store for securely
+working with keys held in memory. The general aspiration is for this crate to handle all the
+difficult cryptographic operations and expose higher level concepts to the rest of the SDK.
 
 <div class="warning">
 Generally you should <b>not</b> find yourself needing to edit this crate! Everything written
