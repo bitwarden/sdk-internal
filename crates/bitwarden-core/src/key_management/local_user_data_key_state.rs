@@ -1,3 +1,4 @@
+use bitwarden_crypto::SymmetricCryptoKey;
 use tracing::info;
 
 use crate::{
@@ -28,11 +29,11 @@ pub(crate) async fn initialize_local_user_data_key(
         .get(LOCAL_USER_DATA_KEY_REPOSITORY_KEY.to_string())
         .await
     {
-        info!("LocalUserDataKey already exists in client managed state, skipping");
+        info!("WrappedLocalUserDataKey already exists in state, skipping");
         return Ok(());
     }
 
-    info!("Setting LocalUserDataKey to client managed state from user key");
+    info!("Setting LocalUserDataKey to state from user key");
     let wrapped_local_user_data_key = {
         let key_store = client.internal.get_key_store();
         let mut ctx = key_store.context();
