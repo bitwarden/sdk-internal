@@ -54,7 +54,7 @@ mod local_user_data_key;
 #[cfg(feature = "internal")]
 mod local_user_data_key_state;
 
-use crate::OrganizationId;
+use crate::{OrganizationId, UserId};
 
 /// Represents the decrypted symmetric user-key of a user. This is held in ephemeral state of the
 /// client.
@@ -77,7 +77,7 @@ pub struct LocalUserDataKeyState {
     wrapped_key: EncString,
 }
 
-bitwarden_state::register_repository_item!(String => LocalUserDataKeyState, "LocalUserDataKey");
+bitwarden_state::register_repository_item!(UserId => LocalUserDataKeyState, "LocalUserDataKey");
 
 key_ids! {
     #[symmetric]
