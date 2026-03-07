@@ -4,10 +4,9 @@ use bitwarden_crypto::KeyStore;
 use bitwarden_server_communication_config::ServerCommunicationConfigClient;
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
-use reqwest::{
-    header::{self, HeaderValue},
-    redirect::{Attempt, Policy},
-};
+use reqwest::header::{self, HeaderValue};
+#[cfg(not(target_arch = "wasm32"))]
+use reqwest::redirect::{Attempt, Policy};
 
 use super::internal::InternalClient;
 #[cfg(feature = "internal")]
@@ -196,15 +195,19 @@ fn new_http_client_builder() -> reqwest::ClientBuilder {
 
     // Custom redirect policy for cookie acquisition middleware visibility (ADR-065)
     // Allows middleware to inspect 3xx responses before automatic following
-    client_builder = client_builder.redirect(Policy::custom(|attempt: Attempt| {
-        if attempt.previous().len() >= 10 {
-            // Enforce 10 redirect limit (matching reqwest default)
-            attempt.error("too many redirects")
-        } else {
-            // Allow middleware to see 3xx before following
-            attempt.follow()
-        }
-    }));
+    // Note: WASM targets use browser Fetch API which handles redirects automatically
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        client_builder = client_builder.redirect(Policy::custom(|attempt: Attempt| {
+            if attempt.previous().len() >= 10 {
+                // Enforce 10 redirect limit (matching reqwest default)
+                attempt.error("too many redirects")
+            } else {
+                // Allow middleware to see 3xx before following
+                attempt.follow()
+            }
+        }));
+    }
 
     client_builder
 }
