@@ -1,9 +1,15 @@
 use std::sync::{Arc, OnceLock, RwLock};
 
 use bitwarden_crypto::KeyStore;
+use bitwarden_server_communication_config::{
+    ServerCommunicationConfigClient,
+    cookie_management::{CookieAcquisitionMiddleware, CookieInjectionMiddleware},
+};
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
+#[cfg(not(target_arch = "wasm32"))]
+use reqwest::redirect::{Attempt, Policy};
 
 use super::internal::InternalClient;
 #[cfg(feature = "internal")]
@@ -57,6 +63,61 @@ impl Client {
         let login_method = Arc::new(RwLock::new(None));
         let key_store = KeyStore::default();
 
+        // IMPORTANT NOTE: This implementation uses placeholder ServerCommunicationConfigClient
+        // implementations for repository and platform API. The actual repository and platform
+        // API integration is handled by client applications (TypeScript/Swift/Kotlin) via
+        // dependency injection.
+        //
+        // For SDK-internal instantiation, we use placeholder types that satisfy trait bounds.
+        // TODO: Replace with proper repository and platform API from client application
+
+        // Placeholder repository implementation (session-only in-memory)
+        struct NoopRepository;
+
+        impl bitwarden_server_communication_config::ServerCommunicationConfigRepository for NoopRepository {
+            type GetError = String;
+            type SaveError = String;
+
+            async fn get(
+                &self,
+                _hostname: String,
+            ) -> Result<
+                Option<bitwarden_server_communication_config::ServerCommunicationConfig>,
+                Self::GetError,
+            > {
+                Ok(None)
+            }
+
+            async fn save(
+                &self,
+                _hostname: String,
+                _config: bitwarden_server_communication_config::ServerCommunicationConfig,
+            ) -> Result<(), Self::SaveError> {
+                Ok(())
+            }
+        }
+
+        // Placeholder platform API implementation (no-op acquisition)
+        struct NoopPlatformApi;
+
+        #[async_trait::async_trait]
+        impl bitwarden_server_communication_config::ServerCommunicationConfigPlatformApi
+            for NoopPlatformApi
+        {
+            async fn acquire_cookies(
+                &self,
+                _hostname: String,
+            ) -> Option<Vec<bitwarden_server_communication_config::AcquiredCookie>> {
+                None
+            }
+        }
+
+        // Create ServerCommunicationConfigClient with placeholder implementations
+        let server_comm_client = Arc::new(ServerCommunicationConfigClient::new(
+            NoopRepository,
+            NoopPlatformApi,
+        ));
+
         // Create the HTTP client for the Identity service, without authentication middleware.
         let bw_http_client = new_http_client_builder()
             .default_headers(headers)
@@ -75,8 +136,19 @@ impl Client {
             identity.clone(),
             key_store.clone(),
         );
+
+        // Create cookie middlewares
+        let cookie_acquisition_middleware =
+            Arc::new(CookieAcquisitionMiddleware::new(server_comm_client.clone()));
+
+        let cookie_injection_middleware =
+            Arc::new(CookieInjectionMiddleware::new(server_comm_client));
+
+        // Chain middlewares: auth → acquisition → injection
         let bw_http_client = reqwest_middleware::ClientBuilder::new(bw_http_client)
             .with_arc(auth_middleware)
+            .with_arc(cookie_acquisition_middleware)
+            .with_arc(cookie_injection_middleware)
             .build();
         let api = bitwarden_api_api::Configuration {
             base_path: settings.api_url,
@@ -121,6 +193,22 @@ fn new_http_client_builder() -> reqwest::ClientBuilder {
         {
             client_builder = client_builder.https_only(true);
         }
+    }
+
+    // Custom redirect policy for cookie acquisition middleware visibility (ADR-065)
+    // Allows middleware to inspect 3xx responses before automatic following
+    // Note: WASM targets use browser Fetch API which handles redirects automatically
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        client_builder = client_builder.redirect(Policy::custom(|attempt: Attempt| {
+            if attempt.previous().len() >= 10 {
+                // Enforce 10 redirect limit (matching reqwest default)
+                attempt.error("too many redirects")
+            } else {
+                // Allow middleware to see 3xx before following
+                attempt.follow()
+            }
+        }));
     }
 
     client_builder
