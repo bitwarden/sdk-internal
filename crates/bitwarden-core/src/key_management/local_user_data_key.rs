@@ -17,7 +17,7 @@ pub(crate) struct WrappedLocalUserDataKey(pub(crate) EncString);
 impl WrappedLocalUserDataKey {
     /// Create a user key, wrapped by the user key.
     #[instrument(skip(ctx), err)]
-    pub(crate) fn from_user_key(
+    pub(crate) fn from_context_user_key(
         ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<Self, LocalUserDataKeyError> {
         let wrapped_local_user_data_key = ctx
@@ -79,7 +79,7 @@ mod tests {
     }
 
     #[test]
-    fn test_from_user_key_wraps_user_key() {
+    fn test_from_context_user_key_wraps_user_key() {
         let key_store = make_key_store_with_user_key();
         let mut ctx = key_store.context_mut();
 
@@ -88,8 +88,8 @@ mod tests {
             .encrypt(&mut ctx, SymmetricKeyId::User)
             .expect("encryption with user key should succeed");
 
-        let wrapped =
-            WrappedLocalUserDataKey::from_user_key(&mut ctx).expect("wrapping should succeed");
+        let wrapped = WrappedLocalUserDataKey::from_context_user_key(&mut ctx)
+            .expect("wrapping should succeed");
         wrapped
             .unwrap_to_context(&mut ctx)
             .expect("unwrapping should succeed");
@@ -107,7 +107,8 @@ mod tests {
         let key_store_a = make_key_store_with_user_key();
         let wrapped = {
             let mut ctx = key_store_a.context_mut();
-            WrappedLocalUserDataKey::from_user_key(&mut ctx).expect("wrapping should succeed")
+            WrappedLocalUserDataKey::from_context_user_key(&mut ctx)
+                .expect("wrapping should succeed")
         };
 
         let key_store_b = make_key_store_with_user_key();

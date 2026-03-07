@@ -33,7 +33,8 @@ pub(crate) async fn initialize_local_user_data_key_into_state(
     let wrapped_local_user_data_key = {
         let key_store = client.internal.get_key_store();
         let mut ctx = key_store.context();
-        WrappedLocalUserDataKey::from_user_key(&mut ctx).map_err(|_| InitLocalUserDataKeyError)?
+        WrappedLocalUserDataKey::from_context_user_key(&mut ctx)
+            .map_err(|_| InitLocalUserDataKeyError)?
     };
 
     repo.set(
