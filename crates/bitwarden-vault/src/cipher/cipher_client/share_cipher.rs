@@ -286,8 +286,7 @@ mod tests {
         Client,
         client::test_accounts::test_bitwarden_com_account,
         key_management::{
-            LocalUserDataKeyState, MasterPasswordUnlockData, UserKeyState,
-            account_cryptographic_state::WrappedAccountCryptographicState,
+            MasterPasswordUnlockData, account_cryptographic_state::WrappedAccountCryptographicState,
         },
     };
     use bitwarden_test::{MemoryRepository, start_api_mock};
@@ -794,19 +793,7 @@ mod tests {
             bitwarden_package_type: None,
         };
 
-        let client = Client::new(Some(settings));
-        client
-            .platform()
-            .state()
-            .register_client_managed(std::sync::Arc::new(
-                MemoryRepository::<UserKeyState>::default(),
-            ));
-        client
-            .platform()
-            .state()
-            .register_client_managed(std::sync::Arc::new(
-                MemoryRepository::<LocalUserDataKeyState>::default(),
-            ));
+        let client = Client::new_test(Some(settings));
 
         client
             .internal

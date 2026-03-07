@@ -9,7 +9,7 @@ use bitwarden_test::MemoryRepository;
 
 #[cfg(feature = "test-fixtures")]
 use crate::{
-    Client, UserId,
+    Client, ClientSettings, UserId,
     key_management::{
         LocalUserDataKeyState, MasterPasswordUnlockData, UserKeyState,
         account_cryptographic_state::WrappedAccountCryptographicState,
@@ -21,8 +21,8 @@ use crate::{
 impl Client {
     /// Creates a client with the necessary state repositories for testing.
     /// Does not initialize any crypto state.
-    pub fn new_test() -> Self {
-        let client = Client::new(None);
+    pub fn new_test(settings: Option<ClientSettings>) -> Self {
+        let client = Client::new(settings);
         client
             .platform()
             .state()
@@ -40,7 +40,7 @@ impl Client {
     }
 
     pub async fn init_test_account(account: TestAccount) -> Self {
-        let client = Client::new_test();
+        let client = Client::new_test(None);
 
         client.internal.load_flags(HashMap::from([(
             "enableCipherKeyEncryption".to_owned(),
