@@ -1039,11 +1039,16 @@ pub(crate) fn make_user_key_connector_registration(
 /// Subsequent calls are idempotent: if the key already exists in state it is loaded as-is,
 /// preserving any data that was previously encrypted with it (e.g. after a key rotation).
 async fn initialize_user_local_data_key(client: &Client) -> Result<(), EncryptionSettingsError> {
-    initialize_local_user_data_key_into_state(client)
+    let user_id = client
+        .internal
+        .get_user_id()
+        .ok_or(EncryptionSettingsError::LocalUserDataKeyInitFailed)?;
+
+    initialize_local_user_data_key_into_state(client, user_id)
         .await
         .map_err(|_| EncryptionSettingsError::LocalUserDataKeyInitFailed)?;
 
-    let wrapped_key = get_local_user_data_key_from_state(client)
+    let wrapped_key = get_local_user_data_key_from_state(client, user_id)
         .await
         .map_err(|_| EncryptionSettingsError::LocalUserDataKeyLoadFailed)?;
     let mut ctx = client.internal.get_key_store().context_mut();
