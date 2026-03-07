@@ -171,6 +171,7 @@ jobs:
           git fetch origin
           if git switch $BRANCH_NAME 2>/dev/null; then
             echo "✅ Switched to existing branch: $BRANCH_NAME"
+            git rebase origin/main
             echo "updating_existing_branch=true" >> $GITHUB_OUTPUT
           else
             echo "📝 Creating new branch: $BRANCH_NAME from $BASE_SHA"
@@ -224,7 +225,7 @@ jobs:
           echo "👀 Committing API bindings update..."
           git add crates/bitwarden-api-api
           git commit -m "Update API bindings to $_HASH" --no-verify || echo "No changes to commit for API"
-          git push origin $_BRANCH_NAME
+          git push --force-with-lease origin $_BRANCH_NAME
 
       - name: Create or Update API Pull Request
         if: ${{ inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type }}
@@ -277,6 +278,7 @@ jobs:
           git fetch origin
           if git switch $BRANCH_NAME 2>/dev/null; then
             echo "✅ Switched to existing branch: $BRANCH_NAME"
+            git rebase origin/main
             echo "updating_existing_branch=true" >> $GITHUB_OUTPUT
           else
             echo "📝 Creating new branch: $BRANCH_NAME from $BASE_SHA"
@@ -330,7 +332,7 @@ jobs:
           echo "👀 Committing Identity bindings update..."
           git add crates/bitwarden-api-identity
           git commit -m "Update Identity bindings to $_HASH" --no-verify || echo "No changes to commit for Identity"
-          git push origin $_BRANCH_NAME
+          git push --force-with-lease origin $_BRANCH_NAME
 
       - name: Create or Update Identity Pull Request
         if: ${{ inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type }}
