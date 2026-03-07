@@ -203,7 +203,7 @@ mod tests {
         },
     };
     use bitwarden_crypto::{EncString, Kdf, UnsignedSharedKey};
-    use bitwarden_test::{MemoryRepository, start_api_mock};
+    use bitwarden_test::start_api_mock;
     use wiremock::{Mock, MockServer, Request, ResponseTemplate, matchers};
 
     use super::*;
