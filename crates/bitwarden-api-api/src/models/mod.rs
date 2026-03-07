@@ -432,6 +432,8 @@ pub mod organization_public_key_response_model;
 pub use self::organization_public_key_response_model::OrganizationPublicKeyResponseModel;
 pub mod organization_report_metrics_request;
 pub use self::organization_report_metrics_request::OrganizationReportMetricsRequest;
+pub mod organization_report_summary_data_response;
+pub use self::organization_report_summary_data_response::OrganizationReportSummaryDataResponse;
 pub mod organization_response_model;
 pub use self::organization_response_model::OrganizationResponseModel;
 pub mod organization_seat_request_model;

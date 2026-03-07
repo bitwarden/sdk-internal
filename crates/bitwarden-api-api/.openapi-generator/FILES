@@ -286,6 +286,7 @@ src/models/organization_license.rs
 src/models/organization_no_payment_create_request.rs
 src/models/organization_public_key_response_model.rs
 src/models/organization_report_metrics_request.rs
+src/models/organization_report_summary_data_response.rs
 src/models/organization_response_model.rs
 src/models/organization_seat_request_model.rs
 src/models/organization_sponsorship_create_request_model.rs
