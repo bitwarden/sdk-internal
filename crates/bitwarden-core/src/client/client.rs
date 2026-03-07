@@ -1,7 +1,10 @@
 use std::sync::{Arc, OnceLock, RwLock};
 
 use bitwarden_crypto::KeyStore;
-use bitwarden_server_communication_config::ServerCommunicationConfigClient;
+use bitwarden_server_communication_config::{
+    ServerCommunicationConfigClient,
+    cookie_management::{CookieAcquisitionMiddleware, CookieInjectionMiddleware},
+};
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
@@ -17,7 +20,6 @@ use crate::{
         client_settings::{ClientName, ClientSettings},
         internal::ApiConfigurations,
     },
-    cookie_management::{CookieAcquisitionMiddleware, CookieInjectionMiddleware},
 };
 
 /// The main struct to interact with the Bitwarden SDK.

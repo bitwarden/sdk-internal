@@ -1,8 +1,9 @@
 use std::sync::{Arc, OnceLock};
 
-use bitwarden_server_communication_config::ServerCommunicationConfigClient;
 use regex::Regex;
 use reqwest_middleware::{Middleware, Next};
+
+use crate::ServerCommunicationConfigClient;
 
 // Static regex for auth endpoint matching (compiled once per process)
 static AUTH_ENDPOINT_REGEX: OnceLock<Regex> = OnceLock::new();
@@ -43,16 +44,16 @@ fn get_auth_endpoint_regex() -> &'static Regex {
 /// (401 OR 302/303 to auth endpoints).
 pub struct CookieAcquisitionMiddleware<R, P>
 where
-    R: bitwarden_server_communication_config::ServerCommunicationConfigRepository,
-    P: bitwarden_server_communication_config::ServerCommunicationConfigPlatformApi,
+    R: crate::ServerCommunicationConfigRepository,
+    P: crate::ServerCommunicationConfigPlatformApi,
 {
     client: Arc<ServerCommunicationConfigClient<R, P>>,
 }
 
 impl<R, P> CookieAcquisitionMiddleware<R, P>
 where
-    R: bitwarden_server_communication_config::ServerCommunicationConfigRepository,
-    P: bitwarden_server_communication_config::ServerCommunicationConfigPlatformApi,
+    R: crate::ServerCommunicationConfigRepository,
+    P: crate::ServerCommunicationConfigPlatformApi,
 {
     /// Creates a new CookieAcquisitionMiddleware with the given client.
     pub fn new(client: Arc<ServerCommunicationConfigClient<R, P>>) -> Self {
@@ -64,14 +65,8 @@ where
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 impl<R, P> Middleware for CookieAcquisitionMiddleware<R, P>
 where
-    R: bitwarden_server_communication_config::ServerCommunicationConfigRepository
-        + Send
-        + Sync
-        + 'static,
-    P: bitwarden_server_communication_config::ServerCommunicationConfigPlatformApi
-        + Send
-        + Sync
-        + 'static,
+    R: crate::ServerCommunicationConfigRepository + Send + Sync + 'static,
+    P: crate::ServerCommunicationConfigPlatformApi + Send + Sync + 'static,
 {
     async fn handle(
         &self,
@@ -131,13 +126,12 @@ where
 mod tests {
     use std::{collections::HashMap, sync::RwLock};
 
-    use bitwarden_server_communication_config::{
+    use super::*;
+    use crate::{
         AcquiredCookie, BootstrapConfig, ServerCommunicationConfig,
         ServerCommunicationConfigPlatformApi, ServerCommunicationConfigRepository,
         SsoCookieVendorConfig,
     };
-
-    use super::*;
 
     // Mock repository for testing
     struct MockRepository {

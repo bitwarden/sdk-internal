@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
-use bitwarden_server_communication_config::ServerCommunicationConfigClient;
 use reqwest_middleware::{Middleware, Next};
+
+use crate::ServerCommunicationConfigClient;
 
 /// Middleware that attaches stored cookies to outgoing HTTP requests.
 ///
@@ -23,16 +24,16 @@ use reqwest_middleware::{Middleware, Next};
 /// manual injection pattern for cookie attachment.
 pub struct CookieInjectionMiddleware<R, P>
 where
-    R: bitwarden_server_communication_config::ServerCommunicationConfigRepository,
-    P: bitwarden_server_communication_config::ServerCommunicationConfigPlatformApi,
+    R: crate::ServerCommunicationConfigRepository,
+    P: crate::ServerCommunicationConfigPlatformApi,
 {
     client: Arc<ServerCommunicationConfigClient<R, P>>,
 }
 
 impl<R, P> CookieInjectionMiddleware<R, P>
 where
-    R: bitwarden_server_communication_config::ServerCommunicationConfigRepository,
-    P: bitwarden_server_communication_config::ServerCommunicationConfigPlatformApi,
+    R: crate::ServerCommunicationConfigRepository,
+    P: crate::ServerCommunicationConfigPlatformApi,
 {
     /// Creates a new CookieInjectionMiddleware with the given client.
     pub fn new(client: Arc<ServerCommunicationConfigClient<R, P>>) -> Self {
@@ -44,14 +45,8 @@ where
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 impl<R, P> Middleware for CookieInjectionMiddleware<R, P>
 where
-    R: bitwarden_server_communication_config::ServerCommunicationConfigRepository
-        + Send
-        + Sync
-        + 'static,
-    P: bitwarden_server_communication_config::ServerCommunicationConfigPlatformApi
-        + Send
-        + Sync
-        + 'static,
+    R: crate::ServerCommunicationConfigRepository + Send + Sync + 'static,
+    P: crate::ServerCommunicationConfigPlatformApi + Send + Sync + 'static,
 {
     async fn handle(
         &self,
@@ -93,13 +88,12 @@ where
 mod tests {
     use std::{collections::HashMap, sync::RwLock};
 
-    use bitwarden_server_communication_config::{
+    use super::*;
+    use crate::{
         AcquiredCookie, BootstrapConfig, ServerCommunicationConfig,
         ServerCommunicationConfigPlatformApi, ServerCommunicationConfigRepository,
         SsoCookieVendorConfig,
     };
-
-    use super::*;
 
     // Mock repository for testing
     struct MockRepository {

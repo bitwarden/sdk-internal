@@ -11,6 +11,7 @@ uniffi::setup_scaffolding!();
 
 mod client;
 mod config;
+pub mod cookie_management;
 mod platform_api;
 mod repository;
 
