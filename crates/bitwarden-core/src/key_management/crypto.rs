@@ -332,12 +332,12 @@ pub(super) async fn initialize_user_crypto(
         } => {
             drop(_span_guard);
             let api_client = client.internal.get_key_connector_client(url);
-            let key_connector_key = api_client
+            let key_connector_key_response = api_client
                 .user_keys_api()
                 .get_user_key()
                 .await
-                .map_err(|_| EncryptionSettingsError::CryptoInitialization)?;
-            let key_connector_key = KeyConnectorKey::try_from(key_connector_key.key)?;
+                .map_err(|_| EncryptionSettingsError::KeyConnectorRetrievalFailed)?;
+            let key_connector_key = KeyConnectorKey::try_from(key_connector_key_response)?;
             let user_key =
                 key_connector_key.decrypt_user_key(key_connector_key_wrapped_user_key)?;
             client.internal.initialize_user_crypto_decrypted_key(

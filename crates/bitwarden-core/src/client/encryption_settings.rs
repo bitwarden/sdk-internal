@@ -43,6 +43,9 @@ pub enum EncryptionSettingsError {
 
     #[error("Invalid upgrade token")]
     InvalidUpgradeToken,
+
+    #[error("Key connector retrieval failed")]
+    KeyConnectorRetrievalFailed,
 }
 
 #[allow(missing_docs)]
