@@ -101,4 +101,10 @@ impl CryptoClient {
     pub fn get_upgraded_user_key(&self, upgrade_token: Option<V2UpgradeToken>) -> Result<B64> {
         Ok(self.0.get_upgraded_user_key(upgrade_token)?)
     }
+
+    /// Clears keys from state on logout.
+    /// Currently, only clears the local user data key from state.
+    pub async fn clear_keys_on_logout(&self) -> Result<()> {
+        Ok(self.0.clear_keys_from_state_on_logout().await?)
+    }
 }

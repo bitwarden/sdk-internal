@@ -67,6 +67,8 @@ pub enum CryptoClientError {
     UpgradeTokenRequired,
     #[error("Invalid key type")]
     InvalidKeyType,
+    #[error("Unable to clear keys from state")]
+    ClearKeysFromStateFailed,
 }
 
 /// State used for initializing the user cryptographic state.

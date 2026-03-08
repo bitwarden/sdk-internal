@@ -59,3 +59,20 @@ pub(crate) async fn get_local_user_data_key_from_state(
         user_local_data_key_state.wrapped_key,
     ))
 }
+
+pub(crate) struct UnableToRemoveError;
+/// Removes the [`WrappedLocalUserDataKey`] from state.
+pub(crate) async fn remove_local_user_data_key_from_state(
+    client: &Client,
+    user_id: UserId,
+) -> Result<(), UnableToRemoveError> {
+    info!("Removing the WrappedLocalUserDataKey from state");
+    client
+        .platform()
+        .state()
+        .get::<key_management::LocalUserDataKeyState>()
+        .map_err(|_| UnableToRemoveError)?
+        .remove(user_id)
+        .await
+        .map_err(|_| UnableToRemoveError)
+}

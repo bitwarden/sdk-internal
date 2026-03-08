@@ -25,6 +25,7 @@ use crate::key_management::{
         derive_pin_key, derive_pin_user_key, enroll_admin_password_reset, get_user_encryption_key,
         initialize_org_crypto, initialize_user_crypto, make_prf_user_key_set,
     },
+    local_user_data_key_state::remove_local_user_data_key_from_state,
 };
 #[expect(deprecated)]
 use crate::{
@@ -192,6 +193,17 @@ impl CryptoClient {
             .decrypt(&mut ctx, SymmetricKeyId::LocalUserData)
             .map_err(CryptoClientError::Crypto)
     }
+
+    /// Clears keys from state on logout.
+    /// Currently, only clears the local user data key from state.
+    pub async fn clear_keys_from_state_on_logout(&self) -> Result<(), CryptoClientError> {
+        let Some(user_id) = self.client.internal.get_user_id() else {
+            return Ok(());
+        };
+        remove_local_user_data_key_from_state(&self.client, user_id)
+            .await
+            .map_err(|_| CryptoClientError::ClearKeysFromStateFailed)
+    }
 }
 
 impl CryptoClient {
@@ -343,7 +355,9 @@ mod tests {
     use super::*;
     use crate::{
         client::test_accounts::{test_bitwarden_com_account, test_bitwarden_com_account_v2},
-        key_management::{KeyIds, V2UpgradeToken},
+        key_management::{
+            KeyIds, V2UpgradeToken, local_user_data_key_state::get_local_user_data_key_from_state,
+        },
     };
 
     #[tokio::test]
@@ -468,6 +482,43 @@ mod tests {
         assert_eq!(
             result_with_token, result_no_token,
             "Token must be ignored for a V2 user"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_clear_keys_from_state_on_logout_no_user_id() {
+        // Client with no user_id set (not yet authenticated) — should return Ok(()) early
+        let client = Client::new_test(None);
+        let result = client.crypto().clear_keys_from_state_on_logout().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_clear_keys_from_state_on_logout_removes_key_from_state() {
+        let client = Client::init_test_account(test_bitwarden_com_account()).await;
+        let user_id = client
+            .internal
+            .get_user_id()
+            .expect("user_id should be set after init");
+
+        // Key is placed in state during initialize_user_crypto
+        let before = get_local_user_data_key_from_state(&client, user_id).await;
+        assert!(
+            before.is_ok(),
+            "local user data key should be in state before logout"
+        );
+
+        client
+            .crypto()
+            .clear_keys_from_state_on_logout()
+            .await
+            .expect("clear_keys_from_state_on_logout should succeed");
+
+        // Key must be gone from state after logout
+        let after = get_local_user_data_key_from_state(&client, user_id).await;
+        assert!(
+            after.is_err(),
+            "local user data key should be removed from state after logout"
         );
     }
 }
