@@ -125,7 +125,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
             deletion_date: self.deletion_date.to_rfc3339(),
             file,
             text,
-            password: self.password.clone(),
+            password,
             emails: if self.emails.is_empty() {
                 None
             } else {
