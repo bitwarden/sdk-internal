@@ -81,6 +81,7 @@ impl JsServerCommunicationConfigClient {
     #[deprecated(
         note = "Use get_cookies() instead, which will acquire cookies if not present in the config"
     )]
+    #[allow(deprecated)]
     pub async fn cookies(&self, domain: String) -> Result<JsValue, JsError> {
         #[allow(deprecated)]
         let cookies = self.client.cookies(domain).await;
@@ -116,6 +117,7 @@ impl JsServerCommunicationConfigClient {
     #[deprecated(
         note = "Use set_communication_type_v2() instead, which extracts the domain from the config"
     )]
+    #[allow(deprecated)]
     #[wasm_bindgen(js_name = setCommunicationType)]
     pub async fn set_communication_type(
         &self,
