@@ -161,8 +161,10 @@ getClient(userId = userId).platform().store().registerCipherStore(CipherStoreImp
 
 ## SDK-Managed State
 
-> [!WARNING] SDK-Managed State is currently **not supported for WASM or UniFFI clients** due to the
-> following limitations:
+> [!WARNING]
+>
+> SDK-Managed State is currently **not supported for WASM or UniFFI clients** due to the following
+> limitations:
 >
 > - Migrations between versions of state are not supported
 > - Secure storage is not supported as a state storage mechanism
