@@ -88,27 +88,27 @@ impl SyncClient {
         let _guard = self.sync_lock.lock().await;
 
         let result = async {
-            let response = perform_sync(&self.api_configurations, &request).await?;
-            self.trigger_sync(&response).await?;
+            let response = self.perform_sync(&request).await?;
+            self.run_handlers(&response).await?;
             Ok(response)
         }
         .await;
 
         if let Err(ref error) = result {
-            self.notify_error(error).await;
+            self.run_error_handlers(error).await;
         }
 
         result
     }
 
-    /// Trigger sync handlers for a completed sync operation
+    /// Run sync handlers for a completed sync operation
     ///
     /// Executes two phases sequentially:
     /// 1. Calls [`SyncHandler::on_sync`] on all handlers with the response
     /// 2. Calls [`SyncHandler::on_sync_complete`] on all handlers
     ///
     /// Stops on first error and returns it immediately.
-    async fn trigger_sync(&self, response: &SyncResponseModel) -> Result<(), SyncError> {
+    async fn run_handlers(&self, response: &SyncResponseModel) -> Result<(), SyncError> {
         let handlers = self.sync_handlers.handlers();
 
         for handler in &handlers {
@@ -125,13 +125,26 @@ impl SyncClient {
         Ok(())
     }
 
-    /// Notify all error handlers about a sync error
+    /// Run all error handlers for a sync error
     ///
     /// All error handlers are called sequentially in registration order.
-    async fn notify_error(&self, error: &SyncError) {
+    async fn run_error_handlers(&self, error: &SyncError) {
         for handler in &self.error_handlers.handlers() {
             handler.on_error(error).await;
         }
+    }
+
+    /// Performs the actual sync operation with the Bitwarden API
+    async fn perform_sync(&self, input: &SyncRequest) -> Result<SyncResponseModel, SyncError> {
+        let sync = self
+            .api_configurations
+            .api_client
+            .sync_api()
+            .get(input.exclude_subdomains)
+            .await
+            .map_err(|e| SyncError::Api(e.into()))?;
+
+        Ok(sync)
     }
 }
 
@@ -148,21 +161,6 @@ impl SyncClientExt for Client {
     fn sync(&self) -> SyncClient {
         SyncClient::new(self.clone())
     }
-}
-
-/// Performs the actual sync operation with the Bitwarden API
-async fn perform_sync(
-    api_configurations: &Arc<ApiConfigurations>,
-    input: &SyncRequest,
-) -> Result<SyncResponseModel, SyncError> {
-    let sync = api_configurations
-        .api_client
-        .sync_api()
-        .get(input.exclude_subdomains)
-        .await
-        .map_err(|e| SyncError::Api(e.into()))?;
-
-    Ok(sync)
 }
 
 #[cfg(test)]
@@ -245,7 +243,7 @@ mod tests {
         }));
 
         let response = SyncResponseModel::default();
-        client.trigger_sync(&response).await.unwrap();
+        client.run_handlers(&response).await.unwrap();
 
         assert_eq!(
             *log.lock().unwrap(),
@@ -276,7 +274,7 @@ mod tests {
         }));
 
         let response = SyncResponseModel::default();
-        let result = client.trigger_sync(&response).await;
+        let result = client.run_handlers(&response).await;
 
         assert!(result.is_err(), "Should return error when handler fails");
         assert_eq!(
