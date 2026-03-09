@@ -13,6 +13,7 @@ mod api;
 pub(crate) use api::response::user_decryption_options_response::UserDecryptionOptionsResponseModel;
 #[allow(missing_docs)]
 pub mod auth_client;
+pub mod auth_tokens;
 mod jwt_token;
 #[allow(missing_docs)]
 pub mod login;
@@ -22,9 +23,10 @@ pub mod password;
 #[allow(missing_docs)]
 #[cfg(feature = "internal")]
 pub mod pin;
-#[allow(missing_docs)]
+#[doc(hidden)]
 pub mod renew;
 pub use access_token::{AccessToken, AccessTokenInvalidError};
+pub use auth_tokens::{ClientManagedTokenHandler, ClientManagedTokens, TokenHandler};
 pub use jwt_token::*;
 
 #[cfg(feature = "internal")]

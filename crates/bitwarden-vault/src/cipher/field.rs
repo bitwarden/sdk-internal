@@ -75,6 +75,36 @@ pub struct FieldView {
     pub linked_id: Option<LinkedIdType>,
 }
 
+/// Minimal field view for list/search operations.
+/// Contains only the fields needed for search indexing.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct FieldListView {
+    /// Only populated if the field has a name.
+    pub name: Option<String>,
+    /// Only populated for [FieldType::Text] fields.
+    pub value: Option<String>,
+    /// The field type.
+    pub r#type: FieldType,
+}
+
+#[cfg(feature = "wasm")]
+impl From<FieldView> for FieldListView {
+    fn from(field: FieldView) -> Self {
+        Self {
+            name: field.name,
+            value: if field.r#type == FieldType::Text {
+                field.value
+            } else {
+                None
+            },
+            r#type: field.r#type,
+        }
+    }
+}
+
 impl CompositeEncryptable<KeyIds, SymmetricKeyId, Field> for FieldView {
     fn encrypt_composite(
         &self,
@@ -150,7 +180,7 @@ impl TryFrom<CipherFieldModel> for Field {
         Ok(Self {
             name: EncString::try_from_optional(model.name)?,
             value: EncString::try_from_optional(model.value)?,
-            r#type: require!(model.r#type).into(),
+            r#type: require!(model.r#type).try_into()?,
             linked_id: model
                 .linked_id
                 .map(|id| (id as u32).try_into())
@@ -159,14 +189,19 @@ impl TryFrom<CipherFieldModel> for Field {
     }
 }
 
-impl From<bitwarden_api_api::models::FieldType> for FieldType {
-    fn from(model: bitwarden_api_api::models::FieldType) -> Self {
-        match model {
+impl TryFrom<bitwarden_api_api::models::FieldType> for FieldType {
+    type Error = MissingFieldError;
+
+    fn try_from(model: bitwarden_api_api::models::FieldType) -> Result<Self, Self::Error> {
+        Ok(match model {
             bitwarden_api_api::models::FieldType::Text => FieldType::Text,
             bitwarden_api_api::models::FieldType::Hidden => FieldType::Hidden,
             bitwarden_api_api::models::FieldType::Boolean => FieldType::Boolean,
             bitwarden_api_api::models::FieldType::Linked => FieldType::Linked,
-        }
+            bitwarden_api_api::models::FieldType::__Unknown(_) => {
+                return Err(MissingFieldError("type"));
+            }
+        })
     }
 }
 

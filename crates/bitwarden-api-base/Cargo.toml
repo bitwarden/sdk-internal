@@ -1,0 +1,24 @@
+[package]
+name = "bitwarden-api-base"
+description = """
+Internal crate for the bitwarden crate. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[dependencies]
+reqwest = { workspace = true }
+reqwest-middleware = { workspace = true }
+serde_json = { workspace = true }
+url = ">=2.5, <3"
+
+[lints]
+workspace = true

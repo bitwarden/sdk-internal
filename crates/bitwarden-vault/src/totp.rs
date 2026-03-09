@@ -756,6 +756,12 @@ mod tests {
             copyable_fields: vec![CopyableCipherFields::LoginTotp],
             local_data: None,
             archived_date: None,
+            #[cfg(feature = "wasm")]
+            notes: None,
+            #[cfg(feature = "wasm")]
+            fields: None,
+            #[cfg(feature = "wasm")]
+            attachment_names: None,
         };
 
         let key = SymmetricCryptoKey::try_from("w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q==".to_string()).unwrap();

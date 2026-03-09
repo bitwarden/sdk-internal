@@ -18,24 +18,24 @@ pub struct UpgradePremiumToOrganizationRequest {
     pub organization_name: String,
     #[serde(rename = "key", alias = "Key")]
     pub key: String,
-    #[serde(rename = "tier", alias = "Tier")]
-    pub tier: models::ProductTierType,
-    #[serde(rename = "cadence", alias = "Cadence")]
-    pub cadence: models::PlanCadenceType,
+    #[serde(rename = "targetProductTierType", alias = "TargetProductTierType")]
+    pub target_product_tier_type: models::ProductTierType,
+    #[serde(rename = "billingAddress", alias = "BillingAddress")]
+    pub billing_address: Box<models::MinimalBillingAddressRequest>,
 }
 
 impl UpgradePremiumToOrganizationRequest {
     pub fn new(
         organization_name: String,
         key: String,
-        tier: models::ProductTierType,
-        cadence: models::PlanCadenceType,
+        target_product_tier_type: models::ProductTierType,
+        billing_address: models::MinimalBillingAddressRequest,
     ) -> UpgradePremiumToOrganizationRequest {
         UpgradePremiumToOrganizationRequest {
             organization_name,
             key,
-            tier,
-            cadence,
+            target_product_tier_type,
+            billing_address: Box::new(billing_address),
         }
     }
 }

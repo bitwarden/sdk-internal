@@ -11,9 +11,6 @@ use crate::{
     },
 };
 
-/// Aliases to maintain backward compatibility
-pub type ClientSecrets = SecretsClient;
-
 #[allow(missing_docs)]
 pub struct SecretsClient {
     client: Client,
@@ -90,42 +87,18 @@ impl SecretsClient {
     }
 }
 
-/// This trait is for backward compatibility
-pub trait ClientSecretsExt {
-    #[allow(missing_docs)]
-    fn secrets(&self) -> ClientSecrets;
-}
-
-impl ClientSecretsExt for Client {
-    fn secrets(&self) -> ClientSecrets {
-        SecretsClient::new(self.clone())
-    }
-}
-
-#[allow(missing_docs)]
-pub trait SecretsClientExt {
-    #[allow(missing_docs)]
-    fn secrets(&self) -> SecretsClient;
-}
-
-impl SecretsClientExt for Client {
-    fn secrets(&self) -> SecretsClient {
-        SecretsClient::new(self.clone())
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::{
-        Client, ClientSettings, DeviceType, auth::login::AccessTokenLoginRequest,
-    };
+    use bitwarden_core::{ClientSettings, DeviceType, auth::login::AccessTokenLoginRequest};
 
     use crate::{
-        ClientSecretsExt,
+        SecretsManagerClient,
         secrets::{SecretGetRequest, SecretIdentifiersRequest},
     };
 
-    async fn start_mock(mocks: Vec<wiremock::Mock>) -> (wiremock::MockServer, Client) {
+    async fn start_mock(
+        mocks: Vec<wiremock::Mock>,
+    ) -> (wiremock::MockServer, SecretsManagerClient) {
         let server = wiremock::MockServer::start().await;
 
         for mock in mocks {
@@ -142,7 +115,7 @@ mod tests {
             bitwarden_package_type: None,
         };
 
-        (server, Client::new(Some(settings)))
+        (server, SecretsManagerClient::new(Some(settings)))
     }
 
     #[tokio::test]

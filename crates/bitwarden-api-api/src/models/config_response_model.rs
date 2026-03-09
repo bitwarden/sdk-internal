@@ -57,6 +57,12 @@ pub struct ConfigResponseModel {
     )]
     pub push: Option<Box<models::PushSettings>>,
     #[serde(
+        rename = "communication",
+        alias = "Communication",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub communication: Option<Box<models::CommunicationSettings>>,
+    #[serde(
         rename = "settings",
         alias = "Settings",
         skip_serializing_if = "Option::is_none"
@@ -74,6 +80,7 @@ impl ConfigResponseModel {
             environment: None,
             feature_states: None,
             push: None,
+            communication: None,
             settings: None,
         }
     }

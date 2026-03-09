@@ -20,12 +20,27 @@ pub struct UserDecryptionResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub master_password_unlock: Option<Box<models::MasterPasswordUnlockResponseModel>>,
+    /// Gets or sets the WebAuthn PRF decryption keys.
+    #[serde(
+        rename = "webAuthnPrfOptions",
+        alias = "WebAuthnPrfOptions",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub web_authn_prf_options: Option<Vec<models::WebAuthnPrfDecryptionOption>>,
+    #[serde(
+        rename = "v2UpgradeToken",
+        alias = "V2UpgradeToken",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub v2_upgrade_token: Option<Box<models::V2UpgradeTokenResponseModel>>,
 }
 
 impl UserDecryptionResponseModel {
     pub fn new() -> UserDecryptionResponseModel {
         UserDecryptionResponseModel {
             master_password_unlock: None,
+            web_authn_prf_options: None,
+            v2_upgrade_token: None,
         }
     }
 }

@@ -16,10 +16,19 @@ use crate::models;
 pub struct OrganizationUserBulkRequestModel {
     #[serde(rename = "ids", alias = "Ids")]
     pub ids: Vec<uuid::Uuid>,
+    #[serde(
+        rename = "defaultUserCollectionName",
+        alias = "DefaultUserCollectionName",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub default_user_collection_name: Option<String>,
 }
 
 impl OrganizationUserBulkRequestModel {
     pub fn new(ids: Vec<uuid::Uuid>) -> OrganizationUserBulkRequestModel {
-        OrganizationUserBulkRequestModel { ids }
+        OrganizationUserBulkRequestModel {
+            ids,
+            default_user_collection_name: None,
+        }
     }
 }

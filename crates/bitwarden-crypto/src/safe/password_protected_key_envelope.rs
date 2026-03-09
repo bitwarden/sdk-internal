@@ -30,9 +30,11 @@ use crate::{
     KEY_ID_SIZE, KeyIds, KeyStoreContext, SymmetricCryptoKey,
     cose::{
         ALG_ARGON2ID13, ARGON2_ITERATIONS, ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
-        CONTAINED_KEY_ID, CoseExtractError, extract_bytes, extract_integer,
+        CONTAINED_KEY_ID, ContentNamespace, CoseExtractError, SafeObjectNamespace, extract_bytes,
+        extract_integer,
     },
     keys::KeyId,
+    safe::helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
     xchacha20,
 };
 
@@ -62,13 +64,14 @@ impl PasswordProtectedKeyEnvelope {
     pub fn seal<Ids: KeyIds>(
         key_to_seal: Ids::Symmetric,
         password: &str,
+        namespace: PasswordProtectedKeyEnvelopeNamespace,
         ctx: &KeyStoreContext<Ids>,
     ) -> Result<Self, PasswordProtectedKeyEnvelopeError> {
         #[allow(deprecated)]
         let key_ref = ctx
             .dangerous_get_symmetric_key(key_to_seal)
             .map_err(|_| PasswordProtectedKeyEnvelopeError::KeyMissing)?;
-        Self::seal_ref(key_ref, password)
+        Self::seal_ref(key_ref, password, namespace)
     }
 
     /// Seals a key reference with a password. This function is not public since callers are
@@ -76,11 +79,13 @@ impl PasswordProtectedKeyEnvelope {
     fn seal_ref(
         key_to_seal: &SymmetricCryptoKey,
         password: &str,
+        namespace: PasswordProtectedKeyEnvelopeNamespace,
     ) -> Result<Self, PasswordProtectedKeyEnvelopeError> {
         Self::seal_ref_with_settings(
             key_to_seal,
             password,
             &Argon2RawSettings::local_kdf_settings(),
+            namespace,
         )
     }
 
@@ -91,6 +96,7 @@ impl PasswordProtectedKeyEnvelope {
         key_to_seal: &SymmetricCryptoKey,
         password: &str,
         kdf_settings: &Argon2RawSettings,
+        namespace: PasswordProtectedKeyEnvelopeNamespace,
     ) -> Result<Self, PasswordProtectedKeyEnvelopeError> {
         // Cose does not yet have a standardized way to protect a key using a password.
         // This implements content encryption using direct encryption with a KDF derived key,
@@ -127,7 +133,13 @@ impl PasswordProtectedKeyEnvelope {
                 if let Some(key_id) = key_to_seal.key_id() {
                     hdr = hdr.value(CONTAINED_KEY_ID, Value::from(Vec::from(&key_id)));
                 }
-                hdr.build()
+                let mut header = hdr.build();
+                set_safe_namespaces(
+                    &mut header,
+                    SafeObjectNamespace::PasswordProtectedKeyEnvelope,
+                    namespace,
+                );
+                header
             })
             .create_ciphertext(&key_to_seal_bytes, &[], |data, aad| {
                 let ciphertext = xchacha20::encrypt_xchacha20_poly1305(&envelope_key, data, aad);
@@ -145,15 +157,17 @@ impl PasswordProtectedKeyEnvelope {
     pub fn unseal<Ids: KeyIds>(
         &self,
         password: &str,
+        namespace: PasswordProtectedKeyEnvelopeNamespace,
         ctx: &mut KeyStoreContext<Ids>,
     ) -> Result<Ids::Symmetric, PasswordProtectedKeyEnvelopeError> {
-        let key = self.unseal_ref(password)?;
+        let key = self.unseal_ref(password, namespace)?;
         Ok(ctx.add_local_symmetric_key(key))
     }
 
     fn unseal_ref(
         &self,
         password: &str,
+        content_namespace: PasswordProtectedKeyEnvelopeNamespace,
     ) -> Result<SymmetricCryptoKey, PasswordProtectedKeyEnvelopeError> {
         // There must be exactly one recipient in the COSE Encrypt object, which contains the KDF
         // parameters.
@@ -173,6 +187,13 @@ impl PasswordProtectedKeyEnvelope {
                 "Unknown or unsupported KDF algorithm".to_string(),
             ));
         }
+
+        validate_safe_namespaces(
+            &self.cose_encrypt.protected.header,
+            SafeObjectNamespace::PasswordProtectedKeyEnvelope,
+            content_namespace,
+        )
+        .map_err(|_| PasswordProtectedKeyEnvelopeError::InvalidNamespace)?;
 
         let kdf_settings: Argon2RawSettings =
             (&recipient.unprotected).try_into().map_err(|_| {
@@ -226,9 +247,10 @@ impl PasswordProtectedKeyEnvelope {
         &self,
         password: &str,
         new_password: &str,
+        namespace: PasswordProtectedKeyEnvelopeNamespace,
     ) -> Result<Self, PasswordProtectedKeyEnvelopeError> {
-        let unsealed = self.unseal_ref(password)?;
-        Self::seal_ref(&unsealed, new_password)
+        let unsealed = self.unseal_ref(password, namespace)?;
+        Self::seal_ref(&unsealed, new_password, namespace)
     }
 
     /// Get the key ID of the contained key, if the key ID is stored on the envelope headers.
@@ -271,9 +293,27 @@ impl TryFrom<&Vec<u8>> for PasswordProtectedKeyEnvelope {
 
 impl std::fmt::Debug for PasswordProtectedKeyEnvelope {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PasswordProtectedKeyEnvelope")
-            .field("cose_encrypt", &self.cose_encrypt)
-            .finish()
+        let mut s = f.debug_struct("PasswordProtectedKeyEnvelope");
+
+        if let Some(recipient) = self.cose_encrypt.recipients.first() {
+            let settings: Result<Argon2RawSettings, _> = (&recipient.unprotected).try_into();
+            if let Ok(settings) = settings {
+                s.field("argon2_iterations", &settings.iterations);
+                s.field("argon2_memory_kib", &settings.memory);
+                s.field("argon2_parallelism", &settings.parallelism);
+            }
+        }
+
+        debug_fmt::<PasswordProtectedKeyEnvelopeNamespace>(
+            &mut s,
+            &self.cose_encrypt.protected.header,
+        );
+
+        if let Ok(Some(key_id)) = self.contained_key_id() {
+            s.field("contained_key_id", &key_id);
+        }
+
+        s.finish()
     }
 }
 
@@ -451,6 +491,9 @@ pub enum PasswordProtectedKeyEnvelopeError {
     /// The key store could not be written to, for example due to being read-only
     #[error("Could not write to key store")]
     KeyStore,
+    /// The namespace provided in the envelope does not match any known namespaces, or is invalid
+    #[error("Invalid namespace")]
+    InvalidNamespace,
 }
 
 impl From<CoseExtractError> for PasswordProtectedKeyEnvelopeError {
@@ -489,6 +532,57 @@ impl FromWasmAbi for PasswordProtectedKeyEnvelope {
         PasswordProtectedKeyEnvelope::from_str(&string).unwrap_throw()
     }
 }
+
+/// The content-layer separation namespace for password protected key envelopes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PasswordProtectedKeyEnvelopeNamespace {
+    /// The namespace for unlocking vaults with a PIN.
+    PinUnlock = 1,
+    /// This namespace is only used in tests
+    #[cfg(test)]
+    ExampleNamespace = -1,
+    /// This namespace is only used in tests
+    #[cfg(test)]
+    ExampleNamespace2 = -2,
+}
+
+impl PasswordProtectedKeyEnvelopeNamespace {
+    /// Returns the numeric value of the namespace.
+    fn as_i64(&self) -> i64 {
+        *self as i64
+    }
+}
+
+impl TryFrom<i128> for PasswordProtectedKeyEnvelopeNamespace {
+    type Error = PasswordProtectedKeyEnvelopeError;
+
+    fn try_from(value: i128) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(PasswordProtectedKeyEnvelopeNamespace::PinUnlock),
+            #[cfg(test)]
+            -1 => Ok(PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace),
+            #[cfg(test)]
+            -2 => Ok(PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace2),
+            _ => Err(PasswordProtectedKeyEnvelopeError::InvalidNamespace),
+        }
+    }
+}
+
+impl TryFrom<i64> for PasswordProtectedKeyEnvelopeNamespace {
+    type Error = PasswordProtectedKeyEnvelopeError;
+
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        Self::try_from(i128::from(value))
+    }
+}
+
+impl From<PasswordProtectedKeyEnvelopeNamespace> for i128 {
+    fn from(val: PasswordProtectedKeyEnvelopeNamespace) -> Self {
+        val.as_i64().into()
+    }
+}
+
+impl ContentNamespace for PasswordProtectedKeyEnvelopeNamespace {}
 
 #[cfg(test)]
 mod tests {
@@ -535,6 +629,19 @@ mod tests {
     const TESTVECTOR_PASSWORD: &str = "test_password";
 
     #[test]
+    #[ignore = "Manual test to verify debug format"]
+    fn test_debug() {
+        let key = SymmetricCryptoKey::make_xchacha20_poly1305_key();
+        let envelope = PasswordProtectedKeyEnvelope::seal_ref(
+            &key,
+            "test_password",
+            PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+        )
+        .unwrap();
+        println!("{:?}", envelope);
+    }
+
+    #[test]
     fn test_testvector_cosekey() {
         let key_store = KeyStore::<TestIds>::default();
         let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
@@ -542,7 +649,11 @@ mod tests {
             PasswordProtectedKeyEnvelope::try_from(&TESTVECTOR_COSEKEY_ENVELOPE.to_vec())
                 .expect("Key envelope should be valid");
         let key = envelope
-            .unseal(TESTVECTOR_PASSWORD, &mut ctx)
+            .unseal(
+                TESTVECTOR_PASSWORD,
+                PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+                &mut ctx,
+            )
             .expect("Unsealing should succeed");
         #[allow(deprecated)]
         let unsealed_key = ctx
@@ -562,7 +673,11 @@ mod tests {
             PasswordProtectedKeyEnvelope::try_from(&TESTVECTOR_LEGACYKEY_ENVELOPE.to_vec())
                 .expect("Key envelope should be valid");
         let key = envelope
-            .unseal(TESTVECTOR_PASSWORD, &mut ctx)
+            .unseal(
+                TESTVECTOR_PASSWORD,
+                PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+                &mut ctx,
+            )
             .expect("Unsealing should succeed");
         #[allow(deprecated)]
         let unsealed_key = ctx
@@ -583,13 +698,25 @@ mod tests {
         let password = "test_password";
 
         // Seal the key with a password
-        let envelope = PasswordProtectedKeyEnvelope::seal(test_key, password, &ctx).unwrap();
+        let envelope = PasswordProtectedKeyEnvelope::seal(
+            test_key,
+            password,
+            PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            &ctx,
+        )
+        .unwrap();
         let serialized: Vec<u8> = (&envelope).into();
 
         // Unseal the key from the envelope
         let deserialized: PasswordProtectedKeyEnvelope =
             PasswordProtectedKeyEnvelope::try_from(&serialized).unwrap();
-        let key = deserialized.unseal(password, &mut ctx).unwrap();
+        let key = deserialized
+            .unseal(
+                password,
+                PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+                &mut ctx,
+            )
+            .unwrap();
 
         // Verify that the unsealed key matches the original key
         #[allow(deprecated)]
@@ -614,13 +741,25 @@ mod tests {
         let password = "test_password";
 
         // Seal the key with a password
-        let envelope = PasswordProtectedKeyEnvelope::seal(test_key, password, &ctx).unwrap();
+        let envelope = PasswordProtectedKeyEnvelope::seal(
+            test_key,
+            password,
+            PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            &ctx,
+        )
+        .unwrap();
         let serialized: Vec<u8> = (&envelope).into();
 
         // Unseal the key from the envelope
         let deserialized: PasswordProtectedKeyEnvelope =
             PasswordProtectedKeyEnvelope::try_from(&serialized).unwrap();
-        let key = deserialized.unseal(password, &mut ctx).unwrap();
+        let key = deserialized
+            .unseal(
+                password,
+                PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+                &mut ctx,
+            )
+            .unwrap();
 
         // Verify that the unsealed key matches the original key
         #[allow(deprecated)]
@@ -643,15 +782,26 @@ mod tests {
         let new_password = "new_test_password";
 
         // Seal the key with a password
-        let envelope: PasswordProtectedKeyEnvelope =
-            PasswordProtectedKeyEnvelope::seal_ref(&key, password).expect("Sealing should work");
+        let envelope: PasswordProtectedKeyEnvelope = PasswordProtectedKeyEnvelope::seal_ref(
+            &key,
+            password,
+            PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+        )
+        .expect("Sealing should work");
 
         // Reseal
         let envelope = envelope
-            .reseal(password, new_password)
+            .reseal(
+                password,
+                new_password,
+                PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            )
             .expect("Resealing should work");
         let unsealed = envelope
-            .unseal_ref(new_password)
+            .unseal_ref(
+                new_password,
+                PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            )
             .expect("Unsealing should work");
 
         // Verify that the unsealed key matches the original key
@@ -668,14 +818,68 @@ mod tests {
         let wrong_password = "wrong_password";
 
         // Seal the key with a password
-        let envelope = PasswordProtectedKeyEnvelope::seal(test_key, password, &ctx).unwrap();
+        let envelope = PasswordProtectedKeyEnvelope::seal(
+            test_key,
+            password,
+            PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            &ctx,
+        )
+        .unwrap();
 
         // Attempt to unseal with the wrong password
         let deserialized: PasswordProtectedKeyEnvelope =
             PasswordProtectedKeyEnvelope::try_from(&(&envelope).into()).unwrap();
         assert!(matches!(
-            deserialized.unseal(wrong_password, &mut ctx),
+            deserialized.unseal(
+                wrong_password,
+                PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+                &mut ctx
+            ),
             Err(PasswordProtectedKeyEnvelopeError::WrongPassword)
+        ));
+    }
+
+    #[test]
+    fn test_wrong_safe_namespace() {
+        let key_store = KeyStore::<TestIds>::default();
+        let mut ctx: KeyStoreContext<'_, TestIds> = key_store.context_mut();
+        let test_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+        let password = "test_password";
+
+        let mut envelope = PasswordProtectedKeyEnvelope::seal(
+            test_key,
+            password,
+            PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            &ctx,
+        )
+        .expect("Seal works");
+
+        if let Some((_, value)) = envelope
+            .cose_encrypt
+            .protected
+            .header
+            .rest
+            .iter_mut()
+            .find(|(label, _)| {
+                matches!(label, coset::Label::Int(label_value) if *label_value == crate::cose::SAFE_OBJECT_NAMESPACE)
+            })
+        {
+            *value = Value::Integer((SafeObjectNamespace::DataEnvelope as i64).into());
+        }
+
+        let deserialized: PasswordProtectedKeyEnvelope =
+            PasswordProtectedKeyEnvelope::try_from(&(&envelope).into())
+                .expect("Envelope should be valid");
+
+        let a = deserialized.unseal(
+            password,
+            PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            &mut ctx,
+        );
+        println!("Error: {a:?}");
+        assert!(matches!(
+            a,
+            Err(PasswordProtectedKeyEnvelopeError::InvalidNamespace)
         ));
     }
 
@@ -694,7 +898,13 @@ mod tests {
         let password = "test_password";
 
         // Seal the key with a password
-        let envelope = PasswordProtectedKeyEnvelope::seal(test_key, password, &ctx).unwrap();
+        let envelope = PasswordProtectedKeyEnvelope::seal(
+            test_key,
+            password,
+            PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            &ctx,
+        )
+        .unwrap();
         let contained_key_id = envelope.contained_key_id().unwrap();
         assert_eq!(Some(key_id), contained_key_id);
     }
@@ -708,7 +918,13 @@ mod tests {
         let password = "test_password";
 
         // Seal the key with a password
-        let envelope = PasswordProtectedKeyEnvelope::seal(test_key, password, &ctx).unwrap();
+        let envelope = PasswordProtectedKeyEnvelope::seal(
+            test_key,
+            password,
+            PasswordProtectedKeyEnvelopeNamespace::ExampleNamespace,
+            &ctx,
+        )
+        .unwrap();
         let contained_key_id = envelope.contained_key_id().unwrap();
         assert_eq!(None, contained_key_id);
     }

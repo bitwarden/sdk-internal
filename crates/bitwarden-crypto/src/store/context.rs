@@ -242,7 +242,11 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
                 }
             }
             _ => {
-                tracing::warn!("Unsupported unwrap operation for the given key and data");
+                tracing::warn!(
+                    "Unsupported unwrap operation for the given key and data {:?}, {:?}",
+                    wrapping_key,
+                    wrapped_key
+                );
                 return Err(CryptoError::InvalidKey);
             }
         };
@@ -532,6 +536,21 @@ impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
         key_id: Ids::Symmetric,
     ) -> Result<&SymmetricCryptoKey> {
         self.get_symmetric_key(key_id)
+    }
+
+    /// Return a reference to a signing key stored in the context.
+    ///
+    /// Deprecated: intended only for internal use and tests. This exposes the underlying
+    /// `SigningKey` reference directly and should not be used by external code. Use the
+    /// higher-level APIs (for example signing helpers) or `get_signing_key` internally when
+    /// possible
+    ///
+    /// # Errors
+    /// Returns [`CryptoError::MissingKeyId`] if the key id does not exist in
+    /// the context.
+    #[deprecated(note = "This function should ideally never be used outside this crate")]
+    pub fn dangerous_get_signing_key(&self, key_id: Ids::Signing) -> Result<&SigningKey> {
+        self.get_signing_key(key_id)
     }
 
     /// Return a reference to an asymmetric (private) key stored in the context.
@@ -1055,7 +1074,7 @@ mod tests {
         let key_id = TestSymmKey::A(0);
         // Key with only Decrypt allowed
         let key = SymmetricCryptoKey::XChaCha20Poly1305Key(crate::XChaCha20Poly1305Key {
-            key_id: [0u8; 16],
+            key_id: [0u8; 16].into(),
             enc_key: Box::pin([0u8; 32].into()),
             supported_operations: vec![KeyOperation::Decrypt],
         });

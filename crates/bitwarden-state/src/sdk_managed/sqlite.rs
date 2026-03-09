@@ -156,6 +156,28 @@ impl Database for SqliteDatabase {
         Ok(())
     }
 
+    async fn set_bulk<T: Serialize + DeserializeOwned + RepositoryItem>(
+        &self,
+        values: Vec<(String, T)>,
+    ) -> Result<(), DatabaseError> {
+        let mut conn = self.0.lock().await;
+        let transaction = conn.transaction()?;
+
+        // SAFETY: SQLite tables cannot use ?, but `T::NAME` is not user controlled and is
+        // validated to only contain valid characters, so it's safe to interpolate here.
+        let sql = format!(
+            "INSERT OR REPLACE INTO \"{}\" (key, value) VALUES (?1, ?2)",
+            validate_identifier(T::NAME)?,
+        );
+        for (key, value) in values {
+            let value = serde_json::to_string(&value)?;
+            transaction.execute(&sql, [&key, &value])?;
+        }
+
+        transaction.commit()?;
+        Ok(())
+    }
+
     async fn remove<T: Serialize + DeserializeOwned + RepositoryItem>(
         &self,
         key: &str,
@@ -176,6 +198,44 @@ impl Database for SqliteDatabase {
         transaction.commit()?;
         Ok(())
     }
+
+    async fn remove_bulk<T: Serialize + DeserializeOwned + RepositoryItem>(
+        &self,
+        keys: Vec<String>,
+    ) -> Result<(), DatabaseError> {
+        let mut conn = self.0.lock().await;
+        let transaction = conn.transaction()?;
+
+        // SAFETY: SQLite tables cannot use ?, but `T::NAME` is not user controlled and is
+        // validated to only contain valid characters, so it's safe to interpolate here.
+        let sql = format!(
+            "DELETE FROM \"{}\" WHERE key = ?1",
+            validate_identifier(T::NAME)?
+        );
+        for key in keys {
+            transaction.execute(&sql, [&key])?;
+        }
+
+        transaction.commit()?;
+        Ok(())
+    }
+
+    async fn remove_all<T: Serialize + DeserializeOwned + RepositoryItem>(
+        &self,
+    ) -> Result<(), DatabaseError> {
+        let mut conn = self.0.lock().await;
+        let transaction = conn.transaction()?;
+
+        // SAFETY: SQLite tables cannot use ?, but `T::NAME` is not user controlled and is
+        // validated to only contain valid characters, so it's safe to interpolate here.
+        transaction.execute(
+            &format!("DELETE FROM \"{}\"", validate_identifier(T::NAME)?),
+            [],
+        )?;
+
+        transaction.commit()?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -189,11 +249,11 @@ mod tests {
 
         #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
         struct TestA(usize);
-        register_repository_item!(TestA, "TestItem_A");
+        register_repository_item!(String => TestA, "TestItem_A");
 
         #[derive(Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
         struct TestB(usize);
-        register_repository_item!(TestB, "TestItem_B");
+        register_repository_item!(String => TestB, "TestItem_B");
 
         let steps = vec![
             // Test that deleting a table that doesn't exist is fine

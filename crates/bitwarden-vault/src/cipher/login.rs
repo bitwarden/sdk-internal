@@ -570,22 +570,27 @@ impl TryFrom<CipherLoginUriModel> for LoginUri {
     fn try_from(uri: CipherLoginUriModel) -> Result<Self, Self::Error> {
         Ok(Self {
             uri: EncString::try_from_optional(uri.uri)?,
-            r#match: uri.r#match.map(|m| m.into()),
+            r#match: uri.r#match.map(|m| m.try_into()).transpose()?,
             uri_checksum: EncString::try_from_optional(uri.uri_checksum)?,
         })
     }
 }
 
-impl From<bitwarden_api_api::models::UriMatchType> for UriMatchType {
-    fn from(value: bitwarden_api_api::models::UriMatchType) -> Self {
-        match value {
+impl TryFrom<bitwarden_api_api::models::UriMatchType> for UriMatchType {
+    type Error = bitwarden_core::MissingFieldError;
+
+    fn try_from(value: bitwarden_api_api::models::UriMatchType) -> Result<Self, Self::Error> {
+        Ok(match value {
             bitwarden_api_api::models::UriMatchType::Domain => Self::Domain,
             bitwarden_api_api::models::UriMatchType::Host => Self::Host,
             bitwarden_api_api::models::UriMatchType::StartsWith => Self::StartsWith,
             bitwarden_api_api::models::UriMatchType::Exact => Self::Exact,
             bitwarden_api_api::models::UriMatchType::RegularExpression => Self::RegularExpression,
             bitwarden_api_api::models::UriMatchType::Never => Self::Never,
-        }
+            bitwarden_api_api::models::UriMatchType::__Unknown(_) => {
+                return Err(bitwarden_core::MissingFieldError("match"));
+            }
+        })
     }
 }
 

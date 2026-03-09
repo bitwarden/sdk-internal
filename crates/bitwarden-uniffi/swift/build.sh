@@ -9,23 +9,31 @@ cd "$(dirname "$0")"
 rm -rf BitwardenFFI.xcframework
 rm -rf tmp
 
-mkdir -p tmp/target/universal-ios-sim/release
-
 # Build native library
 export IPHONEOS_DEPLOYMENT_TARGET="13.0"
 export RUSTFLAGS="-C link-arg=-Wl,-application_extension"
-cargo build --package bitwarden-uniffi --target aarch64-apple-ios-sim --release
-cargo build --package bitwarden-uniffi --target aarch64-apple-ios --release
-cargo build --package bitwarden-uniffi --target x86_64-apple-ios --release
+if [[ $DEBUG_MODE = "true" ]]; then
+  PROFILE="debug"
+  PROFILE_FLAG=""
+else
+  PROFILE="release"
+  PROFILE_FLAG="--release"
+fi
+echo "$PROFILE_FLAG"
+cargo build --package bitwarden-uniffi --target aarch64-apple-ios-sim $PROFILE_FLAG
+cargo build --package bitwarden-uniffi --target aarch64-apple-ios $PROFILE_FLAG
+cargo build --package bitwarden-uniffi --target x86_64-apple-ios $PROFILE_FLAG
+
+mkdir -p tmp/target/universal-ios-sim/$PROFILE
 
 # Create universal libraries
-lipo -create ../../../target/aarch64-apple-ios-sim/release/libbitwarden_uniffi.a \
-  ../../../target/x86_64-apple-ios/release/libbitwarden_uniffi.a \
-  -output ./tmp/target/universal-ios-sim/release/libbitwarden_uniffi.a
+lipo -create ../../../target/aarch64-apple-ios-sim/$PROFILE/libbitwarden_uniffi.a \
+  ../../../target/x86_64-apple-ios/$PROFILE/libbitwarden_uniffi.a \
+  -output ./tmp/target/universal-ios-sim/$PROFILE/libbitwarden_uniffi.a
 
 # Generate swift bindings
 cargo run -p uniffi-bindgen generate \
-  ../../../target/aarch64-apple-ios-sim/release/libbitwarden_uniffi.dylib \
+  ../../../target/aarch64-apple-ios-sim/$PROFILE/libbitwarden_uniffi.dylib \
   --library \
   --language swift \
   --no-format \
@@ -41,9 +49,9 @@ cat ./tmp/bindings/*.modulemap > ./tmp/Headers/module.modulemap
 
 # Build xcframework
 xcodebuild -create-xcframework \
-  -library ../../../target/aarch64-apple-ios/release/libbitwarden_uniffi.a \
+  -library ../../../target/aarch64-apple-ios/$PROFILE/libbitwarden_uniffi.a \
   -headers ./tmp/Headers \
-  -library ./tmp/target/universal-ios-sim/release/libbitwarden_uniffi.a \
+  -library ./tmp/target/universal-ios-sim/$PROFILE/libbitwarden_uniffi.a \
   -headers ./tmp/Headers \
   -output ./BitwardenFFI.xcframework
 

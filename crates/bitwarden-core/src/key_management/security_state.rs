@@ -20,7 +20,7 @@
 //! 5. The client, given a security state with security version N+1 will reject all items that are
 //!    in format version A.
 
-use std::str::FromStr;
+use std::{fmt::Debug, str::FromStr};
 
 use bitwarden_crypto::{
     CoseSerializable, CoseSign1Bytes, CryptoError, EncodingError, KeyIds, KeyStoreContext,
@@ -28,8 +28,6 @@ use bitwarden_crypto::{
 };
 use bitwarden_encoding::{B64, FromStrVisitor};
 use serde::{Deserialize, Serialize};
-
-use crate::UserId;
 
 /// Icon URI hashes are enforced starting with this security state version.
 pub const MINIMUM_ENFORCE_ICON_URI_HASH_VERSION: u64 = 2;
@@ -48,23 +46,23 @@ export type SignedSecurityState = string;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SecurityState {
-    /// The entity ID is a permanent, unchangeable, unique identifier for the object this security
-    /// state applies to. For users, this is the user ID, which never changes.
-    entity_id: UserId,
     /// The version of the security state gates feature availability. It can only ever be
     /// incremented. Components can use it to gate format support of specific formats (like
     /// item url hashes).
     version: u64,
 }
 
+impl Default for SecurityState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SecurityState {
     /// Initialize a new `SecurityState` for the given user ID, to the lowest version possible.
     /// The user needs to be a v2 encryption user.
-    pub fn initialize_for_user(user_id: UserId) -> Self {
-        SecurityState {
-            entity_id: user_id,
-            version: 2,
-        }
+    pub fn new() -> Self {
+        SecurityState { version: 2 }
     }
 
     /// Returns the version of the security state
@@ -87,8 +85,26 @@ impl SecurityState {
 }
 
 /// A signed and serialized `SecurityState` object.
-#[derive(Clone, Debug)]
+#[derive(Clone, PartialEq)]
 pub struct SignedSecurityState(pub(crate) SignedObject);
+
+impl Debug for SignedSecurityState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut debug_struct = f.debug_struct("SignedSecurityState");
+
+        if let Ok(signed_by) = self.0.signed_by_id() {
+            debug_struct.field("signed_by", &signed_by);
+        }
+        if let Some(state) = self
+            .0
+            .dangerous_unverified_decode_do_not_use_except_for_debug_logs::<SecurityState>()
+        {
+            debug_struct.field("version", &state.version);
+        }
+
+        debug_struct.finish()
+    }
+}
 
 impl SignedSecurityState {
     /// Verifies the signature of the `SignedSecurityState` using the provided `VerifyingKey`.
@@ -157,18 +173,57 @@ impl serde::Serialize for SignedSecurityState {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_crypto::{KeyStore, SignatureAlgorithm, SigningKey};
+    use bitwarden_crypto::{CoseKeyBytes, KeyStore, SignatureAlgorithm, SigningKey};
 
     use super::*;
     use crate::key_management::KeyIds;
+
+    const TEST_SIGNED_SECURITY_STATE: &str = "hFgepAEnAxg8BFBHo5ojcqDqbynNymOZGgJzOgABOH8CoFgkomhlbnRpdHlJZFBHmj2OTpBFO7aDLgeNnbZPZ3ZlcnNpb24CWEA4mQbYRRoPpc77tVHH4LlwY52Vz6tutThv8b/BV3ntQmjuKUxbzIGRxSyOhzCn3ouFJGEVnfsl6SqSm6K9XcME";
+    const TEST_VERIFYING_KEY: &str =
+        "pgEBAlBHo5ojcqDqbynNymOZGgJzAycEgQIgBiFYIK9hIvbLIdnzKhykPt8jT/ktXAlzPUfx4Nyx4EYTpIp7";
+
+    #[test]
+    #[ignore = "Manual test for debug logs"]
+    fn test_security_state_debug_logs() {
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let security_state = SecurityState::new();
+        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
+        let key = ctx.add_local_signing_key(signing_key.clone());
+        let signed_security_state = security_state.sign(key, &mut ctx).unwrap();
+
+        println!("{:?}", signed_security_state);
+    }
+
+    #[test]
+    #[ignore = "Make test vectors"]
+    fn test_make_test_vector() {
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let security_state = SecurityState::new();
+        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
+        let key = ctx.add_local_signing_key(signing_key.clone());
+        let signed_security_state = security_state.sign(key, &mut ctx).unwrap();
+        let verifying_key = signing_key.to_verifying_key();
+
+        println!(
+            "const TEST_SIGNED_SECURITY_STATE: &str = \"{}\";",
+            String::from(&signed_security_state)
+        );
+        println!(
+            "const TEST_VERIFYING_KEY: &str = \"{}\";",
+            B64::from(verifying_key.to_cose())
+        );
+    }
 
     #[test]
     fn test_security_state_signing() {
         let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
-        let user_id = UserId::new_v4();
-        let security_state = SecurityState::initialize_for_user(user_id);
+        let security_state = SecurityState::new();
         let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
         let key = ctx.add_local_signing_key(signing_key.clone());
         let signed_security_state = security_state.sign(key, &mut ctx).unwrap();
@@ -178,7 +233,19 @@ mod tests {
             .verify_and_unwrap(&verifying_key)
             .unwrap();
 
-        assert_eq!(verified_security_state.entity_id, user_id);
+        assert_eq!(verified_security_state.version(), 2);
+    }
+
+    #[test]
+    fn test_stable_testvector() {
+        let b64 = B64::try_from(TEST_VERIFYING_KEY).unwrap();
+        let verifying_key = VerifyingKey::from_cose(&CoseKeyBytes::from(&b64)).unwrap();
+        let signed_security_state =
+            SignedSecurityState::from_str(TEST_SIGNED_SECURITY_STATE).unwrap();
+        let verified_security_state = signed_security_state
+            .verify_and_unwrap(&verifying_key)
+            .unwrap();
+
         assert_eq!(verified_security_state.version(), 2);
     }
 }

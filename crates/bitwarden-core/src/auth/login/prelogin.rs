@@ -15,7 +15,7 @@ pub enum PreloginError {
 
 pub(crate) async fn prelogin(client: &Client, email: String) -> Result<Kdf, PreloginError> {
     let request_model = PasswordPreloginRequestModel::new(email);
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
     let result = config
         .identity_client
         .accounts_api()
@@ -45,5 +45,6 @@ fn parse_prelogin(response: PasswordPreloginResponseModel) -> Result<Kdf, Missin
             parallelism: NonZeroU32::new(require!(response.kdf_parallelism) as u32)
                 .expect("Non-zero number"),
         },
+        KdfType::__Unknown(_) => return Err(MissingFieldError("kdf")),
     })
 }

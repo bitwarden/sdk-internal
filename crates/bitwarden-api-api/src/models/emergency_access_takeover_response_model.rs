@@ -46,6 +46,12 @@ pub struct EmergencyAccessTakeoverResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub key_encrypted: Option<String>,
+    #[serde(
+        rename = "salt",
+        alias = "Salt",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub salt: Option<String>,
 }
 
 impl EmergencyAccessTakeoverResponseModel {
@@ -57,6 +63,7 @@ impl EmergencyAccessTakeoverResponseModel {
             kdf_parallelism: None,
             kdf: None,
             key_encrypted: None,
+            salt: None,
         }
     }
 }

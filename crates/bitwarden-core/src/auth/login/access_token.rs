@@ -28,25 +28,25 @@ pub(crate) async fn login_access_token(
 
     let access_token: AccessToken = input.access_token.parse()?;
 
-    if let Some(state_file) = &input.state_file {
-        if let Ok(organization_id) = load_tokens_from_state(client, state_file, &access_token) {
-            client
-                .internal
-                .set_login_method(LoginMethod::ServiceAccount(
-                    ServiceAccountLoginMethod::AccessToken {
-                        access_token,
-                        organization_id,
-                        state_file: Some(state_file.to_path_buf()),
-                    },
-                ));
+    if let Some(state_file) = &input.state_file
+        && let Ok(organization_id) = load_tokens_from_state(client, state_file, &access_token)
+    {
+        client
+            .internal
+            .set_login_method(LoginMethod::ServiceAccount(
+                ServiceAccountLoginMethod::AccessToken {
+                    access_token,
+                    organization_id,
+                    state_file: Some(state_file.to_path_buf()),
+                },
+            ));
 
-            return Ok(AccessTokenLoginResponse {
-                authenticated: true,
-                reset_master_password: false,
-                force_password_reset: false,
-                two_factor: None,
-            });
-        }
+        return Ok(AccessTokenLoginResponse {
+            authenticated: true,
+            reset_master_password: false,
+            force_password_reset: false,
+            two_factor: None,
+        });
     }
 
     let response = request_access_token(client, &access_token).await?;
@@ -108,9 +108,9 @@ async fn request_access_token(
     client: &Client,
     input: &AccessToken,
 ) -> Result<IdentityTokenResponse, LoginError> {
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
     AccessTokenRequest::new(input.access_token_id, &input.client_secret)
-        .send(&config)
+        .send(&config.identity_config)
         .await
 }
 

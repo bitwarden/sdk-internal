@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use configuration::Configuration;
+use bitwarden_api_base::{AuthRequired, Configuration};
 use mockall::automock;
 use reqwest::Method;
 use serde::Serialize;
 
 use crate::{
-    apis::{Error, configuration},
+    apis::Error,
     models::{
         user_key_request_model::UserKeyKeyRequestModel,
         user_key_response_model::UserKeyResponseModel,
@@ -81,6 +81,7 @@ async fn request(
     if let Some(ref access_token) = configuration.oauth_access_token {
         request = request.bearer_auth(access_token.clone());
     }
+    request = request.with_extension(AuthRequired::Bearer);
     if let Some(ref body) = body {
         request =
             request.body(serde_json::to_string(&body).expect("Serialize should be infallible"))
@@ -95,16 +96,14 @@ async fn request(
 mod tests {
     use std::sync::Arc;
 
+    use bitwarden_api_base::Configuration;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
         matchers::{header, method, path},
     };
 
     use crate::{
-        apis::{
-            configuration::Configuration,
-            user_keys_api::{UserKeysApi, UserKeysApiClient},
-        },
+        apis::user_keys_api::{UserKeysApi, UserKeysApiClient},
         models::user_key_request_model::UserKeyKeyRequestModel,
     };
 

@@ -14,6 +14,7 @@
     "schemas",
     "about.hbs",
     "crates/bitwarden-wasm-internal/npm/bitwarden_wasm_internal_bg.wasm.js",
+    "crates/bitwarden-wasm-internal/bitwarden_license/npm/bitwarden_wasm_internal_bg.wasm.js",
     "crates/bitwarden-uniffi/kotlin/*",
     "crates/bitwarden-uniffi/swift/*",
     "crates/bitwarden-exporters/resources/*",

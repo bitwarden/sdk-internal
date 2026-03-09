@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType, ResponseContent},
     models,
 };
 
@@ -70,11 +70,6 @@ impl SsoApi for SsoApiClient {
             format!("{}/sso/ExternalCallback", local_var_configuration.base_path);
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
-
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
 
         let local_var_req = local_var_req_builder.build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -130,10 +125,6 @@ impl SsoApi for SsoApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("ssoToken", &param_value.to_string())]);
         }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
 
         let local_var_req = local_var_req_builder.build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
@@ -167,10 +158,6 @@ impl SsoApi for SsoApiClient {
         if let Some(ref param_value) = return_url {
             local_var_req_builder =
                 local_var_req_builder.query(&[("returnUrl", &param_value.to_string())]);
-        }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
         let local_var_req = local_var_req_builder.build()?;
@@ -208,10 +195,6 @@ impl SsoApi for SsoApiClient {
         if let Some(ref param_value) = domain_hint {
             local_var_req_builder =
                 local_var_req_builder.query(&[("domainHint", &param_value.to_string())]);
-        }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
         let local_var_req = local_var_req_builder.build()?;

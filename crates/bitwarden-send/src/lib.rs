@@ -13,4 +13,4 @@ pub use send_client::{
     SendEncryptFileError,
 };
 mod send;
-pub use send::{Send, SendListView, SendView};
+pub use send::{AuthType, Send, SendListView, SendTextView, SendType, SendView};

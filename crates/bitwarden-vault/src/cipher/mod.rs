@@ -22,9 +22,12 @@ pub use card::{CardBrand, CardListView, CardView};
 pub use cipher::{
     Cipher, CipherError, CipherId, CipherListView, CipherListViewType, CipherRepromptType,
     CipherType, CipherView, DecryptCipherListResult, EncryptionContext,
+    ListOrganizationCiphersResult,
 };
 pub use cipher_client::CiphersClient;
 pub use cipher_view_type::CipherViewType;
+#[cfg(feature = "wasm")]
+pub use field::FieldListView;
 pub use field::{FieldType, FieldView};
 pub use identity::IdentityView;
 pub use login::{

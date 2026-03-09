@@ -60,16 +60,18 @@ impl TryFrom<PolicyResponseModel> for Policy {
         Ok(Self {
             id: require!(policy.id),
             organization_id: require!(policy.organization_id),
-            r#type: require!(policy.r#type).into(),
+            r#type: require!(policy.r#type).try_into()?,
             data: policy.data,
             enabled: require!(policy.enabled),
         })
     }
 }
 
-impl From<bitwarden_api_api::models::PolicyType> for PolicyType {
-    fn from(policy_type: bitwarden_api_api::models::PolicyType) -> Self {
-        match policy_type {
+impl TryFrom<bitwarden_api_api::models::PolicyType> for PolicyType {
+    type Error = MissingFieldError;
+
+    fn try_from(policy_type: bitwarden_api_api::models::PolicyType) -> Result<Self, Self::Error> {
+        Ok(match policy_type {
             bitwarden_api_api::models::PolicyType::TwoFactorAuthentication => {
                 PolicyType::TwoFactorAuthentication
             }
@@ -114,6 +116,9 @@ impl From<bitwarden_api_api::models::PolicyType> for PolicyType {
             bitwarden_api_api::models::PolicyType::BlockClaimedDomainAccountCreation => {
                 PolicyType::BlockClaimedDomainAccountCreation
             }
-        }
+            bitwarden_api_api::models::PolicyType::__Unknown(_) => {
+                return Err(MissingFieldError("type"));
+            }
+        })
     }
 }

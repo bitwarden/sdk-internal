@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize, de::Error as _};
 
 use super::{Error, configuration};
 use crate::{
-    apis::{ContentType, ResponseContent},
+    apis::{AuthRequired, ContentType, ResponseContent},
     models,
 };
 
@@ -226,6 +226,14 @@ pub trait OrganizationUsersApi: Send + Sync {
         id: uuid::Uuid,
     ) -> Result<(), Error<RestoreError>>;
 
+    /// PUT /organizations/{orgId}/users/{id}/restore/vnext
+    async fn restore_async_v_next<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
+        organization_user_restore_request: Option<models::OrganizationUserRestoreRequest>,
+    ) -> Result<(), Error<RestoreAsync_vNextError>>;
+
     /// PUT /organizations/{orgId}/users/{id}/revoke
     async fn revoke<'a>(
         &self,
@@ -279,17 +287,10 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_accept_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -329,18 +330,11 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_accept_init_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -380,18 +374,11 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_confirm_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -430,18 +417,11 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_bulk_confirm_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -498,17 +478,10 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -562,17 +535,10 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -609,17 +575,10 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -674,17 +633,10 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -739,17 +691,10 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -804,17 +749,10 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -872,18 +810,11 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_confirm_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -920,16 +851,9 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -971,16 +895,9 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("includeGroups", &param_value.to_string())]);
         }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -1036,17 +953,10 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -1110,16 +1020,9 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("includeCollections", &param_value.to_string())]);
         }
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -1175,16 +1078,9 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -1242,16 +1138,9 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -1305,17 +1194,10 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_invite_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -1353,17 +1235,10 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_update_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -1402,18 +1277,11 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_reset_password_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -1453,18 +1321,11 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_reset_password_enrollment_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -1501,16 +1362,9 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -1547,16 +1401,9 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -1593,16 +1440,9 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -1611,6 +1451,47 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
             Ok(())
         } else {
             let local_var_entity: Option<RestoreError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
+    }
+
+    async fn restore_async_v_next<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
+        organization_user_restore_request: Option<models::OrganizationUserRestoreRequest>,
+    ) -> Result<(), Error<RestoreAsync_vNextError>> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{orgId}/users/{id}/restore/vnext",
+            local_var_configuration.base_path,
+            orgId = org_id,
+            id = id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.json(&organization_user_restore_request);
+
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<RestoreAsync_vNextError> =
                 serde_json::from_str(&local_var_content).ok();
             let local_var_error = ResponseContent {
                 status: local_var_status,
@@ -1639,16 +1520,9 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -1680,16 +1554,9 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -1728,17 +1595,10 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_user_agent) = local_var_configuration.user_agent {
-            local_var_req_builder = local_var_req_builder
-                .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
-        }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_bulk_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -1919,6 +1779,12 @@ pub enum RemoveError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum RestoreError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`OrganizationUsersApi::restore_async_v_next`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum RestoreAsync_vNextError {
     UnknownValue(serde_json::Value),
 }
 /// struct for typed errors of method [`OrganizationUsersApi::revoke`]
