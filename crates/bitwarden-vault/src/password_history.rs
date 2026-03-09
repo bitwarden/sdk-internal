@@ -36,12 +36,12 @@ pub struct PasswordHistoryView {
 
 impl IdentifyKey<SymmetricKeyId> for PasswordHistory {
     fn key_identifier(&self) -> SymmetricKeyId {
-        SymmetricKeyId::LocalUserData
+        SymmetricKeyId::User
     }
 }
 impl IdentifyKey<SymmetricKeyId> for PasswordHistoryView {
     fn key_identifier(&self) -> SymmetricKeyId {
-        SymmetricKeyId::LocalUserData
+        SymmetricKeyId::User
     }
 }
 
