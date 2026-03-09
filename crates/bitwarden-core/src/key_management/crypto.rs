@@ -34,8 +34,8 @@ use crate::{
     client::{LoginMethod, UserLoginMethod, encryption_settings::EncryptionSettingsError},
     error::StatefulCryptoError,
     key_management::{
-        LocalUserDataKeyState, MasterPasswordError, PrivateKeyId, SecurityState,
-        SignedSecurityState, SigningKeyId, SymmetricKeyId, V2UpgradeToken,
+        MasterPasswordError, PrivateKeyId, SecurityState, SignedSecurityState, SigningKeyId,
+        SymmetricKeyId, V2UpgradeToken,
         account_cryptographic_state::{
             AccountCryptographyInitializationError, WrappedAccountCryptographicState,
         },
@@ -1039,19 +1039,6 @@ pub(crate) fn make_user_key_connector_registration(
 /// Subsequent calls are idempotent: if the key already exists in state it is loaded as-is,
 /// preserving any data that was previously encrypted with it (e.g. after a key rotation).
 async fn initialize_user_local_data_key(client: &Client) -> Result<(), EncryptionSettingsError> {
-    // If the repository isn't registered (e.g. database not initialized), skip silently.
-    if client
-        .platform()
-        .state()
-        .get::<LocalUserDataKeyState>()
-        .is_err()
-    {
-        info!(
-            "LocalUserDataKeyState repository not available, skipping local user data key initialization"
-        );
-        return Ok(());
-    }
-
     let user_id = client
         .internal
         .get_user_id()
