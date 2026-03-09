@@ -104,7 +104,7 @@ impl CryptoClient {
 
     /// Clears keys from state on logout.
     /// Currently, only clears the local user data key from state.
-    pub async fn clear_keys_on_logout(&self) -> Result<()> {
+    pub async fn clear_keys_from_state_on_logout(&self) -> Result<()> {
         Ok(self.0.clear_keys_from_state_on_logout().await?)
     }
 }
