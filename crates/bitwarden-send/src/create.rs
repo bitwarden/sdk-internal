@@ -73,39 +73,34 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
         // Derive the shareable send key for encrypting content
         let send_key = Send::derive_shareable_key(ctx, &k)?;
 
-        let file = if let SendViewType::File(f) = self.view_type.clone() {
-            Some(Box::new(bitwarden_api_api::models::SendFileModel {
-                id: f.id.clone(),
-                file_name: Some(f.file_name.encrypt(ctx, send_key)?.to_string()),
-                size: f.size.as_ref().and_then(|s| s.parse::<i64>().ok()),
-                size_name: f.size_name.clone(),
-            }))
-        } else {
-            None
-        };
-
-        let text = if let SendViewType::Text(t) = self.view_type.clone() {
-            Some(Box::new(bitwarden_api_api::models::SendTextModel {
-                text: t
-                    .text
-                    .as_ref()
-                    .map(|txt| txt.encrypt(ctx, send_key))
-                    .transpose()?
-                    .map(|e| e.to_string()),
-                hidden: Some(t.hidden),
-            }))
-        } else {
-            None
-        };
-
-        let t = if let SendViewType::File(_) = self.view_type {
-            bitwarden_api_api::models::SendType::File
-        } else {
-            bitwarden_api_api::models::SendType::Text
+        let (send_type, file, text) = match self.view_type.clone() {
+            SendViewType::File(f) => (
+                bitwarden_api_api::models::SendType::File,
+                Some(Box::new(bitwarden_api_api::models::SendFileModel {
+                    id: f.id.clone(),
+                    file_name: Some(f.file_name.encrypt(ctx, send_key)?.to_string()),
+                    size: f.size.as_ref().and_then(|s| s.parse::<i64>().ok()),
+                    size_name: f.size_name.clone(),
+                })),
+                None,
+            ),
+            SendViewType::Text(t) => (
+                bitwarden_api_api::models::SendType::Text,
+                None,
+                Some(Box::new(bitwarden_api_api::models::SendTextModel {
+                    text: t
+                        .text
+                        .as_ref()
+                        .map(|txt| txt.encrypt(ctx, send_key))
+                        .transpose()?
+                        .map(|e| e.to_string()),
+                    hidden: Some(t.hidden),
+                })),
+            ),
         };
 
         Ok(bitwarden_api_api::models::SendRequestModel {
-            r#type: Some(t),
+            r#type: Some(send_type),
             auth_type: Some(self.auth_type.into()),
             file_length: None,
             name: Some(self.name.encrypt(ctx, send_key)?.to_string()),

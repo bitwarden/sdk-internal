@@ -16,7 +16,6 @@ use crate::{
     edit::{EditSendError, SendEditRequest, edit_send},
     error::ItemNotFoundError,
     get_list::{GetSendError, get_send, list_sends},
-    send,
 };
 
 /// Generic error type for send encryption errors.
