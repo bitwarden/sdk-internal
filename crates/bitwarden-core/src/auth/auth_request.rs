@@ -166,6 +166,7 @@ mod tests {
                     salt: "test@bitwarden.com".to_string(),
                 },
                 WrappedAccountCryptographicState::V1 { private_key },
+                &None,
             )
             .unwrap();
 
@@ -240,11 +241,12 @@ mod tests {
                 WrappedAccountCryptographicState::V1 {
                     private_key: private_key.clone(),
                 },
+                &None,
             )
             .unwrap();
 
         // Initialize a new device which will request to be logged in
-        let new_device = Client::new(None);
+        let new_device = Client::new_test(None);
 
         // Initialize an auth request, and approve it on the existing device
         let auth_req = new_auth_request(email).unwrap();
@@ -264,6 +266,7 @@ mod tests {
                         protected_user_key: approved_req,
                     },
                 },
+                upgrade_token: None,
             })
             .await
             .unwrap();
