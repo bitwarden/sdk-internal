@@ -153,12 +153,6 @@ impl CryptoClient {
     /// A stop gap-solution for encrypting with the local user data key, until the WASM client's
     /// password generator history encryption and email forwarders encryption is fully migrated to
     /// SDK.
-    ///
-    /// # Arguments
-    /// * `plaintext` - The plain text data to be encrypted with the local user data key.
-    ///
-    /// # Returns
-    /// The [`EncString`] encrypted with the local user data key.
     pub fn encrypt_with_local_user_data_key(
         &self,
         plaintext: String,
@@ -173,13 +167,6 @@ impl CryptoClient {
     /// A stop gap-solution for decrypting with the local user data key, until the WASM client's
     /// password generator history encryption and email forwarders encryption is fully migrated to
     /// SDK.
-    ///
-    /// # Arguments
-    /// * `encrypted_plaintext` - The [`EncString`] encrypted with the local user data key, to be
-    ///   decrypted.
-    ///
-    /// # Returns
-    /// The decrypted plain text data with the local user data key.
     pub fn decrypt_with_local_user_data_key(
         &self,
         encrypted_plaintext: String,
