@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 use crate::{
     crypto_provider::noise::{
-        state_machine::{NoiseStateMachine, ReceiveResult},
-        transport_state::{PersistentTransportState, TransportFrame},
+        state_machine::{NoiseStateMachine, ReceiveResult, SerializableNoiseState},
+        transport_state::TransportFrame,
     },
     message::{IncomingMessage, OutgoingMessage},
     traits::{
@@ -28,10 +29,10 @@ pub struct NoiseCryptoProviderState {
 
 impl Clone for NoiseCryptoProviderState {
     fn clone(&self) -> Self {
-        // Lossy clone: drops in-flight handshake state; reconstructs from the current transport
-        // state. This is safe because handshakes are transient and will be re-initiated.
+        // Lossy clone: drops in-flight HandshakeStart initiator state; all other variants
+        // (including HandshakeFinish with both transport states) are preserved faithfully.
         Self {
-            state: NoiseStateMachine::from_transport_state(self.state.transport_state().clone()),
+            state: NoiseStateMachine::from_serializable(self.state.to_serializable()),
         }
     }
 }
@@ -41,7 +42,7 @@ impl Serialize for NoiseCryptoProviderState {
     where
         S: serde::Serializer,
     {
-        self.state.transport_state().serialize(serializer)
+        self.state.to_serializable().serialize(serializer)
     }
 }
 
@@ -50,9 +51,9 @@ impl<'de> Deserialize<'de> for NoiseCryptoProviderState {
     where
         D: serde::Deserializer<'de>,
     {
-        let transport_state = PersistentTransportState::deserialize(deserializer)?;
+        let serializable = SerializableNoiseState::deserialize(deserializer)?;
         Ok(Self {
-            state: NoiseStateMachine::from_transport_state(transport_state),
+            state: NoiseStateMachine::from_serializable(serializable),
         })
     }
 }
@@ -96,6 +97,7 @@ where
                 .state
                 .needs_rehandshake(REHANDSHAKE_INTERVAL_SECS)
         {
+            info!("Handshake with {:?}", destination);
             let handshake_frame = crypto_state.state.start_handshake().map_err(|_| ())?;
             communication
                 .send(OutgoingMessage {
@@ -114,8 +116,12 @@ where
                     continue;
                 };
                 match crypto_state.state.receive(response_frame) {
-                    Ok(ReceiveResult::Nothing) => break,
-                    Ok(_) | Err(_) => continue,
+                    Ok(ReceiveResult::Nothing) => {
+                        break;
+                    }
+                    Ok(_) | Err(_) => {
+                        continue;
+                    }
                 }
             }
         }
@@ -201,7 +207,11 @@ where
                         .expect("Save session should not fail");
                     continue;
                 }
-                Err(_) => {
+                Err(e) => {
+                    info!(
+                        "CRYPTO: Error processing message from {:?}: {:?}",
+                        message.source, e
+                    );
                     // Don't save on error to avoid overwriting valid session state
                     // (e.g. a concurrent handshake completed by the send path)
                     continue;

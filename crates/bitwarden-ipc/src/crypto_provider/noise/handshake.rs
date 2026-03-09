@@ -72,7 +72,7 @@ impl HandshakeInitiator {
 impl From<&mut HandshakeInitiator> for PersistentTransportState {
     fn from(initiator: &mut HandshakeInitiator) -> Self {
         let (i2r, r2i) = initiator.state.dangerously_get_raw_split();
-        PersistentTransportState::new(SymmetricKey(r2i), SymmetricKey(i2r))
+        PersistentTransportState::new(SymmetricKey(i2r), SymmetricKey(r2i))
     }
 }
 

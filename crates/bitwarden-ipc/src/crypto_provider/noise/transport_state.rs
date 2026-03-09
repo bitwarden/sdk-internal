@@ -1,8 +1,7 @@
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 use snow::resolvers::{CryptoResolver, DefaultResolver};
+use tracing::info;
 
 use crate::crypto_provider::noise::handshake::{HandshakeFinishMessage, HandshakeStartMessage};
 
@@ -161,14 +160,16 @@ impl PersistentTransportState {
         transport_frame: &TransportFrame,
     ) -> Result<Message, ReceiveError> {
         // Try decryption with current receive key first.
-        if transport_frame.nonce > self.receive_nonce {
+        if transport_frame.nonce >= self.receive_nonce {
             if let Ok(plaintext) = self.try_decrypt(&self.receive_key, transport_frame) {
                 self.receive_nonce = transport_frame.nonce;
                 Message::from_cbor(&plaintext).map_err(|_| ReceiveError::Parsing)
             } else {
+                info!("Failed to decrypt incoming IPC message");
                 Err(ReceiveError::Decryption)
             }
         } else {
+            info!("Ipc message was replayed! Discarding...");
             Err(ReceiveError::NonceReplay)
         }
     }
@@ -201,8 +202,8 @@ pub(crate) enum ReceiveError {
 
 /// Returns the current time as seconds since the Unix epoch.
 pub(crate) fn current_epoch_secs() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
+    web_time::SystemTime::now()
+        .duration_since(web_time::UNIX_EPOCH)
         .expect("System clock is before Unix epoch")
         .as_secs()
 }

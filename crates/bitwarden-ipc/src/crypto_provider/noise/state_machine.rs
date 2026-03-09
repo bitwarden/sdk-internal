@@ -1,9 +1,33 @@
+use serde::{Deserialize, Serialize};
+use tracing::info;
+
 use crate::crypto_provider::noise::{
     handshake::{HandshakeInitiator, HandshakeResponder},
     transport_state::{
         Message, Payload, PersistentTransportState, TransportFrame, current_epoch_secs,
     },
 };
+
+/// Serializable representation of the noise state machine.
+///
+/// In-flight handshake initiator state (`HandshakeStart`) is not serializable and is
+/// collapsed to the current transport state. All other variants are preserved faithfully.
+#[derive(Clone, Serialize, Deserialize)]
+pub(crate) enum SerializableNoiseState {
+    /// No completed handshake yet (or in-flight handshake whose initiator state was dropped).
+    Initial {
+        transport_state: PersistentTransportState,
+    },
+    /// Handshake finished but not yet confirmed by a payload exchange.
+    HandshakeFinish {
+        transport_state: PersistentTransportState,
+        staged_transport_state: PersistentTransportState,
+    },
+    /// Established session with a confirmed transport state.
+    Transport {
+        transport_state: PersistentTransportState,
+    },
+}
 
 /// This represents the states the noise protocol can be in. In the bitwarden-ipc variant
 /// of the noise protocol, we start with an initial (insecure) transport state, which gets
@@ -58,34 +82,46 @@ impl NoiseStateMachine {
         }
     }
 
-    /// Extracts the current transport state for serialization.
-    /// For `HandshakeFinish`, returns the staged (new) transport state since that is the
-    /// state we are transitioning to and the one used for sending.
-    pub(crate) fn transport_state(&self) -> &PersistentTransportState {
+    /// Converts the state machine into a serializable representation.
+    ///
+    /// The `HandshakeStart` variant loses its in-flight `HandshakeInitiator` and is
+    /// collapsed to `Initial`; the handshake will be re-initiated on the next send.
+    pub(crate) fn to_serializable(&self) -> SerializableNoiseState {
         match self {
             Self::Initial { transport_state }
             | Self::HandshakeStart {
                 transport_state, ..
-            }
-            | Self::Transport { transport_state } => transport_state,
+            } => SerializableNoiseState::Initial {
+                transport_state: transport_state.clone(),
+            },
             Self::HandshakeFinish {
+                transport_state,
                 staged_transport_state,
-                ..
-            } => staged_transport_state,
+            } => SerializableNoiseState::HandshakeFinish {
+                transport_state: transport_state.clone(),
+                staged_transport_state: staged_transport_state.clone(),
+            },
+            Self::Transport { transport_state } => SerializableNoiseState::Transport {
+                transport_state: transport_state.clone(),
+            },
         }
     }
 
-    /// Reconstructs a state machine from a serialized transport state.
-    /// If the transport state allows payload sending, it is assumed to be in the Transport state.
-    /// Otherwise, it is assumed to be in the Initial state.
-    pub(crate) fn from_transport_state(state: PersistentTransportState) -> Self {
-        if state.allow_payload_sending() {
-            Self::Transport {
-                transport_state: state,
+    /// Reconstructs a state machine from a serialized representation.
+    pub(crate) fn from_serializable(state: SerializableNoiseState) -> Self {
+        match state {
+            SerializableNoiseState::Initial { transport_state } => {
+                Self::Initial { transport_state }
             }
-        } else {
-            Self::Initial {
-                transport_state: state,
+            SerializableNoiseState::HandshakeFinish {
+                transport_state,
+                staged_transport_state,
+            } => Self::HandshakeFinish {
+                transport_state,
+                staged_transport_state,
+            },
+            SerializableNoiseState::Transport { transport_state } => {
+                Self::Transport { transport_state }
             }
         }
     }
@@ -137,6 +173,7 @@ impl NoiseStateMachine {
                 let response_message = responder.write_response_message()?;
                 let response_frame = transport_state.send(response_message.into())?;
                 let staged_transport_state = (&mut responder).into();
+                info!("Handshake complete; staging new keys");
                 *self = NoiseStateMachine::HandshakeFinish {
                     transport_state: transport_state.clone(),
                     staged_transport_state,
@@ -159,6 +196,7 @@ impl NoiseStateMachine {
 
                 handshake_state.read_response_message(&handshake_finish)?;
                 let staged_transport_state = handshake_state.into();
+                info!("Handshake complete; staging new keys");
                 *self = NoiseStateMachine::HandshakeFinish {
                     transport_state: transport_state.clone(),
                     staged_transport_state,
@@ -174,6 +212,7 @@ impl NoiseStateMachine {
                 staged_transport_state,
             } => {
                 if let Ok(message) = staged_transport_state.receive(&transport_frame) {
+                    info!("Switching to new transport state");
                     *self = NoiseStateMachine::Transport {
                         transport_state: staged_transport_state.clone(),
                     };
