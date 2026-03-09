@@ -169,8 +169,9 @@ getClient(userId = userId).platform().store().registerCipherStore(CipherStoreImp
 > - Migrations between versions of state are not supported
 > - Secure storage is not supported as a state storage mechanism
 > - Reactivity is not supported
-> - Browser extension-speecific state syncrhonization mechanisms are not present For these SDK
->   clients, we recommend that they use client-managed state.
+> - Browser extension-speecific state syncrhonization mechanisms are not present
+>
+> For these SDK clients, we recommend that they use client-managed state.
 
 With `SDK-Managed State`, the SDK will be exclusively responsible for the data storage. This means
 that the clients don't need to make any changes themselves, as the implementation is internal to the
