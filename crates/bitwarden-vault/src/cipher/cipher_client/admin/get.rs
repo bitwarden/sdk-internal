@@ -110,6 +110,7 @@ mod tests {
             card: Default::default(),
             secure_note: Default::default(),
             ssh_key: Default::default(),
+            bank_account: Default::default(),
             organization_use_totp: Default::default(),
             edit: Default::default(),
             permissions: Default::default(),

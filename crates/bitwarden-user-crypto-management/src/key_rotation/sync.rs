@@ -433,6 +433,7 @@ mod tests {
             identity: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
             fields: None,
             password_history: None,
             attachments: None,

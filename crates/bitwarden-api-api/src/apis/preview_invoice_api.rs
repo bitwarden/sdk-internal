@@ -92,6 +92,7 @@ pub trait PreviewInvoiceApi: Send + Sync {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
         preview_organization_subscription_plan_change_tax_request: Option<
             models::PreviewOrganizationSubscriptionPlanChangeTaxRequest,
         >,
@@ -171,6 +172,7 @@ pub trait PreviewInvoiceApi: Send + Sync {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
         preview_organization_subscription_update_tax_request: Option<
             models::PreviewOrganizationSubscriptionUpdateTaxRequest,
         >,
@@ -318,6 +320,7 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
         preview_organization_subscription_plan_change_tax_request: Option<
             models::PreviewOrganizationSubscriptionPlanChangeTaxRequest,
         >,
@@ -584,6 +587,10 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_my_items {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useMyItems", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&preview_organization_subscription_plan_change_tax_request);
@@ -712,6 +719,7 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
         preview_organization_subscription_update_tax_request: Option<
             models::PreviewOrganizationSubscriptionUpdateTaxRequest,
         >,
@@ -977,6 +985,10 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
         if let Some(ref param_value) = use_phishing_blocker {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = use_my_items {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useMyItems", &param_value.to_string())]);
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =

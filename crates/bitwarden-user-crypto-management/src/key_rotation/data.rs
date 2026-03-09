@@ -211,6 +211,7 @@ mod tests {
             local_data: None,
             key: None,
             ssh_key: None,
+            bank_account: None,
             permissions: None,
             view_password: false,
             creation_date: Utc::now(),

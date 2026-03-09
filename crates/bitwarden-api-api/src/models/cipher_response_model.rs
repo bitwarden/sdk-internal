@@ -83,6 +83,12 @@ pub struct CipherResponseModel {
     )]
     pub ssh_key: Option<Box<models::CipherSshKeyModel>>,
     #[serde(
+        rename = "bankAccount",
+        alias = "BankAccount",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub bank_account: Option<Box<models::CipherBankAccountModel>>,
+    #[serde(
         rename = "fields",
         alias = "Fields",
         skip_serializing_if = "Option::is_none"
@@ -185,6 +191,7 @@ impl CipherResponseModel {
             identity: None,
             secure_note: None,
             ssh_key: None,
+            bank_account: None,
             fields: None,
             password_history: None,
             attachments: None,

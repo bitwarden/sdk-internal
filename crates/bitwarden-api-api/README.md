@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`b412826951d45c346b2adc9bd29cc3131c576a11`](https://github.com/bitwarden/server/commit/b412826951d45c346b2adc9bd29cc3131c576a11)
+  [`11b83784b4d7944abdf653afe672c96d8b2bcad5`](https://github.com/bitwarden/server/commit/11b83784b4d7944abdf653afe672c96d8b2bcad5)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -565,6 +565,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [ChangePlanFrequencyRequest](docs/ChangePlanFrequencyRequest.md)
 - [CheckoutBillingAddressRequest](docs/CheckoutBillingAddressRequest.md)
 - [CipherAttachmentModel](docs/CipherAttachmentModel.md)
+- [CipherBankAccountModel](docs/CipherBankAccountModel.md)
 - [CipherBulkArchiveRequestModel](docs/CipherBulkArchiveRequestModel.md)
 - [CipherBulkDeleteRequestModel](docs/CipherBulkDeleteRequestModel.md)
 - [CipherBulkMoveRequestModel](docs/CipherBulkMoveRequestModel.md)
