@@ -34,7 +34,7 @@ impl FlightRecorderLayer {
 
     /// Get a reference to the underlying buffer.
     ///
-    /// This can be used to access the buffer for draining events.
+    /// This can be used to access the buffer for reading events.
     pub fn buffer(&self) -> Arc<CircularBuffer<FlightRecorderEvent>> {
         Arc::clone(&self.buffer)
     }

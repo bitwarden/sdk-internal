@@ -66,7 +66,8 @@ pub fn get_flight_recorder_buffer() -> Option<Arc<CircularBuffer<FlightRecorderE
 /// This is intentional: calling `read()` before `init_sdk()` returns an empty
 /// array rather than erroring, allowing safe usage during early bootstrapping.
 ///
-/// After calling this, the buffer is empty.
+/// This is a non-destructive read - the buffer contents remain intact and can
+/// be read multiple times. FIFO eviction handles buffer management automatically.
 #[must_use]
 pub fn read_flight_recorder() -> Vec<FlightRecorderEvent> {
     get_flight_recorder_buffer()

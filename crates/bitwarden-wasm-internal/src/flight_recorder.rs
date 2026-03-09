@@ -35,7 +35,9 @@ impl FlightRecorderClient {
 
     /// Read all events from the Flight Recorder buffer.
     ///
-    /// Returns all events currently in the buffer. After calling this, the buffer is empty.
+    /// Returns all events currently in the buffer.
+    /// This is a non-destructive read - the buffer remains intact and can be
+    /// called multiple times to retrieve the same log data.
     /// Tsify handles WASM serialization automatically via VectorIntoWasmAbi.
     pub fn read(&self) -> Vec<FlightRecorderEvent> {
         read_flight_recorder()

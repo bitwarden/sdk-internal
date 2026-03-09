@@ -6,7 +6,8 @@ use std::{collections::VecDeque, sync::Mutex};
 // This is required because the buffer is stored in a global OnceLock and accessed
 // from multiple threads. This assertion documents the requirement and will cause
 // a compile error if future changes break thread safety.
-// Note: T only needs Send, not Sync, because Mutex<VecDeque<T>> provides interior mutability with Sync guarantee
+// Note: T only needs Send, not Sync, because Mutex<VecDeque<T>> provides interior mutability with
+// Sync guarantee
 const _: () = {
     fn assert_send_sync<T: Send>() {
         fn _check<U: Send + Sync>() {}
@@ -60,11 +61,11 @@ impl<T: Clone> CircularBuffer<T> {
     /// Read all items from the buffer.
     ///
     /// Returns a snapshot of current buffer contents in order (oldest first).
-    /// This empties the buffer as items are read.
+    /// This is a non-destructive read - the buffer remains intact.
     #[must_use]
     pub fn read(&self) -> Vec<T> {
-        let mut buffer = self.buffer.lock().expect("CircularBuffer mutex poisoned");
-        buffer.drain(..).collect()
+        let buffer = self.buffer.lock().expect("CircularBuffer mutex poisoned");
+        buffer.iter().cloned().collect()
     }
 
     /// Get the current number of items in the buffer.
@@ -119,9 +120,10 @@ mod tests {
         assert!(!buffer.is_empty());
         assert_eq!(buffer.len(), 1);
 
-        let _ = buffer.read();
-        assert!(buffer.is_empty());
-        assert_eq!(buffer.len(), 0);
+        let items = buffer.read();
+        assert_eq!(items.len(), 1); // Read returns the item
+        assert!(!buffer.is_empty()); // Buffer still contains the item
+        assert_eq!(buffer.len(), 1); // Length unchanged by read()
     }
 
     #[test]
@@ -134,5 +136,24 @@ mod tests {
 
         let items = buffer.read();
         assert_eq!(items, vec!["first", "second", "third"]);
+    }
+
+    #[test]
+    fn test_read_is_non_destructive() {
+        let buffer = CircularBuffer::new(5);
+        buffer.push("first");
+        buffer.push("second");
+        buffer.push("third");
+
+        // First read
+        let items1 = buffer.read();
+        assert_eq!(items1, vec!["first", "second", "third"]);
+
+        // Second read - should return same data
+        let items2 = buffer.read();
+        assert_eq!(items2, vec!["first", "second", "third"]);
+
+        // Buffer should still contain all items
+        assert_eq!(buffer.len(), 3);
     }
 }
