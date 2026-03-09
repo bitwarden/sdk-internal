@@ -682,7 +682,7 @@ mod tests {
             // Create a send access client
             let send_access_client = make_send_client(&mock_server);
 
-            // Construct the request without a send_id to trigger an error
+            // Construct the request with an invalid send_id to trigger an error
             let req = SendAccessTokenRequest {
                 send_id: "invalid-send-id".into(),
                 send_access_credentials: None, // No credentials for this test
