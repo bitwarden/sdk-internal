@@ -17,7 +17,6 @@ use zeroize::Zeroizing;
 use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 use crate::SendParseError;
-
 const SEND_ITERATIONS: u32 = 100_000;
 
 /// File-based send content

@@ -7,6 +7,7 @@ use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext, OctetStreamBytes,
     PrimitiveEncryptable, generate_random_bytes,
 };
+use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use chrono::{DateTime, Utc};
@@ -18,6 +19,8 @@ use tsify::Tsify;
 use wasm_bindgen::prelude::*;
 
 use crate::{AuthType, Send, SendParseError, SendView, SendViewType};
+
+const SEND_ITERATIONS: u32 = 100_000;
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -98,6 +101,11 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
                 })),
             ),
         };
+
+        let password = self.password.as_ref().map(|password| {
+            let password = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
+            B64::from(password.as_slice()).to_string()
+        });
 
         Ok(bitwarden_api_api::models::SendRequestModel {
             r#type: Some(send_type),
