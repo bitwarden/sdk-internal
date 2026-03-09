@@ -87,7 +87,10 @@ impl StateClient {
     }
 
     /// Initialize the database for SDK managed repositories.
+    #[allow(unused)]
     pub async fn initialize_state(&self, configuration: SqliteConfiguration) -> Result<()> {
+        panic!("SDK-Managed State is currently **not supported for UNIFFI clients**");
+
         let migrations = bitwarden_pm::migrations::get_sdk_managed_migrations();
 
         self.0

@@ -78,10 +78,13 @@ impl StateClient {
     }
 
     /// Initialize the database for SDK managed repositories.
+    #[allow(unused)]
     pub async fn initialize_state(
         &self,
         configuration: IndexedDbConfiguration,
     ) -> Result<(), bitwarden_state::registry::StateRegistryError> {
+        panic!("SDK-Managed State is currently **not supported for WASM clients**");
+
         let sdk_managed_repositories = bitwarden_pm::migrations::get_sdk_managed_migrations();
 
         self.0
