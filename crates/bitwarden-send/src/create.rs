@@ -247,7 +247,7 @@ mod tests {
         assert_eq!(result.notes, Some("notes".to_string()));
         assert!(result.key.is_some(), "Expected a generated key");
         assert_eq!(result.new_password, None);
-        assert_eq!(result.has_password, false);
+        assert!(!result.has_password);
         assert_eq!(result.r#type, SendType::Text);
         assert_eq!(result.file, None);
         assert_eq!(
@@ -259,8 +259,8 @@ mod tests {
         );
         assert_eq!(result.max_access_count, None);
         assert_eq!(result.access_count, 0);
-        assert_eq!(result.disabled, false);
-        assert_eq!(result.hide_email, false);
+        assert!(!result.disabled);
+        assert!(!result.hide_email);
         assert_eq!(
             result.deletion_date,
             "2025-01-10T00:00:00Z".parse::<DateTime<Utc>>().unwrap()
