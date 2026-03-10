@@ -7,7 +7,10 @@ use thiserror::Error;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::CiphersClient;
-use crate::{Cipher, CipherView, ItemNotFoundError, cipher::cipher::DecryptCipherListResult};
+use crate::{
+    Cipher, CipherView, ItemNotFoundError,
+    cipher::cipher::{DecryptCipherListResult, DecryptCipherResult},
+};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -44,16 +47,38 @@ async fn list_ciphers(
     })
 }
 
+async fn get_all_ciphers(
+    store: &KeyStore<KeyIds>,
+    repository: &dyn Repository<Cipher>,
+) -> Result<DecryptCipherResult, GetCipherError> {
+    let ciphers = repository.list().await?;
+    let (successes, failures) = store.decrypt_list_with_failures(&ciphers);
+    Ok(DecryptCipherResult {
+        successes,
+        failures: failures.into_iter().cloned().collect(),
+    })
+}
+
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
-    /// Get all ciphers from state and decrypt them, returning both successes and failures.
-    /// This method will not fail when some ciphers fail to decrypt, allowing for graceful
-    /// handling of corrupted or problematic cipher data.
+    /// Get all ciphers from state and decrypt them to [CipherListView], returning both successes
+    /// and failures. This method will not fail when some ciphers fail to decrypt, allowing
+    /// for graceful handling of corrupted or problematic cipher data.
     pub async fn list(&self) -> Result<DecryptCipherListResult, GetCipherError> {
         let key_store = self.client.internal.get_key_store();
         let repository = self.get_repository()?;
 
         list_ciphers(key_store, repository.as_ref()).await
+    }
+
+    /// Get all ciphers from state and decrypt them to full [CipherView], returning both
+    /// successes and failures. This method will not fail when some ciphers fail to decrypt,
+    /// allowing for graceful handling of corrupted or problematic cipher data.
+    pub async fn get_all(&self) -> Result<DecryptCipherResult, GetCipherError> {
+        let key_store = self.client.internal.get_key_store();
+        let repository = self.get_repository()?;
+
+        get_all_ciphers(key_store, repository.as_ref()).await
     }
 
     /// Get [Cipher] by ID from state and decrypt it to a [CipherView].
