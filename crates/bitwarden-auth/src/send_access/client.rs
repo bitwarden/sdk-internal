@@ -550,7 +550,8 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn request_send_access_token_invalid_request_email_credential_unrecognized_email_masked_as_otp_required() {
+        async fn request_send_access_token_invalid_request_email_credential_unrecognized_email_masked_as_otp_required()
+         {
             // Create a mock error response
             let error_description = "email and otp are required.".into();
             let raw_error = serde_json::json!({
@@ -602,7 +603,8 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn request_send_access_token_invalid_request_email_otp_credential_invalid_otp_masked_as_otp_required() {
+        async fn request_send_access_token_invalid_request_email_otp_credential_invalid_otp_masked_as_otp_required()
+         {
             // When an email+OTP is sent with an invalid OTP, the server returns
             // email_and_otp_required (not otp_invalid) to prevent email enumeration.
             let error_description = "email and otp are required.".into();
@@ -657,7 +659,8 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn request_send_access_token_invalid_request_email_otp_credential_unrecognized_email_masked_as_otp_required() {
+        async fn request_send_access_token_invalid_request_email_otp_credential_unrecognized_email_masked_as_otp_required()
+         {
             // When an email+OTP is sent where the email is not in the Send's allowed list,
             // the server returns email_and_otp_required (not email_invalid) to prevent email
             // enumeration. The server checks email validity before OTP, so even a valid OTP
