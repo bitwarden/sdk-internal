@@ -47,7 +47,7 @@ pub enum EncryptionSettingsError {
     /// Retrieval of the key-connector-key from key-connector failed
     #[error("Key connector retrieval failed")]
     KeyConnectorRetrievalFailed,
-  
+
     /// The local user data key could not be initialized.
     #[error("Unable to initialize local user data key")]
     LocalUserDataKeyInitFailed,
