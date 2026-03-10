@@ -167,8 +167,6 @@ fn build_default_headers(settings: &ClientSettings) -> header::HeaderMap {
             .expect("All numbers are valid ASCII"),
     );
 
-    // TODO: PM-29938 - Since we now add this header always, we need to remove this from the
-    // auto-generated code
     headers.append(
         reqwest::header::USER_AGENT,
         HeaderValue::from_str(&settings.user_agent)
