@@ -137,7 +137,11 @@ impl<T: std::fmt::Debug> std::fmt::Debug for UniffiPlatformApiBridge<T> {
 impl<'a> ServerCommunicationConfigPlatformApi
     for UniffiPlatformApiBridge<Arc<dyn ServerCommunicationConfigPlatformApi + 'a>>
 {
-    async fn acquire_cookies(&self, hostname: String) -> Option<Vec<AcquiredCookie>> {
-        self.0.acquire_cookies(hostname).await
+    async fn acquire_cookies(
+        &self,
+        hostname: String,
+        vault_url: String,
+    ) -> Option<Vec<AcquiredCookie>> {
+        self.0.acquire_cookies(hostname, vault_url).await
     }
 }
