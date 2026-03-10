@@ -62,6 +62,7 @@ pub(crate) async fn login_password(
                     input.password.clone(),
                     master_password_unlock.clone(),
                     user_key_state,
+                    &None,
                 )?;
 
             client
@@ -85,7 +86,7 @@ async fn request_identity_tokens(
 ) -> Result<IdentityTokenResponse, LoginError> {
     use crate::DeviceType;
 
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
     PasswordTokenRequest::new(
         &input.email,
         password_hash,
@@ -93,7 +94,7 @@ async fn request_identity_tokens(
         "b86dd6ab-4265-4ddf-a7f1-eb28d5677f33",
         &input.two_factor,
     )
-    .send(&config)
+    .send(&config.identity_config)
     .await
 }
 

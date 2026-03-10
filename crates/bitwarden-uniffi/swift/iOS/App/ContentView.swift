@@ -202,7 +202,8 @@ struct ContentView: View {
                         masterKeyWrappedUserKey: loginData.Key,
                         salt: EMAIL
                     )
-                )
+                ),
+                upgradeToken: nil
             ))
 
         accessToken = loginData.access_token
@@ -259,7 +260,8 @@ struct ContentView: View {
             accountCryptographicState: WrappedAccountCryptographicState.v1(privateKey: privateKey),
             method: InitUserCryptoMethod.decryptedKey(
                 decryptedUserKey: key
-            )
+            ),
+            upgradeToken: nil
         ))
     }
 
@@ -284,7 +286,8 @@ struct ContentView: View {
             kdfParams: kdf,
             email: EMAIL,
             accountCryptographicState: WrappedAccountCryptographicState.v1(privateKey: privateKey),
-            method: InitUserCryptoMethod.pin(pin: PIN, pinProtectedUserKey: pinProtectedUserKey)
+            method: InitUserCryptoMethod.pin(pin: PIN, pinProtectedUserKey: pinProtectedUserKey),
+            upgradeToken: nil
         ))
     }
 

@@ -39,7 +39,7 @@ pub struct SyncRequest {
 }
 
 pub(crate) async fn sync(client: &Client, input: &SyncRequest) -> Result<SyncResponse, SyncError> {
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
     let sync = config
         .api_client
         .sync_api()
@@ -251,7 +251,7 @@ mod tests {
         ])
         .await;
 
-        let client = Client::new(Some(ClientSettings {
+        let client = Client::new_test(Some(ClientSettings {
             identity_url: api_config.base_path.clone(),
             api_url: api_config.base_path,
             user_agent: api_config.user_agent.unwrap(),
@@ -294,6 +294,7 @@ mod tests {
                     salt: TEST_USER_EMAIL.to_string(),
                 },
             },
+            upgrade_token: None,
         }
     }
 
@@ -400,6 +401,7 @@ mod tests {
                     master_key_encrypted_user_key: Some(user_key.to_string()),
                 })),
                 web_authn_prf_options: None,
+                v2_upgrade_token: None,
             })),
             ..create_sync_response(user_id)
         };

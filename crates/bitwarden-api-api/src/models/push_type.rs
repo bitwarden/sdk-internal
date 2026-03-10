@@ -40,6 +40,7 @@ pub enum PushType {
     OrganizationBankAccountVerified,
     ProviderBankAccountVerified,
     PolicyChanged,
+    AutoConfirm,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -74,6 +75,7 @@ impl PushType {
             Self::OrganizationBankAccountVerified => 23,
             Self::ProviderBankAccountVerified => 24,
             Self::PolicyChanged => 25,
+            Self::AutoConfirm => 26,
             Self::__Unknown(v) => *v,
         }
     }
@@ -106,6 +108,7 @@ impl PushType {
             23 => Self::OrganizationBankAccountVerified,
             24 => Self::ProviderBankAccountVerified,
             25 => Self::PolicyChanged,
+            26 => Self::AutoConfirm,
             v => Self::__Unknown(v),
         }
     }

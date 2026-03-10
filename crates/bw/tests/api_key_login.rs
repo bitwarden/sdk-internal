@@ -18,7 +18,8 @@ use common::bw;
 async fn test_api_key_login(play: Play) {
     let args = SingleUserArgs {
         email: "e2e-apikey@bitwarden.test".to_string(),
-        verified: true,
+        password: "asdfasdfasdf".to_string(),
+        email_verified: true,
         ..Default::default()
     };
 

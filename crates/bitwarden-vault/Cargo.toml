@@ -63,6 +63,7 @@ zxcvbn = { workspace = true }
 
 [dev-dependencies]
 bitwarden-api-api = { workspace = true, features = ["mockall"] }
+bitwarden-core = { workspace = true, features = ["internal", "test-fixtures"] }
 bitwarden-test = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
 wiremock = { workspace = true }

@@ -40,7 +40,7 @@ impl SendAccessClient {
         // this request, so we are not including it here. If needed, we can revisit this and
         // add it back in.
 
-        let configurations = self.client.internal.get_api_configurations().await;
+        let configurations = self.client.internal.get_api_configurations();
 
         // save off url in variable for re-use
         let url = format!(

@@ -2,18 +2,14 @@
 use std::str::FromStr;
 
 use bitwarden_api_api::apis::ApiClient;
-use bitwarden_core::key_management::{
-    SignedSecurityState, account_cryptographic_state::WrappedAccountCryptographicState,
-};
-use bitwarden_crypto::{
-    EncString, Kdf, PublicKey, SignedPublicKey, SpkiPublicKeyBytes, UnsignedSharedKey,
-};
+use bitwarden_core::key_management::account_cryptographic_state::WrappedAccountCryptographicState;
+use bitwarden_crypto::{EncString, Kdf, PublicKey, SpkiPublicKeyBytes, UnsignedSharedKey};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use bitwarden_vault::{Cipher, Folder};
 use thiserror::Error;
 use tokio::try_join;
-use tracing::{debug, debug_span, info, instrument};
+use tracing::{debug, debug_span, info};
 use uuid::Uuid;
 
 use crate::key_rotation::{
@@ -35,7 +31,6 @@ impl<T, E: std::fmt::Debug> DebugMapErr<T, E> for Result<T, E> {
     }
 }
 
-#[allow(unused)]
 pub(super) struct SyncedAccountData {
     pub(super) wrapped_account_cryptographic_state: WrappedAccountCryptographicState,
     pub(super) folders: Vec<Folder>,
@@ -46,7 +41,6 @@ pub(super) struct SyncedAccountData {
     pub(super) trusted_devices: Vec<PartialRotateableKeyset>,
     pub(super) passkeys: Vec<PartialRotateableKeyset>,
     pub(super) kdf_and_salt: Option<(Kdf, String)>,
-    pub(super) user_id: uuid::Uuid,
 }
 
 #[derive(Debug, Error)]
@@ -78,7 +72,8 @@ async fn fetch_organization_public_key(
     .debug_map_err(SyncError::DataError)
 }
 
-// Download the public keys for the organizations, since these are not included in the sync
+// Download the public keys for the organizations for which reset password is enrolled, since these
+// are not included in the sync
 pub(crate) async fn sync_orgs(
     api_client: &ApiClient,
 ) -> Result<Vec<V1OrganizationMembership>, SyncError> {
@@ -92,6 +87,7 @@ pub(crate) async fn sync_orgs(
         .into_iter();
     let organizations = organizations
         .into_iter()
+        .filter(|org| org.reset_password_enrolled.unwrap_or(false))
         .map(async |org| {
             let id = org.id.ok_or(SyncError::DataError)?;
             let public_key = fetch_organization_public_key(api_client, id).await?;
@@ -297,79 +293,6 @@ fn from_kdf(
     })
 }
 
-#[derive(Debug, Error)]
-#[bitwarden_error(flat)]
-enum PrivateKeysParsingError {
-    #[error("Missing required field: {0}")]
-    MissingField(String),
-    #[error("Invalid format in private keys response")]
-    InvalidFormat,
-}
-
-#[instrument(skip(private_keys_response), err)]
-fn from_private_keys_response(
-    private_keys_response: &bitwarden_api_api::models::PrivateKeysResponseModel,
-) -> Result<WrappedAccountCryptographicState, PrivateKeysParsingError> {
-    let is_v2 = private_keys_response.signature_key_pair.is_some();
-    if is_v2 {
-        debug!("Parsing V2 account cryptographic state from sync response");
-        let private_key = private_keys_response
-            .public_key_encryption_key_pair
-            .wrapped_private_key
-            .as_ref()
-            .map(|pk| EncString::from_str(pk).debug_map_err(PrivateKeysParsingError::InvalidFormat))
-            .ok_or(PrivateKeysParsingError::MissingField(
-                "private_key".to_string(),
-            ))??;
-        let signing_key = private_keys_response
-            .signature_key_pair
-            .as_ref()
-            .and_then(|skp| skp.wrapped_signing_key.as_ref())
-            .map(|s| EncString::from_str(s).debug_map_err(PrivateKeysParsingError::InvalidFormat))
-            .ok_or(PrivateKeysParsingError::MissingField(
-                "signing_key".to_string(),
-            ))??;
-        let signed_public_key = private_keys_response
-            .public_key_encryption_key_pair
-            .signed_public_key
-            .as_ref()
-            .map(|spk| {
-                SignedPublicKey::from_str(spk).debug_map_err(PrivateKeysParsingError::InvalidFormat)
-            })
-            .ok_or(PrivateKeysParsingError::MissingField(
-                "signed_public_key".to_string(),
-            ))??;
-        let security_state = private_keys_response
-            .security_state
-            .as_ref()
-            .map(|ss| {
-                SignedSecurityState::from_str(&ss.security_state.clone().unwrap_or_default())
-                    .debug_map_err(PrivateKeysParsingError::InvalidFormat)
-            })
-            .ok_or(PrivateKeysParsingError::MissingField(
-                "security_state".to_string(),
-            ))??;
-        Ok(WrappedAccountCryptographicState::V2 {
-            private_key,
-            signed_public_key: Some(signed_public_key),
-            signing_key,
-            security_state,
-        })
-    } else {
-        debug!("Parsing V1 account cryptographic state from sync response");
-        // V1: Private key, security state
-        let private_key = private_keys_response
-            .public_key_encryption_key_pair
-            .wrapped_private_key
-            .as_ref()
-            .map(|pk| EncString::from_str(pk).debug_map_err(PrivateKeysParsingError::InvalidFormat))
-            .ok_or(PrivateKeysParsingError::MissingField(
-                "private_key".to_string(),
-            ))??;
-        Ok(WrappedAccountCryptographicState::V1 { private_key })
-    }
-}
-
 /// Parses the user's KDF and salt from the sync response. If the user is not a master-password
 /// user, returns Ok(None)
 fn parse_kdf_and_salt(
@@ -393,7 +316,6 @@ fn parse_kdf_and_salt(
     }
 }
 
-#[allow(unused)]
 pub(super) async fn sync_current_account_data(
     api_client: &ApiClient,
 ) -> Result<SyncedAccountData, SyncError> {
@@ -405,7 +327,7 @@ pub(super) async fn sync_current_account_data(
         .debug_map_err(SyncError::NetworkError)?;
 
     let profile = sync.profile.as_ref().ok_or(SyncError::DataError)?;
-    /// This is optional for master-password-users!
+    // This is optional for master-password-users!
     let kdf_and_salt = parse_kdf_and_salt(&sync.user_decryption)?;
     let account_cryptographic_state = profile
         .account_keys
@@ -415,13 +337,8 @@ pub(super) async fn sync_current_account_data(
     let folders = parse_folders(sync.folders)?;
     let sends = parse_sends(sync.sends)?;
     let wrapped_account_cryptographic_state =
-        from_private_keys_response(&account_cryptographic_state)
+        WrappedAccountCryptographicState::try_from(account_cryptographic_state.as_ref())
             .debug_map_err(SyncError::DataError)?;
-    let user_id = sync
-        .profile
-        .as_ref()
-        .and_then(|p| p.id)
-        .ok_or(SyncError::DataError)?;
 
     // Concurrently sync organization memberships, emergency access memberships, trusted devices,
     // and passkeys
@@ -443,7 +360,6 @@ pub(super) async fn sync_current_account_data(
         trusted_devices,
         passkeys,
         kdf_and_salt,
-        user_id,
     })
 }
 
@@ -573,6 +489,7 @@ mod tests {
                 salt: Some("test_salt".to_string()),
             })),
             web_authn_prf_options: None,
+            v2_upgrade_token: None,
         }
     }
 
@@ -616,6 +533,7 @@ mod tests {
             data: Some(vec![ProfileOrganizationResponseModel {
                 id: Some(org_id),
                 name: Some("Test Org".to_string()),
+                reset_password_enrolled: Some(true),
                 ..ProfileOrganizationResponseModel::new()
             }]),
             continuation_token: None,
@@ -735,8 +653,6 @@ mod tests {
 
         let result = sync_current_account_data(&api_client).await;
         let data = result.unwrap();
-
-        assert_eq!(data.user_id, user_id);
 
         // Verify folders
         assert_eq!(data.folders.len(), 1);
@@ -901,16 +817,19 @@ mod tests {
                             ProfileOrganizationResponseModel {
                                 id: Some(org_id1),
                                 name: Some(org_name1.clone()),
+                                reset_password_enrolled: Some(true),
                                 ..ProfileOrganizationResponseModel::new()
                             },
                             ProfileOrganizationResponseModel {
                                 id: Some(org_id2),
                                 name: Some(org_name2.clone()),
+                                reset_password_enrolled: Some(true),
                                 ..ProfileOrganizationResponseModel::new()
                             },
                             ProfileOrganizationResponseModel {
                                 id: Some(org_id3),
                                 name: Some(org_name3.clone()),
+                                reset_password_enrolled: Some(true),
                                 ..ProfileOrganizationResponseModel::new()
                             },
                         ]),
@@ -996,6 +915,7 @@ mod tests {
                         data: Some(vec![ProfileOrganizationResponseModel {
                             id: Some(org_id),
                             name: Some("Test Org".to_string()),
+                            reset_password_enrolled: Some(true),
                             ..ProfileOrganizationResponseModel::new()
                         }]),
                         continuation_token: None,
@@ -1409,6 +1329,117 @@ mod tests {
         if let ApiClient::Mock(mut mock) = api_client {
             mock.emergency_access_api.checkpoint();
             mock.users_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_sync_orgs_filters_non_enrolled_orgs() {
+        let org_id_enrolled1 = uuid::Uuid::new_v4();
+        let org_id_not_enrolled = uuid::Uuid::new_v4();
+        let org_id_none_enrolled = uuid::Uuid::new_v4();
+        let org_id_enrolled2 = uuid::Uuid::new_v4();
+        let expected_public_key_b64 = test_public_key_b64();
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.organizations_api
+                .expect_get_user()
+                .once()
+                .returning(move || {
+                    Ok(ProfileOrganizationResponseModelListResponseModel {
+                        object: None,
+                        data: Some(vec![
+                            ProfileOrganizationResponseModel {
+                                id: Some(org_id_enrolled1),
+                                name: Some("Enrolled Org 1".to_string()),
+                                reset_password_enrolled: Some(true),
+                                ..ProfileOrganizationResponseModel::new()
+                            },
+                            ProfileOrganizationResponseModel {
+                                id: Some(org_id_not_enrolled),
+                                name: Some("Not Enrolled Org".to_string()),
+                                reset_password_enrolled: Some(false),
+                                ..ProfileOrganizationResponseModel::new()
+                            },
+                            ProfileOrganizationResponseModel {
+                                id: Some(org_id_none_enrolled),
+                                name: Some("None Enrolled Org".to_string()),
+                                reset_password_enrolled: None,
+                                ..ProfileOrganizationResponseModel::new()
+                            },
+                            ProfileOrganizationResponseModel {
+                                id: Some(org_id_enrolled2),
+                                name: Some("Enrolled Org 2".to_string()),
+                                reset_password_enrolled: Some(true),
+                                ..ProfileOrganizationResponseModel::new()
+                            },
+                        ]),
+                        continuation_token: None,
+                    })
+                });
+
+            let expected_public_key_b64 = expected_public_key_b64.clone();
+            mock.organizations_api
+                .expect_get_public_key()
+                .times(2)
+                .returning(move |_| {
+                    Ok(OrganizationPublicKeyResponseModel {
+                        object: None,
+                        public_key: Some(expected_public_key_b64.clone()),
+                    })
+                });
+        });
+
+        let result = sync_orgs(&api_client).await;
+        let memberships = result.unwrap();
+
+        assert_eq!(memberships.len(), 2);
+        assert_eq!(memberships[0].organization_id, org_id_enrolled1);
+        assert_eq!(memberships[0].name, "Enrolled Org 1");
+        assert_eq!(memberships[1].organization_id, org_id_enrolled2);
+        assert_eq!(memberships[1].name, "Enrolled Org 2");
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.organizations_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_sync_orgs_all_not_enrolled_returns_empty() {
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.organizations_api
+                .expect_get_user()
+                .once()
+                .returning(move || {
+                    Ok(ProfileOrganizationResponseModelListResponseModel {
+                        object: None,
+                        data: Some(vec![
+                            ProfileOrganizationResponseModel {
+                                id: Some(uuid::Uuid::new_v4()),
+                                name: Some("Org A".to_string()),
+                                reset_password_enrolled: Some(false),
+                                ..ProfileOrganizationResponseModel::new()
+                            },
+                            ProfileOrganizationResponseModel {
+                                id: Some(uuid::Uuid::new_v4()),
+                                name: Some("Org B".to_string()),
+                                reset_password_enrolled: None,
+                                ..ProfileOrganizationResponseModel::new()
+                            },
+                        ]),
+                        continuation_token: None,
+                    })
+                });
+
+            mock.organizations_api.expect_get_public_key().never();
+        });
+
+        let result = sync_orgs(&api_client).await;
+        let memberships = result.unwrap();
+
+        assert_eq!(memberships.len(), 0);
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.organizations_api.checkpoint();
         }
     }
 }

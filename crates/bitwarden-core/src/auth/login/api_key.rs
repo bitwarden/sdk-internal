@@ -48,6 +48,7 @@ pub(crate) async fn login_api_key(
                     input.password.clone(),
                     master_password_unlock.clone(),
                     user_key_state,
+                    &None,
                 )?;
 
             client
@@ -68,9 +69,9 @@ async fn request_api_identity_tokens(
     client: &Client,
     input: &ApiKeyLoginRequest,
 ) -> Result<IdentityTokenResponse, LoginError> {
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
     ApiTokenRequest::new(&input.client_id, &input.client_secret)
-        .send(&config)
+        .send(&config.identity_config)
         .await
 }
 

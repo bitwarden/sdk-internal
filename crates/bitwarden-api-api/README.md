@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`cda8527c7d309a00a7f6f4659be83eaa414e33e8`](https://github.com/bitwarden/server/commit/cda8527c7d309a00a7f6f4659be83eaa414e33e8)
+  [`b412826951d45c346b2adc9bd29cc3131c576a11`](https://github.com/bitwarden/server/commit/b412826951d45c346b2adc9bd29cc3131c576a11)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -241,7 +241,6 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationBillingApi_                  | [**get_billing**](docs/OrganizationBillingApi.md#organization_billing_get_billing)                                                                               | **GET** /organizations/{organizationId}/billing                                                          |
 | _OrganizationBillingApi_                  | [**get_history**](docs/OrganizationBillingApi.md#organization_billing_get_history)                                                                               | **GET** /organizations/{organizationId}/billing/history                                                  |
 | _OrganizationBillingApi_                  | [**get_invoices**](docs/OrganizationBillingApi.md#organization_billing_get_invoices)                                                                             | **GET** /organizations/{organizationId}/billing/invoices                                                 |
-| _OrganizationBillingApi_                  | [**get_metadata**](docs/OrganizationBillingApi.md#organization_billing_get_metadata)                                                                             | **GET** /organizations/{organizationId}/billing/metadata                                                 |
 | _OrganizationBillingApi_                  | [**get_transactions**](docs/OrganizationBillingApi.md#organization_billing_get_transactions)                                                                     | **GET** /organizations/{organizationId}/billing/transactions                                             |
 | _OrganizationBillingApi_                  | [**setup_business_unit**](docs/OrganizationBillingApi.md#organization_billing_setup_business_unit)                                                               | **POST** /organizations/{organizationId}/billing/setup-business-unit                                     |
 | _OrganizationBillingVNextApi_             | [**add_credit_via_bit_pay**](docs/OrganizationBillingVNextApi.md#organization_billing_v_next_add_credit_via_bit_pay)                                             | **POST** /organizations/{organizationId}/billing/vnext/credit/bitpay                                     |
@@ -565,7 +564,6 @@ All URIs are relative to *https://api.bitwarden.com*
 - [BulkDenyAdminAuthRequestRequestModel](docs/BulkDenyAdminAuthRequestRequestModel.md)
 - [ChangePlanFrequencyRequest](docs/ChangePlanFrequencyRequest.md)
 - [CheckoutBillingAddressRequest](docs/CheckoutBillingAddressRequest.md)
-- [Cipher](docs/Cipher.md)
 - [CipherAttachmentModel](docs/CipherAttachmentModel.md)
 - [CipherBulkArchiveRequestModel](docs/CipherBulkArchiveRequestModel.md)
 - [CipherBulkDeleteRequestModel](docs/CipherBulkDeleteRequestModel.md)
@@ -616,7 +614,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [CreateClientOrganizationRequestBody](docs/CreateClientOrganizationRequestBody.md)
 - [CreateCollectionRequestModel](docs/CreateCollectionRequestModel.md)
 - [CredentialCreateOptions](docs/CredentialCreateOptions.md)
-- [DeleteAttachmentResponseData](docs/DeleteAttachmentResponseData.md)
+- [DeleteAttachmentResponseModel](docs/DeleteAttachmentResponseModel.md)
 - [DeleteRecoverRequestModel](docs/DeleteRecoverRequestModel.md)
 - [DeviceAuthRequestResponseModel](docs/DeviceAuthRequestResponseModel.md)
 - [DeviceAuthRequestResponseModelListResponseModel](docs/DeviceAuthRequestResponseModelListResponseModel.md)
@@ -993,6 +991,8 @@ All URIs are relative to *https://api.bitwarden.com*
 - [UserKeyResponseModel](docs/UserKeyResponseModel.md)
 - [UserLicense](docs/UserLicense.md)
 - [UserVerificationRequirement](docs/UserVerificationRequirement.md)
+- [V2UpgradeTokenRequestModel](docs/V2UpgradeTokenRequestModel.md)
+- [V2UpgradeTokenResponseModel](docs/V2UpgradeTokenResponseModel.md)
 - [VerifiedOrganizationDomainSsoDetailResponseModel](docs/VerifiedOrganizationDomainSsoDetailResponseModel.md)
 - [VerifiedOrganizationDomainSsoDetailsResponseModel](docs/VerifiedOrganizationDomainSsoDetailsResponseModel.md)
 - [VerifyDeleteRecoverRequestModel](docs/VerifyDeleteRecoverRequestModel.md)

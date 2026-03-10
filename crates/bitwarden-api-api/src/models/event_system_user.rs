@@ -19,6 +19,7 @@ pub enum EventSystemUser {
     DomainVerification,
     PublicApi,
     TwoFactorDisabled,
+    BitwardenPortal,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -32,6 +33,7 @@ impl EventSystemUser {
             Self::DomainVerification => 2,
             Self::PublicApi => 3,
             Self::TwoFactorDisabled => 4,
+            Self::BitwardenPortal => 5,
             Self::__Unknown(v) => *v,
         }
     }
@@ -43,6 +45,7 @@ impl EventSystemUser {
             2 => Self::DomainVerification,
             3 => Self::PublicApi,
             4 => Self::TwoFactorDisabled,
+            5 => Self::BitwardenPortal,
             v => Self::__Unknown(v),
         }
     }

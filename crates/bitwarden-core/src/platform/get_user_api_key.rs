@@ -47,7 +47,7 @@ pub(crate) async fn get_user_api_key(
     debug!(?input);
 
     let login_method = get_login_method(client)?;
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
 
     let request = build_secret_verification_request(&login_method, input)?;
     let response = config

@@ -310,7 +310,43 @@ pub struct Cipher {
     pub data: Option<String>,
 }
 
-bitwarden_state::register_repository_item!(Cipher, "Cipher");
+/// Represents the result of re-wrapping a cipher key, which can be needed when changing the
+/// ownership of a cipher or rotating keys.
+pub enum CipherKeyRewrapError {
+    NoCipherKey,
+    DecryptionFailure,
+    EncryptionFailure,
+}
+
+impl Cipher {
+    /// Re-wraps the encrypted cipher-key. This should be done when moving the cipher to a new
+    /// ownership (user to org), or when rotating the owning key. This mutates the cipher's key
+    /// field if successful, otherwise returns an error. Data stays encrypted the same way and
+    /// does not need to be re-uploaded to the server.
+    pub fn rewrap_cipher_key(
+        &mut self,
+        old_key: SymmetricKeyId,
+        new_key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeyIds>,
+    ) -> Result<(), CipherKeyRewrapError> {
+        let new_cipher_key = self
+            .key
+            .as_ref()
+            .ok_or(CipherKeyRewrapError::NoCipherKey)
+            .and_then(|wrapped_cipher_key| {
+                ctx.unwrap_symmetric_key(old_key, wrapped_cipher_key)
+                    .map_err(|_| CipherKeyRewrapError::DecryptionFailure)
+            })
+            .and_then(|cipher_key| {
+                ctx.wrap_symmetric_key(new_key, cipher_key)
+                    .map_err(|_| CipherKeyRewrapError::EncryptionFailure)
+            })?;
+        self.key = Some(new_cipher_key);
+        Ok(())
+    }
+}
+
+bitwarden_state::register_repository_item!(CipherId => Cipher, "Cipher");
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -470,6 +506,20 @@ pub struct DecryptCipherResult {
     pub successes: Vec<CipherView>,
     /// The original `Cipher` objects that failed to decrypt.
     pub failures: Vec<Cipher>,
+}
+
+/// Represents the result of fetching and decrypting all ciphers for an organization.
+///
+/// Contains the encrypted ciphers from the API alongside their decrypted list views.
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub struct ListOrganizationCiphersResult {
+    /// All encrypted ciphers returned from the API.
+    pub ciphers: Vec<Cipher>,
+    /// Successfully decrypted `CipherListView` objects.
+    pub list_views: Vec<CipherListView>,
 }
 
 impl CipherListView {
@@ -688,16 +738,17 @@ impl CipherView {
     pub fn generate_cipher_key(
         &mut self,
         ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        wrapping_key: SymmetricKeyId,
     ) -> Result<(), CryptoError> {
-        let old_ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+        let old_unwrapping_key = self.key_identifier();
+        let old_ciphers_key = Cipher::decrypt_cipher_key(ctx, old_unwrapping_key, &self.key)?;
 
         let new_key = ctx.generate_symmetric_key();
 
         self.reencrypt_attachment_keys(ctx, old_ciphers_key, new_key)?;
         self.reencrypt_fido2_credentials(ctx, old_ciphers_key, new_key)?;
 
-        self.key = Some(ctx.wrap_symmetric_key(key, new_key)?);
+        self.key = Some(ctx.wrap_symmetric_key(wrapping_key, new_key)?);
         Ok(())
     }
 

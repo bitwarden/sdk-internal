@@ -6,8 +6,10 @@ mod client;
 pub mod client_settings;
 #[allow(missing_docs)]
 pub mod encryption_settings;
+mod from_client_part;
 #[allow(missing_docs)]
 pub mod internal;
+pub use from_client_part::{FromClient, FromClientPart};
 pub use internal::ApiConfigurations;
 #[allow(missing_docs)]
 pub mod login_method;
@@ -18,7 +20,7 @@ pub(crate) use login_method::{LoginMethod, UserLoginMethod};
 mod flags;
 
 pub use client::Client;
-pub use client_settings::{ClientSettings, DeviceType};
+pub use client_settings::{ClientName, ClientSettings, DeviceType};
 
 #[allow(missing_docs)]
 #[cfg(feature = "internal")]

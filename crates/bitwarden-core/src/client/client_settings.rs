@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 /// };
 /// let default = ClientSettings::default();
 /// ```
-#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema, Clone)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(
@@ -64,7 +64,7 @@ impl Default for ClientSettings {
 }
 
 #[allow(non_camel_case_types, missing_docs)]
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, JsonSchema, PartialEq)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(
     feature = "wasm",
@@ -102,7 +102,7 @@ pub enum DeviceType {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub(crate) enum ClientName {
+pub enum ClientName {
     Web,
     Browser,
     Desktop,

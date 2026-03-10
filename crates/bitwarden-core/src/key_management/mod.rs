@@ -10,7 +10,7 @@
 //!   [CompositeEncryptable](bitwarden_crypto::CompositeEncryptable), and
 //!   [Decryptable](bitwarden_crypto::Decryptable).
 
-use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, key_ids};
+use bitwarden_crypto::{EncString, KeyStore, SymmetricCryptoKey, key_ids};
 
 #[cfg(feature = "internal")]
 pub mod account_cryptographic_state;
@@ -18,15 +18,16 @@ pub mod account_cryptographic_state;
 pub mod crypto;
 #[cfg(feature = "internal")]
 mod crypto_client;
+use bitwarden_encoding::B64;
 #[cfg(feature = "internal")]
 pub use crypto_client::CryptoClient;
 
 #[cfg(feature = "internal")]
 mod master_password;
 #[cfg(feature = "internal")]
-pub use master_password::MasterPasswordError;
-#[cfg(feature = "internal")]
-pub use master_password::{MasterPasswordAuthenticationData, MasterPasswordUnlockData};
+pub use master_password::{
+    MasterPasswordAuthenticationData, MasterPasswordError, MasterPasswordUnlockData,
+};
 #[cfg(feature = "internal")]
 mod security_state;
 #[cfg(feature = "internal")]
@@ -35,10 +36,48 @@ pub use security_state::{
 };
 #[cfg(feature = "internal")]
 mod user_decryption;
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
 #[cfg(feature = "internal")]
 pub use user_decryption::UserDecryptionData;
+#[cfg(feature = "internal")]
+mod v2_upgrade_token;
+#[cfg(feature = "internal")]
+pub use v2_upgrade_token::{V2UpgradeToken, V2UpgradeTokenError};
 
-use crate::OrganizationId;
+#[cfg(all(feature = "internal", feature = "wasm"))]
+mod wasm_unlock_state;
+
+#[cfg(feature = "internal")]
+mod local_user_data_key;
+#[cfg(feature = "internal")]
+mod local_user_data_key_state;
+
+use crate::{OrganizationId, UserId};
+
+/// Represents the decrypted symmetric user-key of a user. This is held in ephemeral state of the
+/// client.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[repr(transparent)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct UserKeyState {
+    decrypted_user_key: B64,
+}
+
+bitwarden_state::register_repository_item!(String => UserKeyState, "UserKey");
+
+/// Represents the local user data key, wrapped by user key.
+/// This key is used to encrypt local user data (e.g., password generator history).
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct LocalUserDataKeyState {
+    wrapped_key: EncString,
+}
+
+bitwarden_state::register_repository_item!(UserId => LocalUserDataKeyState, "LocalUserDataKey");
 
 key_ids! {
     #[symmetric]
@@ -46,6 +85,7 @@ key_ids! {
         Master,
         User,
         Organization(OrganizationId),
+        LocalUserData,
         #[local]
         Local(LocalId),
     }

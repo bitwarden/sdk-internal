@@ -34,8 +34,11 @@ pub use traits::{
 };
 pub use types::{
     AuthenticatorAssertionResponse, AuthenticatorAttestationResponse, ClientData,
-    Fido2CredentialAutofillView, Fido2CredentialAutofillViewError, GetAssertionRequest,
-    GetAssertionResult, MakeCredentialRequest, MakeCredentialResult, Options, Origin,
+    Fido2CredentialAutofillView, Fido2CredentialAutofillViewError, GetAssertionExtensionsInput,
+    GetAssertionExtensionsOutput, GetAssertionPrfInput, GetAssertionPrfOutput, GetAssertionRequest,
+    GetAssertionResult, MakeCredentialExtensionsInput, MakeCredentialExtensionsOutput,
+    MakeCredentialPrfInput, MakeCredentialPrfOutput, MakeCredentialRequest, MakeCredentialResult,
+    Options, Origin, PrfInputValues, PrfOutputValues,
     PublicKeyCredentialAuthenticatorAssertionResponse,
     PublicKeyCredentialAuthenticatorAttestationResponse, PublicKeyCredentialRpEntity,
     PublicKeyCredentialUserEntity, UnverifiedAssetLink,

@@ -75,10 +75,20 @@ macro_rules! create_uniffi_repositories {
                     id: String,
                     value: $qualified_type_name,
                 ) -> Result<(), $crate::platform::repository::RepositoryError>;
+                async fn set_bulk(
+                    &self,
+                    values: std::collections::HashMap<String, $qualified_type_name>,
+                ) -> Result<(), $crate::platform::repository::RepositoryError>;
                 async fn remove(
                     &self,
                     id: String,
                 ) -> Result<(), $crate::platform::repository::RepositoryError>;
+                async fn remove_bulk(
+                    &self,
+                    keys: Vec<String>,
+                ) -> Result<(), $crate::platform::repository::RepositoryError>;
+                async fn remove_all(&self)
+                    -> Result<(), $crate::platform::repository::RepositoryError>;
 
                 async fn has(
                     &self,
@@ -92,8 +102,9 @@ macro_rules! create_uniffi_repositories {
             {
                 async fn get(
                     &self,
-                    key: String,
+                    key: <$qualified_type_name as bitwarden_state::repository::RepositoryItem>::Key,
                 ) -> Result<Option<$qualified_type_name>, bitwarden_state::repository::RepositoryError> {
+                    let key = key.to_string();
                     self.0.get(key).await.map_err(Into::into)
                 }
                 async fn list(&self) -> Result<Vec<$qualified_type_name>, bitwarden_state::repository::RepositoryError> {
@@ -101,16 +112,35 @@ macro_rules! create_uniffi_repositories {
                 }
                 async fn set(
                     &self,
-                    key: String,
+                    key: <$qualified_type_name as bitwarden_state::repository::RepositoryItem>::Key,
                     value: $qualified_type_name,
                 ) -> Result<(), bitwarden_state::repository::RepositoryError> {
+                    let key = key.to_string();
                     self.0.set(key, value).await.map_err(Into::into)
+                }
+                async fn set_bulk(
+                    &self,
+                    values: Vec<(<$qualified_type_name as bitwarden_state::repository::RepositoryItem>::Key, $qualified_type_name)>,
+                ) -> Result<(), bitwarden_state::repository::RepositoryError> {
+                    let map = values.into_iter().map(|(k, v)| (k.to_string(), v)).collect();
+                    self.0.set_bulk(map).await.map_err(Into::into)
                 }
                 async fn remove(
                     &self,
-                    key: String,
+                    key: <$qualified_type_name as bitwarden_state::repository::RepositoryItem>::Key,
                 ) -> Result<(), bitwarden_state::repository::RepositoryError> {
+                    let key = key.to_string();
                     self.0.remove(key).await.map_err(Into::into)
+                }
+                async fn remove_bulk(
+                    &self,
+                    keys: Vec<<$qualified_type_name as bitwarden_state::repository::RepositoryItem>::Key>,
+                ) -> Result<(), bitwarden_state::repository::RepositoryError> {
+                    let keys = keys.into_iter().map(|k| k.to_string()).collect();
+                    self.0.remove_bulk(keys).await.map_err(Into::into)
+                }
+                async fn remove_all(&self) -> Result<(), bitwarden_state::repository::RepositoryError> {
+                    self.0.remove_all().await.map_err(Into::into)
                 }
             }
         )+

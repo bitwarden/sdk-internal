@@ -1,9 +1,7 @@
+use bitwarden_api_api::Configuration;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    auth::{api::response::IdentityTokenResponse, login::LoginError},
-    client::ApiConfigurations,
-};
+use crate::auth::{api::response::IdentityTokenResponse, login::LoginError};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct RenewTokenRequest {
@@ -23,8 +21,8 @@ impl RenewTokenRequest {
 
     pub(crate) async fn send(
         &self,
-        configurations: &ApiConfigurations,
+        identity_config: &Configuration,
     ) -> Result<IdentityTokenResponse, LoginError> {
-        super::send_identity_connect_request(configurations, &self).await
+        super::send_identity_connect_request(identity_config, &self).await
     }
 }

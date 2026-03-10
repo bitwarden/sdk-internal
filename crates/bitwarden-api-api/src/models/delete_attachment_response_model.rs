@@ -13,17 +13,26 @@ use serde::{Deserialize, Serialize};
 use crate::models;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct DeleteAttachmentResponseData {
+pub struct DeleteAttachmentResponseModel {
+    #[serde(
+        rename = "object",
+        alias = "Object",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub object: Option<String>,
     #[serde(
         rename = "cipher",
         alias = "Cipher",
         skip_serializing_if = "Option::is_none"
     )]
-    pub cipher: Option<Box<models::Cipher>>,
+    pub cipher: Option<Box<models::CipherMiniResponseModel>>,
 }
 
-impl DeleteAttachmentResponseData {
-    pub fn new() -> DeleteAttachmentResponseData {
-        DeleteAttachmentResponseData { cipher: None }
+impl DeleteAttachmentResponseModel {
+    pub fn new() -> DeleteAttachmentResponseModel {
+        DeleteAttachmentResponseModel {
+            object: None,
+            cipher: None,
+        }
     }
 }

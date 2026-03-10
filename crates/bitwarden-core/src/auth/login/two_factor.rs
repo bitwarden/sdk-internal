@@ -45,7 +45,7 @@ pub(crate) async fn send_two_factor_email(
         HashPurpose::ServerAuthorization,
     )?;
 
-    let config = client.internal.get_api_configurations().await;
+    let config = client.internal.get_api_configurations();
     config
         .api_client
         .two_factor_api()

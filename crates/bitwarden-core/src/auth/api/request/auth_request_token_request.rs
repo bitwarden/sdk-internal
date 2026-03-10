@@ -1,3 +1,4 @@
+use bitwarden_api_api::Configuration;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 use uuid::Uuid;
@@ -5,7 +6,6 @@ use uuid::Uuid;
 use crate::{
     DeviceType,
     auth::{api::response::IdentityTokenResponse, login::LoginError},
-    client::ApiConfigurations,
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -53,8 +53,8 @@ impl AuthRequestTokenRequest {
 
     pub(crate) async fn send(
         &self,
-        configurations: &ApiConfigurations,
+        identity_config: &Configuration,
     ) -> Result<IdentityTokenResponse, LoginError> {
-        super::send_identity_connect_request(configurations, &self).await
+        super::send_identity_connect_request(identity_config, &self).await
     }
 }
