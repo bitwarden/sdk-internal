@@ -64,9 +64,7 @@ impl Client {
             .expect("Bw HTTP Client build should not fail");
         let identity = bitwarden_api_identity::Configuration {
             base_path: settings.identity_url,
-            user_agent: Some(settings.user_agent.clone()),
             client: bw_http_client.clone().into(),
-            oauth_access_token: None,
         };
 
         // Create the client for the API service, with authentication middleware.
@@ -80,9 +78,7 @@ impl Client {
             .build();
         let api = bitwarden_api_api::Configuration {
             base_path: settings.api_url,
-            user_agent: Some(settings.user_agent),
             client: bw_http_client,
-            oauth_access_token: None,
         };
 
         Self {

@@ -74,9 +74,7 @@ impl ApiConfigurations {
 
         let key_connector = bitwarden_api_base::Configuration {
             base_path: key_connector_url,
-            user_agent: api.user_agent,
             client: api.client,
-            oauth_access_token: api.oauth_access_token,
         };
 
         bitwarden_api_key_connector::apis::ApiClient::new(&Arc::new(key_connector))

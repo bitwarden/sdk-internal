@@ -254,7 +254,7 @@ mod tests {
         let client = Client::new_test(Some(ClientSettings {
             identity_url: api_config.base_path.clone(),
             api_url: api_config.base_path,
-            user_agent: api_config.user_agent.unwrap(),
+            user_agent: "Bitwarden Rust-SDK [TEST]".into(),
             device_type: DeviceType::SDK,
             device_identifier: None,
             bitwarden_client_version: None,
