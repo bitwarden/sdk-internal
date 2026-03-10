@@ -25,9 +25,18 @@ impl SyncHandler for FolderSyncHandler {
         let folders: Vec<(FolderId, Folder)> = api_folders
             .iter()
             .filter_map(|f| {
-                let folder = Folder::try_from(f.clone()).ok()?;
-                let id = folder.id?;
-                Some((id, folder))
+                Folder::try_from(f.clone())
+                    .inspect_err(
+                        |e| tracing::error!(id = ?f.id, error = ?e, "Failed to deserialize folder"),
+                    )
+                    .ok()
+                    .and_then(|folder| {
+                        let id = folder.id.or_else(|| {
+                            tracing::error!("Skipping folder with missing id");
+                            None
+                        })?;
+                        Some((id, folder))
+                    })
             })
             .collect();
 
