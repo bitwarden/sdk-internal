@@ -6,17 +6,17 @@
   "bugs": {
     "url": "https://github.com/bitwarden/sdk-internal/issues"
   },
+  "license": "SEE LICENSE IN LICENSE",
+  "author": "Bitwarden Inc. <hello@bitwarden.com> (https://bitwarden.com)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bitwarden/sdk-internal.git"
   },
-  "license": "SEE LICENSE IN LICENSE",
-  "author": "Bitwarden Inc. <hello@bitwarden.com> (https://bitwarden.com)",
   "main": "index.js",
   "scripts": {
-    "lint": "prettier --check .",
+    "lint": "oxfmt --check .",
     "lint:dep-ownership": "tsx scripts/dep-ownership.ts",
-    "prettier": "prettier --write .",
+    "format": "oxfmt .",
     "test": "echo \"Error: no test specified\" && exit 1",
     "prepare": "husky"
   },
@@ -26,7 +26,7 @@
     "husky": "9.1.7",
     "json5": "2.2.3",
     "lint-staged": "16.2.7",
-    "prettier": "3.7.4",
+    "oxfmt": "^0.26.0",
     "tsx": "4.21.0"
   }
 }

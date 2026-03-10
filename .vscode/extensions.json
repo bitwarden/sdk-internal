@@ -1,9 +1,9 @@
 {
   "recommendations": [
     "dbaeumer.vscode-eslint",
-    "esbenp.prettier-vscode",
     "ms-dotnettools.csharp",
     "MS-vsliveshare.vsliveshare",
+    "oxc.oxc-vscode",
     "rust-lang.rust-analyzer",
     "streetsidesoftware.code-spell-checker",
     "tamasfe.even-better-toml",
