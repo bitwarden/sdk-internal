@@ -116,7 +116,7 @@ mod tests {
         assert!(json.contains("ALBAuthSessionCookie"));
 
         // Verify SDK can parse server JSON with camelCase fields
-        let server_json = r#"{"bootstrap":{"type":"ssoCookieVendor","idpLoginUrl":"https://idp.example.com/login","cookieName":"TestCookie","cookieDomain":"example.com"}}"#;
+        let server_json = r#"{"bootstrap":{"type":"ssoCookieVendor","idpLoginUrl":"https://idp.example.com/login","cookieName":"TestCookie","cookieDomain":"example.com","vaultUrl":"https://vault.example.com"}}"#;
         let parsed = serde_json::from_str::<ServerCommunicationConfig>(server_json).unwrap();
         if let BootstrapConfig::SsoCookieVendor(vendor) = parsed.bootstrap {
             assert_eq!(
