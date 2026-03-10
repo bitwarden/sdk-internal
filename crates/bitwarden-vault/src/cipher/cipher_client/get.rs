@@ -61,9 +61,9 @@ async fn get_all_ciphers(
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CiphersClient {
-    /// Get all ciphers from state and decrypt them to [CipherListView], returning both successes
-    /// and failures. This method will not fail when some ciphers fail to decrypt, allowing
-    /// for graceful handling of corrupted or problematic cipher data.
+    /// Get all ciphers from state and decrypt them to [crate::CipherListView], returning both
+    /// successes and failures. This method will not fail when some ciphers fail to decrypt,
+    /// allowing for graceful handling of corrupted or problematic cipher data.
     pub async fn list(&self) -> Result<DecryptCipherListResult, GetCipherError> {
         let key_store = self.client.internal.get_key_store();
         let repository = self.get_repository()?;
