@@ -69,16 +69,21 @@ pub trait ServerCommunicationConfigPlatformApi: Send + Sync {
     /// (e.g., browser redirect to IdP) to acquire cookies from the
     /// load balancer.
     ///
-    /// For sharded cookies, the platform should return multiple `AcquiredCookie`
-    /// entries, each with its full name including the `-{N}` suffix.
+    /// # Parameters
+    /// - `hostname`: The API hostname (e.g., "api.bitwarden.com" or "localhost")
+    /// - `vault_url`: The full vault URL (scheme + host + port, e.g., "https://vault.bitwarden.com" or "https://localhost:8000")
     ///
-    /// # Arguments
-    ///
-    /// * `hostname` - The server hostname (e.g., "vault.acme.com")
+    /// The `vault_url` parameter should be used for constructing the redirect URL
+    /// instead of deriving it from `hostname`. This ensures port preservation
+    /// (localhost:8000 vs localhost) and correct subdomain usage (vault.bitwarden.com
+    /// vs api.bitwarden.com).
     ///
     /// # Returns
-    ///
-    /// - `Some(cookies)` - Cookies were successfully acquired
-    /// - `None` - Cookie acquisition failed or was cancelled
-    async fn acquire_cookies(&self, hostname: String) -> Option<Vec<AcquiredCookie>>;
+    /// Returns `Some(Vec<AcquiredCookie>)` if cookies were successfully acquired,
+    /// or `None` if the operation was cancelled or failed.
+    async fn acquire_cookies(
+        &self,
+        hostname: String,
+        vault_url: String,
+    ) -> Option<Vec<AcquiredCookie>>;
 }
