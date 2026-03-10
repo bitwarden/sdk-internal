@@ -8,39 +8,67 @@ use bitwarden_logging::{
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use tracing_subscriber::{Registry, layer::SubscriberExt};
 
-/// Benchmark 1: Event Construction
-/// Measures FlightRecorderEvent::from_tracing_event() overhead.
-/// Target: <500ns
+/// Benchmark 1: Event Construction Overhead
+/// Measures the overhead of FlightRecorderLayer by comparing baseline tracing
+/// overhead vs tracing + FlightRecorderLayer overhead.
+/// Target: FlightRecorderLayer adds <500ns
 fn bench_event_construction(c: &mut Criterion) {
     let mut group = c.benchmark_group("event_construction");
     group.throughput(Throughput::Elements(1));
 
-    group.bench_function("from_tracing_event", |b| {
-        // Setup: Create a layer to capture events for conversion testing
-        let config = FlightRecorderConfig::default().with_max_events(1000);
+    // Baseline: measure tracing overhead without FlightRecorderLayer
+    group.bench_function("baseline_tracing_overhead", |b| {
+        // No-op layer that does nothing in on_event
+        #[derive(Clone)]
+        struct NoOpLayer;
+        impl<S> tracing_subscriber::Layer<S> for NoOpLayer
+        where
+            S: tracing::Subscriber,
+        {
+            fn on_event(
+                &self,
+                _event: &tracing::Event<'_>,
+                _ctx: tracing_subscriber::layer::Context<'_, S>,
+            ) {
+            }
+        }
+
+        let subscriber = Arc::new(Registry::default().with(NoOpLayer));
+
+        b.iter(|| {
+            // Only the logging call is measured
+            let sub = Arc::clone(&subscriber);
+            tracing::subscriber::with_default(sub, || {
+                black_box(tracing::info!("benchmark event"));
+            });
+        });
+    });
+
+    // Full measurement: tracing + FlightRecorderLayer
+    group.bench_function("with_flight_recorder_layer", |b| {
+        let config = FlightRecorderConfig::default().with_max_events(10000);
         let layer = FlightRecorderLayer::new(config);
         let buffer = layer.buffer();
 
         let subscriber = Arc::new(Registry::default().with(layer));
 
         b.iter(|| {
-            // Emit event and measure conversion overhead
-            // The from_tracing_event happens inside on_event
+            // Only the logging call is measured
             let sub = Arc::clone(&subscriber);
             tracing::subscriber::with_default(sub, || {
-                tracing::info!("benchmark event");
+                black_box(tracing::info!("benchmark event"));
             });
-
-            // Clear the buffer for next iteration
-            let _ = buffer.read();
         });
+
+        // Clean up
+        let _ = buffer.read();
     });
 
     group.finish();
 }
 
 /// Benchmark 2: Buffer Operations
-/// Measures CircularBuffer::push() cost.
+/// Measures CircularBuffer::push() cost in isolation.
 /// Target: <100ns
 fn bench_buffer_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("buffer_operations");
@@ -62,15 +90,15 @@ fn bench_buffer_operations(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmark 3: Full Layer Path
-/// Measures full on_event() flow through the FlightRecorderLayer.
-/// Target: <1μs
+/// Benchmark 3: Full Layer Path (Minimal Overhead)
+/// Measures complete logging overhead with subscriber setup outside measurement.
+/// This is the closest to production usage pattern.
+/// Target: <1μs per log call
 fn bench_full_layer_path(c: &mut Criterion) {
     let mut group = c.benchmark_group("full_layer_path");
     group.throughput(Throughput::Elements(1));
 
-    group.bench_function("on_event_complete", |b| {
-        // Setup: Create subscriber with FlightRecorderLayer
+    group.bench_function("production_logging_overhead", |b| {
         let config = FlightRecorderConfig::default().with_max_events(10000);
         let layer = FlightRecorderLayer::new(config);
         let buffer = layer.buffer();
@@ -78,22 +106,83 @@ fn bench_full_layer_path(c: &mut Criterion) {
         let subscriber = Arc::new(Registry::default().with(layer));
 
         b.iter(|| {
-            // Emit a tracing event through the full layer path
+            // Measure just the logging call
             let sub = Arc::clone(&subscriber);
             tracing::subscriber::with_default(sub, || {
-                black_box(tracing::info!("benchmark event with overhead measurement"));
+                black_box(tracing::info!(
+                    event_type = "benchmark",
+                    iteration = 1,
+                    "benchmark event with structured fields"
+                ));
             });
-
-            // Clear the buffer for next iteration
-            let _ = buffer.read();
         });
+
+        let _ = buffer.read();
     });
 
     group.finish();
 }
 
-/// Benchmark 4: Buffer Sizes
+/// Benchmark 4: Layer Overhead Components
+/// Break down where time is spent in the layer
+fn bench_layer_components(c: &mut Criterion) {
+    let mut group = c.benchmark_group("layer_components");
+    group.throughput(Throughput::Elements(1));
+
+    // Measure just the timestamp acquisition
+    group.bench_function("timestamp_acquisition", |b| {
+        b.iter(|| {
+            black_box(chrono::Utc::now().timestamp_millis());
+        });
+    });
+
+    // Measure simple event (no fields)
+    group.bench_function("simple_event_no_fields", |b| {
+        let config = FlightRecorderConfig::default().with_max_events(10000);
+        let layer = FlightRecorderLayer::new(config);
+        let buffer = layer.buffer();
+
+        let subscriber = Arc::new(Registry::default().with(layer));
+
+        b.iter(|| {
+            let sub = Arc::clone(&subscriber);
+            tracing::subscriber::with_default(sub, || {
+                black_box(tracing::info!("simple message"));
+            });
+        });
+
+        let _ = buffer.read();
+    });
+
+    // Measure event with structured fields
+    group.bench_function("event_with_fields", |b| {
+        let config = FlightRecorderConfig::default().with_max_events(10000);
+        let layer = FlightRecorderLayer::new(config);
+        let buffer = layer.buffer();
+
+        let subscriber = Arc::new(Registry::default().with(layer));
+
+        b.iter(|| {
+            let sub = Arc::clone(&subscriber);
+            tracing::subscriber::with_default(sub, || {
+                black_box(tracing::info!(
+                    user_id = "12345",
+                    action = "login",
+                    success = true,
+                    "user logged in"
+                ));
+            });
+        });
+
+        let _ = buffer.read();
+    });
+
+    group.finish();
+}
+
+/// Benchmark 5: Buffer Sizes
 /// Parametric comparison of buffer performance across different capacities.
+/// Validates O(1) complexity claim.
 fn bench_buffer_sizes(c: &mut Criterion) {
     let mut group = c.benchmark_group("buffer_sizes");
 
@@ -120,6 +209,7 @@ criterion_group!(
     bench_event_construction,
     bench_buffer_operations,
     bench_full_layer_path,
+    bench_layer_components,
     bench_buffer_sizes
 );
 criterion_main!(benches);
