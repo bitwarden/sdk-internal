@@ -42,8 +42,12 @@ bitwarden-state = { workspace = true, features = ["wasm"] }
 bitwarden-threading = { workspace = true }
 bitwarden-user-crypto-management = { workspace = true, features = ["wasm"] }
 bitwarden-vault = { workspace = true, features = ["wasm"] }
+bw-noise-protocol = { workspace = true }
+bw-proxy-client = { workspace = true }
+bw-proxy-protocol = { workspace = true }
 bw-rat-client = { workspace = true }
 console_error_panic_hook = "0.1.7"
+getrandom = { version = ">=0.3, <0.4", features = ["wasm_js"] }
 js-sys = { workspace = true }
 rand = { workspace = true }
 rsa = { workspace = true }

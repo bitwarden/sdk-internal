@@ -5,9 +5,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use bw_rat_client::{
-    IdentityKeyPair, Messages, SessionStore, UserClient, UserClientEvent, UserClientResponse,
-};
+use bw_proxy_protocol::{IdentityKeyPair, Messages};
+use bw_rat_client::{SessionStore, UserClient, UserClientEvent, UserClientResponse};
 use tokio::sync::mpsc;
 use wasm_bindgen::prelude::*;
 
@@ -119,7 +118,7 @@ impl SessionStore for SharedSessionStore {
     fn save_transport_state(
         &mut self,
         fingerprint: &bw_rat_client::IdentityFingerprint,
-        transport_state: bw_rat_client::MultiDeviceTransport,
+        transport_state: bw_noise_protocol::MultiDeviceTransport,
     ) -> Result<(), bw_rat_client::RemoteClientError> {
         self.0
             .lock()
@@ -130,7 +129,8 @@ impl SessionStore for SharedSessionStore {
     fn load_transport_state(
         &self,
         fingerprint: &bw_rat_client::IdentityFingerprint,
-    ) -> Result<Option<bw_rat_client::MultiDeviceTransport>, bw_rat_client::RemoteClientError> {
+    ) -> Result<Option<bw_noise_protocol::MultiDeviceTransport>, bw_rat_client::RemoteClientError>
+    {
         self.0
             .lock()
             .expect("lock poisoned")
@@ -146,12 +146,99 @@ pub struct RatUserClient {
     client: RefCell<Option<UserClient>>,
     session_data: Arc<Mutex<InMemorySessionStore>>,
     identity: Vec<u8>,
+    /// Holds the identity provider between `new()` and `connect()`.
+    identity_provider: RefCell<Option<InMemoryIdentityProvider>>,
     response_tx: RefCell<Option<mpsc::Sender<UserClientResponse>>>,
 }
 
 #[wasm_bindgen]
 impl RatUserClient {
-    /// Create and connect a new UserClient.
+    /// Create a new RatUserClient (sync — no proxy connection yet).
+    ///
+    /// This performs identity parsing and session store creation in a synchronous
+    /// context to avoid WASM stack issues with post-quantum crypto key derivation
+    /// inside async futures.
+    ///
+    /// Call `connect()` afterwards to establish the proxy connection.
+    ///
+    /// - `initial_session_data`: Optional JSON string of previously persisted session data
+    /// - `initial_identity_data`: Optional COSE-encoded identity keypair bytes
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        initial_session_data: Option<String>,
+        initial_identity_data: Option<Vec<u8>>,
+    ) -> Result<RatUserClient, JsValue> {
+        tracing::info!(
+            "[RAT WASM] new() called, session_data={}, identity_data={}",
+            initial_session_data.as_ref().map_or("None", |_| "Some"),
+            initial_identity_data
+                .as_ref()
+                .map_or("None", |d| if d.is_empty() { "empty" } else { "Some" }),
+        );
+
+        // Create session store
+        let session_store = match initial_session_data {
+            Some(ref data) if !data.is_empty() => InMemorySessionStore::from_json(data)
+                .map_err(|e| JsValue::from_str(&format!("Invalid session data: {e}")))?,
+            _ => InMemorySessionStore::new(),
+        };
+        let session_arc = Arc::new(Mutex::new(session_store));
+        tracing::info!("[RAT WASM] session store created");
+
+        // Create identity provider — done in sync context to avoid WASM async stack overflow
+        // with ML-DSA-65 key derivation
+        let identity = match initial_identity_data {
+            Some(ref data) if !data.is_empty() => InMemoryIdentityProvider::from_bytes(data)
+                .map_err(|e| JsValue::from_str(&format!("Invalid identity data: {e}")))?,
+            _ => InMemoryIdentityProvider::generate(),
+        };
+        let identity_bytes = identity.to_bytes();
+        tracing::info!(
+            "[RAT WASM] identity provider created ({} bytes)",
+            identity_bytes.len()
+        );
+
+        Ok(RatUserClient {
+            client: RefCell::new(None),
+            session_data: session_arc,
+            identity: identity_bytes,
+            identity_provider: RefCell::new(Some(identity)),
+            response_tx: RefCell::new(None),
+        })
+    }
+
+    /// Connect to the proxy server (async).
+    ///
+    /// Must be called after `new()`. Takes the proxy client and establishes
+    /// the WebSocket connection.
+    pub async fn connect(&self, proxy_client: JsRatProxyClient) -> Result<(), JsValue> {
+        let identity = self.identity_provider.borrow_mut().take().ok_or_else(|| {
+            JsValue::from_str("Identity already consumed (connect called twice?)")
+        })?;
+
+        let session_store = SharedSessionStore(self.session_data.clone());
+
+        // Create proxy client wrapper
+        let proxy = WasmProxyClient::new(proxy_client);
+        tracing::info!("[RAT WASM] WasmProxyClient created, connecting to proxy...");
+
+        // Create the client (connects to proxy via WebSocket)
+        let client =
+            UserClient::listen(Box::new(identity), Box::new(session_store), Box::new(proxy))
+                .await
+                .map_err(|e| {
+                    tracing::error!("[RAT WASM] UserClient::listen failed: {e}");
+                    JsValue::from_str(&e.to_string())
+                })?;
+        tracing::info!("[RAT WASM] connected to proxy successfully");
+
+        *self.client.borrow_mut() = Some(client);
+        Ok(())
+    }
+
+    /// Create and connect a new UserClient (convenience wrapper).
+    ///
+    /// Equivalent to calling `new()` then `connect()`.
     ///
     /// - `proxy_client`: JavaScript implementation of the `RatProxyClient` interface
     /// - `initial_session_data`: Optional JSON string of previously persisted session data
@@ -161,38 +248,9 @@ impl RatUserClient {
         initial_session_data: Option<String>,
         initial_identity_data: Option<Vec<u8>>,
     ) -> Result<RatUserClient, JsValue> {
-        // Create session store
-        let session_store = match initial_session_data {
-            Some(ref data) if !data.is_empty() => InMemorySessionStore::from_json(data)
-                .map_err(|e| JsValue::from_str(&format!("Invalid session data: {e}")))?,
-            _ => InMemorySessionStore::new(),
-        };
-        let session_arc = Arc::new(Mutex::new(session_store));
-        let shared_store = SharedSessionStore(session_arc.clone());
-
-        // Create identity provider
-        let identity = match initial_identity_data {
-            Some(ref data) if !data.is_empty() => InMemoryIdentityProvider::from_bytes(data)
-                .map_err(|e| JsValue::from_str(&format!("Invalid identity data: {e}")))?,
-            _ => InMemoryIdentityProvider::generate(),
-        };
-        let identity_bytes = identity.to_bytes();
-
-        // Create proxy client wrapper
-        let proxy = WasmProxyClient::new(proxy_client);
-
-        // Create the client
-        let client =
-            UserClient::listen(Box::new(identity), Box::new(shared_store), Box::new(proxy))
-                .await
-                .map_err(|e| JsValue::from_str(&e.to_string()))?;
-
-        Ok(RatUserClient {
-            client: RefCell::new(Some(client)),
-            session_data: session_arc,
-            identity: identity_bytes,
-            response_tx: RefCell::new(None),
-        })
+        let client = RatUserClient::new(initial_session_data, initial_identity_data)?;
+        client.connect(proxy_client).await?;
+        Ok(client)
     }
 
     /// Enable rendezvous mode: generates a pairing code and runs the event loop.
@@ -445,7 +503,9 @@ fn event_to_js(event: &UserClientEvent) -> Result<JsValue, JsValue> {
 }
 
 /// Parse a JS response object into `UserClientResponse`.
-fn parse_user_response(parsed: &serde_json::Value) -> Result<UserClientResponse, String> {
+pub(crate) fn parse_user_response(
+    parsed: &serde_json::Value,
+) -> Result<UserClientResponse, String> {
     let resp_type = parsed["type"].as_str().ok_or("missing type")?;
 
     match resp_type {
@@ -479,5 +539,299 @@ fn parse_user_response(parsed: &serde_json::Value) -> Result<UserClientResponse,
             })
         }
         _ => Err(format!("Unknown response type: {resp_type}")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- parse_user_response: verify_fingerprint ---
+
+    #[test]
+    fn parse_verify_fingerprint_approved() {
+        let json = serde_json::json!({
+            "type": "verify_fingerprint",
+            "approved": true,
+        });
+        let result = parse_user_response(&json).unwrap();
+        match result {
+            UserClientResponse::VerifyFingerprint { approved, name } => {
+                assert!(approved);
+                assert!(name.is_none());
+            }
+            _ => panic!("Expected VerifyFingerprint"),
+        }
+    }
+
+    #[test]
+    fn parse_verify_fingerprint_rejected() {
+        let json = serde_json::json!({
+            "type": "verify_fingerprint",
+            "approved": false,
+        });
+        let result = parse_user_response(&json).unwrap();
+        match result {
+            UserClientResponse::VerifyFingerprint { approved, name } => {
+                assert!(!approved);
+                assert!(name.is_none());
+            }
+            _ => panic!("Expected VerifyFingerprint"),
+        }
+    }
+
+    #[test]
+    fn parse_verify_fingerprint_with_name() {
+        let json = serde_json::json!({
+            "type": "verify_fingerprint",
+            "approved": true,
+            "name": "My Laptop",
+        });
+        let result = parse_user_response(&json).unwrap();
+        match result {
+            UserClientResponse::VerifyFingerprint { approved, name } => {
+                assert!(approved);
+                assert_eq!(name.as_deref(), Some("My Laptop"));
+            }
+            _ => panic!("Expected VerifyFingerprint"),
+        }
+    }
+
+    #[test]
+    fn parse_verify_fingerprint_missing_approved() {
+        let json = serde_json::json!({
+            "type": "verify_fingerprint",
+        });
+        let result = parse_user_response(&json);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("missing approved"));
+    }
+
+    // --- parse_user_response: respond_credential ---
+
+    #[test]
+    fn parse_credential_approved_with_data() {
+        let json = serde_json::json!({
+            "type": "respond_credential",
+            "request_id": "req-123",
+            "session_id": "sess-456",
+            "approved": true,
+            "credential": {
+                "username": "user@example.com",
+                "password": "secret",
+                "totp": "123456",
+                "uri": "https://example.com",
+                "notes": "test note",
+            },
+        });
+        let result = parse_user_response(&json).unwrap();
+        match result {
+            UserClientResponse::RespondCredential {
+                request_id,
+                session_id,
+                approved,
+                credential,
+            } => {
+                assert_eq!(request_id, "req-123");
+                assert_eq!(session_id, "sess-456");
+                assert!(approved);
+                let cred = credential.unwrap();
+                assert_eq!(cred.username.as_deref(), Some("user@example.com"));
+                assert_eq!(cred.password.as_deref(), Some("secret"));
+                assert_eq!(cred.totp.as_deref(), Some("123456"));
+                assert_eq!(cred.uri.as_deref(), Some("https://example.com"));
+                assert_eq!(cred.notes.as_deref(), Some("test note"));
+            }
+            _ => panic!("Expected RespondCredential"),
+        }
+    }
+
+    #[test]
+    fn parse_credential_approved_partial_data() {
+        let json = serde_json::json!({
+            "type": "respond_credential",
+            "request_id": "req-1",
+            "session_id": "sess-1",
+            "approved": true,
+            "credential": {
+                "username": "admin",
+                "password": "pass123",
+            },
+        });
+        let result = parse_user_response(&json).unwrap();
+        match result {
+            UserClientResponse::RespondCredential {
+                credential,
+                approved,
+                ..
+            } => {
+                assert!(approved);
+                let cred = credential.unwrap();
+                assert_eq!(cred.username.as_deref(), Some("admin"));
+                assert_eq!(cred.password.as_deref(), Some("pass123"));
+                assert!(cred.totp.is_none());
+                assert!(cred.uri.is_none());
+                assert!(cred.notes.is_none());
+            }
+            _ => panic!("Expected RespondCredential"),
+        }
+    }
+
+    #[test]
+    fn parse_credential_denied() {
+        let json = serde_json::json!({
+            "type": "respond_credential",
+            "request_id": "req-1",
+            "session_id": "sess-1",
+            "approved": false,
+        });
+        let result = parse_user_response(&json).unwrap();
+        match result {
+            UserClientResponse::RespondCredential {
+                approved,
+                credential,
+                ..
+            } => {
+                assert!(!approved);
+                assert!(credential.is_none());
+            }
+            _ => panic!("Expected RespondCredential"),
+        }
+    }
+
+    #[test]
+    fn parse_credential_denied_ignores_credential_field() {
+        let json = serde_json::json!({
+            "type": "respond_credential",
+            "request_id": "req-1",
+            "session_id": "sess-1",
+            "approved": false,
+            "credential": { "username": "ignored" },
+        });
+        let result = parse_user_response(&json).unwrap();
+        match result {
+            UserClientResponse::RespondCredential { credential, .. } => {
+                assert!(credential.is_none());
+            }
+            _ => panic!("Expected RespondCredential"),
+        }
+    }
+
+    #[test]
+    fn parse_credential_missing_request_id() {
+        let json = serde_json::json!({
+            "type": "respond_credential",
+            "session_id": "sess-1",
+            "approved": true,
+        });
+        let result = parse_user_response(&json);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("missing request_id"));
+    }
+
+    #[test]
+    fn parse_credential_missing_session_id() {
+        let json = serde_json::json!({
+            "type": "respond_credential",
+            "request_id": "req-1",
+            "approved": true,
+        });
+        let result = parse_user_response(&json);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("missing session_id"));
+    }
+
+    #[test]
+    fn parse_credential_missing_approved() {
+        let json = serde_json::json!({
+            "type": "respond_credential",
+            "request_id": "req-1",
+            "session_id": "sess-1",
+        });
+        let result = parse_user_response(&json);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("missing approved"));
+    }
+
+    // --- parse_user_response: error cases ---
+
+    #[test]
+    fn parse_unknown_type() {
+        let json = serde_json::json!({
+            "type": "unknown_action",
+        });
+        let result = parse_user_response(&json);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Unknown response type"));
+    }
+
+    #[test]
+    fn parse_missing_type() {
+        let json = serde_json::json!({
+            "approved": true,
+        });
+        let result = parse_user_response(&json);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("missing type"));
+    }
+
+    #[test]
+    fn parse_empty_object() {
+        let json = serde_json::json!({});
+        let result = parse_user_response(&json);
+        assert!(result.is_err());
+    }
+
+    // --- sign_proxy_challenge (underlying logic) ---
+
+    #[test]
+    fn sign_challenge_roundtrip() {
+        use bw_proxy_protocol::Challenge;
+
+        let keypair = IdentityKeyPair::generate();
+        let challenge = Challenge::new();
+
+        // Sign it
+        let response = challenge.sign(&keypair);
+
+        // Verify the signature
+        let identity = keypair.identity();
+        assert!(response.verify(&challenge, &identity));
+    }
+
+    #[test]
+    fn sign_challenge_wrong_identity_fails() {
+        use bw_proxy_protocol::Challenge;
+
+        let keypair1 = IdentityKeyPair::generate();
+        let keypair2 = IdentityKeyPair::generate();
+        let challenge = Challenge::new();
+
+        let response = challenge.sign(&keypair1);
+        assert!(!response.verify(&challenge, &keypair2.identity()));
+    }
+
+    #[test]
+    fn messages_auth_challenge_json_roundtrip() {
+        use bw_proxy_protocol::Challenge;
+
+        let challenge = Challenge::new();
+        let msg = Messages::AuthChallenge(challenge);
+        let json = serde_json::to_string(&msg).unwrap();
+        let parsed: Messages = serde_json::from_str(&json).unwrap();
+        assert!(matches!(parsed, Messages::AuthChallenge(_)));
+    }
+
+    #[test]
+    fn identity_keypair_cose_roundtrip() {
+        let keypair = IdentityKeyPair::generate();
+        let cose = keypair.to_cose();
+        let restored = IdentityKeyPair::from_cose(&cose).unwrap();
+
+        // Verify by signing with restored key and verifying with original identity
+        use bw_proxy_protocol::Challenge;
+        let challenge = Challenge::new();
+        let response = challenge.sign(&restored);
+        assert!(response.verify(&challenge, &keypair.identity()));
     }
 }

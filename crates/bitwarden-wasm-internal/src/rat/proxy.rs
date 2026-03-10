@@ -7,9 +7,9 @@ use std::rc::Rc;
 
 use async_trait::async_trait;
 use bitwarden_threading::ThreadBoundRunner;
-use bw_rat_client::{
-    Identity, IdentityFingerprint, IncomingMessage, ProxyClient, RemoteClientError, RendevouzCode,
-};
+use bw_proxy_client::IncomingMessage;
+use bw_proxy_protocol::Identity;
+use bw_rat_client::{IdentityFingerprint, ProxyClient, RemoteClientError, RendevouzCode};
 use tokio::sync::mpsc;
 use wasm_bindgen::{JsValue, prelude::*};
 
@@ -81,11 +81,11 @@ fn js_err(e: JsValue) -> RemoteClientError {
     RemoteClientError::ConnectionFailed(format!("{e:?}"))
 }
 
-fn fingerprint_to_hex(fp: &IdentityFingerprint) -> String {
+pub(crate) fn fingerprint_to_hex(fp: &IdentityFingerprint) -> String {
     fp.0.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-fn hex_to_fingerprint(hex_str: &str) -> Result<IdentityFingerprint, String> {
+pub(crate) fn hex_to_fingerprint(hex_str: &str) -> Result<IdentityFingerprint, String> {
     if hex_str.len() != 64 {
         return Err(format!(
             "fingerprint hex must be 64 chars, got {}",
@@ -104,10 +104,15 @@ impl ProxyClient for WasmProxyClient {
     async fn connect(
         &mut self,
     ) -> Result<mpsc::UnboundedReceiver<IncomingMessage>, RemoteClientError> {
+        tracing::info!("[RAT WASM Proxy] connect() called, creating channel...");
         let (incoming_tx, incoming_rx) = mpsc::unbounded_channel();
 
+        tracing::info!("[RAT WASM Proxy] dispatching connect via ThreadBoundRunner...");
         self.runner
             .run_in_thread(move |state: Rc<WasmProxyState>| async move {
+                tracing::info!(
+                    "[RAT WASM Proxy] inside ThreadBoundRunner task, creating Closure..."
+                );
                 // Create a closure that JS calls for each incoming WebSocket message
                 let on_message =
                     Closure::wrap(
@@ -122,7 +127,9 @@ impl ProxyClient for WasmProxyClient {
                         }) as Box<dyn FnMut(JsValue)>,
                     );
 
+                tracing::info!("[RAT WASM Proxy] calling JS connect()...");
                 state.js_client.connect(&on_message).await.map_err(js_err)?;
+                tracing::info!("[RAT WASM Proxy] JS connect() returned successfully");
 
                 // Leak the closure to keep it alive. The JS side holds a reference to it
                 // and will call it for each message. It lives as long as the connection.
@@ -133,6 +140,7 @@ impl ProxyClient for WasmProxyClient {
             .await
             .expect("Task should not panic")?;
 
+        tracing::info!("[RAT WASM Proxy] connect complete");
         Ok(incoming_rx)
     }
 
@@ -243,5 +251,89 @@ fn parse_incoming_message(msg: JsValue) -> Result<IncomingMessage, String> {
             })
         }
         _ => Err(format!("Unknown message type: {msg_type}")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- fingerprint_to_hex ---
+
+    #[test]
+    fn fingerprint_to_hex_all_zeros() {
+        let fp = IdentityFingerprint([0u8; 32]);
+        assert_eq!(fingerprint_to_hex(&fp), "0".repeat(64));
+    }
+
+    #[test]
+    fn fingerprint_to_hex_all_ff() {
+        let fp = IdentityFingerprint([0xFF; 32]);
+        assert_eq!(fingerprint_to_hex(&fp), "f".repeat(64));
+    }
+
+    #[test]
+    fn fingerprint_to_hex_known_pattern() {
+        let mut arr = [0u8; 32];
+        arr[0] = 0xAB;
+        arr[1] = 0xCD;
+        arr[31] = 0xEF;
+        let fp = IdentityFingerprint(arr);
+        let hex = fingerprint_to_hex(&fp);
+        assert_eq!(hex.len(), 64);
+        assert!(hex.starts_with("abcd"));
+        assert!(hex.ends_with("ef"));
+    }
+
+    // --- hex_to_fingerprint ---
+
+    #[test]
+    fn hex_to_fingerprint_roundtrip() {
+        let original = IdentityFingerprint([0xAB; 32]);
+        let hex = fingerprint_to_hex(&original);
+        let restored = hex_to_fingerprint(&hex).unwrap();
+        assert_eq!(original.0, restored.0);
+    }
+
+    #[test]
+    fn hex_to_fingerprint_all_zeros() {
+        let hex = "0".repeat(64);
+        let fp = hex_to_fingerprint(&hex).unwrap();
+        assert_eq!(fp.0, [0u8; 32]);
+    }
+
+    #[test]
+    fn hex_to_fingerprint_wrong_length_short() {
+        let result = hex_to_fingerprint("abcd");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("64 chars"));
+    }
+
+    #[test]
+    fn hex_to_fingerprint_wrong_length_long() {
+        let result = hex_to_fingerprint(&"a".repeat(66));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn hex_to_fingerprint_invalid_hex_chars() {
+        let mut hex = "0".repeat(64);
+        hex.replace_range(0..2, "zz");
+        let result = hex_to_fingerprint(&hex);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn hex_to_fingerprint_uppercase_works() {
+        let hex = "AB".repeat(32);
+        let fp = hex_to_fingerprint(&hex).unwrap();
+        assert_eq!(fp.0, [0xAB; 32]);
+    }
+
+    #[test]
+    fn hex_to_fingerprint_mixed_case_works() {
+        let hex = "aB".repeat(32);
+        let fp = hex_to_fingerprint(&hex).unwrap();
+        assert_eq!(fp.0, [0xAB; 32]);
     }
 }

@@ -56,7 +56,10 @@ bitwarden-user-crypto-management = { path = "crates/bitwarden-user-crypto-manage
 bitwarden-uuid = { path = "crates/bitwarden-uuid", version = "=2.0.0" }
 bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=2.0.0" }
 bitwarden-vault = { path = "crates/bitwarden-vault", version = "=2.0.0" }
-bw-rat-client = { path = "../remote-access/crates/bw-rat-client", default-features = false, features = ["wasm"] }
+bw-noise-protocol = { path = "../remote-access/crates/bw-noise-protocol" }
+bw-proxy-client = { path = "../remote-access/crates/bw-proxy-client", default-features = false }
+bw-proxy-protocol = { path = "../remote-access/crates/bw-proxy-protocol" }
+bw-rat-client = { path = "../remote-access/crates/bw-rat-client", default-features = false }
 chrono = { version = ">=0.4.26, <0.5", features = [
     "clock",
     "serde",

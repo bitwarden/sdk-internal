@@ -1183,8 +1183,12 @@ dependencies = [
  "bitwarden-threading",
  "bitwarden-user-crypto-management",
  "bitwarden-vault",
+ "bw-noise-protocol",
+ "bw-proxy-client",
+ "bw-proxy-protocol",
  "bw-rat-client",
  "console_error_panic_hook",
+ "getrandom 0.3.4",
  "js-sys",
  "rand 0.8.5",
  "rsa 0.9.10",
@@ -1349,10 +1353,8 @@ dependencies = [
  "chacha20poly1305",
  "ciborium",
  "clatter",
- "getrandom 0.3.4",
  "hex",
  "hkdf",
- "js-sys",
  "rand 0.8.5",
  "serde",
  "sha2 0.10.9",
@@ -1362,14 +1364,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "bw-proxy"
+name = "bw-proxy-client"
+version = "0.1.0"
+dependencies = [
+ "bw-proxy-protocol",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "bw-proxy-protocol"
 version = "0.1.0"
 dependencies = [
  "bw-error",
- "chrono",
  "coset",
  "ed25519-dalek 2.2.0",
- "futures-util",
  "hex",
  "ml-dsa",
  "rand 0.8.5",
@@ -1377,9 +1386,6 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "thiserror 1.0.69",
- "tokio",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -1390,7 +1396,9 @@ dependencies = [
  "base64 0.22.1",
  "bw-error",
  "bw-noise-protocol",
- "bw-proxy",
+ "bw-proxy-client",
+ "bw-proxy-protocol",
+ "dirs",
  "futures-util",
  "hex",
  "rand 0.8.5",
@@ -2359,6 +2367,27 @@ dependencies = [
  "const-oid 0.10.2",
  "crypto-common 0.2.0",
  "subtle",
+]
+
+[[package]]
+name = "dirs"
+version = "5.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "44c45a9d03d6676652bcb5e724c7e988de1acad23a711b5217ab9cbecbec2225"
+dependencies = [
+ "dirs-sys",
+]
+
+[[package]]
+name = "dirs-sys"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "520f05a5cbd335fae5a99ff7a6ab8627577660ee5cfd6a94a6a929b52ff0321c"
+dependencies = [
+ "libc",
+ "option-ext",
+ "redox_users",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -4008,6 +4037,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c87def4c32ab89d880effc9e097653c8da5d6ef28e6b539d313baaacfbafcbe"
 
 [[package]]
+name = "option-ext"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
+
+[[package]]
 name = "owo-colors"
 version = "4.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4746,6 +4781,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "35985aa610addc02e24fc232012c86fd11f14111180f902b67e2d5331f8ebf2b"
 dependencies = [
  "bitflags 2.10.0",
+]
+
+[[package]]
+name = "redox_users"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba009ff324d1fc1b900bd1fdb31564febe58a8ccc8a6fdbb93b543d33b13ca43"
+dependencies = [
+ "getrandom 0.2.17",
+ "libredox",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
