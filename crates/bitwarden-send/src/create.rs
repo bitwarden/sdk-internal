@@ -18,9 +18,7 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::{AuthType, Send, SendParseError, SendView, SendViewType};
-
-const SEND_ITERATIONS: u32 = 100_000;
+use crate::{AuthType, Send, SendParseError, SendView, SendViewType, send::SEND_ITERATIONS};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]

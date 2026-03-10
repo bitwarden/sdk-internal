@@ -6,7 +6,7 @@ use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext, OctetStreamBytes,
     PrimitiveEncryptable, generate_random_bytes,
 };
-use bitwarden_encoding::B64Url;
+use bitwarden_encoding::{B64, B64Url};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use chrono::{DateTime, Utc};
@@ -21,6 +21,7 @@ use wasm_bindgen::prelude::*;
 use crate::{
     AuthType, Send, SendView, SendViewType,
     error::{ItemNotFoundError, SendParseError},
+    send::SEND_ITERATIONS,
 };
 
 #[allow(missing_docs)]
@@ -124,6 +125,11 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
             bitwarden_api_api::models::SendType::Text
         };
 
+        let password = self.password.as_ref().map(|password| {
+            let password = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
+            B64::from(password.as_slice()).to_string()
+        });
+
         Ok(bitwarden_api_api::models::SendRequestModel {
             r#type: Some(t),
             auth_type: Some(self.auth_type.into()),
@@ -142,7 +148,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
             deletion_date: self.deletion_date.to_rfc3339(),
             file,
             text,
-            password: self.password.clone(),
+            password,
             emails: if self.emails.is_empty() {
                 None
             } else {
