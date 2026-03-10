@@ -1,12 +1,11 @@
 mod v1;
 
-use v1::CipherBlobV1;
-
 use bitwarden_crypto::{
     generate_versioned_sealable,
     safe::{DataEnvelopeNamespace, SealableData, SealableVersionedData},
 };
 use serde::{Deserialize, Serialize};
+use v1::CipherBlobV1;
 
 generate_versioned_sealable!(
     CipherBlob,
@@ -18,9 +17,8 @@ pub(crate) type CipherBlobLatest = CipherBlobV1;
 
 #[cfg(test)]
 mod tests {
+    use super::{CipherBlob, v1::*};
     use crate::cipher::secure_note::SecureNoteType;
-
-    use super::{v1::*, CipherBlob};
 
     #[test]
     fn test_versioned_enum_format() {

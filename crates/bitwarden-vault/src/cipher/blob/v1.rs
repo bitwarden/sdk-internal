@@ -2,10 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::cipher::{
-    field::FieldType,
-    linked_id::LinkedIdType,
-    login::UriMatchType,
-    secure_note::SecureNoteType,
+    field::FieldType, linked_id::LinkedIdType, login::UriMatchType, secure_note::SecureNoteType,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
