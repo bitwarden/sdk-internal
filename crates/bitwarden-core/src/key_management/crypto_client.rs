@@ -1,6 +1,8 @@
 #[cfg(feature = "wasm")]
 use bitwarden_crypto::safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace};
-use bitwarden_crypto::{CryptoError, Decryptable, Kdf, RotateableKeySet, SymmetricKeyAlgorithm};
+use bitwarden_crypto::{
+    CryptoError, Decryptable, Kdf, PrimitiveEncryptable, RotateableKeySet, SymmetricKeyAlgorithm,
+};
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
 use bitwarden_encoding::B64;
@@ -146,6 +148,36 @@ impl CryptoClient {
         #[allow(deprecated)]
         let key = ctx.dangerous_get_symmetric_key(key_slot)?;
         Ok(key.to_encoded().to_vec())
+    }
+
+    /// A stop gap-solution for encrypting with the local user data key, until the WASM client's
+    /// password generator history encryption and email forwarders encryption is fully migrated to
+    /// SDK.
+    pub fn encrypt_with_local_user_data_key(
+        &self,
+        plaintext: String,
+    ) -> Result<String, CryptoClientError> {
+        let mut ctx = self.client.internal.get_key_store().context_mut();
+        plaintext
+            .encrypt(&mut ctx, SymmetricKeyId::LocalUserData)
+            .map_err(CryptoClientError::Crypto)
+            .map(|enc| enc.to_string())
+    }
+
+    /// A stop gap-solution for decrypting with the local user data key, until the WASM client's
+    /// password generator history encryption and email forwarders encryption is fully migrated to
+    /// SDK.
+    pub fn decrypt_with_local_user_data_key(
+        &self,
+        encrypted_plaintext: String,
+    ) -> Result<String, CryptoClientError> {
+        let mut ctx = self.client.internal.get_key_store().context_mut();
+        let encrypted: EncString = encrypted_plaintext
+            .parse()
+            .map_err(CryptoClientError::Crypto)?;
+        encrypted
+            .decrypt(&mut ctx, SymmetricKeyId::LocalUserData)
+            .map_err(CryptoClientError::Crypto)
     }
 }
 
