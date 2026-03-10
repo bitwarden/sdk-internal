@@ -47,6 +47,16 @@ pub struct SsoCookieVendorConfig {
     pub cookie_name: Option<String>,
     /// Cookie domain for validation
     pub cookie_domain: Option<String>,
+    /// Vault URL for cookie acquisition redirect
+    ///
+    /// This is the full vault URL (scheme + host + port) where the browser
+    /// should be redirected for SSO cookie acquisition. Using an explicit
+    /// vault_url fixes two problems:
+    /// 1. Port preservation: localhost:8000 vs localhost (missing port)
+    /// 2. Multi-subdomain: api.bitwarden.com vs vault.bitwarden.com
+    ///
+    /// Extracted from /api/config response.environment.vault field.
+    pub vault_url: String,
     /// Acquired cookies
     ///
     /// For sharded cookies, this contains multiple entries with names like
@@ -62,6 +72,7 @@ impl std::fmt::Debug for SsoCookieVendorConfig {
             .field("idp_login_url", &self.idp_login_url)
             .field("cookie_name", &self.cookie_name)
             .field("cookie_domain", &self.cookie_domain)
+            .field("vault_url", &self.vault_url)
             .field(
                 "cookie_value",
                 &self.cookie_value.as_ref().map(|_| "[REDACTED]"),
@@ -94,6 +105,7 @@ mod tests {
                 idp_login_url: Some("https://timeloop-auth.acme.com/login".to_string()),
                 cookie_name: Some("ALBAuthSessionCookie".to_string()),
                 cookie_domain: Some("vault.example.com".to_string()),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: None,
             }),
         };
@@ -146,6 +158,7 @@ mod tests {
             idp_login_url: Some("https://example.com".to_string()),
             cookie_name: Some("TestCookie".to_string()),
             cookie_domain: Some("example.com".to_string()),
+            vault_url: "https://vault.example.com".to_string(),
             cookie_value: None,
         };
 
@@ -158,6 +171,7 @@ mod tests {
             idp_login_url: Some("https://example.com".to_string()),
             cookie_name: Some("TestCookie".to_string()),
             cookie_domain: Some("example.com".to_string()),
+            vault_url: "https://vault.example.com".to_string(),
             cookie_value: Some(vec![AcquiredCookie {
                 name: "TestCookie".to_string(),
                 value: "eyJhbGciOiJFUzI1NiIsImtpZCI6Im...".to_string(),
@@ -177,6 +191,7 @@ mod tests {
             idp_login_url: Some("https://example.com".to_string()),
             cookie_name: Some("TestCookie".to_string()),
             cookie_domain: Some("example.com".to_string()),
+            vault_url: "https://vault.example.com".to_string(),
             cookie_value: Some(vec![
                 AcquiredCookie {
                     name: "TestCookie-0".to_string(),
@@ -212,6 +227,7 @@ mod tests {
             idp_login_url: Some("https://example.com".to_string()),
             cookie_name: Some("Cookie".to_string()),
             cookie_domain: Some("example.com".to_string()),
+            vault_url: "https://vault.example.com".to_string(),
             cookie_value: None,
         });
         assert!(matches!(vendor, BootstrapConfig::SsoCookieVendor(_)));
@@ -226,6 +242,7 @@ mod tests {
             idp_login_url: Some("https://example.com/login".to_string()),
             cookie_name: Some("SessionCookie".to_string()),
             cookie_domain: Some("example.com".to_string()),
+            vault_url: "https://vault.example.com".to_string(),
             cookie_value: Some(vec![AcquiredCookie {
                 name: "SessionCookie".to_string(),
                 value: "super-secret-cookie-value-abc123".to_string(),
