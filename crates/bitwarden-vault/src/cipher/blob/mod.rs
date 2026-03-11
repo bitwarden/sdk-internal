@@ -6,7 +6,8 @@ use bitwarden_crypto::{
     generate_versioned_sealable,
     safe::{DataEnvelopeNamespace, SealableData, SealableVersionedData},
 };
-pub(crate) use sealed::{SealedCipherBlob, SealedCipherBlobError};
+#[allow(unused_imports)]
+use sealed::{SealedCipherBlob, SealedCipherBlobError};
 use serde::{Deserialize, Serialize};
 use v1::CipherBlobV1;
 
