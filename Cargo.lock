@@ -667,6 +667,7 @@ version = "2.0.0"
 dependencies = [
  "aes 0.8.4",
  "argon2",
+ "bitwarden-api-key-connector",
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-uniffi-error",
