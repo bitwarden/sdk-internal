@@ -57,12 +57,12 @@ bitwarden-user-crypto-management = { path = "crates/bitwarden-user-crypto-manage
 bitwarden-uuid = { path = "crates/bitwarden-uuid", version = "=2.0.0" }
 bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=2.0.0" }
 bitwarden-vault = { path = "crates/bitwarden-vault", version = "=2.0.0" }
-ciborium = ">=0.2.2, <0.3"
 chrono = { version = ">=0.4.26, <0.5", features = [
     "clock",
     "serde",
     "std",
 ], default-features = false }
+ciborium = ">=0.2.2, <0.3"
 data-encoding = ">=2.0, <3"
 ed25519-dalek = { version = ">=2.1.1, <=2.2.0" }
 futures = ">=0.3.31, <0.4"
