@@ -58,11 +58,6 @@ mod local_user_data_key_state;
 
 use crate::{OrganizationId, UserId};
 
-#[cfg(feature = "internal")]
-mod account_keys;
-#[cfg(feature = "internal")]
-pub use account_keys::{AccountKeysData, AccountKeysError};
-
 /// Represents the decrypted symmetric user-key of a user. This is held in ephemeral state of the
 /// client.
 #[derive(Serialize, Deserialize, Debug, Clone)]

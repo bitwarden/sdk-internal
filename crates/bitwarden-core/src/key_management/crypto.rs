@@ -1169,6 +1169,8 @@ pub struct MakeUserMasterPasswordRegistrationResponse {
     pub master_password_authentication_data: MasterPasswordAuthenticationData,
     /// The request model for account cryptographic key state
     pub account_keys_request: AccountKeysRequestModel,
+    /// The user's user key
+    pub user_key: SymmetricCryptoKey,
 }
 
 /// Creates cryptographic data needed for user master password registration
@@ -1184,6 +1186,9 @@ pub(crate) fn make_user_password_registration(
         .map_err(MakeKeysError::AccountCryptographyInitialization)?;
 
     let kdf = Kdf::default_argon2();
+
+    #[expect(deprecated)]
+    let user_key = ctx.dangerous_get_symmetric_key(user_key_id)?.to_owned();
 
     let master_password_unlock_data =
         MasterPasswordUnlockData::derive(&master_password, &kdf, &salt, user_key_id, &ctx)
@@ -1202,6 +1207,7 @@ pub(crate) fn make_user_password_registration(
         master_password_unlock_data,
         master_password_authentication_data,
         account_keys_request,
+        user_key,
     })
 }
 
