@@ -92,6 +92,7 @@ pub trait PreviewInvoiceApi: Send + Sync {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
         preview_organization_subscription_plan_change_tax_request: Option<
             models::PreviewOrganizationSubscriptionPlanChangeTaxRequest,
         >,
@@ -100,6 +101,54 @@ pub trait PreviewInvoiceApi: Send + Sync {
     /// POST /billing/preview-invoice/organizations/subscriptions/purchase
     async fn preview_organization_subscription_purchase_tax<'a>(
         &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
         preview_organization_subscription_purchase_tax_request: Option<
             models::PreviewOrganizationSubscriptionPurchaseTaxRequest,
         >,
@@ -171,6 +220,7 @@ pub trait PreviewInvoiceApi: Send + Sync {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
         preview_organization_subscription_update_tax_request: Option<
             models::PreviewOrganizationSubscriptionUpdateTaxRequest,
         >,
@@ -179,6 +229,54 @@ pub trait PreviewInvoiceApi: Send + Sync {
     /// POST /billing/preview-invoice/premium/subscriptions/purchase
     async fn preview_premium_subscription_purchase_tax<'a>(
         &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
         preview_premium_subscription_purchase_tax_request: Option<
             models::PreviewPremiumSubscriptionPurchaseTaxRequest,
         >,
@@ -234,6 +332,7 @@ pub trait PreviewInvoiceApi: Send + Sync {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
         preview_premium_upgrade_proration_request: Option<
             models::PreviewPremiumUpgradeProrationRequest,
         >,
@@ -318,6 +417,7 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
         preview_organization_subscription_plan_change_tax_request: Option<
             models::PreviewOrganizationSubscriptionPlanChangeTaxRequest,
         >,
@@ -584,6 +684,10 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_my_items {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useMyItems", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&preview_organization_subscription_plan_change_tax_request);
@@ -609,6 +713,54 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
 
     async fn preview_organization_subscription_purchase_tax<'a>(
         &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
         preview_organization_subscription_purchase_tax_request: Option<
             models::PreviewOrganizationSubscriptionPurchaseTaxRequest,
         >,
@@ -624,6 +776,190 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("id", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = name {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("name", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("email", &email.to_string())]);
+        if let Some(ref param_value) = email_verified {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("emailVerified", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPassword", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password_hint {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordHint", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = culture {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("culture", &param_value.to_string())]);
+        }
+        local_var_req_builder =
+            local_var_req_builder.query(&[("securityStamp", &security_stamp.to_string())]);
+        if let Some(ref param_value) = two_factor_providers {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorProviders", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = two_factor_recovery_code {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorRecoveryCode", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = equivalent_domains {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("equivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = excluded_global_equivalent_domains {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("excludedGlobalEquivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = account_revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("accountRevisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("key", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("publicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = private_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("privateKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = signed_public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("signedPublicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_version {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityVersion", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_state {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityState", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premium", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium_expiration_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premiumExpirationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = renewal_reminder_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("renewalReminderDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = storage {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("storage", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = max_storage_gb {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("maxStorageGb", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gateway", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_customer_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_subscription_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = reference_data {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("referenceData", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = license_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("licenseKey", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("apiKey", &api_key.to_string())]);
+        if let Some(ref param_value) = kdf {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdf", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_iterations {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfIterations", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_memory {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfMemory", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_parallelism {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfParallelism", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = creation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("creationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("revisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = force_password_reset {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("forcePasswordReset", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = uses_key_connector {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usesKeyConnector", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = failed_login_count {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("failedLoginCount", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_failed_login_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastFailedLoginDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = avatar_color {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("avatarColor", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_password_change_date {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("lastPasswordChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_kdf_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKdfChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_key_rotation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKeyRotationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_email_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastEmailChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = verify_devices {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("verifyDevices", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = v2_upgrade_token {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password_salt {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordSalt", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&preview_organization_subscription_purchase_tax_request);
@@ -712,6 +1048,7 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
         preview_organization_subscription_update_tax_request: Option<
             models::PreviewOrganizationSubscriptionUpdateTaxRequest,
         >,
@@ -978,6 +1315,10 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_my_items {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useMyItems", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&preview_organization_subscription_update_tax_request);
@@ -1003,6 +1344,54 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
 
     async fn preview_premium_subscription_purchase_tax<'a>(
         &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
         preview_premium_subscription_purchase_tax_request: Option<
             models::PreviewPremiumSubscriptionPurchaseTaxRequest,
         >,
@@ -1018,6 +1407,190 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("id", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = name {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("name", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("email", &email.to_string())]);
+        if let Some(ref param_value) = email_verified {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("emailVerified", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPassword", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password_hint {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordHint", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = culture {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("culture", &param_value.to_string())]);
+        }
+        local_var_req_builder =
+            local_var_req_builder.query(&[("securityStamp", &security_stamp.to_string())]);
+        if let Some(ref param_value) = two_factor_providers {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorProviders", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = two_factor_recovery_code {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorRecoveryCode", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = equivalent_domains {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("equivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = excluded_global_equivalent_domains {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("excludedGlobalEquivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = account_revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("accountRevisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("key", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("publicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = private_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("privateKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = signed_public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("signedPublicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_version {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityVersion", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_state {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityState", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premium", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium_expiration_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premiumExpirationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = renewal_reminder_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("renewalReminderDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = storage {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("storage", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = max_storage_gb {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("maxStorageGb", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gateway", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_customer_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_subscription_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = reference_data {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("referenceData", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = license_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("licenseKey", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("apiKey", &api_key.to_string())]);
+        if let Some(ref param_value) = kdf {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdf", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_iterations {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfIterations", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_memory {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfMemory", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_parallelism {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfParallelism", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = creation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("creationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("revisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = force_password_reset {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("forcePasswordReset", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = uses_key_connector {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usesKeyConnector", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = failed_login_count {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("failedLoginCount", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_failed_login_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastFailedLoginDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = avatar_color {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("avatarColor", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_password_change_date {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("lastPasswordChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_kdf_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKdfChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_key_rotation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKeyRotationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_email_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastEmailChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = verify_devices {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("verifyDevices", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = v2_upgrade_token {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password_salt {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordSalt", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&preview_premium_subscription_purchase_tax_request);
@@ -1090,6 +1663,7 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
         preview_premium_upgrade_proration_request: Option<
             models::PreviewPremiumUpgradeProrationRequest,
         >,
@@ -1284,6 +1858,10 @@ impl PreviewInvoiceApi for PreviewInvoiceApiClient {
         if let Some(ref param_value) = v2_upgrade_token {
             local_var_req_builder =
                 local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password_salt {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordSalt", &param_value.to_string())]);
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =

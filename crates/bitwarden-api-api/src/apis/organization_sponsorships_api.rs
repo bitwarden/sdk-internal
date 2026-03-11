@@ -26,10 +26,10 @@ use crate::{
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait OrganizationSponsorshipsApi: Send + Sync {
-    /// DELETE /organization/sponsorship/{sponsoringOrgId}/{sponsoredFriendlyName}/revoke
+    /// DELETE /organization/sponsorship/{organizationId}/{sponsoredFriendlyName}/revoke
     async fn admin_initiated_revoke_sponsorship<'a>(
         &self,
-        sponsoring_org_id: uuid::Uuid,
+        organization_id: uuid::Uuid,
         sponsored_friendly_name: &'a str,
     ) -> Result<(), Error<AdminInitiatedRevokeSponsorshipError>>;
 
@@ -78,10 +78,10 @@ pub trait OrganizationSponsorshipsApi: Send + Sync {
         sponsored_org_id: uuid::Uuid,
     ) -> Result<(), Error<RemoveSponsorshipError>>;
 
-    /// POST /organization/sponsorship/{sponsoringOrgId}/families-for-enterprise/resend
+    /// POST /organization/sponsorship/{organizationId}/families-for-enterprise/resend
     async fn resend_sponsorship_offer<'a>(
         &self,
-        sponsoring_org_id: uuid::Uuid,
+        organization_id: uuid::Uuid,
         sponsored_friendly_name: Option<&'a str>,
     ) -> Result<(), Error<ResendSponsorshipOfferError>>;
 
@@ -115,7 +115,7 @@ impl OrganizationSponsorshipsApiClient {
 impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
     async fn admin_initiated_revoke_sponsorship<'a>(
         &self,
-        sponsoring_org_id: uuid::Uuid,
+        organization_id: uuid::Uuid,
         sponsored_friendly_name: &'a str,
     ) -> Result<(), Error<AdminInitiatedRevokeSponsorshipError>> {
         let local_var_configuration = &self.configuration;
@@ -123,9 +123,9 @@ impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
         let local_var_client = &local_var_configuration.client;
 
         let local_var_uri_str = format!(
-            "{}/organization/sponsorship/{sponsoringOrgId}/{sponsoredFriendlyName}/revoke",
+            "{}/organization/sponsorship/{organizationId}/{sponsoredFriendlyName}/revoke",
             local_var_configuration.base_path,
-            sponsoringOrgId = sponsoring_org_id,
+            organizationId = organization_id,
             sponsoredFriendlyName = crate::apis::urlencode(sponsored_friendly_name)
         );
         let mut local_var_req_builder =
@@ -432,7 +432,7 @@ impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
 
     async fn resend_sponsorship_offer<'a>(
         &self,
-        sponsoring_org_id: uuid::Uuid,
+        organization_id: uuid::Uuid,
         sponsored_friendly_name: Option<&'a str>,
     ) -> Result<(), Error<ResendSponsorshipOfferError>> {
         let local_var_configuration = &self.configuration;
@@ -440,9 +440,9 @@ impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
         let local_var_client = &local_var_configuration.client;
 
         let local_var_uri_str = format!(
-            "{}/organization/sponsorship/{sponsoringOrgId}/families-for-enterprise/resend",
+            "{}/organization/sponsorship/{organizationId}/families-for-enterprise/resend",
             local_var_configuration.base_path,
-            sponsoringOrgId = sponsoring_org_id
+            organizationId = organization_id
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
