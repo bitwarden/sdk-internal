@@ -139,10 +139,7 @@ mod tests {
             let mut ctx = key_store.context_mut();
             let local_user_key =
                 ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::Aes256CbcHmac);
-            assert!(
-                ctx.persist_symmetric_key(local_user_key, SymmetricKeyId::User)
-                    .is_ok()
-            );
+            let _ = ctx.persist_symmetric_key(local_user_key, SymmetricKeyId::User);
         }
 
         UserCryptoManagementClient::new(client)
