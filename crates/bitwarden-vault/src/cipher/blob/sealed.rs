@@ -7,14 +7,14 @@ use bitwarden_encoding::B64;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use super::{CipherBlob, CipherBlobLatest};
-use crate::cipher::blob::v1::CipherBlobV1;
+use super::CipherBlob;
 
 const FORMAT_VERSION: u8 = 1;
 
 /// Error type for `SealedCipherBlob` operations.
+#[allow(dead_code)]
 #[derive(Debug, Error)]
-pub(crate) enum SealedCipherBlobError {
+pub(super) enum SealedCipherBlobError {
     #[error("Unsupported format version: {0}")]
     UnsupportedFormatVersion(u8),
     #[error("CBOR encoding error")]
@@ -30,17 +30,19 @@ pub(crate) enum SealedCipherBlobError {
 /// Sealed container that packages a wrapped CEK and encrypted `DataEnvelope` together.
 ///
 /// Serializable into the `Cipher.data: Option<String>` field.
+#[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub(crate) struct SealedCipherBlob {
+pub(super) struct SealedCipherBlob {
     format_version: u8,
     wrapped_cek: EncString,
     envelope: DataEnvelope,
 }
 
+#[allow(dead_code)]
 impl SealedCipherBlob {
     /// Seals a `CipherBlob` into a `SealedCipherBlob` by encrypting it with a new CEK
     /// wrapped by the provided wrapping key.
-    pub(crate) fn seal(
+    pub(super) fn seal(
         data: CipherBlob,
         wrapping_key: &SymmetricKeyId,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -55,7 +57,7 @@ impl SealedCipherBlob {
     }
 
     /// Unseals the `CipherBlob` from this container using the provided wrapping key.
-    pub(crate) fn unseal(
+    pub(super) fn unseal(
         &self,
         wrapping_key: &SymmetricKeyId,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -71,7 +73,7 @@ impl SealedCipherBlob {
     }
 
     /// Serializes this container into an opaque base64-encoded CBOR string.
-    pub(crate) fn to_opaque_string(&self) -> Result<String, SealedCipherBlobError> {
+    pub(super) fn to_opaque_string(&self) -> Result<String, SealedCipherBlobError> {
         let mut buf = Vec::new();
         ciborium::ser::into_writer(self, &mut buf)
             .map_err(|_| SealedCipherBlobError::CborEncodingError)?;
@@ -79,7 +81,7 @@ impl SealedCipherBlob {
     }
 
     /// Deserializes a `SealedCipherBlob` from an opaque base64-encoded CBOR string.
-    pub(crate) fn from_opaque_string(s: &str) -> Result<Self, SealedCipherBlobError> {
+    pub(super) fn from_opaque_string(s: &str) -> Result<Self, SealedCipherBlobError> {
         let bytes = B64::try_from(s)
             .map_err(|_| SealedCipherBlobError::Base64DecodingError)?
             .into_bytes();
