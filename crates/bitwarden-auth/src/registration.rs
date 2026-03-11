@@ -13,8 +13,7 @@ use bitwarden_api_identity::models::RegisterFinishRequestModel;
 use bitwarden_core::{
     Client, OrganizationId, UserId,
     key_management::{
-        AccountKeysData, MasterPasswordAuthenticationData, MasterPasswordUnlockData,
-        account_cryptographic_state::WrappedAccountCryptographicState,
+        MasterPasswordUnlockData, account_cryptographic_state::WrappedAccountCryptographicState,
     },
 };
 use bitwarden_crypto::EncString;
@@ -526,9 +525,10 @@ async fn internal_post_user_password_registration(
         .crypto()
         .make_user_password_registration(request.master_password, request.salt)
         .map_err(|_| RegistrationError::Crypto)?;
-    let account_keys_data: AccountKeysData = (&make_crypto_response.account_keys_request)
-        .try_into()
-        .map_err(|_| RegistrationError::Crypto)?;
+    let account_keys = Some(Box::new(
+        internal_account_keys_from_api_model(&make_crypto_response.account_keys_request)
+            .map_err(|_| RegistrationError::Crypto)?,
+    ));
 
     let api_request = RegisterFinishRequestModel {
         email: Some(request.email),
@@ -539,7 +539,7 @@ async fn internal_post_user_password_registration(
         master_password_authentication: Some(Box::new(
             (&make_crypto_response.master_password_authentication_data).into(),
         )),
-        account_keys: Some(Box::new((&account_keys_data).into())),
+        account_keys,
         email_verification_token: request.email_verification_token,
         organization_user_id: request.organization_user_id.map(Into::into),
         org_invite_token: (request.org_invite_token),
@@ -570,8 +570,55 @@ async fn internal_post_user_password_registration(
     Ok(UserMasterPasswordRegistrationResponse {
         account_cryptographic_state: make_crypto_response.account_cryptographic_state,
         master_password_unlock: make_crypto_response.master_password_unlock_data,
-        master_password_authentication: make_crypto_response.master_password_authentication_data,
-        account_keys_request: account_keys_data,
+        user_key: make_crypto_response.user_key.to_encoded().to_vec().into(),
+    })
+}
+
+fn internal_account_keys_from_api_model(
+    input_model: &bitwarden_api_api::models::AccountKeysRequestModel,
+) -> Result<bitwarden_api_identity::models::AccountKeysRequestModel, RegistrationError> {
+    let public_key_encryption_key_pair =
+        input_model
+            .public_key_encryption_key_pair
+            .as_deref()
+            .map(|pair| {
+                Box::new(
+                    bitwarden_api_identity::models::PublicKeyEncryptionKeyPairRequestModel {
+                        wrapped_private_key: pair.wrapped_private_key.clone(),
+                        public_key: pair.public_key.clone(),
+                        signed_public_key: pair.signed_public_key.clone(),
+                    },
+                )
+            });
+
+    let signature_key_pair = input_model.signature_key_pair.as_deref().map(|pair| {
+        Box::new(
+            bitwarden_api_identity::models::SignatureKeyPairRequestModel {
+                signature_algorithm: pair.signature_algorithm.clone(),
+                wrapped_signing_key: pair.wrapped_signing_key.clone(),
+                verifying_key: pair.verifying_key.clone(),
+            },
+        )
+    });
+
+    let security_state = input_model.security_state.as_deref().map(|state| {
+        Box::new(bitwarden_api_identity::models::SecurityStateModel {
+            security_state: state.security_state.clone(),
+            security_version: state.security_version,
+        })
+    });
+
+    let user_key_encrypted_account_private_key =
+        input_model.user_key_encrypted_account_private_key.clone();
+
+    let account_public_key = input_model.account_public_key.clone();
+
+    Ok(bitwarden_api_identity::models::AccountKeysRequestModel {
+        public_key_encryption_key_pair,
+        signature_key_pair,
+        security_state,
+        user_key_encrypted_account_private_key,
+        account_public_key,
     })
 }
 
@@ -588,10 +635,8 @@ pub struct UserMasterPasswordRegistrationResponse {
     pub account_cryptographic_state: WrappedAccountCryptographicState,
     /// The master password unlock data
     pub master_password_unlock: MasterPasswordUnlockData,
-    /// The master password authentication data
-    pub master_password_authentication: MasterPasswordAuthenticationData,
-    /// The asymmetric account keys data
-    pub account_keys_request: AccountKeysData,
+    /// The decrypted user key. This can be used to get the consuming client to an unlocked state.
+    pub user_key: B64,
 }
 
 /// Errors that can occur during user registration.
