@@ -77,6 +77,7 @@ pub trait SelfHostedAccountBillingVNextApi: Send + Sync {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
     ) -> Result<(), Error<UploadLicenseError>>;
 }
 
@@ -143,6 +144,7 @@ impl SelfHostedAccountBillingVNextApi for SelfHostedAccountBillingVNextApiClient
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
     ) -> Result<(), Error<UploadLicenseError>> {
         let local_var_configuration = &self.configuration;
 
@@ -334,6 +336,10 @@ impl SelfHostedAccountBillingVNextApi for SelfHostedAccountBillingVNextApiClient
         if let Some(ref param_value) = v2_upgrade_token {
             local_var_req_builder =
                 local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password_salt {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordSalt", &param_value.to_string())]);
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         let mut local_var_form = reqwest::multipart::Form::new();

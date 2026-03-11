@@ -20,26 +20,21 @@ pub struct WebAuthnLoginAssertionOptionsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub object: Option<String>,
-    #[serde(
-        rename = "options",
-        alias = "Options",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub options: Option<Box<models::AssertionOptions>>,
-    #[serde(
-        rename = "token",
-        alias = "Token",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub token: Option<String>,
+    #[serde(rename = "options", alias = "Options")]
+    pub options: Box<models::AssertionOptions>,
+    #[serde(rename = "token", alias = "Token")]
+    pub token: String,
 }
 
 impl WebAuthnLoginAssertionOptionsResponseModel {
-    pub fn new() -> WebAuthnLoginAssertionOptionsResponseModel {
+    pub fn new(
+        options: models::AssertionOptions,
+        token: String,
+    ) -> WebAuthnLoginAssertionOptionsResponseModel {
         WebAuthnLoginAssertionOptionsResponseModel {
             object: None,
-            options: None,
-            token: None,
+            options: Box::new(options),
+            token,
         }
     }
 }

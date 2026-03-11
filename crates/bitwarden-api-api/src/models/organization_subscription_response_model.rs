@@ -299,6 +299,12 @@ pub struct OrganizationSubscriptionResponseModel {
     )]
     pub use_phishing_blocker: Option<bool>,
     #[serde(
+        rename = "useMyItems",
+        alias = "UseMyItems",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_my_items: Option<bool>,
+    #[serde(
         rename = "storageName",
         alias = "StorageName",
         skip_serializing_if = "Option::is_none"
@@ -395,6 +401,7 @@ impl OrganizationSubscriptionResponseModel {
             use_automatic_user_confirmation: None,
             use_disable_sm_ads_for_users: None,
             use_phishing_blocker: None,
+            use_my_items: None,
             storage_name: None,
             storage_gb: None,
             customer_discount: None,
