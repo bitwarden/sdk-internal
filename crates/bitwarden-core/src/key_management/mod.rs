@@ -10,7 +10,9 @@
 //!   [CompositeEncryptable](bitwarden_crypto::CompositeEncryptable), and
 //!   [Decryptable](bitwarden_crypto::Decryptable).
 
-use bitwarden_crypto::{EncString, KeyStore, SymmetricCryptoKey, key_ids};
+use bitwarden_crypto::{
+    EncString, KeyStore, SymmetricCryptoKey, key_ids, safe::PasswordProtectedKeyEnvelope,
+};
 
 #[cfg(feature = "internal")]
 pub mod account_cryptographic_state;
@@ -78,6 +80,16 @@ pub struct LocalUserDataKeyState {
 }
 
 bitwarden_state::register_repository_item!(UserId => LocalUserDataKeyState, "LocalUserDataKey");
+
+/// Represents the PIN envelope in memory, when ephemeral PIN unlock is used.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct EphemeralPinEnvelopeState {
+    pin_envelope: PasswordProtectedKeyEnvelope,
+}
+
+bitwarden_state::register_repository_item!(UserId => EphemeralPinEnvelopeState, "EphemeralPinEnvelope");
 
 key_ids! {
     #[symmetric]
