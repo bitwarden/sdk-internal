@@ -89,7 +89,7 @@ pub struct EphemeralPinEnvelopeState {
     pin_envelope: PasswordProtectedKeyEnvelope,
 }
 
-bitwarden_state::register_repository_item!(UserId => EphemeralPinEnvelopeState, "EphemeralPinEnvelope");
+bitwarden_state::register_repository_item!(String => EphemeralPinEnvelopeState, "EphemeralPinEnvelope");
 
 key_ids! {
     #[symmetric]
