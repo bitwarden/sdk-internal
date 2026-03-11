@@ -13,14 +13,16 @@ pub struct SyncArgs {
     pub last: bool,
 }
 
-/// Temporary sync implementation so you can call `bw sync` and have it do something.
-pub(crate) async fn execute_sync(client: PasswordManagerClient, _args: SyncArgs) -> CommandResult {
-    client
-        .sync()
-        .sync(SyncRequest {
-            exclude_subdomains: None,
-        })
-        .await?;
+impl SyncArgs {
+    /// Temporary sync implementation so you can call `bw sync` and have it do something.
+    pub(crate) async fn execute_sync(&self, client: PasswordManagerClient) -> CommandResult {
+        client
+            .sync()
+            .sync(SyncRequest {
+                exclude_subdomains: None,
+            })
+            .await?;
 
-    Ok(("Syncing complete.").into())
+        Ok(("Syncing complete.").into())
+    }
 }

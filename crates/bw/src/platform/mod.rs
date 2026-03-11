@@ -2,7 +2,7 @@ use clap::Subcommand;
 
 use crate::render::CommandResult;
 mod sync;
-pub(crate) use sync::{SyncArgs, execute_sync};
+pub(crate) use sync::SyncArgs;
 
 #[derive(Subcommand, Clone)]
 pub enum ConfigCommand {
