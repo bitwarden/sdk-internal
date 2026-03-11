@@ -1,5 +1,6 @@
 use std::pin::Pin;
 
+use bitwarden_api_key_connector::models::user_key_response_model::UserKeyResponseModel;
 use bitwarden_encoding::B64;
 use generic_array::GenericArray;
 use rand::Rng;
@@ -80,6 +81,22 @@ impl std::fmt::Debug for KeyConnectorKey {
 impl From<KeyConnectorKey> for B64 {
     fn from(key: KeyConnectorKey) -> Self {
         B64::from(key.0.as_slice())
+    }
+}
+
+impl TryFrom<UserKeyResponseModel> for KeyConnectorKey {
+    type Error = CryptoError;
+
+    fn try_from(s: UserKeyResponseModel) -> Result<Self, Self::Error> {
+        let bytes = B64::try_from(s.key).map_err(|_| CryptoError::InvalidKey)?;
+
+        if bytes.as_bytes().len() != 32 {
+            return Err(CryptoError::InvalidKeyLen);
+        }
+
+        Ok(KeyConnectorKey(Box::pin(GenericArray::clone_from_slice(
+            bytes.as_bytes(),
+        ))))
     }
 }
 

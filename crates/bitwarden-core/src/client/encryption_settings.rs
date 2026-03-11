@@ -40,6 +40,21 @@ pub enum EncryptionSettingsError {
 
     #[error("Unable to retrieve user-key from state")]
     UserKeyStateRetrievalFailed,
+
+    #[error("Invalid upgrade token")]
+    InvalidUpgradeToken,
+
+    /// Retrieval of the key-connector-key from key-connector failed
+    #[error("Key connector retrieval failed")]
+    KeyConnectorRetrievalFailed,
+
+    /// The local user data key could not be initialized.
+    #[error("Unable to initialize local user data key")]
+    LocalUserDataKeyInitFailed,
+
+    /// The local user data key could not be loaded into the key store context.
+    #[error("Unable to load local user data key into key store")]
+    LocalUserDataKeyLoadFailed,
 }
 
 #[allow(missing_docs)]

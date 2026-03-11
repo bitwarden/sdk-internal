@@ -498,6 +498,7 @@ pub struct DecryptCipherListResult {
 /// This struct contains two vectors: `successes` and `failures`.
 /// `successes` contains the decrypted `CipherView` objects,
 /// while `failures` contains the original `Cipher` objects that failed to decrypt.
+#[cfg(feature = "wasm")]
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -738,16 +739,17 @@ impl CipherView {
     pub fn generate_cipher_key(
         &mut self,
         ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        wrapping_key: SymmetricKeyId,
     ) -> Result<(), CryptoError> {
-        let old_ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+        let old_unwrapping_key = self.key_identifier();
+        let old_ciphers_key = Cipher::decrypt_cipher_key(ctx, old_unwrapping_key, &self.key)?;
 
         let new_key = ctx.generate_symmetric_key();
 
         self.reencrypt_attachment_keys(ctx, old_ciphers_key, new_key)?;
         self.reencrypt_fido2_credentials(ctx, old_ciphers_key, new_key)?;
 
-        self.key = Some(ctx.wrap_symmetric_key(key, new_key)?);
+        self.key = Some(ctx.wrap_symmetric_key(wrapping_key, new_key)?);
         Ok(())
     }
 
