@@ -61,10 +61,10 @@ pub(crate) struct Fido2CredentialDataV1 {
     pub rp_id: String,
     pub user_handle: Option<String>,
     pub user_name: Option<String>,
-    pub counter: String,
+    pub counter: u64,
     pub rp_name: Option<String>,
     pub user_display_name: Option<String>,
-    pub discoverable: String,
+    pub discoverable: bool,
     pub creation_date: DateTime<Utc>,
 }
 
