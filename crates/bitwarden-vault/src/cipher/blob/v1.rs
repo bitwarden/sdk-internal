@@ -48,7 +48,6 @@ pub(crate) struct LoginDataV1 {
 pub(crate) struct LoginUriDataV1 {
     pub uri: Option<String>,
     pub r#match: Option<UriMatchType>,
-    pub uri_checksum: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
