@@ -62,7 +62,7 @@ impl PasswordManagerClient {
     /// Initialize a new instance of the SDK client with SDK managed state and sync handlers
     /// registered
     ///
-    /// This is a temporary method until the SDK fully owns sync on all clients.
+    /// This will eventually replace `new` when the SDK fully owns sync on all clients.
     pub fn new_with_sync(settings: Option<bitwarden_core::ClientSettings>) -> Result<Self, String> {
         let client = Self::new(settings);
 
