@@ -31,7 +31,7 @@ pub struct UpgradePremiumToOrganizationRequest {
     #[serde(rename = "targetProductTierType", alias = "TargetProductTierType")]
     pub target_product_tier_type: models::ProductTierType,
     #[serde(rename = "billingAddress", alias = "BillingAddress")]
-    pub billing_address: Box<models::MinimalBillingAddressRequest>,
+    pub billing_address: Box<models::CheckoutBillingAddressRequest>,
 }
 
 impl UpgradePremiumToOrganizationRequest {
@@ -41,7 +41,7 @@ impl UpgradePremiumToOrganizationRequest {
         public_key: String,
         encrypted_private_key: String,
         target_product_tier_type: models::ProductTierType,
-        billing_address: models::MinimalBillingAddressRequest,
+        billing_address: models::CheckoutBillingAddressRequest,
     ) -> UpgradePremiumToOrganizationRequest {
         UpgradePremiumToOrganizationRequest {
             organization_name,

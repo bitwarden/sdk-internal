@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`8d9ace60e2d50fa4d48865281b97ec75f0e4484d`](https://github.com/bitwarden/server/commit/8d9ace60e2d50fa4d48865281b97ec75f0e4484d)
+  [`79089a06c6a812f05754db6b8fa274d78997b6a3`](https://github.com/bitwarden/server/commit/79089a06c6a812f05754db6b8fa274d78997b6a3)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -95,6 +95,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _AccountsBillingApi_                      | [**get_transactions**](docs/AccountsBillingApi.md#accounts_billing_get_transactions)                                                                             | **GET** /accounts/billing/transactions                                                                   |
 | _AccountsKeyManagementApi_                | [**get_key_connector_confirmation_details**](docs/AccountsKeyManagementApi.md#accounts_key_management_get_key_connector_confirmation_details)                    | **GET** /accounts/key-connector/confirmation-details/{orgSsoIdentifier}                                  |
 | _AccountsKeyManagementApi_                | [**post_convert_to_key_connector**](docs/AccountsKeyManagementApi.md#accounts_key_management_post_convert_to_key_connector)                                      | **POST** /accounts/convert-to-key-connector                                                              |
+| _AccountsKeyManagementApi_                | [**post_enroll_to_key_connector**](docs/AccountsKeyManagementApi.md#accounts_key_management_post_enroll_to_key_connector)                                        | **POST** /accounts/key-connector/enroll                                                                  |
 | _AccountsKeyManagementApi_                | [**post_set_key_connector_key**](docs/AccountsKeyManagementApi.md#accounts_key_management_post_set_key_connector_key)                                            | **POST** /accounts/set-key-connector-key                                                                 |
 | _AccountsKeyManagementApi_                | [**regenerate_keys**](docs/AccountsKeyManagementApi.md#accounts_key_management_regenerate_keys)                                                                  | **POST** /accounts/key-management/regenerate-keys                                                        |
 | _AccountsKeyManagementApi_                | [**rotate_user_account_keys**](docs/AccountsKeyManagementApi.md#accounts_key_management_rotate_user_account_keys)                                                | **POST** /accounts/key-management/rotate-user-account-keys                                               |
@@ -112,6 +113,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _CiphersApi_                              | [**delete_attachment_admin**](docs/CiphersApi.md#ciphers_delete_attachment_admin)                                                                                | **DELETE** /ciphers/{id}/attachment/{attachmentId}/admin                                                 |
 | _CiphersApi_                              | [**delete_many**](docs/CiphersApi.md#ciphers_delete_many)                                                                                                        | **DELETE** /ciphers                                                                                      |
 | _CiphersApi_                              | [**delete_many_admin**](docs/CiphersApi.md#ciphers_delete_many_admin)                                                                                            | **DELETE** /ciphers/admin                                                                                |
+| _CiphersApi_                              | [**download_attachment**](docs/CiphersApi.md#ciphers_download_attachment)                                                                                        | **GET** /ciphers/attachment/download                                                                     | Serves a locally stored attachment file using a time-limited, signed token. This endpoint replaces direct static file access for self-hosted environments to ensure that only authorized users can download attachment files.                                                                                                               |
 | _CiphersApi_                              | [**get**](docs/CiphersApi.md#ciphers_get)                                                                                                                        | **GET** /ciphers/{id}                                                                                    |
 | _CiphersApi_                              | [**get_admin**](docs/CiphersApi.md#ciphers_get_admin)                                                                                                            | **GET** /ciphers/{id}/admin                                                                              |
 | _CiphersApi_                              | [**get_all**](docs/CiphersApi.md#ciphers_get_all)                                                                                                                | **GET** /ciphers                                                                                         |
@@ -329,7 +331,6 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationsApi_                        | [**get**](docs/OrganizationsApi.md#organizations_get)                                                                                                            | **GET** /organizations/{id}                                                                              |
 | _OrganizationsApi_                        | [**get_auto_enroll_status**](docs/OrganizationsApi.md#organizations_get_auto_enroll_status)                                                                      | **GET** /organizations/{identifier}/auto-enroll-status                                                   |
 | _OrganizationsApi_                        | [**get_license**](docs/OrganizationsApi.md#organizations_get_license)                                                                                            | **GET** /organizations/{id}/license                                                                      |
-| _OrganizationsApi_                        | [**get_plan_type**](docs/OrganizationsApi.md#organizations_get_plan_type)                                                                                        | **GET** /organizations/{id}/plan-type                                                                    |
 | _OrganizationsApi_                        | [**get_public_key**](docs/OrganizationsApi.md#organizations_get_public_key)                                                                                      | **GET** /organizations/{id}/public-key                                                                   |
 | _OrganizationsApi_                        | [**get_sso**](docs/OrganizationsApi.md#organizations_get_sso)                                                                                                    | **GET** /organizations/{id}/sso                                                                          |
 | _OrganizationsApi_                        | [**get_subscription**](docs/OrganizationsApi.md#organizations_get_subscription)                                                                                  | **GET** /organizations/{id}/subscription                                                                 |
@@ -682,6 +683,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [KdfRequestModel](docs/KdfRequestModel.md)
 - [KdfType](docs/KdfType.md)
 - [KeyConnectorConfirmationDetailsResponseModel](docs/KeyConnectorConfirmationDetailsResponseModel.md)
+- [KeyConnectorEnrollmentRequestModel](docs/KeyConnectorEnrollmentRequestModel.md)
 - [KeyModel](docs/KeyModel.md)
 - [KeyPairRequestBody](docs/KeyPairRequestBody.md)
 - [KeyRegenerationRequestModel](docs/KeyRegenerationRequestModel.md)

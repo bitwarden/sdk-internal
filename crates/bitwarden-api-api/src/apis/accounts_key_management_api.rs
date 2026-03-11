@@ -40,6 +40,12 @@ pub trait AccountsKeyManagementApi: Send + Sync {
         &self,
     ) -> Result<(), Error<PostConvertToKeyConnectorError>>;
 
+    /// POST /accounts/key-connector/enroll
+    async fn post_enroll_to_key_connector<'a>(
+        &self,
+        key_connector_enrollment_request_model: Option<models::KeyConnectorEnrollmentRequestModel>,
+    ) -> Result<(), Error<PostEnrollToKeyConnectorError>>;
+
     /// POST /accounts/set-key-connector-key
     async fn post_set_key_connector_key<'a>(
         &self,
@@ -157,6 +163,43 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
             Ok(())
         } else {
             let local_var_entity: Option<PostConvertToKeyConnectorError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
+    }
+
+    async fn post_enroll_to_key_connector<'a>(
+        &self,
+        key_connector_enrollment_request_model: Option<models::KeyConnectorEnrollmentRequestModel>,
+    ) -> Result<(), Error<PostEnrollToKeyConnectorError>> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/accounts/key-connector/enroll",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.json(&key_connector_enrollment_request_model);
+
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<PostEnrollToKeyConnectorError> =
                 serde_json::from_str(&local_var_content).ok();
             let local_var_error = ResponseContent {
                 status: local_var_status,
@@ -293,6 +336,12 @@ pub enum GetKeyConnectorConfirmationDetailsError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum PostConvertToKeyConnectorError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`AccountsKeyManagementApi::post_enroll_to_key_connector`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PostEnrollToKeyConnectorError {
     UnknownValue(serde_json::Value),
 }
 /// struct for typed errors of method [`AccountsKeyManagementApi::post_set_key_connector_key`]

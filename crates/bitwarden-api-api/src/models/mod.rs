@@ -332,6 +332,8 @@ pub mod kdf_type;
 pub use self::kdf_type::KdfType;
 pub mod key_connector_confirmation_details_response_model;
 pub use self::key_connector_confirmation_details_response_model::KeyConnectorConfirmationDetailsResponseModel;
+pub mod key_connector_enrollment_request_model;
+pub use self::key_connector_enrollment_request_model::KeyConnectorEnrollmentRequestModel;
 pub mod key_model;
 pub use self::key_model::KeyModel;
 pub mod key_pair_request_body;
