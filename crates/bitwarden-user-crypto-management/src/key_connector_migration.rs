@@ -1,6 +1,7 @@
 //! Client operations for migrating an initialized account to Key Connector unlock.
 
 use bitwarden_api_api::models::KeyConnectorEnrollmentRequestModel;
+use bitwarden_api_key_connector::models::user_key_request_model::UserKeyKeyRequestModel;
 use bitwarden_core::key_management::SymmetricKeyId;
 use bitwarden_crypto::{EncString, KeyConnectorKey};
 use bitwarden_encoding::B64;
@@ -82,10 +83,9 @@ async fn post_key_to_key_connector(
     key_connector_api_client: &bitwarden_api_key_connector::apis::ApiClient,
     key_connector_key: &B64,
 ) -> Result<(), MigrateToKeyConnectorError> {
-    let request =
-        bitwarden_api_key_connector::models::user_key_request_model::UserKeyKeyRequestModel {
-            key: key_connector_key.to_string(),
-        };
+    let request = UserKeyKeyRequestModel {
+        key: key_connector_key.to_string(),
+    };
 
     let result = if key_connector_api_client
         .user_keys_api()
