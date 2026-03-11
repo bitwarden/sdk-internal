@@ -9,7 +9,7 @@ use tracing_subscriber::{
     EnvFilter, prelude::__tracing_subscriber_SubscriberExt as _, util::SubscriberInitExt as _,
 };
 
-use crate::{command::*, render::CommandResult};
+use crate::{command::*, platform::execute_sync, render::CommandResult};
 
 mod admin_console;
 mod auth;
@@ -86,7 +86,7 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         Commands::Unlock(_args) => todo!(),
 
         // Platform commands
-        Commands::Sync { .. } => todo!(),
+        Commands::Sync(args) => execute_sync(client, args).await,
 
         Commands::Encode => {
             let input = std::io::read_to_string(std::io::stdin())?;
