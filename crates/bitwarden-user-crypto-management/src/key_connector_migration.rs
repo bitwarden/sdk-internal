@@ -1,5 +1,6 @@
 //! Client operations for migrating an initialized account to Key Connector unlock.
 
+use bitwarden_api_api::models::KeyConnectorEnrollmentRequestModel;
 use bitwarden_core::key_management::SymmetricKeyId;
 use bitwarden_crypto::{EncString, KeyConnectorKey};
 use bitwarden_encoding::B64;
@@ -64,7 +65,9 @@ async fn internal_migrate_to_key_connector(
     info!("Posting wrapped user key for key connector migration");
     api_client
         .accounts_key_management_api()
-        .post_convert_to_key_connector()
+        .post_enroll_to_key_connector(Some(KeyConnectorEnrollmentRequestModel {
+            key_connector_key_wrapped_user_key: Some(key_connector_key.to_string()),
+        }))
         .await
         .map_err(|e| {
             error!("Failed to post key connector migration request: {e:?}");
