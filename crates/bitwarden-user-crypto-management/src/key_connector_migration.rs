@@ -200,7 +200,7 @@ mod tests {
 
         let api_client = ApiClient::new_mocked(|mock| {
             mock.accounts_key_management_api
-                .expect_post_set_key_connector_key()
+                .expect_post_enroll_to_key_connector()
                 .never();
         });
 
@@ -255,7 +255,7 @@ mod tests {
 
         let api_client = ApiClient::new_mocked(|mock| {
             mock.accounts_key_management_api
-                .expect_post_set_key_connector_key()
+                .expect_post_enroll_to_key_connector()
                 .once()
                 .returning(move |_body| {
                     Err(bitwarden_api_api::apis::Error::Serde(
@@ -308,7 +308,7 @@ mod tests {
 
         let api_client = ApiClient::new_mocked(|mock| {
             mock.accounts_key_management_api
-                .expect_post_set_key_connector_key()
+                .expect_post_enroll_to_key_connector()
                 .never();
         });
 
