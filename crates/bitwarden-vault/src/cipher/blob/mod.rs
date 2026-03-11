@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 mod v1;
 
 use bitwarden_crypto::{
@@ -13,6 +14,7 @@ generate_versioned_sealable!(
     [CipherBlobV1 => "1"]
 );
 
+#[allow(dead_code)]
 pub(crate) type CipherBlobLatest = CipherBlobV1;
 
 #[cfg(test)]
