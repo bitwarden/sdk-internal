@@ -93,7 +93,8 @@ impl SealedCipherBlob {
 #[cfg(test)]
 mod tests {
     use bitwarden_core::key_management::KeyIds;
-    use bitwarden_crypto::KeyStore;
+    use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
+    use bitwarden_encoding::B64;
 
     use super::*;
     use crate::cipher::{blob::v1::*, secure_note::SecureNoteType};
@@ -172,5 +173,49 @@ mod tests {
             result,
             Err(SealedCipherBlobError::CborDecodingError)
         ));
+    }
+
+    #[test]
+    #[ignore]
+    fn generate_sealed_test_vector() {
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let wrapping_key = ctx.generate_symmetric_key();
+
+        let sealed = SealedCipherBlob::seal(test_cipher_blob(), &wrapping_key, &mut ctx).unwrap();
+        let opaque = sealed.to_opaque_string().unwrap();
+
+        #[allow(deprecated)]
+        let key = ctx.dangerous_get_symmetric_key(wrapping_key).unwrap();
+        println!(
+            "const TEST_VECTOR_WRAPPING_KEY: &str = \"{}\";",
+            key.to_base64()
+        );
+        println!("const TEST_VECTOR_SEALED_BLOB: &str = \"{}\";", opaque);
+    }
+
+    const TEST_VECTOR_WRAPPING_KEY: &str =
+        "e0MSZ4/Z4AS7fzjxMos7MXibNALU4mDJQwmge+uVwahg9P25cuaNiSpLvYMk2BgJfntbQs4FszcnY5nPe2FpVA==";
+    const TEST_VECTOR_SEALED_BLOB: &str = "o25mb3JtYXRfdmVyc2lvbgFrd3JhcHBlZF9jZWt4tDIub1dJMUloMDVleWxpeGxCQUM4V253QT09fDdOTVFiU3JXS3ZOWFNoTkNHdmZZWld0T2doMEcvZ294YXdod01UWm5PR1hLeVZ6RXA1WWRXRUhoRnQ0UFVrbVVOT204Z2JMRlhyTFN4MW5CU25PdjlEeEJLNFp6ejNJVFp3dm92Z3NBTFQwPXxBMzhlZkFhSlhmMnk2aFdxTHBUanJ6NlF5OS9FRERMWnpJOWZFSGhtVExJPWhlbnZlbG9wZXkBKGcxaExwUUU2QUFFUmJ3TjRJMkZ3Y0d4cFkyRjBhVzl1TDNndVltbDBkMkZ5WkdWdUxtTmliM0l0Y0dGa1pHVmtCRkFQV0dnR1lPblBYVGlNY2NUOVVrVUFPZ0FCT0lFQ09nQUJPSUFCb1FWWUdDeWk1cEtQSHQ2NXAwU0MxR1FGMTZ1TE85SEtUODFmZWxoeFF2UDBrTlYyQXpibks5RXlSUjlSRUUvUURYK0JVcE53bkxjUTZKZldJb2cycHp4TjBBNUlKTmhmZ1Uzd0NMSS9WOVZHcThkM1RZanBLSm9MNitKSVhVQnI0UWtHeGgzekZmci8rQThGN3RwR2dSK0tnLzVQRGJLMk9ENjdkM0ZnOW12b2t2UVBzQ0F5MnlIaVJ6aHdONUU9";
+
+    #[test]
+    fn test_recorded_sealed_blob_test_vector() {
+        let wrapping_key =
+            SymmetricCryptoKey::try_from(B64::try_from(TEST_VECTOR_WRAPPING_KEY).unwrap()).unwrap();
+
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let wrapping_key_id = ctx.add_local_symmetric_key(wrapping_key);
+
+        let sealed = SealedCipherBlob::from_opaque_string(TEST_VECTOR_SEALED_BLOB).expect(
+            "SealedCipherBlob container format has changed in a backwards-incompatible way. \
+             Existing sealed data must remain deserializable.",
+        );
+        let unsealed = sealed.unseal(&wrapping_key_id, &mut ctx).expect(
+            "SealedCipherBlob container format has changed in a backwards-incompatible way. \
+             Existing sealed data must remain deserializable.",
+        );
+
+        assert_eq!(test_cipher_blob(), unsealed);
     }
 }
