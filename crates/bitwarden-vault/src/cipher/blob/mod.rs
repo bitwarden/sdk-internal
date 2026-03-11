@@ -28,8 +28,8 @@ mod tests {
             type_data: CipherTypeDataV1::SecureNote(SecureNoteDataV1 {
                 r#type: SecureNoteType::Generic,
             }),
-            fields: None,
-            password_history: None,
+            fields: Vec::new(),
+            password_history: Vec::new(),
         };
         let versioned: CipherBlob = blob.into();
         let json = serde_json::to_value(&versioned).unwrap();
@@ -47,8 +47,8 @@ mod tests {
             type_data: CipherTypeDataV1::SecureNote(SecureNoteDataV1 {
                 r#type: SecureNoteType::Generic,
             }),
-            fields: None,
-            password_history: None,
+            fields: Vec::new(),
+            password_history: Vec::new(),
         };
         let versioned: CipherBlob = blob.clone().into();
         assert_eq!(versioned, CipherBlob::CipherBlobV1(blob));

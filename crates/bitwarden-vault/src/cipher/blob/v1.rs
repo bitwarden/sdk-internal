@@ -11,8 +11,10 @@ pub(crate) struct CipherBlobV1 {
     pub name: String,
     pub notes: Option<String>,
     pub type_data: CipherTypeDataV1,
-    pub fields: Option<Vec<FieldDataV1>>,
-    pub password_history: Option<Vec<PasswordHistoryDataV1>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fields: Vec<FieldDataV1>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub password_history: Vec<PasswordHistoryDataV1>,
 }
 
 impl bitwarden_crypto::safe::SealableData for CipherBlobV1 {}
@@ -37,10 +39,12 @@ pub(crate) struct LoginDataV1 {
     pub username: Option<String>,
     pub password: Option<String>,
     pub password_revision_date: Option<DateTime<Utc>>,
-    pub uris: Option<Vec<LoginUriDataV1>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub uris: Vec<LoginUriDataV1>,
     pub totp: Option<String>,
     pub autofill_on_page_load: Option<bool>,
-    pub fido2_credentials: Option<Vec<Fido2CredentialDataV1>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fido2_credentials: Vec<Fido2CredentialDataV1>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
