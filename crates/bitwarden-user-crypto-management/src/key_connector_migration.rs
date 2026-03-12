@@ -67,11 +67,9 @@ async fn internal_migrate_to_key_connector(
 
     // Step 3: Post the key connector key to the key connector server
     info!("Posting key connector key to key connector server");
-    let key_connector_key_b64: B64 = key_connector_key.clone().into();
-    post_key_connector_key_to_key_connector(key_connector_api_client, &key_connector_key_b64)
-        .await?;
+    post_key_connector_key_to_key_connector(key_connector_api_client, key_connector_key).await?;
 
-    // Step 4: Post the wrapped user key to the server
+    // Step 4: Post the wrapped user key to the server and enroll the user into key connector
     info!("Posting wrapped user key for key connector migration");
     enroll_user_into_key_connector(api_client, key_connector_key_wrapped_user_key).await?;
 
@@ -99,10 +97,11 @@ async fn enroll_user_into_key_connector(
 
 async fn post_key_connector_key_to_key_connector(
     key_connector_api_client: &bitwarden_api_key_connector::apis::ApiClient,
-    key_connector_key: &B64,
+    key_connector_key: KeyConnectorKey,
 ) -> Result<(), MigrateToKeyConnectorError> {
+    let encoded_key_connector_key: B64 = key_connector_key.into();
     let request = UserKeyKeyRequestModel {
-        key: key_connector_key.to_string(),
+        key: encoded_key_connector_key.to_string(),
     };
 
     // Key-connector doesn't support PUT if the key does not exist, so
