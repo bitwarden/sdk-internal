@@ -71,8 +71,8 @@ pub trait ServerCommunicationConfigPlatformApi: Send + Sync {
     ///
     /// # Parameters
     /// - `hostname`: The API hostname (e.g., "api.bitwarden.com" or "localhost")
-    /// - `vault_url`: The full vault URL (scheme + host + port, e.g., "https://vault.bitwarden.com"
-    ///   or "https://localhost:8000")
+    /// - `vault_url`: The full vault URL (scheme + host + port, e.g., `"https://vault.bitwarden.com"`
+    ///   or `"https://localhost:8000"`)
     ///
     /// The `vault_url` parameter should be used for constructing the redirect URL
     /// instead of deriving it from `hostname`. This ensures port preservation
