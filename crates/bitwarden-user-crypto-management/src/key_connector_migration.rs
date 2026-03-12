@@ -50,27 +50,25 @@ async fn internal_migrate_to_key_connector(
     // If the user-key is missing, we do not post the key-connector-key to the key-connector,
     // and instead return early.
 
-    let key_connector_key_wrapped_user_key = {
-        // Step 1: Make a new key-connector-key
-        let key_connector_key = KeyConnectorKey::make();
+    // Step 1: Make a new key-connector-key
+    let key_connector_key = KeyConnectorKey::make();
 
-        // Step 2: Wrap the user's current user key with the key connector key
+    // Step 2: Wrap the user's current user key with the key connector key
+    let key_connector_key_wrapped_user_key = {
         let key_store = user_crypto_management_client
             .client
             .internal
             .get_key_store();
         let ctx = key_store.context();
-        let key_connector_key_wrapped_user_key = key_connector_key
+        key_connector_key
             .wrap_user_key(SymmetricKeyId::User, &ctx)
-            .map_err(|_| MigrateToKeyConnectorError::UserKeyNotAvailable)?;
-
-        // Step 3: Post the key connector key to the key connector server
-        info!("Posting key connector key to key connector server");
-        let key_connector_key_b64: B64 = key_connector_key.clone().into();
-        post_key_to_key_connector(key_connector_api_client, &key_connector_key_b64).await?;
-
-        key_connector_key_wrapped_user_key
+            .map_err(|_| MigrateToKeyConnectorError::UserKeyNotAvailable)?
     };
+
+    // Step 3: Post the key connector key to the key connector server
+    info!("Posting key connector key to key connector server");
+    let key_connector_key_b64: B64 = key_connector_key.clone().into();
+    post_key_to_key_connector(key_connector_api_client, &key_connector_key_b64).await?;
 
     // Step 4: Post the wrapped user key to the server
     info!("Posting wrapped user key for key connector migration");
