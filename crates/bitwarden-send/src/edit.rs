@@ -4,7 +4,7 @@ use bitwarden_core::{
 };
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext, OctetStreamBytes,
-    PrimitiveEncryptable, generate_random_bytes,
+    PrimitiveEncryptable,
 };
 use bitwarden_encoding::{B64, B64Url};
 use bitwarden_error::bitwarden_error;
@@ -19,7 +19,7 @@ use uuid::Uuid;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    AuthType, Send, SendAuthType, SendView, SendViewType,
+    Send, SendAuthType, SendView, SendViewType,
     error::{ItemNotFoundError, SendParseError},
     send::SEND_ITERATIONS,
 };

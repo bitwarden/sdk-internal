@@ -140,6 +140,13 @@ pub enum SendViewType {
     Text(SendTextView),
 }
 
+/// Type alias for the tuple returned by SendViewType::into_api_models
+type SendApiModels = (
+    bitwarden_api_api::models::SendType,
+    Option<Box<bitwarden_api_api::models::SendFileModel>>,
+    Option<Box<bitwarden_api_api::models::SendTextModel>>,
+);
+
 impl SendViewType {
     /// Converts the SendViewType into API models for creating or editing a Send.
     /// Returns a tuple of (SendType, optional FileModel, optional TextModel).
@@ -147,14 +154,7 @@ impl SendViewType {
         self,
         ctx: &mut KeyStoreContext<KeyIds>,
         send_key: SymmetricKeyId,
-    ) -> Result<
-        (
-            bitwarden_api_api::models::SendType,
-            Option<Box<bitwarden_api_api::models::SendFileModel>>,
-            Option<Box<bitwarden_api_api::models::SendTextModel>>,
-        ),
-        CryptoError,
-    > {
+    ) -> Result<SendApiModels, CryptoError> {
         match self {
             SendViewType::File(f) => Ok((
                 bitwarden_api_api::models::SendType::File,

@@ -18,9 +18,7 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::{
-    AuthType, Send, SendAuthType, SendParseError, SendView, SendViewType, send::SEND_ITERATIONS,
-};
+use crate::{Send, SendAuthType, SendParseError, SendView, SendViewType, send::SEND_ITERATIONS};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -154,7 +152,7 @@ mod tests {
     use uuid::uuid;
 
     use super::*;
-    use crate::{SendTextView, SendType, SendView};
+    use crate::{AuthType, SendTextView, SendType, SendView};
 
     #[tokio::test]
     async fn test_create_send() {
