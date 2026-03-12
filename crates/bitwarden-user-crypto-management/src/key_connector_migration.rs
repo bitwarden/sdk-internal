@@ -3,7 +3,7 @@
 use bitwarden_api_api::models::KeyConnectorEnrollmentRequestModel;
 use bitwarden_api_key_connector::models::user_key_request_model::UserKeyKeyRequestModel;
 use bitwarden_core::key_management::SymmetricKeyId;
-use bitwarden_crypto::KeyConnectorKey;
+use bitwarden_crypto::{EncString, KeyConnectorKey};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use thiserror::Error;
@@ -68,28 +68,36 @@ async fn internal_migrate_to_key_connector(
     // Step 3: Post the key connector key to the key connector server
     info!("Posting key connector key to key connector server");
     let key_connector_key_b64: B64 = key_connector_key.clone().into();
-    post_key_to_key_connector(key_connector_api_client, &key_connector_key_b64).await?;
+    post_key_connector_key_to_key_connector(key_connector_api_client, &key_connector_key_b64)
+        .await?;
 
     // Step 4: Post the wrapped user key to the server
     info!("Posting wrapped user key for key connector migration");
-    api_client
-        .accounts_key_management_api()
-        .post_enroll_to_key_connector(Some(KeyConnectorEnrollmentRequestModel {
-            key_connector_key_wrapped_user_key: Some(
-                key_connector_key_wrapped_user_key.to_string(),
-            ),
-        }))
-        .await
-        .map_err(|e| {
-            error!("Failed to post key connector migration request: {e:?}");
-            MigrateToKeyConnectorError::ApiError
-        })?;
+    enroll_user_into_key_connector(api_client, key_connector_key_wrapped_user_key).await?;
 
     info!("Successfully migrated account to key connector unlock");
     Ok(())
 }
 
-async fn post_key_to_key_connector(
+async fn enroll_user_into_key_connector(
+    api_client: &bitwarden_api_api::apis::ApiClient,
+    key_connector_key_wrapped_user_key: EncString,
+) -> Result<(), MigrateToKeyConnectorError> {
+    let request = KeyConnectorEnrollmentRequestModel {
+        key_connector_key_wrapped_user_key: Some(key_connector_key_wrapped_user_key.to_string()),
+    };
+
+    api_client
+        .accounts_key_management_api()
+        .post_enroll_to_key_connector(Some(request))
+        .await
+        .map_err(|e| {
+            error!("Failed to post key connector migration request: {e:?}");
+            MigrateToKeyConnectorError::ApiError
+        })
+}
+
+async fn post_key_connector_key_to_key_connector(
     key_connector_api_client: &bitwarden_api_key_connector::apis::ApiClient,
     key_connector_key: &B64,
 ) -> Result<(), MigrateToKeyConnectorError> {
