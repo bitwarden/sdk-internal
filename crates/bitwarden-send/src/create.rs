@@ -18,7 +18,9 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::{AuthType, Send, SendParseError, SendView, SendViewType, send::SEND_ITERATIONS};
+use crate::{
+    AuthType, Send, SendAuthType, SendParseError, SendView, SendViewType, send::SEND_ITERATIONS,
+};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -42,7 +44,6 @@ pub enum CreateSendError {
 pub struct SendAddRequest {
     pub name: String,
     pub notes: Option<String>,
-    pub password: Option<String>,
 
     pub view_type: SendViewType,
 
@@ -53,11 +54,12 @@ pub struct SendAddRequest {
     pub deletion_date: DateTime<Utc>,
     pub expiration_date: Option<DateTime<Utc>>,
 
-    /// Email addresses for OTP authentication.
-    /// **Note**: Mutually exclusive with `new_password`. If both are set,
-    /// only password authentication will be used.
-    pub emails: Vec<String>,
-    pub auth_type: AuthType,
+    /// Authentication method for accessing this Send.
+    /// Use `SendAuthType::None` for no authentication,
+    /// `SendAuthType::Password` for password protection, or
+    /// `SendAuthType::Emails` for email OTP authentication.
+    #[serde(flatten)]
+    pub auth: SendAuthType,
 }
 
 impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::SendRequestModel>
@@ -74,40 +76,27 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
         // Derive the shareable send key for encrypting content
         let send_key = Send::derive_shareable_key(ctx, &k)?;
 
-        let (send_type, file, text) = match self.view_type.clone() {
-            SendViewType::File(f) => (
-                bitwarden_api_api::models::SendType::File,
-                Some(Box::new(bitwarden_api_api::models::SendFileModel {
-                    id: f.id.clone(),
-                    file_name: Some(f.file_name.encrypt(ctx, send_key)?.to_string()),
-                    size: f.size.as_ref().and_then(|s| s.parse::<i64>().ok()),
-                    size_name: f.size_name.clone(),
-                })),
-                None,
-            ),
-            SendViewType::Text(t) => (
-                bitwarden_api_api::models::SendType::Text,
-                None,
-                Some(Box::new(bitwarden_api_api::models::SendTextModel {
-                    text: t
-                        .text
-                        .as_ref()
-                        .map(|txt| txt.encrypt(ctx, send_key))
-                        .transpose()?
-                        .map(|e| e.to_string()),
-                    hidden: Some(t.hidden),
-                })),
-            ),
-        };
+        let (send_type, file, text) = self.view_type.clone().into_api_models(ctx, send_key)?;
 
-        let password = self.password.as_ref().map(|password| {
-            let password = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
-            B64::from(password.as_slice()).to_string()
-        });
+        let (password, emails) = match &self.auth {
+            SendAuthType::None => (None, None),
+            SendAuthType::Password { password } => {
+                let hashed = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
+                (Some(B64::from(hashed.as_slice()).to_string()), None)
+            }
+            SendAuthType::Emails { emails } => {
+                let emails_str = if emails.is_empty() {
+                    None
+                } else {
+                    Some(emails.join(","))
+                };
+                (None, emails_str)
+            }
+        };
 
         Ok(bitwarden_api_api::models::SendRequestModel {
             r#type: Some(send_type),
-            auth_type: Some(self.auth_type.into()),
+            auth_type: Some(self.auth.auth_type().into()),
             file_length: None,
             name: Some(self.name.encrypt(ctx, send_key)?.to_string()),
             notes: self
@@ -124,11 +113,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
             file,
             text,
             password,
-            emails: if self.emails.is_empty() {
-                None
-            } else {
-                Some(self.emails.join(","))
-            },
+            emails,
             disabled: self.disabled,
             hide_email: Some(self.hide_email),
         })
@@ -222,7 +207,6 @@ mod tests {
             SendAddRequest {
                 name: "test".to_string(),
                 notes: Some("notes".to_string()),
-                password: None,
                 view_type: SendViewType::Text(SendTextView {
                     text: Some("test".to_string()),
                     hidden: false,
@@ -232,8 +216,7 @@ mod tests {
                 hide_email: false,
                 deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
                 expiration_date: None,
-                emails: Vec::new(),
-                auth_type: AuthType::None,
+                auth: SendAuthType::None,
             },
         )
         .await
@@ -309,7 +292,6 @@ mod tests {
             SendAddRequest {
                 name: "test".to_string(),
                 notes: Some("notes".to_string()),
-                password: None,
                 view_type: SendViewType::Text(SendTextView {
                     text: Some("test".to_string()),
                     hidden: false,
@@ -319,8 +301,7 @@ mod tests {
                 hide_email: false,
                 deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
                 expiration_date: None,
-                emails: Vec::new(),
-                auth_type: AuthType::None,
+                auth: SendAuthType::None,
             },
         )
         .await;

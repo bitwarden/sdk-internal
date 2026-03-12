@@ -19,7 +19,7 @@ use uuid::Uuid;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    AuthType, Send, SendView, SendViewType,
+    AuthType, Send, SendAuthType, SendView, SendViewType,
     error::{ItemNotFoundError, SendParseError},
     send::SEND_ITERATIONS,
 };
@@ -42,6 +42,11 @@ pub enum EditSendError {
     Uuid(#[from] uuid::Error),
     #[error(transparent)]
     SendParse(#[from] SendParseError),
+    #[error("Server returned Send with ID {returned:?} but expected {expected}")]
+    IdMismatch {
+        expected: Uuid,
+        returned: Option<Uuid>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -50,8 +55,6 @@ pub enum EditSendError {
 pub struct SendEditRequest {
     pub name: String,
     pub notes: Option<String>,
-    pub key: Option<String>,
-    pub password: Option<String>,
 
     pub view_type: SendViewType,
 
@@ -62,80 +65,68 @@ pub struct SendEditRequest {
     pub deletion_date: DateTime<Utc>,
     pub expiration_date: Option<DateTime<Utc>>,
 
-    /// Email addresses for OTP authentication.
-    /// **Note**: Mutually exclusive with `new_password`. If both are set,
-    /// only password authentication will be used.
-    pub emails: Vec<String>,
-    pub auth_type: AuthType,
+    /// Authentication method for accessing this Send.
+    /// Use `SendAuthType::None` for no authentication,
+    /// `SendAuthType::Password` for password protection, or
+    /// `SendAuthType::Emails` for email OTP authentication.
+    #[serde(flatten)]
+    pub auth: SendAuthType,
+}
+
+/// Internal helper struct that includes the send key for encryption.
+/// The key is retrieved from state during edit operations.
+#[derive(Debug)]
+struct SendEditRequestWithKey {
+    request: SendEditRequest,
+    send_key: String,
 }
 
 impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::SendRequestModel>
-    for SendEditRequest
+    for SendEditRequestWithKey
 {
     fn encrypt_composite(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,
         key: SymmetricKeyId,
     ) -> Result<bitwarden_api_api::models::SendRequestModel, CryptoError> {
-        // Generate or decode the send key
-        let k = match &self.key {
-            // Existing send, decode key
-            Some(k) => B64Url::try_from(k.as_str())
-                .map_err(|_| CryptoError::InvalidKey)?
-                .as_bytes()
-                .to_vec(),
-            // New send, generate random key
-            None => {
-                let key = generate_random_bytes::<[u8; 16]>();
-                key.to_vec()
-            }
-        };
+        // Decode the send key from the existing send
+        let k = B64Url::try_from(self.send_key.as_str())
+            .map_err(|_| CryptoError::InvalidKey)?
+            .as_bytes()
+            .to_vec();
 
         // Derive the shareable send key for encrypting content
         let send_key = Send::derive_shareable_key(ctx, &k)?;
 
-        let file = if let SendViewType::File(f) = self.view_type.clone() {
-            Some(Box::new(bitwarden_api_api::models::SendFileModel {
-                id: f.id.clone(),
-                file_name: Some(f.file_name.encrypt(ctx, send_key)?.to_string()),
-                size: f.size.as_ref().and_then(|s| s.parse::<i64>().ok()),
-                size_name: f.size_name.clone(),
-            }))
-        } else {
-            None
-        };
+        let (send_type, file, text) = self
+            .request
+            .view_type
+            .clone()
+            .into_api_models(ctx, send_key)?;
 
-        let text = if let SendViewType::Text(t) = self.view_type.clone() {
-            Some(Box::new(bitwarden_api_api::models::SendTextModel {
-                text: t
-                    .text
-                    .as_ref()
-                    .map(|txt| txt.encrypt(ctx, send_key))
-                    .transpose()?
-                    .map(|e| e.to_string()),
-                hidden: Some(t.hidden),
-            }))
-        } else {
-            None
+        let (password, emails) = match &self.request.auth {
+            SendAuthType::None => (None, None),
+            SendAuthType::Password { password } => {
+                let hashed = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
+                (Some(B64::from(hashed.as_slice()).to_string()), None)
+            }
+            SendAuthType::Emails { emails } => {
+                let emails_str = if emails.is_empty() {
+                    None
+                } else {
+                    Some(emails.join(","))
+                };
+                (None, emails_str)
+            }
         };
-
-        let t = if let SendViewType::File(_) = self.view_type {
-            bitwarden_api_api::models::SendType::File
-        } else {
-            bitwarden_api_api::models::SendType::Text
-        };
-
-        let password = self.password.as_ref().map(|password| {
-            let password = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
-            B64::from(password.as_slice()).to_string()
-        });
 
         Ok(bitwarden_api_api::models::SendRequestModel {
-            r#type: Some(t),
-            auth_type: Some(self.auth_type.into()),
+            r#type: Some(send_type),
+            auth_type: Some(self.request.auth.auth_type().into()),
             file_length: None,
-            name: Some(self.name.encrypt(ctx, send_key)?.to_string()),
+            name: Some(self.request.name.encrypt(ctx, send_key)?.to_string()),
             notes: self
+                .request
                 .notes
                 .as_ref()
                 .map(|n| n.encrypt(ctx, send_key))
@@ -143,24 +134,20 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
                 .map(|e| e.to_string()),
             // Encrypt the send key itself with the user key
             key: OctetStreamBytes::from(k).encrypt(ctx, key)?.to_string(),
-            max_access_count: self.max_access_count.map(|c| c as i32),
-            expiration_date: self.expiration_date.map(|d| d.to_rfc3339()),
-            deletion_date: self.deletion_date.to_rfc3339(),
+            max_access_count: self.request.max_access_count.map(|c| c as i32),
+            expiration_date: self.request.expiration_date.map(|d| d.to_rfc3339()),
+            deletion_date: self.request.deletion_date.to_rfc3339(),
             file,
             text,
             password,
-            emails: if self.emails.is_empty() {
-                None
-            } else {
-                Some(self.emails.join(","))
-            },
-            disabled: self.disabled,
-            hide_email: Some(self.hide_email),
+            emails,
+            disabled: self.request.disabled,
+            hide_email: Some(self.request.hide_email),
         })
     }
 }
 
-impl IdentifyKey<SymmetricKeyId> for SendEditRequest {
+impl IdentifyKey<SymmetricKeyId> for SendEditRequestWithKey {
     fn key_identifier(&self) -> SymmetricKeyId {
         SymmetricKeyId::User
     }
@@ -175,10 +162,17 @@ pub(super) async fn edit_send<R: Repository<Send> + ?Sized>(
 ) -> Result<SendView, EditSendError> {
     let id = send_id.to_string();
 
-    // Verify the send we're updating exists
-    repository.get(send_id).await?.ok_or(ItemNotFoundError)?;
+    // Retrieve the existing send to get its key (keys cannot be modified during edit)
+    let existing_send = repository.get(send_id).await?.ok_or(ItemNotFoundError)?;
 
-    let send_request = key_store.encrypt(request)?;
+    // Decrypt to get the key - we only need the key field
+    let existing_send_view: SendView = key_store.decrypt(&existing_send)?;
+    let send_key = existing_send_view.key.ok_or(MissingFieldError("key"))?;
+
+    // Create the wrapper with the key from the existing send
+    let request_with_key = SendEditRequestWithKey { request, send_key };
+
+    let send_request = key_store.encrypt(request_with_key)?;
 
     let resp = api_client
         .sends_api()
@@ -188,7 +182,13 @@ pub(super) async fn edit_send<R: Repository<Send> + ?Sized>(
 
     let send: Send = resp.try_into()?;
 
-    debug_assert!(send.id.unwrap_or_default() == send_id);
+    // Verify the server returned the correct send ID
+    if send.id != Some(send_id) {
+        return Err(EditSendError::IdMismatch {
+            expected: send_id,
+            returned: send.id,
+        });
+    }
 
     repository.set(send_id, send.clone()).await?;
 
@@ -226,7 +226,7 @@ mod tests {
             access_id: None,
             name: "original".to_string(),
             notes: Some("original notes".to_string()),
-            key: None, // Will be generated
+            key: None, // Generates a new key when first encrypted
             new_password: None,
             has_password: false,
             r#type: SendType::Text,
@@ -287,8 +287,6 @@ mod tests {
             SendEditRequest {
                 name: "updated".to_string(),
                 notes: Some("updated notes".to_string()),
-                key: None,
-                password: None,
                 view_type: SendViewType::Text(SendTextView {
                     text: Some("updated text".to_string()),
                     hidden: false,
@@ -298,8 +296,7 @@ mod tests {
                 hide_email: false,
                 deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
                 expiration_date: None,
-                emails: Vec::new(),
-                auth_type: AuthType::None,
+                auth: SendAuthType::None,
             },
         )
         .await
@@ -348,8 +345,6 @@ mod tests {
             SendEditRequest {
                 name: "test".to_string(),
                 notes: None,
-                key: None,
-                password: None,
                 view_type: SendViewType::Text(SendTextView {
                     text: Some("test".to_string()),
                     hidden: false,
@@ -359,8 +354,7 @@ mod tests {
                 hide_email: false,
                 deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
                 expiration_date: None,
-                emails: Vec::new(),
-                auth_type: AuthType::None,
+                auth: SendAuthType::None,
             },
         )
         .await;
@@ -391,7 +385,7 @@ mod tests {
             access_id: None,
             name: "original".to_string(),
             notes: Some("original notes".to_string()),
-            key: None, // Will be generated
+            key: None, // Generates a new key when first encrypted
             new_password: None,
             has_password: false,
             r#type: SendType::Text,
@@ -430,8 +424,6 @@ mod tests {
             SendEditRequest {
                 name: "test".to_string(),
                 notes: None,
-                key: None,
-                password: None,
                 view_type: SendViewType::Text(SendTextView {
                     text: Some("test".to_string()),
                     hidden: false,
@@ -441,8 +433,7 @@ mod tests {
                 hide_email: false,
                 deletion_date: "2025-01-10T00:00:00Z".parse().unwrap(),
                 expiration_date: None,
-                emails: Vec::new(),
-                auth_type: AuthType::None,
+                auth: SendAuthType::None,
             },
         )
         .await;

@@ -98,6 +98,38 @@ pub enum AuthType {
     None = 2,
 }
 
+/// Type-safe authentication method for a Send, including the authentication data.
+/// This ensures that password and email authentication are mutually exclusive.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub enum SendAuthType {
+    /// No authentication required
+    None,
+    /// Password-based authentication
+    Password {
+        /// The password required to access the Send
+        password: String,
+    },
+    /// Email-based OTP authentication
+    Emails {
+        /// List of email addresses that will receive OTP codes
+        emails: Vec<String>,
+    },
+}
+
+impl SendAuthType {
+    /// Returns the AuthType discriminant for this authentication method
+    pub fn auth_type(&self) -> AuthType {
+        match self {
+            SendAuthType::None => AuthType::None,
+            SendAuthType::Password { .. } => AuthType::Password,
+            SendAuthType::Emails { .. } => AuthType::Email,
+        }
+    }
+}
+
 /// View model for decrypted Send type
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
@@ -106,6 +138,49 @@ pub enum SendViewType {
     File(SendFileView),
     /// Text-based send
     Text(SendTextView),
+}
+
+impl SendViewType {
+    /// Converts the SendViewType into API models for creating or editing a Send.
+    /// Returns a tuple of (SendType, optional FileModel, optional TextModel).
+    pub(crate) fn into_api_models(
+        self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        send_key: SymmetricKeyId,
+    ) -> Result<
+        (
+            bitwarden_api_api::models::SendType,
+            Option<Box<bitwarden_api_api::models::SendFileModel>>,
+            Option<Box<bitwarden_api_api::models::SendTextModel>>,
+        ),
+        CryptoError,
+    > {
+        match self {
+            SendViewType::File(f) => Ok((
+                bitwarden_api_api::models::SendType::File,
+                Some(Box::new(bitwarden_api_api::models::SendFileModel {
+                    id: f.id.clone(),
+                    file_name: Some(f.file_name.encrypt(ctx, send_key)?.to_string()),
+                    size: f.size.as_ref().and_then(|s| s.parse::<i64>().ok()),
+                    size_name: f.size_name.clone(),
+                })),
+                None,
+            )),
+            SendViewType::Text(t) => Ok((
+                bitwarden_api_api::models::SendType::Text,
+                None,
+                Some(Box::new(bitwarden_api_api::models::SendTextModel {
+                    text: t
+                        .text
+                        .as_ref()
+                        .map(|txt| txt.encrypt(ctx, send_key))
+                        .transpose()?
+                        .map(|e| e.to_string()),
+                    hidden: Some(t.hidden),
+                })),
+            )),
+        }
+    }
 }
 
 #[allow(missing_docs)]
@@ -135,9 +210,10 @@ pub struct Send {
     pub deletion_date: DateTime<Utc>,
     pub expiration_date: Option<DateTime<Utc>>,
 
-    /// Email addresses for OTP authentication.
-    /// **Note**: Mutually exclusive with `new_password`. If both are set,
-    /// only password authentication will be used.
+    /// Email addresses for OTP authentication (comma-separated).
+    ///
+    /// **Note**: Mutually exclusive with `password`. If both `password` and `emails` are
+    /// set, password authentication takes precedence and email OTP is ignored.
     pub emails: Option<String>,
     pub auth_type: AuthType,
 }
