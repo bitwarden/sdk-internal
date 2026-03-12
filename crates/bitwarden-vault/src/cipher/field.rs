@@ -77,6 +77,7 @@ pub struct FieldView {
 
 /// Minimal field view for list/search operations.
 /// Contains only the fields needed for search indexing.
+#[cfg(feature = "wasm")]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]

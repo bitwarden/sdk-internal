@@ -36,7 +36,9 @@ pub struct CredentialCreateOptions {
         skip_serializing_if = "Option::is_none"
     )]
     pub user: Option<Box<models::Fido2User>>,
-    #[serde_as(as = "Option<serde_with::base64::Base64>")]
+    #[serde_as(
+        as = "Option<serde_with::base64::Base64<serde_with::base64::UrlSafe, serde_with::formats::Unpadded>>"
+    )]
     #[serde(
         rename = "challenge",
         alias = "Challenge",
