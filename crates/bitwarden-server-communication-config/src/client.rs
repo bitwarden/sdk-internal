@@ -134,12 +134,12 @@ where
             .ok_or(AcquireCookieError::UnsupportedConfiguration)?;
 
         // Extract vault_url from vendor_config
-        let vault_url = vendor_config.vault_url.clone();
-
-        // Validate vault_url is not empty
-        if vault_url.is_empty() {
-            return Err(AcquireCookieError::UnsupportedConfiguration);
-        }
+        let vault_url = vendor_config
+            .vault_url
+            .as_ref()
+            .filter(|s| !s.is_empty())
+            .ok_or(AcquireCookieError::UnsupportedConfiguration)?
+            .clone();
 
         // Call platform API to acquire cookies, passing vault_url
         let cookies = self
@@ -279,7 +279,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: "https://vault.example.com".to_string(),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: Some(vec![AcquiredCookie {
                     name: "TestCookie".to_string(),
                     value: "value123".to_string(),
@@ -312,7 +312,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: "https://vault.example.com".to_string(),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -338,7 +338,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: "https://vault.example.com".to_string(),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: Some(vec![AcquiredCookie {
                     name: "TestCookie".to_string(),
                     value: "value123".to_string(),
@@ -405,7 +405,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: "https://vault.example.com".to_string(),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -429,7 +429,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("AWSELBAuthSessionCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: "https://vault.example.com".to_string(),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: Some(vec![AcquiredCookie {
                     name: "AWSELBAuthSessionCookie".to_string(),
                     value: "eyJhbGciOiJFUzI1NiIsImtpZCI6Im...".to_string(),
@@ -469,7 +469,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("AWSELBAuthSessionCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: "https://vault.example.com".to_string(),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: Some(vec![
                     AcquiredCookie {
                         name: "AWSELBAuthSessionCookie-0".to_string(),
@@ -531,7 +531,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: "https://vault.example.com".to_string(),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -585,7 +585,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: "https://vault.example.com".to_string(),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -646,7 +646,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("ExpectedCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: "https://vault.example.com".to_string(),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -705,7 +705,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("AWSELBAuthSessionCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: "https://vault.example.com".to_string(),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -773,7 +773,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("SessionCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: "https://vault.example.com".to_string(),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -853,7 +853,7 @@ mod tests {
                 idp_login_url: Some("https://idp.example.com/login".to_string()),
                 cookie_name: Some("SessionCookie".to_string()),
                 cookie_domain: Some("vault.example.com".to_string()),
-                vault_url: "https://vault.example.com".to_string(),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -908,7 +908,7 @@ mod tests {
                 idp_login_url: Some("https://new-idp.example.com/login".to_string()),
                 cookie_name: Some("NewCookie".to_string()),
                 cookie_domain: Some("vault.example.com".to_string()),
-                vault_url: "https://vault.example.com".to_string(),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -957,7 +957,7 @@ mod tests {
                 idp_login_url: Some("https://idp.example.com/login".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("vault2.example.com".to_string()),
-                vault_url: "https://vault2.example.com".to_string(),
+                vault_url: Some("https://vault2.example.com".to_string()),
                 cookie_value: None,
             }),
         };
