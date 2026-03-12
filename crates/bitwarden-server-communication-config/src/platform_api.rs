@@ -75,9 +75,7 @@ pub trait ServerCommunicationConfigPlatformApi: Send + Sync {
     ///   or `"https://localhost:8000"`)
     ///
     /// The `vault_url` parameter should be used for constructing the redirect URL
-    /// instead of deriving it from `hostname`. This ensures port preservation
-    /// (localhost:8000 vs localhost) and correct subdomain usage (vault.bitwarden.com
-    /// vs api.bitwarden.com).
+    /// instead of deriving it from `hostname`.
     ///
     /// # Returns
     /// Returns `Some(Vec<AcquiredCookie>)` if cookies were successfully acquired,

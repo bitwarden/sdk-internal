@@ -50,12 +50,7 @@ pub struct SsoCookieVendorConfig {
     /// Vault URL for cookie acquisition redirect
     ///
     /// This is the full vault URL (scheme + host + port) where the browser
-    /// should be redirected for SSO cookie acquisition. Using an explicit
-    /// vault_url fixes two problems:
-    /// 1. Port preservation: localhost:8000 vs localhost (missing port)
-    /// 2. Multi-subdomain: api.bitwarden.com vs vault.bitwarden.com
-    ///
-    /// Extracted from /api/config response.environment.vault field.
+    /// should be redirected for SSO cookie acquisition.
     pub vault_url: Option<String>,
     /// Acquired cookies
     ///
