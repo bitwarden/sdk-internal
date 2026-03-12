@@ -50,7 +50,6 @@ impl ClientFido2 {
 
     /// Create an authenticator intended to be used with a device-bound
     /// credential to log into and unlock a Bitwarden vault.
-    /// `web_vault_hostname` is the fallback RP ID to use if the client does not specify it.
     pub fn create_device_key_authenticator<'a>(
         &'a self,
         store: &'a mut dyn DeviceAuthKeyStore,
