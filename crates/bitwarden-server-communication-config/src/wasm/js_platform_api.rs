@@ -13,16 +13,16 @@ const TS_CUSTOM_TYPES: &'static str = r#"
  */
 export interface ServerCommunicationConfigPlatformApi {
     /**
-     * Acquires cookies for the given hostname.
+     * Acquires cookies for the given domain.
      * 
      * This typically involves redirecting to an IdP login page and extracting
      * cookies from the load balancer response. For sharded cookies, returns
      * multiple entries with names like "CookieName-0", "CookieName-1", etc.
      * 
-     * @param hostname The server hostname (e.g., "vault.acme.com")
+     * @param domain The server domain (e.g., "vault.acme.com")
      * @returns An array of AcquiredCookie objects, or undefined if acquisition failed or was cancelled
      */
-    acquireCookies(hostname: string): Promise<AcquiredCookie[] | undefined>;
+    acquireCookies(domain: string): Promise<AcquiredCookie[] | undefined>;
 }
 "#;
 
@@ -35,11 +35,11 @@ extern "C" {
     )]
     pub type RawJsServerCommunicationConfigPlatformApi;
 
-    /// Acquires cookies for a hostname
+    /// Acquires cookies for a domain
     #[wasm_bindgen(catch, method, structural, js_name = acquireCookies)]
     pub async fn acquire_cookies(
         this: &RawJsServerCommunicationConfigPlatformApi,
-        hostname: String,
+        domain: String,
     ) -> Result<JsValue, JsValue>;
 }
 
@@ -68,11 +68,11 @@ impl Clone for JsServerCommunicationConfigPlatformApi {
 
 #[async_trait::async_trait]
 impl ServerCommunicationConfigPlatformApi for JsServerCommunicationConfigPlatformApi {
-    async fn acquire_cookies(&self, hostname: String) -> Option<Vec<AcquiredCookie>> {
+    async fn acquire_cookies(&self, domain: String) -> Option<Vec<AcquiredCookie>> {
         self.0
             .run_in_thread(move |platform_api| async move {
                 let js_value = platform_api
-                    .acquire_cookies(hostname)
+                    .acquire_cookies(domain)
                     .await
                     .map_err(|e| format!("{e:?}"))?;
 
