@@ -52,6 +52,7 @@ const ENVELOPE_ARGON2_OUTPUT_KEY_SIZE: usize = 32;
 /// be provided.
 ///
 /// Internally, Argon2 is used as the KDF and XChaCha20-Poly1305 is used to encrypt the key.
+#[derive(Clone)]
 pub struct PasswordProtectedKeyEnvelope {
     cose_encrypt: coset::CoseEncrypt,
 }
