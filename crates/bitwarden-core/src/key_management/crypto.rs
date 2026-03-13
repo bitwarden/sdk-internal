@@ -153,6 +153,13 @@ pub enum InitUserCryptoMethod {
         /// The user's encrypted symmetric crypto key
         user_key: EncString,
     },
+    /// In contrast to key-connector, this does all of the connection with key-connector in the sdk
+    KeyConnectorUrl {
+        /// The url to retrieve the key-connector-key from
+        url: String,
+        /// The encrypted user key, encrypted with the key connector key retrieved from the url
+        key_connector_key_wrapped_user_key: EncString,
+    },
 }
 
 /// Auth requests supports multiple initialization methods.
@@ -307,6 +314,25 @@ pub(super) async fn initialize_user_crypto(
 
             client.internal.initialize_user_crypto_key_connector_key(
                 master_key,
+                user_key,
+                account_crypto_state,
+                &req.upgrade_token,
+            )?;
+        }
+        InitUserCryptoMethod::KeyConnectorUrl {
+            url,
+            key_connector_key_wrapped_user_key,
+        } => {
+            let api_client = client.internal.get_key_connector_client(url);
+            let key_connector_key_response = api_client
+                .user_keys_api()
+                .get_user_key()
+                .await
+                .map_err(|_| EncryptionSettingsError::KeyConnectorRetrievalFailed)?;
+            let key_connector_key = KeyConnectorKey::try_from(key_connector_key_response)?;
+            let user_key =
+                key_connector_key.decrypt_user_key(key_connector_key_wrapped_user_key)?;
+            client.internal.initialize_user_crypto_decrypted_key(
                 user_key,
                 account_crypto_state,
                 &req.upgrade_token,

@@ -2,12 +2,14 @@ mod create;
 mod edit;
 mod folder_client;
 mod folder_models;
+mod folder_sync_handler;
 mod get_list;
 
 pub use create::*;
 pub use edit::*;
 pub use folder_client::*;
 pub use folder_models::*;
+pub use folder_sync_handler::FolderSyncHandler;
 pub use get_list::*;
 
 /// Item does not exist error.
