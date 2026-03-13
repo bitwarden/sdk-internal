@@ -1092,6 +1092,7 @@ name = "bitwarden-user-crypto-management"
 version = "2.0.0"
 dependencies = [
  "bitwarden-api-api",
+ "bitwarden-api-key-connector",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-encoding",
