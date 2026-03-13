@@ -90,7 +90,8 @@ pub(super) fn reencrypt_data(
                         .transpose()?;
 
                     Ok(SendWithIdRequestModel {
-                        // Required values for rotation
+                        // Required values for rotation. Only the id and key are used,
+                        // since the server replaces the encrypted seed (named key).
                         id: send.id.ok_or(DataReencryptionError::DataConversion)?,
                         key: send.key.to_string(),
 
@@ -109,8 +110,6 @@ pub(super) fn reencrypt_data(
                         }),
                         file,
 
-                        // During key-rotation only the "key" (encrypted seed) and id are used,
-                        // since we only re-encrypt the "key"
                         ..Default::default()
                     })
                 })
