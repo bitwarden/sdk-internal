@@ -144,7 +144,7 @@ where
         // Call platform API to acquire cookies, passing vault_url
         let cookies = self
             .platform_api
-            .acquire_cookies(hostname.to_string(), vault_url)
+            .acquire_cookies(vault_url)
             .await
             .ok_or(AcquireCookieError::Cancelled)?;
 
@@ -248,11 +248,7 @@ mod tests {
 
     #[async_trait::async_trait]
     impl ServerCommunicationConfigPlatformApi for MockPlatformApi {
-        async fn acquire_cookies(
-            &self,
-            _hostname: String,
-            _vault_url: String,
-        ) -> Option<Vec<AcquiredCookie>> {
+        async fn acquire_cookies(&self, _vault_url: String) -> Option<Vec<AcquiredCookie>> {
             self.cookies_to_return.read().await.clone()
         }
     }
