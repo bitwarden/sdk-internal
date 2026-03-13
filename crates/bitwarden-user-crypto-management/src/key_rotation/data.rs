@@ -1,8 +1,7 @@
 //! Functionality for re-encrypting user data during key rotation.
 
 use bitwarden_api_api::models::{
-    AccountDataRequestModel, CipherWithIdRequestModel, SendFileModel, SendTextModel,
-    SendWithIdRequestModel,
+    AccountDataRequestModel, CipherWithIdRequestModel, SendWithIdRequestModel,
 };
 use bitwarden_core::{
     UserId,
@@ -70,49 +69,7 @@ pub(super) fn reencrypt_data(
         sends: Some(
             reencrypted_sends
                 .into_iter()
-                .map(|send| {
-                    let file = send
-                        .file
-                        .as_ref()
-                        .map(|f| {
-                            Ok(Box::new(SendFileModel {
-                                id: f.id.clone(),
-                                file_name: Some(f.file_name.to_string()),
-                                size: f
-                                    .size
-                                    .as_deref()
-                                    .map(str::parse::<i64>)
-                                    .transpose()
-                                    .map_err(|_| DataReencryptionError::DataConversion)?,
-                                size_name: f.size_name.clone(),
-                            }))
-                        })
-                        .transpose()?;
-
-                    Ok(SendWithIdRequestModel {
-                        // Required values for rotation. Only the id and key are used,
-                        // since the server replaces the encrypted seed (named key).
-                        id: send.id.ok_or(DataReencryptionError::DataConversion)?,
-                        key: send.key.to_string(),
-
-                        // Since key-rotation re-uses a model that assumes full data
-                        // we fill the required data here to ensure the server parses the models
-                        // correctly. However, these values are not used on
-                        // the server during rotation. Ideally, the models
-                        // for key-rotations would be updated.
-                        deletion_date: send.deletion_date.to_rfc3339(),
-                        disabled: send.disabled,
-                        text: send.text.as_ref().map(|t| {
-                            Box::new(SendTextModel {
-                                text: t.text.as_ref().map(|s| s.to_string()),
-                                hidden: Some(t.hidden),
-                            })
-                        }),
-                        file,
-
-                        ..Default::default()
-                    })
-                })
+                .map(|send| Ok(send.into()))
                 .collect::<Result<Vec<SendWithIdRequestModel>, DataReencryptionError>>()?,
         ),
     })
@@ -154,7 +111,7 @@ fn reencrypt_ciphers(
             // If the cipher has a per-vault-item cipher-key, the cipher-key
             // is re-wrapped
             if cipher.key.is_some() {
-                debug!("Re-wrapping cipher key without decrypting cipher");
+                debug!("Re-wrapping ciphe)r key without decrypting cipher");
                 let mut cipher = cipher.clone();
                 cipher
                     .rewrap_cipher_key(current_key, new_key, ctx)
