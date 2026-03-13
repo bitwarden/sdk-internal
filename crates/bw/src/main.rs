@@ -86,7 +86,7 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         Commands::Unlock(_args) => todo!(),
 
         // Platform commands
-        Commands::Sync { .. } => todo!(),
+        Commands::Sync(args) => args.execute_sync(client).await,
 
         Commands::Encode => {
             let input = std::io::read_to_string(std::io::stdin())?;
