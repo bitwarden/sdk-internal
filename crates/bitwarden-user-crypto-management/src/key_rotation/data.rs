@@ -111,7 +111,7 @@ fn reencrypt_ciphers(
             // If the cipher has a per-vault-item cipher-key, the cipher-key
             // is re-wrapped
             if cipher.key.is_some() {
-                debug!("Re-wrapping ciphe)r key without decrypting cipher");
+                debug!("Re-wrapping cipher key without decrypting cipher");
                 let mut cipher = cipher.clone();
                 cipher
                     .rewrap_cipher_key(current_key, new_key, ctx)
