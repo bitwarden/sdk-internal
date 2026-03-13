@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout)]
 //! Demonstration of SDK logging callback mechanism
 //!
 //! This example shows how mobile clients can register a callback to receive
