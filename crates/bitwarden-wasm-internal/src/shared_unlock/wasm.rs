@@ -2,13 +2,14 @@ use std::sync::{Arc, Mutex};
 
 use bitwarden_core::UserId;
 use bitwarden_encoding::B64;
+use bitwarden_ipc::{Endpoint, OutgoingMessage};
 use bitwarden_threading::cancellation_token::CancellationToken;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
-use wasm_bindgen_futures::js_sys;
+use wasm_bindgen_futures::{js_sys, spawn_local};
 
 use crate::shared_unlock::{
     lock_management::{LockState, UserLockManagement},
-    protocol::{DeviceEvents, LeaderDiscovery, Message, MessageSender},
+    protocol::{DeviceEvents, Leader, LeaderDiscovery, Message, MessageSender},
 };
 
 #[wasm_bindgen]
@@ -77,22 +78,57 @@ impl UserLockManagement for InternalWasmUserLockManagement {
     }
 }
 
-struct WasmSender<'a> {
-    ipc_client: &'a bitwarden_ipc::wasm::JsIpcClient,
-}
-
-impl<'a> WasmSender<'a> {
-    fn new(ipc_client: &'a bitwarden_ipc::wasm::JsIpcClient) -> Self {
-        Self { ipc_client }
+fn clone_ipc_client(
+    ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
+) -> bitwarden_ipc::wasm::JsIpcClient {
+    bitwarden_ipc::wasm::JsIpcClient {
+        client: Arc::clone(&ipc_client.client),
     }
 }
 
-impl<'a> MessageSender for WasmSender<'a> {
-    fn send_message(
-        &self,
-        _message: crate::shared_unlock::protocol::Message,
-        _recipient: bitwarden_ipc::Endpoint,
-    ) {
+struct WasmSender {
+    ipc_client: bitwarden_ipc::wasm::JsIpcClient,
+}
+
+impl WasmSender {
+    fn new(ipc_client: &bitwarden_ipc::wasm::JsIpcClient) -> Self {
+        Self {
+            ipc_client: clone_ipc_client(ipc_client),
+        }
+    }
+}
+
+impl Clone for WasmSender {
+    fn clone(&self) -> Self {
+        Self {
+            ipc_client: clone_ipc_client(&self.ipc_client),
+        }
+    }
+}
+
+impl MessageSender for WasmSender {
+    fn send_message(&self, message: crate::shared_unlock::protocol::Message, recipient: Endpoint) {
+        let payload = match message.to_cbor() {
+            Ok(payload) => payload,
+            Err(error) => {
+                tracing::error!(?error, "Failed to serialize shared unlock IPC message");
+                return;
+            }
+        };
+
+        let outgoing_message = OutgoingMessage {
+            payload,
+            destination: recipient,
+            topic: None,
+        };
+
+        let ipc_client = clone_ipc_client(&self.ipc_client);
+
+        spawn_local(async move {
+            if let Err(error) = ipc_client.send(outgoing_message).await {
+                tracing::error!(?error, "Failed to send shared unlock IPC message");
+            }
+        });
     }
 }
 
@@ -101,19 +137,22 @@ pub struct SharedUnlockFollower {
     subscription: Arc<Mutex<bitwarden_ipc::wasm::JsIpcClientSubscription>>,
     cancellation_token: CancellationToken,
     follower: Arc<
-        super::protocol::Follower<
-            InternalWasmUserLockManagement,
-            WasmSender<'static>,
-            WasmLeaderDiscovery,
-        >,
+        super::protocol::Follower<InternalWasmUserLockManagement, WasmSender, WasmLeaderDiscovery>,
     >,
+}
+
+#[wasm_bindgen]
+pub struct SharedUnlockLeader {
+    subscription: Arc<Mutex<bitwarden_ipc::wasm::JsIpcClientSubscription>>,
+    cancellation_token: CancellationToken,
+    leader: Arc<Leader<InternalWasmUserLockManagement, WasmSender>>,
 }
 
 pub struct WasmLeaderDiscovery {}
 
 impl LeaderDiscovery for WasmLeaderDiscovery {
-    async fn discover_leader(&self) -> Option<bitwarden_ipc::Endpoint> {
-        Some(bitwarden_ipc::Endpoint::BrowserBackground)
+    async fn discover_leader(&self) -> Option<Endpoint> {
+        Some(Endpoint::BrowserBackground)
     }
 }
 
@@ -147,7 +186,7 @@ impl SharedUnlockFollower {
         let subscription = Arc::clone(&self.subscription);
         let follower = Arc::clone(&self.follower);
 
-        wasm_bindgen_futures::spawn_local(async move {
+        spawn_local(async move {
             loop {
                 tokio::select! {
                     _ = cancellation_token.cancelled() => {
@@ -155,16 +194,24 @@ impl SharedUnlockFollower {
                         break;
                     }
                     result = async {
-                        let mut subscription = subscription.lock().unwrap();
+                        let mut subscription = match subscription.lock() {
+                            Ok(guard) => guard,
+                            Err(poisoned) => poisoned.into_inner(),
+                        };
                         subscription.receive(None).await
                     } => {
                         match result {
-                            Ok(message) => {
-                                let p = message.payload;
-                                let message = Message::from_cbor(p.as_slice()).unwrap();
-                                follower.receive_message(message).await.unwrap_or_else(|e| {
-                                    tracing::error!(?e, "Failed to handle shared unlock IPC message");
-                                });
+                            Ok(incoming_message) => {
+                                match Message::from_cbor(incoming_message.payload.as_slice()) {
+                                    Ok(message) => {
+                                        if let Err(error) = follower.receive_message(message).await {
+                                            tracing::error!(?error, "Failed to handle shared unlock follower message");
+                                        }
+                                    }
+                                    Err(error) => {
+                                        tracing::error!(?error, "Failed to decode shared unlock follower IPC message");
+                                    }
+                                }
                             }
                             Err(error) => {
                                 tracing::error!(?error, "Failed to receive shared unlock IPC message");
@@ -181,13 +228,89 @@ impl SharedUnlockFollower {
     pub async fn handle_device_event(
         &self,
         event: DeviceEvents,
-        ipc_clietnt: &bitwarden_ipc::wasm::JsIpcClient,
+        ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
     ) {
-        let wasm_sender = WasmSender::new(ipc_clietnt);
-        self.follower
-            .handle_device_event(event, wasm_sender)
-            .await
-            .unwrap();
+        let wasm_sender = WasmSender::new(ipc_client);
+        if let Err(error) = self.follower.handle_device_event(event, wasm_sender).await {
+            tracing::error!(
+                ?error,
+                "Failed to handle shared unlock follower device event"
+            );
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn stop(&self) {
+        self.cancellation_token.cancel();
+    }
+}
+
+#[wasm_bindgen]
+impl SharedUnlockLeader {
+    #[wasm_bindgen]
+    pub async fn try_new(
+        ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
+        lock_management: WasmUserLockManagement,
+    ) -> Result<Self, bitwarden_ipc::SubscribeError> {
+        let cancellation_token = CancellationToken::new();
+        let subscription = ipc_client.subscribe().await?;
+        let leader = Leader::create(
+            InternalWasmUserLockManagement {
+                inner: lock_management,
+            },
+            WasmSender::new(ipc_client),
+        );
+
+        Ok(Self {
+            subscription: Arc::new(Mutex::new(subscription)),
+            cancellation_token,
+            leader: Arc::new(leader),
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn start(&self) {
+        let cancellation_token = self.cancellation_token.clone();
+        let subscription = Arc::clone(&self.subscription);
+        let leader = Arc::clone(&self.leader);
+
+        spawn_local(async move {
+            loop {
+                tokio::select! {
+                    _ = cancellation_token.cancelled() => {
+                        tracing::debug!("Shared unlock leader cancelled");
+                        break;
+                    }
+                    result = async {
+                        let mut subscription = match subscription.lock() {
+                            Ok(guard) => guard,
+                            Err(poisoned) => poisoned.into_inner(),
+                        };
+                        subscription.receive(None).await
+                    } => {
+                        match result {
+                            Ok(incoming_message) => {
+                                let source = incoming_message.source;
+                                match Message::from_cbor(incoming_message.payload.as_slice()) {
+                                    Ok(message) => {
+                                        if let Err(error) = leader.receive_message(message, source).await {
+                                            tracing::error!(?error, "Failed to handle shared unlock leader message");
+                                        }
+                                    }
+                                    Err(error) => {
+                                        tracing::error!(?error, "Failed to decode shared unlock leader IPC message");
+                                    }
+                                }
+                            }
+                            Err(error) => {
+                                tracing::error!(?error, "Failed to receive shared unlock IPC message");
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 
     #[wasm_bindgen]

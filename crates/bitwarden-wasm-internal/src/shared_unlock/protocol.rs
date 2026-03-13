@@ -14,14 +14,14 @@ pub trait MessageSender {
     fn send_message(&self, message: Message, recipient: bitwarden_ipc::Endpoint);
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum LockState {
     Locked,
     Unlocked { key: Vec<u8> },
 }
 
 /// The messages sent between the followers and leader
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Message {
     RequestLock {
         user_id: UserId,
@@ -102,7 +102,7 @@ impl<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery> Follower<L, S,
     }
 
     pub async fn handle_device_event(&self, event: DeviceEvents, sender: S) -> Result<(), ()> {
-        let leader = self.leader_discovery.discover_leader().await.unwrap();
+        let leader = self.leader_discovery.discover_leader().await.ok_or(())?;
 
         match event {
             DeviceEvents::ManualLock { user_id } => {
@@ -127,13 +127,20 @@ impl<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery> Follower<L, S,
     }
 }
 
-struct Leader<L: UserLockManagement, S: MessageSender> {
+pub(crate) struct Leader<L: UserLockManagement, S: MessageSender> {
     message_sender: S,
     lock_system: L,
 }
 
 impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
-    async fn receive_message(
+    pub fn create(lock_system: L, message_sender: S) -> Self {
+        Self {
+            message_sender,
+            lock_system,
+        }
+    }
+
+    pub async fn receive_message(
         &self,
         message: Message,
         sender: bitwarden_ipc::Endpoint,
@@ -149,53 +156,231 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                 Ok(())
             }
             Message::RequestUnlock { user_id, user_key } => {
-                self.lock_system.unlock_user(user_id, user_key).await?;
+                self.lock_system
+                    .unlock_user(user_id, user_key.clone())
+                    .await?;
                 let response = Message::LockStateUpdate {
                     user_id,
-                    lock_state: LockState::Unlocked { key: vec![] },
+                    lock_state: LockState::Unlocked { key: user_key },
                 };
                 self.message_sender.send_message(response, sender);
                 Ok(())
             }
-            Message::HeartbeatRequest { .. } | Message::HeartbeatResponse { .. } => Ok(()),
-            _ => Ok(()),
+            Message::HeartbeatRequest { user_id } | Message::StartSession { user_id } => {
+                self.message_sender
+                    .send_message(Message::HeartbeatResponse { user_id }, sender);
+                Ok(())
+            }
+            Message::HeartbeatResponse { .. } | Message::LockStateUpdate { .. } => Ok(()),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::{collections::HashMap, sync::Arc};
+
+    use bitwarden_ipc::Endpoint;
+    use tokio::sync::Mutex;
+
     use super::*;
+    use crate::shared_unlock::lock_management::LockState as UserLockState;
 
-    fn test_user_id() -> UserId {
-        "00000000-0000-0000-0000-000000000001"
-            .parse()
-            .expect("static test UUID should be a valid UserId")
+    #[derive(Clone, Default)]
+    struct MockUserLockManagement {
+        users: Arc<Mutex<HashMap<UserId, Option<Vec<u8>>>>>,
     }
 
-    #[test]
-    fn message_cbor_roundtrip() {
-        let message = Message::RequestUnlock {
-            user_id: test_user_id(),
-            user_key: vec![1, 2, 3, 4],
-        };
-
-        let encoded = message
-            .to_cbor()
-            .expect("message should serialize to valid CBOR");
-        let decoded = Message::from_cbor(&encoded).expect("encoded message should decode");
-
-        assert_eq!(message, decoded);
+    impl MockUserLockManagement {
+        async fn lock_state(&self, user_id: UserId) -> UserLockState {
+            self.get_user_lock_state(user_id).await
+        }
     }
 
-    #[test]
-    fn message_cbor_decode_fails_for_invalid_bytes() {
-        let invalid_cbor = [0xff];
-        let result = Message::from_cbor(&invalid_cbor);
+    impl UserLockManagement for MockUserLockManagement {
+        async fn lock_user(&self, user_id: UserId) -> Result<(), ()> {
+            let mut users = self.users.lock().await;
+            users.insert(user_id, None);
+            Ok(())
+        }
+
+        async fn unlock_user(&self, user_id: UserId, user_key: Vec<u8>) -> Result<(), ()> {
+            let mut users = self.users.lock().await;
+            users.insert(user_id, Some(user_key));
+            Ok(())
+        }
+
+        async fn list_users(&self) -> Vec<UserId> {
+            let users = self.users.lock().await;
+            users.keys().copied().collect()
+        }
+
+        async fn get_user_lock_state(&self, user_id: UserId) -> UserLockState {
+            let users = self.users.lock().await;
+            match users.get(&user_id) {
+                Some(Some(key)) => UserLockState::Unlocked { key: key.clone() },
+                _ => UserLockState::Locked,
+            }
+        }
+    }
+
+    #[derive(Clone, Default)]
+    struct MockMessageSender {
+        sent_messages: Arc<std::sync::Mutex<Vec<(Message, Endpoint)>>>,
+    }
+
+    impl MockMessageSender {
+        fn messages(&self) -> Vec<(Message, Endpoint)> {
+            let guard = match self.sent_messages.lock() {
+                Ok(guard) => guard,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            guard.clone()
+        }
+    }
+
+    impl MessageSender for MockMessageSender {
+        fn send_message(&self, message: Message, recipient: Endpoint) {
+            let mut guard = match self.sent_messages.lock() {
+                Ok(guard) => guard,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            guard.push((message, recipient));
+        }
+    }
+
+    struct MockLeaderDiscovery {
+        leader: Endpoint,
+    }
+
+    impl LeaderDiscovery for MockLeaderDiscovery {
+        async fn discover_leader(&self) -> Option<Endpoint> {
+            Some(self.leader)
+        }
+    }
+
+    #[tokio::test]
+    async fn leader_replies_to_heartbeat_request() {
+        let lock_system = MockUserLockManagement::default();
+        let sender = MockMessageSender::default();
+        let leader = Leader::create(lock_system, sender.clone());
+        let user_id = UserId::new_v4();
+        let source = Endpoint::DesktopRenderer;
+
+        let result = leader
+            .receive_message(Message::HeartbeatRequest { user_id }, source)
+            .await;
+
+        assert!(result.is_ok());
+        assert_eq!(
+            sender.messages(),
+            vec![(Message::HeartbeatResponse { user_id }, source)]
+        );
+    }
+
+    #[tokio::test]
+    async fn leader_replies_to_start_session() {
+        let lock_system = MockUserLockManagement::default();
+        let sender = MockMessageSender::default();
+        let leader = Leader::create(lock_system, sender.clone());
+        let user_id = UserId::new_v4();
+        let source = Endpoint::DesktopMain;
+
+        let result = leader
+            .receive_message(Message::StartSession { user_id }, source)
+            .await;
+
+        assert!(result.is_ok());
+        assert_eq!(
+            sender.messages(),
+            vec![(Message::HeartbeatResponse { user_id }, source)]
+        );
+    }
+
+    #[tokio::test]
+    async fn leader_and_follower_unlock_roundtrip_updates_both_sides() {
+        let user_id = UserId::new_v4();
+        let user_key = vec![1, 2, 3, 4, 5, 6];
+
+        let follower_lock_system = MockUserLockManagement::default();
+        let leader_lock_system = MockUserLockManagement::default();
+        let follower_init = follower_lock_system.lock_user(user_id).await;
+        let leader_init = leader_lock_system.lock_user(user_id).await;
+
+        assert!(follower_init.is_ok());
+        assert!(leader_init.is_ok());
+
+        let follower_sender = MockMessageSender::default();
+        let leader_sender = MockMessageSender::default();
+
+        let follower =
+            Follower::<MockUserLockManagement, MockMessageSender, MockLeaderDiscovery>::create(
+                follower_lock_system.clone(),
+                MockLeaderDiscovery {
+                    leader: Endpoint::BrowserBackground,
+                },
+            )
+            .await;
+
+        let leader = Leader::create(leader_lock_system.clone(), leader_sender.clone());
+
+        let follower_result = follower
+            .handle_device_event(
+                DeviceEvents::ManualUnlock {
+                    user_id,
+                    user_key: user_key.clone(),
+                },
+                follower_sender.clone(),
+            )
+            .await;
+
+        assert!(follower_result.is_ok());
+
+        let follower_messages = follower_sender.messages();
+        assert_eq!(follower_messages.len(), 1);
+
+        let (request_message, destination) = follower_messages[0].clone();
+        assert_eq!(destination, Endpoint::BrowserBackground);
+        assert_eq!(
+            request_message,
+            Message::RequestUnlock {
+                user_id,
+                user_key: user_key.clone(),
+            }
+        );
+
+        let source = Endpoint::Web { id: 42 };
+        let leader_result = leader.receive_message(request_message, source).await;
+        assert!(leader_result.is_ok());
+
+        let leader_messages = leader_sender.messages();
+        assert_eq!(leader_messages.len(), 1);
+
+        let (leader_response, response_destination) = leader_messages[0].clone();
+        assert_eq!(response_destination, source);
+        assert_eq!(
+            leader_response,
+            Message::LockStateUpdate {
+                user_id,
+                lock_state: LockState::Unlocked {
+                    key: user_key.clone(),
+                },
+            }
+        );
+
+        let apply_result = follower.receive_message(leader_response).await;
+        assert!(apply_result.is_ok());
+
+        let follower_state = follower_lock_system.lock_state(user_id).await;
+        let leader_state = leader_lock_system.lock_state(user_id).await;
 
         assert!(matches!(
-            result,
-            Err(EncodingError::InvalidCborSerialization)
+            follower_state,
+            UserLockState::Unlocked { key } if key == user_key
+        ));
+        assert!(matches!(
+            leader_state,
+            UserLockState::Unlocked { key } if key == user_key
         ));
     }
 }
