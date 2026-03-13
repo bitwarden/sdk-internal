@@ -4,6 +4,8 @@ use bitwarden_crypto::KeyStore;
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::internal::InternalClient;
 #[cfg(feature = "internal")]

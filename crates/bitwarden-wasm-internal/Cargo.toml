@@ -46,6 +46,7 @@ rand = { workspace = true }
 rsa = { workspace = true }
 serde = { workspace = true }
 sha1 = { workspace = true }
+tokio.workspace = true
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-web = { version = "0.1.3" }
