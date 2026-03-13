@@ -1,7 +1,7 @@
 ###############################################
 #                 Build stage                 #
 ###############################################
-FROM rust:1.90-alpine AS base
+FROM rust:1.93-alpine AS base
 WORKDIR /app
 
 # Make sure the correct rust toolchain is installed only once
@@ -31,7 +31,7 @@ RUN cargo build -p memory-testing --release
 ###############################################
 #                  App stage                  #
 ###############################################
-FROM alpine:3.22
+FROM alpine:3.23
 
 # This specifically needs to run as root to be able to capture core dumps
 USER root
