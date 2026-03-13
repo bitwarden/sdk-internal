@@ -1,5 +1,7 @@
 use bitwarden_core::UserId;
+use bitwarden_crypto::EncodingError;
 use serde::{Deserialize, Serialize};
+use tsify::Tsify;
 
 use crate::shared_unlock::lock_management::UserLockManagement;
 
@@ -12,14 +14,14 @@ pub trait MessageSender {
     fn send_message(&self, message: Message, recipient: bitwarden_ipc::Endpoint);
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum LockState {
     Locked,
     Unlocked { key: Vec<u8> },
 }
 
 /// The messages sent between the followers and leader
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Message {
     RequestLock {
         user_id: UserId,
@@ -38,10 +40,30 @@ pub enum Message {
     HeartbeatResponse {
         user_id: UserId,
     },
+    StartSession {
+        user_id: UserId,
+    },
+}
+
+impl Message {
+    /// Serializes this message to CBOR bytes.
+    pub fn to_cbor(&self) -> Result<Vec<u8>, EncodingError> {
+        let mut buffer = Vec::new();
+        ciborium::ser::into_writer(self, &mut buffer)
+            .map_err(|_| EncodingError::InvalidCborSerialization)?;
+        Ok(buffer)
+    }
+
+    /// Deserializes a message from CBOR bytes.
+    pub fn from_cbor(data: &[u8]) -> Result<Self, EncodingError> {
+        ciborium::de::from_reader(data).map_err(|_| EncodingError::InvalidCborSerialization)
+    }
 }
 
 /// The device (client) has several events that need to be reported to the shared unlock system.
 /// This enum represents the events that need to be reported.
+#[derive(Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
 pub enum DeviceEvents {
     /// The user with the given user id has been locked manually in the UI
     ManualLock { user_id: UserId },
@@ -51,14 +73,22 @@ pub enum DeviceEvents {
     Timer,
 }
 
-struct Follower<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery> {
-    message_sender: S,
+pub(crate) struct Follower<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery> {
     lock_system: L,
     leader_discovery: D,
+    _phantom: std::marker::PhantomData<S>,
 }
 
 impl<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery> Follower<L, S, D> {
-    async fn receive_message(&self, message: Message) -> Result<(), ()> {
+    pub async fn create(lock_system: L, leader_discovery: D) -> Self {
+        Self {
+            lock_system,
+            leader_discovery,
+            _phantom: std::marker::PhantomData,
+        }
+    }
+
+    pub async fn receive_message(&self, message: Message) -> Result<(), ()> {
         match message {
             Message::LockStateUpdate {
                 user_id,
@@ -70,24 +100,26 @@ impl<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery> Follower<L, S,
             _ => Ok(()),
         }
     }
-    async fn handle_device_event(&self, event: DeviceEvents) -> Result<(), ()> {
+
+    pub async fn handle_device_event(&self, event: DeviceEvents, sender: S) -> Result<(), ()> {
         let leader = self.leader_discovery.discover_leader().await.unwrap();
+
         match event {
             DeviceEvents::ManualLock { user_id } => {
                 let message = Message::RequestLock { user_id };
-                self.message_sender.send_message(message, leader);
+                sender.send_message(message, leader);
                 Ok(())
             }
             DeviceEvents::ManualUnlock { user_id, user_key } => {
                 let message = Message::RequestUnlock { user_id, user_key };
-                self.message_sender.send_message(message, leader);
+                sender.send_message(message, leader);
                 Ok(())
             }
             DeviceEvents::Timer => {
                 let user_ids = self.lock_system.list_users().await;
                 for user_id in user_ids {
                     let message = Message::HeartbeatRequest { user_id };
-                    self.message_sender.send_message(message, leader.clone());
+                    sender.send_message(message, leader.clone());
                 }
                 Ok(())
             }
@@ -125,6 +157,7 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                 self.message_sender.send_message(response, sender);
                 Ok(())
             }
+            Message::HeartbeatRequest { .. } | Message::HeartbeatResponse { .. } => Ok(()),
             _ => Ok(()),
         }
     }
@@ -132,7 +165,37 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    fn test_user_id() -> UserId {
+        "00000000-0000-0000-0000-000000000001"
+            .parse()
+            .expect("static test UUID should be a valid UserId")
+    }
 
     #[test]
-    fn test_setup() {}
+    fn message_cbor_roundtrip() {
+        let message = Message::RequestUnlock {
+            user_id: test_user_id(),
+            user_key: vec![1, 2, 3, 4],
+        };
+
+        let encoded = message
+            .to_cbor()
+            .expect("message should serialize to valid CBOR");
+        let decoded = Message::from_cbor(&encoded).expect("encoded message should decode");
+
+        assert_eq!(message, decoded);
+    }
+
+    #[test]
+    fn message_cbor_decode_fails_for_invalid_bytes() {
+        let invalid_cbor = [0xff];
+        let result = Message::from_cbor(&invalid_cbor);
+
+        assert!(matches!(
+            result,
+            Err(EncodingError::InvalidCborSerialization)
+        ));
+    }
 }

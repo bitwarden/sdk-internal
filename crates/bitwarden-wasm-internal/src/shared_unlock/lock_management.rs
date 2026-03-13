@@ -1,5 +1,5 @@
 use bitwarden_core::UserId;
-use bitwarden_crypto::SymmetricCryptoKey;
+use wasm_bindgen::prelude::wasm_bindgen;
 
 /// Trait that implements managing the lock state for users in the application
 pub trait UserLockManagement {
@@ -20,6 +20,6 @@ pub enum LockState {
     /// The user is unlocked (has a user-key in memory).
     Unlocked {
         /// The user-key of the unlocked user
-        key: SymmetricCryptoKey,
+        key: Vec<u8>,
     },
 }
