@@ -34,8 +34,8 @@ use crate::{
     client::{LoginMethod, UserLoginMethod, encryption_settings::EncryptionSettingsError},
     error::StatefulCryptoError,
     key_management::{
-        LocalUserDataKeyState, MasterPasswordError, PrivateKeyId, SecurityState,
-        SignedSecurityState, SigningKeyId, SymmetricKeyId, V2UpgradeToken,
+        MasterPasswordError, PrivateKeyId, SecurityState, SignedSecurityState, SigningKeyId,
+        SymmetricKeyId, V2UpgradeToken,
         account_cryptographic_state::{
             AccountCryptographyInitializationError, WrappedAccountCryptographicState,
         },
@@ -152,6 +152,13 @@ pub enum InitUserCryptoMethod {
         master_key: B64,
         /// The user's encrypted symmetric crypto key
         user_key: EncString,
+    },
+    /// In contrast to key-connector, this does all of the connection with key-connector in the sdk
+    KeyConnectorUrl {
+        /// The url to retrieve the key-connector-key from
+        url: String,
+        /// The encrypted user key, encrypted with the key connector key retrieved from the url
+        key_connector_key_wrapped_user_key: EncString,
     },
 }
 
@@ -307,6 +314,25 @@ pub(super) async fn initialize_user_crypto(
 
             client.internal.initialize_user_crypto_key_connector_key(
                 master_key,
+                user_key,
+                account_crypto_state,
+                &req.upgrade_token,
+            )?;
+        }
+        InitUserCryptoMethod::KeyConnectorUrl {
+            url,
+            key_connector_key_wrapped_user_key,
+        } => {
+            let api_client = client.internal.get_key_connector_client(url);
+            let key_connector_key_response = api_client
+                .user_keys_api()
+                .get_user_key()
+                .await
+                .map_err(|_| EncryptionSettingsError::KeyConnectorRetrievalFailed)?;
+            let key_connector_key = KeyConnectorKey::try_from(key_connector_key_response)?;
+            let user_key =
+                key_connector_key.decrypt_user_key(key_connector_key_wrapped_user_key)?;
+            client.internal.initialize_user_crypto_decrypted_key(
                 user_key,
                 account_crypto_state,
                 &req.upgrade_token,
@@ -1039,19 +1065,6 @@ pub(crate) fn make_user_key_connector_registration(
 /// Subsequent calls are idempotent: if the key already exists in state it is loaded as-is,
 /// preserving any data that was previously encrypted with it (e.g. after a key rotation).
 async fn initialize_user_local_data_key(client: &Client) -> Result<(), EncryptionSettingsError> {
-    // If the repository isn't registered (e.g. database not initialized), skip silently.
-    if client
-        .platform()
-        .state()
-        .get::<LocalUserDataKeyState>()
-        .is_err()
-    {
-        info!(
-            "LocalUserDataKeyState repository not available, skipping local user data key initialization"
-        );
-        return Ok(());
-    }
-
     let user_id = client
         .internal
         .get_user_id()

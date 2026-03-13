@@ -48,6 +48,7 @@ bitwarden-server-communication-config = { path = "crates/bitwarden-server-commun
 bitwarden-sm = { path = "bitwarden_license/bitwarden-sm", version = "=2.0.0" }
 bitwarden-ssh = { path = "crates/bitwarden-ssh", version = "=2.0.0" }
 bitwarden-state = { path = "crates/bitwarden-state", version = "=2.0.0" }
+bitwarden-sync = { path = "crates/bitwarden-sync", version = "=2.0.0" }
 bitwarden-test = { path = "crates/bitwarden-test", version = "=2.0.0" }
 bitwarden-test-macro = { path = "crates/bitwarden-test-macro", version = "=2.0.0" }
 bitwarden-threading = { path = "crates/bitwarden-threading", version = "=2.0.0" }
@@ -70,12 +71,12 @@ mockall = { version = ">=0.13.1, <0.15" }
 proc-macro2 = ">=1.0.89, <2"
 quote = ">=1.0.37, <2"
 rand = ">=0.8.5, <0.9"
-reqwest = { version = ">=0.12.5, <0.13", features = [
+reqwest = { version = ">=0.12.5, <0.14", features = [
     "json",
     "multipart",
     "http2",
 ], default-features = false }
-reqwest-middleware = { version = ">=0.4.2, <0.5", features = [
+reqwest-middleware = { version = ">=0.4.2, <0.6", features = [
     "json",
     "multipart",
 ] }

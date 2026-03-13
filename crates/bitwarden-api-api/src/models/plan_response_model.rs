@@ -141,6 +141,12 @@ pub struct PlanResponseModel {
     )]
     pub users_get_premium: Option<bool>,
     #[serde(
+        rename = "hasMyItems",
+        alias = "HasMyItems",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub has_my_items: Option<bool>,
+    #[serde(
         rename = "upgradeSortOrder",
         alias = "UpgradeSortOrder",
         skip_serializing_if = "Option::is_none"
@@ -202,6 +208,7 @@ impl PlanResponseModel {
             has_organization_domains: None,
             has_reset_password: None,
             users_get_premium: None,
+            has_my_items: None,
             upgrade_sort_order: None,
             display_sort_order: None,
             legacy_year: None,
