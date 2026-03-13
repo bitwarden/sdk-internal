@@ -1,7 +1,8 @@
 //! Functionality for re-encrypting user data during key rotation.
 
 use bitwarden_api_api::models::{
-    AccountDataRequestModel, CipherWithIdRequestModel, SendWithIdRequestModel,
+    AccountDataRequestModel, CipherWithIdRequestModel, SendFileModel, SendTextModel,
+    SendWithIdRequestModel,
 };
 use bitwarden_core::{
     UserId,
@@ -70,9 +71,44 @@ pub(super) fn reencrypt_data(
             reencrypted_sends
                 .into_iter()
                 .map(|send| {
+                    let file = send
+                        .file
+                        .as_ref()
+                        .map(|f| {
+                            Ok(Box::new(SendFileModel {
+                                id: f.id.clone(),
+                                file_name: Some(f.file_name.to_string()),
+                                size: f
+                                    .size
+                                    .as_deref()
+                                    .map(str::parse::<i64>)
+                                    .transpose()
+                                    .map_err(|_| DataReencryptionError::DataConversion)?,
+                                size_name: f.size_name.clone(),
+                            }))
+                        })
+                        .transpose()?;
+
                     Ok(SendWithIdRequestModel {
+                        // Required values for rotation
                         id: send.id.ok_or(DataReencryptionError::DataConversion)?,
                         key: send.key.to_string(),
+
+                        // Since key-rotation re-uses a model that assumes full data
+                        // we fill the required data here to ensure the server parses the models
+                        // correctly. However, these values are not used on
+                        // the server during rotation. Ideally, the models
+                        // for key-rotations would be updated.
+                        deletion_date: send.deletion_date.to_rfc3339(),
+                        disabled: send.disabled,
+                        text: send.text.as_ref().map(|t| {
+                            Box::new(SendTextModel {
+                                text: t.text.as_ref().map(|s| s.to_string()),
+                                hidden: Some(t.hidden),
+                            })
+                        }),
+                        file,
+
                         // During key-rotation only the "key" (encrypted seed) and id are used,
                         // since we only re-encrypt the "key"
                         ..Default::default()
