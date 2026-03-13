@@ -980,4 +980,80 @@ mod tests {
             BootstrapConfig::SsoCookieVendor(_)
         ));
     }
+
+    #[tokio::test]
+    async fn acquire_cookie_returns_unsupported_when_vault_url_none() {
+        let repo = MockRepository::default();
+        let platform_api = MockPlatformApi::new();
+
+        // Setup config with SsoCookieVendor but vault_url is None
+        let config = ServerCommunicationConfig {
+            bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
+                idp_login_url: Some("https://example.com".to_string()),
+                cookie_name: Some("TestCookie".to_string()),
+                cookie_domain: Some("example.com".to_string()),
+                vault_url: None, // Missing vault_url
+                cookie_value: None,
+            }),
+        };
+        repo.save("vault.example.com".to_string(), config)
+            .await
+            .unwrap();
+
+        // Platform API is ready to return cookies (but shouldn't be called)
+        platform_api
+            .set_cookies(Some(vec![AcquiredCookie {
+                name: "TestCookie".to_string(),
+                value: "value".to_string(),
+            }]))
+            .await;
+
+        let client = ServerCommunicationConfigClient::new(repo, platform_api);
+
+        let result = client.acquire_cookie("vault.example.com").await;
+
+        // Should return UnsupportedConfiguration because vault_url is None
+        assert!(matches!(
+            result,
+            Err(AcquireCookieError::UnsupportedConfiguration)
+        ));
+    }
+
+    #[tokio::test]
+    async fn acquire_cookie_returns_unsupported_when_vault_url_empty() {
+        let repo = MockRepository::default();
+        let platform_api = MockPlatformApi::new();
+
+        // Setup config with SsoCookieVendor but vault_url is empty string
+        let config = ServerCommunicationConfig {
+            bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
+                idp_login_url: Some("https://example.com".to_string()),
+                cookie_name: Some("TestCookie".to_string()),
+                cookie_domain: Some("example.com".to_string()),
+                vault_url: Some("".to_string()), // Empty vault_url
+                cookie_value: None,
+            }),
+        };
+        repo.save("vault.example.com".to_string(), config)
+            .await
+            .unwrap();
+
+        // Platform API is ready to return cookies (but shouldn't be called)
+        platform_api
+            .set_cookies(Some(vec![AcquiredCookie {
+                name: "TestCookie".to_string(),
+                value: "value".to_string(),
+            }]))
+            .await;
+
+        let client = ServerCommunicationConfigClient::new(repo, platform_api);
+
+        let result = client.acquire_cookie("vault.example.com").await;
+
+        // Should return UnsupportedConfiguration because vault_url is empty
+        assert!(matches!(
+            result,
+            Err(AcquireCookieError::UnsupportedConfiguration)
+        ));
+    }
 }
