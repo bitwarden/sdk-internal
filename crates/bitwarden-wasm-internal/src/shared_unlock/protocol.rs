@@ -1,6 +1,7 @@
 use bitwarden_core::UserId;
 use bitwarden_crypto::EncodingError;
 use serde::{Deserialize, Serialize};
+use tracing::info;
 use tsify::Tsify;
 
 use crate::shared_unlock::lock_management::UserLockManagement;
@@ -97,6 +98,10 @@ impl<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery> Follower<L, S,
                 LockState::Locked => self.lock_system.lock_user(user_id).await,
                 LockState::Unlocked { key } => self.lock_system.unlock_user(user_id, key).await,
             },
+            Message::HeartbeatResponse { user_id } => {
+                info!("Received heartbeat response for user_id: {:?}", user_id);
+                Ok(())
+            }
             _ => Ok(()),
         }
     }
@@ -117,6 +122,8 @@ impl<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery> Follower<L, S,
             }
             DeviceEvents::Timer => {
                 let user_ids = self.lock_system.list_users().await;
+                info!("Timer event: sending heartbeat for users: {:?}", user_ids);
+                info!("Leader endpoint: {:?}", leader);
                 for user_id in user_ids {
                     let message = Message::HeartbeatRequest { user_id };
                     sender.send_message(message, leader.clone());

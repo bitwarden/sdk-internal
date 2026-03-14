@@ -4,6 +4,7 @@ use bitwarden_core::UserId;
 use bitwarden_encoding::B64;
 use bitwarden_ipc::{Endpoint, OutgoingMessage};
 use bitwarden_threading::cancellation_token::CancellationToken;
+use tracing::info;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 use wasm_bindgen_futures::{js_sys, spawn_local};
 
@@ -119,7 +120,7 @@ impl MessageSender for WasmSender {
         let outgoing_message = OutgoingMessage {
             payload,
             destination: recipient,
-            topic: None,
+            topic: Some("password-manager.shared-unlock".to_string()),
         };
 
         let ipc_client = clone_ipc_client(&self.ipc_client);
@@ -252,14 +253,14 @@ impl SharedUnlockLeader {
         ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
         lock_management: WasmUserLockManagement,
     ) -> Result<Self, bitwarden_ipc::SubscribeError> {
+        let internal_lock_management = InternalWasmUserLockManagement {
+            inner: lock_management,
+        };
+        let users = internal_lock_management.list_users().await;
+        tracing::info!("SharedUnlockLeader: Found users: {:?}", users);
         let cancellation_token = CancellationToken::new();
         let subscription = ipc_client.subscribe().await?;
-        let leader = Leader::create(
-            InternalWasmUserLockManagement {
-                inner: lock_management,
-            },
-            WasmSender::new(ipc_client),
-        );
+        let leader = Leader::create(internal_lock_management, WasmSender::new(ipc_client));
 
         Ok(Self {
             subscription: Arc::new(Mutex::new(subscription)),
@@ -282,14 +283,12 @@ impl SharedUnlockLeader {
                         break;
                     }
                     result = async {
-                        let mut subscription = match subscription.lock() {
-                            Ok(guard) => guard,
-                            Err(poisoned) => poisoned.into_inner(),
-                        };
+                        let mut subscription = subscription.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
                         subscription.receive(None).await
                     } => {
                         match result {
                             Ok(incoming_message) => {
+                                info!("Incoming message from {:?}: {:?}", incoming_message.source, incoming_message.payload);
                                 let source = incoming_message.source;
                                 match Message::from_cbor(incoming_message.payload.as_slice()) {
                                     Ok(message) => {

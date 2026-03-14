@@ -1198,6 +1198,7 @@ dependencies = [
  "rsa 0.9.10",
  "serde",
  "serde-wasm-bindgen",
+ "serde_bytes",
  "sha1",
  "tokio",
  "tracing",
