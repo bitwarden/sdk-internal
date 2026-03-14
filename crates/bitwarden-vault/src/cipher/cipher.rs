@@ -615,29 +615,25 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
             folder_id: self.folder_id,
             collection_ids: self.collection_ids.clone(),
             key: self.key.clone(),
-            name: self.name.decrypt(ctx, ciphers_key).ok().unwrap_or_default(),
-            notes: self.notes.decrypt(ctx, ciphers_key).ok().flatten(),
+            name: self.name.decrypt(ctx, ciphers_key)?,
+            notes: self.notes.decrypt(ctx, ciphers_key)?,
             r#type: self.r#type,
-            login: self.login.decrypt(ctx, ciphers_key).ok().flatten(),
-            identity: self.identity.decrypt(ctx, ciphers_key).ok().flatten(),
-            card: self.card.decrypt(ctx, ciphers_key).ok().flatten(),
-            secure_note: self.secure_note.decrypt(ctx, ciphers_key).ok().flatten(),
-            ssh_key: self.ssh_key.decrypt(ctx, ciphers_key).ok().flatten(),
+            login: self.login.decrypt(ctx, ciphers_key)?,
+            identity: self.identity.decrypt(ctx, ciphers_key)?,
+            card: self.card.decrypt(ctx, ciphers_key)?,
+            secure_note: self.secure_note.decrypt(ctx, ciphers_key)?,
+            ssh_key: self.ssh_key.decrypt(ctx, ciphers_key)?,
             favorite: self.favorite,
             reprompt: self.reprompt,
             organization_use_totp: self.organization_use_totp,
             edit: self.edit,
             permissions: self.permissions,
             view_password: self.view_password,
-            local_data: self.local_data.decrypt(ctx, ciphers_key).ok().flatten(),
+            local_data: self.local_data.decrypt(ctx, ciphers_key)?,
             attachments: Some(attachments),
             attachment_decryption_failures: Some(attachment_decryption_failures),
-            fields: self.fields.decrypt(ctx, ciphers_key).ok().flatten(),
-            password_history: self
-                .password_history
-                .decrypt(ctx, ciphers_key)
-                .ok()
-                .flatten(),
+            fields: self.fields.decrypt(ctx, ciphers_key)?,
+            password_history: self.password_history.decrypt(ctx, ciphers_key)?,
             creation_date: self.creation_date,
             deleted_date: self.deleted_date,
             revision_date: self.revision_date,
@@ -937,11 +933,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             folder_id: self.folder_id,
             collection_ids: self.collection_ids.clone(),
             key: self.key.clone(),
-            name: self.name.decrypt(ctx, ciphers_key).ok().unwrap_or_default(),
-            subtitle: self
-                .decrypt_subtitle(ctx, ciphers_key)
-                .ok()
-                .unwrap_or_default(),
+            name: self.name.decrypt(ctx, ciphers_key)?,
+            subtitle: self.decrypt_subtitle(ctx, ciphers_key)?,
             r#type: match self.r#type {
                 CipherType::Login => {
                     let login = self
@@ -984,25 +977,30 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             local_data: self.local_data.decrypt(ctx, ciphers_key)?,
             archived_date: self.archived_date,
             #[cfg(feature = "wasm")]
-            notes: self.notes.decrypt(ctx, ciphers_key).ok().flatten(),
+            notes: self.notes.decrypt(ctx, ciphers_key)?,
             #[cfg(feature = "wasm")]
-            fields: self.fields.as_ref().map(|fields| {
-                fields
-                    .iter()
-                    .filter_map(|f| {
-                        f.decrypt(ctx, ciphers_key)
-                            .ok()
-                            .map(field::FieldListView::from)
-                    })
-                    .collect()
-            }),
+            fields: self
+                .fields
+                .as_ref()
+                .map(|fields| {
+                    fields
+                        .iter()
+                        .map(|f| f.decrypt(ctx, ciphers_key).map(field::FieldListView::from))
+                        .collect::<Result<Vec<_>, _>>()
+                })
+                .transpose()?,
             #[cfg(feature = "wasm")]
-            attachment_names: self.attachments.as_ref().map(|attachments| {
-                attachments
-                    .iter()
-                    .filter_map(|a| a.file_name.decrypt(ctx, ciphers_key).ok().flatten())
-                    .collect()
-            }),
+            attachment_names: self
+                .attachments
+                .as_ref()
+                .map(|attachments| {
+                    attachments
+                        .iter()
+                        .map(|a| a.file_name.decrypt(ctx, ciphers_key))
+                        .collect::<Result<Vec<_>, _>>()
+                })
+                .transpose()?
+                .map(|names| names.into_iter().flatten().collect()),
         })
     }
 }
@@ -1506,6 +1504,47 @@ mod tests {
                 attachment_names: None,
             }
         )
+    }
+
+    #[test]
+    fn test_decrypt_cipher_fails_with_invalid_name() {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+
+        // Encrypt a valid cipher, then swap name with an EncString from a different key
+        let cipher = key_store.encrypt(generate_cipher()).unwrap();
+        let cipher = Cipher {
+            name: TEST_CIPHER_NAME.parse().unwrap(), // encrypted with a different key
+            ..cipher
+        };
+
+        let result: Result<CipherView, _> = key_store.decrypt(&cipher);
+        assert!(
+            result.is_err(),
+            "Decryption should fail when name is encrypted with a different key"
+        );
+    }
+
+    #[test]
+    fn test_decrypt_cipher_fails_with_invalid_login() {
+        let key_store =
+            create_test_crypto_with_user_key(SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+
+        // Encrypt a valid cipher, then corrupt the login username
+        let cipher = key_store.encrypt(generate_cipher()).unwrap();
+        let cipher = Cipher {
+            login: Some(Login {
+                username: Some(TEST_CIPHER_NAME.parse().unwrap()), // encrypted with a different key
+                ..cipher.login.unwrap()
+            }),
+            ..cipher
+        };
+
+        let result: Result<CipherView, _> = key_store.decrypt(&cipher);
+        assert!(
+            result.is_err(),
+            "Decryption should fail when login username is encrypted with a different key"
+        );
     }
 
     #[test]
