@@ -25,6 +25,10 @@ uniffi = ["dep:uniffi"] # UniFFI support for mobile bindings
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-error = { workspace = true }
+http = { workspace = true }
+reqwest = { workspace = true }
+reqwest-middleware = { workspace = true }
+tracing = { workspace = true }
 bitwarden-threading = { workspace = true }
 js-sys = { workspace = true, optional = true }
 serde = { workspace = true }

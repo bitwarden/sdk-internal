@@ -1,9 +1,23 @@
+use std::sync::Arc;
+
 #[cfg(test)]
 use crate::AcquiredCookie;
+use crate::middleware::ServerCommunicationConfigMiddleware;
 use crate::{
     AcquireCookieError, BootstrapConfig, ServerCommunicationConfig,
     ServerCommunicationConfigPlatformApi, ServerCommunicationConfigRepository,
 };
+
+/// Private inner state for ServerCommunicationConfigClient, wrapped in Arc for Clone support.
+/// See ADR-078.
+struct InnerClient<R, P>
+where
+    R: ServerCommunicationConfigRepository,
+    P: ServerCommunicationConfigPlatformApi,
+{
+    repository: R,
+    platform_api: P,
+}
 
 /// Server communication configuration client
 pub struct ServerCommunicationConfigClient<R, P>
@@ -11,8 +25,19 @@ where
     R: ServerCommunicationConfigRepository,
     P: ServerCommunicationConfigPlatformApi,
 {
-    repository: R,
-    platform_api: P,
+    inner: Arc<InnerClient<R, P>>,
+}
+
+impl<R, P> Clone for ServerCommunicationConfigClient<R, P>
+where
+    R: ServerCommunicationConfigRepository,
+    P: ServerCommunicationConfigPlatformApi,
+{
+    fn clone(&self) -> Self {
+        Self {
+            inner: Arc::clone(&self.inner),
+        }
+    }
 }
 
 impl<R, P> ServerCommunicationConfigClient<R, P>
@@ -28,9 +53,16 @@ where
     /// * `platform_api` - Cookie acquistion implementation
     pub fn new(repository: R, platform_api: P) -> Self {
         Self {
-            repository,
-            platform_api,
+            inner: Arc::new(InnerClient {
+                repository,
+                platform_api,
+            }),
         }
+    }
+
+    /// Creates a middleware that injects cookies from this client into HTTP requests.
+    pub fn create_middleware(&self) -> ServerCommunicationConfigMiddleware<R, P> {
+        ServerCommunicationConfigMiddleware::new(self.clone())
     }
 
     /// Retrieves the server communication configuration for a hostname
@@ -39,6 +71,7 @@ where
         hostname: String,
     ) -> Result<ServerCommunicationConfig, R::GetError> {
         Ok(self
+            .inner
             .repository
             .get(hostname)
             .await?
@@ -49,7 +82,7 @@ where
 
     /// Determines if cookie bootstrapping is needed for this hostname
     pub async fn needs_bootstrap(&self, hostname: String) -> bool {
-        if let Ok(Some(config)) = self.repository.get(hostname).await
+        if let Ok(Some(config)) = self.inner.repository.get(hostname).await
             && let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap
         {
             return vendor_config.cookie_value.is_none();
@@ -62,7 +95,7 @@ where
     /// Returns the stored cookies as-is. For sharded cookies, each entry includes
     /// the full cookie name with its `-{N}` suffix (e.g., `AWSELBAuthSessionCookie-0`).
     pub async fn cookies(&self, hostname: String) -> Vec<(String, String)> {
-        if let Ok(Some(config)) = self.repository.get(hostname).await
+        if let Ok(Some(config)) = self.inner.repository.get(hostname).await
             && let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap
             && let Some(acquired_cookies) = vendor_config.cookie_value
         {
@@ -92,7 +125,7 @@ where
         hostname: String,
         config: ServerCommunicationConfig,
     ) -> Result<(), R::SaveError> {
-        self.repository.save(hostname, config).await
+        self.inner.repository.save(hostname, config).await
     }
 
     /// Acquires a cookie from the platform and saves it to the repository
@@ -117,6 +150,7 @@ where
     pub async fn acquire_cookie(&self, hostname: &str) -> Result<(), AcquireCookieError> {
         // Get existing configuration - we need this to know what cookie to expect
         let mut config = self
+            .inner
             .repository
             .get(hostname.to_string())
             .await
@@ -135,6 +169,7 @@ where
 
         // Call platform API to acquire cookies
         let cookies = self
+            .inner
             .platform_api
             .acquire_cookies(hostname.to_string())
             .await
@@ -178,7 +213,8 @@ where
         vendor_config.cookie_value = Some(cookies);
 
         // Save the updated config
-        self.repository
+        self.inner
+            .repository
             .save(hostname.to_string(), config)
             .await
             .map_err(|e| AcquireCookieError::RepositorySaveError(format!("{:?}", e)))?;
