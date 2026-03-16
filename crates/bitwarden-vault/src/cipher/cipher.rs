@@ -1557,7 +1557,8 @@ mod tests {
         // Make sure that the cipher key is decryptable
         let wrapped_key = original_cipher.key.unwrap();
         let mut ctx = key_store.context();
-        ctx.unwrap_symmetric_key(SymmetricKeyId::User, &wrapped_key)
+        let _ = ctx
+            .unwrap_symmetric_key(SymmetricKeyId::User, &wrapped_key)
             .unwrap();
     }
 
