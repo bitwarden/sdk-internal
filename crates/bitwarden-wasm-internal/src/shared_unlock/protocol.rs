@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 use tsify::Tsify;
 
-use crate::shared_unlock::lock_management::UserLockManagement;
+use crate::shared_unlock::lock_management::{LockState as UserLockState, UserLockManagement};
 
 pub trait LeaderDiscovery {
     /// Discover the leader and return its endpoint.
@@ -94,10 +94,29 @@ impl<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery> Follower<L, S,
             Message::LockStateUpdate {
                 user_id,
                 lock_state,
-            } => match lock_state {
-                LockState::Locked => self.lock_system.lock_user(user_id).await,
-                LockState::Unlocked { key } => self.lock_system.unlock_user(user_id, key).await,
-            },
+            } => {
+                let current_state = self.lock_system.get_user_lock_state(user_id).await;
+
+                match (current_state, lock_state) {
+                    (UserLockState::Locked, LockState::Locked) => Ok(()),
+                    (UserLockState::Unlocked { .. }, LockState::Locked) => {
+                        self.lock_system.lock_user(user_id).await
+                    }
+                    (UserLockState::Locked, LockState::Unlocked { key }) => {
+                        self.lock_system.unlock_user(user_id, key).await
+                    }
+                    (
+                        UserLockState::Unlocked { key: current_key },
+                        LockState::Unlocked { key },
+                    ) => {
+                        if current_key == key {
+                            Ok(())
+                        } else {
+                            self.lock_system.unlock_user(user_id, key).await
+                        }
+                    }
+                }
+            }
             Message::HeartbeatResponse { user_id } => {
                 info!("Received heartbeat response for user_id: {:?}", user_id);
                 Ok(())
@@ -147,6 +166,32 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
         }
     }
 
+    pub async fn handle_device_event(&self, event: DeviceEvents) -> Result<(), ()> {
+        match event {
+            DeviceEvents::ManualLock { user_id } => {
+                let message = Message::LockStateUpdate {
+                    user_id,
+                    lock_state: LockState::Locked,
+                };
+
+                self.message_sender
+                    .send_message(message, bitwarden_ipc::Endpoint::BrowserForeground);
+                Ok(())
+            }
+            DeviceEvents::ManualUnlock { user_id, user_key } => {
+                let message = Message::LockStateUpdate {
+                    user_id,
+                    lock_state: LockState::Unlocked { key: user_key },
+                };
+
+                self.message_sender
+                    .send_message(message, bitwarden_ipc::Endpoint::BrowserForeground);
+                Ok(())
+            }
+            DeviceEvents::Timer => Ok(()),
+        }
+    }
+
     pub async fn receive_message(
         &self,
         message: Message,
@@ -185,7 +230,13 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, sync::Arc};
+    use std::{
+        collections::HashMap,
+        sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        },
+    };
 
     use bitwarden_ipc::Endpoint;
     use tokio::sync::Mutex;
@@ -196,22 +247,34 @@ mod tests {
     #[derive(Clone, Default)]
     struct MockUserLockManagement {
         users: Arc<Mutex<HashMap<UserId, Option<Vec<u8>>>>>,
+        lock_calls: Arc<AtomicUsize>,
+        unlock_calls: Arc<AtomicUsize>,
     }
 
     impl MockUserLockManagement {
         async fn lock_state(&self, user_id: UserId) -> UserLockState {
             self.get_user_lock_state(user_id).await
         }
+
+        fn lock_calls(&self) -> usize {
+            self.lock_calls.load(Ordering::SeqCst)
+        }
+
+        fn unlock_calls(&self) -> usize {
+            self.unlock_calls.load(Ordering::SeqCst)
+        }
     }
 
     impl UserLockManagement for MockUserLockManagement {
         async fn lock_user(&self, user_id: UserId) -> Result<(), ()> {
+            self.lock_calls.fetch_add(1, Ordering::SeqCst);
             let mut users = self.users.lock().await;
             users.insert(user_id, None);
             Ok(())
         }
 
         async fn unlock_user(&self, user_id: UserId, user_key: Vec<u8>) -> Result<(), ()> {
+            self.unlock_calls.fetch_add(1, Ordering::SeqCst);
             let mut users = self.users.lock().await;
             users.insert(user_id, Some(user_key));
             Ok(())
@@ -302,6 +365,128 @@ mod tests {
             sender.messages(),
             vec![(Message::HeartbeatResponse { user_id }, source)]
         );
+    }
+
+    #[tokio::test]
+    async fn leader_handles_manual_lock_device_event() {
+        let lock_system = MockUserLockManagement::default();
+        let sender = MockMessageSender::default();
+        let leader = Leader::create(lock_system.clone(), sender.clone());
+        let user_id = UserId::new_v4();
+        let user_key = vec![9, 8, 7, 6];
+
+        let init_result = lock_system.unlock_user(user_id, user_key).await;
+        assert!(init_result.is_ok());
+
+        let result = leader
+            .handle_device_event(DeviceEvents::ManualLock { user_id })
+            .await;
+
+        assert!(result.is_ok());
+        assert!(matches!(
+            lock_system.lock_state(user_id).await,
+            UserLockState::Unlocked { key } if key == vec![9, 8, 7, 6]
+        ));
+        assert_eq!(
+            sender.messages(),
+            vec![
+                (
+                    Message::LockStateUpdate {
+                        user_id,
+                        lock_state: LockState::Locked,
+                    },
+                    Endpoint::BrowserForeground,
+                ),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn leader_handles_manual_unlock_device_event() {
+        let lock_system = MockUserLockManagement::default();
+        let sender = MockMessageSender::default();
+        let leader = Leader::create(lock_system.clone(), sender.clone());
+        let user_id = UserId::new_v4();
+        let user_key = vec![4, 5, 6, 7];
+
+        let init_result = lock_system.lock_user(user_id).await;
+        assert!(init_result.is_ok());
+
+        let result = leader
+            .handle_device_event(DeviceEvents::ManualUnlock {
+                user_id,
+                user_key: user_key.clone(),
+            })
+            .await;
+
+        assert!(result.is_ok());
+        assert!(matches!(
+            lock_system.lock_state(user_id).await,
+            UserLockState::Locked
+        ));
+        assert_eq!(
+            sender.messages(),
+            vec![
+                (
+                    Message::LockStateUpdate {
+                        user_id,
+                        lock_state: LockState::Unlocked {
+                            key: user_key,
+                        },
+                    },
+                    Endpoint::BrowserForeground,
+                ),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn follower_applies_lock_state_only_when_needed() {
+        let user_id = UserId::new_v4();
+        let key = vec![1, 2, 3, 4];
+        let lock_system = MockUserLockManagement::default();
+        let sender = MockMessageSender::default();
+        let follower =
+            Follower::<MockUserLockManagement, MockMessageSender, MockLeaderDiscovery>::create(
+                lock_system.clone(),
+                MockLeaderDiscovery {
+                    leader: Endpoint::BrowserBackground,
+                },
+            )
+            .await;
+
+        let initial_unlock_result = lock_system.unlock_user(user_id, key.clone()).await;
+        assert!(initial_unlock_result.is_ok());
+        assert_eq!(lock_system.unlock_calls(), 1);
+
+        let same_state_result = follower
+            .receive_message(Message::LockStateUpdate {
+                user_id,
+                lock_state: LockState::Unlocked { key: key.clone() },
+            })
+            .await;
+        assert!(same_state_result.is_ok());
+        assert_eq!(lock_system.unlock_calls(), 1);
+
+        let lock_result = follower
+            .receive_message(Message::LockStateUpdate {
+                user_id,
+                lock_state: LockState::Locked,
+            })
+            .await;
+        assert!(lock_result.is_ok());
+        assert_eq!(lock_system.lock_calls(), 1);
+
+        let redundant_lock_result = follower
+            .receive_message(Message::LockStateUpdate {
+                user_id,
+                lock_state: LockState::Locked,
+            })
+            .await;
+        assert!(redundant_lock_result.is_ok());
+        assert_eq!(lock_system.lock_calls(), 1);
+
+        assert!(sender.messages().is_empty());
     }
 
     #[tokio::test]

@@ -313,6 +313,13 @@ impl SharedUnlockLeader {
     }
 
     #[wasm_bindgen]
+    pub async fn handle_device_event(&self, event: DeviceEvents) {
+        if let Err(error) = self.leader.handle_device_event(event).await {
+            tracing::error!(?error, "Failed to handle shared unlock leader device event");
+        }
+    }
+
+    #[wasm_bindgen]
     pub fn stop(&self) {
         self.cancellation_token.cancel();
     }
