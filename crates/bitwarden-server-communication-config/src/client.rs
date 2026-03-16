@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 #[cfg(test)]
 use crate::AcquiredCookie;
-use crate::middleware::ServerCommunicationConfigMiddleware;
 use crate::{
     AcquireCookieError, BootstrapConfig, ServerCommunicationConfig,
     ServerCommunicationConfigPlatformApi, ServerCommunicationConfigRepository,
+    middleware::ServerCommunicationConfigMiddleware,
 };
 
 /// Private inner state for ServerCommunicationConfigClient, wrapped in Arc for Clone support.

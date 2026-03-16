@@ -136,13 +136,13 @@ impl PasswordManagerClient {
 mod tests {
     use std::collections::HashMap;
 
-    use tokio::sync::RwLock;
-
-    use super::*;
     use bitwarden_server_communication_config::{
         AcquiredCookie, ServerCommunicationConfig, ServerCommunicationConfigPlatformApi,
         ServerCommunicationConfigRepository,
     };
+    use tokio::sync::RwLock;
+
+    use super::*;
 
     #[derive(Default, Clone)]
     struct MockRepository {
