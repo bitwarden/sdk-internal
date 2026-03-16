@@ -190,8 +190,10 @@ fn reencrypt_emergency_access_keys(
             // and the passed in public-key must be verified/trusted.
             match UnsignedSharedKey::encapsulate(new_user_key_id, &ea.public_key, ctx) {
                 Ok(reencrypted_key) => Ok(EmergencyAccessWithIdRequestModel {
+                    // Default value that is ignored on the server
                     r#type: models::EmergencyAccessType::Takeover,
-                    wait_time_days: 0,
+                    // Default value that is ignored on the server
+                    wait_time_days: 1,
                     id: ea.id,
                     key_encrypted: reencrypted_key.to_string().into(),
                 }),

@@ -1,7 +1,7 @@
 //! Functionality for syncing the latest account data from the server
 use std::str::FromStr;
 
-use bitwarden_api_api::apis::ApiClient;
+use bitwarden_api_api::{apis::ApiClient, models::WebAuthnPrfStatus};
 use bitwarden_core::key_management::account_cryptographic_state::WrappedAccountCryptographicState;
 use bitwarden_crypto::{EncString, Kdf, PublicKey, SpkiPublicKeyBytes, UnsignedSharedKey};
 use bitwarden_encoding::B64;
@@ -177,6 +177,7 @@ async fn sync_passkeys(api_client: &ApiClient) -> Result<Vec<PartialRotateableKe
         .data
         .ok_or(SyncError::DataError)?
         .into_iter()
+        .filter(|cred| cred.prf_status == Some(WebAuthnPrfStatus::Enabled))
         .map(|cred| {
             Ok(PartialRotateableKeyset {
                 id: Uuid::from_str(&cred.id.ok_or(SyncError::DataError)?)
@@ -377,6 +378,7 @@ mod tests {
             ProfileResponseModel, PublicKeyEncryptionKeyPairResponseModel, SendResponseModel,
             SendType, SyncResponseModel, UserDecryptionResponseModel, UserKeyResponseModel,
             WebAuthnCredentialResponseModel, WebAuthnCredentialResponseModelListResponseModel,
+            WebAuthnPrfStatus,
         },
     };
     use bitwarden_encoding::B64;
@@ -594,6 +596,7 @@ mod tests {
             object: None,
             data: Some(vec![WebAuthnCredentialResponseModel {
                 id: Some(passkey_id.to_string()),
+                prf_status: Some(WebAuthnPrfStatus::Enabled),
                 encrypted_user_key: Some(TEST_UNSIGNED_SHARED_KEY.to_string()),
                 encrypted_public_key: Some(TEST_ENC_STRING.to_string()),
                 ..WebAuthnCredentialResponseModel::new()
@@ -953,18 +956,21 @@ mod tests {
                     data: Some(vec![
                         WebAuthnCredentialResponseModel {
                             id: Some(passkey_id1.to_string()),
+                            prf_status: Some(WebAuthnPrfStatus::Enabled),
                             encrypted_user_key: Some(TEST_UNSIGNED_SHARED_KEY.to_string()),
                             encrypted_public_key: Some(TEST_ENC_STRING.to_string()),
                             ..WebAuthnCredentialResponseModel::new()
                         },
                         WebAuthnCredentialResponseModel {
                             id: Some(passkey_id2.to_string()),
+                            prf_status: Some(WebAuthnPrfStatus::Enabled),
                             encrypted_user_key: Some(TEST_UNSIGNED_SHARED_KEY.to_string()),
                             encrypted_public_key: Some(TEST_ENC_STRING.to_string()),
                             ..WebAuthnCredentialResponseModel::new()
                         },
                         WebAuthnCredentialResponseModel {
                             id: Some(passkey_id3.to_string()),
+                            prf_status: Some(WebAuthnPrfStatus::Enabled),
                             encrypted_user_key: Some(TEST_UNSIGNED_SHARED_KEY.to_string()),
                             encrypted_public_key: Some(TEST_ENC_STRING.to_string()),
                             ..WebAuthnCredentialResponseModel::new()
@@ -994,6 +1000,73 @@ mod tests {
                 TEST_UNSIGNED_SHARED_KEY.to_string()
             );
         }
+
+        if let ApiClient::Mock(mut mock) = api_client {
+            mock.web_authn_api.checkpoint();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_sync_passkeys_filters_passkeys_without_prf_encryption_enabled() {
+        let enabled_passkey_id = uuid::Uuid::new_v4();
+        let supported_passkey_id = uuid::Uuid::new_v4();
+        let unsupported_passkey_id = uuid::Uuid::new_v4();
+        let no_prf_status_passkey_id = uuid::Uuid::new_v4();
+
+        let api_client = ApiClient::new_mocked(|mock| {
+            mock.web_authn_api.expect_get().once().returning(move || {
+                Ok(WebAuthnCredentialResponseModelListResponseModel {
+                    object: None,
+                    data: Some(vec![
+                        WebAuthnCredentialResponseModel {
+                            id: Some(enabled_passkey_id.to_string()),
+                            prf_status: Some(WebAuthnPrfStatus::Enabled),
+                            encrypted_user_key: Some(TEST_UNSIGNED_SHARED_KEY.to_string()),
+                            encrypted_public_key: Some(TEST_ENC_STRING.to_string()),
+                            ..WebAuthnCredentialResponseModel::new()
+                        },
+                        WebAuthnCredentialResponseModel {
+                            id: Some(supported_passkey_id.to_string()),
+                            prf_status: Some(WebAuthnPrfStatus::Supported),
+                            // Non-enabled passkeys may not contain encryption material.
+                            encrypted_user_key: None,
+                            encrypted_public_key: None,
+                            ..WebAuthnCredentialResponseModel::new()
+                        },
+                        WebAuthnCredentialResponseModel {
+                            id: Some(unsupported_passkey_id.to_string()),
+                            prf_status: Some(WebAuthnPrfStatus::Unsupported),
+                            encrypted_user_key: None,
+                            encrypted_public_key: None,
+                            ..WebAuthnCredentialResponseModel::new()
+                        },
+                        WebAuthnCredentialResponseModel {
+                            id: Some(no_prf_status_passkey_id.to_string()),
+                            prf_status: None,
+                            encrypted_user_key: None,
+                            encrypted_public_key: None,
+                            ..WebAuthnCredentialResponseModel::new()
+                        },
+                    ]),
+                    continuation_token: None,
+                })
+            });
+        });
+
+        let result = sync_passkeys(&api_client).await;
+        let passkeys = result.unwrap();
+
+        // Only passkeys with PRF encryption enabled should be included.
+        assert_eq!(passkeys.len(), 1);
+        assert_eq!(passkeys[0].id, enabled_passkey_id);
+        assert_eq!(
+            passkeys[0].encrypted_public_key.to_string(),
+            TEST_ENC_STRING.to_string()
+        );
+        assert_eq!(
+            passkeys[0].encrypted_user_key.to_string(),
+            TEST_UNSIGNED_SHARED_KEY.to_string()
+        );
 
         if let ApiClient::Mock(mut mock) = api_client {
             mock.web_authn_api.checkpoint();

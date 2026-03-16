@@ -1,5 +1,6 @@
 use std::pin::Pin;
 
+use bitwarden_api_key_connector::models::user_key_response_model::UserKeyResponseModel;
 use bitwarden_encoding::B64;
 use generic_array::GenericArray;
 use rand::Rng;
@@ -7,8 +8,8 @@ use tracing::instrument;
 use typenum::U32;
 
 use crate::{
-    BitwardenLegacyKeyBytes, CryptoError, EncString, KeyDecryptable, SymmetricCryptoKey,
-    keys::utils::stretch_key,
+    BitwardenLegacyKeyBytes, CryptoError, EncString, KeyDecryptable, KeyIds, KeyStoreContext,
+    SymmetricCryptoKey, keys::utils::stretch_key,
 };
 
 /// Key connector key, used to protect the user key.
@@ -23,6 +24,35 @@ impl KeyConnectorKey {
 
         rng.fill(key.as_mut_slice());
         KeyConnectorKey(key)
+    }
+
+    /// Wraps (encrypts) a user key from the key store using this key connector key.
+    ///
+    /// The user key identified by `user_key_id` is read from the context and encrypted.
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(skip(ctx), err))]
+    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
+    pub fn wrap_user_key<Ids: KeyIds>(
+        &self,
+        user_key_id: Ids::Symmetric,
+        ctx: &KeyStoreContext<Ids>,
+    ) -> crate::error::Result<EncString> {
+        #[allow(deprecated)]
+        let user_key = ctx.dangerous_get_symmetric_key(user_key_id)?;
+        self.encrypt_user_key(user_key)
+    }
+
+    /// Unwraps (decrypts) a user key and stores it in the key store context.
+    ///
+    /// Returns the local key identifier for the unwrapped user key.
+    #[cfg_attr(feature = "dangerous-crypto-debug", instrument(skip(ctx), err))]
+    #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
+    pub fn unwrap_user_key<Ids: KeyIds>(
+        &self,
+        wrapped_user_key: EncString,
+        ctx: &mut KeyStoreContext<Ids>,
+    ) -> crate::error::Result<Ids::Symmetric> {
+        let user_key = self.decrypt_user_key(wrapped_user_key)?;
+        Ok(ctx.add_local_symmetric_key(user_key))
     }
 
     /// Wraps the user key with this key connector key.
@@ -83,6 +113,22 @@ impl From<KeyConnectorKey> for B64 {
     }
 }
 
+impl TryFrom<UserKeyResponseModel> for KeyConnectorKey {
+    type Error = CryptoError;
+
+    fn try_from(s: UserKeyResponseModel) -> Result<Self, Self::Error> {
+        let bytes = B64::try_from(s.key).map_err(|_| CryptoError::InvalidKey)?;
+
+        if bytes.as_bytes().len() != 32 {
+            return Err(CryptoError::InvalidKeyLen);
+        }
+
+        Ok(KeyConnectorKey(Box::pin(GenericArray::clone_from_slice(
+            bytes.as_bytes(),
+        ))))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bitwarden_encoding::B64;
@@ -90,7 +136,11 @@ mod tests {
     use rand_chacha::rand_core::SeedableRng;
 
     use super::KeyConnectorKey;
-    use crate::{BitwardenLegacyKeyBytes, EncString, SymmetricCryptoKey, UserKey};
+    use crate::{
+        BitwardenLegacyKeyBytes, EncString, SymmetricCryptoKey, UserKey,
+        store::KeyStore,
+        traits::tests::{TestIds, TestSymmKey},
+    };
 
     const KEY_CONNECTOR_KEY_BYTES: [u8; 32] = [
         31, 79, 104, 226, 150, 71, 177, 90, 194, 80, 172, 209, 17, 129, 132, 81, 138, 167, 69, 167,
@@ -233,5 +283,34 @@ mod tests {
             decrypted_user_key, user_key.0,
             "Decrypted key doesn't match user key"
         );
+    }
+
+    #[test]
+    fn test_wrap_unwrap_user_key_aes256_cbc_hmac() {
+        let rng = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
+        let key_connector_key = KeyConnectorKey(Box::pin(KEY_CONNECTOR_KEY_BYTES.into()));
+
+        let store: KeyStore<TestIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        let user_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key_internal(rng);
+        #[allow(deprecated)]
+        ctx.set_symmetric_key(TestSymmKey::A(0), user_key.clone())
+            .expect("set_symmetric_key should succeed");
+
+        let wrapped = key_connector_key
+            .wrap_user_key(TestSymmKey::A(0), &ctx)
+            .expect("wrap_user_key should succeed");
+
+        let unwrapped_id = key_connector_key
+            .unwrap_user_key(wrapped, &mut ctx)
+            .expect("unwrap_user_key should succeed");
+
+        #[allow(deprecated)]
+        let unwrapped = ctx
+            .dangerous_get_symmetric_key(unwrapped_id)
+            .expect("unwrapped key should be in context");
+
+        assert_eq!(&user_key, unwrapped);
     }
 }
