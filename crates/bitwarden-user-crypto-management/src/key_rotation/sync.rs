@@ -1,7 +1,7 @@
 //! Functionality for syncing the latest account data from the server
 use std::str::FromStr;
 
-use bitwarden_api_api::apis::ApiClient;
+use bitwarden_api_api::{apis::ApiClient, models::WebAuthnPrfStatus};
 use bitwarden_core::key_management::account_cryptographic_state::WrappedAccountCryptographicState;
 use bitwarden_crypto::{EncString, Kdf, PublicKey, SpkiPublicKeyBytes, UnsignedSharedKey};
 use bitwarden_encoding::B64;
@@ -177,6 +177,7 @@ async fn sync_passkeys(api_client: &ApiClient) -> Result<Vec<PartialRotateableKe
         .data
         .ok_or(SyncError::DataError)?
         .into_iter()
+        .filter(|cred| cred.prf_status == Some(WebAuthnPrfStatus::Enabled))
         .map(|cred| {
             Ok(PartialRotateableKeyset {
                 id: Uuid::from_str(&cred.id.ok_or(SyncError::DataError)?)
