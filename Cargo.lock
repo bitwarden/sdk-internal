@@ -503,7 +503,7 @@ dependencies = [
  "async-trait",
  "bitwarden-api-base",
  "mockall",
- "reqwest 0.13.2",
+ "reqwest",
  "reqwest-middleware",
  "serde",
  "serde_json",
@@ -516,7 +516,7 @@ dependencies = [
 name = "bitwarden-api-base"
 version = "2.0.0"
 dependencies = [
- "reqwest 0.13.2",
+ "reqwest",
  "reqwest-middleware",
  "serde_json",
  "url",
@@ -529,7 +529,7 @@ dependencies = [
  "async-trait",
  "bitwarden-api-base",
  "mockall",
- "reqwest 0.13.2",
+ "reqwest",
  "reqwest-middleware",
  "serde",
  "serde_json",
@@ -545,7 +545,7 @@ dependencies = [
  "async-trait",
  "bitwarden-api-base",
  "mockall",
- "reqwest 0.13.2",
+ "reqwest",
  "reqwest-middleware",
  "serde",
  "serde_json",
@@ -569,7 +569,7 @@ dependencies = [
  "bitwarden-test",
  "chrono",
  "http",
- "reqwest 0.13.2",
+ "reqwest",
  "reqwest-middleware",
  "serde",
  "serde_bytes",
@@ -652,8 +652,7 @@ dependencies = [
  "http",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
- "reqwest 0.12.28",
- "reqwest 0.13.2",
+ "reqwest",
  "reqwest-middleware",
  "rustls",
  "rustls-platform-verifier",
@@ -816,7 +815,7 @@ dependencies = [
  "p256 0.13.2",
  "passkey",
  "passkey-client",
- "reqwest 0.13.2",
+ "reqwest",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -835,7 +834,7 @@ dependencies = [
  "bitwarden-error",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
- "reqwest 0.13.2",
+ "reqwest",
  "schemars 1.2.1",
  "serde",
  "serde_json",
@@ -1015,7 +1014,7 @@ dependencies = [
  "bitwarden-api-api",
  "bitwarden-api-identity",
  "bitwarden-core",
- "reqwest 0.13.2",
+ "reqwest",
  "reqwest-middleware",
  "serde",
  "thiserror 2.0.18",
@@ -1032,7 +1031,7 @@ dependencies = [
  "bitwarden-state",
  "bitwarden-test-macro",
  "futures",
- "reqwest 0.13.2",
+ "reqwest",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -1125,7 +1124,7 @@ dependencies = [
  "bitwarden-test",
  "bitwarden-vault",
  "chrono",
- "reqwest 0.13.2",
+ "reqwest",
  "serde",
  "serde_bytes",
  "serde_json",
@@ -1180,7 +1179,7 @@ dependencies = [
  "futures",
  "hmac 0.12.1",
  "percent-encoding",
- "reqwest 0.13.2",
+ "reqwest",
  "serde",
  "serde_json",
  "serde_repr",
@@ -1235,7 +1234,7 @@ version = "0.11.0-rc.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d52965399b470437fc7f4d4b51134668dbc96573fea6f1b83318a420e4605745"
 dependencies = [
- "digest 0.11.2",
+ "digest 0.11.1",
 ]
 
 [[package]]
@@ -2043,7 +2042,7 @@ dependencies = [
  "cfg-if",
  "cpufeatures 0.2.17",
  "curve25519-dalek-derive",
- "digest 0.11.2",
+ "digest 0.11.1",
  "fiat-crypto 0.3.0",
  "rustc_version",
  "subtle",
@@ -2282,9 +2281,9 @@ dependencies = [
 
 [[package]]
 name = "digest"
-version = "0.11.2"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4850db49bf08e663084f7fb5c87d202ef91a3907271aff24a94eb97ff039153c"
+checksum = "285743a676ccb6b3e116bc14cc69319b957867930ae9c4822f8e0f54509d7243"
 dependencies = [
  "block-buffer 0.12.0",
  "const-oid 0.10.2",
@@ -2345,7 +2344,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91bbdd377139884fafcad8dc43a760a3e1e681aa26db910257fa6535b70e1829"
 dependencies = [
  "der 0.8.0",
- "digest 0.11.2",
+ "digest 0.11.1",
  "elliptic-curve 0.14.0-rc.29",
  "rfc6979 0.5.0-rc.5",
  "signature 3.0.0-rc.10",
@@ -2441,7 +2440,7 @@ dependencies = [
  "base16ct 1.0.0",
  "crypto-bigint 0.7.1",
  "crypto-common 0.2.1",
- "digest 0.11.2",
+ "digest 0.11.1",
  "hybrid-array",
  "pkcs8 0.11.0-rc.11",
  "rand_core 0.10.0",
@@ -3019,7 +3018,7 @@ version = "0.13.0-rc.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef451d73f36d8a3f93ad32c332ea01146c9650e1ec821a9b0e46c01277d544f8"
 dependencies = [
- "digest 0.11.2",
+ "digest 0.11.1",
 ]
 
 [[package]]
@@ -4066,7 +4065,7 @@ version = "0.13.0-rc.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8dfa4e14084d963d35bfb4cdb38712cde78dcf83054c0e8b9b8e899150f374e"
 dependencies = [
- "digest 0.11.2",
+ "digest 0.11.1",
  "hmac 0.13.0-rc.5",
 ]
 
@@ -4710,52 +4709,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "reqwest"
-version = "0.13.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab3f43e3283ab1488b624b44b0e988d0acea0b3214e694730a055cb6b2efa801"
-dependencies = [
- "base64 0.22.1",
- "bytes",
- "futures-core",
- "futures-util",
- "h2",
- "http",
- "http-body",
- "http-body-util",
- "hyper",
- "hyper-rustls",
- "hyper-util",
- "js-sys",
- "log",
- "mime_guess",
- "percent-encoding",
- "pin-project-lite",
- "serde",
- "serde_json",
- "sync_wrapper",
- "tokio",
- "tower",
- "tower-http",
- "tower-service",
- "url",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
-
-[[package]]
 name = "reqwest-middleware"
-version = "0.5.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "199dda04a536b532d0cc04d7979e39b1c763ea749bf91507017069c00b96056f"
+checksum = "57f17d28a6e6acfe1733fe24bcd30774d13bffa4b8a22535b4c8c98423088d4e"
 dependencies = [
  "anyhow",
  "async-trait",
  "http",
- "reqwest 0.13.2",
+ "reqwest",
  "serde",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tower-service",
 ]
 
@@ -4853,7 +4817,7 @@ dependencies = [
  "const-oid 0.10.2",
  "crypto-bigint 0.7.1",
  "crypto-primes",
- "digest 0.11.2",
+ "digest 0.11.1",
  "pkcs1 0.8.0-rc.4",
  "pkcs8 0.11.0-rc.11",
  "rand_core 0.10.0",
@@ -5428,7 +5392,7 @@ checksum = "7c5f3b1e2dc8aad28310d8410bd4d7e180eca65fca176c52ab00d364475d0024"
 dependencies = [
  "cfg-if",
  "cpufeatures 0.2.17",
- "digest 0.11.2",
+ "digest 0.11.1",
 ]
 
 [[package]]
@@ -5494,7 +5458,7 @@ version = "3.0.0-rc.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f1880df446116126965eeec169136b2e0251dba37c6223bcc819569550edea3"
 dependencies = [
- "digest 0.11.2",
+ "digest 0.11.1",
  "rand_core 0.10.0",
 ]
 
@@ -5604,7 +5568,7 @@ checksum = "af0ddb05d9c6034911bbdc541170b3068a2c019c7a10824e92921151563fb5af"
 dependencies = [
  "base64ct",
  "crypto-bigint 0.7.1",
- "digest 0.11.2",
+ "digest 0.11.1",
  "pem-rfc7468 1.0.0",
  "subtle",
  "zeroize",
