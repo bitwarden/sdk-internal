@@ -846,6 +846,7 @@ dependencies = [
 name = "bitwarden-pm"
 version = "2.0.0"
 dependencies = [
+ "async-trait",
  "bitwarden-auth",
  "bitwarden-commercial-vault",
  "bitwarden-core",
@@ -853,9 +854,11 @@ dependencies = [
  "bitwarden-fido",
  "bitwarden-generators",
  "bitwarden-send",
+ "bitwarden-server-communication-config",
  "bitwarden-state",
  "bitwarden-user-crypto-management",
  "bitwarden-vault",
+ "tokio",
  "tsify",
  "uniffi",
  "wasm-bindgen",
@@ -903,16 +906,21 @@ dependencies = [
  "async-trait",
  "bitwarden-error",
  "bitwarden-threading",
+ "http",
  "js-sys",
+ "reqwest",
+ "reqwest-middleware",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
  "thiserror 2.0.18",
  "tokio",
+ "tracing",
  "tsify",
  "uniffi",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wiremock",
 ]
 
 [[package]]
