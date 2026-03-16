@@ -65,7 +65,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, PasswordHistoryView> for PasswordHistor
         key: SymmetricKeyId,
     ) -> Result<PasswordHistoryView, CryptoError> {
         Ok(PasswordHistoryView {
-            password: self.password.decrypt(ctx, key)?,
+            password: self.password.decrypt(ctx, key).ok().unwrap_or_default(),
             last_used_date: self.last_used_date,
         })
     }
