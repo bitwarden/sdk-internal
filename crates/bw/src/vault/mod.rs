@@ -2,10 +2,6 @@ use clap::Subcommand;
 
 use crate::render::{CommandOutput, CommandResult};
 
-mod sync;
-
-pub(crate) use sync::{SyncRequest, sync};
-
 #[derive(Subcommand, Clone, Debug)]
 pub enum TemplateCommands {
     #[command(name = "item")]
