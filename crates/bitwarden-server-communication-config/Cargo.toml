@@ -18,9 +18,9 @@ wasm = [
     "dep:serde-wasm-bindgen",
     "bitwarden-error/wasm",
     "bitwarden-threading/wasm",
-] # WASM support
+]
 
-uniffi = ["dep:uniffi"] # UniFFI support for mobile bindings
+uniffi = ["dep:uniffi"]
 
 [dependencies]
 async-trait = { workspace = true }
