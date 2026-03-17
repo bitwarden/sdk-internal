@@ -41,14 +41,14 @@ where
         let hostname = req.url().host_str().unwrap_or("").to_string();
 
         if !hostname.is_empty() {
-            if self.client.needs_bootstrap(hostname.clone()).await {
-                if let Err(e) = self.client.acquire_cookie(&hostname).await {
-                    tracing::warn!(
-                        "Cookie bootstrap failed for {}: {:?}. Continuing without cookie.",
-                        hostname,
-                        e
-                    );
-                }
+            if self.client.needs_bootstrap(hostname.clone()).await
+                && let Err(e) = self.client.acquire_cookie(&hostname).await
+            {
+                tracing::warn!(
+                    "Cookie bootstrap failed for {}: {:?}. Continuing without cookie.",
+                    hostname,
+                    e
+                );
             }
 
             let cookies = self.client.cookies(hostname).await;
