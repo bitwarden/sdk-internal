@@ -16,15 +16,9 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-ecdsa-keys = [
-] # Allow ECDSA key generation and import at runtime (disabled by default, since SSH Agent does not support ECDSA keys yet)
-wasm = [
-    "bitwarden-error/wasm",
-    "dep:tsify",
-    "dep:wasm-bindgen",
-    "getrandom/wasm_js",
-] # WASM support
-uniffi = ["dep:uniffi"] # Uniffi bindings
+ecdsa-keys = []
+wasm = ["bitwarden-error/wasm", "dep:tsify", "dep:wasm-bindgen", "getrandom/wasm_js"]
+uniffi = ["dep:uniffi"]
 
 [dependencies]
 bitwarden-error = { workspace = true }
