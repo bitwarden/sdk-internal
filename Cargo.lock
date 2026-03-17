@@ -846,6 +846,7 @@ dependencies = [
 name = "bitwarden-pm"
 version = "2.0.0"
 dependencies = [
+ "async-trait",
  "bitwarden-auth",
  "bitwarden-commercial-vault",
  "bitwarden-core",
@@ -857,6 +858,7 @@ dependencies = [
  "bitwarden-state",
  "bitwarden-user-crypto-management",
  "bitwarden-vault",
+ "tokio",
  "tsify",
  "uniffi",
  "wasm-bindgen",
