@@ -66,18 +66,16 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-    use std::sync::Arc;
+    use std::{collections::HashMap, sync::Arc};
 
     use tokio::sync::RwLock;
 
+    use super::ServerCommunicationConfigMiddleware;
     use crate::{
         AcquiredCookie, BootstrapConfig, ServerCommunicationConfig,
         ServerCommunicationConfigClient, ServerCommunicationConfigPlatformApi,
         ServerCommunicationConfigRepository, SsoCookieVendorConfig,
     };
-
-    use super::ServerCommunicationConfigMiddleware;
 
     #[derive(Default, Clone)]
     struct MockRepository {
