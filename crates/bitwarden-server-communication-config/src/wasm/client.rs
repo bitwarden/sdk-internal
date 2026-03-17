@@ -1,7 +1,7 @@
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    ServerCommunicationConfig, ServerCommunicationConfigClient,
+    AcquiredCookie, ServerCommunicationConfig, ServerCommunicationConfigClient,
     wasm::{
         JsServerCommunicationConfigPlatformApi, JsServerCommunicationConfigRepository,
         RawJsServerCommunicationConfigPlatformApi, RawJsServerCommunicationConfigRepository,
@@ -43,30 +43,30 @@ impl JsServerCommunicationConfigClient {
         }
     }
 
-    /// Retrieves the server communication configuration for a hostname
+    /// Retrieves the server communication configuration for a domain
     ///
     /// If no configuration exists, returns a default Direct bootstrap configuration.
     ///
     /// # Arguments
     ///
-    /// * `hostname` - The server hostname (e.g., "vault.acme.com")
+    /// * `domain` - The server domain (e.g., "vault.acme.com")
     ///
     /// # Errors
     ///
     /// Returns an error if the repository fails to retrieve the configuration.
     #[wasm_bindgen(js_name = getConfig)]
-    pub async fn get_config(&self, hostname: String) -> Result<ServerCommunicationConfig, String> {
-        self.client.get_config(hostname).await
+    pub async fn get_config(&self, domain: String) -> Result<ServerCommunicationConfig, String> {
+        self.client.get_config(domain).await
     }
 
-    /// Determines if cookie bootstrapping is needed for this hostname
+    /// Determines if cookie bootstrapping is needed for this domain
     ///
     /// # Arguments
     ///
-    /// * `hostname` - The server hostname (e.g., "vault.acme.com")
+    /// * `domain` - The server domain (e.g., "vault.acme.com")
     #[wasm_bindgen(js_name = needsBootstrap)]
-    pub async fn needs_bootstrap(&self, hostname: String) -> bool {
-        self.client.needs_bootstrap(hostname).await
+    pub async fn needs_bootstrap(&self, domain: String) -> bool {
+        self.client.needs_bootstrap(domain).await
     }
 
     /// Returns all cookies that should be included in requests to this server
@@ -75,33 +75,74 @@ impl JsServerCommunicationConfigClient {
     ///
     /// # Arguments
     ///
-    /// * `hostname` - The server hostname (e.g., "vault.acme.com")
+    /// * `domain` - The server domain (e.g., "vault.acme.com")
     #[wasm_bindgen(js_name = cookies)]
-    pub async fn cookies(&self, hostname: String) -> Result<JsValue, JsError> {
-        let cookies = self.client.cookies(hostname).await;
+    #[deprecated(
+        note = "Use get_cookies() instead, which will acquire cookies if not present in the config"
+    )]
+    pub async fn cookies(&self, domain: String) -> Result<JsValue, JsError> {
+        #[allow(deprecated)]
+        let cookies = self.client.cookies(domain).await;
         serde_wasm_bindgen::to_value(&cookies).map_err(|e| JsError::new(&e.to_string()))
     }
 
-    /// Sets the server communication configuration for a hostname
+    /// Returns all cookies that should be included in requests to this server
+    /// and triggers cookie acquisition if needed
+    ///
+    /// # Arguments
+    ///
+    /// * `domain` - The server domain (e.g., "vault.acme.com")
+    #[wasm_bindgen(js_name = getCookies)]
+    pub async fn get_cookies(&self, domain: String) -> Result<Vec<AcquiredCookie>, JsError> {
+        let cookies = self.client.get_cookies(domain).await;
+        cookies.map_err(|e| JsError::new(&e.to_string()))
+    }
+
+    /// Sets the server communication configuration for a domain
     ///
     /// This method saves the provided communication configuration to the repository.
     /// Typically called when receiving the `/api/config` response from the server.
     ///
     /// # Arguments
     ///
-    /// * `hostname` - The server hostname (e.g., "vault.acme.com")
+    /// * `domain` - The server domain (e.g., "vault.acme.com")
     /// * `config` - The server communication configuration to store
     ///
     /// # Errors
     ///
     /// Returns an error if the repository save operation fails
+    #[deprecated(
+        note = "Use set_communication_type_v2() instead, which extracts the domain from the config"
+    )]
     #[wasm_bindgen(js_name = setCommunicationType)]
     pub async fn set_communication_type(
         &self,
-        hostname: String,
+        domain: String,
         config: ServerCommunicationConfig,
     ) -> Result<(), String> {
-        self.client.set_communication_type(hostname, config).await
+        #[allow(deprecated)]
+        self.client.set_communication_type(domain, config).await
+    }
+
+    /// Sets the server communication configuration using the domain from the config
+    ///
+    /// Extracts the `cookie_domain` from the `SsoCookieVendor` config and uses it as the
+    /// storage key. If the config is `Direct` or `cookie_domain` is not set, the call
+    /// is silently ignored.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The server communication configuration to store
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the repository save operation fails
+    #[wasm_bindgen(js_name = setCommunicationTypeV2)]
+    pub async fn set_communication_type_v2(
+        &self,
+        config: ServerCommunicationConfig,
+    ) -> Result<(), String> {
+        self.client.set_communication_type_v2(config).await
     }
 
     /// Acquires a cookie from the platform and saves it to the repository
@@ -111,7 +152,7 @@ impl JsServerCommunicationConfigClient {
     ///
     /// # Arguments
     ///
-    /// * `hostname` - The server hostname (e.g., "vault.acme.com")
+    /// * `domain` - The server domain (e.g., "vault.acme.com")
     ///
     /// # Errors
     ///
@@ -121,9 +162,9 @@ impl JsServerCommunicationConfigClient {
     /// - Acquired cookie name doesn't match expected name
     /// - Repository operations fail
     #[wasm_bindgen(js_name = acquireCookie)]
-    pub async fn acquire_cookie(&self, hostname: String) -> Result<(), String> {
+    pub async fn acquire_cookie(&self, domain: String) -> Result<Vec<AcquiredCookie>, String> {
         self.client
-            .acquire_cookie(&hostname)
+            .acquire_cookie(&domain)
             .await
             .map_err(|e| e.to_string())
     }
