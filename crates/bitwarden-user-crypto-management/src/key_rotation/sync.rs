@@ -231,7 +231,7 @@ fn parse_ciphers(
     let ciphers = ciphers
         .ok_or(SyncError::DataError)?
         .into_iter()
-        .filter(|c| c.organization_id == None)
+        .filter(|c| c.organization_id.is_none())
         .map(|c| {
             let _span = debug_span!("deserializing_cipher", cipher_id = ?c.id).entered();
             Cipher::try_from(c).debug_map_err(SyncError::DataError)
