@@ -1,4 +1,6 @@
-use bitwarden_api_api::models::{SendFileModel, SendResponseModel, SendTextModel};
+use bitwarden_api_api::models::{
+    SendFileModel, SendResponseModel, SendTextModel, SendWithIdRequestModel,
+};
 use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
     require,
@@ -241,7 +243,39 @@ pub struct Send {
     pub auth_type: AuthType,
 }
 
+
 bitwarden_state::register_repository_item!(Uuid => Send, "Send");
+
+impl From<Send> for SendWithIdRequestModel {
+    fn from(send: Send) -> Self {
+        let file_length = send.file.as_ref().and_then(|file| {
+            file.size
+                .as_deref()
+                .and_then(|size| size.parse::<i64>().ok())
+        });
+
+        SendWithIdRequestModel {
+            r#type: Some(send.r#type.into()),
+            auth_type: Some(send.auth_type.into()),
+            file_length,
+            name: Some(send.name.to_string()),
+            notes: send.notes.map(|notes| notes.to_string()),
+            key: send.key.to_string(),
+            max_access_count: send.max_access_count.map(|count| count as i32),
+            expiration_date: send.expiration_date.map(|date| date.to_rfc3339()),
+            deletion_date: send.deletion_date.to_rfc3339(),
+            file: send.file.map(|file| Box::new(file.into())),
+            text: send.text.map(|text| Box::new(text.into())),
+            password: send.password,
+            emails: send.emails,
+            disabled: send.disabled,
+            hide_email: Some(send.hide_email),
+            id: send
+                .id
+                .expect("SendWithIdRequestModel conversion requires send id"),
+        }
+    }
+}
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -608,12 +642,41 @@ impl TryFrom<bitwarden_api_api::models::AuthType> for AuthType {
     }
 }
 
+impl From<SendType> for bitwarden_api_api::models::SendType {
+    fn from(t: SendType) -> Self {
+        match t {
+            SendType::Text => bitwarden_api_api::models::SendType::Text,
+            SendType::File => bitwarden_api_api::models::SendType::File,
+        }
+    }
+}
+
 impl From<AuthType> for bitwarden_api_api::models::AuthType {
     fn from(value: AuthType) -> Self {
         match value {
             AuthType::Email => bitwarden_api_api::models::AuthType::Email,
             AuthType::Password => bitwarden_api_api::models::AuthType::Password,
             AuthType::None => bitwarden_api_api::models::AuthType::None,
+        }
+    }
+}
+
+impl From<SendFile> for SendFileModel {
+    fn from(file: SendFile) -> Self {
+        SendFileModel {
+            id: file.id,
+            file_name: Some(file.file_name.to_string()),
+            size: file.size.and_then(|size| size.parse::<i64>().ok()),
+            size_name: file.size_name,
+        }
+    }
+}
+
+impl From<SendText> for SendTextModel {
+    fn from(text: SendText) -> Self {
+        SendTextModel {
+            text: text.text.map(|text| text.to_string()),
+            hidden: Some(text.hidden),
         }
     }
 }
@@ -891,5 +954,100 @@ mod tests {
         let v: SendView = crypto.decrypt(&send).unwrap();
 
         assert_eq!(v, view);
+    }
+
+    #[test]
+    fn test_send_into_send_with_id_request_model() {
+        let send_id = Uuid::parse_str("3d80dd72-2d14-4f26-812c-b0f0018aa144").unwrap();
+        let revision_date = DateTime::parse_from_rfc3339("2024-01-07T23:56:48Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let deletion_date = DateTime::parse_from_rfc3339("2024-01-14T23:56:48Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let expiration_date = DateTime::parse_from_rfc3339("2024-01-20T23:56:48Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
+        let name = "2.STIyTrfDZN/JXNDN9zNEMw==|NDLum8BHZpPNYhJo9ggSkg==|UCsCLlBO3QzdPwvMAWs2VVwuE6xwOx/vxOooPObqnEw=";
+        let notes = "2.2VPyLzk1tMLug0X3x7RkaQ==|mrMt9vbZsCJhJIj4eebKyg==|aZ7JeyndytEMR1+uEBupEvaZuUE69D/ejhfdJL8oKq0=";
+        let key = "2.KLv/j0V4Ebs0dwyPdtt4vw==|jcrFuNYN1Qb3onBlwvtxUV/KpdnR1LPRL4EsCoXNAt4=|gHSywGy4Rj/RsCIZFwze4s2AACYKBtqDXTrQXjkgtIE=";
+        let file_name = "2.+1KUfOX8A83Xkwk1bumo/w==|Nczvv+DTkeP466cP/wMDnGK6W9zEIg5iHLhcuQG6s+M=|SZGsfuIAIaGZ7/kzygaVUau3LeOvJUlolENBOU+LX7g=";
+        let text_value = "2.2VPyLzk1tMLug0X3x7RkaQ==|mrMt9vbZsCJhJIj4eebKyg==|aZ7JeyndytEMR1+uEBupEvaZuUE69D/ejhfdJL8oKq0=";
+
+        let send = Send {
+            id: Some(send_id),
+            access_id: Some("ct2APRQtJk-BLLDwAYqhRA".to_string()),
+            name: name.parse().unwrap(),
+            notes: Some(notes.parse().unwrap()),
+            key: key.parse().unwrap(),
+            password: Some("hash".to_string()),
+            r#type: SendType::File,
+            file: Some(SendFile {
+                id: Some("file-id".to_string()),
+                file_name: file_name.parse().unwrap(),
+                size: Some("1234".to_string()),
+                size_name: Some("1.2 KB".to_string()),
+            }),
+            text: Some(SendText {
+                text: Some(text_value.parse().unwrap()),
+                hidden: true,
+            }),
+            max_access_count: Some(42),
+            access_count: 0,
+            disabled: true,
+            hide_email: true,
+            revision_date,
+            deletion_date,
+            expiration_date: Some(expiration_date),
+            emails: Some("test1@mail.com,test2@mail.com".to_string()),
+            auth_type: AuthType::Email,
+        };
+
+        let model: SendWithIdRequestModel = send.into();
+
+        assert_eq!(model.id, send_id);
+        assert_eq!(
+            model.r#type,
+            Some(bitwarden_api_api::models::SendType::File)
+        );
+        assert_eq!(
+            model.auth_type,
+            Some(bitwarden_api_api::models::AuthType::Email)
+        );
+        assert_eq!(model.file_length, Some(1234));
+        assert_eq!(model.name.as_deref(), Some(name));
+        assert_eq!(model.notes.as_deref(), Some(notes));
+        assert_eq!(model.key, key);
+        assert_eq!(model.max_access_count, Some(42));
+        assert_eq!(
+            model
+                .expiration_date
+                .unwrap()
+                .parse::<DateTime<Utc>>()
+                .unwrap(),
+            expiration_date
+        );
+        assert_eq!(
+            model.deletion_date.parse::<DateTime<Utc>>().unwrap(),
+            deletion_date
+        );
+        assert_eq!(model.password.as_deref(), Some("hash"));
+        assert_eq!(
+            model.emails.as_deref(),
+            Some("test1@mail.com,test2@mail.com")
+        );
+        assert!(model.disabled);
+        assert_eq!(model.hide_email, Some(true));
+
+        let file = model.file.unwrap();
+        assert_eq!(file.id.as_deref(), Some("file-id"));
+        assert_eq!(file.file_name.as_deref(), Some(file_name));
+        assert_eq!(file.size, Some(1234));
+        assert_eq!(file.size_name.as_deref(), Some("1.2 KB"));
+
+        let text = model.text.unwrap();
+        assert_eq!(text.text.as_deref(), Some(text_value));
+        assert_eq!(text.hidden, Some(true));
     }
 }

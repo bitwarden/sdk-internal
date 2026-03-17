@@ -35,6 +35,7 @@ macro_rules! create_client_managed_repositories {
             ::bitwarden_vault::Folder, Folder, folder, FolderRepository;
             ::bitwarden_core::key_management::UserKeyState, UserKeyState, user_key_state, UserKeyStateRepository;
             ::bitwarden_core::key_management::LocalUserDataKeyState, LocalUserDataKeyState, local_user_data_key_state, LocalUserDataKeyStateRepository;
+            ::bitwarden_core::key_management::EphemeralPinEnvelopeState, EphemeralPinEnvelopeState, ephemeral_pin_envelope_state, EphemeralPinEnvelopeStateRepository;
         }
     };
 }
