@@ -41,7 +41,7 @@ pub trait ServerCommunicationConfigRepository: Send + Sync {
         &self,
         hostname: String,
     ) -> impl std::future::Future<Output = Result<Option<ServerCommunicationConfig>, Self::GetError>>
-           + Send;
+    + Send;
 
     /// Saves configuration for a hostname
     ///

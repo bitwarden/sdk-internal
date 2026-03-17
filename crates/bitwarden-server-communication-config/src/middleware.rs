@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use reqwest_middleware::reqwest;
 
-use crate::{ServerCommunicationConfigClient, ServerCommunicationConfigPlatformApi, ServerCommunicationConfigRepository};
+use crate::{
+    ServerCommunicationConfigClient, ServerCommunicationConfigPlatformApi,
+    ServerCommunicationConfigRepository,
+};
 
 /// Middleware that injects stored SSO load-balancer cookies into the `Cookie` header
 /// of each outgoing API request.
@@ -69,9 +72,9 @@ mod tests {
     use tokio::sync::RwLock;
 
     use crate::{
-        AcquiredCookie, BootstrapConfig, ServerCommunicationConfig, ServerCommunicationConfigClient,
-        ServerCommunicationConfigPlatformApi, ServerCommunicationConfigRepository,
-        SsoCookieVendorConfig,
+        AcquiredCookie, BootstrapConfig, ServerCommunicationConfig,
+        ServerCommunicationConfigClient, ServerCommunicationConfigPlatformApi,
+        ServerCommunicationConfigRepository, SsoCookieVendorConfig,
     };
 
     use super::ServerCommunicationConfigMiddleware;
@@ -85,10 +88,7 @@ mod tests {
         type GetError = ();
         type SaveError = ();
 
-        async fn get(
-            &self,
-            hostname: String,
-        ) -> Result<Option<ServerCommunicationConfig>, ()> {
+        async fn get(&self, hostname: String) -> Result<Option<ServerCommunicationConfig>, ()> {
             Ok(self.storage.read().await.get(&hostname).cloned())
         }
 
@@ -129,8 +129,8 @@ mod tests {
         Arc::new(ServerCommunicationConfigClient::new(repo, MockPlatformApi))
     }
 
-    fn make_empty_client(
-    ) -> Arc<ServerCommunicationConfigClient<MockRepository, MockPlatformApi>> {
+    fn make_empty_client() -> Arc<ServerCommunicationConfigClient<MockRepository, MockPlatformApi>>
+    {
         Arc::new(ServerCommunicationConfigClient::new(
             MockRepository::default(),
             MockPlatformApi,
@@ -140,7 +140,9 @@ mod tests {
     #[tokio::test]
     async fn middleware_no_cookie_header_when_empty() {
         let client = make_empty_client();
-        let middleware = ServerCommunicationConfigMiddleware { config_client: client };
+        let middleware = ServerCommunicationConfigMiddleware {
+            config_client: client,
+        };
 
         let req = reqwest::Request::new(
             reqwest::Method::GET,
@@ -152,7 +154,10 @@ mod tests {
             .config_client
             .cookies("vault.example.com".to_string())
             .await;
-        assert!(cookies.is_empty(), "Expected no cookies for unconfigured host");
+        assert!(
+            cookies.is_empty(),
+            "Expected no cookies for unconfigured host"
+        );
     }
 
     #[tokio::test]

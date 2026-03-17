@@ -87,8 +87,8 @@ impl Client {
             identity.clone(),
             key_store.clone(),
         );
-        let mut middleware_builder = reqwest_middleware::ClientBuilder::new(bw_http_client)
-            .with_arc(auth_middleware);
+        let mut middleware_builder =
+            reqwest_middleware::ClientBuilder::new(bw_http_client).with_arc(auth_middleware);
         for m in additional_middlewares {
             middleware_builder = middleware_builder.with_arc(m);
         }

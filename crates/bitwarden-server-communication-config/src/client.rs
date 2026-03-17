@@ -191,12 +191,16 @@ where
     ///
     /// The returned middleware holds an `Arc` reference to this client, so cookie
     /// lookups performed by the middleware reflect the live state of the repository.
-    pub fn create_middleware(self: std::sync::Arc<Self>) -> std::sync::Arc<dyn reqwest_middleware::Middleware>
+    pub fn create_middleware(
+        self: std::sync::Arc<Self>,
+    ) -> std::sync::Arc<dyn reqwest_middleware::Middleware>
     where
         R: Send + Sync + 'static,
         P: Send + Sync + 'static,
     {
-        std::sync::Arc::new(ServerCommunicationConfigMiddleware { config_client: self })
+        std::sync::Arc::new(ServerCommunicationConfigMiddleware {
+            config_client: self,
+        })
     }
 }
 

@@ -73,11 +73,13 @@ impl PasswordManagerClient {
     {
         let token_handler = Arc::new(PasswordManagerTokenHandler::default());
         let cookie_middleware = server_comm_config.create_middleware();
-        Self(bitwarden_core::Client::new_with_token_handler_and_middlewares(
-            settings,
-            token_handler,
-            vec![cookie_middleware],
-        ))
+        Self(
+            bitwarden_core::Client::new_with_token_handler_and_middlewares(
+                settings,
+                token_handler,
+                vec![cookie_middleware],
+            ),
+        )
     }
 
     /// Platform operations
@@ -154,7 +156,11 @@ mod tests {
             Ok(self.storage.read().await.get(&hostname).cloned())
         }
 
-        async fn save(&self, hostname: String, config: ServerCommunicationConfig) -> Result<(), ()> {
+        async fn save(
+            &self,
+            hostname: String,
+            config: ServerCommunicationConfig,
+        ) -> Result<(), ()> {
             self.storage.write().await.insert(hostname, config);
             Ok(())
         }
@@ -175,10 +181,8 @@ mod tests {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi;
         let server_comm_config = Arc::new(ServerCommunicationConfigClient::new(repo, platform_api));
-        let _client = PasswordManagerClient::new_with_server_communication_config(
-            None,
-            server_comm_config,
-        );
+        let _client =
+            PasswordManagerClient::new_with_server_communication_config(None, server_comm_config);
     }
 
     #[test]
