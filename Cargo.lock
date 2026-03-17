@@ -903,7 +903,10 @@ dependencies = [
  "async-trait",
  "bitwarden-error",
  "bitwarden-threading",
+ "http",
  "js-sys",
+ "reqwest",
+ "reqwest-middleware",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -913,6 +916,7 @@ dependencies = [
  "uniffi",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wiremock",
 ]
 
 [[package]]
