@@ -20,14 +20,22 @@ pub struct AccessPolicyRequest {
     pub read: bool,
     #[serde(rename = "write", alias = "Write")]
     pub write: bool,
+    #[serde(rename = "manage", alias = "Manage")]
+    pub manage: bool,
 }
 
 impl AccessPolicyRequest {
-    pub fn new(grantee_id: uuid::Uuid, read: bool, write: bool) -> AccessPolicyRequest {
+    pub fn new(
+        grantee_id: uuid::Uuid,
+        read: bool,
+        write: bool,
+        manage: bool,
+    ) -> AccessPolicyRequest {
         AccessPolicyRequest {
             grantee_id,
             read,
             write,
+            manage,
         }
     }
 }

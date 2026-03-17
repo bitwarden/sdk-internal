@@ -12,6 +12,7 @@
   },
   "license": "SEE LICENSE IN LICENSE",
   "author": "Bitwarden Inc. <hello@bitwarden.com> (https://bitwarden.com)",
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "lint": "prettier --check .",
