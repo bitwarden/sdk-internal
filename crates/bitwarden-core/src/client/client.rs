@@ -30,7 +30,7 @@ pub struct Client {
 impl Client {
     /// Create a new Bitwarden client with default settings and a no-op token handler.
     pub fn new(settings: Option<ClientSettings>) -> Self {
-        Self::new_internal(settings, Arc::new(NoopTokenHandler))
+        Self::new_internal(settings, Arc::new(NoopTokenHandler), vec![])
     }
 
     /// Create a new Bitwarden client with the specified token handler for managing authentication
@@ -39,12 +39,24 @@ impl Client {
         settings: Option<ClientSettings>,
         token_handler: Arc<dyn TokenHandler>,
     ) -> Self {
-        Self::new_internal(settings, token_handler)
+        Self::new_internal(settings, token_handler, vec![])
+    }
+
+    /// Create a new Bitwarden client with the specified token handler and additional
+    /// HTTP middleware. Middlewares are chained after the authentication middleware
+    /// in the order provided.
+    pub fn new_with_token_handler_and_middlewares(
+        settings: Option<ClientSettings>,
+        token_handler: Arc<dyn TokenHandler>,
+        additional_middlewares: Vec<Arc<dyn reqwest_middleware::Middleware>>,
+    ) -> Self {
+        Self::new_internal(settings, token_handler, additional_middlewares)
     }
 
     fn new_internal(
         settings_input: Option<ClientSettings>,
         token_handler: Arc<dyn TokenHandler>,
+        additional_middlewares: Vec<Arc<dyn reqwest_middleware::Middleware>>,
     ) -> Self {
         let settings = settings_input.unwrap_or_default();
 
@@ -75,9 +87,12 @@ impl Client {
             identity.clone(),
             key_store.clone(),
         );
-        let bw_http_client = reqwest_middleware::ClientBuilder::new(bw_http_client)
-            .with_arc(auth_middleware)
-            .build();
+        let mut middleware_builder = reqwest_middleware::ClientBuilder::new(bw_http_client)
+            .with_arc(auth_middleware);
+        for m in additional_middlewares {
+            middleware_builder = middleware_builder.with_arc(m);
+        }
+        let bw_http_client = middleware_builder.build();
         let api = bitwarden_api_api::Configuration {
             base_path: settings.api_url,
             user_agent: Some(settings.user_agent),
