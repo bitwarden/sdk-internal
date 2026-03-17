@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use reqwest_middleware::reqwest;
+
 use crate::{ServerCommunicationConfigClient, ServerCommunicationConfigPlatformApi, ServerCommunicationConfigRepository};
 
 /// Middleware that injects stored SSO load-balancer cookies into the `Cookie` header
@@ -110,7 +112,7 @@ mod tests {
         }
     }
 
-    fn make_client_with_cookies(
+    async fn make_client_with_cookies(
         hostname: &str,
         cookies: Vec<AcquiredCookie>,
     ) -> Arc<ServerCommunicationConfigClient<MockRepository, MockPlatformApi>> {
@@ -123,12 +125,7 @@ mod tests {
                 cookie_value: Some(cookies),
             }),
         };
-        let rt = tokio::runtime::Handle::current();
-        let repo_clone = repo.clone();
-        let hostname_owned = hostname.to_string();
-        rt.block_on(async move {
-            repo_clone.save(hostname_owned, config).await.unwrap();
-        });
+        repo.save(hostname.to_string(), config).await.unwrap();
         Arc::new(ServerCommunicationConfigClient::new(repo, MockPlatformApi))
     }
 
@@ -166,7 +163,8 @@ mod tests {
                 name: "AWSELBAuthSessionCookie".to_string(),
                 value: "singlevalue".to_string(),
             }],
-        );
+        )
+        .await;
         let cookies = client.cookies("vault.example.com".to_string()).await;
         let header = cookies
             .iter()
@@ -194,7 +192,8 @@ mod tests {
                     value: "shard2".to_string(),
                 },
             ],
-        );
+        )
+        .await;
         let cookies = client.cookies("vault.example.com".to_string()).await;
         let header = cookies
             .iter()
