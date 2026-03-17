@@ -853,6 +853,7 @@ dependencies = [
  "bitwarden-fido",
  "bitwarden-generators",
  "bitwarden-send",
+ "bitwarden-server-communication-config",
  "bitwarden-state",
  "bitwarden-user-crypto-management",
  "bitwarden-vault",
