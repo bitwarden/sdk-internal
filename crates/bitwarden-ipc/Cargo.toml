@@ -17,7 +17,7 @@ wasm = [
     "dep:js-sys",
     "bitwarden-error/wasm",
     "bitwarden-threading/wasm",
-]
+] # WASM support
 
 [dependencies]
 async-trait = { workspace = true }
