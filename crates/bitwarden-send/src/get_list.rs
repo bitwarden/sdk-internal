@@ -89,13 +89,13 @@ mod tests {
             auth_type: AuthType::None,
         };
         let mut send = store.encrypt(send_view).unwrap();
-        send.id = Some(send_id);
+        send.id = Some(crate::send::SendId::new(send_id));
         repository.set(send_id, send).await.unwrap();
 
         // Test getting the send
         let result = get_send(&store, &repository, send_id).await.unwrap();
 
-        assert_eq!(result.id, Some(send_id));
+        assert_eq!(result.id, Some(crate::send::SendId::new(send_id)));
         assert_eq!(result.name, "Test Send");
         assert_eq!(result.notes, Some("Test notes".to_string()));
         assert_eq!(
@@ -166,7 +166,7 @@ mod tests {
             auth_type: AuthType::None,
         };
         let mut send_1 = store.encrypt(send_view_1).unwrap();
-        send_1.id = Some(send_id_1);
+        send_1.id = Some(crate::send::SendId::new(send_id_1));
         repository.set(send_id_1, send_1).await.unwrap();
 
         let send_id_2 = uuid!("36afb22c-9c95-4db5-8bac-c21cb204a3f2");
@@ -195,7 +195,7 @@ mod tests {
             auth_type: AuthType::None,
         };
         let mut send_2 = store.encrypt(send_view_2).unwrap();
-        send_2.id = Some(send_id_2);
+        send_2.id = Some(crate::send::SendId::new(send_id_2));
         repository.set(send_id_2, send_2).await.unwrap();
 
         // Test listing all sends
@@ -207,8 +207,8 @@ mod tests {
         let send1 = result.iter().find(|s| s.name == "Send 1").unwrap();
         let send2 = result.iter().find(|s| s.name == "Send 2").unwrap();
 
-        assert_eq!(send1.id, Some(send_id_1));
-        assert_eq!(send2.id, Some(send_id_2));
+        assert_eq!(send1.id, Some(crate::send::SendId::new(send_id_1)));
+        assert_eq!(send2.id, Some(crate::send::SendId::new(send_id_2)));
     }
 
     #[tokio::test]

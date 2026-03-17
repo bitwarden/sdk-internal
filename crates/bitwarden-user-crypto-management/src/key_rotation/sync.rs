@@ -380,6 +380,7 @@ mod tests {
         },
     };
     use bitwarden_encoding::B64;
+    use bitwarden_send::SendId;
     use bitwarden_vault::{CipherId, FolderId};
 
     use super::*;
@@ -666,7 +667,7 @@ mod tests {
 
         // Verify sends
         assert_eq!(data.sends.len(), 1);
-        assert_eq!(data.sends[0].id, Some(send_id));
+        assert_eq!(data.sends[0].id, Some(SendId::new(send_id)));
         assert_eq!(data.sends[0].name, TEST_ENC_STRING.parse().unwrap());
         assert_eq!(data.sends[0].key, KEY_ENC_STRING.parse().unwrap());
 

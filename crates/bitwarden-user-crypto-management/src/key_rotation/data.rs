@@ -71,7 +71,7 @@ pub(super) fn reencrypt_data(
                 .into_iter()
                 .map(|send| {
                     Ok(SendWithIdRequestModel {
-                        id: send.id.ok_or(DataReencryptionError::DataConversion)?,
+                        id: send.id.ok_or(DataReencryptionError::DataConversion)?.into(),
                         key: send.key.to_string(),
                         // During key-rotation only the "key" (encrypted seed) and id are used,
                         // since we only re-encrypt the "key"

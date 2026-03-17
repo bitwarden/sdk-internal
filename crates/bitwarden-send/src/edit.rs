@@ -6,7 +6,7 @@ use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext, OctetStreamBytes,
     PrimitiveEncryptable,
 };
-use bitwarden_encoding::{B64, B64Url};
+use bitwarden_encoding::B64Url;
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use chrono::{DateTime, Utc};
@@ -21,7 +21,6 @@ use wasm_bindgen::prelude::*;
 use crate::{
     Send, SendAuthType, SendView, SendViewType,
     error::{ItemNotFoundError, SendParseError},
-    send::SEND_ITERATIONS,
 };
 
 #[allow(missing_docs)]
@@ -104,21 +103,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
             .clone()
             .into_api_models(ctx, send_key)?;
 
-        let (password, emails) = match &self.request.auth {
-            SendAuthType::None => (None, None),
-            SendAuthType::Password { password } => {
-                let hashed = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
-                (Some(B64::from(hashed.as_slice()).to_string()), None)
-            }
-            SendAuthType::Emails { emails } => {
-                let emails_str = if emails.is_empty() {
-                    None
-                } else {
-                    Some(emails.join(","))
-                };
-                (None, emails_str)
-            }
-        };
+        let (password, emails) = self.request.auth.auth_data(k.clone());
 
         Ok(bitwarden_api_api::models::SendRequestModel {
             r#type: Some(send_type),
@@ -183,10 +168,10 @@ pub(super) async fn edit_send<R: Repository<Send> + ?Sized>(
     let send: Send = resp.try_into()?;
 
     // Verify the server returned the correct send ID
-    if send.id != Some(send_id) {
+    if send.id != Some(crate::send::SendId::new(send_id)) {
         return Err(EditSendError::IdMismatch {
             expected: send_id,
-            returned: send.id,
+            returned: send.id.map(Into::into),
         });
     }
 
@@ -246,7 +231,7 @@ mod tests {
             auth_type: AuthType::None,
         };
         let mut existing_send = store.encrypt(existing_send_view).unwrap();
-        existing_send.id = Some(send_id); // Set the ID after encryption
+        existing_send.id = Some(crate::send::SendId::new(send_id)); // Set the ID after encryption
         repository.set(send_id, existing_send).await.unwrap();
 
         let api_client = ApiClient::new_mocked(move |mock| {
@@ -303,7 +288,7 @@ mod tests {
         .unwrap();
 
         // Verify the result
-        assert_eq!(result.id, Some(send_id));
+        assert_eq!(result.id, Some(crate::send::SendId::new(send_id)));
         assert_eq!(result.name, "updated");
         assert_eq!(result.notes, Some("updated notes".to_string()));
         assert!(result.key.is_some(), "Expected a key");
@@ -405,7 +390,7 @@ mod tests {
             auth_type: AuthType::None,
         };
         let mut existing_send = store.encrypt(existing_send_view).unwrap();
-        existing_send.id = Some(send_id); // Set the ID after encryption
+        existing_send.id = Some(crate::send::SendId::new(send_id)); // Set the ID after encryption
         repository.set(send_id, existing_send).await.unwrap();
 
         let api_client = ApiClient::new_mocked(move |mock| {

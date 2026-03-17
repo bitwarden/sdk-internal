@@ -7,7 +7,6 @@ use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext, OctetStreamBytes,
     PrimitiveEncryptable, generate_random_bytes,
 };
-use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use chrono::{DateTime, Utc};
@@ -18,7 +17,7 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::{Send, SendAuthType, SendParseError, SendView, SendViewType, send::SEND_ITERATIONS};
+use crate::{Send, SendAuthType, SendParseError, SendView, SendViewType};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -56,7 +55,6 @@ pub struct SendAddRequest {
     /// Use `SendAuthType::None` for no authentication,
     /// `SendAuthType::Password` for password protection, or
     /// `SendAuthType::Emails` for email OTP authentication.
-    #[serde(flatten)]
     pub auth: SendAuthType,
 }
 
@@ -76,21 +74,7 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
 
         let (send_type, file, text) = self.view_type.clone().into_api_models(ctx, send_key)?;
 
-        let (password, emails) = match &self.auth {
-            SendAuthType::None => (None, None),
-            SendAuthType::Password { password } => {
-                let hashed = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
-                (Some(B64::from(hashed.as_slice()).to_string()), None)
-            }
-            SendAuthType::Emails { emails } => {
-                let emails_str = if emails.is_empty() {
-                    None
-                } else {
-                    Some(emails.join(","))
-                };
-                (None, emails_str)
-            }
-        };
+        let (password, emails) = self.auth.auth_data(k.clone());
 
         Ok(bitwarden_api_api::models::SendRequestModel {
             r#type: Some(send_type),
@@ -140,7 +124,9 @@ pub(super) async fn create_send<R: Repository<Send> + ?Sized>(
 
     let send: Send = resp.try_into()?;
 
-    repository.set(require!(send.id), send.clone()).await?;
+    repository
+        .set(require!(send.id).into(), send.clone())
+        .await?;
 
     Ok(key_store.decrypt(&send)?)
 }
@@ -221,7 +207,7 @@ mod tests {
         .unwrap();
 
         // Verify the result (excluding the generated key which is random)
-        assert_eq!(result.id, Some(send_id));
+        assert_eq!(result.id, Some(crate::send::SendId::new(send_id)));
         assert_eq!(result.name, "test");
         assert_eq!(result.notes, Some("notes".to_string()));
         assert!(result.key.is_some(), "Expected a generated key");

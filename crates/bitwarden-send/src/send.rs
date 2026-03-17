@@ -8,6 +8,7 @@ use bitwarden_crypto::{
     OctetStreamBytes, PrimitiveEncryptable, generate_random_bytes,
 };
 use bitwarden_encoding::{B64, B64Url};
+use bitwarden_uuid::uuid_newtype;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -18,6 +19,8 @@ use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 use crate::SendParseError;
 pub const SEND_ITERATIONS: u32 = 100_000;
+
+uuid_newtype!(pub SendId);
 
 /// File-based send content
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -128,6 +131,26 @@ impl SendAuthType {
             SendAuthType::Emails { .. } => AuthType::Email,
         }
     }
+
+    /// Returns the password if this is a Password variant, emails if this is an Emails variant, or
+    /// None otherwise
+    pub fn auth_data(&self, k: Vec<u8>) -> (Option<String>, Option<String>) {
+        match self {
+            SendAuthType::Password { password } => {
+                let hashed = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
+                (Some(B64::from(hashed.as_slice()).to_string()), None)
+            }
+            SendAuthType::Emails { emails } => {
+                let emails_str = if emails.is_empty() {
+                    None
+                } else {
+                    Some(emails.join(","))
+                };
+                (None, emails_str)
+            }
+            SendAuthType::None => (None, None),
+        }
+    }
 }
 
 /// View model for decrypted Send type
@@ -189,7 +212,7 @@ impl SendViewType {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Send {
-    pub id: Option<Uuid>,
+    pub id: Option<SendId>,
     pub access_id: Option<String>,
 
     pub name: EncString,
@@ -226,7 +249,7 @@ bitwarden_state::register_repository_item!(Uuid => Send, "Send");
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendView {
-    pub id: Option<Uuid>,
+    pub id: Option<SendId>,
     pub access_id: Option<String>,
 
     pub name: String,
@@ -267,7 +290,7 @@ pub struct SendView {
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendListView {
-    pub id: Option<Uuid>,
+    pub id: Option<SendId>,
     pub access_id: Option<String>,
 
     pub name: String,
@@ -521,7 +544,11 @@ impl TryFrom<SendResponseModel> for Send {
             }
         };
         Ok(Send {
-            id: send.id,
+            id: Some(
+                send.id
+                    .map(SendId::new)
+                    .unwrap_or_else(|| SendId::new(Uuid::new_v4())),
+            ),
             access_id: send.access_id,
             name: require!(send.name).parse()?,
             notes: EncString::try_from_optional(send.notes)?,

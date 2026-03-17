@@ -890,6 +890,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-state",
  "bitwarden-test",
+ "bitwarden-uuid",
  "chrono",
  "serde",
  "serde_repr",
