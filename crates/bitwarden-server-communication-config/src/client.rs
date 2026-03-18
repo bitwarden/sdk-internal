@@ -304,7 +304,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn needs_bootstrap_true_when_cookie_missing() {
+    async fn needs_bootstrap_true_for_sso_cookie_vendor() {
         let repo = MockRepository::default();
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
@@ -330,7 +330,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn needs_bootstrap_false_when_cookie_present() {
+    async fn needs_bootstrap_true_when_cookie_already_present() {
         let repo = MockRepository::default();
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
@@ -352,7 +352,7 @@ mod tests {
         let platform_api = MockPlatformApi::new();
         let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
         assert!(
-            !client
+            client
                 .needs_bootstrap("vault.example.com".to_string())
                 .await
         );
