@@ -22,6 +22,12 @@ wasm = [
 
 uniffi = ["dep:uniffi"] # UniFFI support for mobile bindings
 
+middleware = [
+    "dep:reqwest",
+    "dep:reqwest-middleware",
+    "dep:tracing",
+]
+
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-error = { workspace = true }
@@ -30,7 +36,10 @@ js-sys = { workspace = true, optional = true }
 serde = { workspace = true }
 serde-wasm-bindgen = { workspace = true, optional = true }
 thiserror = { workspace = true }
+reqwest = { workspace = true, optional = true }
+reqwest-middleware = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["sync"] }
+tracing = { workspace = true, optional = true }
 tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
