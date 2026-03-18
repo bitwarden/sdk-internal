@@ -15,6 +15,8 @@ mod platform_api;
 mod repository;
 
 pub use client::ServerCommunicationConfigClient;
+#[cfg(feature = "middleware")]
+pub use client::ServerCommunicationConfigMiddleware;
 pub use config::{BootstrapConfig, ServerCommunicationConfig, SsoCookieVendorConfig};
 pub use platform_api::{AcquireCookieError, AcquiredCookie, ServerCommunicationConfigPlatformApi};
 pub use repository::{

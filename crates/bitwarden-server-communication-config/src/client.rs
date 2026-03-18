@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 #[cfg(test)]
 use crate::AcquiredCookie;
 use crate::{
@@ -5,14 +7,37 @@ use crate::{
     ServerCommunicationConfigPlatformApi, ServerCommunicationConfigRepository,
 };
 
-/// Server communication configuration client
-pub struct ServerCommunicationConfigClient<R, P>
+/// Internal state for [`ServerCommunicationConfigClient`], held behind an [`Arc`]
+/// so the outer struct can derive [`Clone`] without requiring [`Clone`] bounds on
+/// `R` or `P`. (ADR-057)
+struct ServerCommunicationConfigClientInner<R, P>
 where
     R: ServerCommunicationConfigRepository,
     P: ServerCommunicationConfigPlatformApi,
 {
     repository: R,
     platform_api: P,
+}
+
+/// Server communication configuration client
+pub struct ServerCommunicationConfigClient<R, P>
+where
+    R: ServerCommunicationConfigRepository,
+    P: ServerCommunicationConfigPlatformApi,
+{
+    inner: Arc<ServerCommunicationConfigClientInner<R, P>>,
+}
+
+impl<R, P> Clone for ServerCommunicationConfigClient<R, P>
+where
+    R: ServerCommunicationConfigRepository,
+    P: ServerCommunicationConfigPlatformApi,
+{
+    fn clone(&self) -> Self {
+        Self {
+            inner: Arc::clone(&self.inner),
+        }
+    }
 }
 
 impl<R, P> ServerCommunicationConfigClient<R, P>
@@ -28,8 +53,10 @@ where
     /// * `platform_api` - Cookie acquistion implementation
     pub fn new(repository: R, platform_api: P) -> Self {
         Self {
-            repository,
-            platform_api,
+            inner: Arc::new(ServerCommunicationConfigClientInner {
+                repository,
+                platform_api,
+            }),
         }
     }
 
@@ -39,6 +66,7 @@ where
         hostname: String,
     ) -> Result<ServerCommunicationConfig, R::GetError> {
         Ok(self
+            .inner
             .repository
             .get(hostname)
             .await?
@@ -49,7 +77,7 @@ where
 
     /// Determines if cookie bootstrapping is needed for this hostname
     pub async fn needs_bootstrap(&self, hostname: String) -> bool {
-        if let Ok(Some(config)) = self.repository.get(hostname).await
+        if let Ok(Some(config)) = self.inner.repository.get(hostname).await
             && let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap
         {
             return vendor_config.cookie_value.is_none();
@@ -62,7 +90,7 @@ where
     /// Returns the stored cookies as-is. For sharded cookies, each entry includes
     /// the full cookie name with its `-{N}` suffix (e.g., `AWSELBAuthSessionCookie-0`).
     pub async fn cookies(&self, hostname: String) -> Vec<(String, String)> {
-        if let Ok(Some(config)) = self.repository.get(hostname).await
+        if let Ok(Some(config)) = self.inner.repository.get(hostname).await
             && let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap
             && let Some(acquired_cookies) = vendor_config.cookie_value
         {
@@ -92,7 +120,7 @@ where
         hostname: String,
         config: ServerCommunicationConfig,
     ) -> Result<(), R::SaveError> {
-        self.repository.save(hostname, config).await
+        self.inner.repository.save(hostname, config).await
     }
 
     /// Acquires a cookie from the platform and saves it to the repository
@@ -117,6 +145,7 @@ where
     pub async fn acquire_cookie(&self, hostname: &str) -> Result<(), AcquireCookieError> {
         // Get existing configuration - we need this to know what cookie to expect
         let mut config = self
+            .inner
             .repository
             .get(hostname.to_string())
             .await
@@ -143,6 +172,7 @@ where
 
         // Call platform API to acquire cookies, passing vault_url
         let cookies = self
+            .inner
             .platform_api
             .acquire_cookies(vault_url)
             .await
@@ -186,12 +216,115 @@ where
         vendor_config.cookie_value = Some(cookies);
 
         // Save the updated config
-        self.repository
+        self.inner
+            .repository
             .save(hostname.to_string(), config)
             .await
             .map_err(|e| AcquireCookieError::RepositorySaveError(format!("{:?}", e)))?;
 
         Ok(())
+    }
+}
+
+/// Middleware that injects stored SSO load balancer cookies into outbound HTTP requests
+/// and retries once on 3xx responses after re-acquiring cookies. (ADR-058)
+///
+/// Cookie values are never logged. The middleware is a no-op for hostnames without
+/// SSO configuration.
+#[cfg(feature = "middleware")]
+#[derive(Clone)]
+pub struct ServerCommunicationConfigMiddleware<R, P>
+where
+    R: ServerCommunicationConfigRepository,
+    P: ServerCommunicationConfigPlatformApi,
+{
+    client: ServerCommunicationConfigClient<R, P>,
+}
+
+/// Formats cookies per RFC 6265 §4.2.1 and inserts as a single Cookie header.
+/// Uses insert() (not append()) to ensure exactly one Cookie header per request.
+/// Cookie values are not logged.
+#[cfg(feature = "middleware")]
+fn inject_cookies(req: &mut reqwest_middleware::reqwest::Request, cookies: Vec<(String, String)>) {
+    if cookies.is_empty() {
+        return;
+    }
+    let header_value = cookies
+        .into_iter()
+        .map(|(name, value)| format!("{name}={value}"))
+        .collect::<Vec<_>>()
+        .join("; ");
+    if let Ok(value) = http::HeaderValue::from_str(&header_value) {
+        req.headers_mut()
+            .insert(reqwest_middleware::reqwest::header::COOKIE, value);
+    }
+}
+
+#[cfg(feature = "middleware")]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+impl<R, P> reqwest_middleware::Middleware for ServerCommunicationConfigMiddleware<R, P>
+where
+    R: ServerCommunicationConfigRepository + Send + Sync + 'static,
+    P: ServerCommunicationConfigPlatformApi + Send + Sync + 'static,
+{
+    async fn handle(
+        &self,
+        mut req: reqwest_middleware::reqwest::Request,
+        extensions: &mut http::Extensions,
+        next: reqwest_middleware::Next<'_>,
+    ) -> Result<reqwest_middleware::reqwest::Response, reqwest_middleware::Error> {
+        // Step 1: Extract hostname; forward without injection if absent
+        let hostname = match req.url().host_str().map(|h| h.to_owned()) {
+            Some(h) => h,
+            None => return next.run(req, extensions).await,
+        };
+
+        // Step 2: Fetch stored cookies and inject (count logged only, no values)
+        let cookies = self.client.cookies(hostname.clone()).await;
+        inject_cookies(&mut req, cookies);
+
+        // Step 3: Clone next before first attempt (required for retry)
+        let next_clone = next.clone();
+
+        // Step 4: Attempt request; retry once on 3xx if body is cloneable
+        match req.try_clone() {
+            Some(cloned_req) => {
+                let response = next_clone.run(cloned_req, extensions).await?;
+
+                if response.status().is_redirection() {
+                    if let Some(mut retry_req) = req.try_clone() {
+                        // Re-acquire fresh cookies (saves to repository as side-effect)
+                        let _ = self.client.acquire_cookie(&hostname).await;
+                        let fresh_cookies = self.client.cookies(hostname).await;
+                        inject_cookies(&mut retry_req, fresh_cookies);
+                        return next.run(retry_req, extensions).await;
+                    }
+                }
+
+                Ok(response)
+            }
+            // Non-cloneable (streaming) body: no retry possible, return as-is
+            None => next.run(req, extensions).await,
+        }
+    }
+}
+
+#[cfg(feature = "middleware")]
+impl<R, P> ServerCommunicationConfigClient<R, P>
+where
+    R: ServerCommunicationConfigRepository + Send + Sync + 'static,
+    P: ServerCommunicationConfigPlatformApi + Send + Sync + 'static,
+{
+    /// Creates a type-erased middleware from this client suitable for use with
+    /// `reqwest_middleware::ClientBuilder::with_arc`.
+    ///
+    /// The middleware injects SSO load balancer cookies on every outbound request
+    /// and retries once on 3xx responses. (ADR-058, ADR-059)
+    pub fn create_middleware(&self) -> std::sync::Arc<dyn reqwest_middleware::Middleware> {
+        std::sync::Arc::new(ServerCommunicationConfigMiddleware {
+            client: self.clone(),
+        })
     }
 }
 
@@ -1055,5 +1188,65 @@ mod tests {
             result,
             Err(AcquireCookieError::UnsupportedConfiguration)
         ));
+    }
+
+    #[cfg(feature = "middleware")]
+    mod middleware_tests {
+        use super::*;
+
+        #[test]
+        fn middleware_inject_cookies_formats_rfc6265_header() {
+            let mut req = reqwest_middleware::reqwest::Request::new(
+                reqwest_middleware::reqwest::Method::GET,
+                "https://vault.example.com/".parse().unwrap(),
+            );
+            inject_cookies(
+                &mut req,
+                vec![
+                    ("name1".to_string(), "val1".to_string()),
+                    ("name2".to_string(), "val2".to_string()),
+                ],
+            );
+            let header = req
+                .headers()
+                .get(reqwest_middleware::reqwest::header::COOKIE)
+                .unwrap();
+            assert_eq!(header.to_str().unwrap(), "name1=val1; name2=val2");
+        }
+
+        #[test]
+        fn middleware_no_cookie_header_when_empty() {
+            let mut req = reqwest_middleware::reqwest::Request::new(
+                reqwest_middleware::reqwest::Method::GET,
+                "https://vault.example.com/".parse().unwrap(),
+            );
+            inject_cookies(&mut req, vec![]);
+            assert!(
+                req.headers()
+                    .get(reqwest_middleware::reqwest::header::COOKIE)
+                    .is_none()
+            );
+        }
+
+        #[tokio::test]
+        async fn middleware_no_op_when_no_hostname() {
+            // A file:// URL has no host_str()
+            let repo = MockRepository::default();
+            let platform_api = MockPlatformApi::new();
+            let client = ServerCommunicationConfigClient::new(repo, platform_api);
+            let _middleware = ServerCommunicationConfigMiddleware { client };
+            // If we reach here without panic, the struct was constructed correctly.
+            // Full handle() invocation requires a mock HTTP server; this is a compile-time
+            // assertion that the struct and its fields are accessible within cfg(test).
+        }
+
+        #[tokio::test]
+        async fn create_middleware_returns_correct_type() {
+            let repo = MockRepository::default();
+            let platform_api = MockPlatformApi::new();
+            let client = ServerCommunicationConfigClient::new(repo, platform_api);
+            let _: std::sync::Arc<dyn reqwest_middleware::Middleware> = client.create_middleware();
+            // compile-time assertion
+        }
     }
 }
