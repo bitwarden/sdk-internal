@@ -19,169 +19,69 @@ fn none_if_empty<T>(v: Vec<T>) -> Option<Vec<T>> {
     if v.is_empty() { None } else { Some(v) }
 }
 
-// --- CardView <-> CardDataV1 ---
-
-impl From<&CardView> for CardDataV1 {
-    fn from(view: &CardView) -> Self {
-        Self {
-            cardholder_name: view.cardholder_name.clone(),
-            exp_month: view.exp_month.clone(),
-            exp_year: view.exp_year.clone(),
-            code: view.code.clone(),
-            brand: view.brand.clone(),
-            number: view.number.clone(),
+/// Generates bidirectional `From` impls between two types that share
+/// identical field names. Every field is `.clone()`d.
+macro_rules! impl_bidirectional_from {
+    ($type_a:ty, $type_b:ty, [$($field:ident),+ $(,)?]) => {
+        impl From<&$type_a> for $type_b {
+            fn from(src: &$type_a) -> Self {
+                Self { $($field: src.$field.clone()),+ }
+            }
         }
-    }
+        impl From<&$type_b> for $type_a {
+            fn from(src: &$type_b) -> Self {
+                Self { $($field: src.$field.clone()),+ }
+            }
+        }
+    };
 }
 
-impl From<&CardDataV1> for CardView {
-    fn from(data: &CardDataV1) -> Self {
-        Self {
-            cardholder_name: data.cardholder_name.clone(),
-            exp_month: data.exp_month.clone(),
-            exp_year: data.exp_year.clone(),
-            code: data.code.clone(),
-            brand: data.brand.clone(),
-            number: data.number.clone(),
-        }
-    }
-}
+impl_bidirectional_from!(
+    CardView,
+    CardDataV1,
+    [cardholder_name, exp_month, exp_year, code, brand, number,]
+);
 
-// --- IdentityView <-> IdentityDataV1 ---
+impl_bidirectional_from!(
+    IdentityView,
+    IdentityDataV1,
+    [
+        title,
+        first_name,
+        middle_name,
+        last_name,
+        address1,
+        address2,
+        address3,
+        city,
+        state,
+        postal_code,
+        country,
+        company,
+        email,
+        phone,
+        ssn,
+        username,
+        passport_number,
+        license_number,
+    ]
+);
 
-impl From<&IdentityView> for IdentityDataV1 {
-    fn from(view: &IdentityView) -> Self {
-        Self {
-            title: view.title.clone(),
-            first_name: view.first_name.clone(),
-            middle_name: view.middle_name.clone(),
-            last_name: view.last_name.clone(),
-            address1: view.address1.clone(),
-            address2: view.address2.clone(),
-            address3: view.address3.clone(),
-            city: view.city.clone(),
-            state: view.state.clone(),
-            postal_code: view.postal_code.clone(),
-            country: view.country.clone(),
-            company: view.company.clone(),
-            email: view.email.clone(),
-            phone: view.phone.clone(),
-            ssn: view.ssn.clone(),
-            username: view.username.clone(),
-            passport_number: view.passport_number.clone(),
-            license_number: view.license_number.clone(),
-        }
-    }
-}
+impl_bidirectional_from!(SecureNoteView, SecureNoteDataV1, [r#type]);
 
-impl From<&IdentityDataV1> for IdentityView {
-    fn from(data: &IdentityDataV1) -> Self {
-        Self {
-            title: data.title.clone(),
-            first_name: data.first_name.clone(),
-            middle_name: data.middle_name.clone(),
-            last_name: data.last_name.clone(),
-            address1: data.address1.clone(),
-            address2: data.address2.clone(),
-            address3: data.address3.clone(),
-            city: data.city.clone(),
-            state: data.state.clone(),
-            postal_code: data.postal_code.clone(),
-            country: data.country.clone(),
-            company: data.company.clone(),
-            email: data.email.clone(),
-            phone: data.phone.clone(),
-            ssn: data.ssn.clone(),
-            username: data.username.clone(),
-            passport_number: data.passport_number.clone(),
-            license_number: data.license_number.clone(),
-        }
-    }
-}
+impl_bidirectional_from!(
+    SshKeyView,
+    SshKeyDataV1,
+    [private_key, public_key, fingerprint,]
+);
 
-// --- SecureNoteView <-> SecureNoteDataV1 ---
+impl_bidirectional_from!(FieldView, FieldDataV1, [name, value, r#type, linked_id,]);
 
-impl From<&SecureNoteView> for SecureNoteDataV1 {
-    fn from(view: &SecureNoteView) -> Self {
-        Self {
-            r#type: view.r#type,
-        }
-    }
-}
-
-impl From<&SecureNoteDataV1> for SecureNoteView {
-    fn from(data: &SecureNoteDataV1) -> Self {
-        Self {
-            r#type: data.r#type,
-        }
-    }
-}
-
-// --- SshKeyView <-> SshKeyDataV1 ---
-
-impl From<&SshKeyView> for SshKeyDataV1 {
-    fn from(view: &SshKeyView) -> Self {
-        Self {
-            private_key: view.private_key.clone(),
-            public_key: view.public_key.clone(),
-            fingerprint: view.fingerprint.clone(),
-        }
-    }
-}
-
-impl From<&SshKeyDataV1> for SshKeyView {
-    fn from(data: &SshKeyDataV1) -> Self {
-        Self {
-            private_key: data.private_key.clone(),
-            public_key: data.public_key.clone(),
-            fingerprint: data.fingerprint.clone(),
-        }
-    }
-}
-
-// --- FieldView <-> FieldDataV1 ---
-
-impl From<&FieldView> for FieldDataV1 {
-    fn from(view: &FieldView) -> Self {
-        Self {
-            name: view.name.clone(),
-            value: view.value.clone(),
-            r#type: view.r#type,
-            linked_id: view.linked_id,
-        }
-    }
-}
-
-impl From<&FieldDataV1> for FieldView {
-    fn from(data: &FieldDataV1) -> Self {
-        Self {
-            name: data.name.clone(),
-            value: data.value.clone(),
-            r#type: data.r#type,
-            linked_id: data.linked_id,
-        }
-    }
-}
-
-// --- PasswordHistoryView <-> PasswordHistoryDataV1 ---
-
-impl From<&PasswordHistoryView> for PasswordHistoryDataV1 {
-    fn from(view: &PasswordHistoryView) -> Self {
-        Self {
-            password: view.password.clone(),
-            last_used_date: view.last_used_date,
-        }
-    }
-}
-
-impl From<&PasswordHistoryDataV1> for PasswordHistoryView {
-    fn from(data: &PasswordHistoryDataV1) -> Self {
-        Self {
-            password: data.password.clone(),
-            last_used_date: data.last_used_date,
-        }
-    }
-}
+impl_bidirectional_from!(
+    PasswordHistoryView,
+    PasswordHistoryDataV1,
+    [password, last_used_date,]
+);
 
 // --- LoginUriView <-> LoginUriDataV1 ---
 
