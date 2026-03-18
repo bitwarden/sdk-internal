@@ -407,7 +407,11 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Login> for LoginView {
             password: self.password.encrypt(ctx, key)?,
             password_revision_date: self.password_revision_date,
             uris: self.uris.encrypt_composite(ctx, key)?,
-            totp: self.totp.encrypt(ctx, key)?,
+            totp: self
+                .totp
+                .clone()
+                .filter(|s| !s.is_empty())
+                .encrypt(ctx, key)?,
             autofill_on_page_load: self.autofill_on_page_load,
             fido2_credentials: self.fido2_credentials.clone(),
         })
