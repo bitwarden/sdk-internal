@@ -13,6 +13,10 @@ use bitwarden_core::{
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_send::SendClientExt as _;
+use bitwarden_server_communication_config::{
+    ServerCommunicationConfigClient, ServerCommunicationConfigPlatformApi,
+    ServerCommunicationConfigRepository,
+};
 use bitwarden_sync::SyncClientExt as _;
 use bitwarden_user_crypto_management::UserCryptoManagementClientExt;
 use bitwarden_vault::{FolderSyncHandler, VaultClientExt as _};
@@ -75,6 +79,32 @@ impl PasswordManagerClient {
         Ok(client)
     }
 
+    /// Initialize a Password Manager client with SSO load balancer cookie injection.
+    ///
+    /// Constructs a cookie injection middleware from `scc_client` and wires it into the
+    /// HTTP client chains so that SSO cookies are injected on every outbound request.
+    /// Use this constructor for self-hosted Bitwarden instances behind AWS ALB or similar
+    /// reverse proxies requiring session affinity.
+    ///
+    /// Existing constructors (`new`, `new_with_client_tokens`, `new_with_sync`) are
+    /// unaffected. (ADR-059)
+    pub fn new_with_server_communication_config<R, P>(
+        settings: Option<bitwarden_core::ClientSettings>,
+        scc_client: ServerCommunicationConfigClient<R, P>,
+    ) -> Self
+    where
+        R: ServerCommunicationConfigRepository + Send + Sync + 'static,
+        P: ServerCommunicationConfigPlatformApi + Send + Sync + 'static,
+    {
+        let cookie_middleware = scc_client.create_middleware();
+        let token_handler = Arc::new(PasswordManagerTokenHandler::default());
+        Self(bitwarden_core::Client::new_with_middlewares(
+            settings,
+            token_handler,
+            vec![cookie_middleware],
+        ))
+    }
+
     /// Platform operations
     pub fn platform(&self) -> bitwarden_core::platform::PlatformClient {
         self.0.platform()
@@ -126,5 +156,65 @@ impl PasswordManagerClient {
     /// Sync operations
     pub fn sync(&self) -> bitwarden_sync::SyncClient {
         self.0.sync()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use bitwarden_server_communication_config::{
+        AcquiredCookie, ServerCommunicationConfig, ServerCommunicationConfigPlatformApi,
+        ServerCommunicationConfigRepository,
+    };
+    use tokio::sync::RwLock;
+
+    use super::*;
+
+    #[derive(Default, Clone)]
+    struct MockRepository {
+        storage: std::sync::Arc<RwLock<HashMap<String, ServerCommunicationConfig>>>,
+    }
+
+    impl ServerCommunicationConfigRepository for MockRepository {
+        type GetError = ();
+        type SaveError = ();
+
+        async fn get(&self, hostname: String) -> Result<Option<ServerCommunicationConfig>, ()> {
+            Ok(self.storage.read().await.get(&hostname).cloned())
+        }
+
+        async fn save(
+            &self,
+            hostname: String,
+            config: ServerCommunicationConfig,
+        ) -> Result<(), ()> {
+            self.storage.write().await.insert(hostname, config);
+            Ok(())
+        }
+    }
+
+    #[derive(Clone)]
+    struct MockPlatformApi;
+
+    #[async_trait::async_trait]
+    impl ServerCommunicationConfigPlatformApi for MockPlatformApi {
+        async fn acquire_cookies(&self, _vault_url: String) -> Option<Vec<AcquiredCookie>> {
+            None
+        }
+    }
+
+    #[tokio::test]
+    async fn new_with_server_communication_config_constructs_successfully() {
+        let repo = MockRepository::default();
+        let platform_api = MockPlatformApi;
+        let scc_client =
+            bitwarden_server_communication_config::ServerCommunicationConfigClient::new(
+                repo,
+                platform_api,
+            );
+        let _client: PasswordManagerClient =
+            PasswordManagerClient::new_with_server_communication_config(None, scc_client);
+        // Type assertion: if this compiles and runs, the constructor works correctly.
     }
 }
