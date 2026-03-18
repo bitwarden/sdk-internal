@@ -52,6 +52,7 @@ impl CiphersClient {
                 .internal
                 .get_flags()
                 .enable_cipher_key_encryption
+            && cipher_view.view_password
         {
             let key = cipher_view.key_identifier();
             cipher_view.generate_cipher_key(&mut key_store.context(), key)?;
@@ -99,6 +100,7 @@ impl CiphersClient {
                 .internal
                 .get_flags()
                 .enable_cipher_key_encryption
+            && cipher_view.view_password
         {
             cipher_view.generate_cipher_key(&mut ctx, new_key_id)?;
         } else {
@@ -139,7 +141,7 @@ impl CiphersClient {
         let prepared_views: Vec<CipherView> = cipher_views
             .into_iter()
             .map(|mut cv| {
-                if cv.key.is_none() && enable_cipher_key {
+                if cv.key.is_none() && enable_cipher_key && cv.view_password {
                     let key = cv.key_identifier();
                     cv.generate_cipher_key(&mut ctx, key)?;
                 }
