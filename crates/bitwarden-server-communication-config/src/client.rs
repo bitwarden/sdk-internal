@@ -47,12 +47,15 @@ where
             }))
     }
 
-    /// Determines if cookie bootstrapping is needed for this hostname
-    pub async fn needs_bootstrap(&self, hostname: String) -> bool {
-        if let Ok(Some(config)) = self.repository.get(hostname).await
-            && let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap
-        {
-            return vendor_config.cookie_value.is_none();
+    /// Returns whether this domain uses cookie bootstrapping
+    ///
+    /// Returns `true` if the domain has an `SsoCookieVendor` configuration,
+    /// regardless of whether cookies have already been acquired. This is useful
+    /// for determining if the domain requires the bootstrap flow (e.g., to show
+    /// appropriate UI), without making claims about cookie validity.
+    pub async fn needs_bootstrap(&self, domain: String) -> bool {
+        if let Ok(Some(config)) = self.repository.get(domain).await {
+            return matches!(config.bootstrap, BootstrapConfig::SsoCookieVendor(_));
         }
         false
     }
