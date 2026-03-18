@@ -23,6 +23,7 @@ wasm = [
 uniffi = ["dep:uniffi"] # UniFFI support for mobile bindings
 
 middleware = [
+    "dep:http",
     "dep:reqwest",
     "dep:reqwest-middleware",
     "dep:tracing",
@@ -36,6 +37,7 @@ js-sys = { workspace = true, optional = true }
 serde = { workspace = true }
 serde-wasm-bindgen = { workspace = true, optional = true }
 thiserror = { workspace = true }
+http = { workspace = true, optional = true }
 reqwest = { workspace = true, optional = true }
 reqwest-middleware = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["sync"] }

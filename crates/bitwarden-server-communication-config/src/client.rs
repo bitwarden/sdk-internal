@@ -95,6 +95,24 @@ where
         self.repository.save(hostname, config).await
     }
 
+    /// Creates an HTTP middleware that injects this client's cookies into every request.
+    ///
+    /// The caller must hold `self` behind an `Arc` before calling this method.
+    /// The returned middleware can be passed to
+    /// `reqwest_middleware::ClientBuilder::with_arc()`.
+    #[cfg(feature = "middleware")]
+    pub fn create_middleware(
+        self: &std::sync::Arc<Self>,
+    ) -> std::sync::Arc<crate::middleware::ServerCommunicationConfigMiddleware<R, P>>
+    where
+        R: crate::ServerCommunicationConfigRepository + Send + Sync + 'static,
+        P: crate::ServerCommunicationConfigPlatformApi + Send + Sync + 'static,
+    {
+        std::sync::Arc::new(crate::middleware::ServerCommunicationConfigMiddleware::new(
+            std::sync::Arc::clone(self),
+        ))
+    }
+
     /// Acquires a cookie from the platform and saves it to the repository
     ///
     /// This method calls the platform API to trigger cookie acquisition (e.g., browser

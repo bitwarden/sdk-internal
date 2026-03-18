@@ -21,6 +21,12 @@ pub use repository::{
     ServerCommunicationConfigRepository, ServerCommunicationConfigRepositoryError,
 };
 
+#[cfg(feature = "middleware")]
+/// HTTP middleware for injecting SSO load balancer cookies into requests
+pub mod middleware;
+#[cfg(feature = "middleware")]
+pub use middleware::ServerCommunicationConfigMiddleware;
+
 #[cfg(feature = "wasm")]
 /// WASM bindings for JavaScript interoperability
 pub mod wasm;
