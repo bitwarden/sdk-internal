@@ -42,6 +42,86 @@ impl Client {
         Self::new_internal(settings, token_handler)
     }
 
+    /// Creates a new Bitwarden client with the specified token handler and additional
+    /// HTTP middlewares applied to all request clients.
+    ///
+    /// Middlewares in `extra_middlewares` are applied outermost (registered first)
+    /// before the auth token middleware on the API client, and as the only middleware
+    /// on the Identity client.
+    ///
+    /// This constructor is not part of the public API and should not appear in user
+    /// documentation. It is used by higher-level client constructors (e.g.,
+    /// `PasswordManagerClient::new_with_server_communication_config`).
+    #[doc(hidden)]
+    pub fn new_with_middlewares(
+        settings_input: Option<ClientSettings>,
+        token_handler: Arc<dyn TokenHandler>,
+        extra_middlewares: Vec<Arc<dyn reqwest_middleware::Middleware>>,
+    ) -> Self {
+        let settings = settings_input.unwrap_or_default();
+
+        let external_http_client = new_http_client_builder()
+            .build()
+            .expect("External HTTP Client build should not fail");
+
+        let headers = build_default_headers(&settings);
+
+        let login_method = Arc::new(RwLock::new(None));
+        let key_store = KeyStore::default();
+
+        let bw_http_client = new_http_client_builder()
+            .default_headers(headers)
+            .build()
+            .expect("Bw HTTP Client build should not fail");
+
+        // Identity client: wrap with extra middlewares only (no auth middleware).
+        let mut identity_builder = reqwest_middleware::ClientBuilder::new(bw_http_client.clone());
+        for mw in &extra_middlewares {
+            identity_builder = identity_builder.with_arc(Arc::clone(mw));
+        }
+        let identity = bitwarden_api_identity::Configuration {
+            base_path: settings.identity_url,
+            user_agent: Some(settings.user_agent.clone()),
+            client: identity_builder.build(),
+            oauth_access_token: None,
+        };
+
+        // API client: extra middlewares outermost, then auth middleware.
+        let auth_middleware = token_handler.initialize_middleware(
+            login_method.clone(),
+            identity.clone(),
+            key_store.clone(),
+        );
+        let mut api_builder = reqwest_middleware::ClientBuilder::new(bw_http_client);
+        for mw in &extra_middlewares {
+            api_builder = api_builder.with_arc(Arc::clone(mw));
+        }
+        let api_client = api_builder.with_arc(auth_middleware).build();
+        let api = bitwarden_api_api::Configuration {
+            base_path: settings.api_url,
+            user_agent: Some(settings.user_agent),
+            client: api_client,
+            oauth_access_token: None,
+        };
+
+        Self {
+            internal: Arc::new(InternalClient {
+                user_id: OnceLock::new(),
+                token_handler,
+                login_method,
+                #[cfg(feature = "internal")]
+                flags: RwLock::new(Flags::default()),
+                api_configurations: ApiConfigurations::new(identity, api, settings.device_type),
+                external_http_client,
+                key_store,
+                #[cfg(feature = "internal")]
+                security_state: RwLock::new(None),
+                #[cfg(feature = "internal")]
+                repository_map: StateRegistry::new(),
+            }),
+        }
+    }
+
     fn new_internal(
         settings_input: Option<ClientSettings>,
         token_handler: Arc<dyn TokenHandler>,
