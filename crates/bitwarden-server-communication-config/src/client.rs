@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
+#[cfg(test)]
+use crate::AcquiredCookie;
 use crate::{
     AcquireCookieError, BootstrapConfig, ServerCommunicationConfig,
     ServerCommunicationConfigPlatformApi, ServerCommunicationConfigRepository,
 };
-#[cfg(test)]
-use crate::AcquiredCookie;
 
 /// Inner state shared across clones of ServerCommunicationConfigClient.
 struct InnerClient<R, P>
@@ -223,12 +223,109 @@ where
         Ok(())
     }
 
-    /// Creates a middleware instance that injects cookies from this client.
+    /// Creates a reqwest middleware that injects SSO cookies into HTTP requests.
+    ///
+    /// The middleware reads the stored cookie configuration for each request's hostname
+    /// and injects matching cookies as a `Cookie` header (RFC 6265 format).
+    ///
+    /// Returns an `Arc<dyn reqwest_middleware::Middleware>` suitable for use with
+    /// `reqwest_middleware::ClientBuilder::with_arc()`.
     ///
     /// Only available with the `middleware` feature.
     #[cfg(feature = "middleware")]
-    pub fn create_middleware(&self) -> crate::middleware::ServerCommunicationConfigMiddleware<R, P> {
-        crate::middleware::ServerCommunicationConfigMiddleware::new(Some(self.clone()))
+    pub fn create_middleware(&self) -> Arc<dyn reqwest_middleware::Middleware>
+    where
+        R: Send + Sync + 'static,
+        P: Send + Sync + 'static,
+    {
+        Arc::new(ServerCommunicationConfigMiddleware::new(self.inner.clone()))
+    }
+}
+
+/// Middleware that injects SSO cookies into HTTP requests based on server communication config
+///
+/// Only available with the `middleware` feature.
+#[cfg(feature = "middleware")]
+pub struct ServerCommunicationConfigMiddleware<R, P>
+where
+    R: ServerCommunicationConfigRepository + Send + Sync + 'static,
+    P: ServerCommunicationConfigPlatformApi + Send + Sync + 'static,
+{
+    client: Arc<InnerClient<R, P>>,
+}
+
+#[cfg(feature = "middleware")]
+impl<R, P> ServerCommunicationConfigMiddleware<R, P>
+where
+    R: ServerCommunicationConfigRepository + Send + Sync + 'static,
+    P: ServerCommunicationConfigPlatformApi + Send + Sync + 'static,
+{
+    fn new(client: Arc<InnerClient<R, P>>) -> Self {
+        Self { client }
+    }
+}
+
+#[cfg(feature = "middleware")]
+impl<R, P> Clone for ServerCommunicationConfigMiddleware<R, P>
+where
+    R: ServerCommunicationConfigRepository + Send + Sync + 'static,
+    P: ServerCommunicationConfigPlatformApi + Send + Sync + 'static,
+{
+    fn clone(&self) -> Self {
+        Self {
+            client: Arc::clone(&self.client),
+        }
+    }
+}
+
+#[cfg(feature = "middleware")]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+impl<R, P> reqwest_middleware::Middleware for ServerCommunicationConfigMiddleware<R, P>
+where
+    R: ServerCommunicationConfigRepository + Send + Sync + 'static,
+    P: ServerCommunicationConfigPlatformApi + Send + Sync + 'static,
+{
+    async fn handle(
+        &self,
+        mut req: reqwest::Request,
+        ext: &mut http::Extensions,
+        next: reqwest_middleware::Next<'_>,
+    ) -> Result<reqwest::Response, reqwest_middleware::Error> {
+        if let Some(hostname) = req.url().host_str().map(|h: &str| h.to_string()) {
+            let cookies = self
+                .client
+                .repository
+                .get(hostname)
+                .await
+                .ok()
+                .flatten()
+                .and_then(|config| {
+                    if let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap {
+                        vendor_config.cookie_value
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_default();
+
+            if !cookies.is_empty() {
+                let cookie_header = cookies
+                    .iter()
+                    .map(|c| format!("{}={}", c.name, c.value))
+                    .collect::<Vec<_>>()
+                    .join("; ");
+                if let Ok(header_value) = cookie_header.parse() {
+                    req.headers_mut()
+                        .insert(reqwest::header::COOKIE, header_value);
+                }
+            }
+        }
+
+        match req.try_clone() {
+            Some(cloned_req) => next.clone().run(cloned_req, ext).await,
+            None => next.run(req, ext).await,
+        }
     }
 }
 
@@ -247,6 +344,7 @@ mod tests {
         storage: std::sync::Arc<RwLock<HashMap<String, ServerCommunicationConfig>>>,
     }
 
+    #[async_trait::async_trait]
     impl ServerCommunicationConfigRepository for MockRepository {
         type GetError = ();
         type SaveError = ();
@@ -478,7 +576,6 @@ mod tests {
         let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
         let cookies = client.cookies("vault.example.com".to_string()).await;
 
-        // Single cookie without suffix
         assert_eq!(cookies.len(), 1);
         assert_eq!(cookies[0].0, "AWSELBAuthSessionCookie");
         assert_eq!(cookies[0].1, "eyJhbGciOiJFUzI1NiIsImtpZCI6Im...");
@@ -528,7 +625,6 @@ mod tests {
         let client = ServerCommunicationConfigClient::new(repo, platform_api);
         let cookies = client.cookies("vault.example.com".to_string()).await;
 
-        // Each shard is returned as stored with -N suffix
         assert_eq!(cookies.len(), 3);
         assert_eq!(
             cookies[0],
@@ -558,7 +654,6 @@ mod tests {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
 
-        // Setup existing config with SsoCookieVendor
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
@@ -572,7 +667,6 @@ mod tests {
             .await
             .unwrap();
 
-        // Configure platform API to return a cookie with correct name
         platform_api
             .set_cookies(Some(vec![AcquiredCookie {
                 name: "TestCookie".to_string(),
@@ -581,11 +675,8 @@ mod tests {
             .await;
 
         let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
-
-        // Call acquire_cookie - should succeed
         client.acquire_cookie("vault.example.com").await.unwrap();
 
-        // Verify cookie was saved
         let saved_config = repo
             .get("vault.example.com".to_string())
             .await
@@ -612,7 +703,6 @@ mod tests {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
 
-        // Setup existing config
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
@@ -626,11 +716,9 @@ mod tests {
             .await
             .unwrap();
 
-        // Platform API returns None (user cancelled)
         platform_api.set_cookies(None).await;
 
         let client = ServerCommunicationConfigClient::new(repo, platform_api);
-
         let result = client.acquire_cookie("vault.example.com").await;
 
         assert!(matches!(result, Err(AcquireCookieError::Cancelled)));
@@ -641,7 +729,6 @@ mod tests {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
 
-        // Setup Direct config
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::Direct,
         };
@@ -649,7 +736,6 @@ mod tests {
             .await
             .unwrap();
 
-        // Platform API returns a cookie
         platform_api
             .set_cookies(Some(vec![AcquiredCookie {
                 name: "TestCookie".to_string(),
@@ -658,10 +744,8 @@ mod tests {
             .await;
 
         let client = ServerCommunicationConfigClient::new(repo, platform_api);
-
         let result = client.acquire_cookie("vault.example.com").await;
 
-        // Should return UnsupportedConfiguration because config is Direct
         assert!(matches!(
             result,
             Err(AcquireCookieError::UnsupportedConfiguration)
@@ -673,7 +757,6 @@ mod tests {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
 
-        // Setup config expecting "ExpectedCookie"
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
@@ -687,7 +770,6 @@ mod tests {
             .await
             .unwrap();
 
-        // Platform API returns wrong cookie name
         platform_api
             .set_cookies(Some(vec![AcquiredCookie {
                 name: "WrongCookie".to_string(),
@@ -696,10 +778,8 @@ mod tests {
             .await;
 
         let client = ServerCommunicationConfigClient::new(repo, platform_api);
-
         let result = client.acquire_cookie("vault.example.com").await;
 
-        // Should return CookieNameMismatch
         match result {
             Err(AcquireCookieError::CookieNameMismatch { expected, actual }) => {
                 assert_eq!(expected, "ExpectedCookie");
@@ -713,14 +793,9 @@ mod tests {
     async fn acquire_cookie_returns_unsupported_when_no_config() {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
-
-        // No config saved for this hostname
-
         let client = ServerCommunicationConfigClient::new(repo, platform_api);
-
         let result = client.acquire_cookie("vault.example.com").await;
 
-        // Should return UnsupportedConfiguration because no config exists
         assert!(matches!(
             result,
             Err(AcquireCookieError::UnsupportedConfiguration)
@@ -732,7 +807,6 @@ mod tests {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
 
-        // Setup config expecting "AWSELBAuthSessionCookie"
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
@@ -746,7 +820,6 @@ mod tests {
             .await
             .unwrap();
 
-        // Platform API returns multiple shards with -N suffixes
         platform_api
             .set_cookies(Some(vec![
                 AcquiredCookie {
@@ -765,11 +838,8 @@ mod tests {
             .await;
 
         let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
-
-        // Should succeed
         client.acquire_cookie("vault.example.com").await.unwrap();
 
-        // Verify all shards were saved
         let saved_config = repo
             .get("vault.example.com".to_string())
             .await
@@ -800,7 +870,6 @@ mod tests {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
 
-        // Setup config
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
@@ -814,7 +883,6 @@ mod tests {
             .await
             .unwrap();
 
-        // Platform API returns single cookie without suffix
         platform_api
             .set_cookies(Some(vec![AcquiredCookie {
                 name: "SessionCookie".to_string(),
@@ -823,11 +891,8 @@ mod tests {
             .await;
 
         let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
-
-        // Should succeed
         client.acquire_cookie("vault.example.com").await.unwrap();
 
-        // Verify value was saved
         let saved_config = repo
             .get("vault.example.com".to_string())
             .await
@@ -859,13 +924,11 @@ mod tests {
             bootstrap: BootstrapConfig::Direct,
         };
 
-        // Call set_communication_type
         client
             .set_communication_type("vault.example.com".to_string(), config.clone())
             .await
             .unwrap();
 
-        // Verify config was saved
         let saved_config = repo
             .get("vault.example.com".to_string())
             .await
@@ -891,13 +954,11 @@ mod tests {
             }),
         };
 
-        // Call set_communication_type
         client
             .set_communication_type("vault.example.com".to_string(), config.clone())
             .await
             .unwrap();
 
-        // Verify config was saved
         let saved_config = repo
             .get("vault.example.com".to_string())
             .await
@@ -925,7 +986,6 @@ mod tests {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
 
-        // Setup existing Direct config
         let old_config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::Direct,
         };
@@ -935,7 +995,6 @@ mod tests {
 
         let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
 
-        // Overwrite with SsoCookieVendor config
         let new_config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://new-idp.example.com/login".to_string()),
@@ -951,7 +1010,6 @@ mod tests {
             .await
             .unwrap();
 
-        // Verify new config replaced old config
         let saved_config = repo
             .get("vault.example.com".to_string())
             .await
@@ -975,7 +1033,6 @@ mod tests {
         let platform_api = MockPlatformApi::new();
         let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
 
-        // Save config for first hostname
         let config1 = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::Direct,
         };
@@ -984,7 +1041,6 @@ mod tests {
             .await
             .unwrap();
 
-        // Save different config for second hostname
         let config2 = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://idp.example.com/login".to_string()),
@@ -999,7 +1055,6 @@ mod tests {
             .await
             .unwrap();
 
-        // Verify both configs are stored independently
         let saved_config1 = repo
             .get("vault1.example.com".to_string())
             .await
@@ -1023,13 +1078,12 @@ mod tests {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
 
-        // Setup config with SsoCookieVendor but vault_url is None
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: None, // Missing vault_url
+                vault_url: None,
                 cookie_value: None,
             }),
         };
@@ -1037,7 +1091,6 @@ mod tests {
             .await
             .unwrap();
 
-        // Platform API is ready to return cookies (but shouldn't be called)
         platform_api
             .set_cookies(Some(vec![AcquiredCookie {
                 name: "TestCookie".to_string(),
@@ -1046,10 +1099,8 @@ mod tests {
             .await;
 
         let client = ServerCommunicationConfigClient::new(repo, platform_api);
-
         let result = client.acquire_cookie("vault.example.com").await;
 
-        // Should return UnsupportedConfiguration because vault_url is None
         assert!(matches!(
             result,
             Err(AcquireCookieError::UnsupportedConfiguration)
@@ -1061,13 +1112,12 @@ mod tests {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
 
-        // Setup config with SsoCookieVendor but vault_url is empty string
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("".to_string()), // Empty vault_url
+                vault_url: Some("".to_string()),
                 cookie_value: None,
             }),
         };
@@ -1075,7 +1125,6 @@ mod tests {
             .await
             .unwrap();
 
-        // Platform API is ready to return cookies (but shouldn't be called)
         platform_api
             .set_cookies(Some(vec![AcquiredCookie {
                 name: "TestCookie".to_string(),
@@ -1084,10 +1133,8 @@ mod tests {
             .await;
 
         let client = ServerCommunicationConfigClient::new(repo, platform_api);
-
         let result = client.acquire_cookie("vault.example.com").await;
 
-        // Should return UnsupportedConfiguration because vault_url is empty
         assert!(matches!(
             result,
             Err(AcquireCookieError::UnsupportedConfiguration)
@@ -1096,7 +1143,6 @@ mod tests {
 
     #[tokio::test]
     async fn clone_shares_state() {
-        // Verify two clones share the same underlying repository (write via clone A, read via clone B)
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
         let client_a = ServerCommunicationConfigClient::new(repo, platform_api);
@@ -1106,13 +1152,11 @@ mod tests {
             bootstrap: BootstrapConfig::Direct,
         };
 
-        // Write via clone A
         client_a
             .set_communication_type("vault.example.com".to_string(), config)
             .await
             .unwrap();
 
-        // Read via clone B — should see the same data
         let retrieved = client_b
             .get_config("vault.example.com".to_string())
             .await

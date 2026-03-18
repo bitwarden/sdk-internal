@@ -78,6 +78,7 @@ impl Clone for JsServerCommunicationConfigRepository {
     }
 }
 
+#[async_trait::async_trait(?Send)]
 impl ServerCommunicationConfigRepository for JsServerCommunicationConfigRepository {
     type GetError = String;
     type SaveError = String;
