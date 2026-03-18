@@ -232,6 +232,7 @@ fn parse_ciphers(
     let ciphers = ciphers
         .ok_or(SyncError::DataError)?
         .into_iter()
+        .filter(|c| c.organization_id.is_none())
         .map(|c| {
             let _span = debug_span!("deserializing_cipher", cipher_id = ?c.id).entered();
             Cipher::try_from(c).debug_map_err(SyncError::DataError)
@@ -731,6 +732,21 @@ mod tests {
             mock.devices_api.checkpoint();
             mock.web_authn_api.checkpoint();
         }
+    }
+
+    #[test]
+    fn test_parse_ciphers_filters_organization_ciphers() {
+        let personal_cipher_id = uuid::Uuid::new_v4();
+        let organization_cipher_id = uuid::Uuid::new_v4();
+
+        let personal_cipher = create_test_cipher(personal_cipher_id);
+        let mut organization_cipher = create_test_cipher(organization_cipher_id);
+        organization_cipher.organization_id = Some(uuid::Uuid::new_v4());
+
+        let ciphers = parse_ciphers(Some(vec![personal_cipher, organization_cipher])).unwrap();
+
+        assert_eq!(ciphers.len(), 1);
+        assert_eq!(ciphers[0].id, Some(CipherId::new(personal_cipher_id)));
     }
 
     #[tokio::test]

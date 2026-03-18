@@ -47,6 +47,11 @@ pub struct SsoCookieVendorConfig {
     pub cookie_name: Option<String>,
     /// Cookie domain for validation
     pub cookie_domain: Option<String>,
+    /// Vault URL for cookie acquisition redirect
+    ///
+    /// This is the full vault URL (scheme + host + port) where the browser
+    /// should be redirected for SSO cookie acquisition.
+    pub vault_url: Option<String>,
     /// Acquired cookies
     ///
     /// For sharded cookies, this contains multiple entries with names like
@@ -62,6 +67,7 @@ impl std::fmt::Debug for SsoCookieVendorConfig {
             .field("idp_login_url", &self.idp_login_url)
             .field("cookie_name", &self.cookie_name)
             .field("cookie_domain", &self.cookie_domain)
+            .field("vault_url", &self.vault_url)
             .field(
                 "cookie_value",
                 &self.cookie_value.as_ref().map(|_| "[REDACTED]"),
@@ -94,6 +100,7 @@ mod tests {
                 idp_login_url: Some("https://timeloop-auth.acme.com/login".to_string()),
                 cookie_name: Some("ALBAuthSessionCookie".to_string()),
                 cookie_domain: Some("vault.example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -104,7 +111,7 @@ mod tests {
         assert!(json.contains("ALBAuthSessionCookie"));
 
         // Verify SDK can parse server JSON with camelCase fields
-        let server_json = r#"{"bootstrap":{"type":"ssoCookieVendor","idpLoginUrl":"https://idp.example.com/login","cookieName":"TestCookie","cookieDomain":"example.com"}}"#;
+        let server_json = r#"{"bootstrap":{"type":"ssoCookieVendor","idpLoginUrl":"https://idp.example.com/login","cookieName":"TestCookie","cookieDomain":"example.com","vaultUrl":"https://vault.example.com"}}"#;
         let parsed = serde_json::from_str::<ServerCommunicationConfig>(server_json).unwrap();
         if let BootstrapConfig::SsoCookieVendor(vendor) = parsed.bootstrap {
             assert_eq!(
@@ -146,6 +153,7 @@ mod tests {
             idp_login_url: Some("https://example.com".to_string()),
             cookie_name: Some("TestCookie".to_string()),
             cookie_domain: Some("example.com".to_string()),
+            vault_url: Some("https://vault.example.com".to_string()),
             cookie_value: None,
         };
 
@@ -158,6 +166,7 @@ mod tests {
             idp_login_url: Some("https://example.com".to_string()),
             cookie_name: Some("TestCookie".to_string()),
             cookie_domain: Some("example.com".to_string()),
+            vault_url: Some("https://vault.example.com".to_string()),
             cookie_value: Some(vec![AcquiredCookie {
                 name: "TestCookie".to_string(),
                 value: "eyJhbGciOiJFUzI1NiIsImtpZCI6Im...".to_string(),
@@ -177,6 +186,7 @@ mod tests {
             idp_login_url: Some("https://example.com".to_string()),
             cookie_name: Some("TestCookie".to_string()),
             cookie_domain: Some("example.com".to_string()),
+            vault_url: Some("https://vault.example.com".to_string()),
             cookie_value: Some(vec![
                 AcquiredCookie {
                     name: "TestCookie-0".to_string(),
@@ -212,6 +222,7 @@ mod tests {
             idp_login_url: Some("https://example.com".to_string()),
             cookie_name: Some("Cookie".to_string()),
             cookie_domain: Some("example.com".to_string()),
+            vault_url: Some("https://vault.example.com".to_string()),
             cookie_value: None,
         });
         assert!(matches!(vendor, BootstrapConfig::SsoCookieVendor(_)));
@@ -226,6 +237,7 @@ mod tests {
             idp_login_url: Some("https://example.com/login".to_string()),
             cookie_name: Some("SessionCookie".to_string()),
             cookie_domain: Some("example.com".to_string()),
+            vault_url: Some("https://vault.example.com".to_string()),
             cookie_value: Some(vec![AcquiredCookie {
                 name: "SessionCookie".to_string(),
                 value: "super-secret-cookie-value-abc123".to_string(),
