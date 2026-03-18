@@ -46,6 +46,7 @@ bitwarden-license = ["dep:bitwarden-commercial-vault"]
 bitwarden-auth = { workspace = true }
 bitwarden-commercial-vault = { workspace = true, optional = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
+bitwarden-server-communication-config = { workspace = true, features = ["middleware"] }
 bitwarden-exporters = { workspace = true }
 bitwarden-fido = { workspace = true }
 bitwarden-generators = { workspace = true }

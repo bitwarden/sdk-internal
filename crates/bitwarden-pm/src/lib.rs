@@ -48,6 +48,35 @@ impl PasswordManagerClient {
         ))
     }
 
+    /// Initialize a new instance of the SDK client with a server communication config client for
+    /// SSO cookie injection.
+    ///
+    /// This is intended for self-hosted environments that use load balancers requiring session
+    /// affinity via SSO cookies. The provided `server_comm_config_client` is used to create a
+    /// cookie injection middleware that is applied to all API HTTP requests.
+    pub fn new_with_server_communication_config<R, P>(
+        settings: Option<bitwarden_core::ClientSettings>,
+        server_comm_config_client: bitwarden_server_communication_config::ServerCommunicationConfigClient<R, P>,
+    ) -> Self
+    where
+        R: bitwarden_server_communication_config::ServerCommunicationConfigRepository
+            + Send
+            + Sync
+            + 'static,
+        P: bitwarden_server_communication_config::ServerCommunicationConfigPlatformApi
+            + Send
+            + Sync
+            + 'static,
+    {
+        let token_handler = Arc::new(PasswordManagerTokenHandler::default());
+        let middleware = server_comm_config_client.create_middleware();
+        Self(bitwarden_core::Client::new_with_middlewares(
+            settings,
+            token_handler,
+            vec![middleware],
+        ))
+    }
+
     /// Initialize a new instance of the SDK client with client-managed tokens
     pub fn new_with_client_tokens(
         settings: Option<bitwarden_core::ClientSettings>,
