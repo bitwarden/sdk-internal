@@ -6,11 +6,10 @@ use bitwarden_core::{
         TwoFactorRequest,
     },
 };
+use bitwarden_sync::{SyncClientExt, SyncRequest};
 use color_eyre::eyre::{Result, bail};
 use inquire::{Password, Text};
 use tracing::{debug, error, info};
-
-use crate::vault::{SyncRequest, sync};
 
 pub(crate) async fn login_password(client: Client, email: Option<String>) -> Result<()> {
     let email = text_prompt_when_none("Email", email)?;
@@ -78,13 +77,12 @@ pub(crate) async fn login_password(client: Client, email: Option<String>) -> Res
         debug!(?result);
     }
 
-    let res = sync(
-        &client,
-        &SyncRequest {
-            exclude_subdomains: Some(true),
-        },
-    )
-    .await?;
+    let res = client
+        .sync()
+        .sync(SyncRequest {
+            exclude_subdomains: None,
+        })
+        .await?;
     info!(?res);
 
     Ok(())

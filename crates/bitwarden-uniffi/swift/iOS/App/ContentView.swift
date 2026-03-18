@@ -386,6 +386,7 @@ struct ContentView: View {
                     idpLoginUrl: "https://example.com/login",
                     cookieName: "TestCookie",
                     cookieDomain: "example.com",
+                    vaultUrl: "https://example.com",
                     cookieValue: nil
                 )
             )

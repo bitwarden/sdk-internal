@@ -47,12 +47,15 @@ where
             }))
     }
 
-    /// Determines if cookie bootstrapping is needed for this hostname
-    pub async fn needs_bootstrap(&self, hostname: String) -> bool {
-        if let Ok(Some(config)) = self.repository.get(hostname).await
-            && let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap
-        {
-            return vendor_config.cookie_value.is_none();
+    /// Returns whether this domain uses cookie bootstrapping
+    ///
+    /// Returns `true` if the domain has an `SsoCookieVendor` configuration,
+    /// regardless of whether cookies have already been acquired. This is useful
+    /// for determining if the domain requires the bootstrap flow (e.g., to show
+    /// appropriate UI), without making claims about cookie validity.
+    pub async fn needs_bootstrap(&self, domain: String) -> bool {
+        if let Ok(Some(config)) = self.repository.get(domain).await {
+            return matches!(config.bootstrap, BootstrapConfig::SsoCookieVendor(_));
         }
         false
     }
@@ -133,10 +136,18 @@ where
             .as_ref()
             .ok_or(AcquireCookieError::UnsupportedConfiguration)?;
 
-        // Call platform API to acquire cookies
+        // Extract vault_url from vendor_config
+        let vault_url = vendor_config
+            .vault_url
+            .as_ref()
+            .filter(|s| !s.is_empty())
+            .ok_or(AcquireCookieError::UnsupportedConfiguration)?
+            .clone();
+
+        // Call platform API to acquire cookies, passing vault_url
         let cookies = self
             .platform_api
-            .acquire_cookies(hostname.to_string())
+            .acquire_cookies(vault_url)
             .await
             .ok_or(AcquireCookieError::Cancelled)?;
 
@@ -240,7 +251,7 @@ mod tests {
 
     #[async_trait::async_trait]
     impl ServerCommunicationConfigPlatformApi for MockPlatformApi {
-        async fn acquire_cookies(&self, _hostname: String) -> Option<Vec<AcquiredCookie>> {
+        async fn acquire_cookies(&self, _vault_url: String) -> Option<Vec<AcquiredCookie>> {
             self.cookies_to_return.read().await.clone()
         }
     }
@@ -267,6 +278,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: Some(vec![AcquiredCookie {
                     name: "TestCookie".to_string(),
                     value: "value123".to_string(),
@@ -299,6 +311,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -324,6 +337,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: Some(vec![AcquiredCookie {
                     name: "TestCookie".to_string(),
                     value: "value123".to_string(),
@@ -390,6 +404,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -413,6 +428,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("AWSELBAuthSessionCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: Some(vec![AcquiredCookie {
                     name: "AWSELBAuthSessionCookie".to_string(),
                     value: "eyJhbGciOiJFUzI1NiIsImtpZCI6Im...".to_string(),
@@ -452,6 +468,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("AWSELBAuthSessionCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: Some(vec![
                     AcquiredCookie {
                         name: "AWSELBAuthSessionCookie-0".to_string(),
@@ -513,6 +530,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -566,6 +584,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -626,6 +645,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("ExpectedCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -684,6 +704,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("AWSELBAuthSessionCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -751,6 +772,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("SessionCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -830,6 +852,7 @@ mod tests {
                 idp_login_url: Some("https://idp.example.com/login".to_string()),
                 cookie_name: Some("SessionCookie".to_string()),
                 cookie_domain: Some("vault.example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -884,6 +907,7 @@ mod tests {
                 idp_login_url: Some("https://new-idp.example.com/login".to_string()),
                 cookie_name: Some("NewCookie".to_string()),
                 cookie_domain: Some("vault.example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -932,6 +956,7 @@ mod tests {
                 idp_login_url: Some("https://idp.example.com/login".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("vault2.example.com".to_string()),
+                vault_url: Some("https://vault2.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -956,6 +981,82 @@ mod tests {
         assert!(matches!(
             saved_config2.bootstrap,
             BootstrapConfig::SsoCookieVendor(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn acquire_cookie_returns_unsupported_when_vault_url_none() {
+        let repo = MockRepository::default();
+        let platform_api = MockPlatformApi::new();
+
+        // Setup config with SsoCookieVendor but vault_url is None
+        let config = ServerCommunicationConfig {
+            bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
+                idp_login_url: Some("https://example.com".to_string()),
+                cookie_name: Some("TestCookie".to_string()),
+                cookie_domain: Some("example.com".to_string()),
+                vault_url: None, // Missing vault_url
+                cookie_value: None,
+            }),
+        };
+        repo.save("vault.example.com".to_string(), config)
+            .await
+            .unwrap();
+
+        // Platform API is ready to return cookies (but shouldn't be called)
+        platform_api
+            .set_cookies(Some(vec![AcquiredCookie {
+                name: "TestCookie".to_string(),
+                value: "value".to_string(),
+            }]))
+            .await;
+
+        let client = ServerCommunicationConfigClient::new(repo, platform_api);
+
+        let result = client.acquire_cookie("vault.example.com").await;
+
+        // Should return UnsupportedConfiguration because vault_url is None
+        assert!(matches!(
+            result,
+            Err(AcquireCookieError::UnsupportedConfiguration)
+        ));
+    }
+
+    #[tokio::test]
+    async fn acquire_cookie_returns_unsupported_when_vault_url_empty() {
+        let repo = MockRepository::default();
+        let platform_api = MockPlatformApi::new();
+
+        // Setup config with SsoCookieVendor but vault_url is empty string
+        let config = ServerCommunicationConfig {
+            bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
+                idp_login_url: Some("https://example.com".to_string()),
+                cookie_name: Some("TestCookie".to_string()),
+                cookie_domain: Some("example.com".to_string()),
+                vault_url: Some("".to_string()), // Empty vault_url
+                cookie_value: None,
+            }),
+        };
+        repo.save("vault.example.com".to_string(), config)
+            .await
+            .unwrap();
+
+        // Platform API is ready to return cookies (but shouldn't be called)
+        platform_api
+            .set_cookies(Some(vec![AcquiredCookie {
+                name: "TestCookie".to_string(),
+                value: "value".to_string(),
+            }]))
+            .await;
+
+        let client = ServerCommunicationConfigClient::new(repo, platform_api);
+
+        let result = client.acquire_cookie("vault.example.com").await;
+
+        // Should return UnsupportedConfiguration because vault_url is empty
+        assert!(matches!(
+            result,
+            Err(AcquireCookieError::UnsupportedConfiguration)
         ));
     }
 }
