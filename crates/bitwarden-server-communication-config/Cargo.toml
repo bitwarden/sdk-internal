@@ -22,11 +22,18 @@ wasm = [
 
 uniffi = ["dep:uniffi"] # UniFFI support for mobile bindings
 
+middleware = [
+    "dep:reqwest-middleware",
+    "dep:http",
+] # HTTP middleware for cookie injection
+
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-threading = { workspace = true }
+http = { workspace = true, optional = true }
 js-sys = { workspace = true, optional = true }
+reqwest-middleware = { workspace = true, optional = true }
 serde = { workspace = true }
 serde-wasm-bindgen = { workspace = true, optional = true }
 thiserror = { workspace = true }
