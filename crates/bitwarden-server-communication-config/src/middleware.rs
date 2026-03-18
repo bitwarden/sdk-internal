@@ -82,23 +82,23 @@ where
         let response = next.run(req, ext).await?;
 
         // On 3xx redirect from a cloneable request: acquire fresh cookie and retry once
-        if response.status().is_redirection() {
-            if let Some(mut cloned_req) = req_clone {
-                match self.client.acquire_cookie(&hostname).await {
-                    Ok(()) => {
-                        // Re-inject fresh cookies into the cloned request
-                        let fresh_cookies = self.client.cookies(hostname.clone()).await;
-                        self.inject_cookies(&mut cloned_req, fresh_cookies);
-                        return next_clone.run(cloned_req, ext).await;
-                    }
-                    Err(e) => {
-                        // Log warning but do not propagate — return original response
-                        tracing::warn!(
-                            hostname = %hostname,
-                            error = %e,
-                            "Cookie acquisition failed during 3xx retry; returning original response"
-                        );
-                    }
+        if response.status().is_redirection()
+            && let Some(mut cloned_req) = req_clone
+        {
+            match self.client.acquire_cookie(&hostname).await {
+                Ok(()) => {
+                    // Re-inject fresh cookies into the cloned request
+                    let fresh_cookies = self.client.cookies(hostname.clone()).await;
+                    self.inject_cookies(&mut cloned_req, fresh_cookies);
+                    return next_clone.run(cloned_req, ext).await;
+                }
+                Err(e) => {
+                    // Log warning but do not propagate — return original response
+                    tracing::warn!(
+                        hostname = %hostname,
+                        error = %e,
+                        "Cookie acquisition failed during 3xx retry; returning original response"
+                    );
                 }
             }
         }
