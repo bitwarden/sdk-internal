@@ -112,7 +112,10 @@ mod tests {
     async fn inject_cookies_appends_headers() {
         let provider = MockCookieProvider::new(
             "vault.example.com",
-            vec![("AWSELBAuthSessionCookie".to_string(), "token123".to_string())],
+            vec![(
+                "AWSELBAuthSessionCookie".to_string(),
+                "token123".to_string(),
+            )],
         );
         let mut req = reqwest::Request::new(
             reqwest::Method::GET,

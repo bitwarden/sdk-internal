@@ -10,13 +10,13 @@ use bitwarden_core::{
     FromClient,
     auth::{ClientManagedTokenHandler, ClientManagedTokens},
 };
+use bitwarden_exporters::ExporterClientExt as _;
+use bitwarden_generators::GeneratorClientsExt as _;
+use bitwarden_send::SendClientExt as _;
 use bitwarden_server_communication_config::{
     ServerCommunicationConfigClient, ServerCommunicationConfigPlatformApi,
     ServerCommunicationConfigRepository,
 };
-use bitwarden_exporters::ExporterClientExt as _;
-use bitwarden_generators::GeneratorClientsExt as _;
-use bitwarden_send::SendClientExt as _;
 use bitwarden_sync::SyncClientExt as _;
 use bitwarden_user_crypto_management::UserCryptoManagementClientExt;
 use bitwarden_vault::{FolderSyncHandler, VaultClientExt as _};

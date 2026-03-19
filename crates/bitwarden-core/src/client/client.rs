@@ -94,14 +94,13 @@ impl Client {
             identity.clone(),
             key_store.clone(),
         );
-        let mut client_builder = reqwest_middleware::ClientBuilder::new(bw_http_client)
-            .with_arc(auth_middleware);
+        let mut client_builder =
+            reqwest_middleware::ClientBuilder::new(bw_http_client).with_arc(auth_middleware);
 
         // Wire cookie provider as second middleware if provided (ADR-005 ordering:
         // auth first, cookie second).
         if let Some(provider) = cookie_provider {
-            client_builder =
-                client_builder.with(CookieProviderMiddlewareAdapter { provider });
+            client_builder = client_builder.with(CookieProviderMiddlewareAdapter { provider });
         }
 
         let bw_http_client = client_builder.build();

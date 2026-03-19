@@ -14,8 +14,8 @@ pub(crate) use api::response::user_decryption_options_response::UserDecryptionOp
 #[allow(missing_docs)]
 pub mod auth_client;
 pub mod auth_tokens;
-mod jwt_token;
 pub mod cookie_provider;
+mod jwt_token;
 #[allow(missing_docs)]
 pub mod login;
 #[allow(missing_docs)]

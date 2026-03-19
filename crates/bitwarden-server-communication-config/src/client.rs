@@ -1,8 +1,9 @@
-#[cfg(test)]
-use crate::AcquiredCookie;
 use std::sync::Arc;
 
 use bitwarden_core::auth::CookieProvider;
+
+#[cfg(test)]
+use crate::AcquiredCookie;
 use crate::{
     AcquireCookieError, BootstrapConfig, ServerCommunicationConfig,
     ServerCommunicationConfigPlatformApi, ServerCommunicationConfigRepository,
