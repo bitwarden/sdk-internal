@@ -44,6 +44,8 @@ pub struct GrantedProjectAccessPolicyResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub granted_project_name: Option<String>,
+    #[serde(rename = "manage", alias = "Manage", default)]
+    pub manage: Option<bool>,
 }
 
 impl GrantedProjectAccessPolicyResponseModel {
@@ -54,6 +56,7 @@ impl GrantedProjectAccessPolicyResponseModel {
             write: None,
             granted_project_id: None,
             granted_project_name: None,
+            manage: None,
         }
     }
 }

@@ -7,7 +7,7 @@ pub use bitwarden_core::ClientSettings;
 use bitwarden_core::{OrganizationId, auth::auth_client::AuthClient};
 use bitwarden_generators::GeneratorClientsExt;
 
-use crate::{ProjectsClient, SecretsClient};
+use crate::{AccessPoliciesClient, ProjectsClient, SecretsClient};
 
 /// The main struct for interacting with the Secrets Manager service through the SM SDK.
 pub struct SecretsManagerClient {
@@ -38,6 +38,11 @@ impl SecretsManagerClient {
     /// Get access to the Auth API
     pub fn auth(&self) -> AuthClient {
         self.client.auth()
+    }
+
+    /// Get access to the Access Policies API
+    pub fn access_policies(&self) -> AccessPoliciesClient {
+        AccessPoliciesClient::new(self.client.clone())
     }
 
     /// Get access to the Generators API
