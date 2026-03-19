@@ -178,22 +178,18 @@ impl SystemDatabase {
     ) -> Result<Self, DatabaseError> {
         match configuration {
             #[cfg(not(target_arch = "wasm32"))]
-            DatabaseConfiguration::Sqlite { .. } => {
-                Ok(SystemDatabase::Sqlite(
-                    sqlite::SqliteDatabase::initialize(configuration, registrations).await?,
-                ))
-            }
+            DatabaseConfiguration::Sqlite { .. } => Ok(SystemDatabase::Sqlite(
+                sqlite::SqliteDatabase::initialize(configuration, registrations).await?,
+            )),
             #[cfg(target_arch = "wasm32")]
-            DatabaseConfiguration::IndexedDb { .. } => {
-                Ok(SystemDatabase::IndexedDb(
-                    indexed_db::IndexedDbDatabase::initialize(configuration, registrations).await?,
-                ))
-            }
-            DatabaseConfiguration::Memory => {
-                Ok(SystemDatabase::Memory(
-                    memory::MemoryDatabase::initialize(configuration, registrations).await?,
-                ))
-            }
+            DatabaseConfiguration::IndexedDb { .. } => Ok(SystemDatabase::IndexedDb(
+                indexed_db::IndexedDbDatabase::initialize(configuration, registrations).await?,
+            )),
+            DatabaseConfiguration::Memory => Ok(SystemDatabase::Memory(
+                memory::MemoryDatabase::initialize(configuration, registrations).await?,
+            )),
+            #[allow(unreachable_patterns)]
+            other => Err(DatabaseError::UnsupportedConfiguration(other)),
         }
     }
 }
