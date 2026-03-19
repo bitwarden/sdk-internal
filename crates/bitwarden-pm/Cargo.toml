@@ -52,6 +52,7 @@ bitwarden-fido = { workspace = true }
 bitwarden-generators = { workspace = true }
 bitwarden-send = { workspace = true }
 bitwarden-state = { workspace = true }
+bitwarden-sync = { workspace = true }
 bitwarden-user-crypto-management = { workspace = true }
 bitwarden-vault = { workspace = true }
 
