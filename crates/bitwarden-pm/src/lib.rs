@@ -75,6 +75,38 @@ impl PasswordManagerClient {
         Ok(client)
     }
 
+    /// Initialize a new instance of the SDK client with SSO cookie injection middleware.
+    ///
+    /// Wires a ServerCommunicationConfigClient into the API HTTP client middleware
+    /// layer. The identity HTTP client is not affected.
+    pub fn new_with_server_communication_config<R, P>(
+        settings: Option<bitwarden_core::ClientSettings>,
+        server_communication_config_client: bitwarden_server_communication_config::ServerCommunicationConfigClient<R, P>,
+    ) -> Self
+    where
+        R: bitwarden_server_communication_config::ServerCommunicationConfigRepository
+            + Clone
+            + Send
+            + Sync
+            + 'static,
+        P: bitwarden_server_communication_config::ServerCommunicationConfigPlatformApi
+            + Clone
+            + Send
+            + Sync
+            + 'static,
+    {
+        let token_handler = Arc::new(PasswordManagerTokenHandler::default());
+        let (middleware, lock) = bitwarden_server_communication_config::create_middleware(
+            server_communication_config_client,
+        );
+        Self(bitwarden_core::Client::new_with_middlewares(
+            settings,
+            token_handler,
+            vec![middleware],
+            vec![lock],
+        ))
+    }
+
     /// Platform operations
     pub fn platform(&self) -> bitwarden_core::platform::PlatformClient {
         self.0.platform()
