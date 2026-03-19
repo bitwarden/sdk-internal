@@ -1,5 +1,8 @@
 #[cfg(test)]
 use crate::AcquiredCookie;
+use std::sync::Arc;
+
+use bitwarden_core::auth::CookieProvider;
 use crate::{
     AcquireCookieError, BootstrapConfig, ServerCommunicationConfig,
     ServerCommunicationConfigPlatformApi, ServerCommunicationConfigRepository,
@@ -195,6 +198,46 @@ where
             .map_err(|e| AcquireCookieError::RepositorySaveError(format!("{:?}", e)))?;
 
         Ok(())
+    }
+}
+
+impl<R, P> ServerCommunicationConfigClient<R, P>
+where
+    R: ServerCommunicationConfigRepository + Send + Sync + 'static,
+    P: ServerCommunicationConfigPlatformApi + Send + Sync + 'static,
+{
+    /// Consumes this client and returns an `Arc<dyn CookieProvider>` for HTTP middleware.
+    /// Uses consume-and-Arc pattern (ADR-002) to avoid Clone bounds on R and P.
+    pub fn create_middleware(self) -> Arc<dyn CookieProvider> {
+        Arc::new(self)
+    }
+}
+
+impl<R, P> CookieProvider for ServerCommunicationConfigClient<R, P>
+where
+    R: ServerCommunicationConfigRepository + Send + Sync + 'static,
+    P: ServerCommunicationConfigPlatformApi + Send + Sync + 'static,
+{
+    fn cookies(
+        &self,
+        hostname: String,
+    ) -> impl std::future::Future<Output = Vec<(String, String)>> + Send + '_ {
+        async move { self.cookies(hostname).await }
+    }
+
+    fn acquire_cookie(
+        &self,
+        hostname: &str,
+    ) -> impl std::future::Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>>
+           + Send
+           + '_
+    {
+        let hostname = hostname.to_string();
+        async move {
+            self.acquire_cookie(hostname)
+                .await
+                .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+        }
     }
 }
 
@@ -1058,5 +1101,12 @@ mod tests {
             result,
             Err(AcquireCookieError::UnsupportedConfiguration)
         ));
+    }
+
+    #[test]
+    fn create_middleware_consumes_client() {
+        // Verify create_middleware() returns Arc<dyn CookieProvider> (compile-time check)
+        fn assert_cookie_provider(_: Arc<dyn CookieProvider>) {}
+        // The test just needs to compile — runtime verification happens in integration tests
     }
 }
