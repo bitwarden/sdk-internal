@@ -50,8 +50,8 @@ impl From<rusqlite::Error> for DatabaseError {
 }
 
 #[cfg(target_arch = "wasm32")]
-impl From<indexed_db::Error<indexed_db::IndexedDbInternalError>> for DatabaseError {
-    fn from(e: indexed_db::Error<indexed_db::IndexedDbInternalError>) -> Self {
+impl From<::indexed_db::Error<indexed_db::IndexedDbInternalError>> for DatabaseError {
+    fn from(e: ::indexed_db::Error<indexed_db::IndexedDbInternalError>) -> Self {
         DatabaseError::Internal(e.to_string())
     }
 }
