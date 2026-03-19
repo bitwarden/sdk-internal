@@ -200,6 +200,55 @@ impl Client {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::*;
+
+    #[test]
+    fn new_with_middlewares_empty_vec_does_not_panic() {
+        let client = Client::new_with_middlewares(
+            None,
+            Arc::new(NoopTokenHandler),
+            vec![],
+            vec![],
+        );
+        let _ = client.internal;
+    }
+
+    #[test]
+    fn new_with_middlewares_with_noop_does_not_panic() {
+        struct NoopMiddleware;
+        #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+        #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+        impl reqwest_middleware::Middleware for NoopMiddleware {
+            async fn handle(
+                &self,
+                req: reqwest::Request,
+                extensions: &mut http::Extensions,
+                next: reqwest_middleware::Next<'_>,
+            ) -> reqwest_middleware::Result<reqwest::Response> {
+                next.run(req, extensions).await
+            }
+        }
+        let noop: Arc<dyn reqwest_middleware::Middleware> = Arc::new(NoopMiddleware);
+        let client = Client::new_with_middlewares(
+            None,
+            Arc::new(NoopTokenHandler),
+            vec![noop],
+            vec![],
+        );
+        let _ = client.internal;
+    }
+
+    #[test]
+    fn existing_constructors_still_compile() {
+        let _c1 = Client::new(None);
+        let _c2 = Client::new_with_token_handler(None, Arc::new(NoopTokenHandler));
+    }
+}
+
 fn new_http_client_builder() -> reqwest::ClientBuilder {
     #[allow(unused_mut)]
     let mut client_builder = reqwest::Client::builder();

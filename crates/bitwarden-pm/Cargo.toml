@@ -59,5 +59,9 @@ uniffi = { workspace = true, optional = true, features = ["tokio"] }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
 
+[dev-dependencies]
+async-trait = { workspace = true }
+tokio = { workspace = true }
+
 [lints]
 workspace = true

@@ -160,3 +160,71 @@ impl PasswordManagerClient {
         self.0.sync()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::HashMap, sync::Arc};
+
+    use bitwarden_server_communication_config::{
+        AcquiredCookie, ServerCommunicationConfig, ServerCommunicationConfigClient,
+        ServerCommunicationConfigPlatformApi, ServerCommunicationConfigRepository,
+    };
+    use tokio::sync::RwLock;
+
+    #[derive(Default, Clone)]
+    struct MockRepo {
+        storage: Arc<RwLock<HashMap<String, ServerCommunicationConfig>>>,
+    }
+
+    impl ServerCommunicationConfigRepository for MockRepo {
+        type GetError = ();
+        type SaveError = ();
+
+        async fn get(
+            &self,
+            hostname: String,
+        ) -> Result<Option<ServerCommunicationConfig>, ()> {
+            Ok(self.storage.read().await.get(&hostname).cloned())
+        }
+
+        async fn save(
+            &self,
+            hostname: String,
+            config: ServerCommunicationConfig,
+        ) -> Result<(), ()> {
+            self.storage.write().await.insert(hostname, config);
+            Ok(())
+        }
+    }
+
+    #[derive(Clone)]
+    struct MockApi;
+
+    #[async_trait::async_trait]
+    impl ServerCommunicationConfigPlatformApi for MockApi {
+        async fn acquire_cookies(&self, _vault_url: String) -> Option<Vec<AcquiredCookie>> {
+            None
+        }
+    }
+
+    #[test]
+    fn new_with_server_communication_config_compiles() {
+        let cookie_client = ServerCommunicationConfigClient::new(MockRepo::default(), MockApi);
+        let _client = super::PasswordManagerClient::new_with_server_communication_config(
+            None,
+            cookie_client,
+        );
+    }
+
+    #[test]
+    fn existing_constructors_unchanged() {
+        // new() uses the standard token handler and constructs without runtime setup
+        let _c1 = super::PasswordManagerClient::new(None);
+        // new_with_sync() requires state registry initialization at runtime;
+        // verify it compiles by referencing its function pointer type only
+        let _: fn(
+            Option<bitwarden_core::ClientSettings>,
+        ) -> Result<super::PasswordManagerClient, String> =
+            super::PasswordManagerClient::new_with_sync;
+    }
+}
