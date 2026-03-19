@@ -10,6 +10,10 @@ use bitwarden_core::{
     FromClient,
     auth::{ClientManagedTokenHandler, ClientManagedTokens},
 };
+use bitwarden_server_communication_config::{
+    ServerCommunicationConfigClient, ServerCommunicationConfigPlatformApi,
+    ServerCommunicationConfigRepository,
+};
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_send::SendClientExt as _;
@@ -73,6 +77,25 @@ impl PasswordManagerClient {
         // TODO: Add more sync handlers here!
 
         Ok(client)
+    }
+
+    /// Initialize with SSO cookie injection for self-hosted AWS ALB environments.
+    /// `server_comm_config` is consumed (ADR-002 consume-and-Arc pattern).
+    pub fn new_with_server_communication_config<R, P>(
+        settings: Option<bitwarden_core::ClientSettings>,
+        server_comm_config: ServerCommunicationConfigClient<R, P>,
+    ) -> Self
+    where
+        R: ServerCommunicationConfigRepository + Send + Sync + 'static,
+        P: ServerCommunicationConfigPlatformApi + Send + Sync + 'static,
+    {
+        let token_handler = Arc::new(PasswordManagerTokenHandler::default());
+        let cookie_provider = server_comm_config.create_middleware();
+        Self(bitwarden_core::Client::new_with_cookie_provider(
+            settings,
+            token_handler,
+            cookie_provider,
+        ))
     }
 
     /// Platform operations
