@@ -48,6 +48,7 @@ bitwarden-api-api = { workspace = true }
 bitwarden-api-base = { workspace = true }
 bitwarden-api-identity = { workspace = true }
 bitwarden-api-key-connector = { workspace = true }
+bitwarden-core-macro = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }

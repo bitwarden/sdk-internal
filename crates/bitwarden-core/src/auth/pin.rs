@@ -1,10 +1,11 @@
-use bitwarden_crypto::{EncString, PinKey, safe::PasswordProtectedKeyEnvelope};
+use bitwarden_crypto::{
+    EncString, PinKey,
+    safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace},
+};
 use tracing::info;
 
 use crate::{
-    Client, NotAuthenticatedError,
-    auth::AuthValidateError,
-    client::{LoginMethod, UserLoginMethod},
+    Client, NotAuthenticatedError, auth::AuthValidateError, client::UserLoginMethod,
     key_management::SymmetricKeyId,
 };
 
@@ -18,11 +19,6 @@ pub(crate) fn validate_pin(
         .get_login_method()
         .ok_or(NotAuthenticatedError)?;
 
-    #[allow(irrefutable_let_patterns)]
-    let LoginMethod::User(login_method) = login_method.as_ref() else {
-        return Err(NotAuthenticatedError)?;
-    };
-
     match login_method {
         UserLoginMethod::Username { email, kdf, .. }
         | UserLoginMethod::ApiKey { email, kdf, .. } => {
@@ -32,7 +28,7 @@ pub(crate) fn validate_pin(
             #[allow(deprecated)]
             let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
-            let pin_key = PinKey::derive(pin.as_bytes(), email.as_bytes(), kdf)?;
+            let pin_key = PinKey::derive(pin.as_bytes(), email.as_bytes(), &kdf)?;
 
             let Ok(decrypted_key) = pin_key.decrypt_user_key(pin_protected_user_key) else {
                 return Ok(false);
@@ -52,7 +48,11 @@ pub(crate) fn validate_pin_protected_user_key_envelope(
     let key_store = client.internal.get_key_store();
     let mut ctx = key_store.context();
 
-    if let Err(e) = pin_protected_user_key_envelope.unseal(pin.as_str(), &mut ctx) {
+    if let Err(e) = pin_protected_user_key_envelope.unseal(
+        pin.as_str(),
+        PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
+        &mut ctx,
+    ) {
         info!("Validating PIN-protected user key envelope failed: {e:?}");
         false
     } else {
@@ -64,7 +64,7 @@ pub(crate) fn validate_pin_protected_user_key_envelope(
 mod tests {
     use std::num::NonZeroU32;
 
-    use bitwarden_crypto::Kdf;
+    use bitwarden_crypto::{Kdf, safe::PasswordProtectedKeyEnvelopeNamespace};
 
     use super::*;
     use crate::{
@@ -104,6 +104,7 @@ mod tests {
                     salt: email.to_string(),
                 },
                 WrappedAccountCryptographicState::V1 { private_key },
+                &None,
             )
             .unwrap();
 
@@ -140,7 +141,13 @@ mod tests {
         // Create a PIN-protected envelope from the user key
         let key_store = client.internal.get_key_store();
         let ctx = key_store.context();
-        let envelope = PasswordProtectedKeyEnvelope::seal(SymmetricKeyId::User, pin, &ctx).unwrap();
+        let envelope = PasswordProtectedKeyEnvelope::seal(
+            SymmetricKeyId::User,
+            pin,
+            PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
+            &ctx,
+        )
+        .unwrap();
 
         // Validate with the correct PIN
         let result = validate_pin_protected_user_key_envelope(&client, pin.to_string(), envelope);
@@ -156,8 +163,13 @@ mod tests {
         // Create a PIN-protected envelope with the correct PIN
         let key_store = client.internal.get_key_store();
         let ctx = key_store.context();
-        let envelope =
-            PasswordProtectedKeyEnvelope::seal(SymmetricKeyId::User, correct_pin, &ctx).unwrap();
+        let envelope = PasswordProtectedKeyEnvelope::seal(
+            SymmetricKeyId::User,
+            correct_pin,
+            PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
+            &ctx,
+        )
+        .unwrap();
 
         // Validate with the wrong PIN
         let result =
@@ -174,11 +186,17 @@ mod tests {
         // Create a PIN-protected envelope with the correct PIN
         let key_store = client.internal.get_key_store();
         let ctx = key_store.context();
-        let envelope = PasswordProtectedKeyEnvelope::seal(SymmetricKeyId::User, pin, &ctx).unwrap();
+        let envelope = PasswordProtectedKeyEnvelope::seal(
+            SymmetricKeyId::User,
+            pin,
+            PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
+            &ctx,
+        )
+        .unwrap();
 
         let mut envelope_bytes: Vec<u8> = (&envelope).into();
         // Corrupt some bytes
-        envelope_bytes[50] ^= 0xFF;
+        envelope_bytes[60] ^= 0xFF;
 
         let envelope: PasswordProtectedKeyEnvelope =
             PasswordProtectedKeyEnvelope::try_from(&envelope_bytes).unwrap();

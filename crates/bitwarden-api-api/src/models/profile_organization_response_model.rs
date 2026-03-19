@@ -182,6 +182,12 @@ pub struct ProfileOrganizationResponseModel {
     )]
     pub use_phishing_blocker: Option<bool>,
     #[serde(
+        rename = "useMyItems",
+        alias = "UseMyItems",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_my_items: Option<bool>,
+    #[serde(
         rename = "selfHost",
         alias = "SelfHost",
         skip_serializing_if = "Option::is_none"
@@ -412,6 +418,7 @@ impl ProfileOrganizationResponseModel {
             use_automatic_user_confirmation: None,
             use_disable_sm_ads_for_users: None,
             use_phishing_blocker: None,
+            use_my_items: None,
             self_host: None,
             seats: None,
             max_collections: None,

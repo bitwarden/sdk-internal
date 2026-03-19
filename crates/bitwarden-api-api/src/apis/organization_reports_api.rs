@@ -73,7 +73,10 @@ pub trait OrganizationReportsApi: Send + Sync {
         organization_id: uuid::Uuid,
         start_date: Option<String>,
         end_date: Option<String>,
-    ) -> Result<(), Error<GetOrganizationReportSummaryDataByDateRangeError>>;
+    ) -> Result<
+        Vec<models::OrganizationReportSummaryDataResponse>,
+        Error<GetOrganizationReportSummaryDataByDateRangeError>,
+    >;
 
     /// PATCH /reports/organizations/{organizationId}/{reportId}
     async fn update_organization_report<'a>(
@@ -144,14 +147,10 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&add_organization_report_request);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -186,13 +185,9 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -229,13 +224,9 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -272,13 +263,9 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -315,13 +302,9 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -358,13 +341,9 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -388,7 +367,10 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         organization_id: uuid::Uuid,
         start_date: Option<String>,
         end_date: Option<String>,
-    ) -> Result<(), Error<GetOrganizationReportSummaryDataByDateRangeError>> {
+    ) -> Result<
+        Vec<models::OrganizationReportSummaryDataResponse>,
+        Error<GetOrganizationReportSummaryDataByDateRangeError>,
+    > {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -409,19 +391,33 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("endDate", &param_value.to_string())]);
         }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
         let local_var_content = local_var_resp.text().await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `Vec&lt;models::OrganizationReportSummaryDataResponse&gt;`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `Vec&lt;models::OrganizationReportSummaryDataResponse&gt;`"
+                    ))));
+                }
+            }
         } else {
             let local_var_entity: Option<GetOrganizationReportSummaryDataByDateRangeError> =
                 serde_json::from_str(&local_var_content).ok();
@@ -453,14 +449,10 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PATCH, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&update_organization_report_request);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -500,15 +492,11 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PATCH, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&update_organization_report_application_data_request);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -548,15 +536,11 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PATCH, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&update_organization_report_data_request);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -596,15 +580,11 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PATCH, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&update_organization_report_summary_request);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -666,6 +646,8 @@ pub enum GetOrganizationReportSummaryError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum GetOrganizationReportSummaryDataByDateRangeError {
+    Status400(),
+    Status404(),
     UnknownValue(serde_json::Value),
 }
 /// struct for typed errors of method [`OrganizationReportsApi::update_organization_report`]

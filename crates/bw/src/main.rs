@@ -1,4 +1,9 @@
 #![doc = include_str!("../README.md")]
+#![allow(
+    clippy::print_stdout,
+    clippy::print_stderr,
+    reason = "The CLI uses stdout/stderr for user interaction"
+)]
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use bitwarden_cli::install_color_eyre;
@@ -71,6 +76,11 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
     // to do two matches over the whole command tree
     let client = bitwarden_pm::PasswordManagerClient::new(None);
 
+    // Temporary until rehydration
+    if let (Ok(email), Ok(password)) = (std::env::var("BW_EMAIL"), std::env::var("BW_PASSWORD")) {
+        temp_login(&client.0, email, password).await?;
+    }
+
     match command {
         // Auth commands
         Commands::Login(args) => args.run().await,
@@ -81,7 +91,7 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         Commands::Unlock(_args) => todo!(),
 
         // Platform commands
-        Commands::Sync { .. } => todo!(),
+        Commands::Sync(args) => args.execute_sync(client).await,
 
         Commands::Encode => {
             let input = std::io::read_to_string(std::io::stdin())?;
@@ -135,4 +145,28 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         // Server commands
         Commands::Serve(_args) => todo!(),
     }
+}
+
+// Stop-gap solution for login until we have a proper session management solution in place. This
+// allows us to test the commands that require authentication without having to implement
+// rehydration.
+async fn temp_login(
+    client: &bitwarden_core::Client,
+    email: String,
+    password: String,
+) -> color_eyre::eyre::Result<()> {
+    use bitwarden_core::auth::login::PasswordLoginRequest;
+
+    let result = client
+        .auth()
+        .login_password(&PasswordLoginRequest {
+            email,
+            password,
+            two_factor: None,
+        })
+        .await?;
+
+    tracing::info!("Login result: {:?}", result);
+
+    Ok(())
 }

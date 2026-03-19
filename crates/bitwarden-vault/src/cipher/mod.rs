@@ -1,5 +1,6 @@
 pub(crate) mod attachment;
 pub(crate) mod attachment_client;
+pub(crate) mod blob;
 pub(crate) mod card;
 #[allow(clippy::module_inception)]
 pub(crate) mod cipher;
@@ -21,7 +22,8 @@ pub use attachment_client::{AttachmentsClient, DecryptFileError, EncryptFileErro
 pub use card::{CardBrand, CardListView, CardView};
 pub use cipher::{
     Cipher, CipherError, CipherId, CipherListView, CipherListViewType, CipherRepromptType,
-    CipherType, CipherView, DecryptCipherListResult, EncryptionContext,
+    CipherType, CipherView, DecryptCipherListResult, DecryptCipherResult, EncryptionContext,
+    ListOrganizationCiphersResult,
 };
 pub use cipher_client::CiphersClient;
 pub use cipher_view_type::CipherViewType;

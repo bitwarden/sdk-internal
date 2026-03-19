@@ -74,8 +74,29 @@ impl SignedPublicKeyMessage {
 /// [`SignedPublicKey`] is a public encryption key, signed by the owner of the encryption
 /// keypair. This wrapping ensures that the consumer of the public key MUST verify the identity of
 /// the Signer before they can use the public key for encryption.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct SignedPublicKey(pub(crate) SignedObject);
+
+impl std::fmt::Debug for SignedPublicKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut debug_struct = f.debug_struct("SignedPublicKey");
+
+        if let Ok(key_id) = self.0.signed_by_id() {
+            debug_struct.field("signed_by", &key_id);
+        }
+
+        if let Some(msg) = self
+            .0
+            .dangerous_unverified_decode_do_not_use_except_for_debug_logs::<SignedPublicKeyMessage>(
+            )
+        {
+            debug_struct.field("algorithm", &msg.algorithm);
+            debug_struct.field("public_key", &hex::encode(&msg.public_key));
+        }
+
+        debug_struct.finish()
+    }
+}
 
 impl From<SignedPublicKey> for CoseSign1Bytes {
     fn from(val: SignedPublicKey) -> Self {
@@ -160,6 +181,17 @@ impl schemars::JsonSchema for SignedPublicKey {
 mod tests {
     use super::*;
     use crate::{PrivateKey, PublicKeyEncryptionAlgorithm, SignatureAlgorithm};
+
+    #[test]
+    #[ignore = "Manual test to verify debug format"]
+    fn test_debug() {
+        let public_key =
+            PrivateKey::make(PublicKeyEncryptionAlgorithm::RsaOaepSha1).to_public_key();
+        let signing_key = SigningKey::make(SignatureAlgorithm::Ed25519);
+        let message = SignedPublicKeyMessage::from_public_key(&public_key).unwrap();
+        let signed_public_key = message.sign(&signing_key).unwrap();
+        println!("{:?}", signed_public_key);
+    }
 
     #[test]
     fn test_signed_asymmetric_public_key() {

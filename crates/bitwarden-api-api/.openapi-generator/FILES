@@ -235,6 +235,7 @@ src/models/json_element_push_send_request_model.rs
 src/models/kdf_request_model.rs
 src/models/kdf_type.rs
 src/models/key_connector_confirmation_details_response_model.rs
+src/models/key_connector_enrollment_request_model.rs
 src/models/key_model.rs
 src/models/key_pair_request_body.rs
 src/models/key_regeneration_request_model.rs
@@ -286,6 +287,7 @@ src/models/organization_license.rs
 src/models/organization_no_payment_create_request.rs
 src/models/organization_public_key_response_model.rs
 src/models/organization_report_metrics_request.rs
+src/models/organization_report_summary_data_response.rs
 src/models/organization_response_model.rs
 src/models/organization_seat_request_model.rs
 src/models/organization_sponsorship_create_request_model.rs

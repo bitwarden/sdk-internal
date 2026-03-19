@@ -61,6 +61,12 @@ pub trait CiphersApi: Send + Sync {
         cipher_bulk_delete_request_model: Option<models::CipherBulkDeleteRequestModel>,
     ) -> Result<(), Error<DeleteManyAdminError>>;
 
+    /// GET /ciphers/attachment/download
+    async fn download_attachment<'a>(
+        &self,
+        token: Option<&'a str>,
+    ) -> Result<(), Error<DownloadAttachmentError>>;
+
     /// GET /ciphers/{id}
     async fn get<'a>(&self, id: uuid::Uuid)
     -> Result<models::CipherResponseModel, Error<GetError>>;
@@ -336,13 +342,9 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -374,13 +376,9 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -412,13 +410,9 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -455,13 +449,9 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -516,13 +506,9 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -571,14 +557,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_bulk_delete_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -609,14 +591,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::DELETE, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_bulk_delete_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -625,6 +603,46 @@ impl CiphersApi for CiphersApiClient {
             Ok(())
         } else {
             let local_var_entity: Option<DeleteManyAdminError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
+    }
+
+    async fn download_attachment<'a>(
+        &self,
+        token: Option<&'a str>,
+    ) -> Result<(), Error<DownloadAttachmentError>> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/ciphers/attachment/download",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
+
+        if let Some(ref param_value) = token {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("token", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<DownloadAttachmentError> =
                 serde_json::from_str(&local_var_content).ok();
             let local_var_error = ResponseContent {
                 status: local_var_status,
@@ -651,13 +669,9 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -709,13 +723,9 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -763,13 +773,9 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -828,13 +834,9 @@ impl CiphersApi for CiphersApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("organizationId", &param_value.to_string())]);
         }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -889,13 +891,9 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -950,13 +948,9 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -1009,13 +1003,9 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -1079,13 +1069,9 @@ impl CiphersApi for CiphersApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("includeMemberItems", &param_value.to_string())]);
         }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -1134,14 +1120,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_bulk_move_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -1172,14 +1154,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -1227,14 +1205,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_create_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -1288,14 +1262,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&attachment_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -1348,13 +1318,9 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -1414,13 +1380,9 @@ impl CiphersApi for CiphersApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("organizationId", &param_value.to_string())]);
         }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -1456,15 +1418,11 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&cipher_bulk_update_collections_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -1495,14 +1453,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_create_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -1557,13 +1511,9 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -1599,14 +1549,10 @@ impl CiphersApi for CiphersApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("organizationId", &param_value.to_string())]);
         }
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&secret_verification_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -1642,14 +1588,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -1702,14 +1644,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -1762,13 +1700,9 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -1817,14 +1751,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_bulk_archive_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -1878,14 +1808,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_collections_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -1939,14 +1865,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_collections_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -2000,14 +1922,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_collections_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -2057,13 +1975,9 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -2095,13 +2009,9 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -2132,14 +2042,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_bulk_delete_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -2171,14 +2077,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_bulk_delete_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;
@@ -2214,14 +2116,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_partial_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -2274,13 +2172,9 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -2333,13 +2227,9 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -2388,14 +2278,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_bulk_restore_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -2448,14 +2334,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_bulk_restore_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -2509,14 +2391,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_share_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -2565,14 +2443,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_bulk_share_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -2625,13 +2499,9 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -2680,14 +2550,10 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&cipher_bulk_unarchive_request_model);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -2742,13 +2608,9 @@ impl CiphersApi for CiphersApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref local_var_token) = local_var_configuration.oauth_access_token {
-            local_var_req_builder = local_var_req_builder.bearer_auth(local_var_token.to_owned());
-        };
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -2826,6 +2688,12 @@ pub enum DeleteManyError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum DeleteManyAdminError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`CiphersApi::download_attachment`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DownloadAttachmentError {
     UnknownValue(serde_json::Value),
 }
 /// struct for typed errors of method [`CiphersApi::get`]

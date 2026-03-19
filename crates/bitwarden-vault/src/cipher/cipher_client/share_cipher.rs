@@ -187,12 +187,7 @@ impl CiphersClient {
 
         let encrypted_cipher = self.encrypt(cipher_view)?;
 
-        let api_client = &self
-            .client
-            .internal
-            .get_api_configurations()
-            .await
-            .api_client;
+        let api_client = &self.client.internal.get_api_configurations().api_client;
 
         share_cipher(
             api_client.ciphers_api(),
@@ -269,12 +264,7 @@ impl CiphersClient {
             )
             .await?;
 
-        let api_client = &self
-            .client
-            .internal
-            .get_api_configurations()
-            .await
-            .api_client;
+        let api_client = &self.client.internal.get_api_configurations().api_client;
 
         share_ciphers_bulk(
             api_client.ciphers_api(),
@@ -296,8 +286,7 @@ mod tests {
         Client,
         client::test_accounts::test_bitwarden_com_account,
         key_management::{
-            MasterPasswordUnlockData, UserKeyState,
-            account_cryptographic_state::WrappedAccountCryptographicState,
+            MasterPasswordUnlockData, account_cryptographic_state::WrappedAccountCryptographicState,
         },
     };
     use bitwarden_test::{MemoryRepository, start_api_mock};
@@ -804,12 +793,7 @@ mod tests {
             bitwarden_package_type: None,
         };
 
-        let client = Client::new(Some(settings));
-        let repository = MemoryRepository::<UserKeyState>::default();
-        client
-            .platform()
-            .state()
-            .register_client_managed(std::sync::Arc::new(repository));
+        let client = Client::new_test(Some(settings));
 
         client
             .internal
@@ -837,6 +821,7 @@ mod tests {
                     salt: "test@bitwarden.com".to_owned(),
                 },
             },
+            upgrade_token: None,
         };
 
         let org_request = InitOrgCryptoRequest {
