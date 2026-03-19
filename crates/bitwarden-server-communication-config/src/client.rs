@@ -213,31 +213,24 @@ where
     }
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 impl<R, P> CookieProvider for ServerCommunicationConfigClient<R, P>
 where
     R: ServerCommunicationConfigRepository + Send + Sync + 'static,
     P: ServerCommunicationConfigPlatformApi + Send + Sync + 'static,
 {
-    fn cookies(
-        &self,
-        hostname: String,
-    ) -> impl std::future::Future<Output = Vec<(String, String)>> + Send + '_ {
-        async move { self.cookies(hostname).await }
+    async fn cookies(&self, hostname: String) -> Vec<(String, String)> {
+        self.cookies(hostname).await
     }
 
-    fn acquire_cookie(
+    async fn acquire_cookie(
         &self,
         hostname: &str,
-    ) -> impl std::future::Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>>
-           + Send
-           + '_
-    {
-        let hostname = hostname.to_string();
-        async move {
-            self.acquire_cookie(hostname)
-                .await
-                .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
-        }
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.acquire_cookie(hostname)
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
     }
 }
 
