@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use bitwarden_server_communication_config::{
     AcquiredCookie, ServerCommunicationConfig, ServerCommunicationConfigPlatformApi,
+    SetCommunicationTypeRequest,
 };
 
 use crate::error::Result;
@@ -59,12 +60,15 @@ impl ServerCommunicationConfigClient {
     ///
     /// This method saves the provided communication configuration to the repository.
     /// Typically called when receiving the `/api/config` response from the server.
+    /// Previously acquired cookies are preserved automatically.
     pub async fn set_communication_type(
         &self,
         hostname: String,
-        config: ServerCommunicationConfig,
+        request: SetCommunicationTypeRequest,
     ) -> Result<()> {
-        self.client.set_communication_type(hostname, config).await?;
+        self.client
+            .set_communication_type(hostname, request)
+            .await?;
         Ok(())
     }
 
