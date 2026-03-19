@@ -120,7 +120,7 @@ pub enum SendAuthType {
     /// Email-based OTP authentication
     Emails {
         /// List of email addresses that will receive OTP codes
-        emails: Vec<String>,
+        emails: String,
     },
 }
 
@@ -146,7 +146,7 @@ impl SendAuthType {
                 let emails_str = if emails.is_empty() {
                     None
                 } else {
-                    Some(emails.join(","))
+                    Some(emails.clone())
                 };
                 (None, emails_str)
             }
