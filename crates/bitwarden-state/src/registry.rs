@@ -10,6 +10,7 @@ use thiserror::Error;
 use crate::{
     repository::{Repository, RepositoryItem, RepositoryItemData, RepositoryMigrations},
     sdk_managed::{Database, DatabaseConfiguration, SystemDatabase},
+    settings::{Key, Setting, SettingItem, SettingsError},
 };
 
 /// A registry that contains repositories for different types of items.
@@ -49,6 +50,27 @@ impl StateRegistry {
             database: OnceLock::new(),
             sdk_managed: RwLock::new(Vec::new()),
         }
+    }
+
+    /// Creates a new `StateRegistry` with an in-memory database pre-initialized.
+    /// Data stored in memory is ephemeral and will be lost when the registry is dropped.
+    /// Intended for testing and development use cases.
+    pub fn new_with_memory_db() -> Self {
+        let database = OnceLock::new();
+        let _ = database.set(crate::sdk_managed::SystemDatabase::new_memory());
+        StateRegistry {
+            client_managed: RwLock::new(HashMap::new()),
+            database,
+            sdk_managed: RwLock::new(
+                RepositoryMigrations::new(vec![]).into_repository_items(),
+            ),
+        }
+    }
+
+    /// Get a type-safe handle to a setting value.
+    pub fn setting<T>(&self, key: Key<T>) -> Result<Setting<T>, SettingsError> {
+        let repository = self.get::<SettingItem>()?;
+        Ok(Setting::new(repository, key))
     }
 
     // TODO: Ideally we'd do this in new, but that would mean making the client initialization

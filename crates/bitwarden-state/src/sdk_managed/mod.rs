@@ -165,6 +165,10 @@ impl<V: RepositoryItem> Repository<V> for DBRepository<V> {
 }
 
 impl SystemDatabase {
+    pub(super) fn new_memory() -> Self {
+        SystemDatabase::Memory(memory::MemoryDatabase::new())
+    }
+
     pub(super) fn get_repository<V: RepositoryItem>(&self) -> Arc<dyn Repository<V>> {
         Arc::new(DBRepository {
             database: self.clone(),

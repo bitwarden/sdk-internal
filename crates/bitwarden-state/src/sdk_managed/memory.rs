@@ -18,7 +18,9 @@ impl MemoryDatabase {
     }
 
     fn store(&self) -> std::sync::MutexGuard<HashMap<TypeId, HashMap<String, String>>> {
-        self.0.lock().expect("MemoryDatabase mutex should not be poisoned")
+        self.0
+            .lock()
+            .expect("MemoryDatabase mutex should not be poisoned")
     }
 }
 
@@ -33,10 +35,7 @@ impl Database for MemoryDatabase {
         Ok(MemoryDatabase::new())
     }
 
-    async fn get<T: RepositoryItem>(
-        &self,
-        key: &str,
-    ) -> Result<Option<T>, DatabaseError> {
+    async fn get<T: RepositoryItem>(&self, key: &str) -> Result<Option<T>, DatabaseError> {
         let store = self.store();
         match store.get(&TypeId::of::<T>()).and_then(|ns| ns.get(key)) {
             Some(json) => Ok(Some(serde_json::from_str(json)?)),
@@ -44,9 +43,7 @@ impl Database for MemoryDatabase {
         }
     }
 
-    async fn list<T: RepositoryItem>(
-        &self,
-    ) -> Result<Vec<T>, DatabaseError> {
+    async fn list<T: RepositoryItem>(&self) -> Result<Vec<T>, DatabaseError> {
         let store = self.store();
         match store.get(&TypeId::of::<T>()) {
             None => Ok(Vec::new()),
@@ -57,13 +54,12 @@ impl Database for MemoryDatabase {
         }
     }
 
-    async fn set<T: RepositoryItem>(
-        &self,
-        key: &str,
-        value: T,
-    ) -> Result<(), DatabaseError> {
+    async fn set<T: RepositoryItem>(&self, key: &str, value: T) -> Result<(), DatabaseError> {
         let json = serde_json::to_string(&value)?;
-        self.store().entry(TypeId::of::<T>()).or_default().insert(key.to_string(), json);
+        self.store()
+            .entry(TypeId::of::<T>())
+            .or_default()
+            .insert(key.to_string(), json);
         Ok(())
     }
 
@@ -79,20 +75,14 @@ impl Database for MemoryDatabase {
         Ok(())
     }
 
-    async fn remove<T: RepositoryItem>(
-        &self,
-        key: &str,
-    ) -> Result<(), DatabaseError> {
+    async fn remove<T: RepositoryItem>(&self, key: &str) -> Result<(), DatabaseError> {
         if let Some(namespace) = self.store().get_mut(&TypeId::of::<T>()) {
             namespace.remove(key);
         }
         Ok(())
     }
 
-    async fn remove_bulk<T: RepositoryItem>(
-        &self,
-        keys: Vec<String>,
-    ) -> Result<(), DatabaseError> {
+    async fn remove_bulk<T: RepositoryItem>(&self, keys: Vec<String>) -> Result<(), DatabaseError> {
         if let Some(namespace) = self.store().get_mut(&TypeId::of::<T>()) {
             for key in &keys {
                 namespace.remove(key.as_str());
@@ -101,9 +91,7 @@ impl Database for MemoryDatabase {
         Ok(())
     }
 
-    async fn remove_all<T: RepositoryItem>(
-        &self,
-    ) -> Result<(), DatabaseError> {
+    async fn remove_all<T: RepositoryItem>(&self) -> Result<(), DatabaseError> {
         self.store().remove(&TypeId::of::<T>());
         Ok(())
     }
@@ -122,31 +110,46 @@ mod tests {
     struct ItemB(u32);
     register_repository_item!(String => ItemB, "ItemB");
 
-    fn make_db() -> MemoryDatabase { MemoryDatabase::new() }
+    fn make_db() -> MemoryDatabase {
+        MemoryDatabase::new()
+    }
 
     #[tokio::test]
     async fn mem_01_initialize_memory_config_succeeds() {
         let result = MemoryDatabase::initialize(
             DatabaseConfiguration::Memory,
             crate::repository::RepositoryMigrations::new(vec![]),
-        ).await;
+        )
+        .await;
         assert!(result.is_ok());
     }
 
     #[tokio::test]
     async fn mem_02_initialize_non_memory_config_fails() {
         let result = MemoryDatabase::initialize(
-            DatabaseConfiguration::Sqlite { db_name: "test".to_string(), folder_path: "/tmp".into() },
+            DatabaseConfiguration::Sqlite {
+                db_name: "test".to_string(),
+                folder_path: "/tmp".into(),
+            },
             crate::repository::RepositoryMigrations::new(vec![]),
-        ).await;
-        assert!(matches!(result, Err(DatabaseError::UnsupportedConfiguration(_))));
+        )
+        .await;
+        assert!(matches!(
+            result,
+            Err(DatabaseError::UnsupportedConfiguration(_))
+        ));
     }
 
     #[tokio::test]
     async fn mem_03_set_get_round_trip() {
         let db = make_db();
-        db.set::<ItemA>("k1", ItemA("hello".to_string())).await.unwrap();
-        assert_eq!(db.get::<ItemA>("k1").await.unwrap(), Some(ItemA("hello".to_string())));
+        db.set::<ItemA>("k1", ItemA("hello".to_string()))
+            .await
+            .unwrap();
+        assert_eq!(
+            db.get::<ItemA>("k1").await.unwrap(),
+            Some(ItemA("hello".to_string()))
+        );
     }
 
     #[tokio::test]
@@ -168,7 +171,9 @@ mod tests {
     #[tokio::test]
     async fn mem_06_remove_deletes_key() {
         let db = make_db();
-        db.set::<ItemA>("k1", ItemA("hello".to_string())).await.unwrap();
+        db.set::<ItemA>("k1", ItemA("hello".to_string()))
+            .await
+            .unwrap();
         db.remove::<ItemA>("k1").await.unwrap();
         assert_eq!(db.get::<ItemA>("k1").await.unwrap(), None);
     }
@@ -179,10 +184,15 @@ mod tests {
         db.set::<ItemA>("k1", ItemA("a".to_string())).await.unwrap();
         db.set::<ItemA>("k2", ItemA("b".to_string())).await.unwrap();
         db.set::<ItemA>("k3", ItemA("c".to_string())).await.unwrap();
-        db.remove_bulk::<ItemA>(vec!["k1".to_string(), "k2".to_string()]).await.unwrap();
+        db.remove_bulk::<ItemA>(vec!["k1".to_string(), "k2".to_string()])
+            .await
+            .unwrap();
         assert_eq!(db.get::<ItemA>("k1").await.unwrap(), None);
         assert_eq!(db.get::<ItemA>("k2").await.unwrap(), None);
-        assert_eq!(db.get::<ItemA>("k3").await.unwrap(), Some(ItemA("c".to_string())));
+        assert_eq!(
+            db.get::<ItemA>("k3").await.unwrap(),
+            Some(ItemA("c".to_string()))
+        );
     }
 
     #[tokio::test]
@@ -200,24 +210,39 @@ mod tests {
             ("k1".to_string(), ItemA("a".to_string())),
             ("k2".to_string(), ItemA("b".to_string())),
             ("k3".to_string(), ItemA("c".to_string())),
-        ]).await.unwrap();
+        ])
+        .await
+        .unwrap();
         assert_eq!(db.list::<ItemA>().await.unwrap().len(), 3);
     }
 
     #[tokio::test]
     async fn mem_10_typeid_namespace_isolation() {
         let db = make_db();
-        db.set::<ItemA>("shared_key", ItemA("from_a".to_string())).await.unwrap();
+        db.set::<ItemA>("shared_key", ItemA("from_a".to_string()))
+            .await
+            .unwrap();
         db.set::<ItemB>("shared_key", ItemB(42)).await.unwrap();
-        assert_eq!(db.get::<ItemA>("shared_key").await.unwrap(), Some(ItemA("from_a".to_string())));
-        assert_eq!(db.get::<ItemB>("shared_key").await.unwrap(), Some(ItemB(42)));
+        assert_eq!(
+            db.get::<ItemA>("shared_key").await.unwrap(),
+            Some(ItemA("from_a".to_string()))
+        );
+        assert_eq!(
+            db.get::<ItemB>("shared_key").await.unwrap(),
+            Some(ItemB(42))
+        );
     }
 
     #[tokio::test]
     async fn mem_11_clone_shares_backing_store() {
         let db = make_db();
         let cloned = db.clone();
-        db.set::<ItemA>("k1", ItemA("original".to_string())).await.unwrap();
-        assert_eq!(cloned.get::<ItemA>("k1").await.unwrap(), Some(ItemA("original".to_string())));
+        db.set::<ItemA>("k1", ItemA("original".to_string()))
+            .await
+            .unwrap();
+        assert_eq!(
+            cloned.get::<ItemA>("k1").await.unwrap(),
+            Some(ItemA("original".to_string()))
+        );
     }
 }
