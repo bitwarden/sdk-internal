@@ -97,6 +97,7 @@ macro_rules! key_ids {
         use $crate::LocalId;
 
         $(
+            #[must_use]
             #[derive(std::fmt::Debug, Clone, Copy, std::hash::Hash, Eq, PartialEq, Ord, PartialOrd)]
             #[allow(missing_docs)]
             $vis enum $name { $(

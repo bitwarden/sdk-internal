@@ -47,7 +47,7 @@ fn main() {
             .expect("Loading from disk should work"),
     )
     .expect("Deserializing envelope should work");
-    deserialized
+    let _unsealed_vault_key = deserialized
         .unseal(
             pin,
             PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
