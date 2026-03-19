@@ -60,6 +60,65 @@ pub struct SsoCookieVendorConfig {
     pub cookie_value: Option<Vec<crate::AcquiredCookie>>,
 }
 
+/// Request to set server communication configuration for a hostname
+///
+/// This is the input type for [`ServerCommunicationConfigClient::set_communication_type`].
+/// Unlike [`ServerCommunicationConfig`], this type does not include acquired cookies,
+/// since cookies are managed separately via
+/// [`ServerCommunicationConfigClient::acquire_cookie`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct SetCommunicationTypeRequest {
+    /// Bootstrap configuration determining how to establish server communication
+    pub bootstrap: BootstrapConfigRequest,
+}
+
+/// Bootstrap configuration variant for [`SetCommunicationTypeRequest`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum BootstrapConfigRequest {
+    /// Direct connection with no special authentication requirements
+    Direct,
+    /// SSO cookie vendor configuration for load balancer authentication
+    SsoCookieVendor(SsoCookieVendorConfigRequest),
+}
+
+/// SSO cookie vendor configuration for [`SetCommunicationTypeRequest`]
+///
+/// Contains the server-provided configuration fields without acquired cookies.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct SsoCookieVendorConfigRequest {
+    /// Identity provider login URL for browser redirect during bootstrap
+    pub idp_login_url: Option<String>,
+    /// Cookie name (base name, without shard suffix)
+    pub cookie_name: Option<String>,
+    /// Cookie domain for validation
+    pub cookie_domain: Option<String>,
+    /// Vault URL for cookie acquisition redirect
+    ///
+    /// This is the full vault URL (scheme + host + port) where the browser
+    /// should be redirected for SSO cookie acquisition.
+    pub vault_url: Option<String>,
+}
+
 // We manually implement Debug to make sure we don't print sensitive cookie values
 impl std::fmt::Debug for SsoCookieVendorConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

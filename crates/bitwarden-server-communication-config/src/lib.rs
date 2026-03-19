@@ -15,7 +15,10 @@ mod platform_api;
 mod repository;
 
 pub use client::ServerCommunicationConfigClient;
-pub use config::{BootstrapConfig, ServerCommunicationConfig, SsoCookieVendorConfig};
+pub use config::{
+    BootstrapConfig, BootstrapConfigRequest, ServerCommunicationConfig,
+    SetCommunicationTypeRequest, SsoCookieVendorConfig, SsoCookieVendorConfigRequest,
+};
 pub use platform_api::{AcquireCookieError, AcquiredCookie, ServerCommunicationConfigPlatformApi};
 pub use repository::{
     ServerCommunicationConfigRepository, ServerCommunicationConfigRepositoryError,
