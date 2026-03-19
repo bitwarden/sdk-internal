@@ -18,4 +18,9 @@ pub enum DatabaseConfiguration {
         /// names to avoid conflicts.
         db_name: String,
     },
+
+    /// In-memory database configuration, platform-agnostic.
+    /// Data is ephemeral and will be lost when the Client is dropped.
+    /// Intended for testing and development use cases.
+    Memory,
 }
