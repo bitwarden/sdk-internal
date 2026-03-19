@@ -149,6 +149,7 @@ impl From<&Fido2CredentialDataV1> for Fido2CredentialFullView {
 // --- Top-level CipherBlobV1 conversions ---
 
 impl CipherBlobV1 {
+    #[allow(dead_code)]
     pub(crate) fn from_cipher_view(
         view: &CipherView,
         ctx: &mut KeyStoreContext<KeyIds>,
@@ -232,6 +233,7 @@ impl CipherBlobV1 {
         })
     }
 
+    #[allow(dead_code)]
     pub(crate) fn apply_to_cipher_view(
         &self,
         view: &mut CipherView,
