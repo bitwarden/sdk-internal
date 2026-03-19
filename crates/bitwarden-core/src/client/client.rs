@@ -3,13 +3,21 @@ use std::sync::{Arc, OnceLock, RwLock};
 use bitwarden_crypto::KeyStore;
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
-use reqwest::header::{self, HeaderValue};
+use http::Extensions;
+use reqwest::{
+    Request, Response,
+    header::{self, HeaderValue},
+};
+use reqwest_middleware::{Middleware, Next, Result as MiddlewareResult};
 
 use super::internal::InternalClient;
 #[cfg(feature = "internal")]
 use crate::client::flags::Flags;
 use crate::{
-    auth::auth_tokens::{NoopTokenHandler, TokenHandler},
+    auth::{
+        CookieProvider,
+        auth_tokens::{NoopTokenHandler, TokenHandler},
+    },
     client::{
         client_settings::{ClientName, ClientSettings},
         internal::ApiConfigurations,
@@ -30,7 +38,7 @@ pub struct Client {
 impl Client {
     /// Create a new Bitwarden client with default settings and a no-op token handler.
     pub fn new(settings: Option<ClientSettings>) -> Self {
-        Self::new_internal(settings, Arc::new(NoopTokenHandler))
+        Self::new_internal(settings, Arc::new(NoopTokenHandler), None)
     }
 
     /// Create a new Bitwarden client with the specified token handler for managing authentication
@@ -39,12 +47,23 @@ impl Client {
         settings: Option<ClientSettings>,
         token_handler: Arc<dyn TokenHandler>,
     ) -> Self {
-        Self::new_internal(settings, token_handler)
+        Self::new_internal(settings, token_handler, None)
+    }
+
+    /// Create a new Bitwarden client with a cookie provider for SSO load-balancer cookie
+    /// injection.
+    pub fn new_with_cookie_provider(
+        settings: Option<ClientSettings>,
+        token_handler: Arc<dyn TokenHandler>,
+        cookie_provider: Arc<dyn CookieProvider>,
+    ) -> Self {
+        Self::new_internal(settings, token_handler, Some(cookie_provider))
     }
 
     fn new_internal(
         settings_input: Option<ClientSettings>,
         token_handler: Arc<dyn TokenHandler>,
+        cookie_provider: Option<Arc<dyn CookieProvider>>,
     ) -> Self {
         let settings = settings_input.unwrap_or_default();
 
@@ -75,9 +94,17 @@ impl Client {
             identity.clone(),
             key_store.clone(),
         );
-        let bw_http_client = reqwest_middleware::ClientBuilder::new(bw_http_client)
-            .with_arc(auth_middleware)
-            .build();
+        let mut client_builder = reqwest_middleware::ClientBuilder::new(bw_http_client)
+            .with_arc(auth_middleware);
+
+        // Wire cookie provider as second middleware if provided (ADR-005 ordering:
+        // auth first, cookie second).
+        if let Some(provider) = cookie_provider {
+            client_builder =
+                client_builder.with(CookieProviderMiddlewareAdapter { provider });
+        }
+
+        let bw_http_client = client_builder.build();
         let api = bitwarden_api_api::Configuration {
             base_path: settings.api_url,
             user_agent: Some(settings.user_agent),
@@ -101,6 +128,65 @@ impl Client {
                 repository_map: StateRegistry::new(),
             }),
         }
+    }
+}
+
+/// Bridges `Arc<dyn CookieProvider>` to `reqwest_middleware::Middleware`.
+/// Private to preserve AC #9 isolation (no compile dep on bitwarden-server-communication-config).
+struct CookieProviderMiddlewareAdapter {
+    provider: Arc<dyn CookieProvider>,
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+impl Middleware for CookieProviderMiddlewareAdapter {
+    async fn handle(
+        &self,
+        mut req: Request,
+        extensions: &mut Extensions,
+        next: Next<'_>,
+    ) -> MiddlewareResult<Response> {
+        let hostname = req.url().host_str().unwrap_or_default().to_string();
+        if !hostname.is_empty() {
+            let cookies = self.provider.cookies(hostname).await;
+            for (name, value) in cookies {
+                let cookie_str = format!("{name}={value}");
+                if let Ok(hv) = reqwest::header::HeaderValue::from_str(&cookie_str) {
+                    req.headers_mut().append(reqwest::header::COOKIE, hv);
+                }
+            }
+        }
+        next.run(req, extensions).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_with_cookie_provider_compiles() {
+        struct NoopCookieProvider;
+
+        #[async_trait::async_trait]
+        impl CookieProvider for NoopCookieProvider {
+            async fn cookies(&self, _hostname: String) -> Vec<(String, String)> {
+                vec![]
+            }
+
+            async fn acquire_cookie(
+                &self,
+                _hostname: &str,
+            ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+                Ok(())
+            }
+        }
+
+        let _client = Client::new_with_cookie_provider(
+            None,
+            Arc::new(crate::auth::auth_tokens::NoopTokenHandler),
+            Arc::new(NoopCookieProvider),
+        );
     }
 }
 
