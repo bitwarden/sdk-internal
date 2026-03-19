@@ -160,4 +160,5 @@ jobs:
             --ref $_CLIENT_BRANCH \
             -f run-mode=Update \
             -f sdk-version=$_SDK_VERSION \
-            -f base-branch=$_CLIENT_BRANCH
+            -f base-branch=$_CLIENT_BRANCH \
+            -f triggering-run-id=${{ github.run_id }}
