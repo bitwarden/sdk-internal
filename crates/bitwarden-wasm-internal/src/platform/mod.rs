@@ -77,6 +77,20 @@ impl StateClient {
         repositories.register_all(&self.0.platform().state());
     }
 
+    /// Initialize the database for SDK managed repositories using an in-memory store.
+    /// Data stored in memory is ephemeral and will be lost when the Client is dropped.
+    /// Note: calling this method a second time will return an error.
+    pub async fn initialize_state_in_memory(
+        &self,
+    ) -> Result<(), bitwarden_state::registry::StateRegistryError> {
+        let sdk_managed_repositories = bitwarden_pm::migrations::get_sdk_managed_migrations();
+        self.0
+            .platform()
+            .state()
+            .initialize_database(DatabaseConfiguration::Memory, sdk_managed_repositories)
+            .await
+    }
+
     /// Initialize the database for SDK managed repositories.
     pub async fn initialize_state(
         &self,

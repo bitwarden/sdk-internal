@@ -9,7 +9,7 @@ use thiserror::Error;
 
 use crate::{
     repository::{Repository, RepositoryItem, RepositoryItemData, RepositoryMigrations},
-    sdk_managed::{Database, DatabaseConfiguration, SystemDatabase},
+    sdk_managed::{DatabaseConfiguration, SystemDatabase},
     settings::{Key, Setting, SettingItem, SettingsError},
 };
 
@@ -61,9 +61,7 @@ impl StateRegistry {
         StateRegistry {
             client_managed: RwLock::new(HashMap::new()),
             database,
-            sdk_managed: RwLock::new(
-                RepositoryMigrations::new(vec![]).into_repository_items(),
-            ),
+            sdk_managed: RwLock::new(RepositoryMigrations::new(vec![]).into_repository_items()),
         }
     }
 

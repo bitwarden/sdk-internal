@@ -17,7 +17,7 @@ impl MemoryDatabase {
         MemoryDatabase(Arc::new(Mutex::new(HashMap::new())))
     }
 
-    fn store(&self) -> std::sync::MutexGuard<HashMap<TypeId, HashMap<String, String>>> {
+    fn store(&self) -> std::sync::MutexGuard<'_, HashMap<TypeId, HashMap<String, String>>> {
         self.0
             .lock()
             .expect("MemoryDatabase mutex should not be poisoned")
