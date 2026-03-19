@@ -243,7 +243,6 @@ pub struct Send {
     pub auth_type: AuthType,
 }
 
-
 bitwarden_state::register_repository_item!(Uuid => Send, "Send");
 
 impl From<Send> for SendWithIdRequestModel {
@@ -272,7 +271,8 @@ impl From<Send> for SendWithIdRequestModel {
             hide_email: Some(send.hide_email),
             id: send
                 .id
-                .expect("SendWithIdRequestModel conversion requires send id"),
+                .expect("SendWithIdRequestModel conversion requires send id")
+                .into(),
         }
     }
 }
@@ -642,15 +642,6 @@ impl TryFrom<bitwarden_api_api::models::AuthType> for AuthType {
     }
 }
 
-impl From<SendType> for bitwarden_api_api::models::SendType {
-    fn from(t: SendType) -> Self {
-        match t {
-            SendType::Text => bitwarden_api_api::models::SendType::Text,
-            SendType::File => bitwarden_api_api::models::SendType::File,
-        }
-    }
-}
-
 impl From<AuthType> for bitwarden_api_api::models::AuthType {
     fn from(value: AuthType) -> Self {
         match value {
@@ -976,7 +967,7 @@ mod tests {
         let text_value = "2.2VPyLzk1tMLug0X3x7RkaQ==|mrMt9vbZsCJhJIj4eebKyg==|aZ7JeyndytEMR1+uEBupEvaZuUE69D/ejhfdJL8oKq0=";
 
         let send = Send {
-            id: Some(send_id),
+            id: Some(SendId::new(send_id)),
             access_id: Some("ct2APRQtJk-BLLDwAYqhRA".to_string()),
             name: name.parse().unwrap(),
             notes: Some(notes.parse().unwrap()),
