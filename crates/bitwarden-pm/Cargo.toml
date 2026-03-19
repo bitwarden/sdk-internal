@@ -15,7 +15,9 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
-no-memory-hardening = ["bitwarden-core/no-memory-hardening"]
+no-memory-hardening = [
+    "bitwarden-core/no-memory-hardening",
+] # Disable memory hardening features
 uniffi = [
     "bitwarden-core/uniffi",
     "bitwarden-exporters/uniffi",
@@ -25,7 +27,7 @@ uniffi = [
     "bitwarden-state/uniffi",
     "bitwarden-vault/uniffi",
     "dep:uniffi",
-]
+] # Uniffi bindings
 wasm = [
     "bitwarden-auth/wasm",
     "bitwarden-commercial-vault/wasm",
@@ -38,7 +40,7 @@ wasm = [
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
     "dep:tsify",
-]
+] # WASM support
 bitwarden-license = ["dep:bitwarden-commercial-vault"]
 
 [dependencies]
