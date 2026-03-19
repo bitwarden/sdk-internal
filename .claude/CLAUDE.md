@@ -12,50 +12,9 @@ the specific functionality you're modifying.**
 
 ## Architecture Overview
 
-Monorepo crates organized in **four architectural layers**:
+Monorepo crates organized in **architectural layers**:
 
-### 1. Foundation Layer
-
-- **bitwarden-crypto**: Cryptographic primitives and protocols, key store for securely working with
-  keys held in memory.
-- **bitwarden-state**: Type-safe Repository pattern for SDK state (client-managed vs SDK-managed)
-- **bitwarden-threading**: ThreadBoundRunner for !Send types in WASM/GUI contexts (uses PhantomData
-  marker)
-- **bitwarden-ipc**: Type-safe IPC framework with pluggable encryption/transport
-- **bitwarden-error**: Error handling across platforms (basic/flat/full modes via proc macro)
-- **bitwarden-encoding**, **bitwarden-uuid**: Encoding and UUID utilities
-
-### 2. Core Infrastructure
-
-- **bitwarden-core**: Base Client struct extended by feature crates via extension traits. **DO NOT
-  add functionality here - use feature crates instead.**
-  - **bitwarden-api-api**, **bitwarden-api-identity**: Auto-generated API clients (**DO NOT edit -
-    regenerate from OpenAPI specs**)
-
-### 3. Feature Implementations
-
-- **bitwarden-pm**: PasswordManagerClient wrapping core Client, exposes sub-clients: `auth()`,
-  `vault()`, `crypto()`, `sends()`, `generators()`, `exporters()`
-  - Lifecycle: Init → Lock/Unlock → Logout (drops instance)
-  - Storage: Apps use `HashMap<UserId, PasswordManagerClient>`
-- **bitwarden-vault**: Vault item models, encryption/decryption and management
-- **bitwarden-collections**: Collection models, encryption/decryption and management
-- **bitwarden-auth**: Authentication (send access tokens)
-- **bitwarden-send**: Encrypted temporary secret sharing
-- **bitwarden-generators**: Password/passphrase generators
-- **bitwarden-ssh**: SSH key generation/import
-- **bitwarden-exporters**: Vault export/import with multiple formats
-- **bitwarden-fido**: FIDO2 two-factor authentication
-
-### 4. Cross-Platform Bindings
-
-- **bitwarden-uniffi**: Mobile bindings (Swift/Kotlin) via UniFFI
-  - Structs: `#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]`
-  - Enums: `#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]`
-  - Include `uniffi::setup_scaffolding!()` in lib.rs
-- **bitwarden-wasm-internal**: WebAssembly bindings (**thin bindings only - no business logic**)
-  - Structs: `#[derive(Serialize, Deserialize)]` with
-    `#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]`
+@../docs/architecture.md
 
 ## Critical Patterns & Rules
 

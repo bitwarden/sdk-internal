@@ -1,8 +1,15 @@
+---
+description: Contains core functionality used by the feature crates.
+category: core
+---
+
 # Bitwarden Core
 
-Core infrastructure crate providing the base `Client` type - a container for runtime persistent data
-and shared infrastructure that feature crates extend via extension traits. For an introduction to
-the SDK architecture, see the
+The central orchestrator providing the main `Client` struct with HTTP client configurations,
+authentication protocols (password/API key/auth request login), key management, and optional state
+registry for persisted data.
+
+For an introduction to the Bitwarden SDK and the `bitwarden-core` crate please refer to the
 [SDK Architecture](https://contributing.bitwarden.com/architecture/sdk/) documentation.
 
 <div class="warning">
