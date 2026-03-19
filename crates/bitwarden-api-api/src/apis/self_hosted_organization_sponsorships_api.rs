@@ -26,11 +26,10 @@ use crate::{
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait SelfHostedOrganizationSponsorshipsApi: Send + Sync {
-    /// DELETE /organization/sponsorship/self-hosted/{sponsoringOrgId}/{sponsoredFriendlyName}/
-    /// revoke
+    /// DELETE /organization/sponsorship/self-hosted/{organizationId}/{sponsoredFriendlyName}/revoke
     async fn admin_initiated_revoke_sponsorship<'a>(
         &self,
-        sponsoring_org_id: uuid::Uuid,
+        organization_id: uuid::Uuid,
         sponsored_friendly_name: &'a str,
     ) -> Result<(), Error<AdminInitiatedRevokeSponsorshipError>>;
 
@@ -74,7 +73,7 @@ impl SelfHostedOrganizationSponsorshipsApiClient {
 impl SelfHostedOrganizationSponsorshipsApi for SelfHostedOrganizationSponsorshipsApiClient {
     async fn admin_initiated_revoke_sponsorship<'a>(
         &self,
-        sponsoring_org_id: uuid::Uuid,
+        organization_id: uuid::Uuid,
         sponsored_friendly_name: &'a str,
     ) -> Result<(), Error<AdminInitiatedRevokeSponsorshipError>> {
         let local_var_configuration = &self.configuration;
@@ -82,9 +81,9 @@ impl SelfHostedOrganizationSponsorshipsApi for SelfHostedOrganizationSponsorship
         let local_var_client = &local_var_configuration.client;
 
         let local_var_uri_str = format!(
-            "{}/organization/sponsorship/self-hosted/{sponsoringOrgId}/{sponsoredFriendlyName}/revoke",
+            "{}/organization/sponsorship/self-hosted/{organizationId}/{sponsoredFriendlyName}/revoke",
             local_var_configuration.base_path,
-            sponsoringOrgId = sponsoring_org_id,
+            organizationId = organization_id,
             sponsoredFriendlyName = crate::apis::urlencode(sponsored_friendly_name)
         );
         let mut local_var_req_builder =
