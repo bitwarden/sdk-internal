@@ -42,6 +42,7 @@ wasm-bindgen-futures = { workspace = true, optional = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
+wiremock = { workspace = true }
 
 [lints]
 workspace = true

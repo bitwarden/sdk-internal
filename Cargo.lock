@@ -865,6 +865,7 @@ dependencies = [
  "bitwarden-fido",
  "bitwarden-generators",
  "bitwarden-send",
+ "bitwarden-server-communication-config",
  "bitwarden-state",
  "bitwarden-sync",
  "bitwarden-user-crypto-management",
@@ -930,6 +931,7 @@ dependencies = [
  "uniffi",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wiremock",
 ]
 
 [[package]]
