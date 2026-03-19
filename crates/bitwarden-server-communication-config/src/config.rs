@@ -62,10 +62,11 @@ pub struct SsoCookieVendorConfig {
 
 /// Request to set server communication configuration for a hostname
 ///
-/// This is the input type for [`ServerCommunicationConfigClient::set_communication_type`].
+/// This is the input type for
+/// [`ServerCommunicationConfigClient::set_communication_type`](crate::ServerCommunicationConfigClient::set_communication_type).
 /// Unlike [`ServerCommunicationConfig`], this type does not include acquired cookies,
 /// since cookies are managed separately via
-/// [`ServerCommunicationConfigClient::acquire_cookie`].
+/// [`ServerCommunicationConfigClient::acquire_cookie`](crate::ServerCommunicationConfigClient::acquire_cookie).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(
     feature = "wasm",
