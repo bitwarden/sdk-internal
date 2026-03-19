@@ -82,6 +82,20 @@ impl StateRegistry {
         Ok(())
     }
 
+    /// Creates a new `StateRegistry` pre-initialized with an in-memory database.
+    ///
+    /// The in-memory database requires no async initialization and is immediately
+    /// ready for use. Data is ephemeral and will be lost when this registry is dropped.
+    ///
+    /// Intended for testing and development scenarios.
+    pub fn new_with_memory_db() -> Self {
+        let registry = Self::new();
+        let _ = registry.database.set(SystemDatabase::Memory(
+            crate::sdk_managed::memory::MemoryDatabase::new(),
+        ));
+        registry
+    }
+
     /// Registers a client-managed repository into the map, associating it with its type.
     pub fn register_client_managed<T: RepositoryItem>(&self, value: Arc<dyn Repository<T>>) {
         self.client_managed
@@ -131,6 +145,22 @@ impl StateRegistry {
         }
 
         self.get_sdk_managed::<T>()
+    }
+
+    /// Returns a type-safe handle to a single setting value.
+    ///
+    /// Shortcut equivalent to `StateClient::setting()` for callers holding a
+    /// `StateRegistry` reference directly.
+    ///
+    /// # Errors
+    /// Returns `SettingsError::Registry(DatabaseNotInitialized)` if the database
+    /// has not been initialized.
+    pub fn setting<T>(
+        &self,
+        key: crate::settings::Key<T>,
+    ) -> Result<crate::settings::Setting<T>, crate::settings::SettingsError> {
+        let repository = self.get::<crate::settings::SettingItem>()?;
+        Ok(crate::settings::Setting::new(repository, key))
     }
 }
 
