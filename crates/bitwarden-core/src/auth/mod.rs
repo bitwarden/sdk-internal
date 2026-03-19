@@ -15,6 +15,7 @@ pub(crate) use api::response::user_decryption_options_response::UserDecryptionOp
 pub mod auth_client;
 pub mod auth_tokens;
 mod jwt_token;
+pub mod cookie_provider;
 #[allow(missing_docs)]
 pub mod login;
 #[allow(missing_docs)]
@@ -27,6 +28,7 @@ pub mod pin;
 pub mod renew;
 pub use access_token::{AccessToken, AccessTokenInvalidError};
 pub use auth_tokens::{ClientManagedTokenHandler, ClientManagedTokens, TokenHandler};
+pub use cookie_provider::CookieProvider;
 pub use jwt_token::*;
 
 #[cfg(feature = "internal")]
