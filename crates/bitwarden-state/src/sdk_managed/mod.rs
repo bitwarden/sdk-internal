@@ -21,6 +21,7 @@ mod sqlite;
 pub(super) type SystemDatabase = sqlite::SqliteDatabase;
 #[cfg(not(target_arch = "wasm32"))]
 type InternalError = ::rusqlite::Error;
+pub(super) mod memory;
 
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
