@@ -87,6 +87,7 @@ pub trait ServerCommunicationConfigRepository: Send + Sync {
 }
 
 /// Bridge from UniFFI trait to internal repository trait
+#[derive(Clone)]
 pub struct UniffiRepositoryBridge<T>(pub T);
 
 impl<T: ?Sized> UniffiRepositoryBridge<Arc<T>> {
@@ -125,6 +126,7 @@ impl<'a> bitwarden_server_communication_config::ServerCommunicationConfigReposit
 }
 
 /// Bridge for platform API trait
+#[derive(Clone)]
 pub struct UniffiPlatformApiBridge<T>(pub T);
 
 impl<T: std::fmt::Debug> std::fmt::Debug for UniffiPlatformApiBridge<T> {

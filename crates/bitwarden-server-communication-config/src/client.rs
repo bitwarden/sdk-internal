@@ -6,10 +6,11 @@ use crate::{
 };
 
 /// Server communication configuration client
+#[derive(Clone)]
 pub struct ServerCommunicationConfigClient<R, P>
 where
-    R: ServerCommunicationConfigRepository,
-    P: ServerCommunicationConfigPlatformApi,
+    R: ServerCommunicationConfigRepository + Clone,
+    P: ServerCommunicationConfigPlatformApi + Clone,
 {
     repository: R,
     platform_api: P,
@@ -17,8 +18,8 @@ where
 
 impl<R, P> ServerCommunicationConfigClient<R, P>
 where
-    R: ServerCommunicationConfigRepository,
-    P: ServerCommunicationConfigPlatformApi,
+    R: ServerCommunicationConfigRepository + Clone,
+    P: ServerCommunicationConfigPlatformApi + Clone,
 {
     /// Creates a new server communication configuration client
     ///
