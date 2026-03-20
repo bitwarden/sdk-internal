@@ -18,11 +18,14 @@ wasm = [
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
     "dep:js-sys",
+    "bitwarden-core/wasm",
+    "bitwarden-threading/wasm",
 ] # WASM support
 
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-core = { workspace = true }
+bitwarden-threading = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 js-sys = { workspace = true, optional = true }

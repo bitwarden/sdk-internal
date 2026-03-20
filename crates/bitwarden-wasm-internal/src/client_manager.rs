@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use bitwarden_client_manager::wasm::backend::{JsClientManagerBackend, RawJsClientManagerBackend};
 use bitwarden_core::UserId;
 use bitwarden_error::bitwarden_error;
 use bitwarden_pm::client_manager::ClientManager as InnerClientManager;
@@ -13,9 +14,18 @@ pub struct ClientManager(InnerClientManager);
 
 #[wasm_bindgen]
 impl ClientManager {
-    /// Create a new ClientManager using SDK-managed storage
-    #[wasm_bindgen(constructor)]
-    pub fn new() -> Self {
+    /// Create a new ClientManager with a custom JavaScript backend for managing clients.
+    /// This is useful for using the already existing IpcService.
+    pub fn new_client_managed(backend: RawJsClientManagerBackend) -> Self {
+        Self(InnerClientManager::new(Box::new(
+            JsClientManagerBackend::new(backend),
+        )))
+    }
+
+    /// Create a new ClientManager that is managed by the SDK.
+    /// This means the SDK will handle storing and retrieving clients, and you can have multiple
+    /// clients for different users.
+    pub fn new_sdk_managed() -> Self {
         Self(InnerClientManager::new(Box::new(
             bitwarden_client_manager::SdkManagedBackend::new(),
         )))
@@ -33,7 +43,7 @@ impl ClientManager {
     pub async fn set_client(&self, client: &PasswordManagerClient) -> Result<(), SetClientError> {
         self.0
             .0
-            .set_client(client.0 .0.clone())
+            .set_client(client.0.0.clone())
             .await
             .map_err(|e| SetClientError(e.to_string()))
     }

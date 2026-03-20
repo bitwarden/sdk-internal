@@ -4,6 +4,7 @@ use bitwarden_crypto::KeyStore;
 #[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
+use wasm_bindgen::prelude::*;
 
 use super::internal::InternalClient;
 #[cfg(feature = "internal")]
@@ -18,12 +19,14 @@ use crate::{
 
 /// The main struct to interact with the Bitwarden SDK.
 #[derive(Clone)]
+#[wasm_bindgen]
 pub struct Client {
     // Important: The [`Client`] struct requires its `Clone` implementation to return an owned
     // reference to the same instance. This is required to properly use the FFI API, where we can't
     // just use normal Rust references effectively. For this to happen, any mutable state needs
     // to be behind an Arc, ideally as part of the existing [`InternalClient`] struct.
     #[doc(hidden)]
+    #[wasm_bindgen(skip)]
     pub internal: Arc<InternalClient>,
 }
 

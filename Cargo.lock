@@ -591,6 +591,7 @@ version = "2.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-core",
+ "bitwarden-threading",
  "js-sys",
  "thiserror 1.0.69",
  "tokio",
