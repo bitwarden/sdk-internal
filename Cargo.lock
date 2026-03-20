@@ -1217,6 +1217,7 @@ name = "bitwarden-wasm-internal"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "bitwarden-client-manager",
  "bitwarden-commercial-vault",
  "bitwarden-core",
  "bitwarden-crypto",
