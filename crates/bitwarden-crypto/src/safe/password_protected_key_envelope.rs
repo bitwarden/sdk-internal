@@ -19,7 +19,7 @@ use argon2::Params;
 use bitwarden_encoding::{B64, FromStrVisitor};
 use ciborium::{Value, value::Integer};
 use coset::{CborSerializable, CoseError, Header, HeaderBuilder};
-use rand::RngCore;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -451,7 +451,7 @@ impl TryInto<Argon2RawSettings> for &Header {
 
 fn make_salt() -> [u8; ENVELOPE_ARGON2_SALT_SIZE] {
     let mut salt = [0u8; ENVELOPE_ARGON2_SALT_SIZE];
-    rand::thread_rng().fill_bytes(&mut salt);
+    rand::rng().fill_bytes(&mut salt);
     salt
 }
 

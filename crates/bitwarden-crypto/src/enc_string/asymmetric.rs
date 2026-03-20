@@ -241,18 +241,18 @@ impl UnsignedSharedKey {
                 use UnsignedSharedKey::*;
                 let key_data = match self {
                     Rsa2048_OaepSha256_B64 { data } => {
-                        rsa_private_key.decrypt(Oaep::new::<sha2::Sha256>(), data)
+                        rsa_private_key.decrypt(Oaep::<sha2::Sha256>::new(), data)
                     }
                     Rsa2048_OaepSha1_B64 { data } => {
-                        rsa_private_key.decrypt(Oaep::new::<sha1::Sha1>(), data)
+                        rsa_private_key.decrypt(Oaep::<sha1::Sha1>::new(), data)
                     }
                     #[allow(deprecated)]
                     Rsa2048_OaepSha256_HmacSha256_B64 { data, .. } => {
-                        rsa_private_key.decrypt(Oaep::new::<sha2::Sha256>(), data)
+                        rsa_private_key.decrypt(Oaep::<sha2::Sha256>::new(), data)
                     }
                     #[allow(deprecated)]
                     Rsa2048_OaepSha1_HmacSha256_B64 { data, .. } => {
-                        rsa_private_key.decrypt(Oaep::new::<sha1::Sha1>(), data)
+                        rsa_private_key.decrypt(Oaep::<sha1::Sha1>::new(), data)
                     }
                 }
                 .map_err(|_| CryptoError::KeyDecrypt)?;

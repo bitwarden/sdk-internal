@@ -10,7 +10,7 @@ use bitwarden_crypto::{
     PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKey, SigningKey,
     SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey, VerifyingKey,
 };
-use rand::Rng;
+use rand::RngExt;
 use rsa::{
     Oaep, RsaPrivateKey, RsaPublicKey,
     pkcs8::{DecodePrivateKey, DecodePublicKey},
@@ -393,7 +393,7 @@ impl PureCrypto {
         let _span = tracing::info_span!("PureCrypto::rsa_decrypt_data").entered();
         let private_key = RsaPrivateKey::from_pkcs8_der(private_key.as_slice())
             .map_err(|_| RsaError::KeyParse)?;
-        let padding = Oaep::new::<Sha1>();
+        let padding = Oaep::<Sha1>::new();
         private_key
             .decrypt(padding, &encrypted_data)
             .map_err(|_| RsaError::Decryption)
@@ -405,8 +405,8 @@ impl PureCrypto {
         let _span = tracing::info_span!("PureCrypto::rsa_encrypt_data").entered();
         let public_key = RsaPublicKey::from_public_key_der(public_key.as_slice())
             .map_err(|_| RsaError::KeyParse)?;
-        let padding = Oaep::new::<Sha1>();
-        let mut rng = rand::thread_rng();
+        let padding = Oaep::<Sha1>::new();
+        let mut rng = rand::rng();
         public_key
             .encrypt(&mut rng, padding, &plain_data)
             .map_err(|_| RsaError::Encryption)
@@ -416,8 +416,8 @@ impl PureCrypto {
     /// (inclusive).
     pub fn random_number(min: u32, max: u32) -> u32 {
         let _span = tracing::info_span!("PureCrypto::random_number").entered();
-        let mut rng = rand::thread_rng();
-        rng.gen_range(min..=max)
+        let mut rng = rand::rng();
+        rng.random_range(min..=max)
     }
 }
 
