@@ -95,6 +95,9 @@ impl Client {
 
         // Build the API HTTP client conditionally: disable auto-redirect when additional
         // middleware is present so the outermost middleware can observe raw 3xx responses.
+        // reqwest::redirect is not available on wasm32 targets; additional_middleware is
+        // always empty on WASM so the redirect branch is unreachable there.
+        #[cfg(not(target_arch = "wasm32"))]
         let api_http_client = if additional_middleware.is_empty() {
             new_http_client_builder()
                 .default_headers(headers.clone())
@@ -107,6 +110,11 @@ impl Client {
                 .build()
                 .expect("Bw HTTP Client (no redirect) build should not fail")
         };
+        #[cfg(target_arch = "wasm32")]
+        let api_http_client = new_http_client_builder()
+            .default_headers(headers.clone())
+            .build()
+            .expect("Bw HTTP Client build should not fail");
 
         // Chain additional middleware outermost, then auth middleware innermost.
         let mut builder = reqwest_middleware::ClientBuilder::new(api_http_client);
