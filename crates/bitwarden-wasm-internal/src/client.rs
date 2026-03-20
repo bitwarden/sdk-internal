@@ -35,6 +35,12 @@ impl PasswordManagerClient {
         ))
     }
 
+    /// Wrap an existing `Client` in a `PasswordManagerClient`.
+    #[wasm_bindgen(js_name = "fromClient")]
+    pub fn from_client(client: bitwarden_core::Client) -> Self {
+        Self(InnerPasswordManagerClient(client))
+    }
+
     /// Test method, echoes back the input
     pub fn echo(&self, msg: String) -> String {
         msg
@@ -100,6 +106,22 @@ impl PasswordManagerClient {
     /// Exporter related operations.
     pub fn exporters(&self) -> ExporterClient {
         self.0.exporters()
+    }
+
+    /// Get the underlying core client.
+    ///
+    /// Returns a clone of the inner `Client` handle (Arc refcount bump).
+    pub fn client(&self) -> bitwarden_core::Client {
+        self.0.0.clone()
+    }
+
+    /// Create a new handle to the same underlying client.
+    ///
+    /// This is backed by Rust's `Arc`, so cloning is cheap (reference count bump)
+    /// and each handle can be independently freed.
+    #[wasm_bindgen(js_name = "clone")]
+    pub fn js_clone(&self) -> PasswordManagerClient {
+        PasswordManagerClient(InnerPasswordManagerClient(self.0.0.clone()))
     }
 }
 

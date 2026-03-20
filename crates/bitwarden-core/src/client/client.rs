@@ -107,6 +107,15 @@ impl Client {
     }
 }
 
+#[wasm_bindgen]
+impl Client {
+    /// Get the user ID associated with this client, if one has been set.
+    #[wasm_bindgen(getter)]
+    pub fn user_id(&self) -> Option<crate::UserId> {
+        self.internal.get_user_id()
+    }
+}
+
 fn new_http_client_builder() -> reqwest::ClientBuilder {
     #[allow(unused_mut)]
     let mut client_builder = reqwest::Client::builder();
