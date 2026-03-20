@@ -41,12 +41,6 @@ bitwarden-state = { workspace = true, features = ["wasm"] }
 bitwarden-threading = { workspace = true }
 bitwarden-user-crypto-management = { workspace = true, features = ["wasm"] }
 bitwarden-vault = { workspace = true, features = ["wasm"] }
-# We don't use these directly (it's used by rand), but we need it here to enable WASM support
-# Unfortunately we have a lof of dependencies that use different versions of rand, so we
-# need to enable WASM support for all of them.
-getrandom2 = { package = "getrandom", version = "0.2", features = ["js"]}
-getrandom3 = { package = "getrandom", version = "0.3", features = ["wasm_js"]}
-getrandom4 = { package = "getrandom", version = "0.4", features = ["wasm_js"]}
 console_error_panic_hook = "0.1.7"
 rand = { workspace = true }
 rsa = { workspace = true }
