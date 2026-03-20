@@ -35,4 +35,12 @@ impl ClientManager {
     pub async fn delete_client(&self, user_id: &UserId) {
         self.internal.backend.delete_client(user_id).await;
     }
+
+    pub async fn active_client(&self) -> Option<bitwarden_core::Client> {
+        self.internal.backend.get_active_client().await
+    }
+
+    pub async fn set_active_client(&self, user_id: &UserId) {
+        self.internal.backend.set_active_client(user_id).await;
+    }
 }

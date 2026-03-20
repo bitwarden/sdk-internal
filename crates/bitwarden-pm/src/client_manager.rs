@@ -33,4 +33,14 @@ impl ClientManager {
     pub async fn delete_client(&self, user_id: &UserId) {
         self.0.delete_client(user_id).await;
     }
+
+    /// Get the currently active client
+    pub async fn active_client(&self) -> Option<PasswordManagerClient> {
+        self.0.active_client().await.map(PasswordManagerClient)
+    }
+
+    /// Set the active client by user ID
+    pub async fn set_active_client(&self, user_id: &UserId) {
+        self.0.set_active_client(user_id).await;
+    }
 }

@@ -7,12 +7,14 @@ use crate::backend::{ClientHasNoUserIdError, ClientManagerBackend};
 
 pub struct SdkManagedBackend {
     clients: Mutex<HashMap<UserId, bitwarden_core::Client>>,
+    active_user_id: Mutex<Option<UserId>>,
 }
 
 impl Default for SdkManagedBackend {
     fn default() -> Self {
         Self {
             clients: Mutex::new(HashMap::new()),
+            active_user_id: Mutex::new(None),
         }
     }
 }
@@ -44,5 +46,17 @@ impl ClientManagerBackend for SdkManagedBackend {
     async fn delete_client(&self, user_id: &UserId) {
         let mut clients = self.clients.lock().await;
         clients.remove(user_id);
+    }
+
+    async fn get_active_client(&self) -> Option<bitwarden_core::Client> {
+        let active_user_id = self.active_user_id.lock().await;
+        let user_id = (*active_user_id)?;
+        let clients = self.clients.lock().await;
+        clients.get(&user_id).cloned()
+    }
+
+    async fn set_active_client(&self, user_id: &UserId) {
+        let mut active_user_id = self.active_user_id.lock().await;
+        *active_user_id = Some(*user_id);
     }
 }

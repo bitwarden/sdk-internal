@@ -6,6 +6,9 @@ pub trait ClientManagerBackend: Send + Sync {
     async fn get_client(&self, user_id: &UserId) -> Option<Client>;
     async fn set_client(&self, client: Client) -> Result<(), ClientHasNoUserIdError>;
     async fn delete_client(&self, user_id: &UserId);
+
+    async fn get_active_client(&self) -> Option<Client>;
+    async fn set_active_client(&self, user_id: &UserId);
 }
 
 #[derive(Debug, thiserror::Error)]
