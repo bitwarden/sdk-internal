@@ -880,6 +880,7 @@ dependencies = [
 name = "bitwarden-pm"
 version = "2.0.0"
 dependencies = [
+ "async-trait",
  "bitwarden-auth",
  "bitwarden-commercial-vault",
  "bitwarden-core",
@@ -887,10 +888,12 @@ dependencies = [
  "bitwarden-fido",
  "bitwarden-generators",
  "bitwarden-send",
+ "bitwarden-server-communication-config",
  "bitwarden-state",
  "bitwarden-sync",
  "bitwarden-user-crypto-management",
  "bitwarden-vault",
+ "reqwest-middleware",
  "tsify",
  "uniffi",
  "wasm-bindgen",
