@@ -6,7 +6,7 @@ use crate::{
 /// Abstraction for acquiring and retrieving SSO load balancer cookies.
 ///
 /// Allows bitwarden-core to request cookies without depending on
-/// bitwarden-server-communication-config. Middleware holds Arc<dyn CookieProvider>.
+/// bitwarden-server-communication-config. Middleware holds `Arc<dyn CookieProvider>`.
 ///
 /// # Security
 ///
