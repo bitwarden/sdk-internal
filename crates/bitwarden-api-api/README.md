@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`79089a06c6a812f05754db6b8fa274d78997b6a3`](https://github.com/bitwarden/server/commit/79089a06c6a812f05754db6b8fa274d78997b6a3)
+  [`5f1cdd50801effb2b283862ecd5a85deac694143`](https://github.com/bitwarden/server/commit/5f1cdd50801effb2b283862ecd5a85deac694143)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -45,6 +45,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _AccessPoliciesApi_                       | [**put_service_account_granted_policies**](docs/AccessPoliciesApi.md#access_policies_put_service_account_granted_policies)                                       | **PUT** /service-accounts/{id}/granted-policies                                                          |
 | _AccessPoliciesApi_                       | [**put_service_account_people_access_policies**](docs/AccessPoliciesApi.md#access_policies_put_service_account_people_access_policies)                           | **PUT** /service-accounts/{id}/access-policies/people                                                    |
 | _AccountBillingVNextApi_                  | [**add_credit_via_bit_pay**](docs/AccountBillingVNextApi.md#account_billing_v_next_add_credit_via_bit_pay)                                                       | **POST** /account/billing/vnext/credit/bitpay                                                            |
+| _AccountBillingVNextApi_                  | [**create_portal_session**](docs/AccountBillingVNextApi.md#account_billing_v_next_create_portal_session)                                                         | **POST** /account/billing/vnext/portal-session                                                           |
 | _AccountBillingVNextApi_                  | [**create_subscription**](docs/AccountBillingVNextApi.md#account_billing_v_next_create_subscription)                                                             | **POST** /account/billing/vnext/subscription                                                             |
 | _AccountBillingVNextApi_                  | [**get_applicable_discounts**](docs/AccountBillingVNextApi.md#account_billing_v_next_get_applicable_discounts)                                                   | **GET** /account/billing/vnext/discounts                                                                 |
 | _AccountBillingVNextApi_                  | [**get_credit**](docs/AccountBillingVNextApi.md#account_billing_v_next_get_credit)                                                                               | **GET** /account/billing/vnext/credit                                                                    |
@@ -94,11 +95,12 @@ All URIs are relative to *https://api.bitwarden.com*
 | _AccountsBillingApi_                      | [**get_invoices**](docs/AccountsBillingApi.md#accounts_billing_get_invoices)                                                                                     | **GET** /accounts/billing/invoices                                                                       |
 | _AccountsBillingApi_                      | [**get_transactions**](docs/AccountsBillingApi.md#accounts_billing_get_transactions)                                                                             | **GET** /accounts/billing/transactions                                                                   |
 | _AccountsKeyManagementApi_                | [**get_key_connector_confirmation_details**](docs/AccountsKeyManagementApi.md#accounts_key_management_get_key_connector_confirmation_details)                    | **GET** /accounts/key-connector/confirmation-details/{orgSsoIdentifier}                                  |
+| _AccountsKeyManagementApi_                | [**password_change_and_rotate_user_account_keys**](docs/AccountsKeyManagementApi.md#accounts_key_management_password_change_and_rotate_user_account_keys)        | **POST** /accounts/key-management/rotate-user-account-keys                                               |
 | _AccountsKeyManagementApi_                | [**post_convert_to_key_connector**](docs/AccountsKeyManagementApi.md#accounts_key_management_post_convert_to_key_connector)                                      | **POST** /accounts/convert-to-key-connector                                                              |
 | _AccountsKeyManagementApi_                | [**post_enroll_to_key_connector**](docs/AccountsKeyManagementApi.md#accounts_key_management_post_enroll_to_key_connector)                                        | **POST** /accounts/key-connector/enroll                                                                  |
 | _AccountsKeyManagementApi_                | [**post_set_key_connector_key**](docs/AccountsKeyManagementApi.md#accounts_key_management_post_set_key_connector_key)                                            | **POST** /accounts/set-key-connector-key                                                                 |
 | _AccountsKeyManagementApi_                | [**regenerate_keys**](docs/AccountsKeyManagementApi.md#accounts_key_management_regenerate_keys)                                                                  | **POST** /accounts/key-management/regenerate-keys                                                        |
-| _AccountsKeyManagementApi_                | [**rotate_user_account_keys**](docs/AccountsKeyManagementApi.md#accounts_key_management_rotate_user_account_keys)                                                | **POST** /accounts/key-management/rotate-user-account-keys                                               |
+| _AccountsKeyManagementApi_                | [**rotate_user_keys**](docs/AccountsKeyManagementApi.md#accounts_key_management_rotate_user_keys)                                                                | **POST** /accounts/key-management/rotate-user-keys                                                       |
 | _AuthRequestsApi_                         | [**get**](docs/AuthRequestsApi.md#auth_requests_get)                                                                                                             | **GET** /auth-requests/{id}                                                                              |
 | _AuthRequestsApi_                         | [**get_all**](docs/AuthRequestsApi.md#auth_requests_get_all)                                                                                                     | **GET** /auth-requests                                                                                   |
 | _AuthRequestsApi_                         | [**get_pending_auth_requests**](docs/AuthRequestsApi.md#auth_requests_get_pending_auth_requests)                                                                 | **GET** /auth-requests/pending                                                                           |
@@ -609,6 +611,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [CollectionResponseModelListResponseModel](docs/CollectionResponseModelListResponseModel.md)
 - [CollectionType](docs/CollectionType.md)
 - [CollectionWithIdRequestModel](docs/CollectionWithIdRequestModel.md)
+- [CommonUnlockDataRequestModel](docs/CommonUnlockDataRequestModel.md)
 - [CommunicationBootstrapSettings](docs/CommunicationBootstrapSettings.md)
 - [CommunicationSettings](docs/CommunicationSettings.md)
 - [ConfigResponseModel](docs/ConfigResponseModel.md)
@@ -880,6 +883,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [RestoreSecretVersionRequestModel](docs/RestoreSecretVersionRequestModel.md)
 - [RevokeAccessTokensRequest](docs/RevokeAccessTokensRequest.md)
 - [RotateUserAccountKeysAndDataRequestModel](docs/RotateUserAccountKeysAndDataRequestModel.md)
+- [RotateUserKeysRequestModel](docs/RotateUserKeysRequestModel.md)
 - [Saml2BindingType](docs/Saml2BindingType.md)
 - [Saml2NameIdFormat](docs/Saml2NameIdFormat.md)
 - [Saml2SigningBehavior](docs/Saml2SigningBehavior.md)
@@ -970,6 +974,8 @@ All URIs are relative to *https://api.bitwarden.com*
 - [TwoFactorYubiKeyResponseModel](docs/TwoFactorYubiKeyResponseModel.md)
 - [UnauthenticatedSecretVerificationRequestModel](docs/UnauthenticatedSecretVerificationRequestModel.md)
 - [UnlockDataRequestModel](docs/UnlockDataRequestModel.md)
+- [UnlockMethod](docs/UnlockMethod.md)
+- [UnlockMethodRequestModel](docs/UnlockMethodRequestModel.md)
 - [UntrustDevicesRequestModel](docs/UntrustDevicesRequestModel.md)
 - [UpdateAvatarRequestModel](docs/UpdateAvatarRequestModel.md)
 - [UpdateClientOrganizationRequestBody](docs/UpdateClientOrganizationRequestBody.md)
@@ -1011,6 +1017,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [WebAuthnPrfDecryptionOption](docs/WebAuthnPrfDecryptionOption.md)
 - [WebAuthnPrfStatus](docs/WebAuthnPrfStatus.md)
 - [WebPushAuthRequestModel](docs/WebPushAuthRequestModel.md)
+- [WrappedAccountCryptographicStateRequestModel](docs/WrappedAccountCryptographicStateRequestModel.md)
 
 To get access to the crate's generated documentation, use:
 

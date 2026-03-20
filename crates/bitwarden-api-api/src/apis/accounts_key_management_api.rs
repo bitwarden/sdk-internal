@@ -35,6 +35,14 @@ pub trait AccountsKeyManagementApi: Send + Sync {
         Error<GetKeyConnectorConfirmationDetailsError>,
     >;
 
+    /// POST /accounts/key-management/rotate-user-account-keys
+    async fn password_change_and_rotate_user_account_keys<'a>(
+        &self,
+        rotate_user_account_keys_and_data_request_model: Option<
+            models::RotateUserAccountKeysAndDataRequestModel,
+        >,
+    ) -> Result<(), Error<PasswordChangeAndRotateUserAccountKeysError>>;
+
     /// POST /accounts/convert-to-key-connector
     async fn post_convert_to_key_connector(
         &self,
@@ -58,13 +66,11 @@ pub trait AccountsKeyManagementApi: Send + Sync {
         key_regeneration_request_model: Option<models::KeyRegenerationRequestModel>,
     ) -> Result<(), Error<RegenerateKeysError>>;
 
-    /// POST /accounts/key-management/rotate-user-account-keys
-    async fn rotate_user_account_keys<'a>(
+    /// POST /accounts/key-management/rotate-user-keys
+    async fn rotate_user_keys<'a>(
         &self,
-        rotate_user_account_keys_and_data_request_model: Option<
-            models::RotateUserAccountKeysAndDataRequestModel,
-        >,
-    ) -> Result<(), Error<RotateUserAccountKeysError>>;
+        rotate_user_keys_request_model: Option<models::RotateUserKeysRequestModel>,
+    ) -> Result<(), Error<RotateUserKeysError>>;
 }
 
 pub struct AccountsKeyManagementApiClient {
@@ -128,6 +134,46 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
             }
         } else {
             let local_var_entity: Option<GetKeyConnectorConfirmationDetailsError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
+    }
+
+    async fn password_change_and_rotate_user_account_keys<'a>(
+        &self,
+        rotate_user_account_keys_and_data_request_model: Option<
+            models::RotateUserAccountKeysAndDataRequestModel,
+        >,
+    ) -> Result<(), Error<PasswordChangeAndRotateUserAccountKeysError>> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/accounts/key-management/rotate-user-account-keys",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&rotate_user_account_keys_and_data_request_model);
+
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<PasswordChangeAndRotateUserAccountKeysError> =
                 serde_json::from_str(&local_var_content).ok();
             let local_var_error = ResponseContent {
                 status: local_var_status,
@@ -284,26 +330,23 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
         }
     }
 
-    async fn rotate_user_account_keys<'a>(
+    async fn rotate_user_keys<'a>(
         &self,
-        rotate_user_account_keys_and_data_request_model: Option<
-            models::RotateUserAccountKeysAndDataRequestModel,
-        >,
-    ) -> Result<(), Error<RotateUserAccountKeysError>> {
+        rotate_user_keys_request_model: Option<models::RotateUserKeysRequestModel>,
+    ) -> Result<(), Error<RotateUserKeysError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
 
         let local_var_uri_str = format!(
-            "{}/accounts/key-management/rotate-user-account-keys",
+            "{}/accounts/key-management/rotate-user-keys",
             local_var_configuration.base_path
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder =
-            local_var_req_builder.json(&rotate_user_account_keys_and_data_request_model);
+        local_var_req_builder = local_var_req_builder.json(&rotate_user_keys_request_model);
 
         let local_var_resp = local_var_req_builder.send().await?;
 
@@ -313,7 +356,7 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             Ok(())
         } else {
-            let local_var_entity: Option<RotateUserAccountKeysError> =
+            let local_var_entity: Option<RotateUserKeysError> =
                 serde_json::from_str(&local_var_content).ok();
             let local_var_error = ResponseContent {
                 status: local_var_status,
@@ -330,6 +373,13 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum GetKeyConnectorConfirmationDetailsError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method
+/// [`AccountsKeyManagementApi::password_change_and_rotate_user_account_keys`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PasswordChangeAndRotateUserAccountKeysError {
     UnknownValue(serde_json::Value),
 }
 /// struct for typed errors of method [`AccountsKeyManagementApi::post_convert_to_key_connector`]
@@ -356,9 +406,9 @@ pub enum PostSetKeyConnectorKeyError {
 pub enum RegenerateKeysError {
     UnknownValue(serde_json::Value),
 }
-/// struct for typed errors of method [`AccountsKeyManagementApi::rotate_user_account_keys`]
+/// struct for typed errors of method [`AccountsKeyManagementApi::rotate_user_keys`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum RotateUserAccountKeysError {
+pub enum RotateUserKeysError {
     UnknownValue(serde_json::Value),
 }
