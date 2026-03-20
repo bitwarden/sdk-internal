@@ -66,6 +66,38 @@ impl PasswordManagerClient {
         ))
     }
 
+    /// Initialize a new instance of the SDK client with SSO load balancer cookie middleware.
+    ///
+    /// Use this constructor for self-hosted Bitwarden deployments behind load balancers
+    /// that require SSO session cookies for request affinity.
+    ///
+    /// The provided `cookie_provider` is wrapped in `ServerCommunicationConfigMiddleware`
+    /// and chained outermost in the API HTTP client middleware stack.
+    ///
+    /// # Arguments
+    ///
+    /// * `settings` - Optional client configuration
+    /// * `cookie_provider` - SSO cookie storage and acquisition implementation
+    pub fn new_with_server_communication_config(
+        settings: Option<bitwarden_core::ClientSettings>,
+        cookie_provider: std::sync::Arc<dyn bitwarden_server_communication_config::CookieProvider>,
+    ) -> Self {
+        let token_handler = std::sync::Arc::new(PasswordManagerTokenHandler::default());
+        let cookie_middleware: std::sync::Arc<dyn reqwest_middleware::Middleware> =
+            std::sync::Arc::new(
+                bitwarden_server_communication_config::ServerCommunicationConfigMiddleware::new(
+                    cookie_provider,
+                ),
+            );
+        Self(
+            bitwarden_core::Client::new_with_token_handler_and_middleware(
+                settings,
+                token_handler,
+                vec![cookie_middleware],
+            ),
+        )
+    }
+
     /// Initialize a new instance of the SDK client with SDK managed state and sync handlers
     /// registered
     ///
@@ -133,5 +165,37 @@ impl PasswordManagerClient {
     /// Sync operations
     pub fn sync(&self) -> bitwarden_sync::SyncClient {
         self.0.sync()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::*;
+
+    #[test]
+    fn new_with_server_communication_config_constructs() {
+        struct MockCookieProvider;
+
+        #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+        #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+        impl bitwarden_server_communication_config::CookieProvider for MockCookieProvider {
+            async fn cookies(&self, _hostname: &str) -> Vec<(String, String)> {
+                vec![]
+            }
+
+            async fn acquire_cookie(
+                &self,
+                _hostname: &str,
+            ) -> Result<(), bitwarden_server_communication_config::AcquireCookieError> {
+                Ok(())
+            }
+        }
+
+        let _client = PasswordManagerClient::new_with_server_communication_config(
+            None,
+            Arc::new(MockCookieProvider),
+        );
     }
 }
