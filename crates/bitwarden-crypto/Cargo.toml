@@ -44,7 +44,7 @@ chacha20poly1305 = { version = "0.11.0-rc.3", features = ["zeroize"] }
 ciborium = { version = ">=0.2.2, <0.3" }
 coset = { version = ">=0.4.0, <0.5" }
 ed25519-dalek = { workspace = true, features = ["rand_core", "zeroize"] }
-hybrid-array = { version = "0.4.8", features = ["zeroize"] }
+hybrid-array = { version = "0.4.8", features = ["alloc", "zeroize"] }
 hex = { version = ">=0.4.0, <0.5" }
 hkdf = "0.13.0-rc.5"
 hmac = { workspace = true, features = ["zeroize"] }

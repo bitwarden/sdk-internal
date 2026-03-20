@@ -883,7 +883,7 @@ dependencies = [
  "chrono",
  "serde",
  "serde_repr",
- "sha2 0.10.9",
+ "sha2 0.11.0-rc.5",
  "thiserror 2.0.18",
  "uniffi",
  "uuid",
