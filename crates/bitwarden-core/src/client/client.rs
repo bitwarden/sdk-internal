@@ -30,7 +30,7 @@ pub struct Client {
 impl Client {
     /// Create a new Bitwarden client with default settings and a no-op token handler.
     pub fn new(settings: Option<ClientSettings>) -> Self {
-        Self::new_internal(settings, Arc::new(NoopTokenHandler))
+        Self::new_internal(settings, Arc::new(NoopTokenHandler), vec![])
     }
 
     /// Create a new Bitwarden client with the specified token handler for managing authentication
@@ -39,12 +39,29 @@ impl Client {
         settings: Option<ClientSettings>,
         token_handler: Arc<dyn TokenHandler>,
     ) -> Self {
-        Self::new_internal(settings, token_handler)
+        Self::new_internal(settings, token_handler, vec![])
+    }
+
+    /// Create a new Bitwarden client with a custom token handler and additional
+    /// middleware to be chained before authentication middleware.
+    ///
+    /// # Arguments
+    ///
+    /// * `settings` - Optional client configuration
+    /// * `token_handler` - Token handler for authentication middleware
+    /// * `additional_middleware` - Extra middleware chained outermost (before auth)
+    pub fn new_with_token_handler_and_middleware(
+        settings: Option<ClientSettings>,
+        token_handler: Arc<dyn TokenHandler>,
+        additional_middleware: Vec<Arc<dyn reqwest_middleware::Middleware>>,
+    ) -> Self {
+        Self::new_internal(settings, token_handler, additional_middleware)
     }
 
     fn new_internal(
         settings_input: Option<ClientSettings>,
         token_handler: Arc<dyn TokenHandler>,
+        additional_middleware: Vec<Arc<dyn reqwest_middleware::Middleware>>,
     ) -> Self {
         let settings = settings_input.unwrap_or_default();
 
@@ -59,7 +76,7 @@ impl Client {
 
         // Create the HTTP client for the Identity service, without authentication middleware.
         let bw_http_client = new_http_client_builder()
-            .default_headers(headers)
+            .default_headers(headers.clone())
             .build()
             .expect("Bw HTTP Client build should not fail");
         let identity = bitwarden_api_identity::Configuration {
@@ -75,9 +92,28 @@ impl Client {
             identity.clone(),
             key_store.clone(),
         );
-        let bw_http_client = reqwest_middleware::ClientBuilder::new(bw_http_client)
-            .with_arc(auth_middleware)
-            .build();
+
+        // Build the API HTTP client conditionally: disable auto-redirect when additional
+        // middleware is present so the outermost middleware can observe raw 3xx responses.
+        let api_http_client = if additional_middleware.is_empty() {
+            new_http_client_builder()
+                .default_headers(headers.clone())
+                .build()
+                .expect("Bw HTTP Client build should not fail")
+        } else {
+            new_http_client_builder()
+                .default_headers(headers.clone())
+                .redirect(reqwest::redirect::Policy::none())
+                .build()
+                .expect("Bw HTTP Client (no redirect) build should not fail")
+        };
+
+        // Chain additional middleware outermost, then auth middleware innermost.
+        let mut builder = reqwest_middleware::ClientBuilder::new(api_http_client);
+        for mw in additional_middleware {
+            builder = builder.with_arc(mw);
+        }
+        let bw_http_client = builder.with_arc(auth_middleware).build();
         let api = bitwarden_api_api::Configuration {
             base_path: settings.api_url,
             user_agent: Some(settings.user_agent),
@@ -180,4 +216,33 @@ fn build_default_headers(settings: &ClientSettings) -> header::HeaderMap {
     );
 
     headers
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_with_token_handler_and_middleware_compiles() {
+        struct StubMiddleware;
+
+        #[async_trait::async_trait]
+        impl reqwest_middleware::Middleware for StubMiddleware {
+            async fn handle(
+                &self,
+                req: reqwest::Request,
+                extensions: &mut http::Extensions,
+                next: reqwest_middleware::Next<'_>,
+            ) -> reqwest_middleware::Result<reqwest::Response> {
+                next.run(req, extensions).await
+            }
+        }
+
+        let arc_middleware: Arc<dyn reqwest_middleware::Middleware> = Arc::new(StubMiddleware);
+        let _client = Client::new_with_token_handler_and_middleware(
+            None,
+            Arc::new(NoopTokenHandler),
+            vec![arc_middleware],
+        );
+    }
 }
