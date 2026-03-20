@@ -504,8 +504,10 @@ dependencies = [
 name = "bitwarden-api-base"
 version = "2.0.0"
 dependencies = [
+ "http",
  "reqwest",
  "reqwest-middleware",
+ "serde",
  "serde_json",
  "url",
 ]
@@ -784,6 +786,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tsify",
  "uniffi",
+ "url",
  "uuid",
  "wasm-bindgen",
 ]
