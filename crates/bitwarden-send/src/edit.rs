@@ -68,7 +68,6 @@ pub struct SendEditRequest {
     /// Use `SendAuthType::None` for no authentication,
     /// `SendAuthType::Password` for password protection, or
     /// `SendAuthType::Emails` for email OTP authentication.
-    #[serde(flatten)]
     pub auth: SendAuthType,
 }
 
