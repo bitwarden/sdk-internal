@@ -360,7 +360,7 @@ fn sanitize_uri(uri: &str) -> String {
         return with_http;
     }
 
-    if !uri.starts_with("http") {
+    if !uri.starts_with("http://") || !uri.starts_with("https://") {
         return format!("https://{uri}");
     }
 
