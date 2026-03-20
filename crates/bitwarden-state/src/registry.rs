@@ -9,7 +9,8 @@ use thiserror::Error;
 
 use crate::{
     repository::{Repository, RepositoryItem, RepositoryItemData, RepositoryMigrations},
-    sdk_managed::{Database, DatabaseConfiguration, SystemDatabase},
+    sdk_managed::{Database, DatabaseConfiguration, MemoryDatabase, SystemDatabase},
+    settings::{Key, Setting, SettingItem, SettingsError},
 };
 
 /// A registry that contains repositories for different types of items.
@@ -51,6 +52,26 @@ impl StateRegistry {
         }
     }
 
+    /// Creates a new `StateRegistry` backed by an in-memory database.
+    ///
+    /// This is a synchronous constructor suitable for use in `Client::new_internal()`
+    /// and other sync contexts. The in-memory database requires no I/O or async
+    /// initialization.
+    ///
+    /// Note: The `sdk_managed` Vec is not populated (no migration steps for memory).
+    /// Callers can use `register_client_managed` or rely on the OnceLock database
+    /// directly via `get_sdk_managed`.
+    pub fn new_with_memory_db() -> Self {
+        let registry = Self::new();
+        // SAFETY: OnceLock::set returns Err only if already set.
+        // new() guarantees the OnceLock is unset. We ignore the result
+        // because there is no failure scenario here.
+        let _ = registry
+            .database
+            .set(SystemDatabase::Memory(MemoryDatabase::new()));
+        registry
+    }
+
     // TODO: Ideally we'd do this in new, but that would mean making the client initialization
     // async.
     // TODO: This function needs to be provided some configuration to know where to open the
@@ -80,6 +101,20 @@ impl StateRegistry {
             .expect("RwLock should not be poisoned") = migrations.into_repository_items();
 
         Ok(())
+    }
+
+    /// Get a handle to a setting by its type-safe key.
+    ///
+    /// Returns a [`Setting`] handle that can be used to get, update, or delete
+    /// the setting value directly from the registry, without requiring a
+    /// `StateClient` wrapper.
+    ///
+    /// # Errors
+    /// Returns an error if the database is not initialized or the repository
+    /// is not accessible.
+    pub fn setting<T>(&self, key: Key<T>) -> Result<Setting<T>, SettingsError> {
+        let repository = self.get::<SettingItem>()?;
+        Ok(Setting::new(repository, key))
     }
 
     /// Registers a client-managed repository into the map, associating it with its type.
@@ -255,5 +290,37 @@ mod tests {
             result,
             Err(StateRegistryError::DatabaseNotInitialized)
         ));
+    }
+
+    #[tokio::test]
+    async fn test_new_with_memory_db_sync() {
+        // Construct in sync context (no .await on the constructor itself)
+        let registry = StateRegistry::new_with_memory_db();
+        // Database must be accessible via async get after sync construction
+        let repo = registry.get::<TestItem<usize>>().unwrap();
+        let result = repo.get(String::new()).await;
+        // Should return Ok(None) — key not found, not an error
+        // (Note: TestItem<usize> is registered in this test module already)
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_setting_on_memory_db() {
+        use crate::register_setting_key;
+        register_setting_key!(const TEST_SETTING: String = "test_registry_setting_key");
+
+        let registry = StateRegistry::new_with_memory_db();
+        let setting = registry.setting(TEST_SETTING).unwrap();
+
+        // Value must not exist initially
+        assert_eq!(setting.get().await.unwrap(), None::<String>);
+
+        // Update and read back
+        setting.update("hello".to_string()).await.unwrap();
+        assert_eq!(setting.get().await.unwrap(), Some("hello".to_string()));
+
+        // Delete and confirm gone
+        setting.delete().await.unwrap();
+        assert_eq!(setting.get().await.unwrap(), None::<String>);
     }
 }
