@@ -11,7 +11,8 @@ use crate::{
 /// # Security
 ///
 /// Implementors MUST NOT log cookie values. Cookie values are sensitive SSO tokens.
-#[async_trait::async_trait(?Send)]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 pub trait CookieProvider: 'static + Send + Sync {
     /// Returns stored cookies for the given hostname as name-value pairs.
     ///
@@ -24,11 +25,12 @@ pub trait CookieProvider: 'static + Send + Sync {
     async fn acquire_cookie(&self, hostname: &str) -> Result<(), AcquireCookieError>;
 }
 
-#[async_trait::async_trait(?Send)]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 impl<R, P> CookieProvider for ServerCommunicationConfigClient<R, P>
 where
-    R: ServerCommunicationConfigRepository + 'static,
-    P: ServerCommunicationConfigPlatformApi + 'static,
+    R: ServerCommunicationConfigRepository + Send + 'static,
+    P: ServerCommunicationConfigPlatformApi + Send + 'static,
 {
     async fn cookies(&self, hostname: &str) -> Vec<(String, String)> {
         self.cookies(hostname.to_string()).await
@@ -96,7 +98,6 @@ mod tests {
     }
 
     #[async_trait::async_trait]
-    #[allow(dead_code)]
     impl ServerCommunicationConfigPlatformApi for MockPlatformApi {
         async fn acquire_cookies(&self, _vault_url: String) -> Option<Vec<AcquiredCookie>> {
             self.cookies_to_return.read().await.clone()
