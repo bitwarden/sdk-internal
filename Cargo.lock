@@ -485,6 +485,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "843867be96c8daad0d758b57df9392b6d8d271134fce549de6ce169ff98a92af"
 
 [[package]]
+name = "bitwarden-account-manager"
+version = "2.0.0"
+dependencies = [
+ "js-sys",
+ "tsify",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "bitwarden-api-api"
 version = "2.0.0"
 dependencies = [
@@ -887,6 +897,16 @@ dependencies = [
  "tsify",
  "uniffi",
  "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "bitwarden-reactive"
+version = "2.0.0"
+dependencies = [
+ "js-sys",
+ "tsify",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
