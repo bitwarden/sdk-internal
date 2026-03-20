@@ -14,8 +14,8 @@
 //! `https://eprint.iacr.org/2019/016.pdf`
 //! `https://soatok.blog/2024/09/10/invisible-salamanders-are-not-what-you-think/`
 
+use aes::cipher::common::Generate;
 use chacha20poly1305::{AeadCore, AeadInOut, KeyInit, XChaCha20Poly1305, aead::Nonce};
-use rand::Rng;
 use typenum::Unsigned;
 
 use crate::CryptoError;
@@ -43,16 +43,17 @@ pub(crate) fn encrypt_xchacha20_poly1305(
     plaintext_secret_data: &[u8],
     associated_data: &[u8],
 ) -> XChaCha20Poly1305Ciphertext {
-    encrypt_xchacha20_poly1305_internal(key, plaintext_secret_data, associated_data)
+    let rng = rand::rng();
+    encrypt_xchacha20_poly1305_internal(rng, key, plaintext_secret_data, associated_data)
 }
 
 fn encrypt_xchacha20_poly1305_internal(
+    mut rng: impl rand::CryptoRng,
     key: &[u8; KEY_SIZE],
     plaintext_secret_data: &[u8],
     associated_data: &[u8],
 ) -> XChaCha20Poly1305Ciphertext {
-    let mut nonce = Nonce::<XChaCha20Poly1305>::default();
-    rand::rng().fill_bytes(&mut nonce);
+    let nonce = Nonce::<XChaCha20Poly1305>::generate_from_rng(&mut rng);
     // This buffer contains the plaintext, that will be encrypted in-place
     let mut buffer = plaintext_secret_data.to_vec();
     XChaCha20Poly1305::new(key.into())
