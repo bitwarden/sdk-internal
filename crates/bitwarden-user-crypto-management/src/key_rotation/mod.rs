@@ -301,7 +301,7 @@ async fn post_rotate_user_keys(
         .get_api_configurations()
         .api_client
         .accounts_key_management_api()
-        .rotate_user_account_keys(Some(request))
+        .password_change_and_rotate_user_account_keys(Some(request))
         .await
         .map_err(|_| RotateUserKeysError::ApiError)?;
     info!("Successfully rotated user account keys and data");
