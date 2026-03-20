@@ -8,8 +8,8 @@ use bitwarden_crypto::{
     safe::{DataEnvelopeNamespace, SealableData, SealableVersionedData},
 };
 pub(crate) use encryption::{
-    BlobEncryptionError, create_blob_cipher, is_blob_encrypted, is_legacy_cipher, seal_cipher,
-    unseal_cipher,
+    BlobEncryptionError, encrypt_blob_cipher, decrypt_blob_cipher, is_blob_encrypted,
+    is_legacy_cipher,
 };
 use sealed::{SealedCipherBlob, SealedCipherBlobError};
 use serde::{Deserialize, Serialize};
