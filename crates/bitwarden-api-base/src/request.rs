@@ -40,8 +40,7 @@ async fn process_with_json_response_internal<E>(
     }
 }
 
-/// Sends and processes a request expecting a JSON response, deserializing it into the expected type
-/// `T``.
+/// Sends and processes a request expecting a JSON response, deserializing it into the type `T`.
 pub async fn process_with_json_response<T: DeserializeOwned, E>(
     request: reqwest_middleware::RequestBuilder,
 ) -> Result<T, crate::Error<E>> {
@@ -50,8 +49,7 @@ pub async fn process_with_json_response<T: DeserializeOwned, E>(
         .and_then(|content| serde_json::from_str(&content).map_err(Into::into))
 }
 
-/// Sends and processes a request expecting an empty response, returning `Ok(())` if the status code
-/// indicates success.
+/// Sends and processes a request expecting an empty response, returning `Ok(())` when successful.
 #[inline(never)]
 pub async fn process_with_empty_response<E>(
     request: reqwest_middleware::RequestBuilder,
