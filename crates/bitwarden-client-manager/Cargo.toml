@@ -23,6 +23,7 @@ wasm = [
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-core = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true }
 js-sys = { workspace = true, optional = true }
 tsify = { workspace = true, optional = true }

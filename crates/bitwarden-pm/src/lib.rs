@@ -33,6 +33,7 @@ pub mod clients {
 #[cfg(feature = "bitwarden-license")]
 pub use commercial::CommercialPasswordManagerClient;
 
+pub mod client_manager;
 pub mod migrations;
 
 /// The main entry point for the Bitwarden Password Manager SDK

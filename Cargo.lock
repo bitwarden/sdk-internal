@@ -592,6 +592,7 @@ dependencies = [
  "async-trait",
  "bitwarden-core",
  "js-sys",
+ "thiserror 1.0.69",
  "tokio",
  "tsify",
  "wasm-bindgen",
@@ -872,6 +873,7 @@ name = "bitwarden-pm"
 version = "2.0.0"
 dependencies = [
  "bitwarden-auth",
+ "bitwarden-client-manager",
  "bitwarden-commercial-vault",
  "bitwarden-core",
  "bitwarden-exporters",

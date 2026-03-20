@@ -7,3 +7,7 @@ pub mod wasm;
 mod backend;
 mod client_manager;
 mod sdk_managed;
+
+pub use backend::{ClientHasNoUserIdError, ClientManagerBackend};
+pub use client_manager::ClientManager;
+pub use sdk_managed::SdkManagedBackend;
