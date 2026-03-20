@@ -90,6 +90,24 @@ impl StateClient {
             .initialize_database(configuration.into(), sdk_managed_repositories)
             .await
     }
+
+    /// Initialize the database for SDK managed repositories using in-memory storage.
+    ///
+    /// Data stored via this backend exists only in process RAM and is not persisted
+    /// between sessions. Intended for testing, development, and cross-platform use
+    /// cases where persistence is not required.
+    pub async fn initialize_state_in_memory(
+        &self,
+    ) -> Result<(), bitwarden_state::registry::StateRegistryError> {
+        self.0
+            .platform()
+            .state()
+            .initialize_database(
+                bitwarden_state::DatabaseConfiguration::Memory,
+                bitwarden_state::repository::RepositoryMigrations::new(vec![]),
+            )
+            .await
+    }
 }
 
 impl From<IndexedDbConfiguration> for DatabaseConfiguration {
