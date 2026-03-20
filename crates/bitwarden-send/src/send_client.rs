@@ -1,12 +1,22 @@
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use bitwarden_core::Client;
 use bitwarden_crypto::{
     Decryptable, EncString, IdentifyKey, OctetStreamBytes, PrimitiveEncryptable,
 };
+use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
+use uuid::Uuid;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
-use crate::{Send, SendListView, SendView};
+use crate::{
+    Send, SendListView, SendView,
+    create::{CreateSendError, SendAddRequest, create_send},
+    edit::{EditSendError, SendEditRequest, edit_send},
+    error::ItemNotFoundError,
+    get_list::{GetSendError, get_send, list_sends},
+};
 
 /// Generic error type for send encryption errors.
 #[allow(missing_docs)]
@@ -49,6 +59,7 @@ pub enum SendDecryptFileError {
 }
 
 #[allow(missing_docs)]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct SendClient {
     client: Client,
 }
@@ -131,6 +142,65 @@ impl SendClient {
 
         let encrypted = OctetStreamBytes::from(buffer).encrypt(&mut ctx, key)?;
         Ok(encrypted.to_buffer()?)
+    }
+}
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl SendClient {
+    /// Create a new [Send] and save it to the server.
+    pub async fn create(&self, request: SendAddRequest) -> Result<SendView, CreateSendError> {
+        let key_store = self.client.internal.get_key_store();
+        let config = self.client.internal.get_api_configurations();
+        let repository = self.get_repository()?;
+
+        create_send(key_store, &config.api_client, repository.as_ref(), request).await
+    }
+
+    /// Edit the [Send] and save it to the server.
+    pub async fn edit(
+        &self,
+        send_id: String,
+        request: SendEditRequest,
+    ) -> Result<SendView, EditSendError> {
+        let key_store = self.client.internal.get_key_store();
+        let config = self.client.internal.get_api_configurations();
+        let repository = self.get_repository()?;
+        let send_id = Uuid::parse_str(&send_id)
+            .map_err(|_| EditSendError::ItemNotFound(ItemNotFoundError))?;
+
+        edit_send(
+            key_store,
+            &config.api_client,
+            repository.as_ref(),
+            send_id,
+            request,
+        )
+        .await
+    }
+
+    /// Get all sends from state and decrypt them to a list of [SendView].
+    pub async fn list(&self) -> Result<Vec<SendView>, GetSendError> {
+        let key_store = self.client.internal.get_key_store();
+        let repository = self.get_repository()?;
+
+        list_sends(key_store, repository.as_ref()).await
+    }
+
+    /// Get a specific [Send] by its ID from state and decrypt it to a [SendView].
+    pub async fn get(&self, send_id: String) -> Result<SendView, GetSendError> {
+        let key_store = self.client.internal.get_key_store();
+        let repository = self.get_repository()?;
+        let send_id =
+            Uuid::parse_str(&send_id).map_err(|_| GetSendError::ItemNotFound(ItemNotFoundError))?;
+
+        get_send(key_store, repository.as_ref(), send_id).await
+    }
+}
+
+impl SendClient {
+    /// Helper for getting the repository for sends.
+    fn get_repository(&self) -> Result<Arc<dyn Repository<Send>>, RepositoryError> {
+        Ok(self.client.platform().state().get::<Send>()?)
     }
 }
 

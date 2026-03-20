@@ -10,19 +10,25 @@ use bitwarden_crypto::{
     OctetStreamBytes, PrimitiveEncryptable, generate_random_bytes,
 };
 use bitwarden_encoding::{B64, B64Url};
+use bitwarden_uuid::uuid_newtype;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use uuid::Uuid;
 use zeroize::Zeroizing;
+#[cfg(feature = "wasm")]
+use {tsify::Tsify, wasm_bindgen::prelude::*};
 
 use crate::SendParseError;
+pub const SEND_ITERATIONS: u32 = 100_000;
 
-const SEND_ITERATIONS: u32 = 100_000;
+uuid_newtype!(pub SendId);
 
-#[derive(Serialize, Deserialize, Debug)]
+/// File-based send content
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendFile {
     pub id: Option<String>,
     pub file_name: EncString,
@@ -31,20 +37,27 @@ pub struct SendFile {
     pub size_name: Option<String>,
 }
 
+/// View model for decrypted SendFile
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendFileView {
+    /// The file's ID
     pub id: Option<String>,
+    /// The file name
     pub file_name: String,
+    /// The file size in bytes as a string
     pub size: Option<String>,
     /// Readable size, ex: "4.2 KB" or "1.43 GB"
     pub size_name: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+/// Text-based send content
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendText {
     pub text: Option<EncString>,
     pub hidden: bool,
@@ -54,6 +67,7 @@ pub struct SendText {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendTextView {
     /// The text content of the send
     pub text: Option<String>,
@@ -65,6 +79,7 @@ pub struct SendTextView {
 #[derive(Clone, Copy, Serialize_repr, Deserialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum SendType {
     /// Text-based send
     Text = 0,
@@ -76,6 +91,7 @@ pub enum SendType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum AuthType {
     /// Email-based OTP authentication
     Email = 0,
@@ -87,12 +103,118 @@ pub enum AuthType {
     None = 2,
 }
 
+/// Type-safe authentication method for a Send, including the authentication data.
+/// This ensures that password and email authentication are mutually exclusive.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub enum SendAuthType {
+    /// No authentication required
+    None,
+    /// Password-based authentication
+    Password {
+        /// The password required to access the Send
+        password: String,
+    },
+    /// Email-based OTP authentication
+    Emails {
+        /// List of email addresses that will receive OTP codes
+        emails: String,
+    },
+}
+
+impl SendAuthType {
+    /// Returns the AuthType discriminant for this authentication method
+    pub fn auth_type(&self) -> AuthType {
+        match self {
+            SendAuthType::None => AuthType::None,
+            SendAuthType::Password { .. } => AuthType::Password,
+            SendAuthType::Emails { .. } => AuthType::Email,
+        }
+    }
+
+    /// Returns the password if this is a Password variant, emails if this is an Emails variant, or
+    /// None otherwise
+    pub fn auth_data(&self, k: Vec<u8>) -> (Option<String>, Option<String>) {
+        match self {
+            SendAuthType::Password { password } => {
+                let hashed = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
+                (Some(B64::from(hashed.as_slice()).to_string()), None)
+            }
+            SendAuthType::Emails { emails } => {
+                let emails_str = if emails.is_empty() {
+                    None
+                } else {
+                    Some(emails.clone())
+                };
+                (None, emails_str)
+            }
+            SendAuthType::None => (None, None),
+        }
+    }
+}
+
+/// View model for decrypted Send type
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+pub enum SendViewType {
+    /// File-based send
+    File(SendFileView),
+    /// Text-based send
+    Text(SendTextView),
+}
+
+/// Type alias for the tuple returned by SendViewType::into_api_models
+type SendApiModels = (
+    bitwarden_api_api::models::SendType,
+    Option<Box<bitwarden_api_api::models::SendFileModel>>,
+    Option<Box<bitwarden_api_api::models::SendTextModel>>,
+);
+
+impl SendViewType {
+    /// Converts the SendViewType into API models for creating or editing a Send.
+    /// Returns a tuple of (SendType, optional FileModel, optional TextModel).
+    pub(crate) fn into_api_models(
+        self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        send_key: SymmetricKeyId,
+    ) -> Result<SendApiModels, CryptoError> {
+        match self {
+            SendViewType::File(f) => Ok((
+                bitwarden_api_api::models::SendType::File,
+                Some(Box::new(bitwarden_api_api::models::SendFileModel {
+                    id: f.id.clone(),
+                    file_name: Some(f.file_name.encrypt(ctx, send_key)?.to_string()),
+                    size: f.size.as_ref().and_then(|s| s.parse::<i64>().ok()),
+                    size_name: f.size_name.clone(),
+                })),
+                None,
+            )),
+            SendViewType::Text(t) => Ok((
+                bitwarden_api_api::models::SendType::Text,
+                None,
+                Some(Box::new(bitwarden_api_api::models::SendTextModel {
+                    text: t
+                        .text
+                        .as_ref()
+                        .map(|txt| txt.encrypt(ctx, send_key))
+                        .transpose()?
+                        .map(|e| e.to_string()),
+                    hidden: Some(t.hidden),
+                })),
+            )),
+        }
+    }
+}
+
 #[allow(missing_docs)]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Send {
-    pub id: Option<Uuid>,
+    pub id: Option<SendId>,
     pub access_id: Option<String>,
 
     pub name: EncString,
@@ -113,12 +235,15 @@ pub struct Send {
     pub deletion_date: DateTime<Utc>,
     pub expiration_date: Option<DateTime<Utc>>,
 
-    /// Email addresses for OTP authentication.
-    /// **Note**: Mutually exclusive with `new_password`. If both are set,
-    /// only password authentication will be used.
+    /// Email addresses for OTP authentication (comma-separated).
+    ///
+    /// **Note**: Mutually exclusive with `password`. If both `password` and `emails` are
+    /// set, password authentication takes precedence and email OTP is ignored.
     pub emails: Option<String>,
     pub auth_type: AuthType,
 }
+
+bitwarden_state::register_repository_item!(Uuid => Send, "Send");
 
 impl From<Send> for SendWithIdRequestModel {
     fn from(send: Send) -> Self {
@@ -146,7 +271,8 @@ impl From<Send> for SendWithIdRequestModel {
             hide_email: Some(send.hide_email),
             id: send
                 .id
-                .expect("SendWithIdRequestModel conversion requires send id"),
+                .expect("SendWithIdRequestModel conversion requires send id")
+                .into(),
         }
     }
 }
@@ -155,8 +281,9 @@ impl From<Send> for SendWithIdRequestModel {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendView {
-    pub id: Option<Uuid>,
+    pub id: Option<SendId>,
     pub access_id: Option<String>,
 
     pub name: String,
@@ -195,8 +322,9 @@ pub struct SendView {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendListView {
-    pub id: Option<Uuid>,
+    pub id: Option<SendId>,
     pub access_id: Option<String>,
 
     pub name: String,
@@ -222,7 +350,7 @@ impl Send {
         Self::derive_shareable_key(ctx, &key)
     }
 
-    fn derive_shareable_key(
+    pub(crate) fn derive_shareable_key(
         ctx: &mut KeyStoreContext<KeyIds>,
         key: &[u8],
     ) -> Result<SymmetricKeyId, CryptoError> {
@@ -450,7 +578,11 @@ impl TryFrom<SendResponseModel> for Send {
             }
         };
         Ok(Send {
-            id: send.id,
+            id: Some(
+                send.id
+                    .map(SendId::new)
+                    .unwrap_or_else(|| SendId::new(Uuid::new_v4())),
+            ),
             access_id: send.access_id,
             name: require!(send.name).parse()?,
             notes: EncString::try_from_optional(send.notes)?,
@@ -486,6 +618,15 @@ impl TryFrom<bitwarden_api_api::models::SendType> for SendType {
     }
 }
 
+impl From<SendType> for bitwarden_api_api::models::SendType {
+    fn from(t: SendType) -> Self {
+        match t {
+            SendType::Text => bitwarden_api_api::models::SendType::Text,
+            SendType::File => bitwarden_api_api::models::SendType::File,
+        }
+    }
+}
+
 impl TryFrom<bitwarden_api_api::models::AuthType> for AuthType {
     type Error = bitwarden_core::MissingFieldError;
 
@@ -498,15 +639,6 @@ impl TryFrom<bitwarden_api_api::models::AuthType> for AuthType {
                 return Err(bitwarden_core::MissingFieldError("auth_type"));
             }
         })
-    }
-}
-
-impl From<SendType> for bitwarden_api_api::models::SendType {
-    fn from(t: SendType) -> Self {
-        match t {
-            SendType::Text => bitwarden_api_api::models::SendType::Text,
-            SendType::File => bitwarden_api_api::models::SendType::File,
-        }
     }
 }
 
@@ -835,7 +967,7 @@ mod tests {
         let text_value = "2.2VPyLzk1tMLug0X3x7RkaQ==|mrMt9vbZsCJhJIj4eebKyg==|aZ7JeyndytEMR1+uEBupEvaZuUE69D/ejhfdJL8oKq0=";
 
         let send = Send {
-            id: Some(send_id),
+            id: Some(SendId::new(send_id)),
             access_id: Some("ct2APRQtJk-BLLDwAYqhRA".to_string()),
             name: name.parse().unwrap(),
             notes: Some(notes.parse().unwrap()),

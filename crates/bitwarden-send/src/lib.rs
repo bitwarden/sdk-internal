@@ -5,12 +5,18 @@ uniffi::setup_scaffolding!();
 #[cfg(feature = "uniffi")]
 mod uniffi_support;
 
+mod create;
+mod edit;
 mod error;
 pub use error::SendParseError;
+mod get_list;
 mod send_client;
 pub use send_client::{
     SendClient, SendClientExt, SendDecryptError, SendDecryptFileError, SendEncryptError,
     SendEncryptFileError,
 };
 mod send;
-pub use send::{AuthType, Send, SendListView, SendTextView, SendType, SendView};
+pub use send::{
+    AuthType, Send, SendAuthType, SendFileView, SendId, SendListView, SendTextView, SendType,
+    SendView, SendViewType,
+};
