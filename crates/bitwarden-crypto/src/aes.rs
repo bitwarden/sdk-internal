@@ -5,9 +5,9 @@
 //! In most cases you should use the [EncString][crate::EncString] with
 //! [KeyEncryptable][crate::KeyEncryptable] & [KeyDecryptable][crate::KeyDecryptable] instead.
 
-use aes::cipher::{BlockDecryptMut, BlockEncryptMut, KeyIvInit, block_padding::Pkcs7};
-use generic_array::GenericArray;
-use hmac::Mac;
+use aes::cipher::{BlockModeDecrypt, BlockModeEncrypt, KeyIvInit, block_padding::Pkcs7};
+use hybrid_array::Array;
+use hmac::{KeyInit, Mac};
 use subtle::ConstantTimeEq;
 use typenum::U32;
 
@@ -26,14 +26,13 @@ pub(crate) struct DecryptError {}
 pub(crate) fn decrypt_aes256(
     iv: &[u8; 16],
     data: Vec<u8>,
-    key: &GenericArray<u8, U32>,
+    key: &Array<u8, U32>,
 ) -> Result<Vec<u8>, DecryptError> {
     // Decrypt data
-    let iv = GenericArray::from_slice(iv);
     let mut data = data;
-    let decrypted_key_slice = cbc::Decryptor::<aes::Aes256>::new(key, iv)
-        .decrypt_padded_mut::<Pkcs7>(&mut data)
-        .map_err(|_| DecryptError {})?;
+    let decrypted_key_slice = cbc::Decryptor::<aes::Aes256>::new(key, iv.into())
+        .decrypt_padded::<Pkcs7>(&mut data)
+            .map_err(|_| DecryptError {})?;
 
     // Data is decrypted in place and returns a subslice of the original Vec, to avoid cloning it,
     // we truncate to the subslice length
@@ -50,8 +49,8 @@ pub(crate) fn decrypt_aes256_hmac(
     iv: &[u8; 16],
     mac: &[u8; 32],
     data: Vec<u8>,
-    mac_key: &GenericArray<u8, U32>,
-    key: &GenericArray<u8, U32>,
+    mac_key: &Array<u8, U32>,
+    key: &Array<u8, U32>,
 ) -> Result<Vec<u8>, DecryptError> {
     let res = generate_mac(mac_key, iv, &data);
     if res.ct_ne(mac).into() {
@@ -67,10 +66,10 @@ pub(crate) fn decrypt_aes256_hmac(
 /// A Aes256Cbc_HmacSha256_B64 EncString
 pub(crate) fn encrypt_aes256_hmac(
     data_dec: &[u8],
-    mac_key: &GenericArray<u8, U32>,
-    key: &GenericArray<u8, U32>,
+    mac_key: &Array<u8, U32>,
+    key: &Array<u8, U32>,
 ) -> Result<([u8; 16], [u8; 32], Vec<u8>)> {
-    let rng = rand::thread_rng();
+    let rng = rand::rng();
     let (iv, data) = encrypt_aes256_internal(rng, data_dec, key);
     let mac = generate_mac(mac_key, &iv, &data);
 
@@ -82,14 +81,14 @@ pub(crate) fn encrypt_aes256_hmac(
 /// Used internally by:
 /// - [encrypt_aes256_hmac]
 fn encrypt_aes256_internal(
-    mut rng: impl rand::RngCore,
+    mut rng: impl rand::Rng,
     data_dec: &[u8],
-    key: &GenericArray<u8, U32>,
+    key: &Array<u8, U32>,
 ) -> ([u8; 16], Vec<u8>) {
     let mut iv = [0u8; 16];
     rng.fill_bytes(&mut iv);
     let data = cbc::Encryptor::<aes::Aes256>::new(key, &iv.into())
-        .encrypt_padded_vec_mut::<Pkcs7>(data_dec);
+        .encrypt_padded_vec::<Pkcs7>(data_dec);
 
     (iv, data)
 }
@@ -110,18 +109,15 @@ fn generate_mac(mac_key: &[u8], iv: &[u8], data: &[u8]) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use bitwarden_encoding::B64;
-    use generic_array::{ArrayLength, sequence::GenericSequence};
+    use hybrid_array::ArraySize;
     use rand::SeedableRng;
 
     use super::*;
 
-    /// Helper function for generating a `GenericArray` of size 32 with each element being
+    /// Helper function for generating an `Array` of size N with each element being
     /// a multiple of a given increment, starting from a given offset.
-    fn generate_generic_array<N: ArrayLength<u8>>(
-        offset: u8,
-        increment: u8,
-    ) -> GenericArray<u8, N> {
-        GenericArray::generate(|i| offset + i as u8 * increment)
+    fn generate_array<N: ArraySize>(offset: u8, increment: u8) -> Array<u8, N> {
+        Array::from_fn(|i| offset + i as u8 * increment)
     }
 
     /// Helper function for generating a vector of a given size with each element being
@@ -132,7 +128,7 @@ mod tests {
 
     #[test]
     fn test_encrypt_aes256_internal() {
-        let key = generate_generic_array(0, 1);
+        let key = generate_array(0, 1);
 
         let rng = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
         let result = encrypt_aes256_internal(rng, "EncryptMe!".as_bytes(), &key);
@@ -164,7 +160,7 @@ mod tests {
     fn test_decrypt_aes256() {
         let iv = generate_vec(16, 0, 1);
         let iv: &[u8; 16] = iv.as_slice().try_into().unwrap();
-        let key = generate_generic_array(0, 1);
+        let key = generate_array(0, 1);
         let data: B64 = ("ByUF8vhyX4ddU9gcooznwA==").parse().unwrap();
 
         let decrypted = decrypt_aes256(iv, data.into(), &key).unwrap();

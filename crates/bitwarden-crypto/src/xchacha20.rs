@@ -14,9 +14,8 @@
 //! `https://eprint.iacr.org/2019/016.pdf`
 //! `https://soatok.blog/2024/09/10/invisible-salamanders-are-not-what-you-think/`
 
-use chacha20poly1305::{AeadCore, AeadInPlace, KeyInit, XChaCha20Poly1305};
-use generic_array::GenericArray;
-use rand::{CryptoRng, RngCore};
+use chacha20poly1305::{AeadCore, AeadInOut, KeyInit, XChaCha20Poly1305, aead::Nonce};
+use rand::Rng;
 use typenum::Unsigned;
 
 use crate::CryptoError;
@@ -25,7 +24,7 @@ pub(crate) const NONCE_SIZE: usize = <XChaCha20Poly1305 as AeadCore>::NonceSize:
 pub(crate) const KEY_SIZE: usize = 32;
 
 pub(crate) struct XChaCha20Poly1305Ciphertext {
-    nonce: GenericArray<u8, <XChaCha20Poly1305 as AeadCore>::NonceSize>,
+    nonce: Nonce<XChaCha20Poly1305>,
     encrypted_bytes: Vec<u8>,
 }
 
@@ -44,25 +43,24 @@ pub(crate) fn encrypt_xchacha20_poly1305(
     plaintext_secret_data: &[u8],
     associated_data: &[u8],
 ) -> XChaCha20Poly1305Ciphertext {
-    let rng = rand::thread_rng();
-    encrypt_xchacha20_poly1305_internal(rng, key, plaintext_secret_data, associated_data)
+    encrypt_xchacha20_poly1305_internal(key, plaintext_secret_data, associated_data)
 }
 
 fn encrypt_xchacha20_poly1305_internal(
-    rng: impl RngCore + CryptoRng,
     key: &[u8; KEY_SIZE],
     plaintext_secret_data: &[u8],
     associated_data: &[u8],
 ) -> XChaCha20Poly1305Ciphertext {
-    let nonce = &XChaCha20Poly1305::generate_nonce(rng);
+    let mut nonce = Nonce::<XChaCha20Poly1305>::default();
+    rand::rng().fill_bytes(&mut nonce);
     // This buffer contains the plaintext, that will be encrypted in-place
     let mut buffer = plaintext_secret_data.to_vec();
-    XChaCha20Poly1305::new(GenericArray::from_slice(key))
-        .encrypt_in_place(nonce, associated_data, &mut buffer)
+    XChaCha20Poly1305::new(key.into())
+        .encrypt_in_place(&nonce, associated_data, &mut buffer)
         .expect("encryption failed");
 
     XChaCha20Poly1305Ciphertext {
-        nonce: *nonce,
+        nonce,
         encrypted_bytes: buffer,
     }
 }
@@ -74,12 +72,8 @@ pub(crate) fn decrypt_xchacha20_poly1305(
     associated_data: &[u8],
 ) -> Result<Vec<u8>, CryptoError> {
     let mut buffer = ciphertext.to_vec();
-    XChaCha20Poly1305::new(GenericArray::from_slice(key))
-        .decrypt_in_place(
-            GenericArray::from_slice(nonce),
-            associated_data,
-            &mut buffer,
-        )
+    XChaCha20Poly1305::new(key.into())
+        .decrypt_in_place(nonce.into(), associated_data, &mut buffer)
         .map_err(|_| CryptoError::KeyDecrypt)?;
     Ok(buffer)
 }

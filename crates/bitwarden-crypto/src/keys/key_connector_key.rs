@@ -2,8 +2,8 @@ use std::pin::Pin;
 
 use bitwarden_api_key_connector::models::user_key_response_model::UserKeyResponseModel;
 use bitwarden_encoding::B64;
-use generic_array::GenericArray;
-use rand::Rng;
+use hybrid_array::Array;
+use rand::RngExt;
 use tracing::instrument;
 use typenum::U32;
 
@@ -14,13 +14,13 @@ use crate::{
 
 /// Key connector key, used to protect the user key.
 #[derive(Clone)]
-pub struct KeyConnectorKey(pub(super) Pin<Box<GenericArray<u8, U32>>>);
+pub struct KeyConnectorKey(pub(super) Pin<Box<Array<u8, U32>>>);
 
 impl KeyConnectorKey {
     /// Make a new random key for KeyConnector.
     pub fn make() -> Self {
-        let mut rng = rand::thread_rng();
-        let mut key = Box::pin(GenericArray::<u8, U32>::default());
+        let mut rng = rand::rng();
+        let mut key = Box::pin(Array::<u8, U32>::default());
 
         rng.fill(key.as_mut_slice());
         KeyConnectorKey(key)
@@ -79,7 +79,7 @@ impl KeyConnectorKey {
             // moved to using `Aes256Cbc_HmacSha256_B64`. However, we still need to support
             // decrypting these old keys.
             EncString::Aes256Cbc_B64 { iv, ref data } => {
-                let legacy_key = Box::pin(GenericArray::clone_from_slice(&self.0));
+                let legacy_key = self.0.clone();
                 crate::aes::decrypt_aes256(&iv, data.clone(), &legacy_key)
                     .map_err(|_| CryptoError::Decrypt)?
             }
@@ -119,13 +119,10 @@ impl TryFrom<UserKeyResponseModel> for KeyConnectorKey {
     fn try_from(s: UserKeyResponseModel) -> Result<Self, Self::Error> {
         let bytes = B64::try_from(s.key).map_err(|_| CryptoError::InvalidKey)?;
 
-        if bytes.as_bytes().len() != 32 {
-            return Err(CryptoError::InvalidKeyLen);
-        }
-
-        Ok(KeyConnectorKey(Box::pin(GenericArray::clone_from_slice(
-            bytes.as_bytes(),
-        ))))
+        Ok(KeyConnectorKey(Box::pin(
+            Array::<u8, U32>::try_from(bytes.as_bytes())
+                .map_err(|_| CryptoError::InvalidKeyLen)?,
+        )))
     }
 }
 
