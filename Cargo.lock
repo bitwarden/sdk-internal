@@ -870,6 +870,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-ipc-shared-auth"
+version = "2.0.0"
+dependencies = [
+ "js-sys",
+ "tsify",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "bitwarden-pm"
 version = "2.0.0"
 dependencies = [

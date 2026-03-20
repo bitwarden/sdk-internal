@@ -33,7 +33,10 @@ impl ClientManagerBackend for SdkManagedBackend {
         clients.get(user_id).cloned()
     }
 
-    async fn set_client(&self, client: bitwarden_core::Client) -> Result<(), ClientHasNoUserIdError> {
+    async fn set_client(
+        &self,
+        client: bitwarden_core::Client,
+    ) -> Result<(), ClientHasNoUserIdError> {
         let user_id = client
             .internal
             .get_user_id()
