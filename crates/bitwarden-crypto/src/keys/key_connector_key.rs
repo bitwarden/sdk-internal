@@ -120,8 +120,7 @@ impl TryFrom<UserKeyResponseModel> for KeyConnectorKey {
         let bytes = B64::try_from(s.key).map_err(|_| CryptoError::InvalidKey)?;
 
         Ok(KeyConnectorKey(Box::pin(
-            Array::<u8, U32>::try_from(bytes.as_bytes())
-                .map_err(|_| CryptoError::InvalidKeyLen)?,
+            Array::<u8, U32>::try_from(bytes.as_bytes()).map_err(|_| CryptoError::InvalidKeyLen)?,
         )))
     }
 }

@@ -146,9 +146,7 @@ impl SymmetricCryptoKey {
     /// WARNING: This function should only be used with a proper cryptographic RNG. If you do not
     /// have a good reason for using this function, use
     /// [SymmetricCryptoKey::make_aes256_cbc_hmac_key] instead.
-    pub(crate) fn make_aes256_cbc_hmac_key_internal(
-        mut rng: impl rand::CryptoRng,
-    ) -> Self {
+    pub(crate) fn make_aes256_cbc_hmac_key_internal(mut rng: impl rand::CryptoRng) -> Self {
         let mut enc_key = Box::pin(Array::<u8, U32>::default());
         let mut mac_key = Box::pin(Array::<u8, U32>::default());
 

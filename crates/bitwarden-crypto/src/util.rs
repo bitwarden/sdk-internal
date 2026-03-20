@@ -1,12 +1,12 @@
 use std::pin::Pin;
 
-use hybrid_array::{Array, ArraySize};
 use hmac::digest::OutputSizeUser;
-use typenum::Unsigned;
+use hybrid_array::{Array, ArraySize};
 use rand::{
     RngExt,
     distr::{Alphanumeric, Distribution, SampleString, StandardUniform},
 };
+use typenum::Unsigned;
 use zeroize::{Zeroize, Zeroizing};
 
 use crate::Result;
@@ -92,8 +92,7 @@ mod tests {
         let prk = &[1, 2, 3, 4, 5];
         let info = Some("info");
 
-        let result: Result<Pin<Box<Array<u8, U64>>>, HkdfExpandError> =
-            hkdf_expand(prk, info);
+        let result: Result<Pin<Box<Array<u8, U64>>>, HkdfExpandError> = hkdf_expand(prk, info);
 
         assert!(matches!(result, Err(HkdfExpandError::InvalidInputLegth)));
     }
@@ -108,8 +107,7 @@ mod tests {
 
         // HKDF-SHA256 can produce at most 255 * 32 = 8160 bytes, requesting more should fail
         type TooLarge = typenum::U8192;
-        let result: Result<Pin<Box<Array<u8, TooLarge>>>, HkdfExpandError> =
-            hkdf_expand(prk, info);
+        let result: Result<Pin<Box<Array<u8, TooLarge>>>, HkdfExpandError> = hkdf_expand(prk, info);
 
         assert!(matches!(result, Err(HkdfExpandError::InvalidOutputLength)));
     }

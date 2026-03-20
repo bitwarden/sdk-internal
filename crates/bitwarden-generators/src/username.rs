@@ -1,10 +1,6 @@
 use bitwarden_crypto::EFF_LONG_WORD_LIST;
 use bitwarden_error::bitwarden_error;
-use rand::{
-    Rng, RngExt,
-    distr::Distribution,
-    seq::IndexedRandom,
-};
+use rand::{Rng, RngExt, distr::Distribution, seq::IndexedRandom};
 use reqwest::StatusCode;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

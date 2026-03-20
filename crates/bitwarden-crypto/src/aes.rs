@@ -6,8 +6,8 @@
 //! [KeyEncryptable][crate::KeyEncryptable] & [KeyDecryptable][crate::KeyDecryptable] instead.
 
 use aes::cipher::{BlockModeDecrypt, BlockModeEncrypt, KeyIvInit, block_padding::Pkcs7};
-use hybrid_array::Array;
 use hmac::{KeyInit, Mac};
+use hybrid_array::Array;
 use subtle::ConstantTimeEq;
 use typenum::U32;
 
@@ -32,7 +32,7 @@ pub(crate) fn decrypt_aes256(
     let mut data = data;
     let decrypted_key_slice = cbc::Decryptor::<aes::Aes256>::new(key, iv.into())
         .decrypt_padded::<Pkcs7>(&mut data)
-            .map_err(|_| DecryptError {})?;
+        .map_err(|_| DecryptError {})?;
 
     // Data is decrypted in place and returns a subslice of the original Vec, to avoid cloning it,
     // we truncate to the subslice length
@@ -87,8 +87,8 @@ fn encrypt_aes256_internal(
 ) -> ([u8; 16], Vec<u8>) {
     let mut iv = [0u8; 16];
     rng.fill_bytes(&mut iv);
-    let data = cbc::Encryptor::<aes::Aes256>::new(key, &iv.into())
-        .encrypt_padded_vec::<Pkcs7>(data_dec);
+    let data =
+        cbc::Encryptor::<aes::Aes256>::new(key, &iv.into()).encrypt_padded_vec::<Pkcs7>(data_dec);
 
     (iv, data)
 }
