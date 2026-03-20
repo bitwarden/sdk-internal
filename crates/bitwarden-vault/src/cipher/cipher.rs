@@ -682,7 +682,7 @@ impl Cipher {
     ///   key
     /// * `ciphers_key` - The encrypted cipher key
     #[instrument(err, skip_all)]
-    pub(super) fn decrypt_cipher_key(
+    pub(crate) fn decrypt_cipher_key(
         ctx: &mut KeyStoreContext<KeySlotIds>,
         key: SymmetricKeySlotId,
         ciphers_key: &Option<EncString>,
