@@ -32,6 +32,7 @@ bitwarden-commercial-vault = { workspace = true, optional = true, features = [
 ] }
 bitwarden-core = { workspace = true, features = ["wasm", "internal"] }
 bitwarden-crypto = { workspace = true, features = ["wasm"] }
+bitwarden-encoding.workspace = true
 bitwarden-error = { workspace = true }
 bitwarden-ipc = { workspace = true, features = ["wasm"] }
 bitwarden-pm = { workspace = true, features = ["wasm"] }
@@ -41,11 +42,15 @@ bitwarden-state = { workspace = true, features = ["wasm"] }
 bitwarden-threading = { workspace = true }
 bitwarden-user-crypto-management = { workspace = true, features = ["wasm"] }
 bitwarden-vault = { workspace = true, features = ["wasm"] }
+ciborium = "0.2.2"
 console_error_panic_hook = "0.1.7"
 rand = { workspace = true }
 rsa = { workspace = true }
 serde = { workspace = true }
+serde-wasm-bindgen.workspace = true
+serde_bytes.workspace = true
 sha1 = { workspace = true }
+tokio.workspace = true
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-web = { version = "0.1.3" }
