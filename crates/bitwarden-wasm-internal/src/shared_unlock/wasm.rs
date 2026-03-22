@@ -4,7 +4,6 @@ use bitwarden_core::UserId;
 use bitwarden_encoding::B64;
 use bitwarden_ipc::{Endpoint, OutgoingMessage};
 use bitwarden_threading::cancellation_token::CancellationToken;
-use tracing::info;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 use wasm_bindgen_futures::{js_sys, spawn_local};
 
@@ -320,8 +319,6 @@ impl SharedUnlockLeader {
         let internal_lock_management = InternalWasmUserLockManagement {
             inner: lock_management,
         };
-        let users = internal_lock_management.list_users().await;
-        tracing::info!("SharedUnlockLeader: Found users: {:?}", users);
         let cancellation_token = CancellationToken::new();
         let subscription = ipc_client.subscribe().await?;
         let leader = Leader::create(internal_lock_management, WasmSender::new(ipc_client));
@@ -338,7 +335,6 @@ impl SharedUnlockLeader {
         let cancellation_token = self.cancellation_token.clone();
         let subscription = Arc::clone(&self.subscription);
         let leader = Arc::clone(&self.leader);
-        info!("SharedUnlockLeader: Starting leader with subscription to IPC messages");
 
         spawn_local(async move {
             loop {
@@ -353,11 +349,9 @@ impl SharedUnlockLeader {
                     } => {
                         match result {
                             Ok(incoming_message) => {
-                                info!("SharedUnlockLeader: Incoming message from {:?}: {:?}", incoming_message.source, incoming_message.payload);
                                 let source = incoming_message.source;
                                 match Message::from_cbor(incoming_message.payload.as_slice()) {
                                     Ok(message) => {
-                                        info!("SharedUnlockLeader: Decoded message from {:?}: {:?}", source, message);
                                         if let Err(error) = leader.receive_message(message, source).await {
                                             tracing::error!(?error, "Failed to handle shared unlock leader message");
                                         }

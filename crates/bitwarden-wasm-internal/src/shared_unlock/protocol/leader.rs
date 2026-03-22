@@ -30,10 +30,10 @@ impl FollowerSessions {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-        info!(
-            "Leader: upserting follower session for endpoint {:?}",
-            endpoint
-        );
+        if !sessions.contains_key(&endpoint) {
+            info!("shared unlock client connected {:?}", endpoint);
+        }
+
         sessions.insert(
             endpoint,
             FollowerSession {
@@ -57,14 +57,14 @@ impl FollowerSessions {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-        let before = sessions.len();
         let stale_after_millis = stale_after.as_millis() as u64;
+        for (endpoint, session) in sessions.iter() {
+            if now.saturating_sub(session.last_seen_at) > stale_after_millis {
+                info!("shared unlock client {:?} is stale, removing", endpoint);
+            }
+        }
         sessions
             .retain(|_, session| now.saturating_sub(session.last_seen_at) <= stale_after_millis);
-        let removed = before.saturating_sub(sessions.len());
-        if removed > 0 {
-            info!("Leader: pruned {} stale follower sessions", removed);
-        }
     }
 }
 
@@ -85,10 +85,6 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
 
     fn broadcast_to_active_followers(&self, message: Message) {
         let endpoints = self.follower_sessions.active_endpoints();
-        info!(
-            "Leader: broadcasting to {} active followers",
-            endpoints.len()
-        );
         for endpoint in endpoints {
             self.message_sender.send_message(message.clone(), endpoint);
         }
@@ -99,16 +95,11 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
         message: Message,
         sender: bitwarden_ipc::Endpoint,
     ) -> Result<(), ()> {
-        info!("Leader: received message from {:?}: {:?}", sender, message);
         match message {
             Message::LockStateUpdate {
                 user_id,
                 lock_state: LockState::Locked,
             } => {
-                info!(
-                    "Leader: received lock state update (Locked) for user {:?} from {:?}",
-                    user_id, sender
-                );
                 self.lock_system.lock_user(user_id).await?;
                 let response = Message::LockStateUpdate {
                     user_id,
@@ -121,10 +112,6 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                 user_id,
                 lock_state: LockState::Unlocked { user_key },
             } => {
-                info!(
-                    "Leader: received lock state update (Unlocked) for user {:?} from {:?}",
-                    user_id, sender
-                );
                 self.lock_system
                     .unlock_user(user_id, user_key.clone())
                     .await?;
@@ -139,10 +126,6 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                 user_id,
                 lock_state,
             } => {
-                info!(
-                    "Leader: received StartSession for user {:?} from {:?}",
-                    user_id, sender
-                );
                 self.follower_sessions
                     .upsert(sender, get_current_timestamp());
 
@@ -167,10 +150,6 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                 Ok(())
             }
             Message::HeartBeat { user_id } => {
-                info!(
-                    "Leader: received heartbeat for user {:?} from {:?}",
-                    user_id, sender
-                );
                 self.follower_sessions
                     .upsert(sender, get_current_timestamp());
 
@@ -185,7 +164,6 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
     pub async fn handle_device_event(&self, event: DeviceEvent) -> Result<(), ()> {
         match event {
             DeviceEvent::ManualLock { user_id } => {
-                info!("Leader: broadcasting manual lock for user {:?}", user_id);
                 let message = Message::LockStateUpdate {
                     user_id,
                     lock_state: LockState::Locked,
@@ -193,7 +171,6 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                 self.broadcast_to_active_followers(message);
             }
             DeviceEvent::ManualUnlock { user_id, user_key } => {
-                info!("Leader: broadcasting manual unlock for user {:?}", user_id);
                 let message = Message::LockStateUpdate {
                     user_id,
                     lock_state: LockState::Unlocked {
@@ -203,7 +180,6 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                 self.broadcast_to_active_followers(message);
             }
             DeviceEvent::Timer => {
-                info!("Leader: pruning stale follower sessions");
                 self.follower_sessions
                     .prune_stale(get_current_timestamp(), FOLLOWER_STALE_AFTER);
             }
