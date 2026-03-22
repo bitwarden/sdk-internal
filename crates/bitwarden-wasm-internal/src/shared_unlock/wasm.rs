@@ -4,6 +4,7 @@ use bitwarden_core::UserId;
 use bitwarden_encoding::B64;
 use bitwarden_ipc::{Endpoint, OutgoingMessage};
 use bitwarden_threading::cancellation_token::CancellationToken;
+use tracing::info;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 use wasm_bindgen_futures::{js_sys, spawn_local};
 
@@ -38,11 +39,11 @@ extern "C" {
     async fn get_client_name(this: &WasmDriverModule) -> Result<JsValue, JsValue>;
 }
 
-struct InternalWasmUserLockManagement {
-    inner: WasmDriverModule,
+struct WasmSharedUnlockDriver {
+    inner: Arc<WasmDriverModule>,
 }
 
-impl UserLockManagement for InternalWasmUserLockManagement {
+impl UserLockManagement for WasmSharedUnlockDriver {
     async fn lock_user(&self, user_id: UserId) -> Result<(), ()> {
         self.inner.lock_user(user_id).await.map_err(|_| ())
     }
@@ -84,8 +85,13 @@ impl UserLockManagement for InternalWasmUserLockManagement {
     }
 }
 
-impl HeartbeatResponseHandler for InternalWasmUserLockManagement {
+struct WasmDriverHeartbeatResponseHandler {
+    inner: Arc<WasmDriverModule>,
+}
+
+impl HeartbeatResponseHandler for WasmDriverHeartbeatResponseHandler {
     async fn handle_heartbeat(&self, _user_id: UserId) {
+        info!("Received shared unlock heartbeat response for user_id:");
         // Shared unlock heartbeat responses are acknowledged by keeping the session active.
         // We can suppress the vault timeout until the next expected heartbeat to achieve this.
         let until = js_sys::Date::now() + HEARTBEAT_INTERVAL.as_millis() as f64;
@@ -95,7 +101,11 @@ impl HeartbeatResponseHandler for InternalWasmUserLockManagement {
     }
 }
 
-impl LeaderDiscovery for InternalWasmUserLockManagement {
+struct WasmDriverLeaderDiscovery {
+    inner: Arc<WasmDriverModule>,
+}
+
+impl LeaderDiscovery for WasmDriverLeaderDiscovery {
     async fn discover_leader(&self) -> Option<Endpoint> {
         let client_name = match self.inner.get_client_name().await {
             Ok(name) => name.as_string()?,
@@ -164,25 +174,16 @@ impl MessageSender for WasmSender {
     }
 }
 
-struct WasmHeartbeatResponseHandler;
-
-impl HeartbeatResponseHandler for WasmHeartbeatResponseHandler {
-    async fn handle_heartbeat(&self, _user_id: UserId) {
-        // Shared unlock heartbeat responses are acknowledged by keeping the session active.
-        // No additional wasm-side action is required for now.
-    }
-}
-
 #[wasm_bindgen]
 pub struct SharedUnlockFollower {
     subscription: Arc<Mutex<bitwarden_ipc::wasm::JsIpcClientSubscription>>,
     cancellation_token: CancellationToken,
     follower: Arc<
         Follower<
-            InternalWasmUserLockManagement,
+            WasmSharedUnlockDriver,
             WasmSender,
-            WasmLeaderDiscovery,
-            WasmHeartbeatResponseHandler,
+            WasmDriverLeaderDiscovery,
+            WasmDriverHeartbeatResponseHandler,
         >,
     >,
     sender: WasmSender,
@@ -192,15 +193,7 @@ pub struct SharedUnlockFollower {
 pub struct SharedUnlockLeader {
     subscription: Arc<Mutex<bitwarden_ipc::wasm::JsIpcClientSubscription>>,
     cancellation_token: CancellationToken,
-    leader: Arc<Leader<InternalWasmUserLockManagement, WasmSender>>,
-}
-
-pub struct WasmLeaderDiscovery {}
-
-impl LeaderDiscovery for WasmLeaderDiscovery {
-    async fn discover_leader(&self) -> Option<Endpoint> {
-        Some(Endpoint::BrowserBackground)
-    }
+    leader: Arc<Leader<WasmSharedUnlockDriver, WasmSender>>,
 }
 
 #[wasm_bindgen]
@@ -213,12 +206,18 @@ impl SharedUnlockFollower {
         let cancellation_token = CancellationToken::new();
         let subscription = ipc_client.subscribe().await?;
         let sender = WasmSender::new(ipc_client);
+        let driver = Arc::new(lock_management);
+        let lock_management = WasmSharedUnlockDriver {
+            inner: Arc::clone(&driver),
+        };
+        let leader_discovery = WasmDriverLeaderDiscovery {
+            inner: Arc::clone(&driver),
+        };
+        let heartbeat_response_handler = WasmDriverHeartbeatResponseHandler { inner: driver };
         let follower = Follower::create(
-            InternalWasmUserLockManagement {
-                inner: lock_management,
-            },
-            WasmLeaderDiscovery {},
-            WasmHeartbeatResponseHandler,
+            lock_management,
+            leader_discovery,
+            heartbeat_response_handler,
             sender,
         )
         .await;
@@ -316,12 +315,12 @@ impl SharedUnlockLeader {
         ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
         lock_management: WasmDriverModule,
     ) -> Result<Self, bitwarden_ipc::SubscribeError> {
-        let internal_lock_management = InternalWasmUserLockManagement {
-            inner: lock_management,
+        let lock_management = WasmSharedUnlockDriver {
+            inner: Arc::new(lock_management),
         };
         let cancellation_token = CancellationToken::new();
         let subscription = ipc_client.subscribe().await?;
-        let leader = Leader::create(internal_lock_management, WasmSender::new(ipc_client));
+        let leader = Leader::create(lock_management, WasmSender::new(ipc_client));
 
         Ok(Self {
             subscription: Arc::new(Mutex::new(subscription)),
