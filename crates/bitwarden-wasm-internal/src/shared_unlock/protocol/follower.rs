@@ -25,6 +25,17 @@ impl<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery, H: HeartbeatRe
         heartbeat_response_handler: H,
         sender: S,
     ) -> Self {
+        let users: Vec<bitwarden_core::UserId> = lock_system.list_users().await;
+        let leader = leader_discovery.discover_leader().await.unwrap();
+        for user_id in users {
+            let lock_state = lock_system.get_user_lock_state(user_id).await;
+            let message = Message::StartSession {
+                user_id,
+                lock_state,
+            };
+            sender.send_message(message, leader);
+        }
+
         Self {
             lock_system,
             leader_discovery,
