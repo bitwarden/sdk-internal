@@ -12,7 +12,7 @@ pub(crate) use leader::*;
 mod protocol;
 pub(crate) use protocol::*;
 
-pub const HEARTBEAT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
+pub const HEARTBEAT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct UserKey(ByteBuf);

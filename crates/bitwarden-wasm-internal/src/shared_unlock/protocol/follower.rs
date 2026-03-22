@@ -3,6 +3,7 @@ use crate::shared_unlock::protocol::{
     drivers::{HeartbeatResponseHandler, LeaderDiscovery, MessageSender, UserLockManagement},
     protocol::Message,
 };
+use tracing::info;
 
 pub(crate) struct Follower<
     L: UserLockManagement,
@@ -42,15 +43,27 @@ impl<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery, H: HeartbeatRe
                 // The leader is the authoritative state source for the follow, and it should
                 // always overwrite the local state of the follower.
                 let current_state = self.lock_system.get_user_lock_state(user_id).await;
+                info!(
+                    "Follower: received LockStateUpdate for user {:?} with state {:?}, current local state is {:?}",
+                    user_id, lock_state, current_state
+                );
 
                 match (current_state, lock_state) {
                     (LockState::Unlocked { .. }, LockState::Locked) => {
+                        info!(
+                            "Follower: applying authoritative lock for user {:?}",
+                            user_id
+                        );
                         // If the user is currently unlocked and it receives an authoritative lock
                         // state update from the leader that is Locked, then
                         // it should follow, and lock the local state.
                         self.lock_system.lock_user(user_id).await?
                     }
                     (LockState::Locked, LockState::Unlocked { user_key }) => {
+                        info!(
+                            "Follower: applying authoritative unlock for user {:?}",
+                            user_id
+                        );
                         // If the user is currently locked and it receives an authoritative lock
                         // state update from the leader that is Unlocked,
                         // then it should follow, and unlock the local state.
@@ -58,12 +71,17 @@ impl<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery, H: HeartbeatRe
                     }
                     (LockState::Locked, LockState::Locked)
                     | (LockState::Unlocked { .. }, LockState::Unlocked { .. }) => {
+                        info!(
+                            "Follower: lock state already in sync for user {:?}",
+                            user_id
+                        );
                         // If both the current state and the received lock state are the same, then
                         // do nothing, as they are already in sync.
                     }
                 }
             }
             Message::HeartBeat { user_id } => {
+                info!("Follower: received heartbeat for user {:?}", user_id);
                 self.heartbeat_response_handler
                     .handle_heartbeat(user_id)
                     .await;
@@ -79,6 +97,7 @@ impl<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery, H: HeartbeatRe
 
         match event {
             DeviceEvent::ManualLock { user_id } => {
+                info!("Follower: forwarding manual lock for user {:?}", user_id);
                 let message = Message::LockStateUpdate {
                     user_id,
                     lock_state: LockState::Locked,
@@ -86,6 +105,7 @@ impl<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery, H: HeartbeatRe
                 self.sender.send_message(message, leader);
             }
             DeviceEvent::ManualUnlock { user_id, user_key } => {
+                info!("Follower: forwarding manual unlock for user {:?}", user_id);
                 let message = Message::LockStateUpdate {
                     user_id,
                     lock_state: LockState::Unlocked {
@@ -97,6 +117,7 @@ impl<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery, H: HeartbeatRe
             DeviceEvent::Timer => {
                 // For all users that are logged in, send a heartbeat message to the leader.
                 for user_id in self.lock_system.list_users().await {
+                    info!("Follower: sending heartbeat for user {:?}", user_id);
                     let message = Message::HeartBeat { user_id };
                     self.sender.send_message(message, leader);
                 }

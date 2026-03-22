@@ -7,10 +7,14 @@ use crate::{endpoint::Endpoint, serde_utils};
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
+/// An untyped IPC message to be sent to another endpoint.
 pub struct OutgoingMessage {
+    /// Serialized payload bytes.
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
     pub payload: Vec<u8>,
+    /// Destination endpoint for this message.
     pub destination: Endpoint,
+    /// Optional topic used for routing/dispatch.
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
     pub topic: Option<String>,
 }
@@ -18,11 +22,16 @@ pub struct OutgoingMessage {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
+/// An untyped IPC message received from another endpoint.
 pub struct IncomingMessage {
+    /// Serialized payload bytes.
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
     pub payload: Vec<u8>,
+    /// Destination endpoint that received this message.
     pub destination: Endpoint,
+    /// Source endpoint that sent this message.
     pub source: Endpoint,
+    /// Optional topic used for routing/dispatch.
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
     pub topic: Option<String>,
 }

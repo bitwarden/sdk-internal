@@ -213,12 +213,14 @@ impl SharedUnlockFollower {
     ) -> Result<Self, bitwarden_ipc::SubscribeError> {
         let cancellation_token = CancellationToken::new();
         let subscription = ipc_client.subscribe().await?;
+        let sender = WasmSender::new(ipc_client);
         let follower = Follower::create(
             InternalWasmUserLockManagement {
                 inner: lock_management,
             },
             WasmLeaderDiscovery {},
             WasmHeartbeatResponseHandler,
+            sender,
         )
         .await;
 
@@ -275,8 +277,6 @@ impl SharedUnlockFollower {
 
         let cancellation_token = self.cancellation_token.clone();
         let follower = Arc::clone(&self.follower);
-        let sender = self.sender.clone();
-
         spawn_local(async move {
             loop {
                 tokio::select! {
@@ -284,8 +284,8 @@ impl SharedUnlockFollower {
                         tracing::debug!("Shared unlock follower timer cancelled");
                         break;
                     }
-                    _ = tokio::time::sleep(HEARTBEAT_INTERVAL) => {
-                        if let Err(error) = follower.handle_device_event(DeviceEvent::Timer, sender.clone()).await {
+                    _ = wasmtimer::tokio::sleep(HEARTBEAT_INTERVAL) => {
+                        if let Err(error) = follower.handle_device_event(DeviceEvent::Timer).await {
                             tracing::error!(?error, "Failed to handle shared unlock follower timer event");
                         }
                     }
@@ -296,8 +296,7 @@ impl SharedUnlockFollower {
 
     #[wasm_bindgen]
     pub async fn handle_device_event(&self, event: DeviceEvent) {
-        let wasm_sender = WasmSender::new(ipc_client);
-        if let Err(error) = self.follower.handle_device_event(event, wasm_sender).await {
+        if let Err(error) = self.follower.handle_device_event(event).await {
             tracing::error!(
                 ?error,
                 "Failed to handle shared unlock follower device event"
@@ -339,6 +338,7 @@ impl SharedUnlockLeader {
         let cancellation_token = self.cancellation_token.clone();
         let subscription = Arc::clone(&self.subscription);
         let leader = Arc::clone(&self.leader);
+        info!("SharedUnlockLeader: Starting leader with subscription to IPC messages");
 
         spawn_local(async move {
             loop {
@@ -353,10 +353,11 @@ impl SharedUnlockLeader {
                     } => {
                         match result {
                             Ok(incoming_message) => {
-                                info!("Incoming message from {:?}: {:?}", incoming_message.source, incoming_message.payload);
+                                info!("SharedUnlockLeader: Incoming message from {:?}: {:?}", incoming_message.source, incoming_message.payload);
                                 let source = incoming_message.source;
                                 match Message::from_cbor(incoming_message.payload.as_slice()) {
                                     Ok(message) => {
+                                        info!("SharedUnlockLeader: Decoded message from {:?}: {:?}", source, message);
                                         if let Err(error) = leader.receive_message(message, source).await {
                                             tracing::error!(?error, "Failed to handle shared unlock leader message");
                                         }
