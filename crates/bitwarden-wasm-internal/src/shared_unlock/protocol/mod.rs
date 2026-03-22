@@ -1,3 +1,94 @@
+//! # Shared Unlock Protocol
+//!
+//! Synchronizes vault lock state across multiple Bitwarden clients (web, browser extension,
+//! desktop) running in the same session. When a user unlocks their vault on one client, the
+//! unlock propagates to all connected clients.
+//!
+//! ## Leader-Follower Model
+//!
+//! The protocol uses a leader-follower architecture where each client type has exactly one
+//! leader determined by the device hierarchy:
+//!
+//! ```text
+//!   Web Client  ──follows──▶  Browser Extension  ──follows──▶  Desktop App
+//!   CLI Client  ──follows──▶  Desktop App
+//! ```
+//!
+//! - **Leader**: Holds authoritative lock state, broadcasts state changes to all followers.
+//! - **Follower**: Reports local state changes to its leader, applies authoritative updates
+//!   from the leader.
+//!
+//! A client can be both a leader (to clients below it) and a follower (to the client above it)
+//! simultaneously. For example, the browser extension leads web clients while following the
+//! desktop app.
+//!
+//! ## Message Types
+//!
+//! All messages are serialized as CBOR and sent over the IPC transport.
+//!
+//! | Message          | Direction          | Purpose                                           |
+//! |------------------|--------------------|---------------------------------------------------|
+//! | `StartSession`   | Follower → Leader  | Announce presence with current lock state         |
+//! | `LockStateUpdate`| Bidirectional      | Propagate lock/unlock events                      |
+//! | `HeartBeat`      | Bidirectional      | Keep session alive, suppress vault timeout        |
+//!
+//! ## Session Lifecycle
+//!
+//! ### Follower Startup
+//!
+//! ```text
+//!   Follower                          Leader
+//!     │                                 │
+//!     │──StartSession(user, state)─────▶│  Follower announces itself
+//!     │                                 │  Leader applies state if unlocked
+//!     │◀─LockStateUpdate(user, state)───│  Leader responds with authoritative state
+//!     │                                 │
+//! ```
+//!
+//! On startup, the follower sends a `StartSession` for each logged-in user. If the follower
+//! is unlocked and the leader is locked, the leader unlocks using the provided user key.
+//! The leader always responds with a `LockStateUpdate` containing the authoritative state.
+//!
+//! ### Lock/Unlock Propagation
+//!
+//! **User unlocks on follower:**
+//!
+//! ```text
+//!   Follower A                        Leader                         Follower B
+//!     │                                 │                                │
+//!     │──LockStateUpdate(Unlocked)─────▶│                                │
+//!     │                                 │──unlocks locally──             │
+//!     │◀─LockStateUpdate(Unlocked)──────│                                │
+//!     │                                 │──LockStateUpdate(Unlocked)────▶│
+//!     │                                 │                                │──unlocks locally──
+//! ```
+//!
+//! **User locks on leader (via device event):**
+//!
+//! ```text
+//!   Leader                          Follower A                     Follower B
+//!     │                                 │                                │
+//!     │──LockStateUpdate(Locked)───────▶│                                │
+//!     │──LockStateUpdate(Locked)────────┼───────────────────────────────▶│
+//!     │                                 │──locks locally──               │──locks locally──
+//! ```
+//!
+//! ### Heartbeat Keep-Alive
+//!
+//! ```text
+//!   Follower                          Leader
+//!     │                                 │
+//!     │──HeartBeat(user)───────────────▶│  Every N seconds
+//!     │                                 │  Leader updates last-seen timestamp
+//!     │◀─HeartBeat(user)────────────────│  Leader echoes back
+//!     │──suppresses vault timeout──     │
+//!     │                                 │
+//! ```
+//!
+//! The follower sends a `HeartBeat` for each logged-in user every [`HEARTBEAT_INTERVAL`]
+//! On receiving the echo, the follower suppresses its vault timeout timer,
+//! keeping the vault unlocked as long as the session is active. Stale sessions are pruned.
+
 use bitwarden_core::UserId;
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
