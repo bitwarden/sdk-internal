@@ -100,6 +100,9 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                 user_id,
                 lock_state: LockState::Locked,
             } => {
+                self.follower_sessions
+                    .upsert(sender, get_current_timestamp());
+
                 self.lock_system.lock_user(user_id).await?;
                 let response = Message::LockStateUpdate {
                     user_id,
@@ -112,6 +115,9 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                 user_id,
                 lock_state: LockState::Unlocked { user_key },
             } => {
+                self.follower_sessions
+                    .upsert(sender, get_current_timestamp());
+
                 self.lock_system
                     .unlock_user(user_id, user_key.clone())
                     .await?;
