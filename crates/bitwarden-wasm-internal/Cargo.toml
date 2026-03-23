@@ -60,5 +60,8 @@ wasm-bindgen-futures = { workspace = true }
 wasmtimer = "0.4.3"
 web-sys = "0.3.91"
 
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt"] }
+
 [lints]
 workspace = true
