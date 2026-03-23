@@ -578,11 +578,7 @@ impl TryFrom<SendResponseModel> for Send {
             }
         };
         Ok(Send {
-            id: Some(
-                send.id
-                    .map(SendId::new)
-                    .unwrap_or_else(|| SendId::new(Uuid::new_v4())),
-            ),
+            id: send.id.map(SendId::new),
             access_id: send.access_id,
             name: require!(send.name).parse()?,
             notes: EncString::try_from_optional(send.notes)?,
