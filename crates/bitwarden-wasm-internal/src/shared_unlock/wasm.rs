@@ -1,9 +1,10 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use bitwarden_core::UserId;
 use bitwarden_encoding::B64;
 use bitwarden_ipc::{Endpoint, OutgoingMessage};
 use bitwarden_threading::cancellation_token::CancellationToken;
+use tokio::sync::Mutex;
 use tracing::info;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 use wasm_bindgen_futures::{js_sys, spawn_local};
@@ -186,7 +187,6 @@ pub struct SharedUnlockFollower {
             WasmDriverHeartbeatResponseHandler,
         >,
     >,
-    sender: WasmSender,
 }
 
 #[wasm_bindgen]
@@ -226,7 +226,6 @@ impl SharedUnlockFollower {
             subscription: Arc::new(Mutex::new(subscription)),
             cancellation_token,
             follower: Arc::new(follower),
-            sender: WasmSender::new(ipc_client),
         })
     }
 
@@ -244,10 +243,7 @@ impl SharedUnlockFollower {
                         break;
                     }
                     result = async {
-                        let mut subscription = match subscription.lock() {
-                            Ok(guard) => guard,
-                            Err(poisoned) => poisoned.into_inner(),
-                        };
+                        let mut subscription = subscription.lock().await;
                         subscription.receive(None).await
                     } => {
                         match result {
@@ -343,7 +339,7 @@ impl SharedUnlockLeader {
                         break;
                     }
                     result = async {
-                        let mut subscription = subscription.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                        let mut subscription = subscription.lock().await;
                         subscription.receive(None).await
                     } => {
                         match result {
@@ -372,7 +368,7 @@ impl SharedUnlockLeader {
     }
 
     #[wasm_bindgen]
-    pub async fn handle_device_event(&self, event: DeviceEvent) {
+    pub fn handle_device_event(&self, event: DeviceEvent) {
         if let Err(error) = self.leader.handle_device_event(event) {
             tracing::error!(?error, "Failed to handle shared unlock leader device event");
         }

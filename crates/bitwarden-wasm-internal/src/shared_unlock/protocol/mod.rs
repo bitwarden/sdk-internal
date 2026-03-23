@@ -100,8 +100,8 @@ mod follower;
 pub(crate) use follower::*;
 mod leader;
 pub(crate) use leader::*;
-mod protocol;
-pub(crate) use protocol::*;
+mod message;
+pub(crate) use message::*;
 
 pub const HEARTBEAT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
 

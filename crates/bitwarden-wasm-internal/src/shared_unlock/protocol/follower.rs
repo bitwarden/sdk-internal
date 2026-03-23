@@ -1,7 +1,6 @@
 use crate::shared_unlock::protocol::{
-    DeviceEvent, LockState,
+    DeviceEvent, LockState, Message,
     drivers::{HeartbeatResponseHandler, LeaderDiscovery, MessageSender, UserLockManagement},
-    protocol::Message,
 };
 
 pub(crate) struct Follower<
@@ -37,7 +36,10 @@ impl<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery, H: HeartbeatRe
 
     async fn start_sessions(lock_system: &L, leader_discovery: &D, sender: &S) {
         let users: Vec<bitwarden_core::UserId> = lock_system.list_users().await;
-        let leader = leader_discovery.discover_leader().await.unwrap();
+        let leader = leader_discovery
+            .discover_leader()
+            .await
+            .expect("leader discovery should return a leader");
 
         for user_id in users {
             let lock_state = lock_system.get_user_lock_state(user_id).await;

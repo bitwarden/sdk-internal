@@ -7,9 +7,8 @@ use bitwarden_core::UserId;
 use bitwarden_ipc::Endpoint;
 
 use super::{
-    DeviceEvent, Follower, Leader, LockState, UserKey,
+    DeviceEvent, Follower, Leader, LockState, Message, UserKey,
     drivers::{HeartbeatResponseHandler, LeaderDiscovery, MessageSender, UserLockManagement},
-    protocol::Message,
 };
 
 #[derive(Clone)]

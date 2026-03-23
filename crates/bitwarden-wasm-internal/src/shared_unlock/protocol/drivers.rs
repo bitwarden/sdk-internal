@@ -2,7 +2,7 @@
 
 use bitwarden_core::UserId;
 
-use crate::shared_unlock::protocol::{LockState, UserKey, protocol::Message};
+use crate::shared_unlock::protocol::{LockState, Message, UserKey};
 
 /// Trait that implements managing the lock state for users in the application
 pub trait UserLockManagement {

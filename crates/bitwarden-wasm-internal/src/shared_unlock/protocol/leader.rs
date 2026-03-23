@@ -3,9 +3,8 @@ use std::{collections::HashMap, sync::Mutex, time::Duration};
 use tracing::info;
 
 use crate::shared_unlock::protocol::{
-    DeviceEvent, LockState, UserKey,
+    DeviceEvent, LockState, Message, UserKey,
     drivers::{MessageSender, UserLockManagement},
-    protocol::Message,
 };
 
 const FOLLOWER_STALE_AFTER: Duration = Duration::from_secs(120);
@@ -164,7 +163,6 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                 self.message_sender.send_message(response, sender);
                 Ok(())
             }
-            _ => Ok(()),
         }
     }
 
