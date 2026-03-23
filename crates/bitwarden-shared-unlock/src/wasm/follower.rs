@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use bitwarden_threading::cancellation_token::CancellationToken;
+use bitwarden_threading::{ThreadBoundRunner, cancellation_token::CancellationToken};
 use tokio::sync::Mutex;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen_futures::spawn_local;
@@ -38,14 +38,10 @@ impl SharedUnlockFollower {
         let cancellation_token = CancellationToken::new();
         let subscription = ipc_client.subscribe().await?;
         let sender = WasmSender::new(ipc_client);
-        let driver = Arc::new(lock_management);
-        let lock_management = WasmSharedUnlockDriver {
-            inner: Arc::clone(&driver),
-        };
-        let leader_discovery = WasmDriverLeaderDiscovery {
-            inner: Arc::clone(&driver),
-        };
-        let heartbeat_response_handler = WasmDriverHeartbeatResponseHandler { inner: driver };
+        let runner = ThreadBoundRunner::new(lock_management);
+        let lock_management = WasmSharedUnlockDriver::new(runner.clone());
+        let leader_discovery = WasmDriverLeaderDiscovery::new(runner.clone());
+        let heartbeat_response_handler = WasmDriverHeartbeatResponseHandler::new(runner);
         let follower = Follower::create(
             lock_management,
             leader_discovery,

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use bitwarden_threading::cancellation_token::CancellationToken;
+use bitwarden_threading::{ThreadBoundRunner, cancellation_token::CancellationToken};
 use tokio::sync::Mutex;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen_futures::spawn_local;
@@ -25,9 +25,8 @@ impl SharedUnlockLeader {
         ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
         lock_management: WasmDriverModule,
     ) -> Result<Self, bitwarden_ipc::SubscribeError> {
-        let lock_management = WasmSharedUnlockDriver {
-            inner: Arc::new(lock_management),
-        };
+        let runner = ThreadBoundRunner::new(lock_management);
+        let lock_management = WasmSharedUnlockDriver::new(runner);
         let cancellation_token = CancellationToken::new();
         let subscription = ipc_client.subscribe().await?;
         let leader = Leader::create(lock_management, WasmSender::new(ipc_client));

@@ -15,7 +15,7 @@ keywords.workspace = true
 [features]
 wasm = [
     "dep:bitwarden-encoding",
-    "dep:bitwarden-threading",
+    "bitwarden-threading/wasm",
     "dep:tokio",
     "dep:tsify",
     "dep:wasm-bindgen",
