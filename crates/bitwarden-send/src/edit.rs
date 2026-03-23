@@ -150,16 +150,13 @@ pub(super) async fn edit_send<R: Repository<Send> + ?Sized>(
     key_store: &KeyStore<KeyIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
-    send_id: Uuid,
+    send_id: SendId,
     request: SendEditRequest,
 ) -> Result<SendView, EditSendError> {
     let id = send_id.to_string();
 
     // Retrieve the existing send to get its key (keys cannot be modified during edit)
-    let existing_send = repository
-        .get(SendId::new(send_id))
-        .await?
-        .ok_or(ItemNotFoundError)?;
+    let existing_send = repository.get(send_id).await?.ok_or(ItemNotFoundError)?;
 
     // Decrypt to get the key - we only need the key field
     let existing_send_view: SendView = key_store.decrypt(&existing_send)?;
@@ -179,14 +176,14 @@ pub(super) async fn edit_send<R: Repository<Send> + ?Sized>(
     let send: Send = resp.try_into()?;
 
     // Verify the server returned the correct send ID
-    if send.id != Some(crate::send::SendId::new(send_id)) {
+    if send.id != Some(send_id) {
         return Err(EditSendError::IdMismatch {
-            expected: send_id,
+            expected: send_id.into(),
             returned: send.id.map(Into::into),
         });
     }
 
-    repository.set(SendId::new(send_id), send.clone()).await?;
+    repository.set(send_id, send.clone()).await?;
 
     Ok(key_store.decrypt(&send)?)
 }
@@ -282,7 +279,7 @@ mod tests {
             &store,
             &api_client,
             &repository,
-            send_id,
+            SendId::new(send_id),
             SendEditRequest {
                 name: "updated".to_string(),
                 notes: Some("updated notes".to_string()),
@@ -340,7 +337,7 @@ mod tests {
             &store,
             &api_client,
             &repository,
-            send_id,
+            SendId::new(send_id),
             SendEditRequest {
                 name: "test".to_string(),
                 notes: None,
@@ -422,7 +419,7 @@ mod tests {
             &store,
             &api_client,
             &repository,
-            send_id,
+            SendId::new(send_id),
             SendEditRequest {
                 name: "test".to_string(),
                 notes: None,

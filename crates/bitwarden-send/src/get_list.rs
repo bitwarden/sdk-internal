@@ -3,7 +3,6 @@ use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
-use uuid::Uuid;
 
 use crate::{Send, SendId, SendView, error::ItemNotFoundError};
 
@@ -24,12 +23,9 @@ pub enum GetSendError {
 pub(super) async fn get_send(
     store: &KeyStore<KeyIds>,
     repository: &dyn Repository<Send>,
-    id: Uuid,
+    id: SendId,
 ) -> Result<SendView, GetSendError> {
-    let send = repository
-        .get(SendId::new(id))
-        .await?
-        .ok_or(ItemNotFoundError)?;
+    let send = repository.get(id).await?.ok_or(ItemNotFoundError)?;
 
     Ok(store.decrypt(&send)?)
 }
@@ -96,7 +92,9 @@ mod tests {
         repository.set(SendId::new(send_id), send).await.unwrap();
 
         // Test getting the send
-        let result = get_send(&store, &repository, send_id).await.unwrap();
+        let result = get_send(&store, &repository, SendId::new(send_id))
+            .await
+            .unwrap();
 
         assert_eq!(result.id, Some(crate::send::SendId::new(send_id)));
         assert_eq!(result.name, "Test Send");
@@ -124,7 +122,7 @@ mod tests {
         let repository = MemoryRepository::<Send>::default();
 
         // Try to get a send that doesn't exist
-        let result = get_send(&store, &repository, send_id).await;
+        let result = get_send(&store, &repository, SendId::new(send_id)).await;
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), GetSendError::ItemNotFound(_)));

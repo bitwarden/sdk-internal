@@ -6,15 +6,13 @@ use bitwarden_crypto::{
 };
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
-use uuid::Uuid;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    Send, SendListView, SendView,
+    Send, SendId, SendListView, SendView,
     create::{CreateSendError, SendAddRequest, create_send},
     edit::{EditSendError, SendEditRequest, edit_send},
-    error::ItemNotFoundError,
     get_list::{GetSendError, get_send, list_sends},
 };
 
@@ -159,14 +157,12 @@ impl SendClient {
     /// Edit the [Send] and save it to the server.
     pub async fn edit(
         &self,
-        send_id: String,
+        send_id: SendId,
         request: SendEditRequest,
     ) -> Result<SendView, EditSendError> {
         let key_store = self.client.internal.get_key_store();
         let config = self.client.internal.get_api_configurations();
         let repository = self.get_repository()?;
-        let send_id = Uuid::parse_str(&send_id)
-            .map_err(|_| EditSendError::ItemNotFound(ItemNotFoundError))?;
 
         edit_send(
             key_store,
@@ -187,11 +183,9 @@ impl SendClient {
     }
 
     /// Get a specific [Send] by its ID from state and decrypt it to a [SendView].
-    pub async fn get(&self, send_id: String) -> Result<SendView, GetSendError> {
+    pub async fn get(&self, send_id: SendId) -> Result<SendView, GetSendError> {
         let key_store = self.client.internal.get_key_store();
         let repository = self.get_repository()?;
-        let send_id =
-            Uuid::parse_str(&send_id).map_err(|_| GetSendError::ItemNotFound(ItemNotFoundError))?;
 
         get_send(key_store, repository.as_ref(), send_id).await
     }
