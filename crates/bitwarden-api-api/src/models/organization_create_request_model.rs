@@ -154,6 +154,12 @@ pub struct OrganizationCreateRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub skip_trial: Option<bool>,
+    #[serde(
+        rename = "coupons",
+        alias = "Coupons",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub coupons: Option<Vec<String>>,
 }
 
 impl OrganizationCreateRequestModel {
@@ -190,6 +196,7 @@ impl OrganizationCreateRequestModel {
             is_from_secrets_manager_trial: None,
             initiation_path: None,
             skip_trial: None,
+            coupons: None,
         }
     }
 }

@@ -161,6 +161,7 @@ src/models/collection_response_model.rs
 src/models/collection_response_model_list_response_model.rs
 src/models/collection_type.rs
 src/models/collection_with_id_request_model.rs
+src/models/common_unlock_data_request_model.rs
 src/models/communication_bootstrap_settings.rs
 src/models/communication_settings.rs
 src/models/config_response_model.rs
@@ -433,6 +434,7 @@ src/models/restart_subscription_request.rs
 src/models/restore_secret_version_request_model.rs
 src/models/revoke_access_tokens_request.rs
 src/models/rotate_user_account_keys_and_data_request_model.rs
+src/models/rotate_user_keys_request_model.rs
 src/models/saml2_binding_type.rs
 src/models/saml2_name_id_format.rs
 src/models/saml2_signing_behavior.rs
@@ -523,6 +525,8 @@ src/models/two_factor_web_authn_response_model.rs
 src/models/two_factor_yubi_key_response_model.rs
 src/models/unauthenticated_secret_verification_request_model.rs
 src/models/unlock_data_request_model.rs
+src/models/unlock_method.rs
+src/models/unlock_method_request_model.rs
 src/models/untrust_devices_request_model.rs
 src/models/update_avatar_request_model.rs
 src/models/update_client_organization_request_body.rs
@@ -564,3 +568,4 @@ src/models/web_authn_login_rotate_key_request_model.rs
 src/models/web_authn_prf_decryption_option.rs
 src/models/web_authn_prf_status.rs
 src/models/web_push_auth_request_model.rs
+src/models/wrapped_account_cryptographic_state_request_model.rs
