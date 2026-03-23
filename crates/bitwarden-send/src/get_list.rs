@@ -5,7 +5,7 @@ use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::{Send, SendView, error::ItemNotFoundError};
+use crate::{Send, SendId, SendView, error::ItemNotFoundError};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -26,7 +26,10 @@ pub(super) async fn get_send(
     repository: &dyn Repository<Send>,
     id: Uuid,
 ) -> Result<SendView, GetSendError> {
-    let send = repository.get(id).await?.ok_or(ItemNotFoundError)?;
+    let send = repository
+        .get(SendId::new(id))
+        .await?
+        .ok_or(ItemNotFoundError)?;
 
     Ok(store.decrypt(&send)?)
 }
@@ -90,7 +93,7 @@ mod tests {
         };
         let mut send = store.encrypt(send_view).unwrap();
         send.id = Some(crate::send::SendId::new(send_id));
-        repository.set(send_id, send).await.unwrap();
+        repository.set(SendId::new(send_id), send).await.unwrap();
 
         // Test getting the send
         let result = get_send(&store, &repository, send_id).await.unwrap();
@@ -167,7 +170,10 @@ mod tests {
         };
         let mut send_1 = store.encrypt(send_view_1).unwrap();
         send_1.id = Some(crate::send::SendId::new(send_id_1));
-        repository.set(send_id_1, send_1).await.unwrap();
+        repository
+            .set(SendId::new(send_id_1), send_1)
+            .await
+            .unwrap();
 
         let send_id_2 = uuid!("36afb22c-9c95-4db5-8bac-c21cb204a3f2");
         let send_view_2 = SendView {
@@ -196,7 +202,10 @@ mod tests {
         };
         let mut send_2 = store.encrypt(send_view_2).unwrap();
         send_2.id = Some(crate::send::SendId::new(send_id_2));
-        repository.set(send_id_2, send_2).await.unwrap();
+        repository
+            .set(SendId::new(send_id_2), send_2)
+            .await
+            .unwrap();
 
         // Test listing all sends
         let result = list_sends(&store, &repository).await.unwrap();

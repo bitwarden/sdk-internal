@@ -19,7 +19,7 @@ use uuid::Uuid;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    Send, SendAuthType, SendView, SendViewType,
+    Send, SendAuthType, SendId, SendView, SendViewType,
     error::{ItemNotFoundError, SendParseError},
 };
 
@@ -100,9 +100,9 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
             .request
             .view_type
             .clone()
-            .into_api_models(ctx, send_key)?;
+            .encrypt_composite(ctx, send_key)?;
 
-        let (password, emails) = self.request.auth.auth_data(k.clone());
+        let (password, emails) = self.request.auth.auth_data(&k);
 
         Ok(bitwarden_api_api::models::SendRequestModel {
             r#type: Some(send_type),
@@ -147,7 +147,10 @@ pub(super) async fn edit_send<R: Repository<Send> + ?Sized>(
     let id = send_id.to_string();
 
     // Retrieve the existing send to get its key (keys cannot be modified during edit)
-    let existing_send = repository.get(send_id).await?.ok_or(ItemNotFoundError)?;
+    let existing_send = repository
+        .get(SendId::new(send_id))
+        .await?
+        .ok_or(ItemNotFoundError)?;
 
     // Decrypt to get the key - we only need the key field
     let existing_send_view: SendView = key_store.decrypt(&existing_send)?;
@@ -174,7 +177,7 @@ pub(super) async fn edit_send<R: Repository<Send> + ?Sized>(
         });
     }
 
-    repository.set(send_id, send.clone()).await?;
+    repository.set(SendId::new(send_id), send.clone()).await?;
 
     Ok(key_store.decrypt(&send)?)
 }
@@ -231,7 +234,10 @@ mod tests {
         };
         let mut existing_send = store.encrypt(existing_send_view).unwrap();
         existing_send.id = Some(crate::send::SendId::new(send_id)); // Set the ID after encryption
-        repository.set(send_id, existing_send).await.unwrap();
+        repository
+            .set(SendId::new(send_id), existing_send)
+            .await
+            .unwrap();
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.sends_api
@@ -297,7 +303,7 @@ mod tests {
         );
 
         // Confirm the send was updated in the repository
-        let stored = repository.get(send_id).await.unwrap().unwrap();
+        let stored = repository.get(SendId::new(send_id)).await.unwrap().unwrap();
         assert_eq!(
             store
                 .decrypt::<SymmetricKeyId, Send, SendView>(&stored)
@@ -390,7 +396,10 @@ mod tests {
         };
         let mut existing_send = store.encrypt(existing_send_view).unwrap();
         existing_send.id = Some(crate::send::SendId::new(send_id)); // Set the ID after encryption
-        repository.set(send_id, existing_send).await.unwrap();
+        repository
+            .set(SendId::new(send_id), existing_send)
+            .await
+            .unwrap();
 
         let api_client = ApiClient::new_mocked(move |mock| {
             mock.sends_api.expect_put().returning(move |_id, _model| {

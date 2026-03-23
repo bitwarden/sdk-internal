@@ -14,7 +14,6 @@ use bitwarden_uuid::uuid_newtype;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use uuid::Uuid;
 use zeroize::Zeroizing;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
@@ -120,7 +119,7 @@ pub enum SendAuthType {
     /// Email-based OTP authentication
     Emails {
         /// List of email addresses that will receive OTP codes
-        emails: String,
+        emails: Vec<String>,
     },
 }
 
@@ -139,14 +138,14 @@ impl SendAuthType {
     pub(crate) fn auth_data(&self, k: &[u8]) -> (Option<String>, Option<String>) {
         match self {
             SendAuthType::Password { password } => {
-                let hashed = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
+                let hashed = bitwarden_crypto::pbkdf2(password.as_bytes(), k, SEND_ITERATIONS);
                 (Some(B64::from(hashed.as_slice()).to_string()), None)
             }
             SendAuthType::Emails { emails } => {
                 let emails_str = if emails.is_empty() {
                     None
                 } else {
-                    Some(emails.clone())
+                    Some(emails.join(","))
                 };
                 (None, emails_str)
             }
@@ -241,7 +240,7 @@ pub struct Send {
     pub auth_type: AuthType,
 }
 
-bitwarden_state::register_repository_item!(Uuid => Send, "Send");
+bitwarden_state::register_repository_item!(SendId => Send, "Send");
 
 impl From<Send> for SendWithIdRequestModel {
     fn from(send: Send) -> Self {
@@ -943,7 +942,7 @@ mod tests {
 
     #[test]
     fn test_send_into_send_with_id_request_model() {
-        let send_id = Uuid::parse_str("3d80dd72-2d14-4f26-812c-b0f0018aa144").unwrap();
+        let send_id = "3d80dd72-2d14-4f26-812c-b0f0018aa144".parse().unwrap();
         let revision_date = DateTime::parse_from_rfc3339("2024-01-07T23:56:48Z")
             .unwrap()
             .with_timezone(&Utc);

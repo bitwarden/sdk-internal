@@ -72,9 +72,9 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
         // Derive the shareable send key for encrypting content
         let send_key = Send::derive_shareable_key(ctx, &k)?;
 
-        let (send_type, file, text) = self.view_type.clone().into_api_models(ctx, send_key)?;
+        let (send_type, file, text) = self.view_type.clone().encrypt_composite(ctx, send_key)?;
 
-        let (password, emails) = self.auth.auth_data(k.clone());
+        let (password, emails) = self.auth.auth_data(&k);
 
         Ok(bitwarden_api_api::models::SendRequestModel {
             r#type: Some(send_type),
@@ -124,9 +124,7 @@ pub(super) async fn create_send<R: Repository<Send> + ?Sized>(
 
     let send: Send = resp.try_into()?;
 
-    repository
-        .set(require!(send.id).into(), send.clone())
-        .await?;
+    repository.set(require!(send.id), send.clone()).await?;
 
     Ok(key_store.decrypt(&send)?)
 }
@@ -138,7 +136,7 @@ mod tests {
     use uuid::uuid;
 
     use super::*;
-    use crate::{AuthType, SendTextView, SendType, SendView};
+    use crate::{AuthType, SendId, SendTextView, SendType, SendView};
 
     #[tokio::test]
     async fn test_create_send() {
@@ -242,7 +240,7 @@ mod tests {
         assert_eq!(
             store
                 .decrypt::<SymmetricKeyId, Send, SendView>(
-                    &repository.get(send_id).await.unwrap().unwrap()
+                    &repository.get(SendId::new(send_id)).await.unwrap().unwrap()
                 )
                 .unwrap(),
             result
