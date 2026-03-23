@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Mutex, time::Duration};
 
 use tracing::info;
 
-use crate::shared_unlock::protocol::{
+use crate::{
     DeviceEvent, LockState, Message, UserKey,
     drivers::{MessageSender, UserLockManagement},
 };
@@ -68,7 +68,7 @@ impl FollowerSessions {
     }
 }
 
-pub(crate) struct Leader<L: UserLockManagement, S: MessageSender> {
+pub struct Leader<L: UserLockManagement, S: MessageSender> {
     message_sender: S,
     lock_system: L,
     follower_sessions: FollowerSessions,
@@ -197,7 +197,7 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
 fn get_current_timestamp() -> u64 {
     #[cfg(target_arch = "wasm32")]
     {
-        web_sys::js_sys::Date::now() as u64
+        js_sys::Date::now() as u64
     }
 
     #[cfg(not(target_arch = "wasm32"))]

@@ -5,7 +5,7 @@ mod custom_types;
 mod init;
 mod platform;
 mod pure_crypto;
-mod shared_unlock;
+pub use bitwarden_shared_unlock::wasm::*;
 mod ssh;
 
 pub use bitwarden_ipc::wasm::*;

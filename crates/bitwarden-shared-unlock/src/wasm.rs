@@ -9,7 +9,7 @@ use tracing::info;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 use wasm_bindgen_futures::{js_sys, spawn_local};
 
-use crate::shared_unlock::protocol::{
+use crate::{
     DeviceEvent, Follower, HEARTBEAT_INTERVAL, HeartbeatResponseHandler, Leader, LeaderDiscovery,
     LockState, Message, MessageSender, UserKey, UserLockManagement,
 };

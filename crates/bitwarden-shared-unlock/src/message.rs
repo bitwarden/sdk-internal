@@ -2,7 +2,7 @@ use bitwarden_core::UserId;
 use bitwarden_crypto::EncodingError;
 use serde::{Deserialize, Serialize};
 
-use crate::shared_unlock::protocol::LockState;
+use crate::LockState;
 
 /// The messages sent between the followers and leader
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

@@ -92,16 +92,15 @@
 use bitwarden_core::UserId;
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
-use tsify::Tsify;
 
 mod drivers;
-pub(crate) use drivers::*;
+pub use drivers::*;
 mod follower;
-pub(crate) use follower::*;
+pub use follower::*;
 mod leader;
-pub(crate) use leader::*;
+pub use leader::*;
 mod message;
-pub(crate) use message::*;
+pub use message::*;
 
 pub const HEARTBEAT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
 
@@ -137,8 +136,12 @@ pub enum LockState {
 
 /// The device (client) has several events that need to be reported to the shared unlock system.
 /// This enum represents the events that need to be reported.
-#[derive(Serialize, Deserialize, Tsify)]
-#[tsify(into_wasm_abi, from_wasm_abi)]
+#[derive(Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
 pub enum DeviceEvent {
     /// The user with the given user id has been locked manually in the UI
     ManualLock { user_id: UserId },
@@ -147,3 +150,7 @@ pub enum DeviceEvent {
     /// Runs scheduled every `HEARTBEAT_INTERVAL` to drive keep-alives
     Timer,
 }
+
+/// Re-export types to make sure wasm_bindgen picks them up
+#[cfg(feature = "wasm")]
+pub mod wasm;
