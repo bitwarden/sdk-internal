@@ -373,7 +373,7 @@ impl SharedUnlockLeader {
 
     #[wasm_bindgen]
     pub async fn handle_device_event(&self, event: DeviceEvent) {
-        if let Err(error) = self.leader.handle_device_event(event).await {
+        if let Err(error) = self.leader.handle_device_event(event) {
             tracing::error!(?error, "Failed to handle shared unlock leader device event");
         }
     }

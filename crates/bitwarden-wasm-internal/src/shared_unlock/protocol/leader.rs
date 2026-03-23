@@ -1,4 +1,5 @@
 use std::{collections::HashMap, sync::Mutex, time::Duration};
+
 use tracing::info;
 
 use crate::shared_unlock::protocol::{
@@ -167,7 +168,7 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
         }
     }
 
-    pub async fn handle_device_event(&self, event: DeviceEvent) -> Result<(), ()> {
+    pub fn handle_device_event(&self, event: DeviceEvent) -> Result<(), ()> {
         match event {
             DeviceEvent::ManualLock { user_id } => {
                 let message = Message::LockStateUpdate {

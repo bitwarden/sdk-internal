@@ -15,8 +15,8 @@
 //! ```
 //!
 //! - **Leader**: Holds authoritative lock state, broadcasts state changes to all followers.
-//! - **Follower**: Reports local state changes to its leader, applies authoritative updates
-//!   from the leader.
+//! - **Follower**: Reports local state changes to its leader, applies authoritative updates from
+//!   the leader.
 //!
 //! A client can be both a leader (to clients below it) and a follower (to the client above it)
 //! simultaneously. For example, the browser extension leads web clients while following the

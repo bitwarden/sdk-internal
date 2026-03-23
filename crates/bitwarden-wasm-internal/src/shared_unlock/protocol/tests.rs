@@ -329,7 +329,6 @@ async fn test_leader_lock_broadcasts_to_follower() {
     harness
         .leader
         .handle_device_event(DeviceEvent::ManualLock { user_id: user })
-        .await
         .unwrap();
 
     harness.pump().await;
@@ -353,7 +352,6 @@ async fn test_leader_unlock_broadcasts_to_follower() {
             user_id: user,
             user_key: key.as_bytes().to_vec(),
         })
-        .await
         .unwrap();
 
     harness.pump().await;
