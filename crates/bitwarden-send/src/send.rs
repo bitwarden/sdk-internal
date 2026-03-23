@@ -136,7 +136,7 @@ impl SendAuthType {
 
     /// Returns the password if this is a Password variant, emails if this is an Emails variant, or
     /// None otherwise
-    pub fn auth_data(&self, k: Vec<u8>) -> (Option<String>, Option<String>) {
+    pub(crate) fn auth_data(&self, k: &[u8]) -> (Option<String>, Option<String>) {
         match self {
             SendAuthType::Password { password } => {
                 let hashed = bitwarden_crypto::pbkdf2(password.as_bytes(), &k, SEND_ITERATIONS);
