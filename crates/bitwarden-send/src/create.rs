@@ -35,20 +35,29 @@ pub enum CreateSendError {
     SendParse(#[from] SendParseError),
 }
 
+/// Request model for creating a new Send.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendAddRequest {
+    /// The name of the Send.
     pub name: String,
+    /// Optional notes visible to the sender.
     pub notes: Option<String>,
 
+    /// The type and content of the Send.
     pub view_type: SendViewType,
 
+    /// Maximum number of times the Send can be accessed.
     pub max_access_count: Option<u32>,
+    /// Whether the Send is disabled and cannot be accessed.
     pub disabled: bool,
+    /// Whether to hide the sender's email from recipients.
     pub hide_email: bool,
 
+    /// Date and time when the Send will be permanently deleted.
     pub deletion_date: DateTime<Utc>,
+    /// Optional date and time when the Send expires and can no longer be accessed.
     pub expiration_date: Option<DateTime<Utc>>,
 
     /// Authentication method for accessing this Send.
