@@ -172,20 +172,18 @@ type SendApiModels = (
     Option<Box<bitwarden_api_api::models::SendTextModel>>,
 );
 
-impl SendViewType {
-    /// Converts the SendViewType into API models for creating or editing a Send.
-    /// Returns a tuple of (SendType, optional FileModel, optional TextModel).
-    pub(crate) fn into_api_models(
-        self,
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, SendApiModels> for SendViewType {
+    fn encrypt_composite(
+        &self,
         ctx: &mut KeyStoreContext<KeyIds>,
-        send_key: SymmetricKeyId,
+        key: SymmetricKeyId,
     ) -> Result<SendApiModels, CryptoError> {
         match self {
             SendViewType::File(f) => Ok((
                 bitwarden_api_api::models::SendType::File,
                 Some(Box::new(bitwarden_api_api::models::SendFileModel {
                     id: f.id.clone(),
-                    file_name: Some(f.file_name.encrypt(ctx, send_key)?.to_string()),
+                    file_name: Some(f.file_name.encrypt(ctx, key)?.to_string()),
                     size: f.size.as_ref().and_then(|s| s.parse::<i64>().ok()),
                     size_name: f.size_name.clone(),
                 })),
@@ -198,7 +196,7 @@ impl SendViewType {
                     text: t
                         .text
                         .as_ref()
-                        .map(|txt| txt.encrypt(ctx, send_key))
+                        .map(|txt| txt.encrypt(ctx, key))
                         .transpose()?
                         .map(|e| e.to_string()),
                     hidden: Some(t.hidden),
