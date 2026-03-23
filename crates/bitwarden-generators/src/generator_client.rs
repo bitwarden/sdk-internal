@@ -9,12 +9,12 @@ use crate::{
 };
 
 #[allow(missing_docs)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(all(feature = "wasm", target_arch = "wasm32"), wasm_bindgen)]
 pub struct GeneratorClient {
     client: Client,
 }
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(all(feature = "wasm", target_arch = "wasm32"), wasm_bindgen)]
 impl GeneratorClient {
     fn new(client: Client) -> Self {
         Self { client }
