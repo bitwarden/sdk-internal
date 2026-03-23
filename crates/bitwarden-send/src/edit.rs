@@ -19,7 +19,7 @@ use uuid::Uuid;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    Send, SendAuthType, SendId, SendView, SendViewType,
+    EmptyEmailListError, Send, SendAuthType, SendId, SendView, SendViewType,
     error::{ItemNotFoundError, SendParseError},
 };
 
@@ -33,6 +33,8 @@ pub enum EditSendError {
     Crypto(#[from] CryptoError),
     #[error(transparent)]
     Api(#[from] ApiError),
+    #[error(transparent)]
+    EmptyEmailList(#[from] EmptyEmailListError),
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
     #[error(transparent)]
@@ -150,6 +152,8 @@ pub(super) async fn edit_send<R: Repository<Send> + ?Sized>(
     send_id: SendId,
     request: SendEditRequest,
 ) -> Result<SendView, EditSendError> {
+    request.auth.validate()?;
+
     let id = send_id.to_string();
 
     // Retrieve the existing send to get its key (keys cannot be modified during edit)

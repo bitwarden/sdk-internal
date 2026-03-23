@@ -17,7 +17,7 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::{Send, SendAuthType, SendParseError, SendView, SendViewType};
+use crate::{EmptyEmailListError, Send, SendAuthType, SendParseError, SendView, SendViewType};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -27,6 +27,8 @@ pub enum CreateSendError {
     Api(#[from] ApiError),
     #[error(transparent)]
     Crypto(#[from] CryptoError),
+    #[error(transparent)]
+    EmptyEmailList(#[from] EmptyEmailListError),
     #[error(transparent)]
     MissingField(#[from] MissingFieldError),
     #[error(transparent)]
@@ -120,6 +122,8 @@ pub(super) async fn create_send<R: Repository<Send> + ?Sized>(
     repository: &R,
     request: SendAddRequest,
 ) -> Result<SendView, CreateSendError> {
+    request.auth.validate()?;
+
     let send_request = key_store.encrypt(request)?;
 
     let resp = api_client

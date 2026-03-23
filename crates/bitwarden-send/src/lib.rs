@@ -20,6 +20,6 @@ pub use send_client::{
 };
 mod send;
 pub use send::{
-    AuthType, Send, SendAuthType, SendFileView, SendId, SendListView, SendTextView, SendType,
-    SendView, SendViewType,
+    AuthType, EmptyEmailListError, Send, SendAuthType, SendFileView, SendId, SendListView,
+    SendTextView, SendType, SendView, SendViewType,
 };

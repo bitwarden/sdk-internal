@@ -14,6 +14,7 @@ use bitwarden_uuid::uuid_newtype;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use thiserror::Error;
 use zeroize::Zeroizing;
 #[cfg(feature = "wasm")]
 use {tsify::Tsify, wasm_bindgen::prelude::*};
@@ -22,6 +23,11 @@ use crate::SendParseError;
 pub const SEND_ITERATIONS: u32 = 100_000;
 
 uuid_newtype!(pub SendId);
+
+/// Error returned when `SendAuthType::Emails` is constructed with an empty email list.
+#[derive(Debug, Error)]
+#[error("Email authentication requires at least one email address")]
+pub struct EmptyEmailListError;
 
 /// File-based send content
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -134,6 +140,17 @@ impl SendAuthType {
             SendAuthType::Password { .. } => AuthType::Password,
             SendAuthType::Emails { .. } => AuthType::Email,
         }
+    }
+
+    /// Validates that the auth configuration is valid.
+    /// Returns an error if `Emails` is used with an empty list.
+    pub(crate) fn validate(&self) -> Result<(), EmptyEmailListError> {
+        if let SendAuthType::Emails { emails } = self
+            && emails.is_empty()
+        {
+            return Err(EmptyEmailListError);
+        }
+        Ok(())
     }
 
     /// Returns the password if this is a Password variant, emails if this is an Emails variant, or
