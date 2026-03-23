@@ -873,6 +873,8 @@ dependencies = [
 name = "bitwarden-ipc-shared-auth"
 version = "2.0.0"
 dependencies = [
+ "bitwarden-client-manager",
+ "bitwarden-ipc",
  "js-sys",
  "tsify",
  "wasm-bindgen",
