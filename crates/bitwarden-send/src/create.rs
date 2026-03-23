@@ -61,9 +61,6 @@ pub struct SendAddRequest {
     pub expiration_date: Option<DateTime<Utc>>,
 
     /// Authentication method for accessing this Send.
-    /// Use `SendAuthType::None` for no authentication,
-    /// `SendAuthType::Password` for password protection, or
-    /// `SendAuthType::Emails` for email OTP authentication.
     pub auth: SendAuthType,
 }
 
@@ -137,6 +134,7 @@ pub(super) async fn create_send<R: Repository<Send> + ?Sized>(
 
     Ok(key_store.decrypt(&send)?)
 }
+
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::{apis::ApiClient, models::SendResponseModel};

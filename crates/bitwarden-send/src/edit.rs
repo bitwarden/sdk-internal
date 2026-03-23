@@ -74,9 +74,6 @@ pub struct SendEditRequest {
     pub expiration_date: Option<DateTime<Utc>>,
 
     /// Authentication method for accessing this Send.
-    /// Use `SendAuthType::None` for no authentication,
-    /// `SendAuthType::Password` for password protection, or
-    /// `SendAuthType::Emails` for email OTP authentication.
     pub auth: SendAuthType,
 }
 

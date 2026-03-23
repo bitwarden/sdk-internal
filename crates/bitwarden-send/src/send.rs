@@ -29,8 +29,11 @@ uuid_newtype!(pub SendId);
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct SendFile {
+    /// The file's ID
     pub id: Option<String>,
+    /// The encrypted file name
     pub file_name: EncString,
+    /// The file size in bytes as a string
     pub size: Option<String>,
     /// Readable size, ex: "4.2 KB" or "1.43 GB"
     pub size_name: Option<String>,
