@@ -154,32 +154,29 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                 info!(?sender, %user_id, "Received start session from follower");
                 self.follower_sessions
                     .upsert(sender, get_current_timestamp());
+                let self_lock_state = self.lock_system.get_user_lock_state(user_id).await;
 
-                let response_lock_state = match lock_state {
-                    LockState::Unlocked { user_key } => {
+                match (lock_state, self_lock_state.clone()) {
+                    (LockState::Unlocked { user_key }, LockState::Locked { .. }) => {
                         self.lock_system
                             .unlock_user(user_id, user_key.clone())
                             .await
                             .inspect_err(
                                 |_| warn!(%user_id, "Failed to unlock user during start session"),
                             )?;
-                        info!(%user_id, "User unlocked during start session");
-                        LockState::Unlocked { user_key }
                     }
-                    LockState::Locked => {
-                        self.lock_system.lock_user(user_id).await.inspect_err(
-                            |_| warn!(%user_id, "Failed to lock user during start session"),
-                        )?;
-                        info!(%user_id, "User locked during start session");
-                        LockState::Locked
+                    (LockState::Locked, LockState::Unlocked { .. }) => {
+                        let response = Message::LockStateUpdate {
+                            user_id,
+                            lock_state: self_lock_state,
+                        };
+                        self.message_sender.send_message(response, sender);
+                    }
+                    _ => {
+                        // States are already in sync, no action needed
                     }
                 };
 
-                let response = Message::LockStateUpdate {
-                    user_id,
-                    lock_state: response_lock_state,
-                };
-                self.message_sender.send_message(response, sender);
                 Ok(())
             }
             Message::HeartBeat { user_id } => {
