@@ -59,8 +59,11 @@ wasm-opt -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/node/bitwarden_wasm_
 
 # Transpile to JS
 wasm2js -Os ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js
-npx terser ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js
+if [ -n "$RELEASE_FLAG" ]; then
+  npx terser ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js -o ./crates/bitwarden-wasm-internal/${NPM_FOLDER}/bitwarden_wasm_internal_bg.wasm.js
+fi
 
 # Typecheck the generated TypeScript definitions
 cd crates/bitwarden-wasm-internal/${NPM_FOLDER}
+npm ci
 npx tsc --noEmit --lib es2020,dom,ESNext.Disposable bitwarden_wasm_internal.d.ts

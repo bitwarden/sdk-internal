@@ -281,6 +281,12 @@ pub struct OrganizationLicense {
     )]
     pub use_disable_sm_ads_for_users: Option<bool>,
     #[serde(
+        rename = "useMyItems",
+        alias = "UseMyItems",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub use_my_items: Option<bool>,
+    #[serde(
         rename = "hash",
         alias = "Hash",
         skip_serializing_if = "Option::is_none"
@@ -348,6 +354,7 @@ impl OrganizationLicense {
             use_admin_sponsored_families: None,
             use_automatic_user_confirmation: None,
             use_disable_sm_ads_for_users: None,
+            use_my_items: None,
             hash: None,
             signature: None,
             token: None,

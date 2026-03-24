@@ -141,8 +141,6 @@ mod tests {
         Configuration {
             base_path: format!("http://{}/identity", mock_server.address()),
             client,
-            user_agent: Some("test_user_agent".to_owned()),
-            oauth_access_token: None,
         }
     }
 
@@ -352,8 +350,6 @@ mod tests {
         let identity_config = Configuration {
             base_path: "http://127.0.0.1:1/identity".to_string(), // Port 1 will refuse connections
             client,
-            user_agent: Some("test_user_agent".to_owned()),
-            oauth_access_token: None,
         };
 
         let login_request = create_test_login_request();

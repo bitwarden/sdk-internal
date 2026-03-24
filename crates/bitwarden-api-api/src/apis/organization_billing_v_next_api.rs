@@ -92,6 +92,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
     ) -> Result<(), Error<AddCreditViaBitPayError>>;
 
@@ -161,6 +162,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
     ) -> Result<(), Error<GetBillingAddressError>>;
 
     /// GET /organizations/{organizationId}/billing/vnext/credit
@@ -229,6 +231,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
     ) -> Result<(), Error<GetCreditError>>;
 
     /// GET /organizations/{organizationId}/billing/vnext/metadata
@@ -297,6 +300,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
     ) -> Result<(), Error<GetMetadataError>>;
 
     /// GET /organizations/{organizationId}/billing/vnext/payment-method
@@ -365,6 +369,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
     ) -> Result<(), Error<GetPaymentMethodError>>;
 
     /// GET /organizations/{organizationId}/billing/vnext/warnings
@@ -433,6 +438,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
     ) -> Result<(), Error<GetWarningsError>>;
 
     /// POST /organizations/{organizationId}/billing/vnext/subscription/restart
@@ -501,6 +507,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
         restart_subscription_request: Option<models::RestartSubscriptionRequest>,
     ) -> Result<(), Error<RestartSubscriptionError>>;
 
@@ -570,6 +577,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
         billing_address_request: Option<models::BillingAddressRequest>,
     ) -> Result<(), Error<UpdateBillingAddressError>>;
 
@@ -639,6 +647,7 @@ pub trait OrganizationBillingVNextApi: Send + Sync {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
     ) -> Result<(), Error<UpdatePaymentMethodError>>;
 }
@@ -721,6 +730,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
     ) -> Result<(), Error<AddCreditViaBitPayError>> {
         let local_var_configuration = &self.configuration;
@@ -985,26 +995,14 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_my_items {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useMyItems", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&bit_pay_credit_request);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<AddCreditViaBitPayError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn get_billing_address<'a>(
@@ -1072,6 +1070,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
     ) -> Result<(), Error<GetBillingAddressError>> {
         let local_var_configuration = &self.configuration;
 
@@ -1335,25 +1334,13 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_my_items {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useMyItems", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<GetBillingAddressError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn get_credit<'a>(
@@ -1421,6 +1408,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
     ) -> Result<(), Error<GetCreditError>> {
         let local_var_configuration = &self.configuration;
 
@@ -1684,25 +1672,13 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_my_items {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useMyItems", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<GetCreditError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn get_metadata<'a>(
@@ -1770,6 +1746,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
     ) -> Result<(), Error<GetMetadataError>> {
         let local_var_configuration = &self.configuration;
 
@@ -2033,25 +2010,13 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_my_items {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useMyItems", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<GetMetadataError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn get_payment_method<'a>(
@@ -2119,6 +2084,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
     ) -> Result<(), Error<GetPaymentMethodError>> {
         let local_var_configuration = &self.configuration;
 
@@ -2382,25 +2348,13 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_my_items {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useMyItems", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<GetPaymentMethodError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn get_warnings<'a>(
@@ -2468,6 +2422,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
     ) -> Result<(), Error<GetWarningsError>> {
         let local_var_configuration = &self.configuration;
 
@@ -2731,25 +2686,13 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_my_items {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useMyItems", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<GetWarningsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn restart_subscription<'a>(
@@ -2817,6 +2760,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
         restart_subscription_request: Option<models::RestartSubscriptionRequest>,
     ) -> Result<(), Error<RestartSubscriptionError>> {
         let local_var_configuration = &self.configuration;
@@ -3081,26 +3025,14 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_my_items {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useMyItems", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&restart_subscription_request);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<RestartSubscriptionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn update_billing_address<'a>(
@@ -3168,6 +3100,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
         billing_address_request: Option<models::BillingAddressRequest>,
     ) -> Result<(), Error<UpdateBillingAddressError>> {
         let local_var_configuration = &self.configuration;
@@ -3432,26 +3365,14 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_my_items {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useMyItems", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&billing_address_request);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<UpdateBillingAddressError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn update_payment_method<'a>(
@@ -3519,6 +3440,7 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
     ) -> Result<(), Error<UpdatePaymentMethodError>> {
         let local_var_configuration = &self.configuration;
@@ -3783,26 +3705,14 @@ impl OrganizationBillingVNextApi for OrganizationBillingVNextApiClient {
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_my_items {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useMyItems", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&tokenized_payment_method_request);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<UpdatePaymentMethodError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 }
 

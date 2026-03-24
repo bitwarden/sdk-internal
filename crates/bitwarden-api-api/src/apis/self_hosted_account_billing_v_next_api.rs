@@ -77,6 +77,7 @@ pub trait SelfHostedAccountBillingVNextApi: Send + Sync {
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
     ) -> Result<(), Error<UploadLicenseError>>;
 }
 
@@ -143,6 +144,7 @@ impl SelfHostedAccountBillingVNextApi for SelfHostedAccountBillingVNextApiClient
         last_email_change_date: Option<String>,
         verify_devices: Option<bool>,
         v2_upgrade_token: Option<&'a str>,
+        master_password_salt: Option<&'a str>,
     ) -> Result<(), Error<UploadLicenseError>> {
         let local_var_configuration = &self.configuration;
 
@@ -335,28 +337,16 @@ impl SelfHostedAccountBillingVNextApi for SelfHostedAccountBillingVNextApiClient
             local_var_req_builder =
                 local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = master_password_salt {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordSalt", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         let mut local_var_form = reqwest::multipart::Form::new();
         // TODO: support file upload for 'license' parameter
         local_var_req_builder = local_var_req_builder.multipart(local_var_form);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<UploadLicenseError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 }
 

@@ -92,6 +92,7 @@ pub trait SelfHostedOrganizationBillingVNextApi: Send + Sync {
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
     ) -> Result<(), Error<GetMetadataError>>;
 }
 
@@ -173,6 +174,7 @@ impl SelfHostedOrganizationBillingVNextApi for SelfHostedOrganizationBillingVNex
         use_automatic_user_confirmation: Option<bool>,
         use_disable_sm_ads_for_users: Option<bool>,
         use_phishing_blocker: Option<bool>,
+        use_my_items: Option<bool>,
     ) -> Result<(), Error<GetMetadataError>> {
         let local_var_configuration = &self.configuration;
 
@@ -436,25 +438,13 @@ impl SelfHostedOrganizationBillingVNextApi for SelfHostedOrganizationBillingVNex
             local_var_req_builder =
                 local_var_req_builder.query(&[("usePhishingBlocker", &param_value.to_string())]);
         }
+        if let Some(ref param_value) = use_my_items {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("useMyItems", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<GetMetadataError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 }
 
