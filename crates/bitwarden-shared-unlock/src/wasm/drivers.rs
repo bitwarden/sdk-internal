@@ -1,6 +1,6 @@
 use bitwarden_core::UserId;
 use bitwarden_encoding::B64;
-use bitwarden_ipc::Endpoint;
+use bitwarden_ipc::{Endpoint, HostId};
 use bitwarden_threading::ThreadBoundRunner;
 use tracing::info;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
@@ -159,7 +159,7 @@ impl LeaderDiscovery for WasmDriverLeaderDiscovery {
                     Err(_) => return None,
                 };
                 match client_name.as_str() {
-                    "web" => Some(Endpoint::BrowserBackground),
+                    "web" => Some(Endpoint::BrowserBackground { id: HostId::Own }),
                     "browser" => Some(Endpoint::DesktopRenderer),
                     "cli" => Some(Endpoint::DesktopRenderer),
                     _ => None,

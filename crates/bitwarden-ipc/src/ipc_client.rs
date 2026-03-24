@@ -446,7 +446,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        endpoint::Endpoint,
+        endpoint::{Endpoint, HostId},
         traits::{
             InMemorySessionRepository, NoEncryptionCryptoProvider, tests::TestCommunicationBackend,
         },
@@ -502,7 +502,7 @@ mod tests {
     async fn returns_send_error_when_crypto_provider_returns_error() {
         let message = OutgoingMessage {
             payload: vec![],
-            destination: Endpoint::BrowserBackground,
+            destination: Endpoint::BrowserBackground { id: HostId::Own },
             topic: None,
         };
         let crypto_provider = TestCryptoProvider {
@@ -523,7 +523,7 @@ mod tests {
     async fn communication_provider_has_outgoing_message_when_sending_through_ipc_client() {
         let message = OutgoingMessage {
             payload: vec![],
-            destination: Endpoint::BrowserBackground,
+            destination: Endpoint::BrowserBackground { id: HostId::Own },
             topic: None,
         };
         let crypto_provider = NoEncryptionCryptoProvider;
@@ -543,7 +543,7 @@ mod tests {
         let message = IncomingMessage {
             payload: vec![],
             source: Endpoint::Web { id: 9001 },
-            destination: Endpoint::BrowserBackground,
+            destination: Endpoint::BrowserBackground { id: HostId::Own },
             topic: None,
         };
         let crypto_provider = NoEncryptionCryptoProvider;
@@ -567,13 +567,13 @@ mod tests {
         let non_matching_message = IncomingMessage {
             payload: vec![],
             source: Endpoint::Web { id: 9001 },
-            destination: Endpoint::BrowserBackground,
+            destination: Endpoint::BrowserBackground { id: HostId::Own },
             topic: Some("non_matching_topic".to_owned()),
         };
         let matching_message = IncomingMessage {
             payload: vec![109],
             source: Endpoint::Web { id: 9001 },
-            destination: Endpoint::BrowserBackground,
+            destination: Endpoint::BrowserBackground { id: HostId::Own },
             topic: Some("matching_topic".to_owned()),
         };
 
@@ -609,7 +609,7 @@ mod tests {
         let unrelated = IncomingMessage {
             payload: vec![],
             source: Endpoint::Web { id: 9001 },
-            destination: Endpoint::BrowserBackground,
+            destination: Endpoint::BrowserBackground { id: HostId::Own },
             topic: None,
         };
         let typed_message = TypedIncomingMessage {
@@ -617,7 +617,7 @@ mod tests {
                 some_data: "Hello, world!".to_string(),
             },
             source: Endpoint::Web { id: 9001 },
-            destination: Endpoint::BrowserBackground,
+            destination: Endpoint::BrowserBackground { id: HostId::Own },
         };
 
         let crypto_provider = NoEncryptionCryptoProvider;
@@ -657,7 +657,7 @@ mod tests {
         let non_deserializable_message = IncomingMessage {
             payload: vec![],
             source: Endpoint::Web { id: 9001 },
-            destination: Endpoint::BrowserBackground,
+            destination: Endpoint::BrowserBackground { id: HostId::Own },
             topic: Some("TestPayload".to_owned()),
         };
 
@@ -680,7 +680,7 @@ mod tests {
     async fn ipc_client_stops_if_crypto_returns_send_error() {
         let message = OutgoingMessage {
             payload: vec![],
-            destination: Endpoint::BrowserBackground,
+            destination: Endpoint::BrowserBackground { id: HostId::Own },
             topic: None,
         };
         let crypto_provider = TestCryptoProvider {
@@ -784,7 +784,11 @@ mod tests {
             let result_handle = tokio::spawn(async move {
                 let client = client.clone();
                 client
-                    .request::<TestRequest>(request_clone, Endpoint::BrowserBackground, None)
+                    .request::<TestRequest>(
+                        request_clone,
+                        Endpoint::BrowserBackground { id: HostId::Own },
+                        None,
+                    )
                     .await
             });
             tokio::time::sleep(Duration::from_millis(100)).await;
@@ -806,7 +810,7 @@ mod tests {
             let simulated_response = IncomingMessage {
                 payload: serde_utils::to_vec(&simulated_response)
                     .expect("Serialization should not fail"),
-                source: Endpoint::BrowserBackground,
+                source: Endpoint::BrowserBackground { id: HostId::Own },
                 destination: Endpoint::Web { id: 9001 },
                 topic: Some(
                     IncomingRpcResponseMessage::<TestRequest>::PAYLOAD_TYPE_NAME.to_owned(),
@@ -844,7 +848,7 @@ mod tests {
                 payload: serde_utils::to_vec(&simulated_request)
                     .expect("Serialization should not fail"),
                 source: Endpoint::Web { id: 9001 },
-                destination: Endpoint::BrowserBackground,
+                destination: Endpoint::BrowserBackground { id: HostId::Own },
                 topic: Some(RPC_REQUEST_PAYLOAD_TYPE_NAME.to_owned()),
             };
             communication_provider.push_incoming(simulated_request_message);

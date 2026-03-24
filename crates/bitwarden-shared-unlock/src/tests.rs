@@ -4,7 +4,7 @@ use std::{
 };
 
 use bitwarden_core::UserId;
-use bitwarden_ipc::Endpoint;
+use bitwarden_ipc::{Endpoint, HostId};
 
 use crate::{
     DeviceEvent, Follower, Leader, LockState, Message, UserKey,
@@ -111,7 +111,7 @@ impl HeartbeatResponseHandler for MockHeartbeatHandler {
 }
 
 const LEADER_ENDPOINT: Endpoint = Endpoint::DesktopMain;
-const FOLLOWER_ENDPOINT: Endpoint = Endpoint::BrowserBackground;
+const FOLLOWER_ENDPOINT: Endpoint = Endpoint::BrowserBackground { id: HostId::Own };
 
 fn test_user_key() -> UserKey {
     UserKey::from_bytes(vec![1u8; 64])

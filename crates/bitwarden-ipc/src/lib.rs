@@ -13,7 +13,7 @@ mod traits;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
-pub use endpoint::Endpoint;
+pub use endpoint::{Endpoint, HostId};
 pub use ipc_client::{
     IpcClient, IpcClientSubscription, IpcClientTypedSubscription, ReceiveError, RequestError,
     SubscribeError, TypedReceiveError,
