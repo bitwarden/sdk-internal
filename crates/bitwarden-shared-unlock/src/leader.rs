@@ -105,6 +105,11 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                 self.follower_sessions
                     .upsert(sender, get_current_timestamp());
 
+                let self_lock_state = self.lock_system.get_user_lock_state(user_id).await;
+                if self_lock_state == LockState::Locked {
+                    return Ok(());
+                }
+
                 self.lock_system
                     .lock_user(user_id)
                     .await
@@ -124,6 +129,11 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                 info!(?sender, %user_id, "Received unlock request from follower");
                 self.follower_sessions
                     .upsert(sender, get_current_timestamp());
+
+                let self_lock_state = self.lock_system.get_user_lock_state(user_id).await;
+                if let LockState::Unlocked { .. } = self_lock_state {
+                    return Ok(());
+                }
 
                 self.lock_system
                     .unlock_user(user_id, user_key.clone())

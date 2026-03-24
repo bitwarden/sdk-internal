@@ -13,14 +13,22 @@ fn clone_ipc_client(
     }
 }
 
+#[derive(Clone, Copy)]
+pub(super) enum Role {
+    Leader,
+    Follower,
+}
+
 pub(super) struct WasmSender {
     ipc_client: bitwarden_ipc::wasm::JsIpcClient,
+    role: Role,
 }
 
 impl WasmSender {
-    pub(super) fn new(ipc_client: &bitwarden_ipc::wasm::JsIpcClient) -> Self {
+    pub(super) fn new(ipc_client: &bitwarden_ipc::wasm::JsIpcClient, role: Role) -> Self {
         Self {
             ipc_client: clone_ipc_client(ipc_client),
+            role,
         }
     }
 }
@@ -29,6 +37,7 @@ impl Clone for WasmSender {
     fn clone(&self) -> Self {
         Self {
             ipc_client: clone_ipc_client(&self.ipc_client),
+            role: self.role,
         }
     }
 }
@@ -46,7 +55,14 @@ impl MessageSender for WasmSender {
         let outgoing_message = OutgoingMessage {
             payload,
             destination: recipient,
-            topic: Some("password-manager.shared-unlock".to_string()),
+            topic: match self.role {
+                Role::Leader => {
+                    Some("password-manager.shared-unlock.leader-to-follower".to_string())
+                }
+                Role::Follower => {
+                    Some("password-manager.shared-unlock.follower-to-leader".to_string())
+                }
+            },
         };
 
         let ipc_client = clone_ipc_client(&self.ipc_client);

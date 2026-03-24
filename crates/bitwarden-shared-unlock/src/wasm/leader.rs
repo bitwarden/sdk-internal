@@ -29,7 +29,10 @@ impl SharedUnlockLeader {
         let lock_management = WasmSharedUnlockDriver::new(runner);
         let cancellation_token = CancellationToken::new();
         let subscription = ipc_client.subscribe().await?;
-        let leader = Leader::create(lock_management, WasmSender::new(ipc_client));
+        let leader = Leader::create(
+            lock_management,
+            WasmSender::new(ipc_client, super::sender::Role::Leader),
+        );
 
         Ok(Self {
             subscription: Arc::new(Mutex::new(subscription)),
@@ -58,6 +61,9 @@ impl SharedUnlockLeader {
                         match result {
                             Ok(incoming_message) => {
                                 let source = incoming_message.source;
+                                if incoming_message.topic != Some("password-manager.shared-unlock.follower-to-leader".to_string()) {
+                                    continue;
+                                }
                                 match Message::from_cbor(incoming_message.payload.as_slice()) {
                                     Ok(message) => {
                                         if let Err(error) = leader.receive_message(message, source).await {
@@ -71,7 +77,6 @@ impl SharedUnlockLeader {
                             }
                             Err(error) => {
                                 tracing::error!(?error, "Failed to receive shared unlock IPC message");
-                                break;
                             }
                         }
                     }

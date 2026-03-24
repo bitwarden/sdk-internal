@@ -37,7 +37,7 @@ impl SharedUnlockFollower {
     ) -> Result<Self, bitwarden_ipc::SubscribeError> {
         let cancellation_token = CancellationToken::new();
         let subscription = ipc_client.subscribe().await?;
-        let sender = WasmSender::new(ipc_client);
+        let sender = WasmSender::new(ipc_client, super::sender::Role::Follower);
         let runner = ThreadBoundRunner::new(lock_management);
         let lock_management = WasmSharedUnlockDriver::new(runner.clone());
         let leader_discovery = WasmDriverLeaderDiscovery::new(runner.clone());
@@ -76,6 +76,9 @@ impl SharedUnlockFollower {
                     } => {
                         match result {
                             Ok(incoming_message) => {
+                                if incoming_message.topic != Some("password-manager.shared-unlock.leader-to-follower".to_string()) {
+                                    continue;
+                                }
                                 match Message::from_cbor(incoming_message.payload.as_slice()) {
                                     Ok(message) => {
                                         if let Err(error) = follower.receive_message(message).await {
@@ -89,7 +92,6 @@ impl SharedUnlockFollower {
                             }
                             Err(error) => {
                                 tracing::error!(?error, "Failed to receive shared unlock IPC message");
-                                break;
                             }
                         }
                     }
