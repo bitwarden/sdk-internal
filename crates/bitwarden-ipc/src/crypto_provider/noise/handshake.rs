@@ -2,13 +2,36 @@ use std::fmt::{Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::crypto_provider::noise::transport_state::{PersistentTransportState, SymmetricKey};
+use crate::crypto_provider::noise::transport_state::{
+    Cipher, PersistentTransportState, SymmetricKey,
+};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub(crate) enum CipherSuite {
-    #[default]
     #[allow(non_camel_case_types)]
     Noise_NN_25519_ChaChaPoly_BLAKE2s,
+    #[allow(non_camel_case_types)]
+    Noise_NN_25519_AESGCM_SHA256,
+}
+
+impl Default for CipherSuite {
+    fn default() -> Self {
+        if cfg!(feature = "fips") {
+            Self::Noise_NN_25519_AESGCM_SHA256
+        } else {
+            Self::Noise_NN_25519_ChaChaPoly_BLAKE2s
+        }
+    }
+}
+
+impl CipherSuite {
+    /// Returns the transport cipher corresponding to this cipher suite.
+    pub(crate) fn transport_cipher(&self) -> Cipher {
+        match self {
+            Self::Noise_NN_25519_ChaChaPoly_BLAKE2s => Cipher::ChaCha20Poly1305,
+            Self::Noise_NN_25519_AESGCM_SHA256 => Cipher::Aes256Gcm,
+        }
+    }
 }
 
 impl Display for CipherSuite {
@@ -16,6 +39,9 @@ impl Display for CipherSuite {
         match self {
             Self::Noise_NN_25519_ChaChaPoly_BLAKE2s => {
                 write!(f, "Noise_NN_25519_ChaChaPoly_BLAKE2s")
+            }
+            Self::Noise_NN_25519_AESGCM_SHA256 => {
+                write!(f, "Noise_NN_25519_AESGCM_SHA256")
             }
         }
     }
@@ -72,11 +98,16 @@ impl HandshakeInitiator {
 impl From<&mut HandshakeInitiator> for PersistentTransportState {
     fn from(initiator: &mut HandshakeInitiator) -> Self {
         let (i2r, r2i) = initiator.state.dangerously_get_raw_split();
-        PersistentTransportState::new(SymmetricKey(i2r), SymmetricKey(r2i))
+        PersistentTransportState::new(
+            SymmetricKey(i2r),
+            SymmetricKey(r2i),
+            initiator.cipher_suite.transport_cipher(),
+        )
     }
 }
 
 pub(crate) struct HandshakeResponder {
+    cipher_suite: CipherSuite,
     state: snow::HandshakeState,
 }
 
@@ -85,6 +116,7 @@ impl HandshakeResponder {
         let builder = snow::Builder::new(cipher_suite.to_string().parse().map_err(|_| ())?);
         let handshake_state = builder.build_responder().map_err(|_| ())?;
         Ok(Self {
+            cipher_suite: *cipher_suite,
             state: handshake_state,
         })
     }
@@ -109,7 +141,11 @@ impl HandshakeResponder {
 impl From<&mut HandshakeResponder> for PersistentTransportState {
     fn from(responder: &mut HandshakeResponder) -> Self {
         let (i2r, r2i) = responder.state.dangerously_get_raw_split();
-        PersistentTransportState::new(SymmetricKey(r2i), SymmetricKey(i2r))
+        PersistentTransportState::new(
+            SymmetricKey(r2i),
+            SymmetricKey(i2r),
+            responder.cipher_suite.transport_cipher(),
+        )
     }
 }
 

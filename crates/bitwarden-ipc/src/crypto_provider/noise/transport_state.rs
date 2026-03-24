@@ -5,24 +5,55 @@ use tracing::info;
 
 use crate::crypto_provider::noise::handshake::{HandshakeFinishMessage, HandshakeStartMessage};
 
+// Ref: http://noiseprotocol.org/noise.html#message-format
 const KEY_SIZE: usize = 32;
 const NOISE_MAX_MESSAGE_LEN: usize = 65535;
 
+/// Supported ciphers for the transport mode of noise.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) enum Cipher {
     ChaCha20Poly1305 = 0,
+    Aes256Gcm = 1,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl Default for Cipher {
+    fn default() -> Self {
+        if cfg!(feature = "fips") {
+            Self::Aes256Gcm
+        } else {
+            Self::ChaCha20Poly1305
+        }
+    }
+}
+
+/// A newtype for symmetric keys used in noise. A noise key is always 256-bits.
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct SymmetricKey(pub(crate) [u8; KEY_SIZE]);
+
+/// Implement Debug manually to avoid accidentally logging the key material.
+impl std::fmt::Debug for SymmetricKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("SymmetricKey").finish()
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct PersistentTransportState {
     cipher: Cipher,
+
+    // Noise has two keys, the initatior to responder key (i2r) and the responder to initiator key (r2i).
+    // For the initiator, send_key = i2r and receive_key = r2i.
+    // For the responder, send_key = r2i and receive_key = i2r.
     send_key: SymmetricKey,
     receive_key: SymmetricKey,
+
+    // Noise transport messages include a nonce that must be unique for every message encrypted with the same key.
+    // The nonce increases monotonically with every sent/received message and is never reset to a lower value.
+    // Re-using nonces results in catastrophic cryptographic failure.
     send_nonce: u64,
+    // For receiving, skipping nonces is alowed, but never going back.
     receive_nonce: u64,
+
     // Whether to allow payloads to be sent via this transport state
     // Otherwise, only handshake packets are allowed.
     allow_payload_sending: bool,
@@ -30,10 +61,10 @@ pub(crate) struct PersistentTransportState {
 }
 
 impl PersistentTransportState {
-    /// Create a new transport state with the given keys.
-    pub(crate) fn new(send_key: SymmetricKey, receive_key: SymmetricKey) -> Self {
+    /// Create a new transport state with the given keys and cipher.
+    pub(crate) fn new(send_key: SymmetricKey, receive_key: SymmetricKey, cipher: Cipher) -> Self {
         Self {
-            cipher: Cipher::ChaCha20Poly1305,
+            cipher,
             send_key,
             receive_key,
             send_nonce: 0,
@@ -43,9 +74,11 @@ impl PersistentTransportState {
         }
     }
 
+    // Create a transport state with null keys. WARNING: This means that NO
+    // security is provided by the noise transport encryption until a re-handshake occurs.
     pub(crate) fn null() -> Self {
         Self {
-            cipher: Cipher::ChaCha20Poly1305,
+            cipher: Cipher::default(),
             send_key: SymmetricKey([0u8; KEY_SIZE]),
             receive_key: SymmetricKey([0u8; KEY_SIZE]),
             send_nonce: 0,
@@ -65,7 +98,7 @@ impl PersistentTransportState {
     }
 }
 
-/// Plaintext payload carried inside the encrypted noise tunnel.
+/// A newtype for a plaintext payload carried inside the encrypted noise tunnel.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Payload(pub(crate) Vec<u8>);
 
@@ -160,7 +193,7 @@ impl PersistentTransportState {
         transport_frame: &TransportFrame,
     ) -> Result<Message, ReceiveError> {
         // Try decryption with current receive key first.
-        if transport_frame.nonce >= self.receive_nonce {
+        if transport_frame.nonce > self.receive_nonce {
             if let Ok(plaintext) = self.try_decrypt(&self.receive_key, transport_frame) {
                 self.receive_nonce = transport_frame.nonce;
                 Message::from_cbor(&plaintext).map_err(|_| ReceiveError::Parsing)
@@ -218,6 +251,13 @@ fn get_cipher_with_key(key: &SymmetricKey, cipher: &Cipher) -> Box<dyn snow::typ
             cipher.set(&key.0);
             cipher
         }
+        Cipher::Aes256Gcm => {
+            let mut cipher = resolver
+                .resolve_cipher(&snow::params::CipherChoice::AESGCM)
+                .expect("AESGCM should be supported by the resolver");
+            cipher.set(&key.0);
+            cipher
+        }
     }
 }
 
@@ -267,8 +307,10 @@ mod tests {
 
     fn make_pair() -> (PersistentTransportState, PersistentTransportState) {
         let (send_key, receive_key) = test_keys();
-        let sender = PersistentTransportState::new(send_key.clone(), receive_key.clone());
-        let receiver = PersistentTransportState::new(receive_key, send_key);
+        let sender =
+            PersistentTransportState::new(send_key.clone(), receive_key.clone(), Cipher::default());
+        let receiver =
+            PersistentTransportState::new(receive_key, send_key, Cipher::default());
         (sender, receiver)
     }
 

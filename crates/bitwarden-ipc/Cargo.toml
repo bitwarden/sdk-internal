@@ -11,6 +11,7 @@ keywords.workspace = true
 
 [features]
 noise = ["dep:snow", "dep:ciborium", "dep:serde_bytes"]
+fips = []
 wasm = [
     "dep:tsify",
     "dep:wasm-bindgen",
