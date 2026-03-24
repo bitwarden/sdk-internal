@@ -10,7 +10,9 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
+// Use the noise-protocol based crypto provider for encrypting IPC messages.
 noise = ["dep:snow", "dep:ciborium", "dep:serde_bytes"]
+// Force the noise-based crypto provider to use FIPS-compatible crypto primitives.
 fips = []
 wasm = [
     "dep:tsify",
