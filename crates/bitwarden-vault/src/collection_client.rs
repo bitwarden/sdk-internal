@@ -12,7 +12,7 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::DecryptError;
+use crate::{DecryptError, EncryptError};
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -23,6 +23,13 @@ pub struct CollectionsClient {
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl CollectionsClient {
+    /// Encrypt a [CollectionView] to a [Collection].
+    pub fn encrypt(&self, collection_view: CollectionView) -> Result<Collection, EncryptError> {
+        let key_store = self.client.internal.get_key_store();
+        let collection = key_store.encrypt(collection_view)?;
+        Ok(collection)
+    }
+
     #[allow(missing_docs)]
     pub fn decrypt(&self, collection: Collection) -> Result<CollectionView, DecryptError> {
         let key_store = self.client.internal.get_key_store();

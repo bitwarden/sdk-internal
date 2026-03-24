@@ -4,7 +4,10 @@ use bitwarden_core::{
     key_management::{KeyIds, SymmetricKeyId},
     require,
 };
-use bitwarden_crypto::{CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext};
+use bitwarden_crypto::{
+    CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
+    PrimitiveEncryptable,
+};
 use bitwarden_uuid::uuid_newtype;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -115,6 +118,34 @@ impl TryFrom<CollectionDetailsResponseModel> for Collection {
 impl IdentifyKey<SymmetricKeyId> for Collection {
     fn key_identifier(&self) -> SymmetricKeyId {
         SymmetricKeyId::Organization(self.organization_id)
+    }
+}
+
+#[allow(missing_docs)]
+impl IdentifyKey<SymmetricKeyId> for CollectionView {
+    fn key_identifier(&self) -> SymmetricKeyId {
+        SymmetricKeyId::Organization(self.organization_id)
+    }
+}
+
+#[allow(missing_docs)]
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Collection> for CollectionView {
+    fn encrypt_composite(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<Collection, CryptoError> {
+        Ok(Collection {
+            id: self.id,
+            organization_id: self.organization_id,
+            name: self.name.encrypt(ctx, key)?,
+            external_id: self.external_id.clone(),
+            hide_passwords: self.hide_passwords,
+            read_only: self.read_only,
+            manage: self.manage,
+            default_user_collection_email: None,
+            r#type: self.r#type.clone(),
+        })
     }
 }
 
