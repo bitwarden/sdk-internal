@@ -64,9 +64,7 @@ impl Client {
             .expect("Bw HTTP Client build should not fail");
         let identity = bitwarden_api_identity::Configuration {
             base_path: settings.identity_url,
-            user_agent: Some(settings.user_agent.clone()),
             client: bw_http_client.clone().into(),
-            oauth_access_token: None,
         };
 
         // Create the client for the API service, with authentication middleware.
@@ -80,9 +78,7 @@ impl Client {
             .build();
         let api = bitwarden_api_api::Configuration {
             base_path: settings.api_url,
-            user_agent: Some(settings.user_agent),
             client: bw_http_client,
-            oauth_access_token: None,
         };
 
         Self {
@@ -171,8 +167,6 @@ fn build_default_headers(settings: &ClientSettings) -> header::HeaderMap {
             .expect("All numbers are valid ASCII"),
     );
 
-    // TODO: PM-29938 - Since we now add this header always, we need to remove this from the
-    // auto-generated code
     headers.append(
         reqwest::header::USER_AGENT,
         HeaderValue::from_str(&settings.user_agent)
