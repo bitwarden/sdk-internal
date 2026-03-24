@@ -1,9 +1,9 @@
-use crate::shared_unlock::protocol::{
+use crate::{
     DeviceEvent, LockState, Message,
     drivers::{HeartbeatResponseHandler, LeaderDiscovery, MessageSender, UserLockManagement},
 };
 
-pub(crate) struct Follower<
+pub struct Follower<
     L: UserLockManagement,
     S: MessageSender,
     D: LeaderDiscovery,

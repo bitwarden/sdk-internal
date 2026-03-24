@@ -6,7 +6,7 @@ use std::{
 use bitwarden_core::UserId;
 use bitwarden_ipc::Endpoint;
 
-use super::{
+use crate::{
     DeviceEvent, Follower, Leader, LockState, Message, UserKey,
     drivers::{HeartbeatResponseHandler, LeaderDiscovery, MessageSender, UserLockManagement},
 };
