@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Mutex, time::Duration};
 
-use tracing::info;
+use tracing::{debug, info, warn};
 
 use crate::shared_unlock::protocol::{
     DeviceEvent, LockState, Message, UserKey,
@@ -95,15 +95,21 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
         message: Message,
         sender: bitwarden_ipc::Endpoint,
     ) -> Result<(), ()> {
+        info!(?sender, "Received message from follower: {:?}", message);
         match message {
             Message::LockStateUpdate {
                 user_id,
                 lock_state: LockState::Locked,
             } => {
+                info!(?sender, %user_id, "Received lock request from follower");
                 self.follower_sessions
                     .upsert(sender, get_current_timestamp());
 
-                self.lock_system.lock_user(user_id).await?;
+                self.lock_system
+                    .lock_user(user_id)
+                    .await
+                    .inspect_err(|_| warn!(%user_id, "Failed to lock user"))?;
+                info!(%user_id, "User locked, sending confirmation to follower");
                 let response = Message::LockStateUpdate {
                     user_id,
                     lock_state: LockState::Locked,
@@ -115,12 +121,15 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                 user_id,
                 lock_state: LockState::Unlocked { user_key },
             } => {
+                info!(?sender, %user_id, "Received unlock request from follower");
                 self.follower_sessions
                     .upsert(sender, get_current_timestamp());
 
                 self.lock_system
                     .unlock_user(user_id, user_key.clone())
-                    .await?;
+                    .await
+                    .inspect_err(|_| warn!(%user_id, "Failed to unlock user"))?;
+                info!(%user_id, "User unlocked, sending confirmation to follower");
                 let response = Message::LockStateUpdate {
                     user_id,
                     lock_state: LockState::Unlocked { user_key },
@@ -132,6 +141,7 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                 user_id,
                 lock_state,
             } => {
+                info!(?sender, %user_id, "Received start session from follower");
                 self.follower_sessions
                     .upsert(sender, get_current_timestamp());
 
@@ -139,11 +149,18 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                     LockState::Unlocked { user_key } => {
                         self.lock_system
                             .unlock_user(user_id, user_key.clone())
-                            .await?;
+                            .await
+                            .inspect_err(
+                                |_| warn!(%user_id, "Failed to unlock user during start session"),
+                            )?;
+                        info!(%user_id, "User unlocked during start session");
                         LockState::Unlocked { user_key }
                     }
                     LockState::Locked => {
-                        self.lock_system.lock_user(user_id).await?;
+                        self.lock_system.lock_user(user_id).await.inspect_err(
+                            |_| warn!(%user_id, "Failed to lock user during start session"),
+                        )?;
+                        info!(%user_id, "User locked during start session");
                         LockState::Locked
                     }
                 };
@@ -156,6 +173,7 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                 Ok(())
             }
             Message::HeartBeat { user_id } => {
+                info!(?sender, %user_id, "Received heartbeat from follower");
                 self.follower_sessions
                     .upsert(sender, get_current_timestamp());
 
