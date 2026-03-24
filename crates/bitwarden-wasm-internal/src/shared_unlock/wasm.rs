@@ -114,8 +114,8 @@ impl LeaderDiscovery for WasmDriverLeaderDiscovery {
         };
         match client_name.as_str() {
             "web" => Some(Endpoint::BrowserBackground),
-            "browser" => Some(Endpoint::DesktopMain),
-            "cli" => Some(Endpoint::DesktopMain),
+            "browser" => Some(Endpoint::DesktopRenderer),
+            "cli" => Some(Endpoint::DesktopRenderer),
             _ => None,
         }
     }
