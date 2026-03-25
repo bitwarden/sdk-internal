@@ -173,7 +173,6 @@ impl NoiseStateMachine {
                 let response_message = responder.write_response_message()?;
                 let response_frame = transport_state.send(response_message.into())?;
                 let staged_transport_state = (&mut responder).into();
-                info!("Handshake complete; staging new keys");
                 *self = NoiseStateMachine::HandshakeFinish {
                     transport_state: transport_state.clone(),
                     staged_transport_state,
@@ -196,7 +195,6 @@ impl NoiseStateMachine {
 
                 handshake_state.read_response_message(&handshake_finish)?;
                 let staged_transport_state = handshake_state.into();
-                info!("Handshake complete; staging new keys");
                 *self = NoiseStateMachine::HandshakeFinish {
                     transport_state: transport_state.clone(),
                     staged_transport_state,
@@ -212,7 +210,6 @@ impl NoiseStateMachine {
                 staged_transport_state,
             } => {
                 if let Ok(message) = staged_transport_state.receive(&transport_frame) {
-                    info!("Switching to new transport state");
                     *self = NoiseStateMachine::Transport {
                         transport_state: staged_transport_state.clone(),
                     };

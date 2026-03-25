@@ -11,12 +11,12 @@ const NOISE_MAX_MESSAGE_LEN: usize = 65535;
 
 /// Supported ciphers for the transport mode of noise.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) enum Cipher {
+pub(crate) enum TransportCipher {
     ChaCha20Poly1305 = 0,
     Aes256Gcm = 1,
 }
 
-impl Default for Cipher {
+impl Default for TransportCipher {
     fn default() -> Self {
         if cfg!(feature = "fips") {
             Self::Aes256Gcm
@@ -33,13 +33,14 @@ pub(crate) struct SymmetricKey(pub(crate) [u8; KEY_SIZE]);
 /// Implement Debug manually to avoid accidentally logging the key material.
 impl std::fmt::Debug for SymmetricKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("SymmetricKey").finish()
+        f.debug_struct("SymmetricKey").finish()
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct PersistentTransportState {
-    cipher: Cipher,
+    // The symmetric algorithm used for transport encryption
+    transport_cipher: TransportCipher,
 
     // Noise has two keys, the initatior to responder key (i2r) and the responder to initiator key (r2i).
     // For the initiator, send_key = i2r and receive_key = r2i.
@@ -62,9 +63,13 @@ pub(crate) struct PersistentTransportState {
 
 impl PersistentTransportState {
     /// Create a new transport state with the given keys and cipher.
-    pub(crate) fn new(send_key: SymmetricKey, receive_key: SymmetricKey, cipher: Cipher) -> Self {
+    pub(crate) fn new(
+        send_key: SymmetricKey,
+        receive_key: SymmetricKey,
+        transport_cipher: TransportCipher,
+    ) -> Self {
         Self {
-            cipher,
+            transport_cipher,
             send_key,
             receive_key,
             send_nonce: 0,
@@ -78,7 +83,7 @@ impl PersistentTransportState {
     // security is provided by the noise transport encryption until a re-handshake occurs.
     pub(crate) fn null() -> Self {
         Self {
-            cipher: Cipher::default(),
+            transport_cipher: TransportCipher::default(),
             send_key: SymmetricKey([0u8; KEY_SIZE]),
             receive_key: SymmetricKey([0u8; KEY_SIZE]),
             send_nonce: 0,
@@ -86,11 +91,6 @@ impl PersistentTransportState {
             allow_payload_sending: false,
             last_handshake_time: 0,
         }
-    }
-
-    /// Whether this transport state allows sending payload messages.
-    pub(crate) fn allow_payload_sending(&self) -> bool {
-        self.allow_payload_sending
     }
 
     pub(crate) fn last_handshake_epoch_secs(&self) -> u64 {
@@ -162,9 +162,10 @@ impl Message {
 impl PersistentTransportState {
     pub(crate) fn send(&mut self, message: Message) -> Result<TransportFrame, ()> {
         // Guard against sending payload messages if not allowed by the transport state
-        match message {
-            Message::Payload { .. } if !self.allow_payload_sending => return Err(()),
-            _ => {}
+        if let Message::Payload { .. } = message
+            && !self.allow_payload_sending
+        {
+            return Err(());
         }
 
         // Increase nonce. WARNING: Re-used nonces lead to catastrophic
@@ -172,7 +173,7 @@ impl PersistentTransportState {
         self.send_nonce += 1;
 
         // Encrypt the message
-        let cipher = get_cipher_with_key(&self.send_key, &self.cipher);
+        let cipher = get_cipher_with_key(&self.send_key, &self.transport_cipher);
         let mut buffer = vec![0u8; NOISE_MAX_MESSAGE_LEN];
         let len = cipher.encrypt(
             self.send_nonce,
@@ -213,7 +214,7 @@ impl PersistentTransportState {
         transport_message: &TransportFrame,
     ) -> Result<Vec<u8>, ()> {
         let mut buffer = vec![0u8; NOISE_MAX_MESSAGE_LEN];
-        let cipher = get_cipher_with_key(key, &self.cipher);
+        let cipher = get_cipher_with_key(key, &self.transport_cipher);
         let len = cipher
             .decrypt(
                 transport_message.nonce,
@@ -241,24 +242,20 @@ pub(crate) fn current_epoch_secs() -> u64 {
         .as_secs()
 }
 
-fn get_cipher_with_key(key: &SymmetricKey, cipher: &Cipher) -> Box<dyn snow::types::Cipher> {
+fn get_cipher_with_key(
+    key: &SymmetricKey,
+    cipher: &TransportCipher,
+) -> Box<dyn snow::types::Cipher> {
     let resolver = DefaultResolver;
-    match cipher {
-        Cipher::ChaCha20Poly1305 => {
-            let mut cipher = resolver
-                .resolve_cipher(&snow::params::CipherChoice::ChaChaPoly)
-                .expect("ChaChaPoly should be supported by the resolver");
-            cipher.set(&key.0);
-            cipher
-        }
-        Cipher::Aes256Gcm => {
-            let mut cipher = resolver
-                .resolve_cipher(&snow::params::CipherChoice::AESGCM)
-                .expect("AESGCM should be supported by the resolver");
-            cipher.set(&key.0);
-            cipher
-        }
-    }
+    let snow_cipher = match cipher {
+        TransportCipher::ChaCha20Poly1305 => &snow::params::CipherChoice::ChaChaPoly,
+        TransportCipher::Aes256Gcm => &snow::params::CipherChoice::AESGCM,
+    };
+    let mut cipher = resolver
+        .resolve_cipher(snow_cipher)
+        .expect("Cipher should be supported by the resolver");
+    cipher.set(&key.0);
+    cipher
 }
 
 /// Wire format — always encrypted with current symmetric keys.
@@ -307,10 +304,13 @@ mod tests {
 
     fn make_pair() -> (PersistentTransportState, PersistentTransportState) {
         let (send_key, receive_key) = test_keys();
-        let sender =
-            PersistentTransportState::new(send_key.clone(), receive_key.clone(), Cipher::default());
+        let sender = PersistentTransportState::new(
+            send_key.clone(),
+            receive_key.clone(),
+            TransportCipher::default(),
+        );
         let receiver =
-            PersistentTransportState::new(receive_key, send_key, Cipher::default());
+            PersistentTransportState::new(receive_key, send_key, TransportCipher::default());
         (sender, receiver)
     }
 

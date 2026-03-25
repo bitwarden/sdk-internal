@@ -4,7 +4,7 @@ use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::crypto_provider::noise::transport_state::{
-    Cipher, PersistentTransportState, SymmetricKey,
+    PersistentTransportState, SymmetricKey, TransportCipher,
 };
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -27,10 +27,10 @@ impl Default for CipherSuite {
 
 impl CipherSuite {
     /// Returns the transport cipher corresponding to this cipher suite.
-    pub(crate) fn transport_cipher(&self) -> Cipher {
+    pub(crate) fn transport_cipher(&self) -> TransportCipher {
         match self {
-            Self::Noise_NN_25519_ChaChaPoly_BLAKE2s => Cipher::ChaCha20Poly1305,
-            Self::Noise_NN_25519_AESGCM_SHA256 => Cipher::Aes256Gcm,
+            Self::Noise_NN_25519_ChaChaPoly_BLAKE2s => TransportCipher::ChaCha20Poly1305,
+            Self::Noise_NN_25519_AESGCM_SHA256 => TransportCipher::Aes256Gcm,
         }
     }
 }

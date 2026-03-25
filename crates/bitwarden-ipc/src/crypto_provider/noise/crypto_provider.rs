@@ -103,7 +103,6 @@ where
                 .state
                 .needs_rehandshake(REHANDSHAKE_INTERVAL_SECS)
         {
-            info!("Handshake with {:?}", destination);
             let handshake_frame = crypto_state.state.start_handshake().map_err(|_| ())?;
             communication
                 .send(OutgoingMessage {
@@ -119,8 +118,7 @@ where
             timeout(Duration::from_secs(HANDSHAKE_TIMEOUT_SECS), async {
                 loop {
                     let incoming = receiver.receive().await.map_err(|_| ())?;
-                    let Ok(response_frame) = TransportFrame::from_cbor(&incoming.payload)
-                    else {
+                    let Ok(response_frame) = TransportFrame::from_cbor(&incoming.payload) else {
                         continue;
                     };
                     match crypto_state.state.receive(response_frame) {
