@@ -3,6 +3,8 @@ use serde_bytes::ByteBuf;
 use snow::resolvers::{CryptoResolver, DefaultResolver};
 use tracing::warn;
 
+use crate::crypto_provider::noise::NOISE_MAX_MESSAGE_LEN;
+
 // Ref: http://noiseprotocol.org/noise.html#message-format
 const KEY_SIZE: usize = 32;
 
@@ -71,10 +73,6 @@ impl PersistentTransportState {
             receive_nonce: 0,
             last_handshake_time: current_epoch_secs(),
         }
-    }
-
-    pub(crate) fn last_handshake_epoch_secs(&self) -> u64 {
-        self.last_handshake_time
     }
 
     pub(crate) fn should_rehandshake(&self, rehandshake_interval_secs: u64) -> bool {
