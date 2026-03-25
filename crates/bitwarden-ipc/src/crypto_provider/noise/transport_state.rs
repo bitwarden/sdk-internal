@@ -320,7 +320,7 @@ mod tests {
         let result = receiver.receive(&frame);
         assert!(result.is_err(), "tampered ciphertext must fail decryption");
     }
-crate::endpoint::Endpoint::DesktopMain,
+
     #[test]
     fn test_is_older_than_returns_false_when_younger_than_threshold() {
         let (mut state, _) = make_pair();
