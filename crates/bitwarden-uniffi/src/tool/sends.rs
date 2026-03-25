@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use bitwarden_send::{Send, SendListView, SendView};
+use bitwarden_send::{MakeSendFolderRequest, MakeSendFolderResult, Send, SendListView, SendView};
 
 use crate::Result;
 
@@ -46,6 +46,11 @@ impl SendClient {
     /// Decrypt a send file in memory
     pub fn decrypt_buffer(&self, send: Send, buffer: Vec<u8>) -> Result<Vec<u8>> {
         Ok(self.0.decrypt_buffer(send, &buffer)?)
+    }
+
+    /// Zip the provided files into a single archive suitable for creating a file Send.
+    pub fn make_send_folder(&self, request: MakeSendFolderRequest) -> Result<MakeSendFolderResult> {
+        Ok(self.0.make_send_folder(request)?)
     }
 
     /// Decrypt a send file located in the file system

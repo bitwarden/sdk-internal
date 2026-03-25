@@ -111,6 +111,7 @@ wasm-bindgen-cli = "=0.2.114"
 wasm-bindgen-futures = "0.4.64"
 wasm-bindgen-test = "0.3.64"
 wiremock = ">=0.6.0, <0.7"
+zip = { version = ">=8.4, <9", default-features = false }
 zxcvbn = ">=3.0.1, <4.0"
 
 [workspace.lints.clippy]

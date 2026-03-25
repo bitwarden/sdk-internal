@@ -31,12 +31,21 @@ pub struct SendFile {
     pub size_name: Option<String>,
 }
 
+/// Decrypted view of a file attached to a Send.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
 pub struct SendFileView {
+    /// Server-side identifier for the file, if persisted.
     pub id: Option<String>,
+    /// Original file name.
     pub file_name: String,
+    /// File size in bytes as a string.
     pub size: Option<String>,
     /// Readable size, ex: "4.2 KB" or "1.43 GB"
     pub size_name: Option<String>,

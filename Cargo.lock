@@ -902,14 +902,18 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-encoding",
+ "bitwarden-error",
  "chrono",
  "serde",
  "serde_repr",
  "sha2 0.10.9",
  "thiserror 2.0.18",
+ "tsify",
  "uniffi",
  "uuid",
+ "wasm-bindgen",
  "zeroize",
+ "zip",
 ]
 
 [[package]]
@@ -1201,6 +1205,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-ipc",
  "bitwarden-pm",
+ "bitwarden-send",
  "bitwarden-server-communication-config",
  "bitwarden-ssh",
  "bitwarden-state",
@@ -6204,6 +6209,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "typed-path"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e28f89b80c87b8fb0cf04ab448d5dd0dd0ade2f8891bae878de66a75a28600e"
+
+[[package]]
 name = "typeid"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7557,6 +7568,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "zip"
+version = "8.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7756d0206d058333667493c4014f545f4b9603c4330ccd6d9b3f86dcab59f7d9"
+dependencies = [
+ "crc32fast",
+ "indexmap 2.13.0",
+ "memchr",
+ "typed-path",
 ]
 
 [[package]]

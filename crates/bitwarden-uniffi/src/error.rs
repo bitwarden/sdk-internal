@@ -71,6 +71,8 @@ pub enum BitwardenError {
     SendEncrypt(#[from] bitwarden_send::SendEncryptError),
     #[error(transparent)]
     SendEncryptFile(#[from] bitwarden_send::SendEncryptFileError),
+    #[error(transparent)]
+    MakeSendFolder(#[from] bitwarden_send::MakeSendFolderError),
 
     #[error(transparent)]
     Export(#[from] ExportError),
