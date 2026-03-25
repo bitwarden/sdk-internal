@@ -1,4 +1,7 @@
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
+use tokio::time::timeout;
 use tracing::info;
 
 use crate::{
@@ -17,6 +20,9 @@ pub struct NoiseCryptoProvider;
 /// Re-handshake interval in seconds. Sessions older than this will automatically
 /// re-key on the next send operation.
 const REHANDSHAKE_INTERVAL_SECS: u64 = 300;
+
+/// Timeout for waiting for a handshake response from the remote peer.
+const HANDSHAKE_TIMEOUT_SECS: u64 = 30;
 
 /// Session state for the Noise crypto provider.
 ///
@@ -108,22 +114,23 @@ where
                 .await
                 .map_err(|_| ())?;
 
-            // Wait for the handshake response
+            // Wait for the handshake response (with timeout)
             let receiver = communication.subscribe().await;
-            loop {
-                let incoming = receiver.receive().await.map_err(|_| ())?;
-                let Ok(response_frame) = TransportFrame::from_cbor(&incoming.payload) else {
-                    continue;
-                };
-                match crypto_state.state.receive(response_frame) {
-                    Ok(ReceiveResult::Nothing) => {
-                        break;
-                    }
-                    Ok(_) | Err(_) => {
+            timeout(Duration::from_secs(HANDSHAKE_TIMEOUT_SECS), async {
+                loop {
+                    let incoming = receiver.receive().await.map_err(|_| ())?;
+                    let Ok(response_frame) = TransportFrame::from_cbor(&incoming.payload)
+                    else {
                         continue;
+                    };
+                    match crypto_state.state.receive(response_frame) {
+                        Ok(ReceiveResult::Nothing) => break Ok::<(), ()>(()),
+                        Ok(_) | Err(_) => continue,
                     }
                 }
-            }
+            })
+            .await
+            .map_err(|_| ())??;
         }
 
         // Encrypt and send the payload

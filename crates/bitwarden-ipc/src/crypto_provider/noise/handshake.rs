@@ -1,3 +1,4 @@
+//! This module implements noise handshakes.
 use std::fmt::{Display, Formatter};
 
 use serde::{Deserialize, Serialize};
