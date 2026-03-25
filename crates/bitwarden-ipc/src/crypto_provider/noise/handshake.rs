@@ -1,4 +1,17 @@
-//! This module implements noise handshakes.
+//! This module implements the Noise NN handshake for IPC.
+//! Note: NN does not provide any sort of authentication, and the keys each
+//! side uses are just trusted. This means that a MITM with active tampering is possible and
+//! accepted. Thereby it is necessary that either the threat model of the application using IPC
+//! assumes that the IPC channel is not exposed to MITM attacks, or that the transport layer
+//! prevents MITM with active tampering.
+//!
+//! Protocol flow:
+//! 1. Initiator -> Ressponder: `HandshakeStartMessage { ciphersuite, noise_frame }`
+//! 2. Responder -> Initiator: `HandshakeFinishMessage { noise_frame }`
+//!
+//! After both messages are processed, each side derives split transport keys from the
+//! handshake state and constructs a `PersistentTransportState`.
+
 use std::fmt::{Display, Formatter};
 
 use serde::{Deserialize, Serialize};
@@ -61,25 +74,41 @@ pub(crate) struct HandshakeFinishMessage {
 }
 
 pub(crate) struct HandshakeInitiator {
-    cipher_suite: CipherSuite,
+    ciphersuite: CipherSuite,
     state: snow::HandshakeState,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct WriteError;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ReadError;
+
 impl HandshakeInitiator {
-    pub(crate) fn new(cipher_suite: &CipherSuite) -> Result<Self, ()> {
-        let builder = snow::Builder::new(cipher_suite.to_string().parse().map_err(|_| ())?);
-        let handshake_state = builder.build_initiator().map_err(|_| ())?;
-        Ok(Self {
-            cipher_suite: *cipher_suite,
+    pub(crate) fn new(ciphersuite: &CipherSuite) -> Self {
+        let builder = snow::Builder::new(
+            ciphersuite
+                .to_string()
+                .parse()
+                .expect("Ciphersuite should be valid"),
+        );
+        let handshake_state = builder
+            .build_initiator()
+            .expect("Handshake state should be buildable");
+        Self {
+            ciphersuite: *ciphersuite,
             state: handshake_state,
-        })
+        }
     }
 
-    pub(crate) fn write_start_message(&mut self) -> Result<HandshakeStartMessage, ()> {
+    pub(crate) fn write_start_message(&mut self) -> Result<HandshakeStartMessage, WriteError> {
         let mut buf = [0u8; super::NOISE_MAX_MESSAGE_LEN];
-        let len = self.state.write_message(&[], &mut buf).map_err(|_| ())?;
+        let len = self
+            .state
+            .write_message(&[], &mut buf)
+            .map_err(|_| WriteError)?;
         Ok(HandshakeStartMessage {
-            ciphersuite: self.cipher_suite,
+            ciphersuite: self.ciphersuite,
             noise_frame: buf[..len].to_vec(),
         })
     }
@@ -87,11 +116,11 @@ impl HandshakeInitiator {
     pub(crate) fn read_response_message(
         &mut self,
         message: &HandshakeFinishMessage,
-    ) -> Result<(), ()> {
+    ) -> Result<(), ReadError> {
         let mut buf = [0u8; super::NOISE_MAX_MESSAGE_LEN];
         self.state
             .read_message(&message.noise_frame, &mut buf)
-            .map_err(|_| ())?;
+            .map_err(|_| ReadError)?;
         Ok(())
     }
 }
@@ -102,37 +131,50 @@ impl From<&mut HandshakeInitiator> for PersistentTransportState {
         PersistentTransportState::new(
             SymmetricKey(i2r),
             SymmetricKey(r2i),
-            initiator.cipher_suite.transport_cipher(),
+            initiator.ciphersuite.transport_cipher(),
         )
     }
 }
 
 pub(crate) struct HandshakeResponder {
-    cipher_suite: CipherSuite,
+    ciphersuite: CipherSuite,
     state: snow::HandshakeState,
 }
 
 impl HandshakeResponder {
-    pub(crate) fn new(cipher_suite: &CipherSuite) -> Result<Self, ()> {
-        let builder = snow::Builder::new(cipher_suite.to_string().parse().map_err(|_| ())?);
-        let handshake_state = builder.build_responder().map_err(|_| ())?;
-        Ok(Self {
-            cipher_suite: *cipher_suite,
+    pub(crate) fn new(ciphersuite: &CipherSuite) -> Self {
+        let builder = snow::Builder::new(
+            ciphersuite
+                .to_string()
+                .parse()
+                .expect("Ciphersuite should be valid"),
+        );
+        let handshake_state = builder
+            .build_responder()
+            .expect("Handshake state should be buildable");
+        Self {
+            ciphersuite: *ciphersuite,
             state: handshake_state,
-        })
+        }
     }
 
-    pub(crate) fn read_start_message(&mut self, message: &HandshakeStartMessage) -> Result<(), ()> {
+    pub(crate) fn read_start_message(
+        &mut self,
+        message: &HandshakeStartMessage,
+    ) -> Result<(), ReadError> {
         let mut buf = [0u8; super::NOISE_MAX_MESSAGE_LEN];
         self.state
             .read_message(&message.noise_frame, &mut buf)
-            .map_err(|_| ())?;
+            .map_err(|_| ReadError)?;
         Ok(())
     }
 
-    pub(crate) fn write_response_message(&mut self) -> Result<HandshakeFinishMessage, ()> {
+    pub(crate) fn write_response_message(&mut self) -> Result<HandshakeFinishMessage, WriteError> {
         let mut buf = [0u8; super::NOISE_MAX_MESSAGE_LEN];
-        let len = self.state.write_message(&[], &mut buf).map_err(|_| ())?;
+        let len = self
+            .state
+            .write_message(&[], &mut buf)
+            .map_err(|_| WriteError)?;
         Ok(HandshakeFinishMessage {
             noise_frame: buf[..len].to_vec(),
         })
@@ -145,7 +187,7 @@ impl From<&mut HandshakeResponder> for PersistentTransportState {
         PersistentTransportState::new(
             SymmetricKey(r2i),
             SymmetricKey(i2r),
-            responder.cipher_suite.transport_cipher(),
+            responder.ciphersuite.transport_cipher(),
         )
     }
 }
@@ -157,8 +199,8 @@ mod tests {
 
     #[test]
     fn test_handshake() {
-        let mut initiator = HandshakeInitiator::new(&CipherSuite::default()).unwrap();
-        let mut responder = HandshakeResponder::new(&CipherSuite::default()).unwrap();
+        let mut initiator = HandshakeInitiator::new(&CipherSuite::default());
+        let mut responder = HandshakeResponder::new(&CipherSuite::default());
 
         let init_message = initiator.write_start_message().unwrap();
         responder.read_start_message(&init_message).unwrap();

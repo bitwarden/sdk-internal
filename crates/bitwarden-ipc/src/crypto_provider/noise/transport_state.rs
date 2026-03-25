@@ -1,9 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 use snow::resolvers::{CryptoResolver, DefaultResolver};
-use tracing::info;
-
-use crate::crypto_provider::noise::handshake::{HandshakeFinishMessage, HandshakeStartMessage};
+use tracing::warn;
 
 // Ref: http://noiseprotocol.org/noise.html#message-format
 const KEY_SIZE: usize = 32;
@@ -42,22 +40,20 @@ pub(crate) struct PersistentTransportState {
     // The symmetric algorithm used for transport encryption
     transport_cipher: TransportCipher,
 
-    // Noise has two keys, the initatior to responder key (i2r) and the responder to initiator key (r2i).
-    // For the initiator, send_key = i2r and receive_key = r2i.
+    // Noise has two keys, the initatior to responder key (i2r) and the responder to initiator key
+    // (r2i). For the initiator, send_key = i2r and receive_key = r2i.
     // For the responder, send_key = r2i and receive_key = i2r.
     send_key: SymmetricKey,
     receive_key: SymmetricKey,
 
-    // Noise transport messages include a nonce that must be unique for every message encrypted with the same key.
-    // The nonce increases monotonically with every sent/received message and is never reset to a lower value.
-    // Re-using nonces results in catastrophic cryptographic failure.
+    // Noise transport messages include a nonce that must be unique for every message encrypted
+    // with the same key. The nonce increases monotonically with every sent/received message
+    // and is never reset to a lower value. Re-using nonces results in catastrophic
+    // cryptographic failure.
     send_nonce: u64,
     // For receiving, skipping nonces is alowed, but never going back.
     receive_nonce: u64,
 
-    // Whether to allow payloads to be sent via this transport state
-    // Otherwise, only handshake packets are allowed.
-    allow_payload_sending: bool,
     last_handshake_time: u64,
 }
 
@@ -74,27 +70,25 @@ impl PersistentTransportState {
             receive_key,
             send_nonce: 0,
             receive_nonce: 0,
-            allow_payload_sending: true,
             last_handshake_time: current_epoch_secs(),
-        }
-    }
-
-    // Create a transport state with null keys. WARNING: This means that NO
-    // security is provided by the noise transport encryption until a re-handshake occurs.
-    pub(crate) fn null() -> Self {
-        Self {
-            transport_cipher: TransportCipher::default(),
-            send_key: SymmetricKey([0u8; KEY_SIZE]),
-            receive_key: SymmetricKey([0u8; KEY_SIZE]),
-            send_nonce: 0,
-            receive_nonce: 0,
-            allow_payload_sending: false,
-            last_handshake_time: 0,
         }
     }
 
     pub(crate) fn last_handshake_epoch_secs(&self) -> u64 {
         self.last_handshake_time
+    }
+
+    pub(crate) fn should_rehandshake(&self, rehandshake_interval_secs: u64) -> bool {
+        self.is_older_than(current_epoch_secs(), rehandshake_interval_secs)
+    }
+
+    pub(crate) fn is_older_than(&self, now_epoch_secs: u64, max_age_secs: u64) -> bool {
+        now_epoch_secs.saturating_sub(self.last_handshake_time) > max_age_secs
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_last_handshake_epoch_secs_for_test(&mut self, epoch_secs: u64) {
+        self.last_handshake_time = epoch_secs;
     }
 }
 
@@ -114,98 +108,48 @@ impl AsRef<[u8]> for Payload {
     }
 }
 
-// Message that is sent inside of the noise tunnel
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) enum Message {
-    Payload {
-        // The plaintext payload that is sent over the noise tunnel.
-        payload: Payload,
-    },
-    HandshakeStart {
-        // The noise frame that is created by the handshake initiator
-        handshake_start: HandshakeStartMessage,
-    },
-    HandshakeFinish {
-        // The noise frame that is created by the handshake responder
-        handshake_finish: HandshakeFinishMessage,
-    },
-}
-
-impl From<HandshakeStartMessage> for Message {
-    fn from(value: HandshakeStartMessage) -> Self {
-        Message::HandshakeStart {
-            handshake_start: value,
-        }
-    }
-}
-
-impl From<HandshakeFinishMessage> for Message {
-    fn from(value: HandshakeFinishMessage) -> Self {
-        Message::HandshakeFinish {
-            handshake_finish: value,
-        }
-    }
-}
-
-impl Message {
-    pub(super) fn to_cbor(&self) -> Vec<u8> {
-        let mut buffer = Vec::new();
-        ciborium::into_writer(self, &mut buffer).expect("Ciborium serialization should not fail");
-        buffer
-    }
-
-    pub(super) fn from_cbor(buffer: &[u8]) -> Result<Self, ()> {
-        ciborium::from_reader(buffer).map_err(|_| ())
-    }
-}
-
 impl PersistentTransportState {
-    pub(crate) fn send(&mut self, message: Message) -> Result<TransportFrame, ()> {
-        // Guard against sending payload messages if not allowed by the transport state
-        if let Message::Payload { .. } = message
-            && !self.allow_payload_sending
-        {
-            return Err(());
-        }
-
+    /// Encrypts the message, mutates the state and returns the transport frame to be sent over
+    /// IPC.s
+    pub(crate) fn send(&mut self, payload: Payload) -> Result<TransportFrame, ()> {
         // Increase nonce. WARNING: Re-used nonces lead to catastrophic
         // crypto failure. Ensure this increases always.
         self.send_nonce += 1;
 
-        // Encrypt the message
-        let cipher = get_cipher_with_key(&self.send_key, &self.transport_cipher);
-        let mut buffer = vec![0u8; NOISE_MAX_MESSAGE_LEN];
-        let len = cipher.encrypt(
-            self.send_nonce,
-            &[],
-            message.to_cbor().as_slice(),
-            &mut buffer,
-        );
-        buffer.truncate(len);
+        let encrypted_message = self.encrypt(&self.send_key, self.send_nonce, &payload);
 
         Ok(TransportFrame {
-            payload: buffer.into(),
+            payload: encrypted_message.into(),
             nonce: self.send_nonce,
         })
     }
 
+    /// Decrypts the transport frame, mutates the state and returns the plaintext message.
     pub(crate) fn receive(
         &mut self,
         transport_frame: &TransportFrame,
-    ) -> Result<Message, ReceiveError> {
+    ) -> Result<Payload, ReceiveError> {
         // Try decryption with current receive key first.
         if transport_frame.nonce > self.receive_nonce {
             if let Ok(plaintext) = self.try_decrypt(&self.receive_key, transport_frame) {
                 self.receive_nonce = transport_frame.nonce;
-                Message::from_cbor(&plaintext).map_err(|_| ReceiveError::Parsing)
+                Ok(Payload(plaintext))
             } else {
-                info!("Failed to decrypt incoming IPC message");
+                warn!("Failed to decrypt incoming IPC message");
                 Err(ReceiveError::Decryption)
             }
         } else {
-            info!("Ipc message was replayed! Discarding...");
+            warn!("Ipc message was replayed! Discarding...");
             Err(ReceiveError::NonceReplay)
         }
+    }
+
+    fn encrypt(&self, key: &SymmetricKey, nonce: u64, payload: &Payload) -> Vec<u8> {
+        let mut buffer = vec![0u8; NOISE_MAX_MESSAGE_LEN];
+        let cipher = get_cipher_with_key(key, &self.transport_cipher);
+        let len = cipher.encrypt(nonce, &[], payload.as_ref(), &mut buffer);
+        buffer.truncate(len);
+        buffer
     }
 
     fn try_decrypt(
@@ -231,15 +175,24 @@ impl PersistentTransportState {
 pub(crate) enum ReceiveError {
     NonceReplay,
     Decryption,
-    Parsing,
 }
 
 /// Returns the current time as seconds since the Unix epoch.
 pub(crate) fn current_epoch_secs() -> u64 {
-    web_time::SystemTime::now()
-        .duration_since(web_time::UNIX_EPOCH)
-        .expect("System clock is before Unix epoch")
-        .as_secs()
+    #[cfg(feature = "wasm")]
+    {
+        web_time::SystemTime::now()
+            .duration_since(web_time::UNIX_EPOCH)
+            .expect("System clock is before Unix epoch")
+            .as_secs()
+    }
+    #[cfg(not(feature = "wasm"))]
+    {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("System clock is before Unix epoch")
+            .as_secs()
+    }
 }
 
 fn get_cipher_with_key(
@@ -265,18 +218,6 @@ pub(crate) struct TransportFrame {
     pub(crate) nonce: u64,
 }
 
-impl TransportFrame {
-    pub(crate) fn to_cbor(&self) -> Vec<u8> {
-        let mut buffer = Vec::new();
-        ciborium::into_writer(self, &mut buffer).expect("Ciborium serialization should not fail");
-        buffer
-    }
-
-    pub(crate) fn from_cbor(buffer: &[u8]) -> Result<Self, ()> {
-        ciborium::from_reader(buffer).map_err(|_| ())
-    }
-}
-
 #[cfg(test)]
 pub(crate) fn assert_matching_pair(
     state_1: &PersistentTransportState,
@@ -284,12 +225,6 @@ pub(crate) fn assert_matching_pair(
 ) {
     assert_eq!(state_1.send_key.0, state_2.receive_key.0);
     assert_eq!(state_1.receive_key.0, state_2.send_key.0);
-}
-
-#[cfg(test)]
-pub(crate) fn assert_non_null(state: &PersistentTransportState) {
-    assert_ne!(state.send_key.0, [0u8; KEY_SIZE]);
-    assert_ne!(state.receive_key.0, [0u8; KEY_SIZE]);
 }
 
 #[cfg(test)]
@@ -315,38 +250,14 @@ mod tests {
     }
 
     #[test]
-    fn test_message_cbor_round_trip() {
-        let message = Message::Payload {
-            payload: b"hello world".to_vec().into(),
-        };
-        let cbor = message.to_cbor();
-        let deserialized = Message::from_cbor(&cbor).expect("deserialization should succeed");
-        match deserialized {
-            Message::Payload { payload } => assert_eq!(payload.as_ref(), b"hello world"),
-            _ => panic!("expected Payload variant"),
-        }
-    }
-
-    #[test]
-    fn test_message_cbor_invalid_bytes_returns_error() {
-        let result = Message::from_cbor(&[0xFF, 0xFF, 0xFF]);
-        assert!(result.is_err());
-    }
-
-    #[test]
     fn test_send_and_receive_payload() {
         let (mut sender, mut receiver) = make_pair();
 
-        let message = Message::Payload {
-            payload: b"ping".to_vec().into(),
-        };
-        let frame = sender.send(message).expect("send should succeed");
+        let payload: Payload = b"ping".to_vec().into();
+        let frame = sender.send(payload).expect("send should succeed");
         let received = receiver.receive(&frame).expect("receive should succeed");
 
-        match received {
-            Message::Payload { payload } => assert_eq!(payload.as_ref(), b"ping"),
-            _ => panic!("expected Payload variant"),
-        }
+        assert_eq!(received.as_ref(), b"ping");
     }
 
     #[test]
@@ -354,18 +265,10 @@ mod tests {
         let (mut sender, mut receiver) = make_pair();
 
         for i in 0..5 {
-            let message = Message::Payload {
-                payload: format!("msg-{i}").into_bytes().into(),
-            };
-            let frame = sender.send(message).expect("send should succeed");
+            let payload: Payload = format!("msg-{i}").into_bytes().into();
+            let frame = sender.send(payload).expect("send should succeed");
             let received = receiver.receive(&frame).expect("receive should succeed");
-
-            match received {
-                Message::Payload { payload } => {
-                    assert_eq!(payload.as_ref(), format!("msg-{i}").as_bytes());
-                }
-                _ => panic!("expected Payload variant"),
-            }
+            assert_eq!(received.as_ref(), format!("msg-{i}").as_bytes());
         }
     }
 
@@ -373,10 +276,8 @@ mod tests {
     fn test_nonce_replay_is_rejected() {
         let (mut sender, mut receiver) = make_pair();
 
-        let message = Message::Payload {
-            payload: b"first".to_vec().into(),
-        };
-        let frame = sender.send(message).expect("send should succeed");
+        let payload: Payload = b"first".to_vec().into();
+        let frame = sender.send(payload).expect("send should succeed");
 
         // First receive succeeds
         let replayed_frame = frame.clone();
@@ -394,12 +295,8 @@ mod tests {
         let (mut sender, mut receiver) = make_pair();
 
         // Send two messages
-        let msg1 = Message::Payload {
-            payload: b"first".to_vec().into(),
-        };
-        let msg2 = Message::Payload {
-            payload: b"second".to_vec().into(),
-        };
+        let msg1: Payload = b"first".to_vec().into();
+        let msg2: Payload = b"second".to_vec().into();
         let frame1 = sender.send(msg1).expect("send should succeed");
         let frame2 = sender.send(msg2).expect("send should succeed");
 
@@ -415,10 +312,8 @@ mod tests {
     fn test_decryption_with_tampered_ciphertext_fails() {
         let (mut sender, mut receiver) = make_pair();
 
-        let message = Message::Payload {
-            payload: b"important".to_vec().into(),
-        };
-        let mut frame = sender.send(message).expect("send should succeed");
+        let payload: Payload = b"important".to_vec().into();
+        let mut frame = sender.send(payload).expect("send should succeed");
 
         // Tamper with the ciphertext
         frame.payload[0] ^= 0xFF;
@@ -428,15 +323,41 @@ mod tests {
     }
 
     #[test]
-    fn test_null_state_rejects_payload_send() {
-        let mut state = PersistentTransportState::null();
-        let message = Message::Payload {
-            payload: b"hello".to_vec().into(),
-        };
-        let result = state.send(message);
+    fn test_is_older_than_returns_false_when_younger_than_threshold() {
+        let (mut state, _) = make_pair();
+        state.set_last_handshake_epoch_secs_for_test(100);
+
+        let is_expired = state.is_older_than(150, 60);
+        assert!(!is_expired, "session newer than threshold must not expire");
+    }
+
+    #[test]
+    fn test_is_older_than_returns_false_when_equal_to_threshold() {
+        let (mut state, _) = make_pair();
+        state.set_last_handshake_epoch_secs_for_test(100);
+
+        let is_expired = state.is_older_than(160, 60);
+        assert!(!is_expired, "session equal to threshold must not expire");
+    }
+
+    #[test]
+    fn test_is_older_than_returns_true_when_older_than_threshold() {
+        let (mut state, _) = make_pair();
+        state.set_last_handshake_epoch_secs_for_test(100);
+
+        let is_expired = state.is_older_than(161, 60);
+        assert!(is_expired, "session older than threshold must expire");
+    }
+
+    #[test]
+    fn test_is_older_than_handles_clock_rollback_with_saturating_subtraction() {
+        let (mut state, _) = make_pair();
+        state.set_last_handshake_epoch_secs_for_test(200);
+
+        let is_expired = state.is_older_than(100, 60);
         assert!(
-            result.is_err(),
-            "null state must not allow sending payloads"
+            !is_expired,
+            "clock rollback should not underflow or force expiry"
         );
     }
 }

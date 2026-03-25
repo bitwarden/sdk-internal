@@ -6,8 +6,11 @@ use tracing::info;
 
 use crate::{
     crypto_provider::noise::{
-        state_machine::{NoiseStateMachine, ReceiveResult, SerializableNoiseState},
-        transport_state::TransportFrame,
+        handshake::{
+            CipherSuite, HandshakeFinishMessage, HandshakeInitiator, HandshakeResponder,
+            HandshakeStartMessage,
+        },
+        transport_state::{PersistentTransportState, TransportFrame},
     },
     message::{IncomingMessage, OutgoingMessage},
     traits::{
@@ -22,54 +25,12 @@ pub struct NoiseCryptoProvider;
 const REHANDSHAKE_INTERVAL_SECS: u64 = 300;
 
 /// Timeout for waiting for a handshake response from the remote peer.
-const HANDSHAKE_TIMEOUT_SECS: u64 = 30;
+const HANDSHAKE_TIMEOUT_SECS: u64 = 2;
 
 /// Session state for the Noise crypto provider.
-///
-/// Wraps a [`NoiseStateMachine`] and provides custom serialization that persists only the current
-/// transport state. In-flight handshake state is intentionally lost on serialization and will be
-/// restarted on the next send.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NoiseCryptoProviderState {
-    state: NoiseStateMachine,
-}
-
-impl Clone for NoiseCryptoProviderState {
-    fn clone(&self) -> Self {
-        // Lossy clone: drops in-flight HandshakeStart initiator state; all other variants
-        // (including HandshakeFinish with both transport states) are preserved faithfully.
-        Self {
-            state: NoiseStateMachine::from_serializable(self.state.to_serializable()),
-        }
-    }
-}
-
-impl Serialize for NoiseCryptoProviderState {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.state.to_serializable().serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for NoiseCryptoProviderState {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let serializable = SerializableNoiseState::deserialize(deserializer)?;
-        Ok(Self {
-            state: NoiseStateMachine::from_serializable(serializable),
-        })
-    }
-}
-
-impl NoiseCryptoProviderState {
-    fn new() -> Self {
-        Self {
-            state: NoiseStateMachine::new_initial(),
-        }
-    }
+    state: PersistentTransportState,
 }
 
 impl<Com, Ses> CryptoProvider<Com, Ses> for NoiseCryptoProvider
@@ -94,16 +55,33 @@ where
             .await
             .expect("Get session should not fail");
 
-        // Create session if none exists
-        let mut crypto_state = crypto_state.unwrap_or_else(NoiseCryptoProviderState::new);
-
-        // Auto-trigger handshake if not yet completed, or re-handshake if the session is stale
-        if crypto_state.state.needs_handshake()
-            || crypto_state
-                .state
-                .needs_rehandshake(REHANDSHAKE_INTERVAL_SECS)
+        let mut should_handshake = crypto_state.is_none();
+        if let Some(state) = crypto_state.as_ref()
+            && state.state.should_rehandshake(REHANDSHAKE_INTERVAL_SECS)
         {
-            let handshake_frame = crypto_state.state.start_handshake().map_err(|_| ())?;
+            info!(
+                "[IPC Crypto] Session with {:?} is older than {}s, re-handshaking",
+                destination, REHANDSHAKE_INTERVAL_SECS
+            );
+            sessions
+                .remove(destination)
+                .await
+                .expect("Delete session should not fail");
+            should_handshake = true;
+        }
+
+        if should_handshake {
+            if crypto_state.is_none() {
+                info!(
+                    "[IPC Crypto] No session for {:?}, starting handshake",
+                    destination
+                );
+            }
+            let mut initiator = HandshakeInitiator::new(&CipherSuite::default());
+            let message = initiator
+                .write_start_message()
+                .expect("Handshake start message should be buildable");
+            let handshake_frame = Frame::HandshakeStart(message);
             communication
                 .send(OutgoingMessage {
                     payload: handshake_frame.to_cbor(),
@@ -112,24 +90,40 @@ where
                 })
                 .await
                 .map_err(|_| ())?;
-
             // Wait for the handshake response (with timeout)
             let receiver = communication.subscribe().await;
             timeout(Duration::from_secs(HANDSHAKE_TIMEOUT_SECS), async {
                 loop {
-                    let incoming = receiver.receive().await.map_err(|_| ())?;
-                    let Ok(response_frame) = TransportFrame::from_cbor(&incoming.payload) else {
+                    let incoming = receiver.receive().await.map_err(|_| ()).unwrap();
+                    let Ok(response_frame) = Frame::from_cbor(&incoming.payload) else {
                         continue;
                     };
-                    match crypto_state.state.receive(response_frame) {
-                        Ok(ReceiveResult::Nothing) => break Ok::<(), ()>(()),
-                        Ok(_) | Err(_) => continue,
+                    if let Frame::HandshakeFinish(handshake_finish) = response_frame {
+                        initiator.read_response_message(&handshake_finish).unwrap();
+                        break;
                     }
                 }
             })
             .await
-            .map_err(|_| ())??;
+            .map_err(|_| ())?;
+            let crypto_state = NoiseCryptoProviderState {
+                state: (&mut initiator).into(),
+            };
+            sessions
+                .save(destination, crypto_state)
+                .await
+                .expect("Save session should not fail");
+            info!(
+                "[IPC Crypto] Handshake with {:?} completed, session established",
+                destination
+            );
         }
+
+        let mut crypto_state = sessions
+            .get(destination)
+            .await
+            .expect("Get session should not fail")
+            .expect("Session should exist after handshake");
 
         // Encrypt and send the payload
         let transport_frame = crypto_state
@@ -138,7 +132,7 @@ where
             .map_err(|_| ())?;
         communication
             .send(OutgoingMessage {
-                payload: transport_frame.to_cbor(),
+                payload: Frame::TransportFrame(transport_frame).to_cbor(),
                 destination,
                 topic: message.topic,
             })
@@ -167,62 +161,104 @@ where
                 .get(message.source)
                 .await
                 .expect("Get session should not fail");
-            let mut crypto_state = crypto_state.unwrap_or_else(NoiseCryptoProviderState::new);
 
             // Decode outer transport frame from wire
-            let Ok(transport_frame) = TransportFrame::from_cbor(&message.payload) else {
+            let Ok(transport_frame) = Frame::from_cbor(&message.payload) else {
+                println!(
+                    "Failed to decode frame from {:?}, ignoring message",
+                    message.source
+                );
                 continue;
             };
 
-            // Feed the frame into the state machine
-            match crypto_state.state.receive(transport_frame) {
-                Ok(ReceiveResult::ReceivedMessage { payload }) => {
+            match transport_frame {
+                Frame::HandshakeStart(handshake_start) => {
+                    println!("Received handshake start from {:?}", message.source);
+                    let mut responder = HandshakeResponder::new(&CipherSuite::default());
+                    responder
+                        .read_start_message(&handshake_start)
+                        .map_err(|_| ())?;
+                    let response_message = responder.write_response_message().map_err(|_| ())?;
+                    let handshake_frame = Frame::HandshakeFinish(response_message);
+                    communication
+                        .send(OutgoingMessage {
+                            payload: handshake_frame.to_cbor(),
+                            destination: message.source,
+                            topic: None,
+                        })
+                        .await
+                        .map_err(|_| ())?;
+
+                    let crypto_state = NoiseCryptoProviderState {
+                        state: (&mut responder).into(),
+                    };
                     sessions
                         .save(message.source, crypto_state)
                         .await
                         .expect("Save session should not fail");
+                }
+                Frame::TransportFrame(transport_frame) => {
+                    let crypto_state = crypto_state;
+                    let Some(mut state) = crypto_state else {
+                        info!("No session for {:?}, waiting for handshake", message.source);
+                        let frame = Frame::CryptoInvalidated.to_cbor();
+                        communication
+                            .send(OutgoingMessage {
+                                payload: frame,
+                                destination: message.source,
+                                topic: None,
+                            })
+                            .await
+                            .map_err(|_| ())?;
+                        continue;
+                    };
+
+                    let payload = state.state.receive(&transport_frame).map_err(|_| ())?;
+                    sessions
+                        .save(message.source, state)
+                        .await
+                        .expect("Save session should not fail");
+
                     return Ok(IncomingMessage {
-                        payload: payload.0,
+                        payload: payload.as_ref().to_vec(),
                         destination: message.destination,
                         source: message.source,
                         topic: message.topic,
                     });
                 }
-                Ok(ReceiveResult::NeedsMessageSent {
-                    message: response_frame,
-                }) => {
-                    // Send the handshake response back to the source
-                    let _ = communication
-                        .send(OutgoingMessage {
-                            payload: response_frame.to_cbor(),
-                            destination: message.source,
-                            topic: None,
-                        })
-                        .await;
-                    sessions
-                        .save(message.source, crypto_state)
-                        .await
-                        .expect("Save session should not fail");
-                    continue;
-                }
-                Ok(ReceiveResult::Nothing) => {
-                    sessions
-                        .save(message.source, crypto_state)
-                        .await
-                        .expect("Save session should not fail");
-                    continue;
-                }
-                Err(e) => {
+                Frame::CryptoInvalidated => {
                     info!(
-                        "CRYPTO: Error processing message from {:?}: {:?}",
-                        message.source, e
+                        "Invalidated session for {:?} due to crypto error, deleting session and waiting for handshake",
+                        message.source
                     );
-                    // Don't save on error to avoid overwriting valid session state
-                    // (e.g. a concurrent handshake completed by the send path)
-                    continue;
+                    sessions
+                        .remove(message.source)
+                        .await
+                        .expect("Delete session should not fail");
                 }
+                _ => continue,
             }
         }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+enum Frame {
+    HandshakeStart(HandshakeStartMessage),
+    HandshakeFinish(HandshakeFinishMessage),
+    TransportFrame(TransportFrame),
+    CryptoInvalidated,
+}
+
+impl Frame {
+    pub(crate) fn to_cbor(&self) -> Vec<u8> {
+        let mut buffer = Vec::new();
+        ciborium::into_writer(self, &mut buffer).expect("Ciborium serialization should not fail");
+        buffer
+    }
+
+    pub(crate) fn from_cbor(buffer: &[u8]) -> Result<Self, ()> {
+        ciborium::from_reader(buffer).map_err(|_| ())
     }
 }
 
