@@ -4,7 +4,8 @@
 //! against passive attackers both of the traffic, and subsequent key compromise, but
 //! active attacks are not protected against.
 
-pub(super) const NOISE_MAX_MESSAGE_LEN: usize = 65535;
+// Ref: http://noiseprotocol.org/noise.html#message-format
+const NOISE_MAX_MESSAGE_LEN: usize = 65535;
 
 pub mod crypto_provider;
 pub(super) mod handshake;

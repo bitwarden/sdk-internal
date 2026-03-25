@@ -5,7 +5,6 @@ use tracing::warn;
 
 // Ref: http://noiseprotocol.org/noise.html#message-format
 const KEY_SIZE: usize = 32;
-const NOISE_MAX_MESSAGE_LEN: usize = 65535;
 
 /// Supported ciphers for the transport mode of noise.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -321,7 +320,7 @@ mod tests {
         let result = receiver.receive(&frame);
         assert!(result.is_err(), "tampered ciphertext must fail decryption");
     }
-
+crate::endpoint::Endpoint::DesktopMain,
     #[test]
     fn test_is_older_than_returns_false_when_younger_than_threshold() {
         let (mut state, _) = make_pair();
