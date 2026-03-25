@@ -20,6 +20,63 @@ use crate::{
 
 pub struct NoiseCryptoProvider;
 
+impl NoiseCryptoProvider {
+    async fn perform_handshake<Com, Ses>(
+        communication: &Com,
+        sessions: &Ses,
+        destination: crate::endpoint::Endpoint,
+    ) -> Result<(), ()>
+    where
+        Com: CommunicationBackend,
+        Ses: SessionRepository<NoiseCryptoProviderState>,
+    {
+        let mut initiator = HandshakeInitiator::new(&CipherSuite::default());
+        let message = initiator
+            .write_start_message()
+            .expect("Handshake start message should be buildable");
+        let handshake_frame = Frame::HandshakeStart(message);
+        communication
+            .send(OutgoingMessage {
+                payload: handshake_frame.to_cbor(),
+                destination,
+                topic: None,
+            })
+            .await
+            .map_err(|_| ())?;
+
+        // Wait for the handshake response (with timeout)
+        let receiver = communication.subscribe().await;
+        timeout(Duration::from_secs(HANDSHAKE_TIMEOUT_SECS), async {
+            loop {
+                let incoming = receiver.receive().await.map_err(|_| ()).unwrap();
+                let Ok(response_frame) = Frame::from_cbor(&incoming.payload) else {
+                    continue;
+                };
+                if let Frame::HandshakeFinish(handshake_finish) = response_frame {
+                    initiator.read_response_message(&handshake_finish).unwrap();
+                    break;
+                }
+            }
+        })
+        .await
+        .map_err(|_| ())?;
+
+        let crypto_state = NoiseCryptoProviderState {
+            state: (&mut initiator).into(),
+        };
+        sessions
+            .save(destination, crypto_state)
+            .await
+            .expect("Save session should not fail");
+        info!(
+            "[IPC Crypto] Handshake with {:?} completed, session established",
+            destination
+        );
+
+        Ok(())
+    }
+}
+
 /// Re-handshake interval in seconds. Sessions older than this will automatically
 /// re-key on the next send operation.
 const REHANDSHAKE_INTERVAL_SECS: u64 = 300;
@@ -76,47 +133,14 @@ where
                     "[IPC Crypto] No session for {:?}, starting handshake",
                     destination
                 );
+            } else {
+                info!(
+                    "[IPC Crypto] Re-handshaking with {:?} due to re-handshake interval",
+                    destination
+                );
             }
-            let mut initiator = HandshakeInitiator::new(&CipherSuite::default());
-            let message = initiator
-                .write_start_message()
-                .expect("Handshake start message should be buildable");
-            let handshake_frame = Frame::HandshakeStart(message);
-            communication
-                .send(OutgoingMessage {
-                    payload: handshake_frame.to_cbor(),
-                    destination,
-                    topic: None,
-                })
-                .await
-                .map_err(|_| ())?;
-            // Wait for the handshake response (with timeout)
-            let receiver = communication.subscribe().await;
-            timeout(Duration::from_secs(HANDSHAKE_TIMEOUT_SECS), async {
-                loop {
-                    let incoming = receiver.receive().await.map_err(|_| ()).unwrap();
-                    let Ok(response_frame) = Frame::from_cbor(&incoming.payload) else {
-                        continue;
-                    };
-                    if let Frame::HandshakeFinish(handshake_finish) = response_frame {
-                        initiator.read_response_message(&handshake_finish).unwrap();
-                        break;
-                    }
-                }
-            })
-            .await
-            .map_err(|_| ())?;
-            let crypto_state = NoiseCryptoProviderState {
-                state: (&mut initiator).into(),
-            };
-            sessions
-                .save(destination, crypto_state)
-                .await
-                .expect("Save session should not fail");
-            info!(
-                "[IPC Crypto] Handshake with {:?} completed, session established",
-                destination
-            );
+
+            Self::perform_handshake(communication, sessions, destination).await?;
         }
 
         let mut crypto_state = sessions
