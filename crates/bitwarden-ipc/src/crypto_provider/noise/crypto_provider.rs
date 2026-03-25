@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::LazyLock, time::Duration};
 
 use serde::{Deserialize, Serialize};
 use tokio::time::timeout;
@@ -19,6 +19,10 @@ use crate::{
 };
 
 pub struct NoiseCryptoProvider;
+
+// Serialize send operations to prevent concurrent reads of the same persisted
+// transport state, which can cause nonce reuse.
+static SEND_GUARD: LazyLock<tokio::sync::Mutex<()>> = LazyLock::new(|| tokio::sync::Mutex::new(()));
 
 impl NoiseCryptoProvider {
     async fn perform_handshake<Com, Ses>(
@@ -105,6 +109,11 @@ where
         sessions: &Ses,
         message: OutgoingMessage,
     ) -> Result<(), Self::SendError> {
+        // Send operations *MUST* be seralized, otherwise nonce re-use may happen since
+        // concurrent sends may aquire the same copy of the transport state before nonce
+        // updating.
+        let _send_guard = SEND_GUARD.lock().await;
+
         let destination = message.destination;
 
         let crypto_state = sessions
