@@ -88,7 +88,7 @@ struct MockLeaderDiscovery {
 
 impl LeaderDiscovery for MockLeaderDiscovery {
     async fn discover_leader(&self) -> Option<Endpoint> {
-        Some(self.endpoint)
+        Some(self.endpoint.clone())
     }
 }
 

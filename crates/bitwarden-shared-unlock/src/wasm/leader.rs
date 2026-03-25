@@ -66,7 +66,7 @@ impl SharedUnlockLeader {
                                 }
                                 match Message::from_cbor(incoming_message.payload.as_slice()) {
                                     Ok(message) => {
-                                        if let Err(error) = leader.receive_message(message, source).await {
+                                        if let Err(error) = leader.receive_message(message, source.into()).await {
                                             tracing::error!(?error, "Failed to handle shared unlock leader message");
                                         }
                                     }

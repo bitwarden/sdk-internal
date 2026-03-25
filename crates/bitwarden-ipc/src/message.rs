@@ -2,7 +2,10 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::{endpoint::Endpoint, serde_utils};
+use crate::{
+    endpoint::{Endpoint, Source},
+    serde_utils,
+};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -13,6 +16,7 @@ pub struct OutgoingMessage {
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
     pub payload: Vec<u8>,
     /// Destination endpoint for this message.
+    #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
     pub destination: Endpoint,
     /// Optional topic used for routing/dispatch.
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
@@ -28,9 +32,11 @@ pub struct IncomingMessage {
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
     pub payload: Vec<u8>,
     /// Destination endpoint that received this message.
+    #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
     pub destination: Endpoint,
-    /// Source endpoint that sent this message.
-    pub source: Endpoint,
+    /// Source that sent this message, with per-variant metadata.
+    #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
+    pub source: Source,
     /// Optional topic used for routing/dispatch.
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
     pub topic: Option<String>,
@@ -77,7 +83,7 @@ where
 pub struct TypedIncomingMessage<Payload: PayloadTypeName> {
     pub payload: Payload,
     pub destination: Endpoint,
-    pub source: Endpoint,
+    pub source: Source,
 }
 
 /// This trait is used to ensure that the payload type has a topic associated with it.

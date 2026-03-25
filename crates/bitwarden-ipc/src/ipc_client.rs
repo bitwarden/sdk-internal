@@ -367,7 +367,7 @@ where
 
                 let outgoing = TypedOutgoingMessage {
                     payload: response_message,
-                    destination: incoming_message.source,
+                    destination: incoming_message.source.into(),
                 }
                 .try_into()
                 .map_err(|e: serde_utils::SerializeError| HandleError::Serialize(e.to_string()))?;
@@ -446,7 +446,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        endpoint::{Endpoint, HostId},
+        endpoint::{Endpoint, HostId, Source},
         traits::{
             InMemorySessionRepository, NoEncryptionCryptoProvider, tests::TestCommunicationBackend,
         },
@@ -542,7 +542,11 @@ mod tests {
     async fn returns_received_message_when_received_from_backend() {
         let message = IncomingMessage {
             payload: vec![],
-            source: Endpoint::Web { id: 9001 },
+            source: Source::Web {
+                tab_id: 9001,
+                document_id: "doc-1".to_string(),
+                origin: "https://example.com".to_string(),
+            },
             destination: Endpoint::BrowserBackground { id: HostId::Own },
             topic: None,
         };
@@ -566,13 +570,21 @@ mod tests {
     async fn skips_non_matching_topics_and_returns_first_matching_message() {
         let non_matching_message = IncomingMessage {
             payload: vec![],
-            source: Endpoint::Web { id: 9001 },
+            source: Source::Web {
+                tab_id: 9001,
+                document_id: "doc-1".to_string(),
+                origin: "https://example.com".to_string(),
+            },
             destination: Endpoint::BrowserBackground { id: HostId::Own },
             topic: Some("non_matching_topic".to_owned()),
         };
         let matching_message = IncomingMessage {
             payload: vec![109],
-            source: Endpoint::Web { id: 9001 },
+            source: Source::Web {
+                tab_id: 9001,
+                document_id: "doc-1".to_string(),
+                origin: "https://example.com".to_string(),
+            },
             destination: Endpoint::BrowserBackground { id: HostId::Own },
             topic: Some("matching_topic".to_owned()),
         };
@@ -608,7 +620,11 @@ mod tests {
 
         let unrelated = IncomingMessage {
             payload: vec![],
-            source: Endpoint::Web { id: 9001 },
+            source: Source::Web {
+                tab_id: 9001,
+                document_id: "doc-1".to_string(),
+                origin: "https://example.com".to_string(),
+            },
             destination: Endpoint::BrowserBackground { id: HostId::Own },
             topic: None,
         };
@@ -616,7 +632,11 @@ mod tests {
             payload: TestPayload {
                 some_data: "Hello, world!".to_string(),
             },
-            source: Endpoint::Web { id: 9001 },
+            source: Source::Web {
+                tab_id: 9001,
+                document_id: "doc-1".to_string(),
+                origin: "https://example.com".to_string(),
+            },
             destination: Endpoint::BrowserBackground { id: HostId::Own },
         };
 
@@ -656,7 +676,11 @@ mod tests {
 
         let non_deserializable_message = IncomingMessage {
             payload: vec![],
-            source: Endpoint::Web { id: 9001 },
+            source: Source::Web {
+                tab_id: 9001,
+                document_id: "doc-1".to_string(),
+                origin: "https://example.com".to_string(),
+            },
             destination: Endpoint::BrowserBackground { id: HostId::Own },
             topic: Some("TestPayload".to_owned()),
         };
@@ -810,8 +834,11 @@ mod tests {
             let simulated_response = IncomingMessage {
                 payload: serde_utils::to_vec(&simulated_response)
                     .expect("Serialization should not fail"),
-                source: Endpoint::BrowserBackground { id: HostId::Own },
-                destination: Endpoint::Web { id: 9001 },
+                source: Source::BrowserBackground { id: HostId::Own },
+                destination: Endpoint::Web {
+                    tab_id: 9001,
+                    document_id: "doc-1".to_string(),
+                },
                 topic: Some(
                     IncomingRpcResponseMessage::<TestRequest>::PAYLOAD_TYPE_NAME.to_owned(),
                 ),
@@ -847,7 +874,11 @@ mod tests {
             let simulated_request_message = IncomingMessage {
                 payload: serde_utils::to_vec(&simulated_request)
                     .expect("Serialization should not fail"),
-                source: Endpoint::Web { id: 9001 },
+                source: Source::Web {
+                    tab_id: 9001,
+                    document_id: "doc-1".to_string(),
+                    origin: "https://example.com".to_string(),
+                },
                 destination: Endpoint::BrowserBackground { id: HostId::Own },
                 topic: Some(RPC_REQUEST_PAYLOAD_TYPE_NAME.to_owned()),
             };

@@ -3,7 +3,7 @@ use std::str;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    endpoint::Endpoint,
+    endpoint::{Endpoint, Source},
     message::{IncomingMessage, OutgoingMessage},
 };
 
@@ -45,7 +45,7 @@ impl IncomingMessage {
     pub fn new(
         payload: Vec<u8>,
         destination: Endpoint,
-        source: Endpoint,
+        source: Source,
         topic: Option<String>,
     ) -> IncomingMessage {
         IncomingMessage {

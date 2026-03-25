@@ -48,7 +48,7 @@ impl FollowerSessions {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-        sessions.keys().copied().collect()
+        sessions.keys().cloned().collect()
     }
 
     fn prune_stale(&self, now: u64, stale_after: Duration) {
@@ -103,7 +103,7 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
             } => {
                 info!(?sender, %user_id, "Received lock request from follower");
                 self.follower_sessions
-                    .upsert(sender, get_current_timestamp());
+                    .upsert(sender.clone(), get_current_timestamp());
 
                 let self_lock_state = self.lock_system.get_user_lock_state(user_id).await;
                 if self_lock_state == LockState::Locked {
@@ -128,7 +128,7 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
             } => {
                 info!(?sender, %user_id, "Received unlock request from follower");
                 self.follower_sessions
-                    .upsert(sender, get_current_timestamp());
+                    .upsert(sender.clone(), get_current_timestamp());
 
                 let self_lock_state = self.lock_system.get_user_lock_state(user_id).await;
                 if let LockState::Unlocked { .. } = self_lock_state {
@@ -153,7 +153,7 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
             } => {
                 info!(?sender, %user_id, "Received start session from follower");
                 self.follower_sessions
-                    .upsert(sender, get_current_timestamp());
+                    .upsert(sender.clone(), get_current_timestamp());
                 let self_lock_state = self.lock_system.get_user_lock_state(user_id).await;
 
                 match (lock_state, self_lock_state.clone()) {
@@ -182,7 +182,7 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
             Message::HeartBeat { user_id } => {
                 info!(?sender, %user_id, "Received heartbeat from follower");
                 self.follower_sessions
-                    .upsert(sender, get_current_timestamp());
+                    .upsert(sender.clone(), get_current_timestamp());
 
                 let response = Message::HeartBeat { user_id };
                 self.message_sender.send_message(response, sender);

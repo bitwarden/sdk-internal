@@ -47,7 +47,7 @@ impl<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery, H: HeartbeatRe
                 user_id,
                 lock_state,
             };
-            sender.send_message(message, leader);
+            sender.send_message(message, leader.clone());
         }
     }
 
@@ -116,7 +116,7 @@ impl<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery, H: HeartbeatRe
                 // For all users that are logged in, send a heartbeat message to the leader.
                 for user_id in self.lock_system.list_users().await {
                     let message = Message::HeartBeat { user_id };
-                    self.sender.send_message(message, leader);
+                    self.sender.send_message(message, leader.clone());
                 }
             }
         }
