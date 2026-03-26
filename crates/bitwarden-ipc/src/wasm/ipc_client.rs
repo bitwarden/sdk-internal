@@ -24,9 +24,7 @@ pub struct JsIpcClient {
     /// that interact with the IPC client, e.g. to register RPC handlers, trigger RPC requests,
     /// send typed messages, etc. For examples see
     /// [wasm::ipc_register_discover_handler](crate::wasm::ipc_register_discover_handler).
-    pub client: Arc<
-        IpcClient<NoEncryptionCryptoProvider, JsCommunicationBackend, GenericSessionRepository>,
-    >,
+    pub client: Arc<IpcClient>,
 }
 
 /// JavaScript wrapper around the IPC client subscription. For more information, see the

@@ -5,6 +5,7 @@ mod discover;
 mod endpoint;
 mod ipc_client;
 mod message;
+mod presets;
 mod rpc;
 mod serde_utils;
 mod traits;
@@ -15,8 +16,9 @@ pub mod wasm;
 
 pub use endpoint::{Endpoint, HostId, Source};
 pub use ipc_client::{
-    IpcClient, IpcClientSubscription, IpcClientTypedSubscription, ReceiveError, RequestError,
-    SubscribeError, TypedReceiveError,
+    IpcClientSubscription, IpcClientTypedSubscription, ReceiveError, RequestError, SubscribeError,
+    TypedReceiveError,
 };
 pub use message::{IncomingMessage, OutgoingMessage};
+pub use presets::IpcClient;
 pub use rpc::exec::handler::RpcHandler;

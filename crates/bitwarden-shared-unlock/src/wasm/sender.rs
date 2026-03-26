@@ -5,14 +5,6 @@ use wasm_bindgen_futures::spawn_local;
 
 use crate::{Message, MessageSender};
 
-fn clone_ipc_client(
-    ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
-) -> bitwarden_ipc::wasm::JsIpcClient {
-    bitwarden_ipc::wasm::JsIpcClient {
-        client: Arc::clone(&ipc_client.client),
-    }
-}
-
 #[derive(Clone, Copy)]
 pub(super) enum Role {
     Leader,
@@ -20,14 +12,14 @@ pub(super) enum Role {
 }
 
 pub(super) struct WasmSender {
-    ipc_client: bitwarden_ipc::wasm::JsIpcClient,
+    ipc_client: Arc<bitwarden_ipc::IpcClient>,
     role: Role,
 }
 
 impl WasmSender {
     pub(super) fn new(ipc_client: &bitwarden_ipc::wasm::JsIpcClient, role: Role) -> Self {
         Self {
-            ipc_client: clone_ipc_client(ipc_client),
+            ipc_client: ipc_client.client.clone(),
             role,
         }
     }
@@ -36,7 +28,7 @@ impl WasmSender {
 impl Clone for WasmSender {
     fn clone(&self) -> Self {
         Self {
-            ipc_client: clone_ipc_client(&self.ipc_client),
+            ipc_client: self.ipc_client.clone(),
             role: self.role,
         }
     }
@@ -65,7 +57,7 @@ impl MessageSender for WasmSender {
             },
         };
 
-        let ipc_client = clone_ipc_client(&self.ipc_client);
+        let ipc_client = self.ipc_client.clone();
 
         spawn_local(async move {
             if let Err(error) = ipc_client.send(outgoing_message).await {
