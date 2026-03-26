@@ -49,6 +49,47 @@ done
 
 cd "$REPO_ROOT"
 
+# --- Preflight checks ---
+PREFLIGHT_FAILED=false
+
+if ! command -v cargo &>/dev/null; then
+    echo "ERROR: cargo not found. Install Rust via https://rustup.rs/" >&2
+    PREFLIGHT_FAILED=true
+fi
+
+if ! command -v git &>/dev/null; then
+    echo "ERROR: git not found. Install git: https://git-scm.com/downloads" >&2
+    PREFLIGHT_FAILED=true
+fi
+
+if ! git rev-parse --is-inside-work-tree &>/dev/null; then
+    echo "ERROR: Not inside a git repository. Run from the sdk-internal repo root." >&2
+    PREFLIGHT_FAILED=true
+fi
+
+if [[ ! -f "$SCRIPT_DIR/extract-kotlin-api.sh" ]]; then
+    echo "ERROR: extract-kotlin-api.sh not found at $SCRIPT_DIR/. Repo may be incomplete." >&2
+    PREFLIGHT_FAILED=true
+fi
+
+if [[ "$DRY_RUN" == "false" ]]; then
+    if ! git rev-parse "$BASE_BRANCH" &>/dev/null; then
+        echo "ERROR: Base branch '$BASE_BRANCH' not found. Fetch it with: git fetch origin $BASE_BRANCH" >&2
+        PREFLIGHT_FAILED=true
+    fi
+
+    if ! cargo metadata --format-version 1 2>/dev/null | grep -q '"name":"uniffi-bindgen"'; then
+        echo "ERROR: uniffi-bindgen crate not found in workspace. Ensure Cargo.toml includes it." >&2
+        PREFLIGHT_FAILED=true
+    fi
+fi
+
+if [[ "$PREFLIGHT_FAILED" == "true" ]]; then
+    echo "" >&2
+    echo "Preflight checks failed. Fix the issues above and re-run." >&2
+    exit 1
+fi
+
 # --- Helper: build bindings for a dylib ---
 generate_bindings() {
     local dylib_path="$1"
