@@ -14,7 +14,6 @@ use crate::{
     wasm::JsSessionRepository,
 };
 
-// TODO: Change session type when implementing encryption
 type Session = NoiseCryptoProviderState;
 
 pub enum GenericSessionRepository {

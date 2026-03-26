@@ -84,12 +84,6 @@ pub struct ThreadBoundRunner<ThreadState> {
     call_channel_tx: tokio::sync::mpsc::Sender<CallRequest<ThreadState>>,
 }
 
-// Safety: ThreadBoundRunner only contains a Sender which is Send + Sync.
-// The ThreadState is never directly accessed from ThreadBoundRunner, only through
-// the channel which ensures proper thread confinement.
-unsafe impl<ThreadState> Send for ThreadBoundRunner<ThreadState> {}
-unsafe impl<ThreadState> Sync for ThreadBoundRunner<ThreadState> {}
-
 /// Makes a clone of the runner handle.
 ///
 /// This creates another handle to the same underlying runner object.
