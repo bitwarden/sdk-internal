@@ -29,6 +29,14 @@ pub enum Message {
 }
 
 impl Message {
+    pub fn user_id(&self) -> UserId {
+        match self {
+            Message::LockStateUpdate { user_id, .. }
+            | Message::StartSession { user_id, .. }
+            | Message::HeartBeat { user_id } => *user_id,
+        }
+    }
+
     /// Serializes this message to CBOR bytes.
     pub fn to_cbor(&self) -> Result<Vec<u8>, EncodingError> {
         let mut buffer = Vec::new();

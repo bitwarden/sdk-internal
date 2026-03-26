@@ -14,6 +14,9 @@ pub trait UserLockManagement {
     async fn list_users(&self) -> Vec<UserId>;
     /// Get the lock state of the user with the given ID.
     async fn get_user_lock_state(&self, user_id: UserId) -> LockState;
+    /// Get vault_url for the user with the given ID, if available. This is used to verify IPC
+    /// message sources
+    async fn get_vault_url(&self, user_id: UserId) -> Option<String>;
 }
 
 /// The HeartbeatResponseHandler gets called on every heartbeat response received by the leader.

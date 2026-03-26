@@ -4,7 +4,7 @@ use std::{
 };
 
 use bitwarden_core::UserId;
-use bitwarden_ipc::{Endpoint, HostId};
+use bitwarden_ipc::{Endpoint, HostId, Source};
 
 use crate::{
     DeviceEvent, Follower, Leader, LockState, Message, UserKey,
@@ -14,12 +14,24 @@ use crate::{
 #[derive(Clone)]
 struct MockLockSystem {
     states: Arc<Mutex<HashMap<UserId, LockState>>>,
+    vault_urls: Arc<Mutex<HashMap<UserId, String>>>,
 }
 
 impl MockLockSystem {
     fn new(initial: HashMap<UserId, LockState>) -> Self {
         Self {
             states: Arc::new(Mutex::new(initial)),
+            vault_urls: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    fn with_vault_urls(
+        initial: HashMap<UserId, LockState>,
+        vault_urls: HashMap<UserId, String>,
+    ) -> Self {
+        Self {
+            states: Arc::new(Mutex::new(initial)),
+            vault_urls: Arc::new(Mutex::new(vault_urls)),
         }
     }
 
@@ -56,6 +68,10 @@ impl UserLockManagement for MockLockSystem {
 
     async fn get_user_lock_state(&self, user_id: UserId) -> LockState {
         self.get_state(user_id)
+    }
+
+    async fn get_vault_url(&self, user_id: UserId) -> Option<String> {
+        self.vault_urls.lock().unwrap().get(&user_id).cloned()
     }
 }
 
@@ -111,7 +127,10 @@ impl HeartbeatResponseHandler for MockHeartbeatHandler {
 }
 
 const LEADER_ENDPOINT: Endpoint = Endpoint::DesktopMain;
-const FOLLOWER_ENDPOINT: Endpoint = Endpoint::BrowserBackground { id: HostId::Own };
+
+fn follower_source() -> Source {
+    Source::BrowserBackground { id: HostId::Own }
+}
 
 fn test_user_key() -> UserKey {
     UserKey::from_bytes(vec![1u8; 64])
@@ -141,7 +160,15 @@ impl Harness {
         leader_states: HashMap<UserId, LockState>,
         follower_states: HashMap<UserId, LockState>,
     ) -> Self {
-        let leader_lock = MockLockSystem::new(leader_states);
+        Self::new_with_vault_urls(leader_states, follower_states, HashMap::new()).await
+    }
+
+    async fn new_with_vault_urls(
+        leader_states: HashMap<UserId, LockState>,
+        follower_states: HashMap<UserId, LockState>,
+        vault_urls: HashMap<UserId, String>,
+    ) -> Self {
+        let leader_lock = MockLockSystem::with_vault_urls(leader_states, vault_urls);
         let leader_outbox = MockMessageSender::new();
         let leader = Leader::create(leader_lock.clone(), leader_outbox.clone());
 
@@ -177,11 +204,16 @@ impl Harness {
 
     /// Deliver all messages from follower outbox to leader
     async fn deliver_follower_to_leader(&mut self) -> usize {
+        self.deliver_follower_to_leader_as(follower_source()).await
+    }
+
+    /// Deliver all messages from follower outbox to leader with a specific source
+    async fn deliver_follower_to_leader_as(&mut self, source: Source) -> usize {
         let messages = self.follower_outbox.drain();
         let count = messages.len();
         for (msg, _recipient) in messages {
             self.leader
-                .receive_message(msg, FOLLOWER_ENDPOINT)
+                .receive_message(msg, source.clone())
                 .await
                 .unwrap();
         }
@@ -414,6 +446,220 @@ async fn test_multiple_users_startup() {
     );
     assert_eq!(
         harness.follower_lock.get_state(b),
+        LockState::Unlocked { user_key: key }
+    );
+}
+
+#[tokio::test]
+async fn test_web_source_with_matching_origin_is_accepted() {
+    let user = user_a();
+    let key = test_user_key();
+    let leader_states = HashMap::from([(user, LockState::Locked)]);
+    let follower_states = HashMap::from([(
+        user,
+        LockState::Unlocked {
+            user_key: key.clone(),
+        },
+    )]);
+    let vault_urls = HashMap::from([(user, "https://vault.bitwarden.com".to_string())]);
+
+    let mut harness =
+        Harness::new_with_vault_urls(leader_states, follower_states, vault_urls).await;
+
+    // Re-deliver startup messages as a Web source with matching origin
+    let web_source = Source::Web {
+        tab_id: 1,
+        document_id: "doc-1".to_string(),
+        origin: "https://vault.bitwarden.com".to_string(),
+    };
+
+    // Manually send a StartSession from the web source
+    harness
+        .leader
+        .receive_message(
+            Message::StartSession {
+                user_id: user,
+                lock_state: LockState::Unlocked {
+                    user_key: key.clone(),
+                },
+            },
+            web_source,
+        )
+        .await
+        .unwrap();
+
+    // Leader should have accepted the unlock
+    assert_eq!(
+        harness.leader_lock.get_state(user),
+        LockState::Unlocked { user_key: key }
+    );
+}
+
+#[tokio::test]
+async fn test_web_source_with_mismatched_origin_is_rejected() {
+    let user = user_a();
+    let key = test_user_key();
+    let leader_states = HashMap::from([(user, LockState::Locked)]);
+    let follower_states = HashMap::from([(user, LockState::Locked)]);
+    let vault_urls = HashMap::from([(user, "https://vault.bitwarden.com".to_string())]);
+
+    let harness = Harness::new_with_vault_urls(leader_states, follower_states, vault_urls).await;
+
+    let web_source = Source::Web {
+        tab_id: 1,
+        document_id: "doc-1".to_string(),
+        origin: "https://evil.example.com".to_string(),
+    };
+
+    // Send a StartSession with wrong origin
+    harness
+        .leader
+        .receive_message(
+            Message::StartSession {
+                user_id: user,
+                lock_state: LockState::Unlocked { user_key: key },
+            },
+            web_source,
+        )
+        .await
+        .unwrap();
+
+    // Leader should have rejected the message and stayed locked
+    assert_eq!(harness.leader_lock.get_state(user), LockState::Locked);
+}
+
+#[tokio::test]
+async fn test_web_source_without_configured_vault_url_is_rejected() {
+    let user = user_a();
+    let key = test_user_key();
+    let leader_states = HashMap::from([(user, LockState::Locked)]);
+    let follower_states = HashMap::from([(user, LockState::Locked)]);
+    // No vault URLs configured
+    let vault_urls = HashMap::new();
+
+    let harness = Harness::new_with_vault_urls(leader_states, follower_states, vault_urls).await;
+
+    let web_source = Source::Web {
+        tab_id: 1,
+        document_id: "doc-1".to_string(),
+        origin: "https://anything.example.com".to_string(),
+    };
+
+    harness
+        .leader
+        .receive_message(
+            Message::StartSession {
+                user_id: user,
+                lock_state: LockState::Unlocked { user_key: key },
+            },
+            web_source,
+        )
+        .await
+        .unwrap();
+
+    // Should be rejected since no vault URL is configured
+    assert_eq!(harness.leader_lock.get_state(user), LockState::Locked);
+}
+
+#[tokio::test]
+async fn test_web_source_lock_state_update_with_mismatched_origin_is_rejected() {
+    let user = user_a();
+    let key = test_user_key();
+    let leader_states = HashMap::from([(user, LockState::Locked)]);
+    let follower_states = HashMap::from([(user, LockState::Locked)]);
+    let vault_urls = HashMap::from([(user, "https://vault.bitwarden.com".to_string())]);
+
+    let harness = Harness::new_with_vault_urls(leader_states, follower_states, vault_urls).await;
+
+    let web_source = Source::Web {
+        tab_id: 1,
+        document_id: "doc-1".to_string(),
+        origin: "https://evil.example.com".to_string(),
+    };
+
+    // Send a LockStateUpdate (unlock) with wrong origin
+    harness
+        .leader
+        .receive_message(
+            Message::LockStateUpdate {
+                user_id: user,
+                lock_state: LockState::Unlocked { user_key: key },
+            },
+            web_source,
+        )
+        .await
+        .unwrap();
+
+    // Leader should have rejected the message and stayed locked
+    assert_eq!(harness.leader_lock.get_state(user), LockState::Locked);
+}
+
+#[tokio::test]
+async fn test_web_source_lock_state_update_with_matching_origin_is_accepted() {
+    let user = user_a();
+    let key = test_user_key();
+    let leader_states = HashMap::from([(user, LockState::Locked)]);
+    let follower_states = HashMap::from([(user, LockState::Locked)]);
+    let vault_urls = HashMap::from([(user, "https://vault.bitwarden.com".to_string())]);
+
+    let harness = Harness::new_with_vault_urls(leader_states, follower_states, vault_urls).await;
+
+    let web_source = Source::Web {
+        tab_id: 1,
+        document_id: "doc-1".to_string(),
+        origin: "https://vault.bitwarden.com".to_string(),
+    };
+
+    harness
+        .leader
+        .receive_message(
+            Message::LockStateUpdate {
+                user_id: user,
+                lock_state: LockState::Unlocked {
+                    user_key: key.clone(),
+                },
+            },
+            web_source,
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        harness.leader_lock.get_state(user),
+        LockState::Unlocked { user_key: key }
+    );
+}
+
+#[tokio::test]
+async fn test_non_web_source_skips_origin_validation() {
+    let user = user_a();
+    let key = test_user_key();
+    let leader_states = HashMap::from([(user, LockState::Locked)]);
+    let follower_states = HashMap::from([(user, LockState::Locked)]);
+    let vault_urls = HashMap::from([(user, "https://vault.bitwarden.com".to_string())]);
+
+    let harness = Harness::new_with_vault_urls(leader_states, follower_states, vault_urls).await;
+
+    // BrowserBackground source has no origin to validate
+    let browser_source = Source::BrowserBackground { id: HostId::Own };
+
+    harness
+        .leader
+        .receive_message(
+            Message::StartSession {
+                user_id: user,
+                lock_state: LockState::Unlocked {
+                    user_key: key.clone(),
+                },
+            },
+            browser_source,
+        )
+        .await
+        .unwrap();
+
+    // Should be accepted regardless of vault URL config
+    assert_eq!(
+        harness.leader_lock.get_state(user),
         LockState::Unlocked { user_key: key }
     );
 }

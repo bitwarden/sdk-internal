@@ -93,9 +93,27 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
     pub async fn receive_message(
         &self,
         message: Message,
-        sender: bitwarden_ipc::Endpoint,
+        sender: bitwarden_ipc::Source,
     ) -> Result<(), ()> {
         info!(?sender, "Received message from follower: {:?}", message);
+        let endpoint: bitwarden_ipc::Endpoint = sender.clone().into();
+
+        // Validate the origin of web sources against the user's vault URL
+        if let bitwarden_ipc::Source::Web { origin, .. } = &sender {
+            let user_id = message.user_id();
+            match self.lock_system.get_vault_url(user_id).await {
+                Some(user_vault_url) if origin == &user_vault_url => {}
+                Some(user_vault_url) => {
+                    warn!(%origin, %user_vault_url, "IPC message origin does not match user's vault URL, ignoring message");
+                    return Ok(());
+                }
+                None => {
+                    warn!(%origin, "No vault URL found for user, ignoring message");
+                    return Ok(());
+                }
+            }
+        }
+
         match message {
             Message::LockStateUpdate {
                 user_id,
@@ -103,7 +121,7 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
             } => {
                 info!(?sender, %user_id, "Received lock request from follower");
                 self.follower_sessions
-                    .upsert(sender.clone(), get_current_timestamp());
+                    .upsert(endpoint.clone(), get_current_timestamp());
 
                 let self_lock_state = self.lock_system.get_user_lock_state(user_id).await;
                 if self_lock_state == LockState::Locked {
@@ -119,7 +137,7 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                     user_id,
                     lock_state: LockState::Locked,
                 };
-                self.message_sender.send_message(response, sender);
+                self.message_sender.send_message(response, endpoint.clone());
                 Ok(())
             }
             Message::LockStateUpdate {
@@ -128,7 +146,7 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
             } => {
                 info!(?sender, %user_id, "Received unlock request from follower");
                 self.follower_sessions
-                    .upsert(sender.clone(), get_current_timestamp());
+                    .upsert(endpoint.clone(), get_current_timestamp());
 
                 let self_lock_state = self.lock_system.get_user_lock_state(user_id).await;
                 if let LockState::Unlocked { .. } = self_lock_state {
@@ -144,7 +162,7 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                     user_id,
                     lock_state: LockState::Unlocked { user_key },
                 };
-                self.message_sender.send_message(response, sender);
+                self.message_sender.send_message(response, endpoint.clone());
                 Ok(())
             }
             Message::StartSession {
@@ -152,8 +170,9 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                 lock_state,
             } => {
                 info!(?sender, %user_id, "Received start session from follower");
+
                 self.follower_sessions
-                    .upsert(sender.clone(), get_current_timestamp());
+                    .upsert(endpoint.clone(), get_current_timestamp());
                 let self_lock_state = self.lock_system.get_user_lock_state(user_id).await;
 
                 match (lock_state, self_lock_state.clone()) {
@@ -170,7 +189,7 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                             user_id,
                             lock_state: self_lock_state,
                         };
-                        self.message_sender.send_message(response, sender);
+                        self.message_sender.send_message(response, endpoint.clone());
                     }
                     _ => {
                         // States are already in sync, no action needed
@@ -182,10 +201,10 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
             Message::HeartBeat { user_id } => {
                 info!(?sender, %user_id, "Received heartbeat from follower");
                 self.follower_sessions
-                    .upsert(sender.clone(), get_current_timestamp());
+                    .upsert(endpoint.clone(), get_current_timestamp());
 
                 let response = Message::HeartBeat { user_id };
-                self.message_sender.send_message(response, sender);
+                self.message_sender.send_message(response, endpoint.clone());
                 Ok(())
             }
         }

@@ -20,6 +20,7 @@ export interface UserLockManagement {
     get_user_key(user_id: UserId): Promise<string | undefined>;
     suppress_vault_timeout(until: number): Promise<void>;
     get_client_name(): Promise<string>;
+    get_vault_url(user_id: UserId): Promise<string | undefined>;
 }
 "#;
 
@@ -54,6 +55,14 @@ extern "C" {
     /// Get the client type of the current device
     #[wasm_bindgen(method, catch)]
     async fn get_client_name(this: &RawJsUserLockManagement) -> Result<JsValue, JsValue>;
+
+    /// Get vault URL for the user with the given ID, if available. This is used to verify IPC
+    /// message sources.
+    #[wasm_bindgen(method, catch)]
+    async fn get_vault_url(
+        this: &RawJsUserLockManagement,
+        user_id: UserId,
+    ) -> Result<JsValue, JsValue>;
 }
 
 pub(super) struct JsUserLockManagement {
@@ -124,6 +133,20 @@ impl UserLockManagement for JsUserLockManagement {
             })
             .await
             .unwrap_or(LockState::Locked)
+    }
+
+    async fn get_vault_url(&self, user_id: UserId) -> Option<String> {
+        self.runner
+            .run_in_thread(move |driver| async move {
+                driver
+                    .get_vault_url(user_id)
+                    .await
+                    .ok()
+                    .and_then(|js_value| js_value.as_string())
+            })
+            .await
+            .ok()
+            .flatten()
     }
 }
 
