@@ -136,6 +136,262 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  check-android-breaking-changes:
+    name: Check Android Breaking Changes
+    if: github.event_name == 'pull_request'
+    needs: combine
+    uses: ./.github/workflows/detect-breaking-changes.yml
+    with:
+      pr_number: ${{ github.event.pull_request.number }}
+      pr_head_sha: ${{ github.event.pull_request.head.sha }}
+      pr_head_ref: ${{ github.event.pull_request.head.ref }}
+      build_run_id: ${{ github.run_id }}
+      client_repo: "bitwarden/android"
+      client_label: "android"
+      client_workflow: "sdk-breaking-change-check.yml"
+      client_branch: "main"
+    secrets: inherit
+
+  generate-impact-report:
+    name: Generate Android Impact Report
+    if: github.event_name == 'pull_request'
+    needs: combine
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install rust
+        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9 # stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          key: cargo-impact-report
+
+      - name: Download artifacts
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+
+      - name: Generate Kotlin bindings for current branch
+        working-directory: crates/bitwarden-uniffi/kotlin
+        run: |
+          mkdir -p sdk/src/main/jniLibs/arm64-v8a
+          cp $GITHUB_WORKSPACE/android-aarch64-linux-android/libbitwarden_uniffi.so \
+            sdk/src/main/jniLibs/arm64-v8a/libbitwarden_uniffi.so
+          ./build-schemas.sh
+
+      - name: Extract current API surface
+        run: |
+          bash .claude/skills/check-android-compat/scripts/extract-kotlin-api.sh \
+            crates/bitwarden-uniffi/kotlin/sdk/src/main/java/com/bitwarden/ > /tmp/api-new.txt
+
+      - name: Extract base branch API surface
+        run: |
+          KOTLIN_DIR="crates/bitwarden-uniffi/kotlin/sdk/src/main/java/com/bitwarden"
+          TEMP_OLD=$(mktemp -d)
+
+          for kt_file in $(find "$KOTLIN_DIR" -name "*.kt" -type f); do
+            DEST="$TEMP_OLD/$(dirname "$kt_file")"
+            mkdir -p "$DEST"
+            git show "origin/${{ github.event.pull_request.base.ref }}:$kt_file" \
+              > "$DEST/$(basename "$kt_file")" 2>/dev/null || true
+          done
+
+          bash .claude/skills/check-android-compat/scripts/extract-kotlin-api.sh \
+            "$TEMP_OLD/$KOTLIN_DIR" > /tmp/api-old.txt
+          rm -rf "$TEMP_OLD"
+
+      - name: Generate API diff
+        id: diff
+        run: |
+          if diff -u /tmp/api-old.txt /tmp/api-new.txt > /tmp/api-diff.txt; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No API changes detected"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "API changes detected:"
+            cat /tmp/api-diff.txt
+          fi
+
+      - name: Get PR commit log
+        id: commits
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          git log --oneline "$BASE_SHA".."$HEAD_SHA" > /tmp/pr-commits.txt
+          echo "commit_count=$(wc -l < /tmp/pr-commits.txt | tr -d ' ')" >> $GITHUB_OUTPUT
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code@latest
+
+      - name: Fetch Android SdkSource files for cross-referencing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Fetching Android SdkSource files for cross-reference analysis..."
+          mkdir -p /tmp/android-sources
+
+          # Search for SdkSource files in the Android repo
+          PATHS=$(gh api search/code \
+            -f q="SdkSource repo:bitwarden/android language:kotlin path:app/src/main" \
+            --jq '.items[].path' 2>/dev/null | sort -u | head -20)
+
+          for path in $PATHS; do
+            echo "Fetching: $path"
+            gh api "repos/bitwarden/android/contents/$path" \
+              --jq '.content' 2>/dev/null | base64 -d > "/tmp/android-sources/$(basename "$path")" 2>/dev/null || true
+          done
+
+          echo "Fetched $(ls /tmp/android-sources/ | wc -l | tr -d ' ') Android source files"
+          ls /tmp/android-sources/
+
+      - name: Prepare analysis inputs
+        run: |
+          # Collect the source diff for behavioral analysis
+          git diff "origin/${{ github.event.pull_request.base.ref }}"...HEAD -- \
+            'crates/bitwarden-vault/' \
+            'crates/bitwarden-crypto/' \
+            'crates/bitwarden-core/' \
+            'crates/bitwarden-pm/' \
+            'crates/bitwarden-send/' \
+            'crates/bitwarden-generators/' \
+            'crates/bitwarden-exporters/' \
+            'crates/bitwarden-fido/' \
+            'crates/bitwarden-ssh/' \
+            'crates/bitwarden-collections/' \
+            'crates/bitwarden-uniffi/' \
+            'crates/server-communication-config/' \
+            | head -3000 > /tmp/source-diff.txt
+
+          # Build the prompt file with all analysis layers
+          cat > /tmp/analysis-prompt.md << 'HEADER'
+          You are the SDK Android Analyst. Analyze the following SDK changes for their impact on
+          the bitwarden/android project. Produce a structured impact report in markdown.
+
+          ## Layer 1: API Surface Diff (deterministic)
+
+          These are structural changes to the Kotlin API surface extracted from generated UniFFI
+          bindings:
+
+          ```diff
+          HEADER
+          cat /tmp/api-diff.txt >> /tmp/analysis-prompt.md 2>/dev/null || echo "No API surface changes detected." >> /tmp/analysis-prompt.md
+          cat >> /tmp/analysis-prompt.md << 'MID1'
+          ```
+
+          ## Layer 2: Android SdkSource Cross-Reference
+
+          These are the Android files that consume the SDK. Cross-reference changed APIs against
+          these files to identify affected call sites, null checks, when expressions, and
+          behavioral assumptions:
+
+          MID1
+
+          for f in /tmp/android-sources/*.kt; do
+            [ -f "$f" ] || continue
+            echo "### $(basename "$f")" >> /tmp/analysis-prompt.md
+            echo '```kotlin' >> /tmp/analysis-prompt.md
+            head -200 "$f" >> /tmp/analysis-prompt.md
+            echo '```' >> /tmp/analysis-prompt.md
+            echo "" >> /tmp/analysis-prompt.md
+          done
+
+          cat >> /tmp/analysis-prompt.md << 'MID2'
+
+          ## Layer 3: Source Code Diff (behavioral analysis)
+
+          Analyze these Rust source changes for behavioral impact that would NOT show up in the
+          API surface diff — such as changes to method internals, error handling, default values,
+          nullability semantics, new required callback behaviors, or bugfixes that change output:
+
+          ```diff
+          MID2
+          cat /tmp/source-diff.txt >> /tmp/analysis-prompt.md
+          cat >> /tmp/analysis-prompt.md << 'FOOTER'
+          ```
+
+          ## Instructions
+
+          Produce a report with these sections:
+
+          1. **Summary**: Counts of breaking compilation, breaking behavioral, additive, and
+             requires-attention changes
+          2. **Breaking Compilation Changes**: Changes that will cause Android compilation to fail
+             (new required fields, removed types, changed signatures). For each, identify the
+             specific Android SdkSource file and line affected.
+          3. **Breaking Behavioral Changes**: Changes that compile but alter runtime behavior
+             (internal logic changes, semantic shifts, bugfixes that change output). For each,
+             describe: what changed, why it matters for Android, risk level (HIGH/MEDIUM/LOW),
+             and what Android code should be reviewed. Include the specific SdkSource file affected.
+          4. **Additive Changes**: New API surface that doesn't break existing code
+          5. **Requires Attention**: Anything ambiguous that warrants human review
+          6. **PR Description Snippet**: A concise summary for the SDK PR description
+
+          Be thorough on behavioral changes — these are the ones the deterministic diff misses.
+          A bugfix that changes how encryption keys are stored, or a change to how cookies are
+          preserved, can silently break Android even if the API surface is identical.
+          FOOTER
+
+      - name: Generate impact report with Claude
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude -p "$(cat /tmp/analysis-prompt.md)" \
+            --output-format text > /tmp/impact-report.md
+
+      - name: Post impact report as PR comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          COMMENT_HEADER="<!-- SDK-ANDROID-IMPACT-REPORT -->"
+          TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          REPORT=$(head -500 /tmp/impact-report.md)
+
+          COMMENT=$(cat <<EOF
+          $COMMENT_HEADER
+          ## 📱 Android SDK Impact Report
+
+          **Generated:** $TIMESTAMP
+          **Commits analyzed:** ${{ steps.commits.outputs.commit_count }}
+
+          $REPORT
+
+          ---
+          *Generated by Claude Code in CI. For interactive analysis, run \`/check-android-compat\` locally.*
+          EOF
+          )
+
+          # Check for existing comment
+          EXISTING_COMMENT=$(gh api repos/${{ github.repository }}/issues/$PR_NUMBER/comments | \
+            jq -r --arg header "$COMMENT_HEADER" '.[] | select(.body | contains($header)) | .id' | head -1)
+
+          if [ -n "$EXISTING_COMMENT" ]; then
+            gh api --method PATCH repos/${{ github.repository }}/issues/comments/$EXISTING_COMMENT \
+              --field body="$COMMENT"
+          else
+            gh api --method POST repos/${{ github.repository }}/issues/$PR_NUMBER/comments \
+              --field body="$COMMENT"
+          fi
+
+      - name: Upload impact report artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: android-impact-report
+          path: |
+            /tmp/impact-report.md
+            /tmp/api-diff.txt
+          retention-days: 30
+
   update:
     name: Trigger SDK update in Android repo
     runs-on: ubuntu-24.04
