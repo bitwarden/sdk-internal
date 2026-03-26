@@ -7,7 +7,9 @@ description:
   or wants to understand how their SDK changes affect the bitwarden/android project. This skill
   extracts the Kotlin API surface from generated UniFFI bindings, diffs against the main branch,
   cross-references actual Android usage patterns, and produces a structured impact report.
-allowed-tools: Bash, Read, Write, Glob, Grep, Agent, Skill, WebFetch, TeamCreate, SendMessage
+allowed-tools:
+  Bash(bash .claude/skills/check-android-compat/scripts/generate-diff.sh:*), Bash(git diff:*), Read,
+  Agent, TeamCreate, SendMessage
 ---
 
 # Check Android Compatibility
@@ -18,67 +20,43 @@ Detect and analyze breaking changes in the SDK's Android (Kotlin) API surface.
 
 Parse the user's input for these arguments:
 
-- `--dry-run`: Skip AAR build, assume bindings already exist from a prior build. Just run API
-  extraction + diff + analysis.
+- `--dry-run`: Skip cargo builds, reuse existing `/tmp/bindings-old/` and `/tmp/bindings-new/`. Just
+  run the filtered diff + analysis.
 - `--team`: Run the full four-agent team pipeline (analyst → architect → implementer → reviewer).
   Requires a local Android repo path.
 - Path argument: Local path to a `bitwarden/android` checkout. If not provided, the skill will fetch
   Android source files via `gh api` for analysis (no compilation check).
 
-## Quick Validation
-
-Before doing anything, check if there are actually any Kotlin binding changes:
-
-```bash
-# Check if generated Kotlin files differ from main branch
-KOTLIN_DIR="crates/bitwarden-uniffi/kotlin/sdk/src/main/java/com/bitwarden"
-if git diff main --quiet -- "$KOTLIN_DIR" 2>/dev/null; then
-  echo "No Kotlin binding changes detected vs main branch."
-  echo "If you have uncommitted changes, make sure bindings have been regenerated."
-fi
-```
-
-If no changes are detected AND it's a dry-run, inform the user and ask if they want to build first.
-
 ## Mode 1: Analysis Only (default, or `--dry-run`)
 
 This is the default mode. It produces an impact report without modifying any code.
 
-### Step 1: Build Bindings (unless --dry-run)
+### Step 1: Generate API Diff
 
-Build fresh Kotlin bindings. Prerequisites: Docker running, `cross` installed.
-
-```bash
-cd crates/bitwarden-uniffi/kotlin && bash publish-local.sh
-```
-
-This cross-compiles for arm64-v8a, generates Kotlin bindings via `build-schemas.sh`, and publishes
-to local Maven (`~/.m2/repository`) as `com.bitwarden:sdk-android:LOCAL`.
-
-### Step 2: Run API Extraction and Diff
+Run the diff generation script. This builds Kotlin bindings for both the current branch and main
+(via native `cargo build` + `uniffi-bindgen`, no Docker needed), then produces a filtered diff
+stripping UniFFI internals.
 
 ```bash
-SCRIPT=".claude/skills/check-android-compat/scripts/extract-kotlin-api.sh"
-KOTLIN_DIR="crates/bitwarden-uniffi/kotlin/sdk/src/main/java/com/bitwarden"
-
-# Extract current API
-bash "$SCRIPT" "$KOTLIN_DIR" > /tmp/api-new.txt
-
-# Extract main branch API
-TEMP_OLD=$(mktemp -d)
-for kt_file in $(find "$KOTLIN_DIR" -name "*.kt" -type f); do
-  DEST="$TEMP_OLD/$(dirname "$kt_file")"
-  mkdir -p "$DEST"
-  git show "main:$kt_file" > "$DEST/$(basename "$kt_file")" 2>/dev/null || true
-done
-bash "$SCRIPT" "$TEMP_OLD/$KOTLIN_DIR" > /tmp/api-old.txt
-rm -rf "$TEMP_OLD"
-
-# Generate diff
-diff -u /tmp/api-old.txt /tmp/api-new.txt > /tmp/api-diff.txt || true
+bash .claude/skills/check-android-compat/scripts/generate-diff.sh
+# Or with options:
+bash .claude/skills/check-android-compat/scripts/generate-diff.sh --base-branch main
+bash .claude/skills/check-android-compat/scripts/generate-diff.sh --dry-run  # skip builds, reuse /tmp/bindings-{old,new}
 ```
 
-### Step 3: Dispatch SDK Analyst Agent
+Output files:
+
+- `/tmp/api-diff.txt` — filtered API diff (also printed to stdout)
+- `/tmp/bindings-old/` — base branch Kotlin bindings
+- `/tmp/bindings-new/` — current branch Kotlin bindings
+
+If the diff is empty, report "No API changes detected" and exit.
+
+**Note:** For full AAR publishing to local Maven (needed for Android compilation checks in team
+mode), use `cd crates/bitwarden-uniffi/kotlin && bash publish-local.sh` instead. This requires
+Docker + `cross`.
+
+### Step 2: Dispatch SDK Analyst Agent
 
 Spawn the `sdk-android-analyst` agent to perform the full analysis:
 
@@ -98,7 +76,7 @@ The agent will:
 3. Attempt compilation if Android repo is available
 4. Produce `sdk-impact-report.md`
 
-### Step 4: Present Results
+### Step 3: Present Results
 
 After the analyst completes:
 
@@ -118,7 +96,17 @@ After the analyst completes:
 
 Requires a local Android repo path. Orchestrates four agents across both repositories.
 
-### Step 1: Create Team
+### Step 1: Generate API Diff
+
+Same as Mode 1 Step 1 — run `generate-diff.sh` first so the diff is ready before spawning agents:
+
+```bash
+bash .claude/skills/check-android-compat/scripts/generate-diff.sh
+```
+
+If the diff is empty, report "No API changes detected" and exit — no need to create a team.
+
+### Step 2: Create Team
 
 ```
 TeamCreate:
@@ -126,18 +114,19 @@ TeamCreate:
   description: "SDK Android breaking change detection and migration"
 ```
 
-### Step 2: Run SDK Analyst
+### Step 3: Run SDK Analyst
 
-Spawn the SDK Analyst agent as a teammate working in the sdk-internal repo:
+Spawn the SDK Analyst agent as a teammate working in the sdk-internal repo. The diff at
+`/tmp/api-diff.txt` and bindings at `/tmp/bindings-{old,new}/` are already available.
 
 ```
 Agent: sdk-android-analyst (in sdk-internal repo)
-Task: Full analysis including compilation check
+Task: Analyze the diff at /tmp/api-diff.txt, cross-reference Android usage, produce impact report
 ```
 
 Wait for the analyst to complete and produce `sdk-impact-report.md`.
 
-### Step 3: Hand Off to Android Architect
+### Step 4: Hand Off to Android Architect
 
 Send the impact report to the Android Architect agent working in the Android repo:
 
@@ -161,7 +150,7 @@ Wait for the architect to:
 3. Send migration plan back to analyst for verification
 4. Finalize migration plan
 
-### Step 4: Hand Off to Android Implementer
+### Step 5: Hand Off to Android Implementer
 
 Send the verified migration plan to the implementer:
 
@@ -181,7 +170,7 @@ Wait for the implementer to:
 3. Verify compilation
 4. Report completion
 
-### Step 5: Code Review
+### Step 6: Code Review
 
 Send to the code reviewer:
 
@@ -195,7 +184,7 @@ SendMessage to code-reviewer:
 
 The reviewer and implementer then collaborate iteratively until approval.
 
-### Step 6: Final Report
+### Step 7: Final Report
 
 After all agents complete:
 
@@ -220,6 +209,6 @@ skill) monitors all messages and escalates to the user if agents cannot resolve 
 
 ## Reference Files
 
-- API extraction script: `.claude/skills/check-android-compat/scripts/extract-kotlin-api.sh`
+- Diff generation script: `.claude/skills/check-android-compat/scripts/generate-diff.sh`
+- API filtering script: `.claude/skills/check-android-compat/scripts/extract-kotlin-api.sh`
 - Impact report template: `.claude/skills/check-android-compat/templates/impact-report.md`
-- Test fixtures: `.claude/skills/check-android-compat/templates/test-fixtures/`
