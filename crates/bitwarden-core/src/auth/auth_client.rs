@@ -94,7 +94,7 @@ impl AuthClient {
 
     #[allow(missing_docs)]
     pub fn make_key_connector_keys(&self) -> Result<KeyConnectorResponse, CryptoError> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         make_key_connector_keys(&mut rng)
     }
 
