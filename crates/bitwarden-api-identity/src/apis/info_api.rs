@@ -55,8 +55,7 @@ impl InfoApi for InfoApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content_type = local_var_resp
@@ -98,8 +97,7 @@ impl InfoApi for InfoApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        let local_var_req = local_var_req_builder.build()?;
-        let local_var_resp = local_var_client.execute(local_var_req).await?;
+        let local_var_resp = local_var_req_builder.send().await?;
 
         let local_var_status = local_var_resp.status();
         let local_var_content = local_var_resp.text().await?;

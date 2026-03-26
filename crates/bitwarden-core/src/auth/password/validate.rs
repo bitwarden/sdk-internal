@@ -4,7 +4,7 @@ use bitwarden_encoding::B64;
 use crate::{
     Client, NotAuthenticatedError, WrongPasswordError,
     auth::{AuthValidateError, password::determine_password_hash},
-    client::{LoginMethod, UserLoginMethod},
+    client::UserLoginMethod,
 };
 
 /// Validate if the provided password matches the password hash stored in the client.
@@ -18,23 +18,14 @@ pub(crate) fn validate_password(
         .get_login_method()
         .ok_or(NotAuthenticatedError)?;
 
-    #[allow(irrefutable_let_patterns)]
-    if let LoginMethod::User(login_method) = login_method.as_ref() {
-        match login_method {
-            UserLoginMethod::Username { email, kdf, .. }
-            | UserLoginMethod::ApiKey { email, kdf, .. } => {
-                let hash = determine_password_hash(
-                    email,
-                    kdf,
-                    &password,
-                    HashPurpose::LocalAuthorization,
-                )?;
+    match login_method {
+        UserLoginMethod::Username { email, kdf, .. }
+        | UserLoginMethod::ApiKey { email, kdf, .. } => {
+            let hash =
+                determine_password_hash(&email, &kdf, &password, HashPurpose::LocalAuthorization)?;
 
-                Ok(hash == password_hash)
-            }
+            Ok(hash == password_hash)
         }
-    } else {
-        Err(NotAuthenticatedError)?
     }
 }
 
@@ -50,32 +41,27 @@ pub(crate) fn validate_password_user_key(
         .get_login_method()
         .ok_or(NotAuthenticatedError)?;
 
-    #[allow(irrefutable_let_patterns)]
-    if let LoginMethod::User(login_method) = login_method.as_ref() {
-        match login_method {
-            UserLoginMethod::Username { email, kdf, .. }
-            | UserLoginMethod::ApiKey { email, kdf, .. } => {
-                let master_key = MasterKey::derive(&password, email, kdf)?;
-                let user_key = master_key
-                    .decrypt_user_key(encrypted_user_key.parse()?)
-                    .map_err(|_| WrongPasswordError)?;
+    match login_method {
+        UserLoginMethod::Username { email, kdf, .. }
+        | UserLoginMethod::ApiKey { email, kdf, .. } => {
+            let master_key = MasterKey::derive(&password, &email, &kdf)?;
+            let user_key = master_key
+                .decrypt_user_key(encrypted_user_key.parse()?)
+                .map_err(|_| WrongPasswordError)?;
 
-                let key_store = client.internal.get_key_store();
-                let ctx = key_store.context();
-                // FIXME: [PM-18099] Once MasterKey deals with KeyIds, this should be updated
-                #[allow(deprecated)]
-                let existing_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+            let key_store = client.internal.get_key_store();
+            let ctx = key_store.context();
+            // FIXME: [PM-18099] Once MasterKey deals with KeyIds, this should be updated
+            #[allow(deprecated)]
+            let existing_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
-                if user_key != *existing_key {
-                    return Err(AuthValidateError::WrongUserKey);
-                }
-
-                Ok(master_key
-                    .derive_master_key_hash(password.as_bytes(), HashPurpose::LocalAuthorization))
+            if user_key != *existing_key {
+                return Err(AuthValidateError::WrongUserKey);
             }
+
+            Ok(master_key
+                .derive_master_key_hash(password.as_bytes(), HashPurpose::LocalAuthorization))
         }
-    } else {
-        Err(NotAuthenticatedError)?
     }
 }
 

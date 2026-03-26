@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::SecretUpdateRequestModel;
-use bitwarden_core::{Client, OrganizationId, key_management::SymmetricKeyId};
+use bitwarden_core::{OrganizationId, key_management::SymmetricKeyId};
 use bitwarden_crypto::PrimitiveEncryptable;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -7,6 +7,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
+    SecretsManagerClient,
     error::{SecretsManagerError, validate_only_whitespaces},
     secrets::SecretResponse,
 };
@@ -29,9 +30,10 @@ pub struct SecretPutRequest {
 }
 
 pub(crate) async fn update_secret(
-    client: &Client,
+    client: &SecretsManagerClient,
     input: &SecretPutRequest,
 ) -> Result<SecretResponse, SecretsManagerError> {
+    let client = client.client();
     input.validate()?;
 
     let key_store = client.internal.get_key_store();
@@ -82,7 +84,7 @@ mod tests {
             project_ids: Some(vec![Uuid::new_v4()]),
         };
 
-        super::update_secret(&Client::new(None), &input).await
+        super::update_secret(&SecretsManagerClient::new(None), &input).await
     }
 
     #[tokio::test]

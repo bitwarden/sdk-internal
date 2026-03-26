@@ -110,9 +110,9 @@ impl CipherEditRequest {
     pub(super) fn generate_cipher_key(
         &mut self,
         ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        wrapping_key: SymmetricKeyId,
     ) -> Result<(), CryptoError> {
-        let old_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
+        let old_key = Cipher::decrypt_cipher_key(ctx, wrapping_key, &self.key)?;
 
         let new_key = ctx.generate_symmetric_key();
 
@@ -122,6 +122,7 @@ impl CipherEditRequest {
             .map(|l| l.reencrypt_fido2_credentials(ctx, old_key, new_key))
             .transpose()?;
         AttachmentView::reencrypt_keys(&mut self.attachments, ctx, old_key, new_key)?;
+        self.key = Some(ctx.wrap_symmetric_key(wrapping_key, new_key)?);
         Ok(())
     }
 }

@@ -6,12 +6,16 @@ mod commercial;
 use std::sync::Arc;
 
 use bitwarden_auth::{AuthClientExt as _, token_management::PasswordManagerTokenHandler};
-use bitwarden_core::auth::{ClientManagedTokenHandler, ClientManagedTokens};
+use bitwarden_core::{
+    FromClient,
+    auth::{ClientManagedTokenHandler, ClientManagedTokens},
+};
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
 use bitwarden_send::SendClientExt as _;
+use bitwarden_sync::SyncClientExt as _;
 use bitwarden_user_crypto_management::UserCryptoManagementClientExt;
-use bitwarden_vault::VaultClientExt as _;
+use bitwarden_vault::{FolderSyncHandler, VaultClientExt as _};
 
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
@@ -23,6 +27,7 @@ pub mod clients {
     pub use bitwarden_exporters::ExporterClient;
     pub use bitwarden_generators::GeneratorClient;
     pub use bitwarden_send::SendClient;
+    pub use bitwarden_sync::SyncClient;
     pub use bitwarden_vault::VaultClient;
 }
 #[cfg(feature = "bitwarden-license")]
@@ -52,6 +57,22 @@ impl PasswordManagerClient {
             settings,
             ClientManagedTokenHandler::new(tokens),
         ))
+    }
+
+    /// Initialize a new instance of the SDK client with SDK managed state and sync handlers
+    /// registered
+    ///
+    /// This will eventually replace `new` when the SDK fully owns sync on all clients.
+    pub fn new_with_sync(settings: Option<bitwarden_core::ClientSettings>) -> Result<Self, String> {
+        let client = Self::new(settings);
+
+        client
+            .sync()
+            .register_sync_handler(Arc::new(FolderSyncHandler::from_client(&client.0)?));
+
+        // TODO: Add more sync handlers here!
+
+        Ok(client)
     }
 
     /// Platform operations
@@ -100,5 +121,10 @@ impl PasswordManagerClient {
     /// Send operations
     pub fn sends(&self) -> bitwarden_send::SendClient {
         self.0.sends()
+    }
+
+    /// Sync operations
+    pub fn sync(&self) -> bitwarden_sync::SyncClient {
+        self.0.sync()
     }
 }
