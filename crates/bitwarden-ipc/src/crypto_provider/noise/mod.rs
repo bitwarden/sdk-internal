@@ -14,8 +14,7 @@
 //! Security Definition SD2:
 //! - Attacker Model:
 //!   - Attacker has full passive read access to the entire IPC conversation and access to the
-//!     session
-//!   state of one side at time X
+//!     session state of one side at time X
 //! - Security Goal:
 //!   - Attacker should only be able to decrypt messages that were received or sent within the
 //!     re-handshake interval
