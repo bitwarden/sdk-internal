@@ -5,15 +5,15 @@
 //! active attacks are not protected against.
 //!
 //! Security Definition SD1:
-//! Attacker Model:
-//! - Attacker has full passive read access to the entire IPC conversation
-//! Security Goal:
-//! - Attacker should not be able to derive any information about the plaintext messages beyond
+//! - Attacker Model:
+//!   - Attacker has full passive read access to the entire IPC conversation 
+//! - Security Goal:
+//!   - Attacker should not be able to derive any information about the plaintext messages beyond
 //!   length and timing.
 //!
 //! Security Definition SD2:
-//! Attacker Model:
-//! - Attacker has full passive read access to the entire IPC conversation and access to the session
+//! - Attacker Model:
+//!   - Attacker has full passive read access to the entire IPC conversation and access to the session
 //!   state of one side at time X
 //! Security Goal:
 //! - Attacker should only be able to decrypt messages that were received or sent within the
