@@ -12,7 +12,7 @@ pub(crate) fn bitwarden_error_full(
             .into();
     }
 
-    let wasm_attributes = cfg!(feature = "wasm").then(|| {
+    let wasm_attributes = cfg!(all(feature = "wasm", target_arch = "wasm32")).then(|| {
         quote! {
             #[derive(bitwarden_error::tsify::Tsify)]
             #[tsify(into_wasm_abi)]
