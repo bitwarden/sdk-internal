@@ -9,7 +9,7 @@
 //!   - Attacker has full passive read access to the entire IPC conversation
 //! - Security Goal:
 //!   - Attacker should not be able to derive any information about the plaintext messages beyond
-//!   length and timing.
+//!     length and timing.
 //!
 //! Security Definition SD2:
 //! - Attacker Model:
