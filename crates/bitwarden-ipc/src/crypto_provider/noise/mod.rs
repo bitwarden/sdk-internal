@@ -3,7 +3,8 @@
 //! Implements IPC encryption using the [Noise Protocol Framework](http://noiseprotocol.org/)
 //! with the NN handshake pattern. Either side may lose state due to process reload, so
 //! re-handshakes are expected. Security is provided against passive attackers of both
-//! traffic and subsequent key compromise, but active MITM attacks are not protected against.
+//! traffic and to some extent to subsequent key compromise, but active MITM attacks
+//! are not protected against.
 //!
 //! ## Protocol Flow
 //!
