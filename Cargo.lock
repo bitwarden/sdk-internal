@@ -5796,6 +5796,7 @@ checksum = "743bd48c283afc0388f9b8827b976905fb217ad9e647fae3a379a9283c4def2c"
 dependencies = [
  "deranged",
  "itoa",
+ "js-sys",
  "libc",
  "num-conv",
  "num_threads",
@@ -7579,6 +7580,7 @@ dependencies = [
  "crc32fast",
  "indexmap 2.13.0",
  "memchr",
+ "time",
  "typed-path",
 ]
 

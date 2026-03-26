@@ -38,7 +38,7 @@ uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 zeroize = { version = ">=1.7.0, <2.0" }
-zip = { workspace = true, default-features = false }
+zip = { workspace = true, default-features = false, features = ["time"] }
 
 [lints]
 workspace = true
