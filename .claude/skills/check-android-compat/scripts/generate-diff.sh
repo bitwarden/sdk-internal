@@ -13,8 +13,8 @@ set -euo pipefail
 #                           Expects /tmp/bindings-old/ and /tmp/bindings-new/ to be populated.
 #
 # Output:
-#   /tmp/bindings-old/      Generated Kotlin bindings from the base branch
-#   /tmp/bindings-new/      Generated Kotlin bindings from the current branch
+#   /tmp/bindings-old/      Generated Kotlin bindings from the merge-base with the base branch
+#   /tmp/bindings-new/      Generated Kotlin bindings from the current branch (HEAD)
 #   /tmp/api-diff.txt       Filtered API diff (empty if no changes)
 #   stdout                  The filtered diff (same content as /tmp/api-diff.txt)
 #
@@ -116,10 +116,12 @@ else
     generate_bindings "./target/release/libbitwarden_uniffi.$LIB_EXT" /tmp/bindings-new >&2
 
     # --- Build base branch via worktree ---
-    # Use --detach to avoid "branch already checked out" errors
+    # Use merge-base to find the common ancestor, not the branch tip.
+    # This ensures we diff only the current branch's changes, not unrelated
+    # commits merged into the base branch after this branch diverged.
     WORKTREE_DIR="/tmp/sdk-compat-worktree-$$"
-    BASE_COMMIT=$(git rev-parse "$BASE_BRANCH")
-    echo "=== Creating worktree for $BASE_BRANCH ($BASE_COMMIT) ===" >&2
+    BASE_COMMIT=$(git merge-base HEAD "$BASE_BRANCH")
+    echo "=== Creating worktree for merge-base of HEAD and $BASE_BRANCH ($BASE_COMMIT) ===" >&2
     git worktree add --detach "$WORKTREE_DIR" "$BASE_COMMIT" 2>&1 >&2
 
     cleanup_worktree() {
