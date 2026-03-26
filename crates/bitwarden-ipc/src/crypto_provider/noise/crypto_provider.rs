@@ -38,6 +38,8 @@ impl NoiseCryptoProvider {
         let message = initiator
             .write_start_message()
             .expect("Handshake start message should be buildable");
+        let receiver = communication.subscribe().await;
+
         let handshake_frame = Frame::HandshakeStart(message);
         communication
             .send(OutgoingMessage {
@@ -49,15 +51,19 @@ impl NoiseCryptoProvider {
             .map_err(|_| ())?;
 
         // Wait for the handshake response (with timeout)
-        let receiver = communication.subscribe().await;
         timeout(Duration::from_secs(HANDSHAKE_TIMEOUT_SECS), async {
             loop {
-                let incoming = receiver.receive().await.map_err(|_| ()).unwrap();
+                let incoming = receiver.receive().await.map_err(|_| ());
+                let Ok(incoming) = incoming else {
+                    continue;
+                };
                 let Ok(response_frame) = Frame::from_cbor(&incoming.payload) else {
                     continue;
                 };
                 if let Frame::HandshakeFinish(handshake_finish) = response_frame {
-                    initiator.read_response_message(&handshake_finish).unwrap();
+                    let _ = initiator
+                        .read_response_message(&handshake_finish)
+                        .map_err(|_| ());
                     break;
                 }
             }
@@ -207,7 +213,7 @@ where
             match transport_frame {
                 Frame::HandshakeStart(handshake_start) => {
                     println!("Received handshake start from {:?}", message.source);
-                    let mut responder = HandshakeResponder::new(&CipherSuite::default());
+                    let mut responder = HandshakeResponder::new(&handshake_start.ciphersuite);
                     responder
                         .read_start_message(&handshake_start)
                         .map_err(|_| ())?;
