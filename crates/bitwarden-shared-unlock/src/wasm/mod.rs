@@ -3,6 +3,6 @@ mod follower;
 mod leader;
 mod sender;
 
-pub use drivers::WasmDriverModule;
+pub use drivers::RawJsUserLockManagement;
 pub use follower::SharedUnlockFollower;
 pub use leader::SharedUnlockLeader;

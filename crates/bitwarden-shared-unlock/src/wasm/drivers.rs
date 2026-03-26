@@ -11,43 +11,62 @@ use crate::{
     UserLockManagement,
 };
 
+#[wasm_bindgen(typescript_custom_section)]
+const TS_CUSTOM_TYPES: &'static str = r#"
+export interface UserLockManagement {
+    lock_user(user_id: UserId): Promise<void>;
+    unlock_user(user_id: UserId, user_key: Uint8Array): Promise<void>;
+    list_users(): Promise<UserId[]>;
+    get_user_key(user_id: UserId): Promise<string | undefined>;
+    suppress_vault_timeout(until: number): Promise<void>;
+    get_client_name(): Promise<string>;
+}
+"#;
+
 #[wasm_bindgen]
 extern "C" {
-    pub type WasmDriverModule;
+    #[wasm_bindgen(js_name = UserLockManagement, typescript_type = "UserLockManagement")]
+    pub type RawJsUserLockManagement;
 
     #[wasm_bindgen(method, catch)]
-    async fn lock_user(this: &WasmDriverModule, user_id: UserId) -> Result<(), JsValue>;
+    async fn lock_user(this: &RawJsUserLockManagement, user_id: UserId) -> Result<(), JsValue>;
     #[wasm_bindgen(method, catch)]
     async fn unlock_user(
-        this: &WasmDriverModule,
+        this: &RawJsUserLockManagement,
         user_id: UserId,
         user_key: Vec<u8>,
     ) -> Result<(), JsValue>;
     #[wasm_bindgen(method, catch)]
-    async fn list_users(this: &WasmDriverModule) -> Result<js_sys::Array, JsValue>;
+    async fn list_users(this: &RawJsUserLockManagement) -> Result<js_sys::Array, JsValue>;
     #[wasm_bindgen(method, catch)]
-    async fn get_user_key(this: &WasmDriverModule, user_id: UserId) -> Result<JsValue, JsValue>;
+    async fn get_user_key(
+        this: &RawJsUserLockManagement,
+        user_id: UserId,
+    ) -> Result<JsValue, JsValue>;
 
     /// Supress the vault timeout until the given timestamp (in milliseconds since unix epoch).
     #[wasm_bindgen(method, catch)]
-    async fn suppress_vault_timeout(this: &WasmDriverModule, until: f64) -> Result<(), JsValue>;
+    async fn suppress_vault_timeout(
+        this: &RawJsUserLockManagement,
+        until: f64,
+    ) -> Result<(), JsValue>;
 
     /// Get the client type of the current device
     #[wasm_bindgen(method, catch)]
-    async fn get_client_name(this: &WasmDriverModule) -> Result<JsValue, JsValue>;
+    async fn get_client_name(this: &RawJsUserLockManagement) -> Result<JsValue, JsValue>;
 }
 
-pub(super) struct WasmSharedUnlockDriver {
-    runner: ThreadBoundRunner<WasmDriverModule>,
+pub(super) struct JsUserLockManagement {
+    runner: ThreadBoundRunner<RawJsUserLockManagement>,
 }
 
-impl WasmSharedUnlockDriver {
-    pub(super) fn new(runner: ThreadBoundRunner<WasmDriverModule>) -> Self {
+impl JsUserLockManagement {
+    pub(super) fn new(runner: ThreadBoundRunner<RawJsUserLockManagement>) -> Self {
         Self { runner }
     }
 }
 
-impl UserLockManagement for WasmSharedUnlockDriver {
+impl UserLockManagement for JsUserLockManagement {
     async fn lock_user(&self, user_id: UserId) -> Result<(), ()> {
         self.runner
             .run_in_thread(
@@ -109,11 +128,11 @@ impl UserLockManagement for WasmSharedUnlockDriver {
 }
 
 pub(super) struct WasmDriverHeartbeatResponseHandler {
-    runner: ThreadBoundRunner<WasmDriverModule>,
+    runner: ThreadBoundRunner<RawJsUserLockManagement>,
 }
 
 impl WasmDriverHeartbeatResponseHandler {
-    pub(super) fn new(runner: ThreadBoundRunner<WasmDriverModule>) -> Self {
+    pub(super) fn new(runner: ThreadBoundRunner<RawJsUserLockManagement>) -> Self {
         Self { runner }
     }
 }
@@ -140,17 +159,17 @@ impl HeartbeatResponseHandler for WasmDriverHeartbeatResponseHandler {
     }
 }
 
-pub(super) struct WasmDriverLeaderDiscovery {
-    runner: ThreadBoundRunner<WasmDriverModule>,
+pub(super) struct JsLeaderDiscovery {
+    runner: ThreadBoundRunner<RawJsUserLockManagement>,
 }
 
-impl WasmDriverLeaderDiscovery {
-    pub(super) fn new(runner: ThreadBoundRunner<WasmDriverModule>) -> Self {
+impl JsLeaderDiscovery {
+    pub(super) fn new(runner: ThreadBoundRunner<RawJsUserLockManagement>) -> Self {
         Self { runner }
     }
 }
 
-impl LeaderDiscovery for WasmDriverLeaderDiscovery {
+impl LeaderDiscovery for JsLeaderDiscovery {
     async fn discover_leader(&self) -> Option<Endpoint> {
         self.runner
             .run_in_thread(move |driver| async move {

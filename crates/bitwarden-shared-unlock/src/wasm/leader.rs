@@ -6,7 +6,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen_futures::spawn_local;
 
 use super::{
-    drivers::{WasmDriverModule, WasmSharedUnlockDriver},
+    drivers::{JsUserLockManagement, RawJsUserLockManagement},
     sender::WasmSender,
 };
 use crate::{DeviceEvent, Leader, Message};
@@ -15,7 +15,7 @@ use crate::{DeviceEvent, Leader, Message};
 pub struct SharedUnlockLeader {
     subscription: Arc<Mutex<bitwarden_ipc::wasm::JsIpcClientSubscription>>,
     cancellation_token: CancellationToken,
-    leader: Arc<Leader<WasmSharedUnlockDriver, WasmSender>>,
+    leader: Arc<Leader<JsUserLockManagement, WasmSender>>,
 }
 
 #[wasm_bindgen]
@@ -23,10 +23,10 @@ impl SharedUnlockLeader {
     #[wasm_bindgen]
     pub async fn try_new(
         ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
-        lock_management: WasmDriverModule,
+        lock_management: RawJsUserLockManagement,
     ) -> Result<Self, bitwarden_ipc::SubscribeError> {
         let runner = ThreadBoundRunner::new(lock_management);
-        let lock_management = WasmSharedUnlockDriver::new(runner);
+        let lock_management = JsUserLockManagement::new(runner);
         let cancellation_token = CancellationToken::new();
         let subscription = ipc_client.subscribe().await?;
         let leader = Leader::create(
