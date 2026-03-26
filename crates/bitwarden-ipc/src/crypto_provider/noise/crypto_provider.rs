@@ -275,6 +275,7 @@ where
     }
 }
 
+/// The raw frame that is sent via IPC.
 #[derive(Serialize, Deserialize)]
 enum Frame {
     // Handshake Frames
