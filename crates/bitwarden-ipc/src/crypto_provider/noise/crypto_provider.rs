@@ -203,16 +203,11 @@ where
 
             // Decode outer transport frame from wire
             let Ok(transport_frame) = Frame::from_cbor(&message.payload) else {
-                println!(
-                    "Failed to decode frame from {:?}, ignoring message",
-                    message.source
-                );
                 continue;
             };
 
             match transport_frame {
                 Frame::HandshakeStart(handshake_start) => {
-                    println!("Received handshake start from {:?}", message.source);
                     let mut responder = HandshakeResponder::new(&handshake_start.ciphersuite);
                     responder
                         .read_start_message(&handshake_start)
@@ -237,7 +232,6 @@ where
                         .expect("Save session should not fail");
                 }
                 Frame::TransportFrame(transport_frame) => {
-                    let crypto_state = crypto_state;
                     let Some(mut state) = crypto_state else {
                         info!("No session for {:?}, waiting for handshake", message.source);
                         let frame = Frame::CryptoInvalidated.to_cbor();
