@@ -428,11 +428,31 @@ jobs:
           repositories: android
           permission-actions: write
 
+      - name: Determine SDK PR number
+        id: sdk-pr
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          # Derive the merged PR number from the push commit
+          SDK_PR_NUMBER=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" \
+            --jq '.[0].number' 2>/dev/null || echo "")
+          echo "number=$SDK_PR_NUMBER" >> "$GITHUB_OUTPUT"
+          if [ -n "$SDK_PR_NUMBER" ]; then
+            echo "Resolved SDK PR #$SDK_PR_NUMBER from merge commit"
+          else
+            echo "::warning::Could not resolve SDK PR number from commit ${{ github.sha }}"
+          fi
+
       - name: Call SDLC SDK Update workflow in Android repo
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           _SDK_PACKAGE: ${{ needs.combine.outputs.sdk-package-id }}
           _SDK_VERSION: ${{ needs.combine.outputs.sdk-version }}
+          _SDK_PR_NUMBER: ${{ steps.sdk-pr.outputs.number }}
         run: |
           echo "🚀 Triggering sdlc-sdk-update.yml workflow in bitwarden/android repo..."
-          gh workflow run sdlc-sdk-update.yml --repo bitwarden/android --ref main -f run-mode=Update -f sdk-package=$_SDK_PACKAGE -f sdk-version=$_SDK_VERSION
+          gh workflow run sdlc-sdk-update.yml --repo bitwarden/android --ref main \
+            -f run-mode=Update \
+            -f sdk-package=$_SDK_PACKAGE \
+            -f sdk-version=$_SDK_VERSION \
+            ${_SDK_PR_NUMBER:+-f sdk-pr-number=$_SDK_PR_NUMBER}
