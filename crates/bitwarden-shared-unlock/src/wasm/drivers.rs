@@ -34,7 +34,7 @@ extern "C" {
     async fn unlock_user(
         this: &RawJsUserLockManagement,
         user_id: UserId,
-        user_key: Vec<u8>,
+        user_key: Box<[u8]>,
     ) -> Result<(), JsValue>;
     #[wasm_bindgen(method, catch)]
     async fn list_users(this: &RawJsUserLockManagement) -> Result<js_sys::Array, JsValue>;
@@ -80,7 +80,7 @@ impl UserLockManagement for JsUserLockManagement {
         self.runner
             .run_in_thread(move |driver| async move {
                 driver
-                    .unlock_user(user_id, user_key.as_bytes().to_vec())
+                    .unlock_user(user_id, user_key.as_bytes().into())
                     .await
                     .map_err(|_| ())
             })
