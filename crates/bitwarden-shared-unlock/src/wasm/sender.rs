@@ -12,7 +12,7 @@ pub(super) enum Role {
 }
 
 pub(super) struct WasmSender {
-    ipc_client: Arc<bitwarden_ipc::IpcClient>,
+    ipc_client: Arc<dyn bitwarden_ipc::IpcClient>,
     role: Role,
 }
 

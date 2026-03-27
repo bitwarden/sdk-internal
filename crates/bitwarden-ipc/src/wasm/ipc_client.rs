@@ -5,8 +5,10 @@ use wasm_bindgen::prelude::*;
 
 use super::communication_backend::JsCommunicationBackend;
 use crate::{
-    IpcClient,
-    ipc_client::{IpcClientSubscription, ReceiveError, SubscribeError},
+    IpcClientImpl,
+    error::{ReceiveError, SubscribeError},
+    ipc_client::IpcClientSubscription,
+    ipc_client_trait::IpcClient,
     message::{IncomingMessage, OutgoingMessage},
     traits::{InMemorySessionRepository, NoEncryptionCryptoProvider},
     wasm::{
@@ -16,7 +18,7 @@ use crate::{
 };
 
 /// JavaScript wrapper around the IPC client. For more information, see the
-/// [IpcClient] documentation.
+/// [`IpcClient`] trait documentation.
 #[wasm_bindgen(js_name = IpcClient)]
 pub struct JsIpcClient {
     #[wasm_bindgen(skip)]
@@ -24,7 +26,7 @@ pub struct JsIpcClient {
     /// that interact with the IPC client, e.g. to register RPC handlers, trigger RPC requests,
     /// send typed messages, etc. For examples see
     /// [wasm::ipc_register_discover_handler](crate::wasm::ipc_register_discover_handler).
-    pub client: Arc<IpcClient>,
+    pub client: Arc<dyn IpcClient>,
 }
 
 /// JavaScript wrapper around the IPC client subscription. For more information, see the
@@ -55,13 +57,13 @@ impl JsIpcClient {
         communication_provider: &JsCommunicationBackend,
     ) -> JsIpcClient {
         JsIpcClient {
-            client: IpcClient::new(
+            client: Arc::new(IpcClientImpl::new(
                 NoEncryptionCryptoProvider,
                 communication_provider.clone(),
                 GenericSessionRepository::InMemory(Arc::new(InMemorySessionRepository::new(
                     HashMap::new(),
                 ))),
-            ),
+            )),
         }
     }
     /// Create a new `IpcClient` instance with a client-managed session repository for saving
@@ -72,13 +74,13 @@ impl JsIpcClient {
         session_repository: RawJsSessionRepository,
     ) -> JsIpcClient {
         JsIpcClient {
-            client: IpcClient::new(
+            client: Arc::new(IpcClientImpl::new(
                 NoEncryptionCryptoProvider,
                 communication_provider.clone(),
                 GenericSessionRepository::JsSessionRepository(Arc::new(JsSessionRepository::new(
                     session_repository,
                 ))),
-            ),
+            )),
         }
     }
 
@@ -98,7 +100,7 @@ impl JsIpcClient {
         self.client
             .send(message)
             .await
-            .map_err(|e| JsError::new(&e))
+            .map_err(|e| JsError::new(&e.to_string()))
     }
 
     #[allow(missing_docs)]
