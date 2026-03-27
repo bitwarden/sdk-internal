@@ -5,8 +5,13 @@ use bitwarden_crypto::{
     Decryptable, EncString, IdentifyKey, OctetStreamBytes, PrimitiveEncryptable,
 };
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
-use crate::{Send, SendListView, SendView};
+use crate::{
+    MakeSendFolderError, MakeSendFolderFileRequest, MakeSendFolderFileResult,
+    MakeSendFolderRequest, MakeSendFolderResult, Send, SendListView, SendView,
+};
 
 /// Generic error type for send encryption errors.
 #[allow(missing_docs)]
@@ -49,8 +54,21 @@ pub enum SendDecryptFileError {
 }
 
 #[allow(missing_docs)]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct SendClient {
     client: Client,
+}
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl SendClient {
+    /// Zip the provided files into a single archive and return the zip bytes along with
+    /// [`SendFileView`](crate::SendFileView) metadata suitable for creating a file Send.
+    pub fn make_send_folder(
+        &self,
+        request: MakeSendFolderRequest,
+    ) -> Result<MakeSendFolderResult, MakeSendFolderError> {
+        crate::folder::make_send_folder(request)
+    }
 }
 
 impl SendClient {
@@ -107,6 +125,14 @@ impl SendClient {
         let send = key_store.encrypt(send_view)?;
 
         Ok(send)
+    }
+
+    /// Zip files from disk into a single archive and write it to the destination path.
+    pub fn make_send_folder_file(
+        &self,
+        request: MakeSendFolderFileRequest,
+    ) -> Result<MakeSendFolderFileResult, MakeSendFolderError> {
+        crate::folder::make_send_folder_file(request)
     }
 
     #[allow(missing_docs)]

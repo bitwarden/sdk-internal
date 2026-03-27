@@ -20,20 +20,25 @@ uniffi = [
     "bitwarden-crypto/uniffi",
     "dep:uniffi",
 ] # Uniffi bindings
+wasm = ["bitwarden-error/wasm", "dep:tsify", "dep:wasm-bindgen"] # WASM support
 
 [dependencies]
 bitwarden-api-api = { workspace = true }
 bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
+bitwarden-error = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }
 serde_repr = { workspace = true }
 sha2 = { version = ">=0.10.6, <0.11" }
 thiserror = { workspace = true }
+tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
 zeroize = { version = ">=1.7.0, <2.0" }
+zip = { workspace = true, default-features = false, features = ["time"] }
 
 [lints]
 workspace = true

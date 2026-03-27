@@ -902,14 +902,18 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-encoding",
+ "bitwarden-error",
  "chrono",
  "serde",
  "serde_repr",
  "sha2 0.10.9",
  "thiserror 2.0.18",
+ "tsify",
  "uniffi",
  "uuid",
+ "wasm-bindgen",
  "zeroize",
+ "zip",
 ]
 
 [[package]]
@@ -1201,6 +1205,7 @@ dependencies = [
  "bitwarden-error",
  "bitwarden-ipc",
  "bitwarden-pm",
+ "bitwarden-send",
  "bitwarden-server-communication-config",
  "bitwarden-ssh",
  "bitwarden-state",
@@ -5791,6 +5796,7 @@ checksum = "743bd48c283afc0388f9b8827b976905fb217ad9e647fae3a379a9283c4def2c"
 dependencies = [
  "deranged",
  "itoa",
+ "js-sys",
  "libc",
  "num-conv",
  "num_threads",
@@ -6202,6 +6208,12 @@ checksum = "59b11b2b5241ba34be09c3cc85a36e56e48f9888862e19cedf23336d35316ed1"
 dependencies = [
  "memchr",
 ]
+
+[[package]]
+name = "typed-path"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e28f89b80c87b8fb0cf04ab448d5dd0dd0ade2f8891bae878de66a75a28600e"
 
 [[package]]
 name = "typeid"
@@ -7557,6 +7569,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "zip"
+version = "8.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7756d0206d058333667493c4014f545f4b9603c4330ccd6d9b3f86dcab59f7d9"
+dependencies = [
+ "crc32fast",
+ "indexmap 2.13.0",
+ "memchr",
+ "time",
+ "typed-path",
 ]
 
 [[package]]

@@ -7,10 +7,15 @@ mod uniffi_support;
 
 mod error;
 pub use error::SendParseError;
+mod folder;
+pub use folder::{
+    MakeSendFolderEntry, MakeSendFolderError, MakeSendFolderFileEntry, MakeSendFolderFileRequest,
+    MakeSendFolderFileResult, MakeSendFolderRequest, MakeSendFolderResult,
+};
 mod send_client;
 pub use send_client::{
     SendClient, SendClientExt, SendDecryptError, SendDecryptFileError, SendEncryptError,
     SendEncryptFileError,
 };
 mod send;
-pub use send::{AuthType, Send, SendListView, SendTextView, SendType, SendView};
+pub use send::{AuthType, Send, SendFileView, SendListView, SendTextView, SendType, SendView};

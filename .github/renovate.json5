@@ -108,6 +108,7 @@
         "wasm-bindgen-futures",
         "wasm-bindgen-test",
         "wiremock",
+        "zip",
         "zxcvbn",
       ],
       commitMessagePrefix: "[deps] Platform (cargo):",
