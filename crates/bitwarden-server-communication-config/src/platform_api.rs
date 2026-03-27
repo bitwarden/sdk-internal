@@ -47,11 +47,11 @@ pub enum AcquireCookieError {
 
     /// Failed to retrieve server configuration from repository
     #[error("Failed to get server configuration: {0}")]
-    RepositoryGetError(String),
+    RepositoryGet(String),
 
     /// Failed to save updated configuration to repository
     #[error("Failed to save server configuration: {0}")]
-    RepositorySaveError(String),
+    RepositorySave(String),
 }
 
 /// Platform API for acquiring cookies from the platform client
