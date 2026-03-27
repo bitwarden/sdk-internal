@@ -47,7 +47,7 @@ uuid = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 # The use of rustls-platform-verifier requires some extra support to communicate with the Android platform
-jni = ">=0.21, <0.22"
+jni = ">=0.21, <0.23"
 libloading = ">=0.8.1, <0.9"
 rustls-platform-verifier = "0.6.0"
 tracing-android = "0.2.0"
