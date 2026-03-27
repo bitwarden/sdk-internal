@@ -18,7 +18,7 @@ export interface UserLockManagement {
     unlock_user(user_id: UserId, user_key: Uint8Array): Promise<void>;
     list_users(): Promise<UserId[]>;
     get_user_key(user_id: UserId): Promise<string | undefined>;
-    suppress_vault_timeout(until: number): Promise<void>;
+    suppress_vault_timeout(until: number, userId: UserId): Promise<void>;
     get_client_name(): Promise<string>;
     get_vault_url(user_id: UserId): Promise<string | undefined>;
 }
@@ -50,6 +50,7 @@ extern "C" {
     async fn suppress_vault_timeout(
         this: &RawJsUserLockManagement,
         until: f64,
+        user_id: UserId,
     ) -> Result<(), JsValue>;
 
     /// Get the client type of the current device
@@ -161,22 +162,22 @@ impl WasmDriverHeartbeatResponseHandler {
 }
 
 impl HeartbeatResponseHandler for WasmDriverHeartbeatResponseHandler {
-    async fn handle_heartbeat(&self, _user_id: UserId) {
-        info!("Received shared unlock heartbeat response for user_id:");
+    async fn handle_heartbeat(&self, user_id: UserId) {
+        info!("Received shared unlock heartbeat response for user_id: {}", user_id);
         // Shared unlock heartbeat responses are acknowledged by keeping the session active.
         // We can suppress the vault timeout until the next expected heartbeat to achieve this.
         let until = js_sys::Date::now() + HEARTBEAT_INTERVAL.as_millis() as f64;
         let result = self
             .runner
-            .run_in_thread(move |driver| async move { driver.suppress_vault_timeout(until).await })
+            .run_in_thread(move |driver| async move { driver.suppress_vault_timeout(until, user_id).await })
             .await;
         match result {
             Ok(Ok(())) => {}
             Ok(Err(error)) => {
-                tracing::error!(?error, "Failed to supress vault timeout on heartbeat")
+                tracing::error!(?error, "Failed to supress vault timeout on heartbeat for user_id: {}", user_id)
             }
             Err(error) => {
-                tracing::error!(?error, "Failed to supress vault timeout on heartbeat")
+                tracing::error!(?error, "Failed to supress vault timeout on heartbeat for user_id: {}", user_id)
             }
         }
     }
