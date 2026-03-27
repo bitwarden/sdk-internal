@@ -9,7 +9,8 @@ use thiserror::Error;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    MakeSendFolderError, MakeSendFolderRequest, MakeSendFolderResult, Send, SendListView, SendView,
+    MakeSendFolderError, MakeSendFolderFileRequest, MakeSendFolderFileResult,
+    MakeSendFolderRequest, MakeSendFolderResult, Send, SendListView, SendView,
 };
 
 /// Generic error type for send encryption errors.
@@ -124,6 +125,14 @@ impl SendClient {
         let send = key_store.encrypt(send_view)?;
 
         Ok(send)
+    }
+
+    /// Zip files from disk into a single archive and write it to the destination path.
+    pub fn make_send_folder_file(
+        &self,
+        request: MakeSendFolderFileRequest,
+    ) -> Result<MakeSendFolderFileResult, MakeSendFolderError> {
+        crate::folder::make_send_folder_file(request)
     }
 
     #[allow(missing_docs)]

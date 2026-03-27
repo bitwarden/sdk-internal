@@ -9,7 +9,8 @@ mod error;
 pub use error::SendParseError;
 mod folder;
 pub use folder::{
-    MakeSendFolderEntry, MakeSendFolderError, MakeSendFolderRequest, MakeSendFolderResult,
+    MakeSendFolderEntry, MakeSendFolderError, MakeSendFolderFileEntry, MakeSendFolderFileRequest,
+    MakeSendFolderFileResult, MakeSendFolderRequest, MakeSendFolderResult,
 };
 mod send_client;
 pub use send_client::{
