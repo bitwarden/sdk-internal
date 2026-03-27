@@ -5,10 +5,7 @@ use tokio::sync::Mutex;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen_futures::spawn_local;
 
-use super::{
-    drivers::{JsUserLockManagement, RawJsUserLockManagement},
-    sender::WasmSender,
-};
+use super::drivers::{JsUserLockManagement, RawJsUserLockManagement};
 use crate::{DeviceEvent, Leader, Message};
 
 #[wasm_bindgen]

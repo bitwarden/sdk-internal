@@ -27,13 +27,6 @@ pub trait HeartbeatResponseHandler {
     async fn handle_heartbeat(&self, user_id: UserId);
 }
 
-/// The MessageSender trait is responsible for sending messages to other devices. The implementation
-/// of this trait should call the IPC system
-pub trait MessageSender {
-    /// Send a message to the given recipient.
-    fn send_message(&self, message: Message, recipient: bitwarden_ipc::Endpoint);
-}
-
 /// The LeaderDiscovery trait is responsible for discovering the leader's IPC endpoint, given the
 /// current platform. There should only be one possible leader for any given device. For web
 /// clients, there is only one browser extension, for browser extensions there is only one desktop

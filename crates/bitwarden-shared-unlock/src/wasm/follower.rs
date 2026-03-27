@@ -5,12 +5,9 @@ use tokio::sync::Mutex;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen_futures::spawn_local;
 
-use super::{
-    drivers::{
-        JsLeaderDiscovery, JsUserLockManagement, RawJsUserLockManagement,
-        WasmDriverHeartbeatResponseHandler,
-    },
-    sender::WasmSender,
+use super::drivers::{
+    JsLeaderDiscovery, JsUserLockManagement, RawJsUserLockManagement,
+    WasmDriverHeartbeatResponseHandler,
 };
 use crate::{DeviceEvent, Follower, HEARTBEAT_INTERVAL, Message};
 
@@ -31,7 +28,6 @@ impl SharedUnlockFollower {
     ) -> Result<Self, bitwarden_ipc::SubscribeError> {
         let cancellation_token = CancellationToken::new();
         let subscription = ipc_client.subscribe().await?;
-        let sender = WasmSender::new(ipc_client, super::sender::Role::Follower);
         let runner = ThreadBoundRunner::new(lock_management);
         let lock_management = JsUserLockManagement::new(runner.clone());
         let leader_discovery = JsLeaderDiscovery::new(runner.clone());
