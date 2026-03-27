@@ -23,9 +23,18 @@ pub use ipc_client::{IpcClientImpl, IpcClientSubscription, IpcClientTypedSubscri
 pub use ipc_client_ext::IpcClientExt;
 pub use ipc_client_trait::IpcClient;
 pub use message::{IncomingMessage, OutgoingMessage};
-pub use rpc::exec::handler::RpcHandler;
 #[doc(hidden)]
 pub use rpc::exec::handler::ErasedRpcHandler;
-pub use traits::NoopCommunicationBackend;
+pub use rpc::exec::handler::RpcHandler;
 #[cfg(any(test, feature = "test-support"))]
 pub use traits::TestCommunicationBackend;
+pub use traits::{InMemorySessionRepository, NoEncryptionCryptoProvider, NoopCommunicationBackend};
+
+// Test configuration of the IPC client, always available in test and test-support contexts.
+#[cfg(any(test, feature = "test-support"))]
+#[allow(missing_docs)]
+pub type TestIpcClient = ipc_client::IpcClientImpl<
+    crate::traits::NoEncryptionCryptoProvider,
+    crate::traits::TestCommunicationBackend,
+    crate::traits::InMemorySessionRepository<()>,
+>;

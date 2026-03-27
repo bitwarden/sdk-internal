@@ -1,53 +1,51 @@
+use std::sync::Arc;
+
+use bitwarden_ipc::{Endpoint, IpcClient, OutgoingMessage};
+
 use crate::{
     DeviceEvent, LockState, Message,
-    drivers::{HeartbeatResponseHandler, LeaderDiscovery, MessageSender, UserLockManagement},
+    drivers::{HeartbeatResponseHandler, LeaderDiscovery, UserLockManagement},
 };
 
-pub struct Follower<
-    L: UserLockManagement,
-    S: MessageSender,
-    D: LeaderDiscovery,
-    H: HeartbeatResponseHandler,
-> {
+pub struct Follower<L: UserLockManagement, D: LeaderDiscovery, H: HeartbeatResponseHandler> {
     lock_system: L,
     leader_discovery: D,
     heartbeat_response_handler: H,
-    sender: S,
+    ipc_client: Arc<dyn IpcClient>,
 }
 
-impl<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery, H: HeartbeatResponseHandler>
-    Follower<L, S, D, H>
-{
+impl<L: UserLockManagement, D: LeaderDiscovery, H: HeartbeatResponseHandler> Follower<L, D, H> {
     pub async fn create(
         lock_system: L,
         leader_discovery: D,
         heartbeat_response_handler: H,
-        sender: S,
+        ipc_client: Arc<dyn IpcClient>,
     ) -> Self {
-        Self::start_sessions(&lock_system, &leader_discovery, &sender).await;
-
-        Self {
+        let follower = Self {
             lock_system,
             leader_discovery,
             heartbeat_response_handler,
-            sender,
-        }
+            ipc_client,
+        };
+        follower.start_sessions().await;
+        follower
     }
 
-    async fn start_sessions(lock_system: &L, leader_discovery: &D, sender: &S) {
-        let users: Vec<bitwarden_core::UserId> = lock_system.list_users().await;
-        let leader = leader_discovery
+    async fn start_sessions(&self) {
+        let users: Vec<bitwarden_core::UserId> = self.lock_system.list_users().await;
+        let leader = self
+            .leader_discovery
             .discover_leader()
             .await
             .expect("leader discovery should return a leader");
 
         for user_id in users {
-            let lock_state = lock_system.get_user_lock_state(user_id).await;
+            let lock_state = self.lock_system.get_user_lock_state(user_id).await;
             let message = Message::StartSession {
                 user_id,
                 lock_state,
             };
-            sender.send_message(message, leader.clone());
+            self.send_message(message, leader.clone()).await;
         }
     }
 
@@ -101,7 +99,7 @@ impl<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery, H: HeartbeatRe
                     user_id,
                     lock_state: LockState::Locked,
                 };
-                self.sender.send_message(message, leader);
+                self.send_message(message, leader).await;
             }
             DeviceEvent::ManualUnlock { user_id, user_key } => {
                 let message = Message::LockStateUpdate {
@@ -110,17 +108,37 @@ impl<L: UserLockManagement, S: MessageSender, D: LeaderDiscovery, H: HeartbeatRe
                         user_key: super::UserKey::from_bytes(user_key),
                     },
                 };
-                self.sender.send_message(message, leader);
+                self.send_message(message, leader).await;
             }
             DeviceEvent::Timer => {
                 // For all users that are logged in, send a heartbeat message to the leader.
                 for user_id in self.lock_system.list_users().await {
                     let message = Message::HeartBeat { user_id };
-                    self.sender.send_message(message, leader.clone());
+                    self.send_message(message, leader.clone()).await;
                 }
             }
         }
 
         Ok(())
+    }
+
+    async fn send_message(&self, message: Message, recipient: Endpoint) {
+        let payload = match message.to_cbor() {
+            Ok(payload) => payload,
+            Err(error) => {
+                tracing::error!(?error, "Failed to serialize shared unlock IPC message");
+                return;
+            }
+        };
+
+        let outgoing_message = OutgoingMessage {
+            payload,
+            destination: recipient,
+            topic: Some("password-manager.shared-unlock.follower-to-leader".to_string()),
+        };
+
+        if let Err(error) = self.ipc_client.send(outgoing_message).await {
+            tracing::error!(?error, "Failed to send shared unlock IPC message");
+        }
     }
 }

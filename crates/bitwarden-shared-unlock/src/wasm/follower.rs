@@ -18,14 +18,8 @@ use crate::{DeviceEvent, Follower, HEARTBEAT_INTERVAL, Message};
 pub struct SharedUnlockFollower {
     subscription: Arc<Mutex<bitwarden_ipc::wasm::JsIpcClientSubscription>>,
     cancellation_token: CancellationToken,
-    follower: Arc<
-        Follower<
-            JsUserLockManagement,
-            WasmSender,
-            JsLeaderDiscovery,
-            WasmDriverHeartbeatResponseHandler,
-        >,
-    >,
+    follower:
+        Arc<Follower<JsUserLockManagement, JsLeaderDiscovery, WasmDriverHeartbeatResponseHandler>>,
 }
 
 #[wasm_bindgen]
@@ -46,7 +40,7 @@ impl SharedUnlockFollower {
             lock_management,
             leader_discovery,
             heartbeat_response_handler,
-            sender,
+            ipc_client.client.clone(),
         )
         .await;
 

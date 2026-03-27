@@ -150,6 +150,11 @@ pub(crate) mod test_support {
         pub async fn outgoing(&self) -> Vec<OutgoingMessage> {
             self.outgoing.read().await.clone()
         }
+
+        /// Drain all outgoing messages, returning them and clearing the internal buffer.
+        pub async fn drain_outgoing(&self) -> Vec<OutgoingMessage> {
+            self.outgoing.write().await.drain(..).collect()
+        }
     }
 
     impl CommunicationBackend for TestCommunicationBackend {

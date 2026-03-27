@@ -4,7 +4,10 @@ use std::{
 };
 
 use bitwarden_core::UserId;
-use bitwarden_ipc::{Endpoint, HostId, Source};
+use bitwarden_ipc::{
+    Endpoint, HostId, InMemorySessionRepository, IpcClient, NoEncryptionCryptoProvider, Source,
+    TestCommunicationBackend, TestIpcClient,
+};
 
 use crate::{
     DeviceEvent, Follower, Leader, LockState, Message, UserKey,
@@ -146,12 +149,11 @@ fn user_b() -> UserId {
 
 struct Harness {
     leader: Leader<MockLockSystem, MockMessageSender>,
-    follower:
-        Follower<MockLockSystem, MockMessageSender, MockLeaderDiscovery, MockHeartbeatHandler>,
+    follower: Follower<MockLockSystem, MockLeaderDiscovery, MockHeartbeatHandler>,
     leader_lock: MockLockSystem,
     follower_lock: MockLockSystem,
     leader_outbox: MockMessageSender,
-    follower_outbox: MockMessageSender,
+    follower_ipc_backend: TestCommunicationBackend,
     heartbeat_handler: Arc<Mutex<Vec<UserId>>>,
 }
 
@@ -173,7 +175,12 @@ impl Harness {
         let leader = Leader::create(leader_lock.clone(), leader_outbox.clone());
 
         let follower_lock = MockLockSystem::new(follower_states);
-        let follower_outbox = MockMessageSender::new();
+        let follower_ipc_backend = TestCommunicationBackend::new();
+        let ipc_client: Arc<dyn IpcClient> = Arc::new(TestIpcClient::new(
+            NoEncryptionCryptoProvider,
+            follower_ipc_backend.clone(),
+            InMemorySessionRepository::new(HashMap::new()),
+        ));
         let heartbeat_handler = MockHeartbeatHandler::new();
         let heartbeats = heartbeat_handler.heartbeats.clone();
 
@@ -183,7 +190,7 @@ impl Harness {
                 endpoint: LEADER_ENDPOINT,
             },
             heartbeat_handler,
-            follower_outbox.clone(),
+            ipc_client,
         )
         .await;
 
@@ -193,7 +200,7 @@ impl Harness {
             leader_lock,
             follower_lock,
             leader_outbox,
-            follower_outbox,
+            follower_ipc_backend,
             heartbeat_handler: heartbeats,
         };
 
@@ -202,16 +209,18 @@ impl Harness {
         harness
     }
 
-    /// Deliver all messages from follower outbox to leader
+    /// Deliver all messages from follower IPC backend to leader
     async fn deliver_follower_to_leader(&mut self) -> usize {
         self.deliver_follower_to_leader_as(follower_source()).await
     }
 
-    /// Deliver all messages from follower outbox to leader with a specific source
+    /// Deliver all messages from follower IPC backend to leader with a specific source
     async fn deliver_follower_to_leader_as(&mut self, source: Source) -> usize {
-        let messages = self.follower_outbox.drain();
-        let count = messages.len();
-        for (msg, _recipient) in messages {
+        let outgoing = self.follower_ipc_backend.drain_outgoing().await;
+        let count = outgoing.len();
+        for outgoing_msg in outgoing {
+            let msg = Message::from_cbor(&outgoing_msg.payload)
+                .expect("Failed to decode CBOR message from IPC");
             self.leader
                 .receive_message(msg, source.clone())
                 .await
