@@ -1,7 +1,7 @@
 extern crate console_error_panic_hook;
 use std::{fmt::Display, sync::Arc};
 
-use bitwarden_core::ClientSettings;
+use bitwarden_core::{ClientSettings, UserId};
 use bitwarden_error::bitwarden_error;
 use bitwarden_pm::{PasswordManagerClient as InnerPasswordManagerClient, clients::*};
 use bitwarden_user_crypto_management::{UserCryptoManagementClient, UserCryptoManagementClientExt};
@@ -23,6 +23,23 @@ export type BitwardenClient = PasswordManagerClient;
 /// The main entry point for the Bitwarden SDK in WebAssembly environments
 #[wasm_bindgen]
 pub struct PasswordManagerClient(pub(crate) InnerPasswordManagerClient);
+
+#[wasm_bindgen]
+extern "C" {
+    pub type PasswordManagerClientRepository;
+
+    #[wasm_bindgen(structural, method)]
+    pub fn get_user_repository(
+        this: &PasswordManagerClientRepository,
+        user_id: UserId,
+    ) -> Option<PasswordManagerClient>;
+
+    #[wasm_bindgen(structural, method, catch)]
+    pub async fn handle_ipc_message(
+        this: &PasswordManagerClientRepository,
+        message: JsValue,
+    ) -> Result<JsValue, JsValue>;
+}
 
 #[wasm_bindgen]
 impl PasswordManagerClient {

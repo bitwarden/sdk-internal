@@ -101,7 +101,13 @@ pub enum DeviceType {
     DuckDuckGoBrowser = 26,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, JsonSchema, PartialEq)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify),
+    tsify(into_wasm_abi, from_wasm_abi)
+)]
 pub enum ClientName {
     Web,
     Browser,

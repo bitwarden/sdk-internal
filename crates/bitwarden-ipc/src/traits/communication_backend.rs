@@ -53,8 +53,42 @@ pub trait CommunicationBackendReceiver: Send + Sync + 'static {
     ) -> impl std::future::Future<Output = Result<IncomingMessage, Self::ReceiveError>> + Send + Sync;
 }
 
-#[cfg(test)]
-pub mod tests {
+pub(crate) mod noop {
+    use super::*;
+
+    /// A no-op implementation of the [`CommunicationBackend`] trait.
+    ///
+    /// Sending discards messages silently and receiving blocks forever (the future never resolves).
+    /// This is useful as a default backend for platforms that do not need IPC communication.
+    pub struct NoopCommunicationBackend;
+
+    /// Receiver for [`NoopCommunicationBackend`] that never yields a message.
+    pub struct NoopCommunicationBackendReceiver;
+
+    impl CommunicationBackend for NoopCommunicationBackend {
+        type SendError = std::convert::Infallible;
+        type Receiver = NoopCommunicationBackendReceiver;
+
+        async fn send(&self, _message: OutgoingMessage) -> Result<(), Self::SendError> {
+            Ok(())
+        }
+
+        async fn subscribe(&self) -> Self::Receiver {
+            NoopCommunicationBackendReceiver
+        }
+    }
+
+    impl CommunicationBackendReceiver for NoopCommunicationBackendReceiver {
+        type ReceiveError = std::convert::Infallible;
+
+        async fn receive(&self) -> Result<IncomingMessage, Self::ReceiveError> {
+            std::future::pending().await
+        }
+    }
+}
+
+#[cfg(any(test, feature = "test-support"))]
+pub(crate) mod test_support {
     use std::sync::Arc;
 
     use tokio::sync::{
@@ -64,7 +98,8 @@ pub mod tests {
 
     use super::*;
 
-    /// A mock implementation of the CommunicationBackend trait that can be used for testing.
+    /// A test implementation of the [`CommunicationBackend`] trait. Provides methods to inject
+    /// incoming messages and inspect outgoing messages.
     #[derive(Debug)]
     pub struct TestCommunicationBackend {
         outgoing_tx: Sender<OutgoingMessage>,
@@ -86,10 +121,12 @@ pub mod tests {
         }
     }
 
+    /// Receiver for [`TestCommunicationBackend`].
     #[derive(Debug)]
     pub struct TestCommunicationBackendReceiver(RwLock<Receiver<IncomingMessage>>);
 
     impl TestCommunicationBackend {
+        /// Create a new test communication backend.
         pub fn new() -> Self {
             let (outgoing_tx, outgoing_rx) = broadcast::channel(10);
             let (incoming_tx, incoming_rx) = broadcast::channel(10);
@@ -102,6 +139,7 @@ pub mod tests {
             }
         }
 
+        /// Inject a message as if it were received from a remote endpoint.
         pub fn push_incoming(&self, message: IncomingMessage) {
             self.incoming_tx
                 .send(message)
@@ -111,6 +149,11 @@ pub mod tests {
         /// Get a copy of all the outgoing messages that have been sent.
         pub async fn outgoing(&self) -> Vec<OutgoingMessage> {
             self.outgoing.read().await.clone()
+        }
+
+        /// Drain all outgoing messages, returning them and clearing the internal buffer.
+        pub async fn drain_outgoing(&self) -> Vec<OutgoingMessage> {
+            self.outgoing.write().await.drain(..).collect()
         }
     }
 
