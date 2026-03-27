@@ -197,7 +197,7 @@ mod tests {
                 assert_eq!(status, 500);
                 assert_eq!(body, "Internal Server Error");
             }
-            _ => panic!("Expected ServerError"),
+            _ => panic!("Expected Response"),
         }
     }
 
@@ -241,7 +241,7 @@ mod tests {
                 assert_eq!(status, 404);
                 assert_eq!(body, "Not found");
             }
-            _ => panic!("Expected ServerError"),
+            _ => panic!("Expected Response"),
         }
     }
 }
