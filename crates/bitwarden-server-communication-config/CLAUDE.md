@@ -210,10 +210,10 @@ pub enum AcquireCookieError {
     CookieNameMismatch { expected: String, actual: String },
 
     #[error("Failed to get server configuration: {0}")]
-    RepositoryGetError(String),
+    RepositoryGet(String),
 
     #[error("Failed to save server configuration: {0}")]
-    RepositorySaveError(String),
+    RepositorySave(String),
 }
 ```
 
@@ -329,10 +329,10 @@ pub struct SsoCookieVendorConfig {
 #[bitwarden_error(flat)]
 pub enum ServerCommunicationConfigRepositoryError {
     #[error("Failed to get configuration: {0}")]
-    GetError(String),
+    Get(String),
 
     #[error("Failed to save configuration: {0}")]
-    SaveError(String),
+    Save(String),
 }
 
 /// Cookie acquisition errors
@@ -349,10 +349,10 @@ pub enum AcquireCookieError {
     CookieNameMismatch { expected: String, actual: String },
 
     #[error("Failed to get server configuration: {0}")]
-    RepositoryGetError(String),
+    RepositoryGet(String),
 
     #[error("Failed to save server configuration: {0}")]
-    RepositorySaveError(String),
+    RepositorySave(String),
 }
 ```
 
