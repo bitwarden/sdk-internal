@@ -22,3 +22,6 @@ pub use ipc_client::{
 pub use message::{IncomingMessage, OutgoingMessage};
 pub use presets::IpcClient;
 pub use rpc::exec::handler::RpcHandler;
+pub use traits::NoopCommunicationBackend;
+#[cfg(any(test, feature = "test-support"))]
+pub use traits::TestCommunicationBackend;

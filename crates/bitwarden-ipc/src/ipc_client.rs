@@ -447,9 +447,7 @@ mod tests {
     use super::*;
     use crate::{
         endpoint::{Endpoint, HostId, Source},
-        traits::{
-            InMemorySessionRepository, NoEncryptionCryptoProvider, tests::TestCommunicationBackend,
-        },
+        traits::{InMemorySessionRepository, NoEncryptionCryptoProvider, TestCommunicationBackend},
     };
 
     struct TestCryptoProvider {
