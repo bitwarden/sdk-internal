@@ -11,7 +11,7 @@ use bitwarden_ipc::{
 
 use crate::{
     DeviceEvent, Follower, Leader, LockState, Message, UserKey,
-    drivers::{HeartbeatResponseHandler, LeaderDiscovery, MessageSender, UserLockManagement},
+    drivers::{HeartbeatResponseHandler, LeaderDiscovery, UserLockManagement},
 };
 
 #[derive(Clone)]
@@ -78,29 +78,6 @@ impl UserLockManagement for MockLockSystem {
     }
 }
 
-#[derive(Clone)]
-struct MockMessageSender {
-    outbox: Arc<Mutex<Vec<(Message, Endpoint)>>>,
-}
-
-impl MockMessageSender {
-    fn new() -> Self {
-        Self {
-            outbox: Arc::new(Mutex::new(Vec::new())),
-        }
-    }
-
-    fn drain(&self) -> Vec<(Message, Endpoint)> {
-        self.outbox.lock().unwrap().drain(..).collect()
-    }
-}
-
-impl MessageSender for MockMessageSender {
-    fn send_message(&self, message: Message, recipient: Endpoint) {
-        self.outbox.lock().unwrap().push((message, recipient));
-    }
-}
-
 struct MockLeaderDiscovery {
     endpoint: Endpoint,
 }
@@ -148,11 +125,11 @@ fn user_b() -> UserId {
 }
 
 struct Harness {
-    leader: Leader<MockLockSystem, MockMessageSender>,
+    leader: Leader<MockLockSystem>,
     follower: Follower<MockLockSystem, MockLeaderDiscovery, MockHeartbeatHandler>,
     leader_lock: MockLockSystem,
     follower_lock: MockLockSystem,
-    leader_outbox: MockMessageSender,
+    leader_ipc_backend: TestCommunicationBackend,
     follower_ipc_backend: TestCommunicationBackend,
     heartbeat_handler: Arc<Mutex<Vec<UserId>>>,
 }
@@ -171,8 +148,13 @@ impl Harness {
         vault_urls: HashMap<UserId, String>,
     ) -> Self {
         let leader_lock = MockLockSystem::with_vault_urls(leader_states, vault_urls);
-        let leader_outbox = MockMessageSender::new();
-        let leader = Leader::create(leader_lock.clone(), leader_outbox.clone());
+        let leader_ipc_backend = TestCommunicationBackend::new();
+        let leader_ipc_client: Arc<dyn IpcClient> = Arc::new(TestIpcClient::new(
+            NoEncryptionCryptoProvider,
+            leader_ipc_backend.clone(),
+            InMemorySessionRepository::new(HashMap::new()),
+        ));
+        let leader = Leader::create(leader_lock.clone(), leader_ipc_client);
 
         let follower_lock = MockLockSystem::new(follower_states);
         let follower_ipc_backend = TestCommunicationBackend::new();
@@ -199,7 +181,7 @@ impl Harness {
             follower,
             leader_lock,
             follower_lock,
-            leader_outbox,
+            leader_ipc_backend,
             follower_ipc_backend,
             heartbeat_handler: heartbeats,
         };
@@ -229,11 +211,13 @@ impl Harness {
         count
     }
 
-    /// Deliver all messages from leader outbox to follower
+    /// Deliver all messages from leader IPC backend to follower
     async fn deliver_leader_to_follower(&mut self) -> usize {
-        let messages = self.leader_outbox.drain();
-        let count = messages.len();
-        for (msg, _recipient) in messages {
+        let outgoing = self.leader_ipc_backend.drain_outgoing().await;
+        let count = outgoing.len();
+        for outgoing_msg in outgoing {
+            let msg = Message::from_cbor(&outgoing_msg.payload)
+                .expect("Failed to decode CBOR message from IPC");
             self.follower.receive_message(msg).await.unwrap();
         }
         count
@@ -369,6 +353,7 @@ async fn test_leader_lock_broadcasts_to_follower() {
     harness
         .leader
         .handle_device_event(DeviceEvent::ManualLock { user_id: user })
+        .await
         .unwrap();
 
     harness.pump().await;
@@ -392,6 +377,7 @@ async fn test_leader_unlock_broadcasts_to_follower() {
             user_id: user,
             user_key: key.as_bytes().to_vec(),
         })
+        .await
         .unwrap();
 
     harness.pump().await;
@@ -472,8 +458,7 @@ async fn test_web_source_with_matching_origin_is_accepted() {
     )]);
     let vault_urls = HashMap::from([(user, "https://vault.bitwarden.com".to_string())]);
 
-    let mut harness =
-        Harness::new_with_vault_urls(leader_states, follower_states, vault_urls).await;
+    let harness = Harness::new_with_vault_urls(leader_states, follower_states, vault_urls).await;
 
     // Re-deliver startup messages as a Web source with matching origin
     let web_source = Source::Web {

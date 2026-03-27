@@ -1,11 +1,13 @@
-use std::{collections::HashMap, sync::Mutex, time::Duration};
-
-use tracing::{debug, info, warn};
-
-use crate::{
-    DeviceEvent, LockState, Message, UserKey,
-    drivers::{MessageSender, UserLockManagement},
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::Duration,
 };
+
+use bitwarden_ipc::{Endpoint, IpcClient, OutgoingMessage};
+use tracing::{info, warn};
+
+use crate::{DeviceEvent, LockState, Message, UserKey, drivers::UserLockManagement};
 
 const FOLLOWER_STALE_AFTER: Duration = Duration::from_secs(120);
 
@@ -68,25 +70,25 @@ impl FollowerSessions {
     }
 }
 
-pub struct Leader<L: UserLockManagement, S: MessageSender> {
-    message_sender: S,
+pub struct Leader<L: UserLockManagement> {
     lock_system: L,
     follower_sessions: FollowerSessions,
+    ipc_client: Arc<dyn IpcClient>,
 }
 
-impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
-    pub fn create(lock_system: L, message_sender: S) -> Self {
+impl<L: UserLockManagement> Leader<L> {
+    pub fn create(lock_system: L, ipc_client: Arc<dyn IpcClient>) -> Self {
         Self {
-            message_sender,
             lock_system,
             follower_sessions: FollowerSessions::new(),
+            ipc_client,
         }
     }
 
-    fn broadcast_to_active_followers(&self, message: Message) {
+    async fn broadcast_to_active_followers(&self, message: Message) {
         let endpoints = self.follower_sessions.active_endpoints();
         for endpoint in endpoints {
-            self.message_sender.send_message(message.clone(), endpoint);
+            self.send_message(message.clone(), endpoint).await;
         }
     }
 
@@ -137,7 +139,7 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                     user_id,
                     lock_state: LockState::Locked,
                 };
-                self.message_sender.send_message(response, endpoint.clone());
+                self.send_message(response, endpoint.clone()).await;
                 Ok(())
             }
             Message::LockStateUpdate {
@@ -162,7 +164,7 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                     user_id,
                     lock_state: LockState::Unlocked { user_key },
                 };
-                self.message_sender.send_message(response, endpoint.clone());
+                self.send_message(response, endpoint.clone()).await;
                 Ok(())
             }
             Message::StartSession {
@@ -189,7 +191,7 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                             user_id,
                             lock_state: self_lock_state,
                         };
-                        self.message_sender.send_message(response, endpoint.clone());
+                        self.send_message(response, endpoint.clone()).await;
                     }
                     _ => {
                         // States are already in sync, no action needed
@@ -204,20 +206,20 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                     .upsert(endpoint.clone(), get_current_timestamp());
 
                 let response = Message::HeartBeat { user_id };
-                self.message_sender.send_message(response, endpoint.clone());
+                self.send_message(response, endpoint.clone()).await;
                 Ok(())
             }
         }
     }
 
-    pub fn handle_device_event(&self, event: DeviceEvent) -> Result<(), ()> {
+    pub async fn handle_device_event(&self, event: DeviceEvent) -> Result<(), ()> {
         match event {
             DeviceEvent::ManualLock { user_id } => {
                 let message = Message::LockStateUpdate {
                     user_id,
                     lock_state: LockState::Locked,
                 };
-                self.broadcast_to_active_followers(message);
+                self.broadcast_to_active_followers(message).await;
             }
             DeviceEvent::ManualUnlock { user_id, user_key } => {
                 let message = Message::LockStateUpdate {
@@ -226,7 +228,7 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
                         user_key: UserKey::from_bytes(user_key),
                     },
                 };
-                self.broadcast_to_active_followers(message);
+                self.broadcast_to_active_followers(message).await;
             }
             DeviceEvent::Timer => {
                 self.follower_sessions
@@ -235,6 +237,26 @@ impl<L: UserLockManagement, S: MessageSender> Leader<L, S> {
         }
 
         Ok(())
+    }
+
+    async fn send_message(&self, message: Message, recipient: Endpoint) {
+        let payload = match message.to_cbor() {
+            Ok(payload) => payload,
+            Err(error) => {
+                tracing::error!(?error, "Failed to serialize shared unlock IPC message");
+                return;
+            }
+        };
+
+        let outgoing_message = OutgoingMessage {
+            payload,
+            destination: recipient,
+            topic: Some("password-manager.shared-unlock.follower-to-leader".to_string()),
+        };
+
+        if let Err(error) = self.ipc_client.send(outgoing_message).await {
+            tracing::error!(?error, "Failed to send shared unlock IPC message");
+        }
     }
 }
 

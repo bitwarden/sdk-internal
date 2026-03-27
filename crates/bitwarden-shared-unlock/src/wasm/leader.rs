@@ -15,7 +15,7 @@ use crate::{DeviceEvent, Leader, Message};
 pub struct SharedUnlockLeader {
     subscription: Arc<Mutex<bitwarden_ipc::wasm::JsIpcClientSubscription>>,
     cancellation_token: CancellationToken,
-    leader: Arc<Leader<JsUserLockManagement, WasmSender>>,
+    leader: Arc<Leader<JsUserLockManagement>>,
 }
 
 #[wasm_bindgen]
@@ -29,10 +29,7 @@ impl SharedUnlockLeader {
         let lock_management = JsUserLockManagement::new(runner);
         let cancellation_token = CancellationToken::new();
         let subscription = ipc_client.subscribe().await?;
-        let leader = Leader::create(
-            lock_management,
-            WasmSender::new(ipc_client, super::sender::Role::Leader),
-        );
+        let leader = Leader::create(lock_management, ipc_client.client.clone());
 
         Ok(Self {
             subscription: Arc::new(Mutex::new(subscription)),
@@ -86,8 +83,8 @@ impl SharedUnlockLeader {
     }
 
     #[wasm_bindgen]
-    pub fn handle_device_event(&self, event: DeviceEvent) {
-        if let Err(error) = self.leader.handle_device_event(event) {
+    pub async fn handle_device_event(&self, event: DeviceEvent) {
+        if let Err(error) = self.leader.handle_device_event(event).await {
             tracing::error!(?error, "Failed to handle shared unlock leader device event");
         }
     }
