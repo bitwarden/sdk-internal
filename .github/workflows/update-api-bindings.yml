@@ -171,7 +171,6 @@ jobs:
           git fetch origin
           if git switch $BRANCH_NAME 2>/dev/null; then
             echo "✅ Switched to existing branch: $BRANCH_NAME"
-            git rebase origin/main
             echo "updating_existing_branch=true" >> $GITHUB_OUTPUT
           else
             echo "📝 Creating new branch: $BRANCH_NAME from $BASE_SHA"
@@ -205,6 +204,10 @@ jobs:
           fi
 
           echo "✅ Branch tip commit was made by the bot. Safe to proceed."
+
+      - name: Reset API branch to main
+        if: ${{ (inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type) && steps.switch-api-branch.outputs.updating_existing_branch == 'true' }}
+        run: git reset --hard origin/main
 
       - name: Generate API bindings
         if: ${{ inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type }}
@@ -278,7 +281,6 @@ jobs:
           git fetch origin
           if git switch $BRANCH_NAME 2>/dev/null; then
             echo "✅ Switched to existing branch: $BRANCH_NAME"
-            git rebase origin/main
             echo "updating_existing_branch=true" >> $GITHUB_OUTPUT
           else
             echo "📝 Creating new branch: $BRANCH_NAME from $BASE_SHA"
@@ -312,6 +314,10 @@ jobs:
           fi
 
           echo "✅ Branch tip commit was made by the bot. Safe to proceed."
+
+      - name: Reset Identity branch to main
+        if: ${{ (inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type) && steps.switch-identity-branch.outputs.updating_existing_branch == 'true' }}
+        run: git reset --hard origin/main
 
       - name: Generate Identity bindings
         if: ${{ inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type }}
