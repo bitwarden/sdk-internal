@@ -5,9 +5,9 @@
 use core::panic;
 
 use bitwarden_api_api::models::{
-    self, EmergencyAccessWithIdRequestModel, MasterPasswordUnlockAndAuthenticationDataModel,
-    OtherDeviceKeysUpdateRequestModel, ResetPasswordWithOrgIdRequestModel, UnlockDataRequestModel,
-    WebAuthnLoginRotateKeyRequestModel,
+    self, CommonUnlockDataRequestModel, EmergencyAccessWithIdRequestModel,
+    MasterPasswordUnlockAndAuthenticationDataModel, OtherDeviceKeysUpdateRequestModel,
+    ResetPasswordWithOrgIdRequestModel, UnlockDataRequestModel, WebAuthnLoginRotateKeyRequestModel,
 };
 use bitwarden_core::key_management::{
     KeyIds, MasterPasswordAuthenticationData, MasterPasswordUnlockData, SymmetricKeyId,
@@ -19,25 +19,6 @@ use tracing::debug_span;
 use tsify::Tsify;
 
 use crate::key_rotation::partial_rotateable_keyset::PartialRotateableKeyset;
-
-/// The unlock method that uses the master-key field on the user's account. This can be either
-/// the master password, or the key-connector. For TDE users without a master password, this field
-/// is empty.
-pub(super) enum MasterkeyUnlockMethod {
-    /// The master password based unlock method.
-    Password {
-        password: String,
-        hint: Option<String>,
-        kdf: Kdf,
-        salt: String,
-    },
-    /// The key-connector based unlock method.
-    /// NOTE: THIS IS NOT SUPPORTED YET AND WILL PANIC IF USED
-    KeyConnector,
-    /// No master-key based unlock method. This is TDE users without a master password.
-    /// NOTE: THIS IS NOT SUPPORTED YET AND WILL PANIC IF USED
-    None,
-}
 
 /// The data necessary to re-share the user-key to a V1 emergency access membership. Note: The
 /// Public-key must be verified/trusted. Further, there is no sender authentication possible here.
@@ -69,10 +50,17 @@ pub(super) enum ReencryptError {
     KeySharingError,
 }
 
-/// Input data for re-encrypting unlock methods during user key rotation.
-pub(super) struct ReencryptUnlockInput {
-    /// The master-key based unlock method.
-    pub(super) master_key_unlock_method: MasterkeyUnlockMethod,
+pub(super) struct ReencryptMasterPasswordChangeAndUnlockInput {
+    /// Master password change data.
+    pub(super) password: String,
+    pub(super) hint: Option<String>,
+    pub(super) kdf: Kdf,
+    pub(super) salt: String,
+    /// Common unlock data to re-encrypt
+    pub(super) common_unlock_data: ReencryptCommonUnlockDataInput,
+}
+
+pub(super) struct ReencryptCommonUnlockDataInput {
     /// The trusted device keysets.
     pub(super) trusted_devices: Vec<PartialRotateableKeyset>,
     /// The webauthn credential keysets.
@@ -83,33 +71,45 @@ pub(super) struct ReencryptUnlockInput {
     pub(super) trusted_emergency_access_keys: Vec<V1EmergencyAccessMembership>,
 }
 
-/// Update the unlock methods for the updated user-key.
-pub(super) fn reencrypt_unlock(
-    input: ReencryptUnlockInput,
+pub(super) fn reencrypt_master_password_change_unlock_data(
+    input: ReencryptMasterPasswordChangeAndUnlockInput,
     current_user_key_id: SymmetricKeyId,
     new_user_key_id: SymmetricKeyId,
     ctx: &mut KeyStoreContext<KeyIds>,
 ) -> Result<UnlockDataRequestModel, ReencryptError> {
-    let master_password_unlock_data = match input.master_key_unlock_method {
-        MasterkeyUnlockMethod::Password {
-            password,
-            hint,
-            kdf,
-            salt,
-        } => reencrypt_userkey_for_masterpassword_unlock(
-            password,
-            hint,
-            kdf,
-            salt,
-            new_user_key_id,
-            ctx,
-        )?,
-        MasterkeyUnlockMethod::KeyConnector => {
-            panic!("KeyConnector based masterkey unlock method is not supported yet")
-        }
-        MasterkeyUnlockMethod::None => panic!("None masterkey unlock method is not supported yet"),
-    };
+    let master_password_unlock_data = reencrypt_userkey_for_masterpassword_unlock(
+        input.password,
+        input.hint,
+        input.kdf,
+        input.salt,
+        new_user_key_id,
+        ctx,
+    )?;
 
+    let common_unlock_data = reencrypt_common_unlock_data(
+        input.common_unlock_data,
+        current_user_key_id,
+        new_user_key_id,
+        ctx,
+    )?;
+
+    Ok(UnlockDataRequestModel {
+        master_password_unlock_data: Box::new(master_password_unlock_data),
+        emergency_access_unlock_data: common_unlock_data.emergency_access_unlock_data,
+        organization_account_recovery_unlock_data: common_unlock_data
+            .organization_account_recovery_unlock_data,
+        passkey_unlock_data: common_unlock_data.passkey_unlock_data,
+        device_key_unlock_data: common_unlock_data.device_key_unlock_data,
+        v2_upgrade_token: None,
+    })
+}
+
+pub(super) fn reencrypt_common_unlock_data(
+    input: ReencryptCommonUnlockDataInput,
+    current_user_key_id: SymmetricKeyId,
+    new_user_key_id: SymmetricKeyId,
+    ctx: &mut KeyStoreContext<KeyIds>,
+) -> Result<CommonUnlockDataRequestModel, ReencryptError> {
     let tde_device_unlock_data = reencrypt_tde_devices(
         &input.trusted_devices,
         current_user_key_id,
@@ -127,8 +127,7 @@ pub(super) fn reencrypt_unlock(
     let organizations_memberships =
         reencrypt_organization_memberships(input.trusted_organization_keys, new_user_key_id, ctx)?;
 
-    Ok(UnlockDataRequestModel {
-        master_password_unlock_data: Box::new(master_password_unlock_data),
+    Ok(CommonUnlockDataRequestModel {
         emergency_access_unlock_data: Some(emergency_accesses),
         organization_account_recovery_unlock_data: Some(organizations_memberships),
         passkey_unlock_data: Some(prf_passkey_unlock_data),
@@ -321,18 +320,6 @@ mod tests {
         }
     }
 
-    fn create_test_unlock_data() -> MasterkeyUnlockMethod {
-        let kdf = create_test_kdf_argon2id();
-        let salt = "test@example.com".to_string();
-        let password = "test_password".to_string();
-        MasterkeyUnlockMethod::Password {
-            password,
-            hint: None,
-            kdf,
-            salt,
-        }
-    }
-
     fn assert_symmetric_keys_equal(
         key_id_1: SymmetricKeyId,
         key_id_2: SymmetricKeyId,
@@ -443,14 +430,12 @@ mod tests {
 
         let current_user_key_id = ctx.generate_symmetric_key();
         let new_user_key_id = ctx.generate_symmetric_key();
-        let master_key_unlock_method = create_test_unlock_data();
 
         let (device_keyset, device_private_key) =
             PartialRotateableKeyset::make_test_keyset(current_user_key_id, &mut ctx);
 
-        let result = reencrypt_unlock(
-            ReencryptUnlockInput {
-                master_key_unlock_method,
+        let result = reencrypt_common_unlock_data(
+            ReencryptCommonUnlockDataInput {
                 trusted_devices: vec![device_keyset],
                 webauthn_credentials: vec![],
                 trusted_organization_keys: vec![],
@@ -485,14 +470,12 @@ mod tests {
 
         let current_user_key_id = ctx.generate_symmetric_key();
         let new_user_key_id = ctx.generate_symmetric_key();
-        let master_key_unlock_method = create_test_unlock_data();
 
         let (credential_keyset, credential_private_key) =
             PartialRotateableKeyset::make_test_keyset(current_user_key_id, &mut ctx);
 
-        let result = reencrypt_unlock(
-            ReencryptUnlockInput {
-                master_key_unlock_method,
+        let result = reencrypt_common_unlock_data(
+            ReencryptCommonUnlockDataInput {
                 trusted_devices: vec![],
                 webauthn_credentials: vec![credential_keyset],
                 trusted_organization_keys: vec![],
@@ -528,7 +511,6 @@ mod tests {
 
         let current_user_key_id = ctx.generate_symmetric_key();
         let new_user_key_id = ctx.generate_symmetric_key();
-        let master_key_unlock_method = create_test_unlock_data();
 
         let organization_private_key =
             ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
@@ -540,9 +522,8 @@ mod tests {
                 .expect("key exists"),
         };
 
-        let result = reencrypt_unlock(
-            ReencryptUnlockInput {
-                master_key_unlock_method,
+        let result = reencrypt_common_unlock_data(
+            ReencryptCommonUnlockDataInput {
                 trusted_devices: vec![],
                 webauthn_credentials: vec![],
                 trusted_organization_keys: vec![],
@@ -578,10 +559,6 @@ mod tests {
         let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
-        let kdf = create_test_kdf_argon2id();
-        let salt = "test@example.com".to_string();
-        let password = "test_password".to_string();
-
         let current_user_key_id = ctx.generate_symmetric_key();
         let new_user_key_id = ctx.generate_symmetric_key();
 
@@ -592,17 +569,8 @@ mod tests {
             public_key: ctx.get_public_key(org_key).expect("key exists"),
         };
 
-        // Note: Replace this with [`MasterkeyUnlockMethod::None`] when implemented.
-        let master_key_unlock_method = MasterkeyUnlockMethod::Password {
-            password: password.clone(),
-            hint: None,
-            kdf: kdf.clone(),
-            salt: salt.clone(),
-        };
-
-        let result = reencrypt_unlock(
-            ReencryptUnlockInput {
-                master_key_unlock_method,
+        let result = reencrypt_common_unlock_data(
+            ReencryptCommonUnlockDataInput {
                 trusted_devices: vec![],
                 webauthn_credentials: vec![],
                 trusted_organization_keys: vec![org_membership],
