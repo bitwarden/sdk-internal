@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::collections::HashMap;
 
 use reqwest::header::HeaderValue;
 use reqwest_middleware::{Middleware, Next, Result};
@@ -11,6 +14,11 @@ use crate::CookieProvider;
 /// before auth middleware. Auto-redirect must be disabled on the underlying
 /// reqwest::Client. See ADR-008 and ADR-013.
 ///
+/// On WASM targets, uses a proactive strategy: checks `needs_bootstrap()` before
+/// each request, acquires cookies if needed, injects them, then sends. This is
+/// required because `reqwest::redirect::Policy` is unavailable on WASM and the
+/// browser auto-follows redirects, making reactive 302/307 detection impossible.
+///
 /// # Security
 ///
 /// Cookie values are NEVER logged.
@@ -19,6 +27,9 @@ pub struct ServerCommunicationConfigMiddleware {
     /// Tracks in-flight cookie acquisitions per hostname to prevent duplicate concurrent
     /// SSO acquisition flows. When a task is acquiring for a hostname, other tasks wait
     /// on the Notify rather than starting a redundant acquisition.
+    ///
+    /// Not used on WASM targets (single-threaded, proactive strategy).
+    #[cfg(not(target_arch = "wasm32"))]
     in_flight: Arc<tokio::sync::Mutex<HashMap<String, Arc<tokio::sync::Notify>>>>,
 }
 
@@ -27,7 +38,8 @@ impl ServerCommunicationConfigMiddleware {
     pub fn new(provider: Arc<dyn CookieProvider>) -> Self {
         Self {
             provider,
-            in_flight: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+            #[cfg(not(target_arch = "wasm32"))]
+            in_flight: Default::default(),
         }
     }
 }
@@ -36,6 +48,7 @@ impl Clone for ServerCommunicationConfigMiddleware {
     fn clone(&self) -> Self {
         Self {
             provider: Arc::clone(&self.provider),
+            #[cfg(not(target_arch = "wasm32"))]
             in_flight: Arc::clone(&self.in_flight),
         }
     }
@@ -51,90 +64,111 @@ impl Middleware for ServerCommunicationConfigMiddleware {
         next: Next<'_>,
     ) -> Result<reqwest::Response> {
         // Extract hostname -- pass through unchanged if URL has no host.
-        let hostname = match req.url().host_str() {
-            Some(h) => h.to_string(),
-            None => {
-                return next.run(req, extensions).await;
-            }
-        };
+        let hostname = req.url().host_str().map(|h| h.to_string());
 
-        // Clone the request before forwarding so we can retry on 302/307.
-        // try_clone() returns None for streaming bodies; in that case we
-        // cannot retry and will return the redirect response as-is.
-        let req_clone = req.try_clone();
-
-        // Inject stored cookies into the Cookie header.
-        inject_cookies(&mut req, self.provider.cookies(&hostname).await);
-
-        // Forward the request.
-        let response = next.clone().run(req, extensions).await?;
-
-        // On 302 or 307: check if bootstrap is needed, acquire fresh cookie, and retry.
-        let status = response.status();
-        if status == reqwest::StatusCode::FOUND || status == reqwest::StatusCode::TEMPORARY_REDIRECT
+        // WASM: proactive strategy -- check bootstrap before sending, inject cookies, then send.
+        // Reactive 302/307 detection is impossible on WASM because reqwest::redirect::Policy is
+        // unavailable and the browser auto-follows redirects.
+        #[cfg(target_arch = "wasm32")]
         {
-            tracing::debug!(
-                %status,
-                hostname = %hostname,
-                "Cookie middleware: intercepting redirect"
-            );
-
-            // Only acquire if bootstrap is required for this hostname.
-            // Mirrors clients needsBootstrap$ check; avoids spurious acquisition
-            // for redirects unrelated to SSO cookie bootstrapping.
-            if !self.provider.needs_bootstrap(&hostname).await {
-                tracing::debug!(
-                    hostname = %hostname,
-                    "Cookie middleware: bootstrap not required, returning redirect"
-                );
-                return Ok(response);
+            if let Some(ref hostname) = hostname {
+                if self.provider.needs_bootstrap(hostname).await {
+                    let _ = self.provider.acquire_cookie(hostname).await;
+                }
+                inject_cookies(&mut req, self.provider.cookies(hostname).await);
             }
+            return next.run(req, extensions).await;
+        }
 
-            // Deduplicate concurrent acquisition attempts for the same hostname.
-            // If another task is already acquiring, wait for it rather than starting
-            // a redundant SSO flow. Mirrors clients pendingAcquisition deduplication.
-            let notify_to_wait = {
-                let mut in_flight = self.in_flight.lock().await;
-                if let Some(notify) = in_flight.get(&hostname) {
-                    // Another task is already acquiring -- wait for it.
-                    Some(Arc::clone(notify))
-                } else {
-                    // We are the first -- register as the acquirer.
-                    in_flight.insert(hostname.clone(), Arc::new(tokio::sync::Notify::new()));
-                    None
+        // Non-WASM: reactive strategy -- send request, detect 302/307, acquire cookie, retry.
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let hostname = match hostname {
+                Some(h) => h,
+                None => {
+                    return next.run(req, extensions).await;
                 }
             };
 
-            if let Some(notify) = notify_to_wait {
-                // Wait for the in-flight acquisition to complete.
-                notify.notified().await;
-            } else {
-                // Acquire the new cookie (best-effort; log warning on failure).
-                if let Err(e) = self.provider.acquire_cookie(&hostname).await {
-                    tracing::warn!(
+            // Clone the request before forwarding so we can retry on 302/307.
+            // try_clone() returns None for streaming bodies; in that case we
+            // cannot retry and will return the redirect response as-is.
+            let req_clone = req.try_clone();
+
+            // Inject stored cookies into the Cookie header.
+            inject_cookies(&mut req, self.provider.cookies(&hostname).await);
+
+            // Forward the request.
+            let response = next.clone().run(req, extensions).await?;
+
+            // On 302 or 307: check if bootstrap is needed, acquire fresh cookie, and retry.
+            let status = response.status();
+            if status == reqwest::StatusCode::FOUND
+                || status == reqwest::StatusCode::TEMPORARY_REDIRECT
+            {
+                tracing::debug!(
+                    %status,
+                    hostname = %hostname,
+                    "Cookie middleware: intercepting redirect"
+                );
+
+                // Only acquire if bootstrap is required for this hostname.
+                // Mirrors clients needsBootstrap$ check; avoids spurious acquisition
+                // for redirects unrelated to SSO cookie bootstrapping.
+                if !self.provider.needs_bootstrap(&hostname).await {
+                    tracing::debug!(
                         hostname = %hostname,
-                        error = ?e,
-                        "Cookie middleware: cookie acquisition failed"
+                        "Cookie middleware: bootstrap not required, returning redirect"
                     );
+                    return Ok(response);
                 }
 
-                // Signal all waiters and remove from in-flight map.
-                let mut in_flight = self.in_flight.lock().await;
-                if let Some(notify) = in_flight.remove(&hostname) {
-                    notify.notify_waiters();
+                // Deduplicate concurrent acquisition attempts for the same hostname.
+                // If another task is already acquiring, wait for it rather than starting
+                // a redundant SSO flow. Mirrors clients pendingAcquisition deduplication.
+                let notify_to_wait = {
+                    let mut in_flight = self.in_flight.lock().await;
+                    if let Some(notify) = in_flight.get(&hostname) {
+                        // Another task is already acquiring -- wait for it.
+                        Some(Arc::clone(notify))
+                    } else {
+                        // We are the first -- register as the acquirer.
+                        in_flight.insert(hostname.clone(), Arc::new(tokio::sync::Notify::new()));
+                        None
+                    }
+                };
+
+                if let Some(notify) = notify_to_wait {
+                    // Wait for the in-flight acquisition to complete.
+                    notify.notified().await;
+                } else {
+                    // Acquire the new cookie (best-effort; log warning on failure).
+                    if let Err(e) = self.provider.acquire_cookie(&hostname).await {
+                        tracing::warn!(
+                            hostname = %hostname,
+                            error = ?e,
+                            "Cookie middleware: cookie acquisition failed"
+                        );
+                    }
+
+                    // Signal all waiters and remove from in-flight map.
+                    let mut in_flight = self.in_flight.lock().await;
+                    if let Some(notify) = in_flight.remove(&hostname) {
+                        notify.notify_waiters();
+                    }
                 }
+
+                // Retry with the cloned request if available (acquisition complete).
+                if let Some(mut retry_req) = req_clone {
+                    // Re-inject fresh cookies onto the retry request.
+                    inject_cookies(&mut retry_req, self.provider.cookies(&hostname).await);
+                    return next.run(retry_req, extensions).await;
+                }
+                // No clone available (streaming body) -- return the redirect response.
             }
 
-            // Retry with the cloned request if available (acquisition complete).
-            if let Some(mut retry_req) = req_clone {
-                // Re-inject fresh cookies onto the retry request.
-                inject_cookies(&mut retry_req, self.provider.cookies(&hostname).await);
-                return next.run(retry_req, extensions).await;
-            }
-            // No clone available (streaming body) -- return the redirect response.
+            Ok(response)
         }
-
-        Ok(response)
     }
 }
 

@@ -86,6 +86,8 @@ impl ClientBuilder {
 
         // Build the API HTTP client conditionally: disable auto-redirect when additional
         // middleware is present so the outermost middleware can observe raw 3xx responses.
+        // reqwest::redirect is not available on wasm32 targets; on WASM the middleware uses
+        // a proactive cookie strategy instead of reactive 302/307 detection.
         #[cfg(not(target_arch = "wasm32"))]
         let api_http_client = if self.middleware.is_empty() {
             new_http_client_builder()
