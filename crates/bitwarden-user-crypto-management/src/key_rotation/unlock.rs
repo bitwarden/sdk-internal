@@ -292,6 +292,7 @@ fn to_authentication_and_unlock_data(
                 .to_string(),
         ),
         master_password_hint: hint,
+        master_password_salt: Some(master_password_unlock_data.salt.clone()),
     })
 }
 
