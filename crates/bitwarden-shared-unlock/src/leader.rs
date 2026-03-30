@@ -10,6 +10,7 @@ use tracing::{info, warn};
 use crate::{DeviceEvent, LockState, Message, UserKey, drivers::UserLockManagement};
 
 const FOLLOWER_STALE_AFTER: Duration = Duration::from_secs(120);
+const SEND_TOPIC: &str = "password-manager.shared-unlock.leader-to-follower";
 
 struct FollowerSession {
     last_seen_at: u64,
@@ -261,7 +262,7 @@ impl<L: UserLockManagement> Leader<L> {
         let outgoing_message = OutgoingMessage {
             payload,
             destination: recipient,
-            topic: Some("password-manager.shared-unlock.leader-to-follower".to_string()),
+            topic: Some(SEND_TOPIC.to_string()),
         };
 
         if let Err(error) = self.ipc_client.send(outgoing_message).await {

@@ -7,6 +7,8 @@ use crate::{
     drivers::{LeaderDiscovery, UserLockManagement},
 };
 
+const SEND_TOPIC: &str = "password-manager.shared-unlock.follower-to-leader";
+
 /// Tracks local state and follows authoritative lock updates from a leader.
 pub struct Follower<L: UserLockManagement, D: LeaderDiscovery> {
     lock_system: L,
@@ -144,7 +146,7 @@ impl<L: UserLockManagement, D: LeaderDiscovery> Follower<L, D> {
         let outgoing_message = OutgoingMessage {
             payload,
             destination: recipient,
-            topic: Some("password-manager.shared-unlock.follower-to-leader".to_string()),
+            topic: Some(SEND_TOPIC.to_string()),
         };
 
         if let Err(error) = self.ipc_client.send(outgoing_message).await {
