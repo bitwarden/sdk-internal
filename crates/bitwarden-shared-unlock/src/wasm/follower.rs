@@ -5,10 +5,7 @@ use tokio::sync::Mutex;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen_futures::spawn_local;
 
-use super::drivers::{
-    JsLeaderDiscovery, JsUserLockManagement, RawJsUserLockManagement,
-    WasmDriverHeartbeatResponseHandler,
-};
+use super::drivers::{JsLeaderDiscovery, JsUserLockManagement, RawJsUserLockManagement};
 use crate::{DeviceEvent, Follower, HEARTBEAT_INTERVAL, Message};
 
 /// Shared-unlock follower for WASM clients.
@@ -16,8 +13,7 @@ use crate::{DeviceEvent, Follower, HEARTBEAT_INTERVAL, Message};
 pub struct SharedUnlockFollower {
     subscription: Arc<Mutex<bitwarden_ipc::wasm::JsIpcClientSubscription>>,
     cancellation_token: CancellationToken,
-    follower:
-        Arc<Follower<JsUserLockManagement, JsLeaderDiscovery, WasmDriverHeartbeatResponseHandler>>,
+    follower: Arc<Follower<JsUserLockManagement, JsLeaderDiscovery>>,
 }
 
 #[wasm_bindgen]
@@ -33,14 +29,8 @@ impl SharedUnlockFollower {
         let runner = ThreadBoundRunner::new(lock_management);
         let lock_management = JsUserLockManagement::new(runner.clone());
         let leader_discovery = JsLeaderDiscovery::new(runner.clone());
-        let heartbeat_response_handler = WasmDriverHeartbeatResponseHandler::new(runner);
-        let follower = Follower::create(
-            lock_management,
-            leader_discovery,
-            heartbeat_response_handler,
-            ipc_client.client.clone(),
-        )
-        .await;
+        let follower =
+            Follower::create(lock_management, leader_discovery, ipc_client.client.clone()).await;
 
         Ok(Self {
             subscription: Arc::new(Mutex::new(subscription)),

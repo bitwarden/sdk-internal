@@ -2,7 +2,7 @@
 
 use bitwarden_core::UserId;
 
-use crate::{LockState, Message, UserKey};
+use crate::{LockState, UserKey};
 
 /// Trait that implements managing the lock state for users in the application
 pub trait UserLockManagement {
@@ -17,13 +17,9 @@ pub trait UserLockManagement {
     /// Get vault_url for the user with the given ID, if available. This is used to verify IPC
     /// message sources
     async fn get_vault_url(&self, user_id: UserId) -> Option<String>;
-}
-
-/// The HeartbeatResponseHandler gets called on every heartbeat response received by the leader.
-/// On platforms that support vault timeout, such as web, browser, desktop, this handler
-/// should supress the vault timeout until the next heartbeat, i.e while the session is active.
-pub trait HeartbeatResponseHandler {
-    /// Run a function on every heartbeat response.
+    /// The heartbeat handler gets called on every heartbeat response received by the leader.
+    /// On platforms that support vault timeout, such as web, browser, desktop, this handler
+    /// should supress the vault timeout until the next heartbeat, i.e while the session is active.
     async fn handle_heartbeat(&self, user_id: UserId);
 }
 

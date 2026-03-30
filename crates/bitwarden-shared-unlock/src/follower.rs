@@ -4,18 +4,17 @@ use bitwarden_ipc::{Endpoint, IpcClient, OutgoingMessage};
 
 use crate::{
     DeviceEvent, LockState, Message,
-    drivers::{HeartbeatResponseHandler, LeaderDiscovery, UserLockManagement},
+    drivers::{LeaderDiscovery, UserLockManagement},
 };
 
 /// Tracks local state and follows authoritative lock updates from a leader.
-pub struct Follower<L: UserLockManagement, D: LeaderDiscovery, H: HeartbeatResponseHandler> {
+pub struct Follower<L: UserLockManagement, D: LeaderDiscovery> {
     lock_system: L,
     leader_discovery: D,
-    heartbeat_response_handler: H,
     ipc_client: Arc<dyn IpcClient>,
 }
 
-impl<L: UserLockManagement, D: LeaderDiscovery, H: HeartbeatResponseHandler> Follower<L, D, H> {
+impl<L: UserLockManagement, D: LeaderDiscovery> Follower<L, D> {
     /// Creates a follower instance and starts sessions for all currently known users.
     ///
     /// During startup, a `StartSession` message is sent per user so the leader can reconcile
@@ -23,13 +22,11 @@ impl<L: UserLockManagement, D: LeaderDiscovery, H: HeartbeatResponseHandler> Fol
     pub async fn create(
         lock_system: L,
         leader_discovery: D,
-        heartbeat_response_handler: H,
         ipc_client: Arc<dyn IpcClient>,
     ) -> Self {
         let follower = Self {
             lock_system,
             leader_discovery,
-            heartbeat_response_handler,
             ipc_client,
         };
         follower.start_sessions().await;
@@ -89,9 +86,7 @@ impl<L: UserLockManagement, D: LeaderDiscovery, H: HeartbeatResponseHandler> Fol
                 }
             }
             Message::HeartBeat { user_id } => {
-                self.heartbeat_response_handler
-                    .handle_heartbeat(user_id)
-                    .await;
+                self.lock_system.handle_heartbeat(user_id).await;
             }
             _ => {}
         }

@@ -11,13 +11,14 @@ use bitwarden_ipc::{
 
 use crate::{
     DeviceEvent, Follower, Leader, LockState, Message, UserKey,
-    drivers::{HeartbeatResponseHandler, LeaderDiscovery, UserLockManagement},
+    drivers::{LeaderDiscovery, UserLockManagement},
 };
 
 #[derive(Clone)]
 struct MockLockSystem {
     states: Arc<Mutex<HashMap<UserId, LockState>>>,
     vault_urls: Arc<Mutex<HashMap<UserId, String>>>,
+    heartbeats: Arc<Mutex<Vec<UserId>>>,
 }
 
 impl MockLockSystem {
@@ -25,6 +26,7 @@ impl MockLockSystem {
         Self {
             states: Arc::new(Mutex::new(initial)),
             vault_urls: Arc::new(Mutex::new(HashMap::new())),
+            heartbeats: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -35,6 +37,7 @@ impl MockLockSystem {
         Self {
             states: Arc::new(Mutex::new(initial)),
             vault_urls: Arc::new(Mutex::new(vault_urls)),
+            heartbeats: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -76,6 +79,10 @@ impl UserLockManagement for MockLockSystem {
     async fn get_vault_url(&self, user_id: UserId) -> Option<String> {
         self.vault_urls.lock().unwrap().get(&user_id).cloned()
     }
+
+    async fn handle_heartbeat(&self, user_id: UserId) {
+        self.heartbeats.lock().unwrap().push(user_id);
+    }
 }
 
 struct MockLeaderDiscovery {
@@ -85,24 +92,6 @@ struct MockLeaderDiscovery {
 impl LeaderDiscovery for MockLeaderDiscovery {
     async fn discover_leader(&self) -> Option<Endpoint> {
         Some(self.endpoint.clone())
-    }
-}
-
-struct MockHeartbeatHandler {
-    heartbeats: Arc<Mutex<Vec<UserId>>>,
-}
-
-impl MockHeartbeatHandler {
-    fn new() -> Self {
-        Self {
-            heartbeats: Arc::new(Mutex::new(Vec::new())),
-        }
-    }
-}
-
-impl HeartbeatResponseHandler for MockHeartbeatHandler {
-    async fn handle_heartbeat(&self, user_id: UserId) {
-        self.heartbeats.lock().unwrap().push(user_id);
     }
 }
 
@@ -126,12 +115,11 @@ fn user_b() -> UserId {
 
 struct Harness {
     leader: Leader<MockLockSystem>,
-    follower: Follower<MockLockSystem, MockLeaderDiscovery, MockHeartbeatHandler>,
+    follower: Follower<MockLockSystem, MockLeaderDiscovery>,
     leader_lock: MockLockSystem,
     follower_lock: MockLockSystem,
     leader_ipc_backend: TestCommunicationBackend,
     follower_ipc_backend: TestCommunicationBackend,
-    heartbeat_handler: Arc<Mutex<Vec<UserId>>>,
 }
 
 impl Harness {
@@ -163,15 +151,12 @@ impl Harness {
             follower_ipc_backend.clone(),
             InMemorySessionRepository::new(HashMap::new()),
         ));
-        let heartbeat_handler = MockHeartbeatHandler::new();
-        let heartbeats = heartbeat_handler.heartbeats.clone();
 
         let follower = Follower::create(
             follower_lock.clone(),
             MockLeaderDiscovery {
                 endpoint: LEADER_ENDPOINT,
             },
-            heartbeat_handler,
             ipc_client,
         )
         .await;
@@ -183,7 +168,6 @@ impl Harness {
             follower_lock,
             leader_ipc_backend,
             follower_ipc_backend,
-            heartbeat_handler: heartbeats,
         };
 
         // Pump startup messages (StartSession -> LockStateUpdate responses)
@@ -405,7 +389,7 @@ async fn test_heartbeat_round_trip() {
 
     harness.pump().await;
 
-    let heartbeats = harness.heartbeat_handler.lock().unwrap();
+    let heartbeats = harness.follower_lock.heartbeats.lock().unwrap();
     assert_eq!(*heartbeats, vec![user]);
 }
 

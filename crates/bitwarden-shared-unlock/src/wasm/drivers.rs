@@ -7,8 +7,8 @@ use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 use wasm_bindgen_futures::js_sys;
 
 use crate::{
-    HEARTBEAT_INTERVAL, HeartbeatResponseHandler, LeaderDiscovery, LockState, UserKey,
-    UserLockManagement, wasm::BiometricsStatus,
+    HEARTBEAT_INTERVAL, LeaderDiscovery, LockState, UserKey, UserLockManagement,
+    wasm::BiometricsStatus,
 };
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -105,7 +105,10 @@ impl JsBiometricsUnlock {
     pub(super) async fn get_biometrics_status(&self, user_id: UserId) -> BiometricsStatus {
         self.runner
             .run_in_thread(move |driver| async move {
-                let status = driver.get_biometrics_status(user_id).await.unwrap_or("3".into());
+                let status = driver
+                    .get_biometrics_status(user_id)
+                    .await
+                    .unwrap_or("3".into());
                 let status = status.as_f64().unwrap_or(3.0) as u8;
                 let status = match status {
                     0 => BiometricsStatus::Available,
@@ -122,7 +125,9 @@ impl JsBiometricsUnlock {
 
     pub(super) async fn unlock_biometrics(&self, user_id: UserId) -> bool {
         self.runner
-            .run_in_thread(move |driver| async move { driver.unlock_biometrics(user_id).await.unwrap_or(false) })
+            .run_in_thread(move |driver| async move {
+                driver.unlock_biometrics(user_id).await.unwrap_or(false)
+            })
             .await
             .unwrap_or(false)
     }
@@ -211,19 +216,7 @@ impl UserLockManagement for JsUserLockManagement {
             .ok()
             .flatten()
     }
-}
 
-pub(super) struct WasmDriverHeartbeatResponseHandler {
-    runner: ThreadBoundRunner<RawJsUserLockManagement>,
-}
-
-impl WasmDriverHeartbeatResponseHandler {
-    pub(super) fn new(runner: ThreadBoundRunner<RawJsUserLockManagement>) -> Self {
-        Self { runner }
-    }
-}
-
-impl HeartbeatResponseHandler for WasmDriverHeartbeatResponseHandler {
     async fn handle_heartbeat(&self, user_id: UserId) {
         info!(
             "Received shared unlock heartbeat response for user_id: {}",
