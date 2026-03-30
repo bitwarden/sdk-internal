@@ -8,7 +8,7 @@ use wasm_bindgen_futures::js_sys;
 
 use crate::{
     HEARTBEAT_INTERVAL, HeartbeatResponseHandler, LeaderDiscovery, LockState, UserKey,
-    UserLockManagement,
+    UserLockManagement, wasm::BiometricsStatus,
 };
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -27,7 +27,7 @@ export interface UserLockManagement {
 #[wasm_bindgen(typescript_custom_section)]
 const TS_BIOMETRICS_TYPES: &'static str = r#"
 export interface BiometricsUnlock {
-    get_biometric_available(user_id: UserId): Promise<boolean>;
+    get_biometrics_status(user_id: UserId): Promise<BiometricsStatus>;
     unlock_biometrics(user_id: UserId): Promise<boolean>;
 }
 "#;
@@ -78,12 +78,12 @@ extern "C" {
     #[wasm_bindgen(js_name = BiometricsUnlock, typescript_type = "BiometricsUnlock")]
     pub type RawJsBiometricsUnlock;
 
-    /// Returns whether biometrics unlock is available for the given user.
+    /// Returns the status of biometrics unlock for the given user.
     #[wasm_bindgen(method, catch)]
-    async fn get_biometric_available(
+    async fn get_biometrics_status(
         this: &RawJsBiometricsUnlock,
         user_id: UserId,
-    ) -> Result<bool, JsValue>;
+    ) -> Result<BiometricsStatus, JsValue>;
 
     /// Triggers a biometric unlock flow for the given user.
     #[wasm_bindgen(method, catch)]
@@ -102,20 +102,18 @@ impl JsBiometricsUnlock {
         Self { runner }
     }
 
-    pub(super) async fn get_biometric_available(&self, user_id: UserId) -> bool {
+    pub(super) async fn get_biometrics_status(&self, user_id: UserId) -> BiometricsStatus {
         self.runner
             .run_in_thread(move |driver| async move {
-                driver.get_biometric_available(user_id).await.unwrap_or(false)
+                driver.get_biometrics_status(user_id).await.unwrap_or(BiometricsStatus::NotEnabled)
             })
             .await
-            .unwrap_or(false)
+            .unwrap_or(BiometricsStatus::NotEnabled)
     }
 
     pub(super) async fn unlock_biometrics(&self, user_id: UserId) -> bool {
         self.runner
-            .run_in_thread(
-                move |driver| async move { driver.unlock_biometrics(user_id).await.unwrap_or(false) },
-            )
+            .run_in_thread(move |driver| async move { driver.unlock_biometrics(user_id).await.unwrap_or(false) })
             .await
             .unwrap_or(false)
     }

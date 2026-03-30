@@ -9,17 +9,31 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::drivers::{JsBiometricsUnlock, RawJsBiometricsUnlock};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[wasm_bindgen]
+/// The current biometric capability state for a specific user on this client.
+pub enum BiometricsStatus {
+	/// Biometrics is available and can be used immediately.
+    Available,
+	/// Biometrics is supported, but user interaction is required before unlock can proceed.
+    UnlockNeeded,
+	/// Biometrics hardware or platform support is unavailable.
+    HardwareUnavailable,
+	/// Biometrics is supported but not enabled for this user.
+    NotEnabled,
+}
+
 /// RPC request to check whether biometric unlock is available for a user.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GetBiometricAvailableRequest {
-	/// The user to check biometric availability for.
+pub struct GetBiometricsStatusRequest {
+	/// The user to check biometrics status for.
 	pub user_id: UserId,
 }
 
-impl RpcRequest for GetBiometricAvailableRequest {
-	type Response = bool;
+impl RpcRequest for GetBiometricsStatusRequest {
+	type Response = BiometricsStatus;
 
-	const NAME: &str = "GetBiometricAvailable";
+	const NAME: &str = "GetBiometricsStatus";
 }
 
 /// RPC request to trigger biometric unlock for a user.
@@ -35,24 +49,24 @@ impl RpcRequest for UnlockBiometricsRequest {
 	const NAME: &str = "UnlockBiometrics";
 }
 
-/// RPC handler for [`GetBiometricAvailableRequest`].
-pub struct GetBiometricAvailableHandler {
+/// RPC handler for [`GetBiometricsStatusRequest`].
+pub struct GetBiometricsStatusHandler {
 	biometrics_unlock: JsBiometricsUnlock,
 }
 
-impl GetBiometricAvailableHandler {
+impl GetBiometricsStatusHandler {
 	/// Creates a new handler backed by the provided biometrics driver.
 	fn new(biometrics_unlock: JsBiometricsUnlock) -> Self {
 		Self { biometrics_unlock }
 	}
 }
 
-impl RpcHandler for GetBiometricAvailableHandler {
-	type Request = GetBiometricAvailableRequest;
+impl RpcHandler for GetBiometricsStatusHandler {
+	type Request = GetBiometricsStatusRequest;
 
-	async fn handle(&self, request: Self::Request) -> bool {
+	async fn handle(&self, request: Self::Request) -> BiometricsStatus {
 		self.biometrics_unlock
-			.get_biometric_available(request.user_id)
+			.get_biometrics_status(request.user_id)
 			.await
 	}
 }
@@ -90,7 +104,7 @@ pub async fn ipc_register_biometrics_handlers(
 
 	ipc_client
 		.client
-		.register_rpc_handler(GetBiometricAvailableHandler::new(handler_driver))
+		.register_rpc_handler(GetBiometricsStatusHandler::new(handler_driver))
 		.await;
 	ipc_client
 		.client
@@ -98,17 +112,17 @@ pub async fn ipc_register_biometrics_handlers(
 		.await;
 }
 
-/// Sends a `GetBiometricAvailable` RPC request to a destination endpoint.
-#[wasm_bindgen(js_name = ipcRequestGetBiometricAvailable)]
-pub async fn ipc_request_get_biometric_available(
+/// Sends a `GetBiometricsStatus` RPC request to a destination endpoint.
+#[wasm_bindgen(js_name = ipcRequestGetBiometricsStatus)]
+pub async fn ipc_request_get_biometrics_status(
 	ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
 	user_id: UserId,
 	abort_signal: Option<AbortSignal>,
-) -> Result<bool, RequestError> {
+) -> Result<BiometricsStatus, RequestError> {
 	ipc_client
 		.client
 		.request(
-			GetBiometricAvailableRequest { user_id },
+			GetBiometricsStatusRequest { user_id },
 			Endpoint::DesktopRenderer,
 			abort_signal.map(|signal| signal.to_cancellation_token()),
 		)
