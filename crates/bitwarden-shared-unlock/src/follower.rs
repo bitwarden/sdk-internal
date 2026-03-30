@@ -49,7 +49,6 @@ impl<L: UserLockManagement, D: LeaderDiscovery> Follower<L, D> {
                 user_id,
                 lock_state,
             };
-            info!("Starting shared unlock session for user {:?} with lock state {:?}", user_id, lock_state);
             self.send_message(message, leader.clone()).await;
         }
     }
@@ -59,7 +58,6 @@ impl<L: UserLockManagement, D: LeaderDiscovery> Follower<L, D> {
     /// Lock state updates overwrite local state to keep follower and leader in sync. Heartbeat
     /// responses are forwarded to the heartbeat response handler.
     pub async fn receive_message(&self, message: Message) -> Result<(), ()> {
-        info!("Received message: {:?}", message);
         match message {
             Message::LockStateUpdate {
                 user_id,
