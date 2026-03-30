@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use reqwest::header::HeaderValue;
@@ -16,12 +17,19 @@ use crate::CookieProvider;
 /// Cookie values are NEVER logged.
 pub struct ServerCommunicationConfigMiddleware {
     provider: Arc<dyn CookieProvider>,
+    /// Tracks in-flight cookie acquisitions per hostname to prevent duplicate concurrent
+    /// SSO acquisition flows. When a task is acquiring for a hostname, other tasks wait
+    /// on the Notify rather than starting a redundant acquisition.
+    in_flight: Arc<tokio::sync::Mutex<HashMap<String, Arc<tokio::sync::Notify>>>>,
 }
 
 impl ServerCommunicationConfigMiddleware {
     /// Creates a new middleware instance wrapping the given cookie provider.
     pub fn new(provider: Arc<dyn CookieProvider>) -> Self {
-        Self { provider }
+        Self {
+            provider,
+            in_flight: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+        }
     }
 }
 
@@ -29,6 +37,7 @@ impl Clone for ServerCommunicationConfigMiddleware {
     fn clone(&self) -> Self {
         Self {
             provider: Arc::clone(&self.provider),
+            in_flight: Arc::clone(&self.in_flight),
         }
     }
 }
@@ -82,16 +91,42 @@ impl Middleware for ServerCommunicationConfigMiddleware {
                 return Ok(response);
             }
 
-            // Acquire the new cookie (best-effort; log warning on failure).
-            if let Err(e) = self.provider.acquire_cookie(&hostname).await {
-                tracing::warn!(
-                    hostname = %hostname,
-                    error = ?e,
-                    "Cookie middleware: cookie acquisition failed"
-                );
+            // Deduplicate concurrent acquisition attempts for the same hostname.
+            // If another task is already acquiring, wait for it rather than starting
+            // a redundant SSO flow. Mirrors clients pendingAcquisition deduplication.
+            let notify_to_wait = {
+                let mut in_flight = self.in_flight.lock().await;
+                if let Some(notify) = in_flight.get(&hostname) {
+                    // Another task is already acquiring -- wait for it.
+                    Some(Arc::clone(notify))
+                } else {
+                    // We are the first -- register as the acquirer.
+                    in_flight.insert(hostname.clone(), Arc::new(tokio::sync::Notify::new()));
+                    None
+                }
+            };
+
+            if let Some(notify) = notify_to_wait {
+                // Wait for the in-flight acquisition to complete.
+                notify.notified().await;
+            } else {
+                // Acquire the new cookie (best-effort; log warning on failure).
+                if let Err(e) = self.provider.acquire_cookie(&hostname).await {
+                    tracing::warn!(
+                        hostname = %hostname,
+                        error = ?e,
+                        "Cookie middleware: cookie acquisition failed"
+                    );
+                }
+
+                // Signal all waiters and remove from in-flight map.
+                let mut in_flight = self.in_flight.lock().await;
+                if let Some(notify) = in_flight.remove(&hostname) {
+                    notify.notify_waiters();
+                }
             }
 
-            // Retry with the cloned request if available.
+            // Retry with the cloned request if available (acquisition complete).
             if let Some(mut retry_req) = req_clone {
                 // Re-inject fresh cookies onto the retry request.
                 inject_cookies(&mut retry_req, self.provider.cookies(&hostname).await);
