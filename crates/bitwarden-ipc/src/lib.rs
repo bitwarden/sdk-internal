@@ -8,7 +8,6 @@ mod ipc_client;
 mod ipc_client_ext;
 mod ipc_client_trait;
 mod message;
-mod presets;
 mod rpc;
 mod serde_utils;
 mod traits;

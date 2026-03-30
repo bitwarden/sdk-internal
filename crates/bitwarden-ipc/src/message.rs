@@ -42,10 +42,13 @@ pub struct IncomingMessage {
     pub topic: Option<String>,
 }
 
+/// A typed wrapper around [`OutgoingMessage`] that stores the payload as a deserialized type.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct TypedOutgoingMessage<Payload> {
+    /// The typed payload of this message.
     pub payload: Payload,
+    /// Destination endpoint for this message.
     pub destination: Endpoint,
 }
 
@@ -78,11 +81,15 @@ where
     }
 }
 
+/// A typed wrapper around [`IncomingMessage`] that stores the payload as a deserialized type.
 #[derive(Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct TypedIncomingMessage<Payload: PayloadTypeName> {
+    /// The typed payload of this message.
     pub payload: Payload,
+    /// Destination endpoint that received this message.
     pub destination: Endpoint,
+    /// Source that sent this message, with per-variant metadata.
     pub source: Source,
 }
 

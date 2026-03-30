@@ -34,6 +34,7 @@ pub trait IpcClientExt: IpcClient {
         }
     }
 
+    /// Send a message with a payload of any serializable type to the specified destination.
     fn send_typed<Payload>(
         &self,
         payload: Payload,
