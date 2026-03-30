@@ -191,6 +191,10 @@ mod tests {
             ) -> Result<(), bitwarden_server_communication_config::AcquireCookieError> {
                 Ok(())
             }
+
+            async fn needs_bootstrap(&self, _hostname: &str) -> bool {
+                false
+            }
         }
 
         let _client = PasswordManagerClient::new_with_server_communication_config(

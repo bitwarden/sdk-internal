@@ -61,18 +61,35 @@ impl Middleware for ServerCommunicationConfigMiddleware {
         // Forward the request.
         let response = next.clone().run(req, extensions).await?;
 
-        // On 302 or 307: acquire fresh cookie and retry the original request.
+        // On 302 or 307: check if bootstrap is needed, acquire fresh cookie, and retry.
         let status = response.status();
         if status == reqwest::StatusCode::FOUND || status == reqwest::StatusCode::TEMPORARY_REDIRECT
         {
             tracing::debug!(
                 %status,
                 hostname = %hostname,
-                "Cookie middleware: intercepting redirect, acquiring fresh cookie"
+                "Cookie middleware: intercepting redirect"
             );
 
-            // Acquire the new cookie (best-effort; ignore error).
-            let _ = self.provider.acquire_cookie(&hostname).await;
+            // Only acquire if bootstrap is required for this hostname.
+            // Mirrors clients needsBootstrap$ check; avoids spurious acquisition
+            // for redirects unrelated to SSO cookie bootstrapping.
+            if !self.provider.needs_bootstrap(&hostname).await {
+                tracing::debug!(
+                    hostname = %hostname,
+                    "Cookie middleware: bootstrap not required, returning redirect"
+                );
+                return Ok(response);
+            }
+
+            // Acquire the new cookie (best-effort; log warning on failure).
+            if let Err(e) = self.provider.acquire_cookie(&hostname).await {
+                tracing::warn!(
+                    hostname = %hostname,
+                    error = ?e,
+                    "Cookie middleware: cookie acquisition failed"
+                );
+            }
 
             // Retry with the cloned request if available.
             if let Some(mut retry_req) = req_clone {
@@ -126,6 +143,10 @@ mod tests {
             _hostname: &str,
         ) -> std::result::Result<(), AcquireCookieError> {
             Ok(())
+        }
+
+        async fn needs_bootstrap(&self, _hostname: &str) -> bool {
+            false
         }
     }
 

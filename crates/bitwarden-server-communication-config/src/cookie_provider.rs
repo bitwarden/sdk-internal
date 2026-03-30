@@ -23,6 +23,13 @@ pub trait CookieProvider: 'static + Send + Sync {
     ///
     /// Triggers the platform-specific SSO acquisition flow (e.g., WebView redirect).
     async fn acquire_cookie(&self, hostname: &str) -> Result<(), AcquireCookieError>;
+
+    /// Returns true if the hostname requires SSO cookie bootstrapping.
+    ///
+    /// Returns false when no configuration exists for the hostname, or when
+    /// the configuration is `Direct` (no cookie required). Middleware uses this
+    /// to skip acquisition on redirects unrelated to SSO bootstrapping.
+    async fn needs_bootstrap(&self, hostname: &str) -> bool;
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
@@ -38,6 +45,10 @@ where
 
     async fn acquire_cookie(&self, hostname: &str) -> Result<(), AcquireCookieError> {
         self.acquire_cookie(hostname).await
+    }
+
+    async fn needs_bootstrap(&self, hostname: &str) -> bool {
+        self.needs_bootstrap(hostname.to_string()).await
     }
 }
 
