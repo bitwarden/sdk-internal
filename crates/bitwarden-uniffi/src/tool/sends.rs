@@ -64,6 +64,20 @@ impl SendClient {
         Ok(self.0.decrypt_buffer(send, &buffer)?)
     }
 
+    /// Decrypt a send file located in the file system
+    pub fn decrypt_file(
+        &self,
+        send: Send,
+        encrypted_file_path: String,
+        decrypted_file_path: String,
+    ) -> Result<()> {
+        Ok(self.0.decrypt_file(
+            send,
+            Path::new(&encrypted_file_path),
+            Path::new(&decrypted_file_path),
+        )?)
+    }
+
     /// Zip files from disk into a single archive and write it to the destination path.
     pub fn make_send_folder_file(
         &self,
@@ -85,19 +99,5 @@ impl SendClient {
                 destination: PathBuf::from(destination),
             })?;
         Ok(MakeSendFolderFileUniFFIResult { file: result.file })
-    }
-
-    /// Decrypt a send file located in the file system
-    pub fn decrypt_file(
-        &self,
-        send: Send,
-        encrypted_file_path: String,
-        decrypted_file_path: String,
-    ) -> Result<()> {
-        Ok(self.0.decrypt_file(
-            send,
-            Path::new(&encrypted_file_path),
-            Path::new(&decrypted_file_path),
-        )?)
     }
 }

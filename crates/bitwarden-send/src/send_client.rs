@@ -127,14 +127,6 @@ impl SendClient {
         Ok(send)
     }
 
-    /// Zip files from disk into a single archive and write it to the destination path.
-    pub fn make_send_folder_file(
-        &self,
-        request: MakeSendFolderFileRequest,
-    ) -> Result<MakeSendFolderFileResult, MakeSendFolderError> {
-        crate::folder::make_send_folder_file(request)
-    }
-
     #[allow(missing_docs)]
     pub fn encrypt_file(
         &self,
@@ -157,6 +149,14 @@ impl SendClient {
 
         let encrypted = OctetStreamBytes::from(buffer).encrypt(&mut ctx, key)?;
         Ok(encrypted.to_buffer()?)
+    }
+
+    /// Zip files from disk into a single archive and write it to the destination path.
+    pub fn make_send_folder_file(
+        &self,
+        request: MakeSendFolderFileRequest,
+    ) -> Result<MakeSendFolderFileResult, MakeSendFolderError> {
+        crate::folder::make_send_folder_file(request)
     }
 }
 
