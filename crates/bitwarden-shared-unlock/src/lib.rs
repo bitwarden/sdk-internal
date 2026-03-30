@@ -102,21 +102,25 @@ pub use leader::*;
 mod message;
 pub use message::*;
 
+/// Interval used by followers to send heartbeat keep-alive messages to their leader.
 pub const HEARTBEAT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
 
 #[cfg(test)]
 mod tests;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+/// Wrapper type containing a serialized user key used for unlock propagation.
 pub struct UserKey(ByteBuf);
 
 impl UserKey {
+    /// Returns the raw user key bytes.
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }
 }
 
 impl UserKey {
+    /// Creates a user key wrapper from raw key bytes.
     pub fn from_bytes(bytes: Vec<u8>) -> Self {
         Self(ByteBuf::from(bytes))
     }
@@ -144,9 +148,17 @@ pub enum LockState {
 )]
 pub enum DeviceEvent {
     /// The user with the given user id has been locked manually in the UI
-    ManualLock { user_id: UserId },
+    ManualLock {
+        /// User whose vault was manually locked.
+        user_id: UserId,
+    },
     /// The user with the given user id has been unlocked manually in the UI
-    ManualUnlock { user_id: UserId, user_key: Vec<u8> },
+    ManualUnlock {
+        /// User whose vault was manually unlocked.
+        user_id: UserId,
+        /// Raw user key bytes used to unlock the vault.
+        user_key: Vec<u8>,
+    },
     /// Runs scheduled every `HEARTBEAT_INTERVAL` to drive keep-alives
     Timer,
 }

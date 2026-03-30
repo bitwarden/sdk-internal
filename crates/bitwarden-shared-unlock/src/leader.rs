@@ -70,6 +70,7 @@ impl FollowerSessions {
     }
 }
 
+/// Coordinates shared unlock state as the authoritative endpoint for followers.
 pub struct Leader<L: UserLockManagement> {
     lock_system: L,
     follower_sessions: FollowerSessions,
@@ -77,6 +78,7 @@ pub struct Leader<L: UserLockManagement> {
 }
 
 impl<L: UserLockManagement> Leader<L> {
+    /// Creates a leader instance for the shared unlock protocol.
     pub fn create(lock_system: L, ipc_client: Arc<dyn IpcClient>) -> Self {
         Self {
             lock_system,
@@ -92,6 +94,10 @@ impl<L: UserLockManagement> Leader<L> {
         }
     }
 
+    /// Handles a message sent by a follower.
+    ///
+    /// This updates follower session liveness, validates web message origins against the
+    /// follower user's vault URL, and applies lock state changes when needed.
     pub async fn receive_message(
         &self,
         message: Message,
@@ -212,6 +218,10 @@ impl<L: UserLockManagement> Leader<L> {
         }
     }
 
+    /// Handles local device events and propagates authoritative updates to followers.
+    ///
+    /// Lock and unlock events are broadcast to active followers. Timer events prune stale
+    /// follower sessions that have not sent recent heartbeats.
     pub async fn handle_device_event(&self, event: DeviceEvent) -> Result<(), ()> {
         match event {
             DeviceEvent::ManualLock { user_id } => {

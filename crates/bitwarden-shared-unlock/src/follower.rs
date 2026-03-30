@@ -7,6 +7,7 @@ use crate::{
     drivers::{HeartbeatResponseHandler, LeaderDiscovery, UserLockManagement},
 };
 
+/// Tracks local state and follows authoritative lock updates from a leader.
 pub struct Follower<L: UserLockManagement, D: LeaderDiscovery, H: HeartbeatResponseHandler> {
     lock_system: L,
     leader_discovery: D,
@@ -15,6 +16,10 @@ pub struct Follower<L: UserLockManagement, D: LeaderDiscovery, H: HeartbeatRespo
 }
 
 impl<L: UserLockManagement, D: LeaderDiscovery, H: HeartbeatResponseHandler> Follower<L, D, H> {
+    /// Creates a follower instance and starts sessions for all currently known users.
+    ///
+    /// During startup, a `StartSession` message is sent per user so the leader can reconcile
+    /// initial lock state.
     pub async fn create(
         lock_system: L,
         leader_discovery: D,
@@ -49,6 +54,10 @@ impl<L: UserLockManagement, D: LeaderDiscovery, H: HeartbeatResponseHandler> Fol
         }
     }
 
+    /// Handles an authoritative message from the leader.
+    ///
+    /// Lock state updates overwrite local state to keep follower and leader in sync. Heartbeat
+    /// responses are forwarded to the heartbeat response handler.
     pub async fn receive_message(&self, message: Message) -> Result<(), ()> {
         match message {
             Message::LockStateUpdate {
@@ -90,6 +99,10 @@ impl<L: UserLockManagement, D: LeaderDiscovery, H: HeartbeatResponseHandler> Fol
         Ok(())
     }
 
+    /// Handles local device events and forwards them to the discovered leader.
+    ///
+    /// Manual lock/unlock events are sent as lock state updates. Timer events send per-user
+    /// heartbeats to keep the shared session active.
     pub async fn handle_device_event(&self, event: DeviceEvent) -> Result<(), ()> {
         let leader = self.leader_discovery.discover_leader().await.ok_or(())?;
 
