@@ -7,7 +7,7 @@ use crate::{
     drivers::{LeaderDiscovery, UserLockManagement},
 };
 
-const SEND_TOPIC: &str = "password-manager.shared-unlock.follower-to-leader";
+pub(crate) const SEND_TOPIC: &str = "password-manager.shared-unlock.follower-to-leader";
 
 /// Tracks local state and follows authoritative lock updates from a leader.
 pub struct Follower<L: UserLockManagement, D: LeaderDiscovery> {

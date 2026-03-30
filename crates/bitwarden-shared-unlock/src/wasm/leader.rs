@@ -60,7 +60,7 @@ impl SharedUnlockLeader {
                         match result {
                             Ok(incoming_message) => {
                                 let source = incoming_message.source;
-                                if incoming_message.topic != Some("password-manager.shared-unlock.follower-to-leader".to_string()) {
+                                if incoming_message.topic != Some(crate::follower::SEND_TOPIC.to_string()) {
                                     continue;
                                 }
                                 match Message::from_cbor(incoming_message.payload.as_slice()) {

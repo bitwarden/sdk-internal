@@ -59,7 +59,7 @@ impl SharedUnlockFollower {
                     } => {
                         match result {
                             Ok(incoming_message) => {
-                                if incoming_message.topic != Some("password-manager.shared-unlock.leader-to-follower".to_string()) {
+                                if incoming_message.topic != Some(crate::leader::SEND_TOPIC.to_string()) {
                                     continue;
                                 }
                                 match Message::from_cbor(incoming_message.payload.as_slice()) {

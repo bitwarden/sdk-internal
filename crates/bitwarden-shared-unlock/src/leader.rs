@@ -10,7 +10,7 @@ use tracing::{info, warn};
 use crate::{DeviceEvent, LockState, Message, UserKey, drivers::UserLockManagement};
 
 const FOLLOWER_STALE_AFTER: Duration = Duration::from_secs(120);
-const SEND_TOPIC: &str = "password-manager.shared-unlock.leader-to-follower";
+pub(crate) const SEND_TOPIC: &str = "password-manager.shared-unlock.leader-to-follower";
 
 struct FollowerSession {
     last_seen_at: u64,
