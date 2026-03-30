@@ -8,6 +8,5 @@ mod message;
 // Re-export types to make sure wasm_bindgen picks them up
 pub use communication_backend::*;
 pub use discover::*;
-pub(crate) use generic_session_repository::GenericSessionRepository;
 pub use ipc_client::*;
 pub use js_session_repository::*;

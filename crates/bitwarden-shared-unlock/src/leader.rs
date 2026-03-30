@@ -185,7 +185,7 @@ impl<L: UserLockManagement> Leader<L> {
                 let self_lock_state = self.lock_system.get_user_lock_state(user_id).await;
 
                 match (lock_state, self_lock_state.clone()) {
-                    (LockState::Unlocked { user_key }, LockState::Locked { .. }) => {
+                    (LockState::Unlocked { user_key }, LockState::Locked) => {
                         self.lock_system
                             .unlock_user(user_id, user_key.clone())
                             .await

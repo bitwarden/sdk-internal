@@ -36,7 +36,7 @@ export interface BiometricsUnlock {
 #[wasm_bindgen]
 extern "C" {
     /// JavaScript implementation of user lock-management operations used by shared unlock.
-    #[wasm_bindgen(js_name = BiometricsUnlock, typescript_type = "RawJsBiometricsDriver")]
+    #[wasm_bindgen(js_name = BiometricsUnlock, typescript_type = "BiometricsUnlock")]
     pub type RawJsBiometricsDriver;
 
     /// Returns the status of biometrics unlock for the given user.
