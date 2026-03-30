@@ -36,8 +36,12 @@ pub struct JsIpcClientSubscription {
     subscription: IpcClientSubscription,
 }
 
+#[bitwarden_ffi::wasm_export]
 #[wasm_bindgen(js_class = IpcClientSubscription)]
 impl JsIpcClientSubscription {
+    #[wasm_only(
+        note = "Use the `subscribe` method on `IpcClient` to create a subscription instance."
+    )]
     #[allow(missing_docs)]
     pub async fn receive(
         &mut self,
@@ -48,10 +52,12 @@ impl JsIpcClientSubscription {
     }
 }
 
+#[bitwarden_ffi::wasm_export]
 #[wasm_bindgen(js_class = IpcClient)]
 impl JsIpcClient {
     /// Create a new `IpcClient` instance with an in-memory session repository for saving
     /// sessions within the SDK.
+    #[wasm_only]
     #[wasm_bindgen(js_name = newWithSdkInMemorySessions)]
     pub fn new_with_sdk_in_memory_sessions(
         communication_provider: &JsCommunicationBackend,
@@ -68,6 +74,7 @@ impl JsIpcClient {
     }
     /// Create a new `IpcClient` instance with a client-managed session repository for saving
     /// sessions using State Provider.
+    #[wasm_only]
     #[wasm_bindgen(js_name = newWithClientManagedSessions)]
     pub fn new_with_client_managed_sessions(
         communication_provider: &JsCommunicationBackend,
@@ -84,17 +91,20 @@ impl JsIpcClient {
         }
     }
 
+    #[wasm_only]
     #[allow(missing_docs)]
     pub async fn start(&self) {
         self.client.start().await
     }
 
+    #[wasm_only]
     #[wasm_bindgen(js_name = isRunning)]
     #[allow(missing_docs)]
     pub async fn is_running(&self) -> bool {
         self.client.is_running().await
     }
 
+    #[wasm_only]
     #[allow(missing_docs)]
     pub async fn send(&self, message: OutgoingMessage) -> Result<(), JsError> {
         self.client
@@ -103,6 +113,7 @@ impl JsIpcClient {
             .map_err(|e| JsError::new(&e.to_string()))
     }
 
+    #[wasm_only]
     #[allow(missing_docs)]
     pub async fn subscribe(&self) -> Result<JsIpcClientSubscription, SubscribeError> {
         let subscription = self.client.subscribe(None).await?;
