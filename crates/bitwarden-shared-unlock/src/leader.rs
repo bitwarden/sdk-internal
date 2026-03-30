@@ -261,7 +261,7 @@ impl<L: UserLockManagement> Leader<L> {
         let outgoing_message = OutgoingMessage {
             payload,
             destination: recipient,
-            topic: Some("password-manager.shared-unlock.follower-to-leader".to_string()),
+            topic: Some("password-manager.shared-unlock.leader-to-follower".to_string()),
         };
 
         if let Err(error) = self.ipc_client.send(outgoing_message).await {
