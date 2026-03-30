@@ -108,8 +108,8 @@ pub const HEARTBEAT_INTERVAL: std::time::Duration = std::time::Duration::from_se
 #[cfg(test)]
 mod tests;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 /// Wrapper type containing a serialized user key used for unlock propagation.
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct UserKey(ByteBuf);
 
 impl UserKey {
@@ -117,12 +117,16 @@ impl UserKey {
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }
-}
 
-impl UserKey {
     /// Creates a user key wrapper from raw key bytes.
     pub fn from_bytes(bytes: Vec<u8>) -> Self {
         Self(ByteBuf::from(bytes))
+    }
+}
+
+impl std::fmt::Debug for UserKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("UserKey").field(&"<redacted>").finish()
     }
 }
 
