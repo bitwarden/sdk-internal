@@ -1,7 +1,6 @@
-use std::sync::Arc;
-
 #[cfg(not(target_arch = "wasm32"))]
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use reqwest::header::HeaderValue;
 use reqwest_middleware::{Middleware, Next, Result};
