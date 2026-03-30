@@ -2,14 +2,10 @@ use bitwarden_core::UserId;
 use bitwarden_encoding::B64;
 use bitwarden_ipc::{Endpoint, HostId};
 use bitwarden_threading::ThreadBoundRunner;
-use tracing::info;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 use wasm_bindgen_futures::js_sys;
 
-use crate::{
-    HEARTBEAT_INTERVAL, LeaderDiscovery, LockState, UserKey, UserLockManagement,
-    wasm::BiometricsStatus,
-};
+use crate::{LeaderDiscovery, LockState, UserKey, UserLockManagement, wasm::BiometricsStatus};
 
 #[wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
@@ -143,6 +139,7 @@ impl JsUserLockManagement {
     }
 }
 
+#[async_trait::async_trait]
 impl UserLockManagement for JsUserLockManagement {
     async fn lock_user(&self, user_id: UserId) -> Result<(), ()> {
         self.runner
@@ -255,6 +252,7 @@ impl JsLeaderDiscovery {
     }
 }
 
+#[async_trait::async_trait]
 impl LeaderDiscovery for JsLeaderDiscovery {
     async fn discover_leader(&self) -> Option<Endpoint> {
         self.runner

@@ -53,6 +53,7 @@ impl MockLockSystem {
     }
 }
 
+#[async_trait::async_trait]
 impl UserLockManagement for MockLockSystem {
     async fn lock_user(&self, user_id: UserId) -> Result<(), ()> {
         self.states
@@ -94,6 +95,7 @@ struct MockLeaderDiscovery {
     endpoint: Endpoint,
 }
 
+#[async_trait::async_trait]
 impl LeaderDiscovery for MockLeaderDiscovery {
     async fn discover_leader(&self) -> Option<Endpoint> {
         Some(self.endpoint.clone())

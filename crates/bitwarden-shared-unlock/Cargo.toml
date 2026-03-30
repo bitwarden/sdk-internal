@@ -28,14 +28,17 @@ wasm = [
 js-sys = { workspace = true }
 
 [dependencies]
+async-trait = { workspace = true }
 bitwarden-core = { workspace = true }
 bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true, optional = true }
+bitwarden-error = { workspace = true }
 bitwarden-ipc = { workspace = true }
 bitwarden-threading = { workspace = true, optional = true }
 ciborium = "0.2.2"
 serde = { workspace = true }
 serde_bytes.workspace = true
+thiserror = { workspace = true }
 tokio = { workspace = true, optional = true }
 tracing = { workspace = true }
 tsify = { workspace = true, optional = true }

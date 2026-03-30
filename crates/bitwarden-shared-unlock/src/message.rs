@@ -19,7 +19,9 @@ pub enum FollowerMessage {
     /// if it is locked and the follower sent an unlocked state, otherwise it should not change
     /// the lock state. Subsequently, it should respond with a lockstate update.
     StartSession {
+        /// User whose session is starting.
         user_id: UserId,
+        /// Current lock state for the user.
         lock_state: LockState,
     },
     /// A heartbeat request to the leader every `HEARTBEAT_INTERVAL`.
@@ -47,6 +49,7 @@ pub enum LeaderMessage {
 }
 
 impl FollowerMessage {
+    /// Returns the user ID associated with the message.
     pub fn user_id(&self) -> UserId {
         match self {
             FollowerMessage::LockStateUpdate { user_id, .. }
@@ -61,6 +64,7 @@ impl PayloadTypeName for FollowerMessage {
 }
 
 impl LeaderMessage {
+    /// Returns the user ID associated with the message.
     pub fn user_id(&self) -> UserId {
         match self {
             LeaderMessage::LockStateUpdate { user_id, .. }

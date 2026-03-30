@@ -5,6 +5,7 @@ use bitwarden_core::UserId;
 use crate::{LockState, UserKey};
 
 /// Trait that implements managing the lock state for users in the application
+#[async_trait::async_trait]
 pub trait UserLockManagement {
     /// Lock the user with the given ID.
     async fn lock_user(&self, user_id: UserId) -> Result<(), ()>;
@@ -26,6 +27,7 @@ pub trait UserLockManagement {
 /// current platform. There should only be one possible leader for any given device. For web
 /// clients, there is only one browser extension, for browser extensions there is only one desktop
 /// device, and for CLI clients there is also only one desktop device.
+#[async_trait::async_trait]
 pub trait LeaderDiscovery {
     /// Discover the leader and return its endpoint.
     async fn discover_leader(&self) -> Option<bitwarden_ipc::Endpoint>;
