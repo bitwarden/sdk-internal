@@ -34,7 +34,8 @@ pub trait IpcClient: Send + Sync {
     ) -> Result<IpcClientSubscription, SubscribeError>;
 
     /// Register an RPC handler using its type-erased form.
-    /// Prefer using [`IpcClientExt::register_rpc_handler`](crate::IpcClientExt::register_rpc_handler)
+    /// Prefer using
+    /// [`IpcClientExt::register_rpc_handler`](crate::IpcClientExt::register_rpc_handler)
     /// instead.
     #[doc(hidden)]
     async fn register_rpc_handler_erased(&self, name: &str, handler: Box<dyn ErasedRpcHandler>);

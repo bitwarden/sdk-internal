@@ -9,9 +9,7 @@ use crate::{
     ipc_client_trait::IpcClient,
     message::{PayloadTypeName, TypedOutgoingMessage},
     rpc::{
-        error::RpcError,
-        request::RpcRequest,
-        request_message::RpcRequestMessage,
+        error::RpcError, request::RpcRequest, request_message::RpcRequestMessage,
         response_message::IncomingRpcResponseMessage,
     },
     serde_utils,
@@ -26,10 +24,7 @@ pub trait IpcClientExt: IpcClient {
     /// Register a new RPC handler for processing incoming RPC requests.
     /// The handler will be executed by the IPC client when an RPC request is received and
     /// the response will be sent back over IPC.
-    fn register_rpc_handler<H>(
-        &self,
-        handler: H,
-    ) -> impl std::future::Future<Output = ()> + Send
+    fn register_rpc_handler<H>(&self, handler: H) -> impl std::future::Future<Output = ()> + Send
     where
         H: RpcHandler + Send + Sync + 'static,
     {
@@ -43,8 +38,9 @@ pub trait IpcClientExt: IpcClient {
     /// payload type.
     fn subscribe_typed<Payload>(
         &self,
-    ) -> impl std::future::Future<Output = Result<IpcClientTypedSubscription<Payload>, SubscribeError>>
-           + Send
+    ) -> impl std::future::Future<
+        Output = Result<IpcClientTypedSubscription<Payload>, SubscribeError>,
+    > + Send
     where
         Payload: DeserializeOwned + PayloadTypeName,
     {

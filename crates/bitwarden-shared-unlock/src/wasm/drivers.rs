@@ -24,6 +24,14 @@ export interface UserLockManagement {
 }
 "#;
 
+#[wasm_bindgen(typescript_custom_section)]
+const TS_BIOMETRICS_TYPES: &'static str = r#"
+export interface BiometricsUnlock {
+    get_biometric_available(user_id: UserId): Promise<boolean>;
+    unlock_biometrics(user_id: UserId): Promise<boolean>;
+}
+"#;
+
 #[wasm_bindgen]
 extern "C" {
     /// JavaScript implementation of user lock-management operations used by shared unlock.
@@ -65,6 +73,52 @@ extern "C" {
         this: &RawJsUserLockManagement,
         user_id: UserId,
     ) -> Result<JsValue, JsValue>;
+
+    /// JavaScript implementation of biometrics-related unlock operations.
+    #[wasm_bindgen(js_name = BiometricsUnlock, typescript_type = "BiometricsUnlock")]
+    pub type RawJsBiometricsUnlock;
+
+    /// Returns whether biometrics unlock is available for the given user.
+    #[wasm_bindgen(method, catch)]
+    async fn get_biometric_available(
+        this: &RawJsBiometricsUnlock,
+        user_id: UserId,
+    ) -> Result<bool, JsValue>;
+
+    /// Triggers a biometric unlock flow for the given user.
+    #[wasm_bindgen(method, catch)]
+    async fn unlock_biometrics(
+        this: &RawJsBiometricsUnlock,
+        user_id: UserId,
+    ) -> Result<bool, JsValue>;
+}
+
+pub(super) struct JsBiometricsUnlock {
+    runner: ThreadBoundRunner<RawJsBiometricsUnlock>,
+}
+
+impl JsBiometricsUnlock {
+    pub(super) fn new(runner: ThreadBoundRunner<RawJsBiometricsUnlock>) -> Self {
+        Self { runner }
+    }
+
+    pub(super) async fn get_biometric_available(&self, user_id: UserId) -> bool {
+        self.runner
+            .run_in_thread(move |driver| async move {
+                driver.get_biometric_available(user_id).await.unwrap_or(false)
+            })
+            .await
+            .unwrap_or(false)
+    }
+
+    pub(super) async fn unlock_biometrics(&self, user_id: UserId) -> bool {
+        self.runner
+            .run_in_thread(
+                move |driver| async move { driver.unlock_biometrics(user_id).await.unwrap_or(false) },
+            )
+            .await
+            .unwrap_or(false)
+    }
 }
 
 pub(super) struct JsUserLockManagement {
@@ -164,21 +218,34 @@ impl WasmDriverHeartbeatResponseHandler {
 
 impl HeartbeatResponseHandler for WasmDriverHeartbeatResponseHandler {
     async fn handle_heartbeat(&self, user_id: UserId) {
-        info!("Received shared unlock heartbeat response for user_id: {}", user_id);
+        info!(
+            "Received shared unlock heartbeat response for user_id: {}",
+            user_id
+        );
         // Shared unlock heartbeat responses are acknowledged by keeping the session active.
         // We can suppress the vault timeout until the next expected heartbeat to achieve this.
         let until = js_sys::Date::now() + HEARTBEAT_INTERVAL.as_millis() as f64;
         let result = self
             .runner
-            .run_in_thread(move |driver| async move { driver.suppress_vault_timeout(until, user_id).await })
+            .run_in_thread(move |driver| async move {
+                driver.suppress_vault_timeout(until, user_id).await
+            })
             .await;
         match result {
             Ok(Ok(())) => {}
             Ok(Err(error)) => {
-                tracing::error!(?error, "Failed to supress vault timeout on heartbeat for user_id: {}", user_id)
+                tracing::error!(
+                    ?error,
+                    "Failed to supress vault timeout on heartbeat for user_id: {}",
+                    user_id
+                )
             }
             Err(error) => {
-                tracing::error!(?error, "Failed to supress vault timeout on heartbeat for user_id: {}", user_id)
+                tracing::error!(
+                    ?error,
+                    "Failed to supress vault timeout on heartbeat for user_id: {}",
+                    user_id
+                )
             }
         }
     }

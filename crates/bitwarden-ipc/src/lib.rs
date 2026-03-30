@@ -26,6 +26,7 @@ pub use message::{IncomingMessage, OutgoingMessage};
 #[doc(hidden)]
 pub use rpc::exec::handler::ErasedRpcHandler;
 pub use rpc::exec::handler::RpcHandler;
+pub use rpc::request::RpcRequest;
 #[cfg(any(test, feature = "test-support"))]
 pub use traits::TestCommunicationBackend;
 pub use traits::{InMemorySessionRepository, NoEncryptionCryptoProvider, NoopCommunicationBackend};

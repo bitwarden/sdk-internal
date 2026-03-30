@@ -252,10 +252,9 @@ fn handle_rpc_request<Crypto, Com, Ses>(
             incoming_message: IncomingMessage,
             handlers: &RpcHandlerRegistry,
         ) -> Result<OutgoingMessage, HandleError> {
-            let request = RpcRequestPayload::from_slice(incoming_message.payload.clone())
-                .map_err(|e: serde_utils::DeserializeError| {
-                    HandleError::Deserialize(e.to_string())
-                })?;
+            let request = RpcRequestPayload::from_slice(incoming_message.payload.clone()).map_err(
+                |e: serde_utils::DeserializeError| HandleError::Deserialize(e.to_string()),
+            )?;
 
             let response = handlers.handle(&request).await;
 
@@ -364,9 +363,7 @@ mod tests {
             request_message::{RPC_REQUEST_PAYLOAD_TYPE_NAME, RpcRequestMessage},
             response_message::IncomingRpcResponseMessage,
         },
-        traits::{
-            InMemorySessionRepository, NoEncryptionCryptoProvider, TestCommunicationBackend,
-        },
+        traits::{InMemorySessionRepository, NoEncryptionCryptoProvider, TestCommunicationBackend},
     };
 
     struct TestCryptoProvider {
@@ -682,9 +679,8 @@ mod tests {
     }
 
     mod request {
-        use crate::RpcHandler;
-
         use super::*;
+        use crate::RpcHandler;
 
         #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
         struct TestRequest {
@@ -720,11 +716,8 @@ mod tests {
             let crypto_provider = NoEncryptionCryptoProvider;
             let communication_provider = TestCommunicationBackend::new();
             let session_map = InMemorySessionRepository::new(HashMap::new());
-            let client = IpcClientImpl::new(
-                crypto_provider,
-                communication_provider.clone(),
-                session_map,
-            );
+            let client =
+                IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
             client.start().await;
             let request = TestRequest { a: 1, b: 2 };
             let response = TestResponse { result: 3 };
@@ -781,11 +774,8 @@ mod tests {
             let crypto_provider = NoEncryptionCryptoProvider;
             let communication_provider = TestCommunicationBackend::new();
             let session_map = InMemorySessionRepository::new(HashMap::new());
-            let client = IpcClientImpl::new(
-                crypto_provider,
-                communication_provider.clone(),
-                session_map,
-            );
+            let client =
+                IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
             client.start().await;
             let request_id = uuid::Uuid::new_v4().to_string();
             let request = TestRequest { a: 1, b: 2 };
