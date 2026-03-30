@@ -88,7 +88,8 @@ pub struct TypedIncomingMessage<Payload: PayloadTypeName> {
 
 /// This trait is used to ensure that the payload type has a topic associated with it.
 pub trait PayloadTypeName {
-    const PAYLOAD_TYPE_NAME: &str;
+    /// The topic name associated with this payload type, used for routing/dispatch.
+    const PAYLOAD_TYPE_NAME: &'static str;
 }
 
 impl<Payload> TryFrom<IncomingMessage> for TypedIncomingMessage<Payload>

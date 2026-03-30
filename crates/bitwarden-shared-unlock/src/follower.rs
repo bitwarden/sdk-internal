@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
-use bitwarden_ipc::{Endpoint, IpcClient, OutgoingMessage};
+use bitwarden_ipc::{Endpoint, IpcClient, IpcClientExt, OutgoingMessage, TypedIncomingMessage};
 
 use crate::{
-    DeviceEvent, LockState, Message,
+    DeviceEvent, FollowerMessage, LeaderMessage, LockState,
     drivers::{LeaderDiscovery, UserLockManagement},
+    message,
 };
 
 /// Tracks local state and follows authoritative lock updates from a leader.
@@ -43,7 +44,7 @@ impl<L: UserLockManagement, D: LeaderDiscovery> Follower<L, D> {
 
         for user_id in users {
             let lock_state = self.lock_system.get_user_lock_state(user_id).await;
-            let message = Message::StartSession {
+            let message = FollowerMessage::StartSession {
                 user_id,
                 lock_state,
             };
@@ -55,9 +56,13 @@ impl<L: UserLockManagement, D: LeaderDiscovery> Follower<L, D> {
     ///
     /// Lock state updates overwrite local state to keep follower and leader in sync. Heartbeat
     /// responses are forwarded to the heartbeat response handler.
-    pub async fn receive_message(&self, message: Message) -> Result<(), ()> {
+    pub async fn receive_message(
+        &self,
+        incoming_message: TypedIncomingMessage<LeaderMessage>,
+    ) -> Result<(), ()> {
+        let message = incoming_message.payload;
         match message {
-            Message::LockStateUpdate {
+            LeaderMessage::LockStateUpdate {
                 user_id,
                 lock_state,
             } => {
@@ -70,7 +75,7 @@ impl<L: UserLockManagement, D: LeaderDiscovery> Follower<L, D> {
                         // If the user is currently unlocked and it receives an authoritative lock
                         // state update from the leader that is Locked, then
                         // it should follow, and lock the local state.
-                        self.lock_system.lock_user(user_id).await?
+                        self.lock_system.lock_user(user_id).await?;
                     }
                     (LockState::Locked, LockState::Unlocked { user_key }) => {
                         // If the user is currently locked and it receives an authoritative lock
@@ -85,12 +90,11 @@ impl<L: UserLockManagement, D: LeaderDiscovery> Follower<L, D> {
                     }
                 }
             }
-            Message::HeartBeat { user_id } => {
+            LeaderMessage::HeartBeat { user_id } => {
                 self.lock_system
                     .suppress_vault_timeout(user_id, crate::HEARTBEAT_INTERVAL)
                     .await;
             }
-            _ => {}
         }
 
         Ok(())
@@ -105,14 +109,14 @@ impl<L: UserLockManagement, D: LeaderDiscovery> Follower<L, D> {
 
         match event {
             DeviceEvent::ManualLock { user_id } => {
-                let message = Message::LockStateUpdate {
+                let message = FollowerMessage::LockStateUpdate {
                     user_id,
                     lock_state: LockState::Locked,
                 };
                 self.send_message(message, leader).await;
             }
             DeviceEvent::ManualUnlock { user_id, user_key } => {
-                let message = Message::LockStateUpdate {
+                let message = FollowerMessage::LockStateUpdate {
                     user_id,
                     lock_state: LockState::Unlocked {
                         user_key: super::UserKey::from_bytes(user_key),
@@ -123,7 +127,7 @@ impl<L: UserLockManagement, D: LeaderDiscovery> Follower<L, D> {
             DeviceEvent::Timer => {
                 // For all users that are logged in, send a heartbeat message to the leader.
                 for user_id in self.lock_system.list_users().await {
-                    let message = Message::HeartBeat { user_id };
+                    let message = FollowerMessage::HeartBeat { user_id };
                     self.send_message(message, leader.clone()).await;
                 }
             }
@@ -132,22 +136,8 @@ impl<L: UserLockManagement, D: LeaderDiscovery> Follower<L, D> {
         Ok(())
     }
 
-    async fn send_message(&self, message: Message, recipient: Endpoint) {
-        let payload = match message.to_cbor() {
-            Ok(payload) => payload,
-            Err(error) => {
-                tracing::error!(?error, "Failed to serialize shared unlock IPC message");
-                return;
-            }
-        };
-
-        let outgoing_message = OutgoingMessage {
-            payload,
-            destination: recipient,
-            topic: Some("password-manager.shared-unlock.follower-to-leader".to_string()),
-        };
-
-        if let Err(error) = self.ipc_client.send(outgoing_message).await {
+    async fn send_message(&self, message: FollowerMessage, recipient: Endpoint) {
+        if let Err(error) = self.ipc_client.send_typed(message, recipient).await {
             tracing::error!(?error, "Failed to send shared unlock IPC message");
         }
     }

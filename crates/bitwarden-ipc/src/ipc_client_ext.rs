@@ -1,5 +1,5 @@
 use bitwarden_threading::cancellation_token::CancellationToken;
-use serde::de::DeserializeOwned;
+use serde::{Serialize, de::DeserializeOwned};
 
 use crate::{
     RpcHandler,
@@ -31,6 +31,30 @@ pub trait IpcClientExt: IpcClient {
         async move {
             self.register_rpc_handler_erased(H::Request::NAME, Box::new(handler))
                 .await;
+        }
+    }
+
+    fn send_typed<Payload>(
+        &self,
+        payload: Payload,
+        destination: Endpoint,
+    ) -> impl std::future::Future<Output = Result<(), RequestError>> + Send
+    where
+        Payload: Serialize + PayloadTypeName + Send,
+    {
+        async move {
+            let message = TypedOutgoingMessage {
+                payload,
+                destination,
+            }
+            .try_into()
+            .map_err(|e: serde_utils::DeserializeError| {
+                RequestError::Rpc(RpcError::RequestSerialization(e.to_string()))
+            })?;
+
+            self.send(message)
+                .await
+                .map_err(|e| RequestError::Send(format!("{e:?}")))
         }
     }
 

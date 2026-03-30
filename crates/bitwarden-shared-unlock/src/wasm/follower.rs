@@ -1,17 +1,18 @@
 use std::sync::Arc;
 
+use bitwarden_ipc::IpcClientExt;
 use bitwarden_threading::{ThreadBoundRunner, cancellation_token::CancellationToken};
 use tokio::sync::Mutex;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen_futures::spawn_local;
 
 use super::drivers::{JsLeaderDiscovery, JsUserLockManagement, RawJsUserLockManagement};
-use crate::{DeviceEvent, Follower, HEARTBEAT_INTERVAL, Message};
+use crate::{DeviceEvent, Follower, HEARTBEAT_INTERVAL, LeaderMessage};
 
 /// Shared-unlock follower for WASM clients.
 #[wasm_bindgen]
 pub struct SharedUnlockFollower {
-    subscription: Arc<Mutex<bitwarden_ipc::wasm::JsIpcClientSubscription>>,
+    subscription: Arc<Mutex<bitwarden_ipc::IpcClientTypedSubscription<LeaderMessage>>>,
     cancellation_token: CancellationToken,
     follower: Arc<Follower<JsUserLockManagement, JsLeaderDiscovery>>,
 }
@@ -25,7 +26,7 @@ impl SharedUnlockFollower {
         lock_management: RawJsUserLockManagement,
     ) -> Result<Self, bitwarden_ipc::SubscribeError> {
         let cancellation_token = CancellationToken::new();
-        let subscription = ipc_client.subscribe().await?;
+        let subscription = ipc_client.client.subscribe_typed().await?;
         let runner = ThreadBoundRunner::new(lock_management);
         let lock_management = JsUserLockManagement::new(runner.clone());
         let leader_discovery = JsLeaderDiscovery::new(runner.clone());
@@ -44,7 +45,8 @@ impl SharedUnlockFollower {
     pub fn start(&self) {
         let cancellation_token = self.cancellation_token.clone();
         let subscription = Arc::clone(&self.subscription);
-        let follower = Arc::clone(&self.follower);
+        let follower: Arc<Follower<JsUserLockManagement, JsLeaderDiscovery>> =
+            Arc::clone(&self.follower);
 
         spawn_local(async move {
             loop {
@@ -55,23 +57,14 @@ impl SharedUnlockFollower {
                     }
                     result = async {
                         let mut subscription = subscription.lock().await;
-                        subscription.receive(None).await
+                        subscription.receive(Some(cancellation_token.clone())).await
                     } => {
                         match result {
-                            Ok(incoming_message) => {
-                                if incoming_message.topic != Some("password-manager.shared-unlock.leader-to-follower".to_string()) {
-                                    continue;
+                            Ok(message) => {
+                                if let Err(error) = follower.receive_message(message).await {
+                                    tracing::error!(?error, "Failed to handle shared unlock follower message");
                                 }
-                                match Message::from_cbor(incoming_message.payload.as_slice()) {
-                                    Ok(message) => {
-                                        if let Err(error) = follower.receive_message(message).await {
-                                            tracing::error!(?error, "Failed to handle shared unlock follower message");
-                                        }
-                                    }
-                                    Err(error) => {
-                                        tracing::error!(?error, "Failed to decode shared unlock follower IPC message");
-                                    }
-                                }
+
                             }
                             Err(error) => {
                                 tracing::error!(?error, "Failed to receive shared unlock IPC message");

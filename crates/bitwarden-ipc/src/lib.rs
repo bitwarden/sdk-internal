@@ -22,7 +22,9 @@ pub use error::{ReceiveError, RequestError, SendError, SubscribeError, TypedRece
 pub use ipc_client::{IpcClientImpl, IpcClientSubscription, IpcClientTypedSubscription};
 pub use ipc_client_ext::IpcClientExt;
 pub use ipc_client_trait::IpcClient;
-pub use message::{IncomingMessage, OutgoingMessage};
+pub use message::{
+    IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage, TypedOutgoingMessage,
+};
 #[doc(hidden)]
 pub use rpc::exec::handler::ErasedRpcHandler;
 pub use rpc::{exec::handler::RpcHandler, request::RpcRequest};

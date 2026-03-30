@@ -6,12 +6,13 @@ use std::{
 
 use bitwarden_core::UserId;
 use bitwarden_ipc::{
-    Endpoint, HostId, InMemorySessionRepository, IpcClient, NoEncryptionCryptoProvider, Source,
-    TestCommunicationBackend, TestIpcClient,
+    Endpoint, HostId, InMemorySessionRepository, IncomingMessage, IpcClient,
+    NoEncryptionCryptoProvider, Source, TestCommunicationBackend, TestIpcClient,
+    TypedIncomingMessage,
 };
 
 use crate::{
-    DeviceEvent, Follower, Leader, LockState, Message, UserKey,
+    DeviceEvent, Follower, FollowerMessage, Leader, LeaderMessage, LockState, UserKey,
     drivers::{LeaderDiscovery, UserLockManagement},
 };
 
@@ -189,12 +190,16 @@ impl Harness {
         let outgoing = self.follower_ipc_backend.drain_outgoing().await;
         let count = outgoing.len();
         for outgoing_msg in outgoing {
-            let msg = Message::from_cbor(&outgoing_msg.payload)
-                .expect("Failed to decode CBOR message from IPC");
-            self.leader
-                .receive_message(msg, source.clone())
-                .await
-                .unwrap();
+            let incoming = IncomingMessage {
+                payload: outgoing_msg.payload,
+                destination: outgoing_msg.destination,
+                source: source.clone(),
+                topic: outgoing_msg.topic,
+            };
+            let typed: TypedIncomingMessage<FollowerMessage> = incoming
+                .try_into()
+                .expect("Failed to decode follower message from IPC");
+            self.leader.receive_message(typed).await.unwrap();
         }
         count
     }
@@ -204,9 +209,16 @@ impl Harness {
         let outgoing = self.leader_ipc_backend.drain_outgoing().await;
         let count = outgoing.len();
         for outgoing_msg in outgoing {
-            let msg = Message::from_cbor(&outgoing_msg.payload)
-                .expect("Failed to decode CBOR message from IPC");
-            self.follower.receive_message(msg).await.unwrap();
+            let incoming = IncomingMessage {
+                payload: outgoing_msg.payload,
+                destination: outgoing_msg.destination,
+                source: Source::DesktopMain,
+                topic: outgoing_msg.topic,
+            };
+            let typed: TypedIncomingMessage<LeaderMessage> = incoming
+                .try_into()
+                .expect("Failed to decode leader message from IPC");
+            self.follower.receive_message(typed).await.unwrap();
         }
         count
     }
@@ -384,7 +396,7 @@ async fn test_heartbeat_round_trip() {
 
     let mut harness = Harness::new(leader_states, follower_states).await;
 
-    // Follower fires Timer → sends HeartBeat for all users
+    // Follower fires Timer -> sends HeartBeat for all users
     harness
         .follower
         .handle_device_event(DeviceEvent::Timer)
@@ -450,29 +462,27 @@ async fn test_web_source_with_matching_origin_is_accepted() {
 
     let harness = Harness::new_with_vault_urls(leader_states, follower_states, vault_urls).await;
 
-    // Re-deliver startup messages as a Web source with matching origin
     let web_source = Source::Web {
         tab_id: 1,
         document_id: "doc-1".to_string(),
         origin: "https://vault.bitwarden.com".to_string(),
     };
 
-    // Manually send a StartSession from the web source
     harness
         .leader
-        .receive_message(
-            Message::StartSession {
+        .receive_message(TypedIncomingMessage {
+            payload: FollowerMessage::StartSession {
                 user_id: user,
                 lock_state: LockState::Unlocked {
                     user_key: key.clone(),
                 },
             },
-            web_source,
-        )
+            destination: LEADER_ENDPOINT,
+            source: web_source,
+        })
         .await
         .unwrap();
 
-    // Leader should have accepted the unlock
     assert_eq!(
         harness.leader_lock.get_state(user),
         LockState::Unlocked { user_key: key }
@@ -495,20 +505,19 @@ async fn test_web_source_with_mismatched_origin_is_rejected() {
         origin: "https://evil.example.com".to_string(),
     };
 
-    // Send a StartSession with wrong origin
     harness
         .leader
-        .receive_message(
-            Message::StartSession {
+        .receive_message(TypedIncomingMessage {
+            payload: FollowerMessage::StartSession {
                 user_id: user,
                 lock_state: LockState::Unlocked { user_key: key },
             },
-            web_source,
-        )
+            destination: LEADER_ENDPOINT,
+            source: web_source,
+        })
         .await
         .unwrap();
 
-    // Leader should have rejected the message and stayed locked
     assert_eq!(harness.leader_lock.get_state(user), LockState::Locked);
 }
 
@@ -518,7 +527,6 @@ async fn test_web_source_without_configured_vault_url_is_rejected() {
     let key = test_user_key();
     let leader_states = HashMap::from([(user, LockState::Locked)]);
     let follower_states = HashMap::from([(user, LockState::Locked)]);
-    // No vault URLs configured
     let vault_urls = HashMap::new();
 
     let harness = Harness::new_with_vault_urls(leader_states, follower_states, vault_urls).await;
@@ -531,17 +539,17 @@ async fn test_web_source_without_configured_vault_url_is_rejected() {
 
     harness
         .leader
-        .receive_message(
-            Message::StartSession {
+        .receive_message(TypedIncomingMessage {
+            payload: FollowerMessage::StartSession {
                 user_id: user,
                 lock_state: LockState::Unlocked { user_key: key },
             },
-            web_source,
-        )
+            destination: LEADER_ENDPOINT,
+            source: web_source,
+        })
         .await
         .unwrap();
 
-    // Should be rejected since no vault URL is configured
     assert_eq!(harness.leader_lock.get_state(user), LockState::Locked);
 }
 
@@ -561,20 +569,19 @@ async fn test_web_source_lock_state_update_with_mismatched_origin_is_rejected() 
         origin: "https://evil.example.com".to_string(),
     };
 
-    // Send a LockStateUpdate (unlock) with wrong origin
     harness
         .leader
-        .receive_message(
-            Message::LockStateUpdate {
+        .receive_message(TypedIncomingMessage {
+            payload: FollowerMessage::LockStateUpdate {
                 user_id: user,
                 lock_state: LockState::Unlocked { user_key: key },
             },
-            web_source,
-        )
+            destination: LEADER_ENDPOINT,
+            source: web_source,
+        })
         .await
         .unwrap();
 
-    // Leader should have rejected the message and stayed locked
     assert_eq!(harness.leader_lock.get_state(user), LockState::Locked);
 }
 
@@ -596,15 +603,16 @@ async fn test_web_source_lock_state_update_with_matching_origin_is_accepted() {
 
     harness
         .leader
-        .receive_message(
-            Message::LockStateUpdate {
+        .receive_message(TypedIncomingMessage {
+            payload: FollowerMessage::LockStateUpdate {
                 user_id: user,
                 lock_state: LockState::Unlocked {
                     user_key: key.clone(),
                 },
             },
-            web_source,
-        )
+            destination: LEADER_ENDPOINT,
+            source: web_source,
+        })
         .await
         .unwrap();
 
@@ -624,24 +632,23 @@ async fn test_non_web_source_skips_origin_validation() {
 
     let harness = Harness::new_with_vault_urls(leader_states, follower_states, vault_urls).await;
 
-    // BrowserBackground source has no origin to validate
     let browser_source = Source::BrowserBackground { id: HostId::Own };
 
     harness
         .leader
-        .receive_message(
-            Message::StartSession {
+        .receive_message(TypedIncomingMessage {
+            payload: FollowerMessage::StartSession {
                 user_id: user,
                 lock_state: LockState::Unlocked {
                     user_key: key.clone(),
                 },
             },
-            browser_source,
-        )
+            destination: LEADER_ENDPOINT,
+            source: browser_source,
+        })
         .await
         .unwrap();
 
-    // Should be accepted regardless of vault URL config
     assert_eq!(
         harness.leader_lock.get_state(user),
         LockState::Unlocked { user_key: key }

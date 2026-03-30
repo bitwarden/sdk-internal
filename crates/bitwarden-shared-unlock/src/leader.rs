@@ -4,10 +4,12 @@ use std::{
     time::Duration,
 };
 
-use bitwarden_ipc::{Endpoint, IpcClient, OutgoingMessage};
+use bitwarden_ipc::{Endpoint, IpcClient, IpcClientExt, TypedIncomingMessage};
 use tracing::{info, warn};
 
-use crate::{DeviceEvent, LockState, Message, UserKey, drivers::UserLockManagement};
+use crate::{
+    DeviceEvent, FollowerMessage, LeaderMessage, LockState, UserKey, drivers::UserLockManagement,
+};
 
 const FOLLOWER_STALE_AFTER: Duration = Duration::from_secs(120);
 
@@ -87,7 +89,7 @@ impl<L: UserLockManagement> Leader<L> {
         }
     }
 
-    async fn broadcast_to_active_followers(&self, message: Message) {
+    async fn broadcast_to_active_followers(&self, message: LeaderMessage) {
         let endpoints = self.follower_sessions.active_endpoints();
         for endpoint in endpoints {
             self.send_message(message.clone(), endpoint).await;
@@ -100,9 +102,11 @@ impl<L: UserLockManagement> Leader<L> {
     /// follower user's vault URL, and applies lock state changes when needed.
     pub async fn receive_message(
         &self,
-        message: Message,
-        sender: bitwarden_ipc::Source,
+        incoming_message: TypedIncomingMessage<FollowerMessage>,
     ) -> Result<(), ()> {
+        let message = incoming_message.payload;
+        let sender = incoming_message.source;
+
         info!(?sender, "Received message from follower: {:?}", message);
         let endpoint: bitwarden_ipc::Endpoint = sender.clone().into();
 
@@ -123,7 +127,7 @@ impl<L: UserLockManagement> Leader<L> {
         }
 
         match message {
-            Message::LockStateUpdate {
+            FollowerMessage::LockStateUpdate {
                 user_id,
                 lock_state: LockState::Locked,
             } => {
@@ -141,14 +145,14 @@ impl<L: UserLockManagement> Leader<L> {
                     .await
                     .inspect_err(|_| warn!(%user_id, "Failed to lock user"))?;
                 info!(%user_id, "User locked, sending confirmation to follower");
-                let response = Message::LockStateUpdate {
+                let response = LeaderMessage::LockStateUpdate {
                     user_id,
                     lock_state: LockState::Locked,
                 };
                 self.send_message(response, endpoint.clone()).await;
                 Ok(())
             }
-            Message::LockStateUpdate {
+            FollowerMessage::LockStateUpdate {
                 user_id,
                 lock_state: LockState::Unlocked { user_key },
             } => {
@@ -166,14 +170,14 @@ impl<L: UserLockManagement> Leader<L> {
                     .await
                     .inspect_err(|_| warn!(%user_id, "Failed to unlock user"))?;
                 info!(%user_id, "User unlocked, sending confirmation to follower");
-                let response = Message::LockStateUpdate {
+                let response = LeaderMessage::LockStateUpdate {
                     user_id,
                     lock_state: LockState::Unlocked { user_key },
                 };
                 self.send_message(response, endpoint.clone()).await;
                 Ok(())
             }
-            Message::StartSession {
+            FollowerMessage::StartSession {
                 user_id,
                 lock_state,
             } => {
@@ -193,7 +197,7 @@ impl<L: UserLockManagement> Leader<L> {
                             )?;
                     }
                     (LockState::Locked, LockState::Unlocked { .. }) => {
-                        let response = Message::LockStateUpdate {
+                        let response = LeaderMessage::LockStateUpdate {
                             user_id,
                             lock_state: self_lock_state,
                         };
@@ -206,12 +210,12 @@ impl<L: UserLockManagement> Leader<L> {
 
                 Ok(())
             }
-            Message::HeartBeat { user_id } => {
+            FollowerMessage::HeartBeat { user_id } => {
                 info!(?sender, %user_id, "Received heartbeat from follower");
                 self.follower_sessions
                     .upsert(endpoint.clone(), get_current_timestamp());
 
-                let response = Message::HeartBeat { user_id };
+                let response = LeaderMessage::HeartBeat { user_id };
                 self.send_message(response, endpoint.clone()).await;
                 Ok(())
             }
@@ -225,14 +229,14 @@ impl<L: UserLockManagement> Leader<L> {
     pub async fn handle_device_event(&self, event: DeviceEvent) -> Result<(), ()> {
         match event {
             DeviceEvent::ManualLock { user_id } => {
-                let message = Message::LockStateUpdate {
+                let message = LeaderMessage::LockStateUpdate {
                     user_id,
                     lock_state: LockState::Locked,
                 };
                 self.broadcast_to_active_followers(message).await;
             }
             DeviceEvent::ManualUnlock { user_id, user_key } => {
-                let message = Message::LockStateUpdate {
+                let message = LeaderMessage::LockStateUpdate {
                     user_id,
                     lock_state: LockState::Unlocked {
                         user_key: UserKey::from_bytes(user_key),
@@ -249,22 +253,8 @@ impl<L: UserLockManagement> Leader<L> {
         Ok(())
     }
 
-    async fn send_message(&self, message: Message, recipient: Endpoint) {
-        let payload = match message.to_cbor() {
-            Ok(payload) => payload,
-            Err(error) => {
-                tracing::error!(?error, "Failed to serialize shared unlock IPC message");
-                return;
-            }
-        };
-
-        let outgoing_message = OutgoingMessage {
-            payload,
-            destination: recipient,
-            topic: Some("password-manager.shared-unlock.leader-to-follower".to_string()),
-        };
-
-        if let Err(error) = self.ipc_client.send(outgoing_message).await {
+    async fn send_message(&self, message: LeaderMessage, recipient: Endpoint) {
+        if let Err(error) = self.ipc_client.send_typed(message, recipient).await {
             tracing::error!(?error, "Failed to send shared unlock IPC message");
         }
     }

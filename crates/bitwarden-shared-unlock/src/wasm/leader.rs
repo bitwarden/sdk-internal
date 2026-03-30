@@ -1,19 +1,20 @@
 use std::sync::Arc;
 
+use bitwarden_ipc::IpcClientExt;
 use bitwarden_threading::{ThreadBoundRunner, cancellation_token::CancellationToken};
 use tokio::sync::Mutex;
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasm_bindgen_futures::spawn_local;
 
 use super::drivers::{JsUserLockManagement, RawJsUserLockManagement};
-use crate::{DeviceEvent, Leader, Message};
+use crate::{DeviceEvent, FollowerMessage, Leader};
 
 /// Shared-unlock leader for WASM clients.
 ///
 /// The leader receives follower IPC messages and coordinates lock state updates.
 #[wasm_bindgen]
 pub struct SharedUnlockLeader {
-    subscription: Arc<Mutex<bitwarden_ipc::wasm::JsIpcClientSubscription>>,
+    subscription: Arc<Mutex<bitwarden_ipc::IpcClientTypedSubscription<FollowerMessage>>>,
     cancellation_token: CancellationToken,
     leader: Arc<Leader<JsUserLockManagement>>,
 }
@@ -29,7 +30,7 @@ impl SharedUnlockLeader {
         let runner = ThreadBoundRunner::new(lock_management);
         let lock_management = JsUserLockManagement::new(runner);
         let cancellation_token = CancellationToken::new();
-        let subscription = ipc_client.subscribe().await?;
+        let subscription = ipc_client.client.subscribe_typed().await?;
         let leader = Leader::create(lock_management, ipc_client.client.clone());
 
         Ok(Self {
@@ -58,20 +59,9 @@ impl SharedUnlockLeader {
                         subscription.receive(None).await
                     } => {
                         match result {
-                            Ok(incoming_message) => {
-                                let source = incoming_message.source;
-                                if incoming_message.topic != Some("password-manager.shared-unlock.follower-to-leader".to_string()) {
-                                    continue;
-                                }
-                                match Message::from_cbor(incoming_message.payload.as_slice()) {
-                                    Ok(message) => {
-                                        if let Err(error) = leader.receive_message(message, source.into()).await {
-                                            tracing::error!(?error, "Failed to handle shared unlock leader message");
-                                        }
-                                    }
-                                    Err(error) => {
-                                        tracing::error!(?error, "Failed to decode shared unlock leader IPC message");
-                                    }
+                            Ok(message) => {
+                                if let Err(error) = leader.receive_message(message).await {
+                                    tracing::error!(?error, "Failed to handle shared unlock leader message");
                                 }
                             }
                             Err(error) => {
