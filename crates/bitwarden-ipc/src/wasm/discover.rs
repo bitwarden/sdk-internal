@@ -11,6 +11,7 @@ use crate::{
 #[wasm_bindgen(js_name = ipcRegisterDiscoverHandler)]
 /// Registers a DiscoverHandler so that the client can respond to DiscoverRequests.
 pub async fn ipc_register_discover_handler(ipc_client: &JsIpcClient, response: DiscoverResponse) {
+    ipc_client.__wasm_only_start().await;
     ipc_client
         .client
         .register_rpc_handler(DiscoverHandler::new(response))
