@@ -59,11 +59,11 @@ impl StateRegistry {
     /// initialization.
     ///
     /// Note: The `sdk_managed` Vec is not populated (no migration steps for memory).
-    /// Callers can use `register_client_managed` or rely on the OnceLock database
-    /// directly via `get_sdk_managed`.
+    /// Callers can use `register_client_managed` or access repositories
+    /// directly via `get::<T>()`.
     pub fn new_with_memory_db() -> Self {
         let registry = Self::new();
-        // SAFETY: OnceLock::set returns Err only if already set.
+        // OnceLock::set returns Err only if already set.
         // new() guarantees the OnceLock is unset. We ignore the result
         // because there is no failure scenario here.
         let _ = registry

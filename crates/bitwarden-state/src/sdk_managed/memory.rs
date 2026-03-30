@@ -8,9 +8,9 @@ use crate::{
     sdk_managed::{Database, DatabaseConfiguration, DatabaseError},
 };
 
-/// In-memory database backend implementing the [[Database]] trait.
+/// In-memory database backend implementing the [`Database`] trait.
 ///
-/// Stores data in process RAM using a [[TypeId]]-keyed nested HashMap.
+/// Stores data in process RAM using a [`TypeId`]-keyed nested HashMap.
 /// Intended for testing, development, and cross-platform use cases where
 /// persistent storage is not required.
 ///
