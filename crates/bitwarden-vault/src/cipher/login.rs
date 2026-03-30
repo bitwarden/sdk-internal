@@ -435,11 +435,11 @@ impl Decryptable<KeyIds, SymmetricKeyId, LoginView> for Login {
         key: SymmetricKeyId,
     ) -> Result<LoginView, CryptoError> {
         Ok(LoginView {
-            username: self.username.decrypt(ctx, key)?,
-            password: self.password.decrypt(ctx, key)?,
+            username: self.username.decrypt(ctx, key).ok().flatten(),
+            password: self.password.decrypt(ctx, key).ok().flatten(),
             password_revision_date: self.password_revision_date,
-            uris: self.uris.decrypt(ctx, key)?,
-            totp: self.totp.decrypt(ctx, key)?,
+            uris: self.uris.decrypt(ctx, key).ok().flatten(),
+            totp: self.totp.decrypt(ctx, key).ok().flatten(),
             autofill_on_page_load: self.autofill_on_page_load,
             fido2_credentials: self.fido2_credentials.clone(),
         })
@@ -459,9 +459,9 @@ impl Decryptable<KeyIds, SymmetricKeyId, LoginListView> for Login {
                 .map(|fido2_credentials| fido2_credentials.decrypt(ctx, key))
                 .transpose()?,
             has_fido2: self.fido2_credentials.is_some(),
-            username: self.username.decrypt(ctx, key)?,
+            username: self.username.decrypt(ctx, key).ok().flatten(),
             totp: self.totp.clone(),
-            uris: self.uris.decrypt(ctx, key)?,
+            uris: self.uris.decrypt(ctx, key).ok().flatten(),
         })
     }
 }

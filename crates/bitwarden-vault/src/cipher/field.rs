@@ -166,8 +166,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, FieldView> for Field {
         key: SymmetricKeyId,
     ) -> Result<FieldView, CryptoError> {
         Ok(FieldView {
-            name: self.name.decrypt(ctx, key)?,
-            value: self.value.decrypt(ctx, key)?,
+            name: self.name.decrypt(ctx, key).ok().flatten(),
+            value: self.value.decrypt(ctx, key).ok().flatten(),
             r#type: self.r#type,
             linked_id: self.linked_id,
         })
