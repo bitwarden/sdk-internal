@@ -9,7 +9,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     Cipher, CipherId, CipherView, CiphersClient, DecryptCipherListResult, VaultParseError,
-    cipher::cipher::PartialCipher,
+    cipher::cipher::{PartialCipher, StrictDecrypt},
 };
 
 #[allow(missing_docs)]
@@ -38,13 +38,18 @@ pub async fn restore<R: Repository<Cipher> + ?Sized>(
     api_client: &ApiClient,
     repository: &R,
     key_store: &KeyStore<KeyIds>,
+    use_strict_decryption: bool,
 ) -> Result<CipherView, RestoreCipherError> {
     let api = api_client.ciphers_api();
 
     let cipher: Cipher = api.put_restore(cipher_id.into()).await?.try_into()?;
     repository.set(cipher_id, cipher.clone()).await?;
 
-    Ok(key_store.decrypt(&cipher)?)
+    if use_strict_decryption {
+        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    } else {
+        Ok(key_store.decrypt(&cipher)?)
+    }
 }
 
 /// Restores multiple soft-deleted ciphers on the server.
@@ -88,7 +93,14 @@ impl CiphersClient {
         let api_client = &self.client.internal.get_api_configurations().api_client;
         let key_store = self.client.internal.get_key_store();
 
-        restore(cipher_id, api_client, &*self.get_repository()?, key_store).await
+        restore(
+            cipher_id,
+            api_client,
+            &*self.get_repository()?,
+            key_store,
+            self.is_strict_decrypt(),
+        )
+        .await
     }
 
     /// Restores multiple soft-deleted ciphers on the server.
@@ -207,6 +219,7 @@ mod tests {
             &api_client,
             &repository,
             &store,
+            false,
         )
         .await
         .unwrap();

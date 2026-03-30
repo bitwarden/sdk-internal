@@ -17,7 +17,7 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use super::cipher::CipherKind;
+use super::cipher::{CipherKind, StrictDecrypt};
 use crate::{Cipher, PasswordHistoryView, VaultParseError, cipher::cipher::CopyableCipherFields};
 
 #[allow(missing_docs)]
@@ -456,12 +456,50 @@ impl Decryptable<KeyIds, SymmetricKeyId, LoginListView> for Login {
             fido2_credentials: self
                 .fido2_credentials
                 .as_ref()
-                .map(|fido2_credentials| fido2_credentials.decrypt(ctx, key))
-                .transpose()?,
+                .and_then(|fido2_credentials| fido2_credentials.decrypt(ctx, key).ok()),
             has_fido2: self.fido2_credentials.is_some(),
             username: self.username.decrypt(ctx, key).ok().flatten(),
             totp: self.totp.clone(),
             uris: self.uris.decrypt(ctx, key).ok().flatten(),
+        })
+    }
+}
+
+impl Decryptable<KeyIds, SymmetricKeyId, LoginView> for StrictDecrypt<&Login> {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<LoginView, CryptoError> {
+        Ok(LoginView {
+            username: self.0.username.decrypt(ctx, key)?,
+            password: self.0.password.decrypt(ctx, key)?,
+            password_revision_date: self.0.password_revision_date,
+            uris: self.0.uris.decrypt(ctx, key)?,
+            totp: self.0.totp.decrypt(ctx, key)?,
+            autofill_on_page_load: self.0.autofill_on_page_load,
+            fido2_credentials: self.0.fido2_credentials.clone(),
+        })
+    }
+}
+
+impl Decryptable<KeyIds, SymmetricKeyId, LoginListView> for StrictDecrypt<&Login> {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<LoginListView, CryptoError> {
+        Ok(LoginListView {
+            fido2_credentials: self
+                .0
+                .fido2_credentials
+                .as_ref()
+                .map(|fido2_credentials| fido2_credentials.decrypt(ctx, key))
+                .transpose()?,
+            has_fido2: self.0.fido2_credentials.is_some(),
+            username: self.0.username.decrypt(ctx, key)?,
+            totp: self.0.totp.clone(),
+            uris: self.0.uris.decrypt(ctx, key)?,
         })
     }
 }
