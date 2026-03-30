@@ -17,10 +17,9 @@ pub trait UserLockManagement {
     /// Get vault_url for the user with the given ID, if available. This is used to verify IPC
     /// message sources
     async fn get_vault_url(&self, user_id: UserId) -> Option<String>;
-    /// The heartbeat handler gets called on every heartbeat response received by the leader.
-    /// On platforms that support vault timeout, such as web, browser, desktop, this handler
-    /// should supress the vault timeout until the next heartbeat, i.e while the session is active.
-    async fn handle_heartbeat(&self, user_id: UserId);
+    /// Suppress the vault timeout for the given user until the specified duration from now.
+    /// Called when a heartbeat response is received, keeping the shared session active.
+    async fn suppress_vault_timeout(&self, user_id: UserId, until: std::time::Duration);
 }
 
 /// The LeaderDiscovery trait is responsible for discovering the leader's IPC endpoint, given the

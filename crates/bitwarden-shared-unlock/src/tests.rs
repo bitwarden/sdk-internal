@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
+    time::Duration,
 };
 
 use bitwarden_core::UserId;
@@ -18,7 +19,7 @@ use crate::{
 struct MockLockSystem {
     states: Arc<Mutex<HashMap<UserId, LockState>>>,
     vault_urls: Arc<Mutex<HashMap<UserId, String>>>,
-    heartbeats: Arc<Mutex<Vec<UserId>>>,
+    timeout_suppressions: Arc<Mutex<Vec<(UserId, Duration)>>>,
 }
 
 impl MockLockSystem {
@@ -26,7 +27,7 @@ impl MockLockSystem {
         Self {
             states: Arc::new(Mutex::new(initial)),
             vault_urls: Arc::new(Mutex::new(HashMap::new())),
-            heartbeats: Arc::new(Mutex::new(Vec::new())),
+            timeout_suppressions: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -37,7 +38,7 @@ impl MockLockSystem {
         Self {
             states: Arc::new(Mutex::new(initial)),
             vault_urls: Arc::new(Mutex::new(vault_urls)),
-            heartbeats: Arc::new(Mutex::new(Vec::new())),
+            timeout_suppressions: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -80,8 +81,11 @@ impl UserLockManagement for MockLockSystem {
         self.vault_urls.lock().unwrap().get(&user_id).cloned()
     }
 
-    async fn handle_heartbeat(&self, user_id: UserId) {
-        self.heartbeats.lock().unwrap().push(user_id);
+    async fn suppress_vault_timeout(&self, user_id: UserId, until: Duration) {
+        self.timeout_suppressions
+            .lock()
+            .unwrap()
+            .push((user_id, until));
     }
 }
 
@@ -389,8 +393,10 @@ async fn test_heartbeat_round_trip() {
 
     harness.pump().await;
 
-    let heartbeats = harness.follower_lock.heartbeats.lock().unwrap();
-    assert_eq!(*heartbeats, vec![user]);
+    let suppressions = harness.follower_lock.timeout_suppressions.lock().unwrap();
+    assert_eq!(suppressions.len(), 1);
+    assert_eq!(suppressions[0].0, user);
+    assert_eq!(suppressions[0].1, crate::HEARTBEAT_INTERVAL);
 }
 
 #[tokio::test]

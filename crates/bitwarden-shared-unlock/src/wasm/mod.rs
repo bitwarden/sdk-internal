@@ -4,7 +4,6 @@ mod follower;
 mod leader;
 
 pub use biometrics::*;
-pub use drivers::RawJsBiometricsUnlock;
-pub use drivers::RawJsUserLockManagement;
+pub use drivers::{RawJsBiometricsUnlock, RawJsUserLockManagement};
 pub use follower::SharedUnlockFollower;
 pub use leader::SharedUnlockLeader;

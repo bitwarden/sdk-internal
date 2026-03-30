@@ -217,18 +217,12 @@ impl UserLockManagement for JsUserLockManagement {
             .flatten()
     }
 
-    async fn handle_heartbeat(&self, user_id: UserId) {
-        info!(
-            "Received shared unlock heartbeat response for user_id: {}",
-            user_id
-        );
-        // Shared unlock heartbeat responses are acknowledged by keeping the session active.
-        // We can suppress the vault timeout until the next expected heartbeat to achieve this.
-        let until = js_sys::Date::now() + HEARTBEAT_INTERVAL.as_millis() as f64;
+    async fn suppress_vault_timeout(&self, user_id: UserId, until: std::time::Duration) {
+        let until_ms = js_sys::Date::now() + until.as_millis() as f64;
         let result = self
             .runner
             .run_in_thread(move |driver| async move {
-                driver.suppress_vault_timeout(until, user_id).await
+                driver.suppress_vault_timeout(until_ms, user_id).await
             })
             .await;
         match result {
@@ -236,14 +230,14 @@ impl UserLockManagement for JsUserLockManagement {
             Ok(Err(error)) => {
                 tracing::error!(
                     ?error,
-                    "Failed to supress vault timeout on heartbeat for user_id: {}",
+                    "Failed to suppress vault timeout for user_id: {}",
                     user_id
                 )
             }
             Err(error) => {
                 tracing::error!(
                     ?error,
-                    "Failed to supress vault timeout on heartbeat for user_id: {}",
+                    "Failed to suppress vault timeout for user_id: {}",
                     user_id
                 )
             }

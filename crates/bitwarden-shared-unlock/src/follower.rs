@@ -86,7 +86,9 @@ impl<L: UserLockManagement, D: LeaderDiscovery> Follower<L, D> {
                 }
             }
             Message::HeartBeat { user_id } => {
-                self.lock_system.handle_heartbeat(user_id).await;
+                self.lock_system
+                    .suppress_vault_timeout(user_id, crate::HEARTBEAT_INTERVAL)
+                    .await;
             }
             _ => {}
         }
