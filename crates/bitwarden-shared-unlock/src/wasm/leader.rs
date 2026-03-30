@@ -8,6 +8,9 @@ use wasm_bindgen_futures::spawn_local;
 use super::drivers::{JsUserLockManagement, RawJsUserLockManagement};
 use crate::{DeviceEvent, Leader, Message};
 
+/// Shared-unlock leader for WASM clients.
+///
+/// The leader receives follower IPC messages and coordinates lock state updates.
 #[wasm_bindgen]
 pub struct SharedUnlockLeader {
     subscription: Arc<Mutex<bitwarden_ipc::wasm::JsIpcClientSubscription>>,
@@ -17,6 +20,7 @@ pub struct SharedUnlockLeader {
 
 #[wasm_bindgen]
 impl SharedUnlockLeader {
+    /// Creates a new shared-unlock leader
     #[wasm_bindgen]
     pub async fn try_new(
         ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
@@ -35,6 +39,7 @@ impl SharedUnlockLeader {
         })
     }
 
+    /// Starts background processing for incoming follower-to-leader IPC messages.
     #[wasm_bindgen]
     pub fn start(&self) {
         let cancellation_token = self.cancellation_token.clone();
@@ -79,6 +84,7 @@ impl SharedUnlockLeader {
         });
     }
 
+    /// Forwards a device event to the shared-unlock leader implementation
     #[wasm_bindgen]
     pub async fn handle_device_event(&self, event: DeviceEvent) {
         if let Err(error) = self.leader.handle_device_event(event).await {
@@ -86,6 +92,7 @@ impl SharedUnlockLeader {
         }
     }
 
+    /// Stops background processing started by [`SharedUnlockLeader::start`].
     #[wasm_bindgen]
     pub fn stop(&self) {
         self.cancellation_token.cancel();

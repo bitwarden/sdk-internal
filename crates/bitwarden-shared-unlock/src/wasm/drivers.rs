@@ -26,6 +26,7 @@ export interface UserLockManagement {
 
 #[wasm_bindgen]
 extern "C" {
+    /// JavaScript implementation of user lock-management operations used by shared unlock.
     #[wasm_bindgen(js_name = UserLockManagement, typescript_type = "UserLockManagement")]
     pub type RawJsUserLockManagement;
 

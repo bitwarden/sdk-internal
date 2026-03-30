@@ -11,6 +11,7 @@ use super::drivers::{
 };
 use crate::{DeviceEvent, Follower, HEARTBEAT_INTERVAL, Message};
 
+/// Shared-unlock follower for WASM clients.
 #[wasm_bindgen]
 pub struct SharedUnlockFollower {
     subscription: Arc<Mutex<bitwarden_ipc::wasm::JsIpcClientSubscription>>,
@@ -21,6 +22,7 @@ pub struct SharedUnlockFollower {
 
 #[wasm_bindgen]
 impl SharedUnlockFollower {
+    /// Creates a new shared-unlock follower
     #[wasm_bindgen]
     pub async fn try_new(
         ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
@@ -47,6 +49,7 @@ impl SharedUnlockFollower {
         })
     }
 
+    /// Starts background tasks for IPC message handling and heartbeat timers.
     #[wasm_bindgen]
     pub fn start(&self) {
         let cancellation_token = self.cancellation_token.clone();
@@ -108,6 +111,7 @@ impl SharedUnlockFollower {
         });
     }
 
+    /// Forwards a device event to the shared-unlock follower state machine.
     #[wasm_bindgen]
     pub async fn handle_device_event(&self, event: DeviceEvent) {
         if let Err(error) = self.follower.handle_device_event(event).await {
@@ -118,6 +122,7 @@ impl SharedUnlockFollower {
         }
     }
 
+    /// Stops background tasks started by [`SharedUnlockFollower::start`].
     #[wasm_bindgen]
     pub fn stop(&self) {
         self.cancellation_token.cancel();
