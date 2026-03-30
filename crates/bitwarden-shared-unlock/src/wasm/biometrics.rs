@@ -1,10 +1,10 @@
-//! WASM-specific biometrics-over-IPC. This allows clients, such as browser, CLI and web to 
+//! WASM-specific biometrics-over-IPC. This allows clients, such as browser, CLI and web to
 //! interact with the platform biometrics system of the desktop app.
-//! 
-//! Note: This should eventually be moved to a bitwarden-biometrics crate that also contains implementations
-//! for platform biometrics on all platforms. However, it is too early for that currently, and it is not
-//! sufficiently clear what is required / how it should be structured, as it should capture the needs of
-//! all platforms (mobile and web).
+//!
+//! Note: This should eventually be moved to a bitwarden-biometrics crate that also contains
+//! implementations for platform biometrics on all platforms. However, it is too early for that
+//! currently, and it is not sufficiently clear what is required / how it should be structured, as
+//! it should capture the needs of all platforms (mobile and web).
 
 use bitwarden_core::UserId;
 use bitwarden_ipc::{Endpoint, IpcClientExt, RequestError, RpcHandler, RpcRequest};

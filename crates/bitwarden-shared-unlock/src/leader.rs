@@ -216,8 +216,12 @@ impl<L: UserLockManagement> Leader<L> {
                 self.send_message(response, endpoint.clone()).await;
                 let lock_state = self.lock_system.get_user_lock_state(user_id).await;
                 // Ensure that if somehow the lockstate is desynced, it syncs again
-                let authoritative_lockstate_update = Message::LockStateUpdate { user_id, lock_state };
-                self.send_message(authoritative_lockstate_update, endpoint.clone()).await;
+                let authoritative_lockstate_update = Message::LockStateUpdate {
+                    user_id,
+                    lock_state,
+                };
+                self.send_message(authoritative_lockstate_update, endpoint.clone())
+                    .await;
                 Ok(())
             }
         }
