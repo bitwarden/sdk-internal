@@ -5,7 +5,7 @@ name: SDK Breaking Change Detection
 # 1. Add the client repository to the 'repositories' list in the app-token step
 # 2. Call this workflow from your platform's build workflow with appropriate inputs
 # 3. Create sdk-breaking-change-check.yml in the client repo that:
-#    - Accepts inputs: sdk_version, source_repo, artifacts_run_id, artifact_name
+#    - Accepts inputs: sdk_version, source_repo, artifacts_run_id
 #    - Downloads SDK artifacts using actions/download-artifact with run-id
 #    - Builds/compiles the client with the new SDK
 #    - Exits non-zero on compilation failure
@@ -103,7 +103,6 @@ jobs:
           echo "sdk_version=$SDK_VERSION" >> $GITHUB_OUTPUT
           echo "source_repo=$GITHUB_REPOSITORY" >> $GITHUB_OUTPUT
           echo "artifacts_run_id=$SOURCE_RUN_ID" >> $GITHUB_OUTPUT
-          echo "artifact_name=sdk-internal" >> $GITHUB_OUTPUT
 
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
@@ -188,7 +187,6 @@ jobs:
           SDK_VERSION: ${{ steps.inputs.outputs.sdk_version }}
           SOURCE_REPO: ${{ steps.inputs.outputs.source_repo }}
           ARTIFACTS_RUN_ID: ${{ steps.inputs.outputs.artifacts_run_id }}
-          ARTIFACT_NAME: ${{ steps.inputs.outputs.artifact_name }}
         run: |
           echo "🚀 Triggering ${_WORKFLOW_NAME} in ${_CLIENT_REPO} via workflow_dispatch..."
 
@@ -203,8 +201,7 @@ jobs:
             if gh workflow run $_WORKFLOW_NAME --repo $_CLIENT_REPO --ref "$_BRANCH_NAME" \
                 -f sdk_version="$SDK_VERSION" \
                 -f source_repo="$SOURCE_REPO" \
-                -f artifacts_run_id="$ARTIFACTS_RUN_ID" \
-                -f artifact_name="$ARTIFACT_NAME"; then
+                -f artifacts_run_id="$ARTIFACTS_RUN_ID"; then
               
               echo "✅ Successfully triggered $_CLIENT_REPO ($_CLIENT_LABEL)"
               echo "✅ **$_CLIENT_REPO**: $_WORKFLOW_NAME triggered - [Monitor Progress](https://github.com/$_CLIENT_REPO/actions)" >> $GITHUB_STEP_SUMMARY
