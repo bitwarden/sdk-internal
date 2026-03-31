@@ -10,7 +10,7 @@ use zip::{ZipWriter, write::SimpleFileOptions};
 
 use crate::SendFileView;
 
-/// A single file entry within a send folder.
+/// A single file entry within a multi-file send.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -19,14 +19,14 @@ use crate::SendFileView;
     derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
-pub struct MakeSendFolderEntry {
-    /// Relative path of the file within the folder, using forward slashes.
+pub struct MakeSendMultiFileEntry {
+    /// Relative path of the file within the archive, using forward slashes.
     pub path: String,
     /// Raw file bytes.
     pub contents: Vec<u8>,
 }
 
-/// Request to create a zipped send folder.
+/// Request to create a zipped multi-file send.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -35,14 +35,14 @@ pub struct MakeSendFolderEntry {
     derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
-pub struct MakeSendFolderRequest {
-    /// Name of the folder (used as the zip file name).
-    pub folder_name: String,
+pub struct MakeSendMultiFileRequest {
+    /// Name of the archive (used as the zip file name).
+    pub archive_name: String,
     /// Files to include in the zip.
-    pub files: Vec<MakeSendFolderEntry>,
+    pub files: Vec<MakeSendMultiFileEntry>,
 }
 
-/// Result of creating a zipped send folder.
+/// Result of creating a zipped multi-file send.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -51,20 +51,20 @@ pub struct MakeSendFolderRequest {
     derive(tsify::Tsify),
     tsify(into_wasm_abi, from_wasm_abi)
 )]
-pub struct MakeSendFolderResult {
+pub struct MakeSendMultiFileResult {
     /// Metadata for the resulting zip file, suitable for creating a file Send.
     pub file: SendFileView,
     /// Raw zip bytes.
     pub contents: Vec<u8>,
 }
 
-/// Errors that can occur when creating a send folder.
+/// Errors that can occur when creating a multi-file send.
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
-pub enum MakeSendFolderError {
-    #[error("Folder must contain at least one file")]
-    EmptyFolder,
+pub enum MakeSendMultiFileError {
+    #[error("Must contain at least one file")]
+    EmptyFileList,
     #[error("File at index {0} has an empty path")]
     EmptyPath(usize),
     #[error("File at index {0} has an invalid path (absolute or contains '..')")]
@@ -77,34 +77,34 @@ pub enum MakeSendFolderError {
 
 /// A single file entry referencing a file on disk.
 #[derive(Debug)]
-pub struct MakeSendFolderFileEntry {
+pub struct MakeSendMultiFilePathEntry {
     /// Relative path of the file within the zip archive, using forward slashes.
     pub path: String,
     /// Filesystem path to the source file.
     pub source: PathBuf,
 }
 
-/// Request to create a zipped send folder from files on disk.
+/// Request to create a zipped multi-file send from files on disk.
 #[derive(Debug)]
-pub struct MakeSendFolderFileRequest {
-    /// Name of the folder (used as the zip file name).
-    pub folder_name: String,
+pub struct MakeSendMultiFilePathRequest {
+    /// Name of the archive (used as the zip file name).
+    pub archive_name: String,
     /// Files to include in the zip, referenced by filesystem path.
-    pub files: Vec<MakeSendFolderFileEntry>,
+    pub files: Vec<MakeSendMultiFilePathEntry>,
     /// Destination filesystem path to write the zip file to.
     pub destination: PathBuf,
 }
 
-/// Result of creating a zipped send folder on disk.
+/// Result of creating a zipped multi-file send on disk.
 #[derive(Debug)]
-pub struct MakeSendFolderFileResult {
+pub struct MakeSendMultiFilePathResult {
     /// Metadata for the resulting zip file, suitable for creating a file Send.
     pub file: SendFileView,
 }
 
-pub(crate) fn make_send_folder(
-    request: MakeSendFolderRequest,
-) -> Result<MakeSendFolderResult, MakeSendFolderError> {
+pub(crate) fn make_send_multi_file(
+    request: MakeSendMultiFileRequest,
+) -> Result<MakeSendMultiFileResult, MakeSendMultiFileError> {
     let paths: Vec<_> = request.files.iter().map(|e| e.path.clone()).collect();
     validate_paths(&paths)?;
 
@@ -120,10 +120,10 @@ pub(crate) fn make_send_folder(
     let cursor = zip.finish()?;
     let zip_bytes = cursor.into_inner();
 
-    let file_name = format!("{}.zip", request.folder_name);
+    let file_name = format!("{}.zip", request.archive_name);
     let size = zip_bytes.len();
 
-    Ok(MakeSendFolderResult {
+    Ok(MakeSendMultiFileResult {
         file: SendFileView {
             id: None,
             file_name,
@@ -134,9 +134,9 @@ pub(crate) fn make_send_folder(
     })
 }
 
-pub(crate) fn make_send_folder_file(
-    request: MakeSendFolderFileRequest,
-) -> Result<MakeSendFolderFileResult, MakeSendFolderError> {
+pub(crate) fn make_send_multi_file_path(
+    request: MakeSendMultiFilePathRequest,
+) -> Result<MakeSendMultiFilePathResult, MakeSendMultiFileError> {
     let paths: Vec<_> = request.files.iter().map(|e| e.path.clone()).collect();
     validate_paths(&paths)?;
 
@@ -154,9 +154,9 @@ pub(crate) fn make_send_folder_file(
 
     let metadata = std::fs::metadata(&request.destination)?;
     let size = metadata.len() as usize;
-    let file_name = format!("{}.zip", request.folder_name);
+    let file_name = format!("{}.zip", request.archive_name);
 
-    Ok(MakeSendFolderFileResult {
+    Ok(MakeSendMultiFilePathResult {
         file: SendFileView {
             id: None,
             file_name,
@@ -167,17 +167,17 @@ pub(crate) fn make_send_folder_file(
 }
 
 /// Validate that the list of zip entry paths is non-empty and each path is relative and safe.
-fn validate_paths(paths: &[String]) -> Result<(), MakeSendFolderError> {
+fn validate_paths(paths: &[String]) -> Result<(), MakeSendMultiFileError> {
     if paths.is_empty() {
-        return Err(MakeSendFolderError::EmptyFolder);
+        return Err(MakeSendMultiFileError::EmptyFileList);
     }
 
     for (i, path) in paths.iter().enumerate() {
         if path.is_empty() {
-            return Err(MakeSendFolderError::EmptyPath(i));
+            return Err(MakeSendMultiFileError::EmptyPath(i));
         }
         if path.starts_with('/') || path.starts_with('\\') || path.contains("..") {
-            return Err(MakeSendFolderError::InvalidPath(i));
+            return Err(MakeSendMultiFileError::InvalidPath(i));
         }
     }
 
@@ -222,22 +222,22 @@ mod tests {
     }
 
     #[test]
-    fn test_make_send_folder() {
-        let request = MakeSendFolderRequest {
-            folder_name: "test-folder".to_string(),
+    fn test_make_send_multi_file() {
+        let request = MakeSendMultiFileRequest {
+            archive_name: "test-folder".to_string(),
             files: vec![
-                MakeSendFolderEntry {
+                MakeSendMultiFileEntry {
                     path: "hello.txt".to_string(),
                     contents: b"Hello, world!".to_vec(),
                 },
-                MakeSendFolderEntry {
+                MakeSendMultiFileEntry {
                     path: "sub/nested.txt".to_string(),
                     contents: b"Nested file".to_vec(),
                 },
             ],
         };
 
-        let result = make_send_folder(request).expect("should succeed");
+        let result = make_send_multi_file(request).expect("should succeed");
         assert_eq!(result.file.file_name, "test-folder.zip");
         assert!(result.file.id.is_none());
         assert!(result.file.size.is_some());
@@ -265,70 +265,70 @@ mod tests {
     }
 
     #[test]
-    fn test_make_send_folder_empty_folder() {
-        let request = MakeSendFolderRequest {
-            folder_name: "empty".to_string(),
+    fn test_make_send_multi_file_empty_file_list() {
+        let request = MakeSendMultiFileRequest {
+            archive_name: "empty".to_string(),
             files: vec![],
         };
-        let err = make_send_folder(request).unwrap_err();
-        assert!(matches!(err, MakeSendFolderError::EmptyFolder));
+        let err = make_send_multi_file(request).unwrap_err();
+        assert!(matches!(err, MakeSendMultiFileError::EmptyFileList));
     }
 
     #[test]
-    fn test_make_send_folder_empty_path() {
-        let request = MakeSendFolderRequest {
-            folder_name: "test".to_string(),
-            files: vec![MakeSendFolderEntry {
+    fn test_make_send_multi_file_empty_path() {
+        let request = MakeSendMultiFileRequest {
+            archive_name: "test".to_string(),
+            files: vec![MakeSendMultiFileEntry {
                 path: "".to_string(),
                 contents: b"data".to_vec(),
             }],
         };
-        let err = make_send_folder(request).unwrap_err();
-        assert!(matches!(err, MakeSendFolderError::EmptyPath(0)));
+        let err = make_send_multi_file(request).unwrap_err();
+        assert!(matches!(err, MakeSendMultiFileError::EmptyPath(0)));
     }
 
     #[test]
-    fn test_make_send_folder_absolute_path() {
-        let request = MakeSendFolderRequest {
-            folder_name: "test".to_string(),
-            files: vec![MakeSendFolderEntry {
+    fn test_make_send_multi_file_absolute_path() {
+        let request = MakeSendMultiFileRequest {
+            archive_name: "test".to_string(),
+            files: vec![MakeSendMultiFileEntry {
                 path: "/etc/passwd".to_string(),
                 contents: b"data".to_vec(),
             }],
         };
-        let err = make_send_folder(request).unwrap_err();
-        assert!(matches!(err, MakeSendFolderError::InvalidPath(0)));
+        let err = make_send_multi_file(request).unwrap_err();
+        assert!(matches!(err, MakeSendMultiFileError::InvalidPath(0)));
     }
 
     #[test]
-    fn test_make_send_folder_relative_path() {
-        let request = MakeSendFolderRequest {
-            folder_name: "test".to_string(),
-            files: vec![MakeSendFolderEntry {
+    fn test_make_send_multi_file_relative_path() {
+        let request = MakeSendMultiFileRequest {
+            archive_name: "test".to_string(),
+            files: vec![MakeSendMultiFileEntry {
                 path: "../secret.txt".to_string(),
                 contents: b"data".to_vec(),
             }],
         };
-        let err = make_send_folder(request).unwrap_err();
-        assert!(matches!(err, MakeSendFolderError::InvalidPath(0)));
+        let err = make_send_multi_file(request).unwrap_err();
+        assert!(matches!(err, MakeSendMultiFileError::InvalidPath(0)));
     }
 
     #[test]
-    fn test_make_send_folder_size_metadata() {
-        let request = MakeSendFolderRequest {
-            folder_name: "sized".to_string(),
+    fn test_make_send_multi_file_size_metadata() {
+        let request = MakeSendMultiFileRequest {
+            archive_name: "sized".to_string(),
             files: vec![
-                MakeSendFolderEntry {
+                MakeSendMultiFileEntry {
                     path: "file.bin".to_string(),
                     contents: vec![0u8; 1024],
                 },
-                MakeSendFolderEntry {
+                MakeSendMultiFileEntry {
                     path: "other.bin".to_string(),
                     contents: vec![0u8; 546],
                 },
             ],
         };
-        let result = make_send_folder(request).expect("should succeed");
+        let result = make_send_multi_file(request).expect("should succeed");
         let size: usize = result
             .file
             .size
@@ -353,7 +353,7 @@ mod tests {
     }
 
     #[test]
-    fn test_make_send_folder_file() {
+    fn test_make_send_multi_file_path() {
         let tmp = TempDir::new();
 
         // Create source files
@@ -364,14 +364,14 @@ mod tests {
 
         let dest = tmp.path().join("output.zip");
 
-        let request = MakeSendFolderFileRequest {
-            folder_name: "test-folder".to_string(),
+        let request = MakeSendMultiFilePathRequest {
+            archive_name: "test-folder".to_string(),
             files: vec![
-                MakeSendFolderFileEntry {
+                MakeSendMultiFilePathEntry {
                     path: "hello.txt".to_string(),
                     source: src_a,
                 },
-                MakeSendFolderFileEntry {
+                MakeSendMultiFilePathEntry {
                     path: "sub/nested.txt".to_string(),
                     source: src_b,
                 },
@@ -379,7 +379,7 @@ mod tests {
             destination: dest.clone(),
         };
 
-        let result = make_send_folder_file(request).expect("should succeed");
+        let result = make_send_multi_file_path(request).expect("should succeed");
         assert_eq!(result.file.file_name, "test-folder.zip");
         assert!(result.file.id.is_none());
         assert!(result.file.size.is_some());
@@ -408,70 +408,70 @@ mod tests {
     }
 
     #[test]
-    fn test_make_send_folder_file_empty_folder() {
+    fn test_make_send_multi_file_path_empty_file_list() {
         let tmp = TempDir::new();
-        let request = MakeSendFolderFileRequest {
-            folder_name: "empty".to_string(),
+        let request = MakeSendMultiFilePathRequest {
+            archive_name: "empty".to_string(),
             files: vec![],
             destination: tmp.path().join("out.zip"),
         };
-        let err = make_send_folder_file(request).unwrap_err();
-        assert!(matches!(err, MakeSendFolderError::EmptyFolder));
+        let err = make_send_multi_file_path(request).unwrap_err();
+        assert!(matches!(err, MakeSendMultiFileError::EmptyFileList));
     }
 
     #[test]
-    fn test_make_send_folder_file_empty_path() {
+    fn test_make_send_multi_file_path_empty_path() {
         let tmp = TempDir::new();
         let src = tmp.path().join("a.txt");
         std::fs::write(&src, b"data").unwrap();
 
-        let request = MakeSendFolderFileRequest {
-            folder_name: "test".to_string(),
-            files: vec![MakeSendFolderFileEntry {
+        let request = MakeSendMultiFilePathRequest {
+            archive_name: "test".to_string(),
+            files: vec![MakeSendMultiFilePathEntry {
                 path: "".to_string(),
                 source: src,
             }],
             destination: tmp.path().join("out.zip"),
         };
-        let err = make_send_folder_file(request).unwrap_err();
-        assert!(matches!(err, MakeSendFolderError::EmptyPath(0)));
+        let err = make_send_multi_file_path(request).unwrap_err();
+        assert!(matches!(err, MakeSendMultiFileError::EmptyPath(0)));
     }
 
     #[test]
-    fn test_make_send_folder_file_invalid_path() {
+    fn test_make_send_multi_file_path_invalid_path() {
         let tmp = TempDir::new();
         let src = tmp.path().join("a.txt");
         std::fs::write(&src, b"data").unwrap();
 
-        let request = MakeSendFolderFileRequest {
-            folder_name: "test".to_string(),
-            files: vec![MakeSendFolderFileEntry {
+        let request = MakeSendMultiFilePathRequest {
+            archive_name: "test".to_string(),
+            files: vec![MakeSendMultiFilePathEntry {
                 path: "/etc/passwd".to_string(),
                 source: src,
             }],
             destination: tmp.path().join("out.zip"),
         };
-        let err = make_send_folder_file(request).unwrap_err();
-        assert!(matches!(err, MakeSendFolderError::InvalidPath(0)));
+        let err = make_send_multi_file_path(request).unwrap_err();
+        assert!(matches!(err, MakeSendMultiFileError::InvalidPath(0)));
     }
 
     #[test]
-    fn test_make_send_folder_file_missing_source() {
+    fn test_make_send_multi_file_path_missing_source() {
         let tmp = TempDir::new();
-        let request = MakeSendFolderFileRequest {
-            folder_name: "test".to_string(),
-            files: vec![MakeSendFolderFileEntry {
+        let request = MakeSendMultiFilePathRequest {
+            archive_name: "test".to_string(),
+            files: vec![MakeSendMultiFilePathEntry {
                 path: "hello.txt".to_string(),
                 source: tmp.path().join("nonexistent.txt"),
             }],
             destination: tmp.path().join("out.zip"),
         };
-        let err = make_send_folder_file(request).unwrap_err();
-        assert!(matches!(err, MakeSendFolderError::Io(_)));
+        let err = make_send_multi_file_path(request).unwrap_err();
+        assert!(matches!(err, MakeSendMultiFileError::Io(_)));
     }
 
     #[test]
-    fn test_make_send_folder_file_size_metadata() {
+    fn test_make_send_multi_file_path_size_metadata() {
         let tmp = TempDir::new();
 
         let src_a = tmp.path().join("file.bin");
@@ -481,14 +481,14 @@ mod tests {
 
         let dest = tmp.path().join("out.zip");
 
-        let request = MakeSendFolderFileRequest {
-            folder_name: "sized".to_string(),
+        let request = MakeSendMultiFilePathRequest {
+            archive_name: "sized".to_string(),
             files: vec![
-                MakeSendFolderFileEntry {
+                MakeSendMultiFilePathEntry {
                     path: "file.bin".to_string(),
                     source: src_a,
                 },
-                MakeSendFolderFileEntry {
+                MakeSendMultiFilePathEntry {
                     path: "other.bin".to_string(),
                     source: src_b,
                 },
@@ -496,7 +496,7 @@ mod tests {
             destination: dest.clone(),
         };
 
-        let result = make_send_folder_file(request).expect("should succeed");
+        let result = make_send_multi_file_path(request).expect("should succeed");
         let size: usize = result
             .file
             .size

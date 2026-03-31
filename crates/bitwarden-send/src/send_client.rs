@@ -9,8 +9,8 @@ use thiserror::Error;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    MakeSendFolderError, MakeSendFolderFileRequest, MakeSendFolderFileResult,
-    MakeSendFolderRequest, MakeSendFolderResult, Send, SendListView, SendView,
+    MakeSendMultiFileError, MakeSendMultiFilePathRequest, MakeSendMultiFilePathResult,
+    MakeSendMultiFileRequest, MakeSendMultiFileResult, Send, SendListView, SendView,
 };
 
 /// Generic error type for send encryption errors.
@@ -63,11 +63,11 @@ pub struct SendClient {
 impl SendClient {
     /// Zip the provided files into a single archive and return the zip bytes along with
     /// [`SendFileView`](crate::SendFileView) metadata suitable for creating a file Send.
-    pub fn make_send_folder(
+    pub fn make_send_multi_file(
         &self,
-        request: MakeSendFolderRequest,
-    ) -> Result<MakeSendFolderResult, MakeSendFolderError> {
-        crate::folder::make_send_folder(request)
+        request: MakeSendMultiFileRequest,
+    ) -> Result<MakeSendMultiFileResult, MakeSendMultiFileError> {
+        crate::multi_file::make_send_multi_file(request)
     }
 }
 
@@ -152,11 +152,11 @@ impl SendClient {
     }
 
     /// Zip files from disk into a single archive and write it to the destination path.
-    pub fn make_send_folder_file(
+    pub fn make_send_multi_file_path(
         &self,
-        request: MakeSendFolderFileRequest,
-    ) -> Result<MakeSendFolderFileResult, MakeSendFolderError> {
-        crate::folder::make_send_folder_file(request)
+        request: MakeSendMultiFilePathRequest,
+    ) -> Result<MakeSendMultiFilePathResult, MakeSendMultiFileError> {
+        crate::multi_file::make_send_multi_file_path(request)
     }
 }
 

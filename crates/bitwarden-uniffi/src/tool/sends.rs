@@ -4,18 +4,18 @@ use bitwarden_send::{Send, SendFileView, SendListView, SendView};
 
 use crate::Result;
 
-/// A single file entry for the file-based send folder builder.
+/// A single file entry for the file-based multi-file send builder.
 #[derive(uniffi::Record)]
-pub struct MakeSendFolderFileUniFFIEntry {
+pub struct MakeSendMultiFilePathUniFFIEntry {
     /// Relative path of the file within the zip archive, using forward slashes.
     pub path: String,
     /// Filesystem path to the source file.
     pub source: String,
 }
 
-/// Result of creating a zipped send folder on disk.
+/// Result of creating a zipped multi-file send on disk.
 #[derive(uniffi::Record)]
-pub struct MakeSendFolderFileUniFFIResult {
+pub struct MakeSendMultiFilePathUniFFIResult {
     /// Metadata for the resulting zip file, suitable for creating a file Send.
     pub file: SendFileView,
 }
@@ -79,25 +79,25 @@ impl SendClient {
     }
 
     /// Zip files from disk into a single archive and write it to the destination path.
-    pub fn make_send_folder_file(
+    pub fn make_send_multi_file_path(
         &self,
-        folder_name: String,
-        files: Vec<MakeSendFolderFileUniFFIEntry>,
+        archive_name: String,
+        files: Vec<MakeSendMultiFilePathUniFFIEntry>,
         destination: String,
-    ) -> Result<MakeSendFolderFileUniFFIResult> {
-        let result = self
-            .0
-            .make_send_folder_file(bitwarden_send::MakeSendFolderFileRequest {
-                folder_name,
-                files: files
-                    .into_iter()
-                    .map(|f| bitwarden_send::MakeSendFolderFileEntry {
-                        path: f.path,
-                        source: PathBuf::from(f.source),
-                    })
-                    .collect(),
-                destination: PathBuf::from(destination),
-            })?;
-        Ok(MakeSendFolderFileUniFFIResult { file: result.file })
+    ) -> Result<MakeSendMultiFilePathUniFFIResult> {
+        let result =
+            self.0
+                .make_send_multi_file_path(bitwarden_send::MakeSendMultiFilePathRequest {
+                    archive_name,
+                    files: files
+                        .into_iter()
+                        .map(|f| bitwarden_send::MakeSendMultiFilePathEntry {
+                            path: f.path,
+                            source: PathBuf::from(f.source),
+                        })
+                        .collect(),
+                    destination: PathBuf::from(destination),
+                })?;
+        Ok(MakeSendMultiFilePathUniFFIResult { file: result.file })
     }
 }

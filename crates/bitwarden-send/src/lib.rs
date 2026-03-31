@@ -7,10 +7,11 @@ mod uniffi_support;
 
 mod error;
 pub use error::SendParseError;
-mod folder;
-pub use folder::{
-    MakeSendFolderEntry, MakeSendFolderError, MakeSendFolderFileEntry, MakeSendFolderFileRequest,
-    MakeSendFolderFileResult, MakeSendFolderRequest, MakeSendFolderResult,
+mod multi_file;
+pub use multi_file::{
+    MakeSendMultiFileEntry, MakeSendMultiFileError, MakeSendMultiFilePathEntry,
+    MakeSendMultiFilePathRequest, MakeSendMultiFilePathResult, MakeSendMultiFileRequest,
+    MakeSendMultiFileResult,
 };
 mod send_client;
 pub use send_client::{
