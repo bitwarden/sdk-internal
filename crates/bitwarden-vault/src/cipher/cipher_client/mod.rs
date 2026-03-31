@@ -185,11 +185,20 @@ impl CiphersClient {
     /// Returns both successfully decrypted ciphers and any that failed to decrypt
     pub fn decrypt_list_with_failures(&self, ciphers: Vec<Cipher>) -> DecryptCipherListResult {
         let key_store = self.client.internal.get_key_store();
-        let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
-
-        DecryptCipherListResult {
-            successes,
-            failures: failures.into_iter().cloned().collect(),
+        if self.is_strict_decrypt() {
+            let strict: Vec<StrictDecrypt<Cipher>> =
+                ciphers.into_iter().map(StrictDecrypt).collect();
+            let (successes, failures) = key_store.decrypt_list_with_failures(&strict);
+            DecryptCipherListResult {
+                successes,
+                failures: failures.into_iter().map(|f| f.0.clone()).collect(),
+            }
+        } else {
+            let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
+            DecryptCipherListResult {
+                successes,
+                failures: failures.into_iter().cloned().collect(),
+            }
         }
     }
 
@@ -198,6 +207,15 @@ impl CiphersClient {
     #[cfg(feature = "wasm")]
     pub fn decrypt_list_full_with_failures(&self, ciphers: Vec<Cipher>) -> DecryptCipherResult {
         let key_store = self.client.internal.get_key_store();
+        if self.is_strict_decrypt() {
+            let strict: Vec<StrictDecrypt<Cipher>> =
+                ciphers.into_iter().map(StrictDecrypt).collect();
+            let (successes, failures) = key_store.decrypt_list_with_failures(&strict);
+            return DecryptCipherResult {
+                successes,
+                failures: failures.into_iter().map(|f| f.0.clone()).collect(),
+            };
+        }
         let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
 
         DecryptCipherResult {
