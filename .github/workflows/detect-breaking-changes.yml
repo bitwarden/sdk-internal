@@ -47,10 +47,6 @@ on:
         description: "The branch to target on the client repo"
         type: string
         default: "main"
-      artifact_name:
-        description: "Artifact name to pass to client workflow"
-        type: string
-        default: "sdk-internal"
 
 permissions:
   contents: read
@@ -107,7 +103,7 @@ jobs:
           echo "sdk_version=$SDK_VERSION" >> $GITHUB_OUTPUT
           echo "source_repo=$GITHUB_REPOSITORY" >> $GITHUB_OUTPUT
           echo "artifacts_run_id=$SOURCE_RUN_ID" >> $GITHUB_OUTPUT
-          echo "artifact_name=${{ inputs.artifact_name }}" >> $GITHUB_OUTPUT
+          echo "artifact_name=sdk-internal" >> $GITHUB_OUTPUT
 
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
