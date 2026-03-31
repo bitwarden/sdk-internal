@@ -174,7 +174,7 @@ impl CiphersClient {
         let key_store = self.client.internal.get_key_store();
         if self.is_strict_decrypt() {
             let strict: Vec<StrictDecrypt<Cipher>> =
-                ciphers.iter().cloned().map(StrictDecrypt).collect();
+                ciphers.into_iter().map(StrictDecrypt).collect();
             Ok(key_store.decrypt_list(&strict)?)
         } else {
             Ok(key_store.decrypt_list(&ciphers)?)
