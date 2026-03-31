@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::ToTokens;
-use syn::{Attribute, ImplItem, ItemImpl, meta::ParseNestedMeta, parse2};
+use syn::{Attribute, ImplItem, ItemImpl, parse2};
 
 /// Processes an impl block, transforming methods marked with `#[wasm_only]`.
 ///
@@ -33,8 +33,11 @@ pub(crate) fn wasm_export(item: TokenStream) -> TokenStream {
             continue;
         };
 
-        // Extract optional note from #[wasm_only("custom note")] before removing
-        let custom_note = extract_wasm_only_note(&method.attrs[idx]);
+        // Extract optional note from #[wasm_only(note = "custom note")] before removing
+        let custom_note = match extract_wasm_only_note(&method.attrs[idx]) {
+            Ok(note) => note,
+            Err(err) => return err.to_compile_error(),
+        };
 
         // Remove the #[wasm_only] marker attribute
         method.attrs.remove(idx);
@@ -74,17 +77,23 @@ pub(crate) fn wasm_export(item: TokenStream) -> TokenStream {
 }
 
 /// Extracts the optional note from `#[wasm_only(note = "custom note")]`.
-/// Returns `None` for plain `#[wasm_only]`.
-fn extract_wasm_only_note(attr: &Attribute) -> Option<String> {
+/// Returns `None` for plain `#[wasm_only]`, or `Err` for unknown attributes.
+fn extract_wasm_only_note(attr: &Attribute) -> Result<Option<String>, syn::Error> {
+    // Plain #[wasm_only] with no arguments
+    if attr.meta.require_path_only().is_ok() {
+        return Ok(None);
+    }
+
     let mut note = None;
-    let parser = |meta: ParseNestedMeta| {
+    attr.parse_nested_meta(|meta| {
         if meta.path.is_ident("note") {
             note = Some(meta.value()?.parse::<syn::LitStr>()?.value());
+            Ok(())
+        } else {
+            Err(meta.error("unknown attribute, expected `note`"))
         }
-        Ok(())
-    };
-    let _ = attr.parse_nested_meta(parser);
-    note
+    })?;
+    Ok(note)
 }
 
 fn has_wasm_bindgen_js_name(attrs: &[Attribute]) -> bool {
