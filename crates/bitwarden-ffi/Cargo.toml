@@ -1,0 +1,21 @@
+[package]
+name = "bitwarden-ffi"
+description = """
+Internal crate for the bitwarden crate. Do not use.
+"""
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+
+[dependencies]
+bitwarden-ffi-macro = { workspace = true }
+
+[lints]
+workspace = true
