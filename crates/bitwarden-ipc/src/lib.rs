@@ -13,8 +13,10 @@ mod traits;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
+pub use endpoint::{Endpoint, HostId, Source};
 pub use ipc_client::{
     IpcClient, IpcClientSubscription, IpcClientTypedSubscription, ReceiveError, RequestError,
     SubscribeError, TypedReceiveError,
 };
+pub use message::{IncomingMessage, OutgoingMessage};
 pub use rpc::exec::handler::RpcHandler;
