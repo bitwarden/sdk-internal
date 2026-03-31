@@ -188,7 +188,7 @@ impl<L: UserLockManagement> Leader<L> {
                 let self_lock_state = self.lock_system.get_user_lock_state(user_id).await;
 
                 match (lock_state, self_lock_state.clone()) {
-                    (LockState::Unlocked { user_key }, LockState::Locked { .. }) => {
+                    (LockState::Unlocked { user_key }, LockState::Locked) => {
                         self.lock_system
                             .unlock_user(user_id, user_key.clone())
                             .await
@@ -217,6 +217,14 @@ impl<L: UserLockManagement> Leader<L> {
 
                 let response = LeaderMessage::HeartBeat { user_id };
                 self.send_message(response, endpoint.clone()).await;
+                let lock_state = self.lock_system.get_user_lock_state(user_id).await;
+                // Ensure that if somehow the lockstate is desynced, it syncs again
+                let authoritative_lockstate_update = LeaderMessage::LockStateUpdate {
+                    user_id,
+                    lock_state,
+                };
+                self.send_message(authoritative_lockstate_update, endpoint.clone())
+                    .await;
                 Ok(())
             }
         }

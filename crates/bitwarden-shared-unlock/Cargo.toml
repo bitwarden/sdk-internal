@@ -16,11 +16,9 @@ keywords.workspace = true
 wasm = [
     "dep:bitwarden-encoding",
     "bitwarden-threading/wasm",
-    "dep:tokio",
     "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
-    "dep:wasmtimer",
     "bitwarden-ipc/wasm",
 ]
 
@@ -34,17 +32,16 @@ bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true, optional = true }
 bitwarden-error = { workspace = true }
 bitwarden-ipc = { workspace = true }
-bitwarden-threading = { workspace = true, optional = true }
+bitwarden-threading = { workspace = true }
 ciborium = "0.2.2"
 serde = { workspace = true }
 serde_bytes.workspace = true
 thiserror = { workspace = true }
-tokio = { workspace = true, optional = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
 tsify = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
-wasmtimer = { version = "0.4.3", optional = true }
 
 [dev-dependencies]
 bitwarden-ipc = { workspace = true, features = ["test-support"] }

@@ -121,7 +121,7 @@ impl<L: UserLockManagement + Send + Sync + 'static, D: LeaderDiscovery + Send + 
                         tracing::debug!("Shared unlock follower timer cancelled");
                         break;
                     }
-                    _ = wasmtimer::tokio::sleep(crate::HEARTBEAT_INTERVAL) => {
+                    _ = bitwarden_threading::time::sleep(crate::HEARTBEAT_INTERVAL) => {
                         if let Err(error) = follower.handle_device_event(DeviceEvent::Timer).await {
                             tracing::error!(?error, "Failed to handle shared unlock follower timer event");
                         }

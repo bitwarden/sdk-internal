@@ -81,6 +81,7 @@
 //!     │──HeartBeat(user)───────────────▶│  Every N seconds
 //!     │                                 │  Leader updates last-seen timestamp
 //!     │◀─HeartBeat(user)────────────────│  Leader echoes back
+//!     |◀─LockStateUpdate---------───────│  Leader always sends an authoritative state update to prevent desyncs
 //!     │──suppresses vault timeout──     │
 //!     │                                 │
 //! ```
@@ -88,6 +89,21 @@
 //! The follower sends a `HeartBeat` for each logged-in user every [`HEARTBEAT_INTERVAL`]
 //! On receiving the echo, the follower suppresses its vault timeout timer,
 //! keeping the vault unlocked as long as the session is active. Stale sessions are pruned.
+//!
+//! ## Security Definitions
+//!
+//! Attacker Model:
+//! - Attacker gains user-space access to the device while the vault has been locked (steals the
+//!   device)
+//! Security Goal:
+//! - Attacker cannot gain access to the vault key material
+//!
+//! This security definition is aimed at stolen or seized devices. Forensics should not uncover
+//! (passively) recorded or otherwise left behind key material. The IPC encryption prevents such a
+//! compromise.
+//!
+//! There is no further protection provided against active attackers running in userspace while the
+//! vault is unlocked on any of the clients on the device.
 
 use bitwarden_core::UserId;
 use serde::{Deserialize, Serialize};
@@ -108,8 +124,8 @@ pub const HEARTBEAT_INTERVAL: std::time::Duration = std::time::Duration::from_se
 #[cfg(test)]
 mod tests;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 /// Wrapper type containing a serialized user key used for unlock propagation.
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct UserKey(ByteBuf);
 
 impl UserKey {
@@ -117,12 +133,16 @@ impl UserKey {
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }
-}
 
-impl UserKey {
     /// Creates a user key wrapper from raw key bytes.
     pub fn from_bytes(bytes: Vec<u8>) -> Self {
         Self(ByteBuf::from(bytes))
+    }
+}
+
+impl std::fmt::Debug for UserKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("UserKey").field(&"<redacted>").finish()
     }
 }
 

@@ -20,14 +20,6 @@ export interface UserLockManagement {
 }
 "#;
 
-#[wasm_bindgen(typescript_custom_section)]
-const TS_BIOMETRICS_TYPES: &'static str = r#"
-export interface BiometricsUnlock {
-    get_biometrics_status(user_id: UserId): Promise<BiometricsStatus>;
-    unlock_biometrics(user_id: UserId): Promise<boolean>;
-}
-"#;
-
 #[wasm_bindgen]
 extern "C" {
     /// JavaScript implementation of user lock-management operations used by shared unlock.
@@ -69,64 +61,6 @@ extern "C" {
         this: &RawJsUserLockManagement,
         user_id: UserId,
     ) -> Result<JsValue, JsValue>;
-
-    /// JavaScript implementation of biometrics-related unlock operations.
-    #[wasm_bindgen(js_name = BiometricsUnlock, typescript_type = "BiometricsUnlock")]
-    pub type RawJsBiometricsUnlock;
-
-    /// Returns the status of biometrics unlock for the given user.
-    #[wasm_bindgen(method, catch)]
-    async fn get_biometrics_status(
-        this: &RawJsBiometricsUnlock,
-        user_id: UserId,
-    ) -> Result<JsValue, JsValue>;
-
-    /// Triggers a biometric unlock flow for the given user.
-    #[wasm_bindgen(method, catch)]
-    async fn unlock_biometrics(
-        this: &RawJsBiometricsUnlock,
-        user_id: UserId,
-    ) -> Result<bool, JsValue>;
-}
-
-pub(super) struct JsBiometricsUnlock {
-    runner: ThreadBoundRunner<RawJsBiometricsUnlock>,
-}
-
-impl JsBiometricsUnlock {
-    pub(super) fn new(runner: ThreadBoundRunner<RawJsBiometricsUnlock>) -> Self {
-        Self { runner }
-    }
-
-    pub(super) async fn get_biometrics_status(&self, user_id: UserId) -> BiometricsStatus {
-        self.runner
-            .run_in_thread(move |driver| async move {
-                let status = driver
-                    .get_biometrics_status(user_id)
-                    .await
-                    .unwrap_or("3".into());
-                let status = status.as_f64().unwrap_or(3.0) as u8;
-                let status = match status {
-                    0 => BiometricsStatus::Available,
-                    1 => BiometricsStatus::UnlockNeeded,
-                    2 => BiometricsStatus::HardwareUnavailable,
-                    3 => BiometricsStatus::NotEnabled,
-                    _ => BiometricsStatus::NotEnabled,
-                };
-                status
-            })
-            .await
-            .unwrap_or(BiometricsStatus::NotEnabled)
-    }
-
-    pub(super) async fn unlock_biometrics(&self, user_id: UserId) -> bool {
-        self.runner
-            .run_in_thread(move |driver| async move {
-                driver.unlock_biometrics(user_id).await.unwrap_or(false)
-            })
-            .await
-            .unwrap_or(false)
-    }
 }
 
 pub(super) struct JsUserLockManagement {
