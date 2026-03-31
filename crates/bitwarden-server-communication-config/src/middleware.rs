@@ -125,22 +125,32 @@ impl Middleware for ServerCommunicationConfigMiddleware {
                 // Deduplicate concurrent acquisition attempts for the same hostname.
                 // If another task is already acquiring, wait for it rather than starting
                 // a redundant SSO flow. Mirrors clients pendingAcquisition deduplication.
-                let notify_to_wait = {
+                //
+                // We clone the Arc and call enable() while the lock is held so the
+                // Notified future is registered as a waiter before the acquirer can
+                // call notify_waiters(). Without this, a notify_waiters() call between
+                // lock release and the first poll of .notified() would be missed,
+                // causing the waiter to block forever.
+                let should_acquire = {
                     let mut in_flight = self.in_flight.lock().await;
                     if let Some(notify) = in_flight.get(&hostname) {
-                        // Another task is already acquiring -- wait for it.
-                        Some(Arc::clone(notify))
+                        // Another task is already acquiring. Clone the Arc so Notify
+                        // outlives the guard, then enable before releasing the lock.
+                        let notify = Arc::clone(notify);
+                        let notified = notify.notified();
+                        let mut notified = std::pin::pin!(notified);
+                        notified.as_mut().enable();
+                        drop(in_flight);
+                        notified.await;
+                        false
                     } else {
                         // We are the first -- register as the acquirer.
                         in_flight.insert(hostname.clone(), Arc::new(tokio::sync::Notify::new()));
-                        None
+                        true
                     }
                 };
 
-                if let Some(notify) = notify_to_wait {
-                    // Wait for the in-flight acquisition to complete.
-                    notify.notified().await;
-                } else {
+                if should_acquire {
                     // Acquire the new cookie (best-effort; log warning on failure).
                     if let Err(e) = self.provider.acquire_cookie(&hostname).await {
                         tracing::warn!(
