@@ -72,7 +72,7 @@ pub enum Source {
         tab_id: i32,
         /// Document ID (`sender.documentId`) identifying the specific document instance.
         document_id: String,
-        /// The origin of the web page (e.g., "https://vault.bitwarden.com").
+        /// The origin of the web page (e.g., `"https://vault.bitwarden.com"`).
         origin: String,
     },
     /// Browser foreground source (popup, sidebar, or extension page).

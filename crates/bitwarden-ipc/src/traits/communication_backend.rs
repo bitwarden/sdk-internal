@@ -56,7 +56,7 @@ pub trait CommunicationBackendReceiver: Send + Sync + 'static {
 pub(crate) mod noop {
     use super::*;
 
-    /// A no-op implementation of the [`CommunicationBackend`] trait.
+    /// A no-op implementation of the `CommunicationBackend` trait.
     ///
     /// Sending discards messages silently and receiving blocks forever (the future never resolves).
     /// This is useful as a default backend for platforms that do not need IPC communication.
@@ -98,7 +98,7 @@ pub(crate) mod test_support {
 
     use super::*;
 
-    /// A test implementation of the [`CommunicationBackend`] trait. Provides methods to inject
+    /// A test implementation of the `CommunicationBackend` trait. Provides methods to inject
     /// incoming messages and inspect outgoing messages.
     #[derive(Debug)]
     pub struct TestCommunicationBackend {
