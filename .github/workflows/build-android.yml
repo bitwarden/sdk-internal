@@ -155,7 +155,7 @@ jobs:
       pr_head_ref: ${{ github.event.pull_request.head.ref }}
       build_run_id: ${{ github.run_id }}
       client_repo: "bitwarden/android"
-      client_label: "Android"
+      client_label: "android"
       client_workflow: "sdk-breaking-change-check.yml"
       sdk_package_version: ${{ needs.combine.outputs.sdk-version }}
 

@@ -159,7 +159,10 @@ jobs:
       pull-requests: write
       id-token: write
     uses: ./.github/workflows/detect-breaking-changes.yml
-    secrets: inherit
+    secrets:
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
     with:
       pr_number: ${{ github.event.number }}
       pr_head_sha: ${{ github.event.pull_request.head.sha }}

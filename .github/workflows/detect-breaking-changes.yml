@@ -53,10 +53,13 @@ on:
         default: ""
     secrets:
       AZURE_SUBSCRIPTION_ID:
+        description: "Azure subscription ID for Key Vault access"
         required: true
       AZURE_TENANT_ID:
+        description: "Azure tenant ID for Key Vault access"
         required: true
       AZURE_CLIENT_ID:
+        description: "Azure client ID for Key Vault access"
         required: true
 
 permissions:
@@ -155,41 +158,65 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_RUN_ID: ${{ github.run_id }}
         run: |
-          echo "💬 Creating initial breaking change detection status comment..."
+          echo "💬 Creating/updating breaking change detection status comment..."
 
-          COMMENT_HEADER="<!-- SDK-BREAKING-CHANGE-CHECK -->"
-          TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          COMMENT_MARKER="<!-- SDK-BREAKING-CHANGE-CHECK -->"
+          ROW_MARKER="<!-- row:${_CLIENT_LABEL} -->"
+          OUR_ROW="| ${_CLIENT_LABEL} | ⏳ In progress | [View workflow](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) |"
 
-          INITIAL_COMMENT=$(cat << EOF
-          $COMMENT_HEADER
-          ## 🔍 SDK Breaking Change Detection Status
+          # Check for existing shared comment
+          EXISTING=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.body | contains(\"$COMMENT_MARKER\")) | {id, body}" | head -1)
+          EXISTING_ID=$(echo "$EXISTING" | jq -r '.id // empty')
 
-          **SDK Version:** \`$SDK_VERSION\`  
-          **Started:** $TIMESTAMP  
-          **Progress:** 🚀 Triggering client workflows and waiting for completion...
+          if [ -n "$EXISTING_ID" ]; then
+            echo "Found existing comment ID: $EXISTING_ID"
+            EXISTING_BODY=$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$EXISTING_ID" --jq '.body')
 
-          ---
-          *Results will be updated when workflow completes. [View SDK workflow](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)*
-          EOF
-          )
+            # Check if our row marker exists
+            if echo "$EXISTING_BODY" | grep -q "$ROW_MARKER"; then
+              # Update existing row using awk for reliable multiline handling
+              NEW_BODY=$(echo "$EXISTING_BODY" | awk -v marker="$ROW_MARKER" -v newrow="$ROW_MARKER\n$OUR_ROW" '
+                $0 ~ marker { found=1; print newrow; next }
+                found && /^\|/ { found=0; next }
+                found && /^<!-- row:/ { found=0 }
+                !found { print }
+              ')
+            else
+              # Append new row before the closing hr/footer
+              NEW_BODY=$(echo "$EXISTING_BODY" | awk -v marker="$ROW_MARKER" -v newrow="$ROW_MARKER\n$OUR_ROW" '
+                /^---$/ && !inserted { print marker; print newrow; inserted=1 }
+                { print }
+              ')
+            fi
 
-          # Check for existing comment from previous runs
-          EXISTING_COMMENT=$(gh api repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments | \
-            jq -r --arg header "$COMMENT_HEADER" '.[] | select(.body | contains($header)) | .id' | head -1)
-
-          if [ -n "$EXISTING_COMMENT" ]; then
-            echo "Updating existing comment ID: $EXISTING_COMMENT"
-            gh api --method PATCH repos/$GITHUB_REPOSITORY/issues/comments/$EXISTING_COMMENT \
-              --field body="$INITIAL_COMMENT"
-            echo "comment_id=$EXISTING_COMMENT" >> $GITHUB_OUTPUT
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$EXISTING_ID" \
+              --field body="$NEW_BODY"
+            echo "comment_id=$EXISTING_ID" >> $GITHUB_OUTPUT
           else
             echo "Creating new comment"
-            COMMENT_ID=$(gh api --method POST repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments \
-              --field body="$INITIAL_COMMENT" --jq '.id')
+            NEW_COMMENT=$(cat << EOF
+          ${COMMENT_MARKER}
+          ## 🔍 SDK Breaking Change Detection
+
+          **SDK Version:** \`${SDK_VERSION}\`
+
+          | Client | Status | Details |
+          |--------|--------|---------|
+          ${ROW_MARKER}
+          ${OUR_ROW}
+
+          ---
+          *Results update as workflows complete.*
+          EOF
+            )
+
+            COMMENT_ID=$(gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+              --field body="$NEW_COMMENT" --jq '.id')
             echo "comment_id=$COMMENT_ID" >> $GITHUB_OUTPUT
           fi
 
-          echo "✅ Initial comment created/updated"
+          echo "✅ Comment created/updated"
 
       - name: Trigger client workflow dispatch and watch
         id: trigger-dispatch-and-watch
@@ -330,6 +357,8 @@ jobs:
           CLIENT_STATUS: ${{ steps.trigger-dispatch-and-watch.outputs.status }}
           WORKFLOW_ID: ${{ steps.trigger-dispatch-and-watch.outputs.workflow_run_id }}
           TOTAL_TIME: ${{ steps.trigger-dispatch-and-watch.outputs.total_wait_time }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           echo "💬 Updating final breaking change detection status comment..."
 
@@ -338,47 +367,42 @@ jobs:
             exit 0
           fi
 
-          COMMENT_HEADER="<!-- SDK-BREAKING-CHANGE-CHECK -->"
-          TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          ROW_MARKER="<!-- row:${_CLIENT_LABEL} -->"
 
           # Determine status message
           case "$CLIENT_STATUS" in
             "breaking-changes-detected")
               STATUS_EMOJI="❌"
-              STATUS_MESSAGE="Breaking changes detected"
-              STATUS_DETAILS="$_CLIENT_LABEL compilation failed with new SDK version - [View Details](https://github.com/$_CLIENT_REPO/actions/runs/$WORKFLOW_ID)"
+              STATUS_TEXT="Breaking changes"
+              DETAILS="[View failure](https://github.com/$_CLIENT_REPO/actions/runs/$WORKFLOW_ID)"
               ;;
             "no-breaking-changes")
-              STATUS_EMOJI="✅"  
-              STATUS_MESSAGE="No breaking changes detected"
-              STATUS_DETAILS="$_CLIENT_LABEL compilation passed with new SDK version - [View Details](https://github.com/$_CLIENT_REPO/actions/runs/$WORKFLOW_ID)"
+              STATUS_EMOJI="✅"
+              STATUS_TEXT="Passed"
+              DETAILS="[View details](https://github.com/$_CLIENT_REPO/actions/runs/$WORKFLOW_ID)"
               ;;
             *)
               STATUS_EMOJI="⚠️"
-              STATUS_MESSAGE="Workflow execution issues"
-              STATUS_DETAILS="Check workflow logs for details"
+              STATUS_TEXT="Error"
+              DETAILS="Check workflow logs"
               ;;
           esac
 
-          FINAL_COMMENT=$(cat << EOF
-          $COMMENT_HEADER
-          ## 🔍 SDK Breaking Change Detection Results
+          OUR_ROW="| ${_CLIENT_LABEL} | ${STATUS_EMOJI} ${STATUS_TEXT} | ${DETAILS} |"
 
-          **SDK Version:** \`$SDK_VERSION\`  
-          **Completed:** $TIMESTAMP  
-          **Total Time:** ${TOTAL_TIME:-"Unknown"}s
+          # Get current comment body
+          EXISTING_BODY=$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')
 
-          | Client | Status | Details |
-          |--------|---------|------------|
-          |$_CLIENT_LABEL|$STATUS_EMOJI $STATUS_MESSAGE|$STATUS_DETAILS|
+          # Update our row using awk
+          NEW_BODY=$(echo "$EXISTING_BODY" | awk -v marker="$ROW_MARKER" -v newrow="$ROW_MARKER\n$OUR_ROW" '
+            $0 ~ marker { found=1; print newrow; next }
+            found && /^\|/ { found=0; next }
+            found && /^<!-- row:/ { found=0 }
+            !found { print }
+          ')
 
-          ---
-          *Breaking change detection completed. [View SDK workflow](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})*
-          EOF
-          )
-
-          gh api --method PATCH repos/${{ github.repository }}/issues/comments/$COMMENT_ID \
-            --field body="$FINAL_COMMENT" || {
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" \
+            --field body="$NEW_BODY" || {
             echo "::warning::Failed to update comment, but continuing"
           }
 
