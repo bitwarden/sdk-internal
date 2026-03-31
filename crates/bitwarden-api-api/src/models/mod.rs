@@ -196,6 +196,8 @@ pub mod create_client_organization_request_body;
 pub use self::create_client_organization_request_body::CreateClientOrganizationRequestBody;
 pub mod create_collection_request_model;
 pub use self::create_collection_request_model::CreateCollectionRequestModel;
+pub mod create_premium_checkout_session_request;
+pub use self::create_premium_checkout_session_request::CreatePremiumCheckoutSessionRequest;
 pub mod credential_create_options;
 pub use self::credential_create_options::CredentialCreateOptions;
 pub mod delete_attachment_response_model;
