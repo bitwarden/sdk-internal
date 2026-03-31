@@ -20,7 +20,11 @@ impl RpcHandlerRegistry {
         H: RpcHandler + ErasedRpcHandler + 'static,
     {
         let name = H::Request::NAME.to_owned();
-        self.handlers.write().await.insert(name, Box::new(handler));
+        self.register_erased(name, Box::new(handler)).await;
+    }
+
+    pub async fn register_erased(&self, name: String, handler: Box<dyn ErasedRpcHandler>) {
+        self.handlers.write().await.insert(name, handler);
     }
 
     pub async fn handle(
