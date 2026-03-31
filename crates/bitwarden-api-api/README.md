@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`5f1cdd50801effb2b283862ecd5a85deac694143`](https://github.com/bitwarden/server/commit/5f1cdd50801effb2b283862ecd5a85deac694143)
+  [`6547361e317d8b0fbf6211b4927cce9a54bc4462`](https://github.com/bitwarden/server/commit/6547361e317d8b0fbf6211b4927cce9a54bc4462)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -46,6 +46,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _AccessPoliciesApi_                       | [**put_service_account_people_access_policies**](docs/AccessPoliciesApi.md#access_policies_put_service_account_people_access_policies)                           | **PUT** /service-accounts/{id}/access-policies/people                                                    |
 | _AccountBillingVNextApi_                  | [**add_credit_via_bit_pay**](docs/AccountBillingVNextApi.md#account_billing_v_next_add_credit_via_bit_pay)                                                       | **POST** /account/billing/vnext/credit/bitpay                                                            |
 | _AccountBillingVNextApi_                  | [**create_portal_session**](docs/AccountBillingVNextApi.md#account_billing_v_next_create_portal_session)                                                         | **POST** /account/billing/vnext/portal-session                                                           |
+| _AccountBillingVNextApi_                  | [**create_premium_checkout_session**](docs/AccountBillingVNextApi.md#account_billing_v_next_create_premium_checkout_session)                                     | **POST** /account/billing/vnext/premium/checkout                                                         |
 | _AccountBillingVNextApi_                  | [**create_subscription**](docs/AccountBillingVNextApi.md#account_billing_v_next_create_subscription)                                                             | **POST** /account/billing/vnext/subscription                                                             |
 | _AccountBillingVNextApi_                  | [**get_applicable_discounts**](docs/AccountBillingVNextApi.md#account_billing_v_next_get_applicable_discounts)                                                   | **GET** /account/billing/vnext/discounts                                                                 |
 | _AccountBillingVNextApi_                  | [**get_credit**](docs/AccountBillingVNextApi.md#account_billing_v_next_get_credit)                                                                               | **GET** /account/billing/vnext/credit                                                                    |
@@ -617,6 +618,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [ConfigResponseModel](docs/ConfigResponseModel.md)
 - [CreateClientOrganizationRequestBody](docs/CreateClientOrganizationRequestBody.md)
 - [CreateCollectionRequestModel](docs/CreateCollectionRequestModel.md)
+- [CreatePremiumCheckoutSessionRequest](docs/CreatePremiumCheckoutSessionRequest.md)
 - [CredentialCreateOptions](docs/CredentialCreateOptions.md)
 - [DeleteAttachmentResponseModel](docs/DeleteAttachmentResponseModel.md)
 - [DeleteRecoverRequestModel](docs/DeleteRecoverRequestModel.md)

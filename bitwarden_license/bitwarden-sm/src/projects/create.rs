@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::ProjectCreateRequestModel;
-use bitwarden_core::{Client, OrganizationId, key_management::SymmetricKeyId};
+use bitwarden_core::{OrganizationId, key_management::SymmetricKeyId};
 use bitwarden_crypto::PrimitiveEncryptable;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -7,6 +7,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
+    SecretsManagerClient,
     error::{SecretsManagerError, validate_only_whitespaces},
     projects::ProjectResponse,
 };
@@ -22,9 +23,10 @@ pub struct ProjectCreateRequest {
 }
 
 pub(crate) async fn create_project(
-    client: &Client,
+    client: &SecretsManagerClient,
     input: &ProjectCreateRequest,
 ) -> Result<ProjectResponse, SecretsManagerError> {
+    let client = client.client();
     input.validate()?;
 
     let key_store = client.internal.get_key_store();
@@ -59,7 +61,7 @@ mod tests {
             name,
         };
 
-        super::create_project(&Client::new(None), &input).await
+        super::create_project(&SecretsManagerClient::new(None), &input).await
     }
 
     #[tokio::test]
