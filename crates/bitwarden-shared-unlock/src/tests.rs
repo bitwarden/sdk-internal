@@ -1,3 +1,6 @@
+//! Tests for the shared unlock system. These live in a separate file since many of these are beyond unit-test
+//! scope, but still don't test public APIs.
+
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
