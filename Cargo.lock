@@ -796,6 +796,8 @@ name = "bitwarden-ffi"
 version = "2.0.0"
 dependencies = [
  "bitwarden-ffi-macro",
+ "trybuild",
+ "wasm-bindgen",
 ]
 
 [[package]]

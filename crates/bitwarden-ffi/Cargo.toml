@@ -17,5 +17,9 @@ keywords.workspace = true
 [dependencies]
 bitwarden-ffi-macro = { workspace = true }
 
+[dev-dependencies]
+trybuild = "1.0.101"
+wasm-bindgen = { workspace = true }
+
 [lints]
 workspace = true
