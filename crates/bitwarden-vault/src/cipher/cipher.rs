@@ -1037,8 +1037,11 @@ impl IdentifyKey<SymmetricKeyId> for CipherListView {
 /// Generic wrapper that uses strict decryption: field decryption errors are propagated
 /// instead of silently nulling out the affected fields.
 ///
-/// This is a transitional type gated behind the `strict_cipher_decryption` feature flag.
+/// This is a transitional type gated behind the `PM-34500-strict_cipher_decryption` feature flag.
 /// It will eventually replace the default lenient [Decryptable] implementations.
+///
+/// TODO: Remove StrictDecrypt and `PM-34500-strict_cipher_decryption` feature flag
+/// after feature has fully rolled out.
 pub(crate) struct StrictDecrypt<T>(pub(crate) T);
 
 impl IdentifyKey<SymmetricKeyId> for StrictDecrypt<Cipher> {
