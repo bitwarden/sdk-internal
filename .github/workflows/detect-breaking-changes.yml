@@ -102,12 +102,13 @@ jobs:
           SDK_VERSION: ${{ steps.context.outputs.sdk_version }}
           SOURCE_RUN_ID: ${{ steps.context.outputs.source_run_id }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          SDK_PACKAGE_VERSION: ${{ inputs.sdk_package_version }}
         run: |
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
           echo "sdk_version=$SDK_VERSION" >> $GITHUB_OUTPUT
           echo "source_repo=$GITHUB_REPOSITORY" >> $GITHUB_OUTPUT
           echo "artifacts_run_id=$SOURCE_RUN_ID" >> $GITHUB_OUTPUT
-          echo "sdk_package_version=${{ inputs.sdk_package_version }}" >> $GITHUB_OUTPUT
+          echo "sdk_package_version=$SDK_PACKAGE_VERSION" >> $GITHUB_OUTPUT
 
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
