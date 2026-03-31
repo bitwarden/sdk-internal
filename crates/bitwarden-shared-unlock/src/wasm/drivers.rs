@@ -5,7 +5,7 @@ use bitwarden_threading::ThreadBoundRunner;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 use wasm_bindgen_futures::js_sys;
 
-use crate::{LeaderDiscovery, LockState, UserKey, UserLockManagement, wasm::BiometricsStatus};
+use crate::{LeaderDiscovery, LockState, UserKey, UserLockManagement};
 
 #[wasm_bindgen(typescript_custom_section)]
 const TS_CUSTOM_TYPES: &'static str = r#"
