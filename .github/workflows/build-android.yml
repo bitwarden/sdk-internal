@@ -136,6 +136,26 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  check-android-breaking-changes:
+    name: Check for Android breaking changes
+    if: github.event_name == 'pull_request'
+    needs: combine
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    uses: ./.github/workflows/detect-breaking-changes.yml
+    secrets: inherit
+    with:
+      pr_number: ${{ github.event.number }}
+      pr_head_sha: ${{ github.event.pull_request.head.sha }}
+      pr_head_ref: ${{ github.event.pull_request.head.ref }}
+      build_run_id: ${{ github.run_id }}
+      client_repo: "bitwarden/android"
+      client_label: "Android"
+      client_workflow: "sdk-breaking-change-check.yml"
+      artifact_name: "android"
+
   update:
     name: Trigger SDK update in Android repo
     runs-on: ubuntu-24.04

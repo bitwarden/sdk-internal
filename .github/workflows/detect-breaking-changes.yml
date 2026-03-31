@@ -1,4 +1,16 @@
 name: SDK Breaking Change Detection
+# Reusable workflow for detecting SDK breaking changes against client repositories.
+#
+# To add support for a new client platform:
+# 1. Add the client repository to the 'repositories' list in the app-token step
+# 2. Call this workflow from your platform's build workflow with appropriate inputs
+# 3. Create sdk-breaking-change-check.yml in the client repo that:
+#    - Accepts inputs: sdk_version, source_repo, artifacts_run_id, artifact_name
+#    - Downloads SDK artifacts using actions/download-artifact with run-id
+#    - Builds/compiles the client with the new SDK
+#    - Exits non-zero on compilation failure
+#
+# Currently supported: TypeScript (clients), Android (android)
 
 on:
   workflow_call:
@@ -35,6 +47,10 @@ on:
         description: "The branch to target on the client repo"
         type: string
         default: "main"
+      artifact_name:
+        description: "Artifact name to pass to client workflow"
+        type: string
+        default: "sdk-internal"
 
 permissions:
   contents: read
@@ -91,7 +107,7 @@ jobs:
           echo "sdk_version=$SDK_VERSION" >> $GITHUB_OUTPUT
           echo "source_repo=$GITHUB_REPOSITORY" >> $GITHUB_OUTPUT
           echo "artifacts_run_id=$SOURCE_RUN_ID" >> $GITHUB_OUTPUT
-          echo "artifact_name=sdk-internal" >> $GITHUB_OUTPUT
+          echo "artifact_name=${{ inputs.artifact_name }}" >> $GITHUB_OUTPUT
 
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
@@ -120,6 +136,7 @@ jobs:
           permissions-actions: write
           repositories: |
             clients
+            android
 
       - name: Create initial status comment
         id: initial-comment
@@ -321,12 +338,12 @@ jobs:
             "breaking-changes-detected")
               STATUS_EMOJI="❌"
               STATUS_MESSAGE="Breaking changes detected"
-              STATUS_DETAILS="TypeScript compilation failed with new SDK version - [View Details](https://github.com/$_CLIENT_REPO/actions/runs/$WORKFLOW_ID)"
+              STATUS_DETAILS="$_CLIENT_LABEL compilation failed with new SDK version - [View Details](https://github.com/$_CLIENT_REPO/actions/runs/$WORKFLOW_ID)"
               ;;
             "no-breaking-changes")
               STATUS_EMOJI="✅"  
               STATUS_MESSAGE="No breaking changes detected"
-              STATUS_DETAILS="TypeScript compilation passed with new SDK version - [View Details](https://github.com/$_CLIENT_REPO/actions/runs/$WORKFLOW_ID)"
+              STATUS_DETAILS="$_CLIENT_LABEL compilation passed with new SDK version - [View Details](https://github.com/$_CLIENT_REPO/actions/runs/$WORKFLOW_ID)"
               ;;
             *)
               STATUS_EMOJI="⚠️"
