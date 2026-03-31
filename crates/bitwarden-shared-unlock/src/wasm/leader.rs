@@ -1,22 +1,16 @@
-use std::sync::Arc;
-
-use bitwarden_ipc::IpcClientExt;
-use bitwarden_threading::{ThreadBoundRunner, cancellation_token::CancellationToken};
-use tokio::sync::Mutex;
+use bitwarden_threading::{
+    ThreadBoundRunner,
+    cancellation_token::wasm::{AbortController, AbortControllerExt},
+};
 use wasm_bindgen::prelude::wasm_bindgen;
-use wasm_bindgen_futures::spawn_local;
 
 use super::drivers::{JsUserLockManagement, RawJsUserLockManagement};
-use crate::{DeviceEvent, FollowerMessage, Leader};
+use crate::{DeviceEvent, Leader, LeaderStartError};
 
 /// Shared-unlock leader for WASM clients.
-///
-/// The leader receives follower IPC messages and coordinates lock state updates.
 #[wasm_bindgen]
 pub struct SharedUnlockLeader {
-    subscription: Arc<Mutex<bitwarden_ipc::IpcClientTypedSubscription<FollowerMessage>>>,
-    cancellation_token: CancellationToken,
-    leader: Arc<Leader<JsUserLockManagement>>,
+    leader: Leader<JsUserLockManagement>,
 }
 
 #[wasm_bindgen]
@@ -29,49 +23,20 @@ impl SharedUnlockLeader {
     ) -> Result<Self, bitwarden_ipc::SubscribeError> {
         let runner = ThreadBoundRunner::new(lock_management);
         let lock_management = JsUserLockManagement::new(runner);
-        let cancellation_token = CancellationToken::new();
-        let subscription = ipc_client.client.subscribe_typed().await?;
         let leader = Leader::create(lock_management, ipc_client.client.clone());
 
-        Ok(Self {
-            subscription: Arc::new(Mutex::new(subscription)),
-            cancellation_token,
-            leader: Arc::new(leader),
-        })
+        Ok(Self { leader })
     }
 
     /// Starts background processing for incoming follower-to-leader IPC messages.
     #[wasm_bindgen]
-    pub fn start(&self) {
-        let cancellation_token = self.cancellation_token.clone();
-        let subscription = Arc::clone(&self.subscription);
-        let leader = Arc::clone(&self.leader);
-
-        spawn_local(async move {
-            loop {
-                tokio::select! {
-                    _ = cancellation_token.cancelled() => {
-                        tracing::debug!("Shared unlock leader cancelled");
-                        break;
-                    }
-                    result = async {
-                        let mut subscription = subscription.lock().await;
-                        subscription.receive(None).await
-                    } => {
-                        match result {
-                            Ok(message) => {
-                                if let Err(error) = leader.receive_message(message).await {
-                                    tracing::error!(?error, "Failed to handle shared unlock leader message");
-                                }
-                            }
-                            Err(error) => {
-                                tracing::error!(?error, "Failed to receive shared unlock IPC message");
-                            }
-                        }
-                    }
-                }
-            }
-        });
+    pub async fn start(
+        &self,
+        abort_controller: Option<AbortController>,
+    ) -> Result<(), LeaderStartError> {
+        self.leader
+            .start(abort_controller.map(|abort| abort.to_cancellation_token()))
+            .await
     }
 
     /// Forwards a device event to the shared-unlock leader implementation
@@ -80,11 +45,5 @@ impl SharedUnlockLeader {
         if let Err(error) = self.leader.handle_device_event(event).await {
             tracing::error!(?error, "Failed to handle shared unlock leader device event");
         }
-    }
-
-    /// Stops background processing started by [`SharedUnlockLeader::start`].
-    #[wasm_bindgen]
-    pub fn stop(&self) {
-        self.cancellation_token.cancel();
     }
 }

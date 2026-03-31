@@ -4,7 +4,10 @@ use std::{
     time::Duration,
 };
 
-use bitwarden_ipc::{Endpoint, IpcClient, IpcClientExt, TypedIncomingMessage};
+use bitwarden_error::bitwarden_error;
+use bitwarden_ipc::{Endpoint, IpcClient, IpcClientExt, SubscribeError, TypedIncomingMessage};
+use bitwarden_threading::cancellation_token;
+use thiserror::Error;
 use tracing::{info, warn};
 
 use crate::{
@@ -12,6 +15,12 @@ use crate::{
 };
 
 const FOLLOWER_STALE_AFTER: Duration = Duration::from_secs(120);
+
+/// Error type for failure to start the shared unlock leader.
+#[bitwarden_error(basic)]
+#[derive(Debug, Error)]
+#[error("Could not start shared unlock leader: {0}")]
+pub struct LeaderStartError(#[from] SubscribeError);
 
 struct FollowerSession {
     last_seen_at: u64,
@@ -73,24 +82,77 @@ impl FollowerSessions {
 }
 
 /// Coordinates shared unlock state as the authoritative endpoint for followers.
-pub struct Leader<L: UserLockManagement> {
+pub struct Leader<L: UserLockManagement>(Arc<InnerLeader<L>>);
+
+impl<L: UserLockManagement> Clone for Leader<L> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+/// Inner implementation of the shared unlock leader, containing the actual state and logic. The
+/// outer `Leader` struct is a thin wrapper around an `Arc` to allow for shared ownership across
+/// async tasks.
+struct InnerLeader<L: UserLockManagement> {
     lock_system: L,
     follower_sessions: FollowerSessions,
     ipc_client: Arc<dyn IpcClient>,
 }
 
-impl<L: UserLockManagement> Leader<L> {
+impl<L: UserLockManagement + Send + Sync + 'static> Leader<L> {
     /// Creates a leader instance for the shared unlock protocol.
     pub fn create(lock_system: L, ipc_client: Arc<dyn IpcClient>) -> Self {
-        Self {
+        Self(Arc::new(InnerLeader {
             lock_system,
             follower_sessions: FollowerSessions::new(),
             ipc_client,
-        }
+        }))
+    }
+
+    /// Starts background processing for incoming follower messages.
+    pub async fn start(
+        &self,
+        cancellation_token: Option<cancellation_token::CancellationToken>,
+    ) -> Result<(), LeaderStartError> {
+        let cancellation_token =
+            cancellation_token.unwrap_or_else(cancellation_token::CancellationToken::new);
+        let mut subscription = self
+            .0
+            .ipc_client
+            .subscribe_typed::<FollowerMessage>()
+            .await?;
+        let leader = self.clone();
+
+        let future = async move {
+            loop {
+                let result = subscription.receive(Some(cancellation_token.clone())).await;
+                match result {
+                    Ok(message) => {
+                        if let Err(error) = leader.receive_message(message).await {
+                            tracing::error!(
+                                ?error,
+                                "Failed to handle shared unlock leader message"
+                            );
+                        }
+                    }
+                    Err(error) => {
+                        tracing::error!(?error, "Failed to receive shared unlock IPC message");
+                    }
+                }
+            }
+        };
+
+        #[cfg(not(target_arch = "wasm32"))]
+        tokio::spawn(future);
+
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_futures::spawn_local(future);
+
+        Ok(())
     }
 
     async fn broadcast_to_active_followers(&self, message: LeaderMessage) {
-        let endpoints = self.follower_sessions.active_endpoints();
+        let endpoints = self.0.follower_sessions.active_endpoints();
         for endpoint in endpoints {
             self.send_message(message.clone(), endpoint).await;
         }
@@ -113,7 +175,7 @@ impl<L: UserLockManagement> Leader<L> {
         // Validate the origin of web sources against the user's vault URL
         if let bitwarden_ipc::Source::Web { origin, .. } = &sender {
             let user_id = message.user_id();
-            match self.lock_system.get_vault_url(user_id).await {
+            match self.0.lock_system.get_vault_url(user_id).await {
                 Some(user_vault_url) if origin == &user_vault_url => {}
                 Some(user_vault_url) => {
                     warn!(%origin, %user_vault_url, "IPC message origin does not match user's vault URL, ignoring message");
@@ -132,15 +194,17 @@ impl<L: UserLockManagement> Leader<L> {
                 lock_state: LockState::Locked,
             } => {
                 info!(?sender, %user_id, "Received lock request from follower");
-                self.follower_sessions
+                self.0
+                    .follower_sessions
                     .upsert(endpoint.clone(), get_current_timestamp());
 
-                let self_lock_state = self.lock_system.get_user_lock_state(user_id).await;
+                let self_lock_state = self.0.lock_system.get_user_lock_state(user_id).await;
                 if self_lock_state == LockState::Locked {
                     return Ok(());
                 }
 
-                self.lock_system
+                self.0
+                    .lock_system
                     .lock_user(user_id)
                     .await
                     .inspect_err(|_| warn!(%user_id, "Failed to lock user"))?;
@@ -157,15 +221,17 @@ impl<L: UserLockManagement> Leader<L> {
                 lock_state: LockState::Unlocked { user_key },
             } => {
                 info!(?sender, %user_id, "Received unlock request from follower");
-                self.follower_sessions
+                self.0
+                    .follower_sessions
                     .upsert(endpoint.clone(), get_current_timestamp());
 
-                let self_lock_state = self.lock_system.get_user_lock_state(user_id).await;
+                let self_lock_state = self.0.lock_system.get_user_lock_state(user_id).await;
                 if let LockState::Unlocked { .. } = self_lock_state {
                     return Ok(());
                 }
 
-                self.lock_system
+                self.0
+                    .lock_system
                     .unlock_user(user_id, user_key.clone())
                     .await
                     .inspect_err(|_| warn!(%user_id, "Failed to unlock user"))?;
@@ -183,13 +249,15 @@ impl<L: UserLockManagement> Leader<L> {
             } => {
                 info!(?sender, %user_id, "Received start session from follower");
 
-                self.follower_sessions
+                self.0
+                    .follower_sessions
                     .upsert(endpoint.clone(), get_current_timestamp());
-                let self_lock_state = self.lock_system.get_user_lock_state(user_id).await;
+                let self_lock_state = self.0.lock_system.get_user_lock_state(user_id).await;
 
                 match (lock_state, self_lock_state.clone()) {
                     (LockState::Unlocked { user_key }, LockState::Locked) => {
-                        self.lock_system
+                        self.0
+                            .lock_system
                             .unlock_user(user_id, user_key.clone())
                             .await
                             .inspect_err(
@@ -212,12 +280,13 @@ impl<L: UserLockManagement> Leader<L> {
             }
             FollowerMessage::HeartBeat { user_id } => {
                 info!(?sender, %user_id, "Received heartbeat from follower");
-                self.follower_sessions
+                self.0
+                    .follower_sessions
                     .upsert(endpoint.clone(), get_current_timestamp());
 
                 let response = LeaderMessage::HeartBeat { user_id };
                 self.send_message(response, endpoint.clone()).await;
-                let lock_state = self.lock_system.get_user_lock_state(user_id).await;
+                let lock_state = self.0.lock_system.get_user_lock_state(user_id).await;
                 // Ensure that if somehow the lockstate is desynced, it syncs again
                 let authoritative_lockstate_update = LeaderMessage::LockStateUpdate {
                     user_id,
@@ -253,7 +322,8 @@ impl<L: UserLockManagement> Leader<L> {
                 self.broadcast_to_active_followers(message).await;
             }
             DeviceEvent::Timer => {
-                self.follower_sessions
+                self.0
+                    .follower_sessions
                     .prune_stale(get_current_timestamp(), FOLLOWER_STALE_AFTER);
             }
         }
@@ -262,7 +332,7 @@ impl<L: UserLockManagement> Leader<L> {
     }
 
     async fn send_message(&self, message: LeaderMessage, recipient: Endpoint) {
-        if let Err(error) = self.ipc_client.send_typed(message, recipient).await {
+        if let Err(error) = self.0.ipc_client.send_typed(message, recipient).await {
             tracing::error!(?error, "Failed to send shared unlock IPC message");
         }
     }
