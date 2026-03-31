@@ -81,7 +81,7 @@
 //!     │──HeartBeat(user)───────────────▶│  Every N seconds
 //!     │                                 │  Leader updates last-seen timestamp
 //!     │◀─HeartBeat(user)────────────────│  Leader echoes back
-//!     |◀─LockStateUpdate---------───────│  Leader always sends an authoritative state update to prevent desyncs
+//!     |◀─LockStateUpdate────────────────│  Leader always sends an authoritative state update to prevent desyncs
 //!     │──suppresses vault timeout──     │
 //!     │                                 │
 //! ```
