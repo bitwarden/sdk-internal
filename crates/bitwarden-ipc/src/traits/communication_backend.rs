@@ -121,6 +121,12 @@ pub(crate) mod test_support {
         }
     }
 
+    impl Default for TestCommunicationBackend {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     /// Receiver for [`TestCommunicationBackend`].
     #[derive(Debug)]
     pub struct TestCommunicationBackendReceiver(RwLock<Receiver<IncomingMessage>>);
