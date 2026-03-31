@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 mod constants;
+mod crypto_provider;
 mod discover;
 mod endpoint;
 mod ipc_client;

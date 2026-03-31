@@ -1,6 +1,8 @@
 use std::fmt::Debug;
 
-use super::{CommunicationBackend, CommunicationBackendReceiver, SessionRepository};
+#[cfg(any(test, not(feature = "noise")))]
+use super::CommunicationBackendReceiver;
+use super::{CommunicationBackend, SessionRepository};
 use crate::message::{IncomingMessage, OutgoingMessage};
 
 pub trait CryptoProvider<Com, Ses>: Send + Sync + 'static
@@ -27,7 +29,7 @@ where
         communication: &Com,
         sessions: &Ses,
         message: OutgoingMessage,
-    ) -> impl std::future::Future<Output = Result<(), Self::SendError>> + Send;
+    ) -> impl std::future::Future<Output = Result<(), Self::SendError>> + Send + Sync;
 
     /// Receive a message.
     ///
@@ -48,8 +50,10 @@ where
     ) -> impl std::future::Future<Output = Result<IncomingMessage, Self::ReceiveError>> + Send + Sync;
 }
 
+#[cfg(any(test, not(feature = "noise")))]
 pub struct NoEncryptionCryptoProvider;
 
+#[cfg(any(test, not(feature = "noise")))]
 impl<Com, Ses> CryptoProvider<Com, Ses> for NoEncryptionCryptoProvider
 where
     Com: CommunicationBackend,
