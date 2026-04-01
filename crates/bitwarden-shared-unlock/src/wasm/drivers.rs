@@ -174,7 +174,7 @@ impl SharedUnlockDriver for JsSharedUnlockDriver {
             }
         }
     }
-    
+
     async fn discover_leader(&self) -> Option<Endpoint> {
         self.runner
             .run_in_thread(move |driver| async move {
