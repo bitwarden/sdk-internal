@@ -184,8 +184,8 @@ jobs:
               ')
             else
               # Append new row before the closing hr/footer
-              NEW_BODY=$(echo "$EXISTING_BODY" | awk -v marker="$ROW_MARKER" -v newrow="$ROW_MARKER\n$OUR_ROW" '
-                /^---$/ && !inserted { print marker; print newrow; inserted=1 }
+              NEW_BODY=$(echo "$EXISTING_BODY" | awk -v newrow="$ROW_MARKER\n$OUR_ROW" '
+                /^---$/ && !inserted { print newrow; inserted=1 }
                 { print }
               ')
             fi
