@@ -5,7 +5,7 @@ name: SDK Breaking Change Detection
 # 1. Add the client repository to the 'repositories' list in the app-token step
 # 2. Call this workflow from your platform's build workflow with appropriate inputs
 # 3. Create sdk-breaking-change-check.yml in the client repo that:
-#    - Accepts inputs: sdk_version, source_repo, artifacts_run_id, sdk_package_version
+#    - Accepts inputs: sdk_version, source_repo, artifacts_run_id, artifact_name
 #    - Downloads SDK artifacts using actions/download-artifact with run-id
 #    - Builds/compiles the client with the new SDK
 #    - Exits non-zero on compilation failure
@@ -47,8 +47,8 @@ on:
         description: "The branch to target on the client repo"
         type: string
         default: "main"
-      sdk_package_version:
-        description: "SDK package version for clients that consume via package manager"
+      artifact_name:
+        description: "SDK artifact identifier (artifact name for npm, package version for Maven)"
         type: string
         default: ""
     secrets:
@@ -112,13 +112,13 @@ jobs:
           SDK_VERSION: ${{ steps.context.outputs.sdk_version }}
           SOURCE_RUN_ID: ${{ steps.context.outputs.source_run_id }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          SDK_PACKAGE_VERSION: ${{ inputs.sdk_package_version }}
+          ARTIFACT_NAME: ${{ inputs.artifact_name }}
         run: |
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
           echo "sdk_version=$SDK_VERSION" >> $GITHUB_OUTPUT
           echo "source_repo=$GITHUB_REPOSITORY" >> $GITHUB_OUTPUT
           echo "artifacts_run_id=$SOURCE_RUN_ID" >> $GITHUB_OUTPUT
-          echo "sdk_package_version=$SDK_PACKAGE_VERSION" >> $GITHUB_OUTPUT
+          echo "artifact_name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
 
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
@@ -227,7 +227,7 @@ jobs:
           SDK_VERSION: ${{ steps.inputs.outputs.sdk_version }}
           SOURCE_REPO: ${{ steps.inputs.outputs.source_repo }}
           ARTIFACTS_RUN_ID: ${{ steps.inputs.outputs.artifacts_run_id }}
-          SDK_PACKAGE_VERSION: ${{ steps.inputs.outputs.sdk_package_version }}
+          ARTIFACT_NAME: ${{ steps.inputs.outputs.artifact_name }}
         run: |
           echo "🚀 Triggering ${_WORKFLOW_NAME} in ${_CLIENT_REPO} via workflow_dispatch..."
 
@@ -243,7 +243,7 @@ jobs:
                 -f sdk_version="$SDK_VERSION" \
                 -f source_repo="$SOURCE_REPO" \
                 -f artifacts_run_id="$ARTIFACTS_RUN_ID" \
-                -f sdk_package_version="$SDK_PACKAGE_VERSION"; then
+                -f artifact_name="$ARTIFACT_NAME"; then
               
               echo "✅ Successfully triggered $_CLIENT_REPO ($_CLIENT_LABEL)"
               echo "✅ **$_CLIENT_REPO**: $_WORKFLOW_NAME triggered - [Monitor Progress](https://github.com/$_CLIENT_REPO/actions)" >> $GITHUB_STEP_SUMMARY
