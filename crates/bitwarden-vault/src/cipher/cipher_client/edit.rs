@@ -336,6 +336,9 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     let cipher_id = request.id;
 
     let original_cipher = repository.get(cipher_id).await?.ok_or(ItemNotFoundError)?;
+    // Preserve fields not returned by the server's PUT response.
+    let original_collection_ids = original_cipher.collection_ids.clone();
+    let original_local_data = original_cipher.local_data.clone();
     let original_cipher_view: CipherView = key_store.decrypt(&original_cipher)?;
 
     let request = CipherEditRequestInternal::new(request, &original_cipher_view);
@@ -343,12 +346,14 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     let mut cipher_request = key_store.encrypt(request)?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
-    let cipher: Cipher = api_client
+    let mut cipher: Cipher = api_client
         .ciphers_api()
         .put(cipher_id.into(), Some(cipher_request))
         .await
         .map_err(ApiError::from)?
-        .try_into()?;
+        .merge_with_cipher(Some(original_cipher))?;
+    cipher.collection_ids = original_collection_ids;
+    cipher.local_data = original_local_data;
     debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
     repository.set(cipher_id, cipher.clone()).await?;
 
@@ -610,8 +615,15 @@ mod tests {
                 .once();
         });
 
+        let collection_id: CollectionId = "a4e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
+
         let repository = MemoryRepository::<Cipher>::default();
         repository_add_cipher(&repository, &store, cipher_id, "old_name").await;
+        // Update the stored cipher to include a collection_id so we can verify it is preserved.
+        let mut stored = repository.get(cipher_id).await.unwrap().unwrap();
+        stored.collection_ids = vec![collection_id];
+        repository.set(cipher_id, stored).await.unwrap();
+
         let cipher_view = generate_test_cipher();
 
         let request = cipher_view.try_into().unwrap();
@@ -628,6 +640,8 @@ mod tests {
 
         assert_eq!(result.id, Some(cipher_id));
         assert_eq!(result.name, "Test Login");
+        // collection_ids must be preserved even though CipherResponseModel omits them.
+        assert_eq!(result.collection_ids, vec![collection_id]);
     }
 
     #[tokio::test]

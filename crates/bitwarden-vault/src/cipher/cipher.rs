@@ -1155,52 +1155,53 @@ impl From<CipherRepromptType> for bitwarden_api_api::models::CipherRepromptType 
     }
 }
 
-impl TryFrom<CipherResponseModel> for Cipher {
-    type Error = VaultParseError;
-
-    fn try_from(cipher: CipherResponseModel) -> Result<Self, Self::Error> {
-        Ok(Self {
-            id: cipher.id.map(CipherId::new),
-            organization_id: cipher.organization_id.map(OrganizationId::new),
-            folder_id: cipher.folder_id.map(FolderId::new),
-            collection_ids: vec![], // CipherResponseModel doesn't include collection_ids
-            name: require!(cipher.name).parse()?,
-            notes: EncString::try_from_optional(cipher.notes)?,
-            r#type: require!(cipher.r#type).try_into()?,
-            login: cipher.login.map(|l| (*l).try_into()).transpose()?,
-            identity: cipher.identity.map(|i| (*i).try_into()).transpose()?,
-            card: cipher.card.map(|c| (*c).try_into()).transpose()?,
-            secure_note: cipher.secure_note.map(|s| (*s).try_into()).transpose()?,
-            ssh_key: cipher.ssh_key.map(|s| (*s).try_into()).transpose()?,
-            favorite: cipher.favorite.unwrap_or(false),
-            reprompt: cipher
+impl PartialCipher for CipherResponseModel {
+    fn merge_with_cipher(self, cipher: Option<Cipher>) -> Result<Cipher, VaultParseError> {
+        Ok(Cipher {
+            collection_ids: cipher
+                .as_ref()
+                .map(|c| c.collection_ids.clone())
+                .unwrap_or_default(),
+            local_data: cipher.and_then(|c| c.local_data),
+            id: self.id.map(CipherId::new),
+            organization_id: self.organization_id.map(OrganizationId::new),
+            folder_id: self.folder_id.map(FolderId::new),
+            name: require!(self.name).parse()?,
+            notes: EncString::try_from_optional(self.notes)?,
+            r#type: require!(self.r#type).try_into()?,
+            login: self.login.map(|l| (*l).try_into()).transpose()?,
+            identity: self.identity.map(|i| (*i).try_into()).transpose()?,
+            card: self.card.map(|c| (*c).try_into()).transpose()?,
+            secure_note: self.secure_note.map(|s| (*s).try_into()).transpose()?,
+            ssh_key: self.ssh_key.map(|s| (*s).try_into()).transpose()?,
+            favorite: self.favorite.unwrap_or(false),
+            reprompt: self
                 .reprompt
                 .map(|r| r.try_into())
                 .transpose()?
                 .unwrap_or(CipherRepromptType::None),
-            organization_use_totp: cipher.organization_use_totp.unwrap_or(false),
-            edit: cipher.edit.unwrap_or(false),
-            permissions: cipher.permissions.map(|p| (*p).try_into()).transpose()?,
-            view_password: cipher.view_password.unwrap_or(true),
-            local_data: None, // Not sent from server
-            attachments: cipher
+            organization_use_totp: self.organization_use_totp.unwrap_or(false),
+            edit: self.edit.unwrap_or(false),
+            permissions: self.permissions.map(|p| (*p).try_into()).transpose()?,
+            view_password: self.view_password.unwrap_or(true),
+            attachments: self
                 .attachments
                 .map(|a| a.into_iter().map(|a| a.try_into()).collect())
                 .transpose()?,
-            fields: cipher
+            fields: self
                 .fields
                 .map(|f| f.into_iter().map(|f| f.try_into()).collect())
                 .transpose()?,
-            password_history: cipher
+            password_history: self
                 .password_history
                 .map(|p| p.into_iter().map(|p| p.try_into()).collect())
                 .transpose()?,
-            creation_date: require!(cipher.creation_date).parse()?,
-            deleted_date: cipher.deleted_date.map(|d| d.parse()).transpose()?,
-            revision_date: require!(cipher.revision_date).parse()?,
-            key: EncString::try_from_optional(cipher.key)?,
-            archived_date: cipher.archived_date.map(|d| d.parse()).transpose()?,
-            data: cipher.data,
+            creation_date: require!(self.creation_date).parse()?,
+            deleted_date: self.deleted_date.map(|d| d.parse()).transpose()?,
+            revision_date: require!(self.revision_date).parse()?,
+            key: EncString::try_from_optional(self.key)?,
+            archived_date: self.archived_date.map(|d| d.parse()).transpose()?,
+            data: self.data,
         })
     }
 }

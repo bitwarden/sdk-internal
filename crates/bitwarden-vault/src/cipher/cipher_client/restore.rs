@@ -41,7 +41,10 @@ pub async fn restore<R: Repository<Cipher> + ?Sized>(
 ) -> Result<CipherView, RestoreCipherError> {
     let api = api_client.ciphers_api();
 
-    let cipher: Cipher = api.put_restore(cipher_id.into()).await?.try_into()?;
+    let cipher: Cipher = api
+        .put_restore(cipher_id.into())
+        .await?
+        .merge_with_cipher(None)?;
     repository.set(cipher_id, cipher.clone()).await?;
 
     Ok(key_store.decrypt(&cipher)?)
