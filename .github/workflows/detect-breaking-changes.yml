@@ -336,10 +336,9 @@ jobs:
               }
               ;;
             "no-breaking-changes")
-              echo "Removing breaking-change label from PR #$PR_NUMBER"
-              gh issue edit $PR_NUMBER --remove-label "breaking-change" --repo ${{ github.repository }} || {
-                echo "::warning::Label may not exist or failed to remove, but continuing"
-              }
+              # Don't remove label - other platforms may still have breaking changes.
+              # Label removal should be handled manually
+              echo "Skipping label removal - other platforms may still have breaking changes"
               ;;
             *)
               echo "::warning::Unknown status '$CLIENT_STATUS', skipping label management"
