@@ -17,7 +17,7 @@ pub struct SharedUnlockLeader {
 impl SharedUnlockLeader {
     /// Creates a new shared-unlock leader
     #[wasm_bindgen]
-    pub async fn try_new(
+    pub fn try_new(
         ipc_client: &bitwarden_ipc::wasm::JsIpcClient,
         driver: RawJsSharedUnlockDriver,
     ) -> Result<Self, bitwarden_ipc::SubscribeError> {
