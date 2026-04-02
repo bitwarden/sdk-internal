@@ -615,25 +615,29 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
             folder_id: self.folder_id,
             collection_ids: self.collection_ids.clone(),
             key: self.key.clone(),
-            name: self.name.decrypt(ctx, ciphers_key)?,
-            notes: self.notes.decrypt(ctx, ciphers_key)?,
+            name: self.name.decrypt(ctx, ciphers_key).ok().unwrap_or_default(),
+            notes: self.notes.decrypt(ctx, ciphers_key).ok().flatten(),
             r#type: self.r#type,
-            login: self.login.decrypt(ctx, ciphers_key)?,
-            identity: self.identity.decrypt(ctx, ciphers_key)?,
-            card: self.card.decrypt(ctx, ciphers_key)?,
-            secure_note: self.secure_note.decrypt(ctx, ciphers_key)?,
-            ssh_key: self.ssh_key.decrypt(ctx, ciphers_key)?,
+            login: self.login.decrypt(ctx, ciphers_key).ok().flatten(),
+            identity: self.identity.decrypt(ctx, ciphers_key).ok().flatten(),
+            card: self.card.decrypt(ctx, ciphers_key).ok().flatten(),
+            secure_note: self.secure_note.decrypt(ctx, ciphers_key).ok().flatten(),
+            ssh_key: self.ssh_key.decrypt(ctx, ciphers_key).ok().flatten(),
             favorite: self.favorite,
             reprompt: self.reprompt,
             organization_use_totp: self.organization_use_totp,
             edit: self.edit,
             permissions: self.permissions,
             view_password: self.view_password,
-            local_data: self.local_data.decrypt(ctx, ciphers_key)?,
+            local_data: self.local_data.decrypt(ctx, ciphers_key).ok().flatten(),
             attachments: Some(attachments),
             attachment_decryption_failures: Some(attachment_decryption_failures),
-            fields: self.fields.decrypt(ctx, ciphers_key)?,
-            password_history: self.password_history.decrypt(ctx, ciphers_key)?,
+            fields: self.fields.decrypt(ctx, ciphers_key).ok().flatten(),
+            password_history: self
+                .password_history
+                .decrypt(ctx, ciphers_key)
+                .ok()
+                .flatten(),
             creation_date: self.creation_date,
             deleted_date: self.deleted_date,
             revision_date: self.revision_date,
@@ -933,8 +937,11 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             folder_id: self.folder_id,
             collection_ids: self.collection_ids.clone(),
             key: self.key.clone(),
-            name: self.name.decrypt(ctx, ciphers_key)?,
-            subtitle: self.decrypt_subtitle(ctx, ciphers_key)?,
+            name: self.name.decrypt(ctx, ciphers_key).ok().unwrap_or_default(),
+            subtitle: self
+                .decrypt_subtitle(ctx, ciphers_key)
+                .ok()
+                .unwrap_or_default(),
             r#type: match self.r#type {
                 CipherType::Login => {
                     let login = self
@@ -977,30 +984,25 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
             local_data: self.local_data.decrypt(ctx, ciphers_key)?,
             archived_date: self.archived_date,
             #[cfg(feature = "wasm")]
-            notes: self.notes.decrypt(ctx, ciphers_key)?,
+            notes: self.notes.decrypt(ctx, ciphers_key).ok().flatten(),
             #[cfg(feature = "wasm")]
-            fields: self
-                .fields
-                .as_ref()
-                .map(|fields| {
-                    fields
-                        .iter()
-                        .map(|f| f.decrypt(ctx, ciphers_key).map(field::FieldListView::from))
-                        .collect::<Result<Vec<_>, _>>()
-                })
-                .transpose()?,
+            fields: self.fields.as_ref().map(|fields| {
+                fields
+                    .iter()
+                    .filter_map(|f| {
+                        f.decrypt(ctx, ciphers_key)
+                            .ok()
+                            .map(field::FieldListView::from)
+                    })
+                    .collect()
+            }),
             #[cfg(feature = "wasm")]
-            attachment_names: self
-                .attachments
-                .as_ref()
-                .map(|attachments| {
-                    attachments
-                        .iter()
-                        .map(|a| a.file_name.decrypt(ctx, ciphers_key))
-                        .collect::<Result<Vec<_>, _>>()
-                })
-                .transpose()?
-                .map(|names| names.into_iter().flatten().collect()),
+            attachment_names: self.attachments.as_ref().map(|attachments| {
+                attachments
+                    .iter()
+                    .filter_map(|a| a.file_name.decrypt(ctx, ciphers_key).ok().flatten())
+                    .collect()
+            }),
         })
     }
 }
@@ -1029,6 +1031,203 @@ impl IdentifyKey<SymmetricKeyId> for CipherListView {
             Some(organization_id) => SymmetricKeyId::Organization(organization_id),
             None => SymmetricKeyId::User,
         }
+    }
+}
+
+/// Generic wrapper that uses strict decryption: field decryption errors are propagated
+/// instead of silently nulling out the affected fields.
+///
+/// This is a transitional type gated behind the `PM-34500-strict_cipher_decryption` feature flag.
+/// It will eventually replace the default lenient [Decryptable] implementations.
+///
+/// TODO [PM-34531]: Remove StrictDecrypt and `PM-34500-strict_cipher_decryption` feature flag
+/// after feature has fully rolled out.
+pub(crate) struct StrictDecrypt<T>(pub(crate) T);
+
+impl IdentifyKey<SymmetricKeyId> for StrictDecrypt<Cipher> {
+    fn key_identifier(&self) -> SymmetricKeyId {
+        self.0.key_identifier()
+    }
+}
+
+impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for StrictDecrypt<Cipher> {
+    #[instrument(err, skip_all, fields(cipher_id = ?self.0.id, org_id = ?self.0.organization_id, kind = ?self.0.r#type))]
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<CipherView, CryptoError> {
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.0.key)?;
+
+        // Separate successful and failed attachment decryptions
+        let (attachments, attachment_decryption_failures) =
+            attachment::decrypt_attachments_with_failures(
+                self.0.attachments.as_deref().unwrap_or_default(),
+                ctx,
+                ciphers_key,
+            );
+
+        let mut cipher = CipherView {
+            id: self.0.id,
+            organization_id: self.0.organization_id,
+            folder_id: self.0.folder_id,
+            collection_ids: self.0.collection_ids.clone(),
+            key: self.0.key.clone(),
+            name: self.0.name.decrypt(ctx, ciphers_key)?,
+            notes: self.0.notes.decrypt(ctx, ciphers_key)?,
+            r#type: self.0.r#type,
+            login: self
+                .0
+                .login
+                .as_ref()
+                .map(|l| StrictDecrypt(l).decrypt(ctx, ciphers_key))
+                .transpose()?,
+            identity: self
+                .0
+                .identity
+                .as_ref()
+                .map(|i| StrictDecrypt(i).decrypt(ctx, ciphers_key))
+                .transpose()?,
+            card: self
+                .0
+                .card
+                .as_ref()
+                .map(|c| StrictDecrypt(c).decrypt(ctx, ciphers_key))
+                .transpose()?,
+            secure_note: self.0.secure_note.decrypt(ctx, ciphers_key)?,
+            ssh_key: self.0.ssh_key.decrypt(ctx, ciphers_key)?,
+            favorite: self.0.favorite,
+            reprompt: self.0.reprompt,
+            organization_use_totp: self.0.organization_use_totp,
+            edit: self.0.edit,
+            permissions: self.0.permissions,
+            view_password: self.0.view_password,
+            local_data: self.0.local_data.decrypt(ctx, ciphers_key)?,
+            attachments: Some(attachments),
+            attachment_decryption_failures: Some(attachment_decryption_failures),
+            fields: self
+                .0
+                .fields
+                .as_ref()
+                .map(|fields| {
+                    fields
+                        .iter()
+                        .map(|f| StrictDecrypt(f).decrypt(ctx, ciphers_key))
+                        .collect::<Result<Vec<_>, _>>()
+                })
+                .transpose()?,
+            password_history: self.0.password_history.decrypt(ctx, ciphers_key)?,
+            creation_date: self.0.creation_date,
+            deleted_date: self.0.deleted_date,
+            revision_date: self.0.revision_date,
+            archived_date: self.0.archived_date,
+        };
+
+        // For compatibility we only remove URLs with invalid checksums if the cipher has a key
+        // or the user is on Crypto V2
+        if cipher.key.is_some()
+            || ctx.get_security_state_version() >= MINIMUM_ENFORCE_ICON_URI_HASH_VERSION
+        {
+            cipher.remove_invalid_checksums();
+        }
+
+        Ok(cipher)
+    }
+}
+
+impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for StrictDecrypt<Cipher> {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<CipherListView, CryptoError> {
+        let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.0.key)?;
+
+        Ok(CipherListView {
+            id: self.0.id,
+            organization_id: self.0.organization_id,
+            folder_id: self.0.folder_id,
+            collection_ids: self.0.collection_ids.clone(),
+            key: self.0.key.clone(),
+            name: self.0.name.decrypt(ctx, ciphers_key)?,
+            subtitle: self.0.decrypt_subtitle(ctx, ciphers_key)?,
+            r#type: match self.0.r#type {
+                CipherType::Login => {
+                    let login = self
+                        .0
+                        .login
+                        .as_ref()
+                        .ok_or(CryptoError::MissingField("login"))?;
+                    CipherListViewType::Login(StrictDecrypt(login).decrypt(ctx, ciphers_key)?)
+                }
+                CipherType::SecureNote => CipherListViewType::SecureNote,
+                CipherType::Card => {
+                    let card = self
+                        .0
+                        .card
+                        .as_ref()
+                        .ok_or(CryptoError::MissingField("card"))?;
+                    CipherListViewType::Card(StrictDecrypt(card).decrypt(ctx, ciphers_key)?)
+                }
+                CipherType::Identity => CipherListViewType::Identity,
+                CipherType::SshKey => CipherListViewType::SshKey,
+            },
+            favorite: self.0.favorite,
+            reprompt: self.0.reprompt,
+            organization_use_totp: self.0.organization_use_totp,
+            edit: self.0.edit,
+            permissions: self.0.permissions,
+            view_password: self.0.view_password,
+            attachments: self
+                .0
+                .attachments
+                .as_ref()
+                .map(|a| a.len() as u32)
+                .unwrap_or(0),
+            has_old_attachments: self
+                .0
+                .attachments
+                .as_ref()
+                .map(|a| a.iter().any(|att| att.key.is_none()))
+                .unwrap_or(false),
+            creation_date: self.0.creation_date,
+            deleted_date: self.0.deleted_date,
+            revision_date: self.0.revision_date,
+            copyable_fields: self.0.get_copyable_fields(),
+            local_data: self.0.local_data.decrypt(ctx, ciphers_key)?,
+            archived_date: self.0.archived_date,
+            #[cfg(feature = "wasm")]
+            notes: self.0.notes.decrypt(ctx, ciphers_key)?,
+            #[cfg(feature = "wasm")]
+            fields: self
+                .0
+                .fields
+                .as_ref()
+                .map(|fields| {
+                    fields
+                        .iter()
+                        .map(|f| {
+                            StrictDecrypt(f)
+                                .decrypt(ctx, ciphers_key)
+                                .map(field::FieldListView::from)
+                        })
+                        .collect::<Result<Vec<_>, _>>()
+                })
+                .transpose()?,
+            #[cfg(feature = "wasm")]
+            attachment_names: self
+                .0
+                .attachments
+                .as_ref()
+                .map(|attachments| {
+                    attachments
+                        .iter()
+                        .map(|a| a.file_name.decrypt(ctx, ciphers_key))
+                        .collect::<Result<Vec<_>, _>>()
+                })
+                .transpose()?
+                .map(|names| names.into_iter().flatten().collect()),
+        })
     }
 }
 
@@ -1518,10 +1717,23 @@ mod tests {
             ..cipher
         };
 
-        let result: Result<CipherView, _> = key_store.decrypt(&cipher);
+        // Default (lenient) decryption swallows the error, yielding an empty name
+        let lenient_result: Result<CipherView, _> = key_store.decrypt(&cipher);
         assert!(
-            result.is_err(),
-            "Decryption should fail when name is encrypted with a different key"
+            lenient_result.is_ok(),
+            "Lenient decryption should succeed even when name is encrypted with a different key"
+        );
+        assert_eq!(
+            lenient_result.unwrap().name,
+            String::new(),
+            "Lenient decryption should yield an empty name on error"
+        );
+
+        // Strict decryption propagates the error
+        let strict_result: Result<CipherView, _> = key_store.decrypt(&StrictDecrypt(cipher));
+        assert!(
+            strict_result.is_err(),
+            "Strict decryption should fail when name is encrypted with a different key"
         );
     }
 
@@ -1540,10 +1752,27 @@ mod tests {
             ..cipher
         };
 
-        let result: Result<CipherView, _> = key_store.decrypt(&cipher);
+        // Default (lenient) decryption swallows the error, yielding None for the username field
+        let lenient_result: Result<CipherView, _> = key_store.decrypt(&cipher);
         assert!(
-            result.is_err(),
-            "Decryption should fail when login username is encrypted with a different key"
+            lenient_result.is_ok(),
+            "Lenient decryption should succeed even when login username is encrypted with a different key"
+        );
+        let lenient_view = lenient_result.unwrap();
+        assert!(
+            lenient_view.login.is_some(),
+            "Lenient decryption should still return the login object"
+        );
+        assert!(
+            lenient_view.login.unwrap().username.is_none(),
+            "Lenient decryption should null out the failing username field"
+        );
+
+        // Strict decryption propagates the error
+        let strict_result: Result<CipherView, _> = key_store.decrypt(&StrictDecrypt(cipher));
+        assert!(
+            strict_result.is_err(),
+            "Strict decryption should fail when login username is encrypted with a different key"
         );
     }
 
