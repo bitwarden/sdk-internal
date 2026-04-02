@@ -1,7 +1,6 @@
-use std::{any::TypeId, collections::HashMap, sync::Arc};
+use std::{any::TypeId, collections::HashMap, sync::{Arc, Mutex}};
 
 use serde::{Serialize, de::DeserializeOwned};
-use tokio::sync::Mutex;
 
 use crate::{
     repository::{RepositoryItem, RepositoryMigrations},
@@ -38,7 +37,7 @@ impl Database for MemoryDatabase {
         &self,
         key: &str,
     ) -> Result<Option<T>, DatabaseError> {
-        let store = self.0.lock().await;
+        let store = self.0.lock().expect("Mutex is not poisoned");
         let type_map = store.get(&TypeId::of::<T>());
         match type_map.and_then(|m| m.get(key)) {
             Some(json) => Ok(Some(serde_json::from_str(json)?)),
@@ -49,7 +48,7 @@ impl Database for MemoryDatabase {
     async fn list<T: Serialize + DeserializeOwned + RepositoryItem>(
         &self,
     ) -> Result<Vec<T>, DatabaseError> {
-        let store = self.0.lock().await;
+        let store = self.0.lock().expect("Mutex is not poisoned");
         match store.get(&TypeId::of::<T>()) {
             None => Ok(vec![]),
             Some(type_map) => {
@@ -68,7 +67,7 @@ impl Database for MemoryDatabase {
         value: T,
     ) -> Result<(), DatabaseError> {
         let json = serde_json::to_string(&value)?;
-        let mut store = self.0.lock().await;
+        let mut store = self.0.lock().expect("Mutex is not poisoned");
         store
             .entry(TypeId::of::<T>())
             .or_default()
@@ -80,7 +79,7 @@ impl Database for MemoryDatabase {
         &self,
         values: Vec<(String, T)>,
     ) -> Result<(), DatabaseError> {
-        let mut store = self.0.lock().await;
+        let mut store = self.0.lock().expect("Mutex is not poisoned");
         let type_map = store.entry(TypeId::of::<T>()).or_default();
         for (key, value) in values {
             let json = serde_json::to_string(&value)?;
@@ -93,7 +92,7 @@ impl Database for MemoryDatabase {
         &self,
         key: &str,
     ) -> Result<(), DatabaseError> {
-        let mut store = self.0.lock().await;
+        let mut store = self.0.lock().expect("Mutex is not poisoned");
         if let Some(type_map) = store.get_mut(&TypeId::of::<T>()) {
             type_map.remove(key);
         }
@@ -104,7 +103,7 @@ impl Database for MemoryDatabase {
         &self,
         keys: Vec<String>,
     ) -> Result<(), DatabaseError> {
-        let mut store = self.0.lock().await;
+        let mut store = self.0.lock().expect("Mutex is not poisoned");
         if let Some(type_map) = store.get_mut(&TypeId::of::<T>()) {
             for key in keys {
                 type_map.remove(&key);
@@ -116,7 +115,7 @@ impl Database for MemoryDatabase {
     async fn remove_all<T: Serialize + DeserializeOwned + RepositoryItem>(
         &self,
     ) -> Result<(), DatabaseError> {
-        let mut store = self.0.lock().await;
+        let mut store = self.0.lock().expect("Mutex is not poisoned");
         store.remove(&TypeId::of::<T>());
         Ok(())
     }
