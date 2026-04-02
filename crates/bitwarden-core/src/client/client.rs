@@ -29,7 +29,11 @@ pub struct Client {
 impl Client {
     /// Create a new Bitwarden client with default settings and a no-op token handler.
     pub fn new(settings: Option<ClientSettings>) -> Self {
-        Self::new_internal(settings, Arc::new(NoopTokenHandler), StateRegistry::new_with_memory_db())
+        Self::new_internal(
+            settings,
+            Arc::new(NoopTokenHandler),
+            StateRegistry::new_with_memory_db(),
+        )
     }
 
     /// Create a new Bitwarden client with the specified token handler for managing authentication
@@ -206,11 +210,8 @@ mod tests {
     #[tokio::test]
     async fn client_new_with_token_handler_and_state_uses_supplied_registry() {
         let registry = StateRegistry::new_with_memory_db();
-        let client = Client::new_with_token_handler_and_state(
-            None,
-            Arc::new(NoopTokenHandler),
-            registry,
-        );
+        let client =
+            Client::new_with_token_handler_and_state(None, Arc::new(NoopTokenHandler), registry);
         // Verify the client was constructed successfully with the supplied registry
         let _state = client.platform().state();
     }
