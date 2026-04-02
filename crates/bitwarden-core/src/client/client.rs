@@ -200,6 +200,7 @@ fn build_default_headers(settings: &ClientSettings) -> header::HeaderMap {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "internal")]
     #[tokio::test]
     async fn client_new_has_accessible_state_registry() {
         let client = Client::new(None);
@@ -207,6 +208,7 @@ mod tests {
         let _state = client.platform().state();
     }
 
+    #[cfg(feature = "internal")]
     #[tokio::test]
     async fn client_new_with_token_handler_and_state_uses_supplied_registry() {
         let registry = StateRegistry::new_with_memory_db();
