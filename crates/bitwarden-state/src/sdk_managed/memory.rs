@@ -1,4 +1,8 @@
-use std::{any::TypeId, collections::HashMap, sync::{Arc, Mutex}};
+use std::{
+    any::TypeId,
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use serde::{Serialize, de::DeserializeOwned};
 
