@@ -93,8 +93,10 @@ impl JsIpcClient {
 
     #[wasm_only]
     #[allow(missing_docs)]
-    pub async fn start(&self) {
-        self.client.start().await
+    pub async fn start(&self, abort_signal: Option<AbortSignal>) {
+        self.client
+            .start(abort_signal.map(|signal| signal.to_cancellation_token()))
+            .await
     }
 
     #[wasm_only]

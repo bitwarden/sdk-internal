@@ -112,8 +112,8 @@ where
     Com: CommunicationBackend,
     Ses: SessionRepository<Crypto::Session>,
 {
-    async fn start(&self) {
-        let cancellation_token = CancellationToken::new();
+    async fn start(&self, cancellation_token: Option<CancellationToken>) {
+        let cancellation_token = cancellation_token.unwrap_or_else(CancellationToken::new);
         self.inner
             .cancellation_token
             .lock()
@@ -158,7 +158,7 @@ where
                 }
             }
             tracing::debug!("IPC client shutting down");
-            stop_inner(&inner).await;
+            stop_inner(&inner);
         };
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -174,7 +174,9 @@ where
             .incoming
             .lock()
             .expect("Failed to lock incoming mutex")
-            .is_some();
+            .as_ref()
+            .map(|receiver| !receiver.is_closed())
+            .unwrap_or(false);
         let has_cancellation_token = self
             .inner
             .cancellation_token
@@ -182,10 +184,6 @@ where
             .expect("Failed to lock cancellation token mutex")
             .is_some();
         has_incoming && has_cancellation_token
-    }
-
-    async fn stop(&self) {
-        stop_inner(&self.inner).await;
     }
 
     async fn send(&self, message: OutgoingMessage) -> Result<(), SendError> {
@@ -197,7 +195,7 @@ where
 
         if let Err(ref error) = result {
             tracing::error!(?error, "Error sending message");
-            self.stop().await;
+            stop_inner(&self.inner);
         }
 
         result.map_err(|e| SendError(format!("{e:?}")))
@@ -228,7 +226,7 @@ where
     }
 }
 
-async fn stop_inner<Crypto, Com, Ses>(inner: &IpcClientInner<Crypto, Com, Ses>)
+fn stop_inner<Crypto, Com, Ses>(inner: &IpcClientInner<Crypto, Com, Ses>)
 where
     Crypto: CryptoProvider<Com, Ses>,
     Com: CommunicationBackend,
@@ -441,7 +439,7 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
         let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
-        client.start().await;
+        client.start(None).await;
 
         let error = client.send(message).await.unwrap_err();
 
@@ -460,7 +458,7 @@ mod tests {
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client =
             IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-        client.start().await;
+        client.start(None).await;
 
         client.send(message.clone()).await.unwrap();
 
@@ -485,7 +483,7 @@ mod tests {
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client =
             IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-        client.start().await;
+        client.start(None).await;
 
         let mut subscription = client
             .subscribe(None)
@@ -525,7 +523,7 @@ mod tests {
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client =
             IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-        client.start().await;
+        client.start(None).await;
         let mut subscription = client
             .subscribe(Some("matching_topic".to_owned()))
             .await
@@ -577,7 +575,7 @@ mod tests {
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client =
             IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-        client.start().await;
+        client.start(None).await;
         let mut subscription = client
             .subscribe_typed::<TestPayload>()
             .await
@@ -623,7 +621,7 @@ mod tests {
         let session_map = InMemorySessionRepository::new(HashMap::new());
         let client =
             IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-        client.start().await;
+        client.start(None).await;
         let mut subscription = client
             .subscribe_typed::<TestPayload>()
             .await
@@ -648,7 +646,7 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
         let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
-        client.start().await;
+        client.start(None).await;
 
         let error = client.send(message).await.unwrap_err();
         let is_running = client.is_running();
@@ -666,9 +664,34 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
         let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
-        client.start().await;
+        let cancellation_token = CancellationToken::new();
+        client.start(Some(cancellation_token.clone())).await;
 
         // Give the client some time to process the error
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let is_running = client.is_running();
+
+        assert!(!is_running);
+        assert!(cancellation_token.is_cancelled());
+    }
+
+    #[tokio::test]
+    async fn ipc_client_stops_if_cancellation_token_is_cancelled() {
+        let crypto_provider = TestCryptoProvider {
+            send_result: None,
+            receive_result: None,
+        };
+        let communication_provider = TestCommunicationBackend::new();
+        let session_map = TestSessionRepository::new(HashMap::new());
+        let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
+        let cancellation_token = CancellationToken::new();
+        client.start(Some(cancellation_token.clone())).await;
+
+        // Give the client some time to process
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        // Cancel the token and give the client some time to process the cancellation
+        cancellation_token.cancel();
         tokio::time::sleep(Duration::from_millis(100)).await;
         let is_running = client.is_running();
 
@@ -684,13 +707,15 @@ mod tests {
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
         let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
-        client.start().await;
+        let cancellation_token = CancellationToken::new();
+        client.start(Some(cancellation_token.clone())).await;
 
         // Give the client some time to process
         tokio::time::sleep(Duration::from_millis(100)).await;
         let is_running = client.is_running();
 
         assert!(is_running);
+        assert!(!cancellation_token.is_cancelled());
     }
 
     mod request {
@@ -733,7 +758,7 @@ mod tests {
             let session_map = InMemorySessionRepository::new(HashMap::new());
             let client =
                 IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-            client.start().await;
+            client.start(None).await;
             let request = TestRequest { a: 1, b: 2 };
             let response = TestResponse { result: 3 };
 
@@ -791,7 +816,7 @@ mod tests {
             let session_map = InMemorySessionRepository::new(HashMap::new());
             let client =
                 IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-            client.start().await;
+            client.start(None).await;
             let request_id = uuid::Uuid::new_v4().to_string();
             let request = TestRequest { a: 1, b: 2 };
             let response = TestResponse { result: 3 };
