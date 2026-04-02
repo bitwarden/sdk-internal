@@ -148,7 +148,10 @@ pub(crate) async fn sync_emergency_access(
             let public_key = fetch_user_public_key(api_client, user_id).await?;
             Ok(V1EmergencyAccessMembership {
                 id: ea.id.ok_or(SyncError::DataError)?,
-                name: ea.name.ok_or(SyncError::DataError)?,
+                // The name can be null if a user does not set a name.
+                name: ea
+                    .name
+                    .unwrap_or_else(|| ea.email.unwrap_or_else(|| "Unknown".to_string())),
                 public_key,
             })
         })
