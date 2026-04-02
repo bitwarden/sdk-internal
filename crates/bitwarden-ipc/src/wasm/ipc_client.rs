@@ -6,7 +6,7 @@ use wasm_bindgen::prelude::*;
 use super::communication_backend::JsCommunicationBackend;
 use crate::{
     IpcClientImpl,
-    error::{ReceiveError, SubscribeError},
+    error::{AlreadyRunningError, ReceiveError, SubscribeError},
     ipc_client::IpcClientSubscription,
     ipc_client_trait::IpcClient,
     message::{IncomingMessage, OutgoingMessage},
@@ -93,7 +93,10 @@ impl JsIpcClient {
 
     #[wasm_only]
     #[allow(missing_docs)]
-    pub async fn start(&self, abort_signal: Option<AbortSignal>) {
+    pub async fn start(
+        &self,
+        abort_signal: Option<AbortSignal>,
+    ) -> Result<(), AlreadyRunningError> {
         self.client
             .start(abort_signal.map(|signal| signal.to_cancellation_token()))
             .await

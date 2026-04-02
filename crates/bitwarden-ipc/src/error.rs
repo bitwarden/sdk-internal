@@ -3,6 +3,13 @@ use thiserror::Error;
 
 use crate::rpc::error::RpcError;
 
+/// Error returned by [`IpcClient::start`](crate::IpcClient::start). Indicates that the IPC client
+/// is already running.
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
+#[error("IPC client is already running")]
+#[bitwarden_error(basic)]
+pub struct AlreadyRunningError;
+
 /// Error returned by [`IpcClient::send`](crate::IpcClient::send). Wraps the underlying transport
 /// error as a string.
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
