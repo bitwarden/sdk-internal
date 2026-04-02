@@ -30,10 +30,12 @@ impl MemoryDatabase {
 
 impl Database for MemoryDatabase {
     async fn initialize(
-        _configuration: DatabaseConfiguration,
+        configuration: DatabaseConfiguration,
         _migrations: RepositoryMigrations,
     ) -> Result<Self, DatabaseError> {
-        // Migrations are intentionally ignored — there is no schema to version.
+        let DatabaseConfiguration::Memory = configuration else {
+            return Err(DatabaseError::UnsupportedConfiguration(configuration));
+        };
         Ok(MemoryDatabase::new())
     }
 
@@ -237,21 +239,33 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_memory_database_initialize_is_noop() {
+    async fn test_memory_database_initialize_memory_config() {
         let db = MemoryDatabase::initialize(
+            DatabaseConfiguration::Memory,
+            RepositoryMigrations::new(vec![]),
+        )
+        .await
+        .unwrap();
+        db.set("k", TypeA("v".to_string())).await.unwrap();
+        assert_eq!(
+            db.get::<TypeA>("k").await.unwrap(),
+            Some(TypeA("v".to_string()))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_memory_database_initialize_rejects_non_memory_config() {
+        let result = MemoryDatabase::initialize(
             DatabaseConfiguration::Sqlite {
                 db_name: "ignored".to_string(),
                 folder_path: std::path::PathBuf::from("/tmp"),
             },
             RepositoryMigrations::new(vec![]),
         )
-        .await
-        .unwrap();
-        // initialize returns a fresh, working instance regardless of config
-        db.set("k", TypeA("v".to_string())).await.unwrap();
-        assert_eq!(
-            db.get::<TypeA>("k").await.unwrap(),
-            Some(TypeA("v".to_string()))
-        );
+        .await;
+        assert!(matches!(
+            result,
+            Err(DatabaseError::UnsupportedConfiguration(_))
+        ));
     }
 }
