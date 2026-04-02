@@ -100,8 +100,8 @@ impl JsIpcClient {
     #[wasm_only]
     #[wasm_bindgen(js_name = isRunning)]
     #[allow(missing_docs)]
-    pub async fn is_running(&self) -> bool {
-        self.client.is_running().await
+    pub fn is_running(&self) -> bool {
+        self.client.is_running()
     }
 
     #[wasm_only]

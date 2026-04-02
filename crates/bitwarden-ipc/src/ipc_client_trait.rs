@@ -18,7 +18,7 @@ pub trait IpcClient: Send + Sync {
     async fn start(&self);
 
     /// Check if the IPC client task is currently running.
-    async fn is_running(&self) -> bool;
+    fn is_running(&self) -> bool;
 
     /// Stop the IPC client task. This will stop listening for incoming messages.
     async fn stop(&self);

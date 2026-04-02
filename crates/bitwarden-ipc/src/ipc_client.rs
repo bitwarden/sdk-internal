@@ -1,9 +1,9 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use bitwarden_threading::cancellation_token::CancellationToken;
 use serde::de::DeserializeOwned;
 use thiserror::Error;
-use tokio::{select, sync::RwLock};
+use tokio::select;
 
 use crate::{
     constants::CHANNEL_BUFFER_CAPACITY,
@@ -51,8 +51,8 @@ where
     sessions: Ses,
 
     handlers: RpcHandlerRegistry,
-    incoming: RwLock<Option<tokio::sync::broadcast::Receiver<IncomingMessage>>>,
-    cancellation_token: RwLock<Option<CancellationToken>>,
+    incoming: Mutex<Option<tokio::sync::broadcast::Receiver<IncomingMessage>>>,
+    cancellation_token: Mutex<Option<CancellationToken>>,
 }
 
 /// An IPC client that handles communication between different components and clients.
@@ -98,8 +98,8 @@ where
                 sessions,
 
                 handlers: RpcHandlerRegistry::new(),
-                incoming: RwLock::new(None),
-                cancellation_token: RwLock::new(None),
+                incoming: Mutex::new(None),
+                cancellation_token: Mutex::new(None),
             }),
         }
     }
@@ -116,14 +116,18 @@ where
         let cancellation_token = CancellationToken::new();
         self.inner
             .cancellation_token
-            .write()
-            .await
+            .lock()
+            .expect("Failed to lock cancellation token mutex")
             .replace(cancellation_token.clone());
 
         let com_receiver = self.inner.communication.subscribe().await;
         let (client_tx, client_rx) = tokio::sync::broadcast::channel(CHANNEL_BUFFER_CAPACITY);
 
-        self.inner.incoming.write().await.replace(client_rx);
+        self.inner
+            .incoming
+            .lock()
+            .expect("Failed to lock incoming mutex")
+            .replace(client_rx);
 
         let inner = self.inner.clone();
         let future = async move {
@@ -164,9 +168,19 @@ where
         wasm_bindgen_futures::spawn_local(future);
     }
 
-    async fn is_running(&self) -> bool {
-        let has_incoming = self.inner.incoming.read().await.is_some();
-        let has_cancellation_token = self.inner.cancellation_token.read().await.is_some();
+    fn is_running(&self) -> bool {
+        let has_incoming = self
+            .inner
+            .incoming
+            .lock()
+            .expect("Failed to lock incoming mutex")
+            .is_some();
+        let has_cancellation_token = self
+            .inner
+            .cancellation_token
+            .lock()
+            .expect("Failed to lock cancellation token mutex")
+            .is_some();
         has_incoming && has_cancellation_token
     }
 
@@ -197,8 +211,8 @@ where
             receiver: self
                 .inner
                 .incoming
-                .read()
-                .await
+                .lock()
+                .expect("Failed to lock incoming mutex")
                 .as_ref()
                 .ok_or(SubscribeError::NotStarted)?
                 .resubscribe(),
@@ -220,10 +234,11 @@ where
     Com: CommunicationBackend,
     Ses: SessionRepository<Crypto::Session>,
 {
-    let mut incoming = inner.incoming.write().await;
-    let _ = incoming.take();
+    let mut cancellation_token = inner
+        .cancellation_token
+        .lock()
+        .expect("Failed to lock cancellation token mutex");
 
-    let mut cancellation_token = inner.cancellation_token.write().await;
     if let Some(cancellation_token) = cancellation_token.take() {
         cancellation_token.cancel();
     }
@@ -636,7 +651,7 @@ mod tests {
         client.start().await;
 
         let error = client.send(message).await.unwrap_err();
-        let is_running = client.is_running().await;
+        let is_running = client.is_running();
 
         assert!(error.to_string().contains("Crypto error"));
         assert!(!is_running);
@@ -655,7 +670,7 @@ mod tests {
 
         // Give the client some time to process the error
         tokio::time::sleep(Duration::from_millis(100)).await;
-        let is_running = client.is_running().await;
+        let is_running = client.is_running();
 
         assert!(!is_running);
     }
@@ -673,7 +688,7 @@ mod tests {
 
         // Give the client some time to process
         tokio::time::sleep(Duration::from_millis(100)).await;
-        let is_running = client.is_running().await;
+        let is_running = client.is_running();
 
         assert!(is_running);
     }
