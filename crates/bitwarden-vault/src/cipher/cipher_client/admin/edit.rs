@@ -13,7 +13,7 @@ use wasm_bindgen::prelude::*;
 use super::CipherAdminClient;
 use crate::{
     Cipher, CipherId, CipherView, DecryptError, ItemNotFoundError, VaultParseError,
-    cipher::cipher::PartialCipher,
+    cipher::cipher::{PartialCipher, StrictDecrypt},
     cipher_client::edit::{CipherEditRequest, CipherEditRequestInternal},
 };
 
@@ -53,6 +53,7 @@ async fn edit_cipher(
     encrypted_for: UserId,
     original_cipher_view: CipherView,
     request: CipherEditRequest,
+    use_strict_decryption: bool,
 ) -> Result<CipherView, EditCipherAdminError> {
     let cipher_id = request.id;
     // CipherMiniResponseModel does not include folder_id or favorite — save them from the
@@ -76,7 +77,11 @@ async fn edit_cipher(
     cipher.folder_id = folder_id;
     cipher.favorite = favorite;
 
-    Ok(key_store.decrypt(&cipher)?)
+    if use_strict_decryption {
+        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    } else {
+        Ok(key_store.decrypt(&cipher)?)
+    }
 }
 
 /// Adds the cipher matched by [CipherId] to any number of collections on the server.
@@ -85,6 +90,7 @@ pub async fn add_to_collections(
     collection_ids: Vec<CollectionId>,
     api_client: &ApiClient,
     key_store: &KeyStore<KeyIds>,
+    use_strict_decryption: bool,
 ) -> Result<CipherView, EditCipherAdminError> {
     let req = CipherCollectionsRequestModel {
         collection_ids: collection_ids
@@ -99,7 +105,11 @@ pub async fn add_to_collections(
         .await?
         .merge_with_cipher(None)?;
 
-    Ok(key_store.decrypt(&cipher)?)
+    if use_strict_decryption {
+        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    } else {
+        Ok(key_store.decrypt(&cipher)?)
+    }
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -138,6 +148,7 @@ impl CipherAdminClient {
             user_id,
             original_cipher_view,
             request,
+            self.is_strict_decrypt(),
         )
         .await
     }
@@ -153,6 +164,7 @@ impl CipherAdminClient {
             collection_ids,
             &self.client.internal.get_api_configurations().api_client,
             self.client.internal.get_key_store(),
+            self.is_strict_decrypt(),
         )
         .await
     }
@@ -275,6 +287,7 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             original_cipher_view,
             request,
+            false,
         )
         .await
         .unwrap();
@@ -312,6 +325,7 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             orig_cipher_view,
             request,
+            false,
         )
         .await;
 

@@ -10,7 +10,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     Cipher, CipherId, CipherView, CiphersClient, DecryptCipherListResult, VaultParseError,
-    cipher::cipher::PartialCipher,
+    cipher::cipher::{PartialCipher, StrictDecrypt},
 };
 
 #[allow(missing_docs)]
@@ -39,6 +39,7 @@ pub async fn restore<R: Repository<Cipher> + ?Sized>(
     api_client: &ApiClient,
     repository: &R,
     key_store: &KeyStore<KeyIds>,
+    use_strict_decryption: bool,
 ) -> Result<CipherView, RestoreCipherError> {
     let api = api_client.ciphers_api();
 
@@ -49,7 +50,11 @@ pub async fn restore<R: Repository<Cipher> + ?Sized>(
         .merge_with_cipher(existing_cipher)?;
     repository.set(cipher_id, cipher.clone()).await?;
 
-    Ok(key_store.decrypt(&cipher)?)
+    if use_strict_decryption {
+        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    } else {
+        Ok(key_store.decrypt(&cipher)?)
+    }
 }
 
 /// Restores multiple soft-deleted ciphers on the server.
@@ -101,7 +106,14 @@ impl CiphersClient {
         let api_client = &self.client.internal.get_api_configurations().api_client;
         let key_store = self.client.internal.get_key_store();
 
-        restore(cipher_id, api_client, &*self.get_repository()?, key_store).await
+        restore(
+            cipher_id,
+            api_client,
+            &*self.get_repository()?,
+            key_store,
+            self.is_strict_decrypt(),
+        )
+        .await
     }
 
     /// Restores multiple soft-deleted ciphers on the server.
@@ -127,7 +139,7 @@ mod tests {
     };
     use bitwarden_collections::collection::CollectionId;
     use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
-    use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricCryptoKey};
+    use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
     use bitwarden_state::repository::Repository;
     use bitwarden_test::MemoryRepository;
     use chrono::Utc;
@@ -148,13 +160,10 @@ mod tests {
         store
     }
 
-    fn generate_test_cipher(store: &KeyStore<KeyIds>) -> Cipher {
-        let mut ctx = store.context();
+    fn generate_test_cipher() -> Cipher {
         Cipher {
             id: TEST_CIPHER_ID.parse().ok(),
-            name: "Test cipher"
-                .encrypt(&mut ctx, SymmetricKeyId::User)
-                .unwrap(),
+            name: "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=".parse().unwrap(),
             r#type: crate::CipherType::Login,
             notes: Default::default(),
             organization_id: Default::default(),
@@ -164,12 +173,11 @@ mod tests {
             fields: Default::default(),
             collection_ids: Default::default(),
             key: Default::default(),
-            login: Some(Login {
+            login: Some(Login{
                 username: None,
                 password: None,
                 password_revision_date: None,
-                uris: None,
-                totp: None,
+                uris: None, totp: None,
                 autofill_on_page_load: None,
                 fido2_credentials: None,
             }),
@@ -194,9 +202,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_restore() {
-        let store = setup_key_store();
         // Set up test ciphers in the repository.
-        let mut cipher_1 = generate_test_cipher(&store);
+        let mut cipher_1 = generate_test_cipher();
         cipher_1.deleted_date = Some(Utc::now());
 
         let api_client = ApiClient::new_mocked(move |mock| {
@@ -215,9 +222,17 @@ mod tests {
         });
 
         let repository: MemoryRepository<Cipher> = Default::default();
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        #[allow(deprecated)]
+        let _ = store.context_mut().set_symmetric_key(
+            SymmetricKeyId::User,
+            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+        );
 
-        let mut cipher = generate_test_cipher(&store);
+        let collection_id: CollectionId = "a4e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
+        let mut cipher = generate_test_cipher();
         cipher.deleted_date = Some(Utc::now());
+        cipher.collection_ids = vec![collection_id];
 
         repository
             .set(TEST_CIPHER_ID.parse().unwrap(), cipher)
@@ -230,6 +245,7 @@ mod tests {
             &api_client,
             &repository,
             &store,
+            false,
         )
         .await
         .unwrap();
@@ -239,6 +255,9 @@ mod tests {
         assert!(
             updated_cipher.revision_date >= start_time && updated_cipher.revision_date <= end_time
         );
+        // collection_ids are not returned by the server's restore response — they must be
+        // preserved.
+        assert_eq!(updated_cipher.collection_ids, vec![collection_id]);
 
         let repo_cipher = repository
             .get(TEST_CIPHER_ID.parse().unwrap())
@@ -253,14 +272,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_restore_many() {
-        let store = setup_key_store();
         let cipher_id: CipherId = TEST_CIPHER_ID.parse().unwrap();
         let cipher_id_2: CipherId = TEST_CIPHER_ID_2.parse().unwrap();
-        let mut cipher_1 = generate_test_cipher(&store);
+        let collection_id: CollectionId = "a4e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
+        let collection_id_2: CollectionId = "b5e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
+        let mut cipher_1 = generate_test_cipher();
         cipher_1.deleted_date = Some(Utc::now());
-        let mut cipher_2 = generate_test_cipher(&store);
+        cipher_1.collection_ids = vec![collection_id];
+        let mut cipher_2 = generate_test_cipher();
         cipher_2.deleted_date = Some(Utc::now());
         cipher_2.id = Some(cipher_id_2);
+        cipher_2.collection_ids = vec![collection_id_2];
 
         let api_client = {
             let cipher_1 = cipher_1.clone();
@@ -300,6 +322,12 @@ mod tests {
         };
 
         let repository: MemoryRepository<Cipher> = Default::default();
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        #[allow(deprecated)]
+        let _ = store.context_mut().set_symmetric_key(
+            SymmetricKeyId::User,
+            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+        );
 
         repository.set(cipher_id, cipher_1).await.unwrap();
         repository.set(cipher_id_2, cipher_2).await.unwrap();
@@ -334,7 +362,7 @@ mod tests {
         let store = setup_key_store();
         let collection_id: CollectionId = "a4e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
 
-        let mut cipher = generate_test_cipher(&store);
+        let mut cipher = generate_test_cipher();
         cipher.deleted_date = Some(Utc::now());
         cipher.collection_ids = vec![collection_id];
 
@@ -365,6 +393,7 @@ mod tests {
             &api_client,
             &repository,
             &store,
+            false,
         )
         .await
         .unwrap();
@@ -382,11 +411,11 @@ mod tests {
         let collection_id: CollectionId = "a4e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
         let collection_id_2: CollectionId = "b5e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
 
-        let mut cipher_1 = generate_test_cipher(&store);
+        let mut cipher_1 = generate_test_cipher();
         cipher_1.deleted_date = Some(Utc::now());
         cipher_1.collection_ids = vec![collection_id];
 
-        let mut cipher_2 = generate_test_cipher(&store);
+        let mut cipher_2 = generate_test_cipher();
         cipher_2.id = Some(cipher_id_2);
         cipher_2.deleted_date = Some(Utc::now());
         cipher_2.collection_ids = vec![collection_id_2];

@@ -9,7 +9,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use super::CiphersClient;
 use crate::{
     Cipher, CipherView, ItemNotFoundError,
-    cipher::cipher::{DecryptCipherListResult, DecryptCipherResult},
+    cipher::cipher::{DecryptCipherListResult, DecryptCipherResult, StrictDecrypt},
 };
 
 #[allow(missing_docs)]
@@ -28,11 +28,16 @@ async fn get_cipher(
     store: &KeyStore<KeyIds>,
     repository: &dyn Repository<Cipher>,
     id: &str,
+    use_strict_decryption: bool,
 ) -> Result<CipherView, GetCipherError> {
     let id = id.parse().map_err(|_| ItemNotFoundError)?;
     let cipher = repository.get(id).await?.ok_or(ItemNotFoundError)?;
 
-    Ok(store.decrypt(&cipher)?)
+    if use_strict_decryption {
+        Ok(store.decrypt(&StrictDecrypt(cipher))?)
+    } else {
+        Ok(store.decrypt(&cipher)?)
+    }
 }
 
 async fn list_ciphers(
@@ -86,6 +91,12 @@ impl CiphersClient {
         let key_store = self.client.internal.get_key_store();
         let repository = self.get_repository()?;
 
-        get_cipher(key_store, repository.as_ref(), cipher_id).await
+        get_cipher(
+            key_store,
+            repository.as_ref(),
+            cipher_id,
+            self.is_strict_decrypt(),
+        )
+        .await
     }
 }
