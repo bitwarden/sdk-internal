@@ -336,9 +336,6 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     let cipher_id = request.id;
 
     let original_cipher = repository.get(cipher_id).await?.ok_or(ItemNotFoundError)?;
-    // Preserve fields not returned by the server's PUT response.
-    let original_collection_ids = original_cipher.collection_ids.clone();
-    let original_local_data = original_cipher.local_data.clone();
     let original_cipher_view: CipherView = key_store.decrypt(&original_cipher)?;
 
     let request = CipherEditRequestInternal::new(request, &original_cipher_view);
@@ -346,14 +343,12 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     let mut cipher_request = key_store.encrypt(request)?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
-    let mut cipher: Cipher = api_client
+    let cipher: Cipher = api_client
         .ciphers_api()
         .put(cipher_id.into(), Some(cipher_request))
         .await
         .map_err(ApiError::from)?
         .merge_with_cipher(Some(original_cipher))?;
-    cipher.collection_ids = original_collection_ids;
-    cipher.local_data = original_local_data;
     debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
     repository.set(cipher_id, cipher.clone()).await?;
 
