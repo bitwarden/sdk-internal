@@ -30,7 +30,6 @@ impl Database for MemoryDatabase {
         _configuration: DatabaseConfiguration,
         _migrations: RepositoryMigrations,
     ) -> Result<Self, DatabaseError> {
-        // Memory database requires no I/O or schema initialization.
         // Migrations are intentionally ignored — there is no schema to version.
         Ok(MemoryDatabase::new())
     }

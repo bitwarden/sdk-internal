@@ -53,14 +53,6 @@ impl StateRegistry {
     }
 
     /// Creates a new `StateRegistry` backed by an in-memory database.
-    ///
-    /// This is a synchronous constructor suitable for use in `Client::new_internal()`
-    /// and other sync contexts. The in-memory database requires no I/O or async
-    /// initialization.
-    ///
-    /// Note: The `sdk_managed` Vec is not populated (no migration steps for memory).
-    /// Callers can use `register_client_managed` or access repositories
-    /// directly via `get::<T>()`.
     pub fn new_with_memory_db() -> Self {
         let registry = Self::new();
         // OnceLock::set returns Err only if already set.
@@ -104,14 +96,6 @@ impl StateRegistry {
     }
 
     /// Get a handle to a setting by its type-safe key.
-    ///
-    /// Returns a [`Setting`] handle that can be used to get, update, or delete
-    /// the setting value directly from the registry, without requiring a
-    /// `StateClient` wrapper.
-    ///
-    /// # Errors
-    /// Returns an error if the database is not initialized or the repository
-    /// is not accessible.
     pub fn setting<T>(&self, key: Key<T>) -> Result<Setting<T>, SettingsError> {
         let repository = self.get::<SettingItem>()?;
         Ok(Setting::new(repository, key))
