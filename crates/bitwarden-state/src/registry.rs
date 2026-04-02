@@ -96,9 +96,9 @@ impl StateRegistry {
     }
 
     /// Get a handle to a setting by its type-safe key.
-    pub fn setting<T>(&self, key: Key<T>) -> Setting<T> {
-        let repo = self.get::<SettingItem>().expect("DB is always initialized");
-        Setting::new(repo, key)
+    pub fn setting<T>(&self, key: Key<T>) -> Result<Setting<T>, StateRegistryError> {
+        let repo = self.get::<SettingItem>()?;
+        Ok(Setting::new(repo, key))
     }
 
     /// Registers a client-managed repository into the map, associating it with its type.
@@ -294,7 +294,7 @@ mod tests {
         register_setting_key!(const TEST_SETTING: String = "test_registry_setting_key");
 
         let registry = StateRegistry::new_with_memory_db();
-        let setting = registry.setting(TEST_SETTING);
+        let setting = registry.setting(TEST_SETTING).unwrap();
 
         // Value must not exist initially
         assert_eq!(setting.get().await.unwrap(), None::<String>);
