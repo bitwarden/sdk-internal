@@ -120,7 +120,7 @@ where
             return Err(AlreadyRunningError);
         }
 
-        let cancellation_token = cancellation_token.unwrap_or_else(CancellationToken::new);
+        let cancellation_token = cancellation_token.unwrap_or_default();
         self.inner
             .cancellation_token
             .lock()
