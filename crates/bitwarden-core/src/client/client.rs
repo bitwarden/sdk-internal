@@ -1,7 +1,6 @@
 use std::sync::{Arc, OnceLock, RwLock};
 
 use bitwarden_crypto::KeyStore;
-#[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
 
@@ -30,7 +29,7 @@ pub struct Client {
 impl Client {
     /// Create a new Bitwarden client with default settings and a no-op token handler.
     pub fn new(settings: Option<ClientSettings>) -> Self {
-        Self::new_internal(settings, Arc::new(NoopTokenHandler))
+        Self::new_internal(settings, Arc::new(NoopTokenHandler), StateRegistry::new_with_memory_db())
     }
 
     /// Create a new Bitwarden client with the specified token handler for managing authentication
@@ -39,12 +38,13 @@ impl Client {
         settings: Option<ClientSettings>,
         token_handler: Arc<dyn TokenHandler>,
     ) -> Self {
-        Self::new_internal(settings, token_handler)
+        Self::new_internal(settings, token_handler, StateRegistry::new_with_memory_db())
     }
 
     fn new_internal(
         settings_input: Option<ClientSettings>,
         token_handler: Arc<dyn TokenHandler>,
+        state_registry: StateRegistry,
     ) -> Self {
         let settings = settings_input.unwrap_or_default();
 
@@ -97,8 +97,7 @@ impl Client {
                 key_store,
                 #[cfg(feature = "internal")]
                 security_state: RwLock::new(None),
-                #[cfg(feature = "internal")]
-                repository_map: StateRegistry::new(),
+                state_registry,
             }),
         }
     }
