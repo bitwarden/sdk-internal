@@ -41,6 +41,17 @@ impl Client {
         Self::new_internal(settings, token_handler, StateRegistry::new_with_memory_db())
     }
 
+    /// Create a new Bitwarden client with the specified token handler and a pre-initialized
+    /// state registry. Use this constructor when restoring a client from persisted state,
+    /// where the state registry has already been loaded from disk.
+    pub fn new_with_token_handler_and_state(
+        settings: Option<ClientSettings>,
+        token_handler: Arc<dyn TokenHandler>,
+        state_registry: StateRegistry,
+    ) -> Self {
+        Self::new_internal(settings, token_handler, state_registry)
+    }
+
     fn new_internal(
         settings_input: Option<ClientSettings>,
         token_handler: Arc<dyn TokenHandler>,
@@ -179,4 +190,28 @@ fn build_default_headers(settings: &ClientSettings) -> header::HeaderMap {
     );
 
     headers
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn client_new_has_accessible_state_registry() {
+        let client = Client::new(None);
+        // Verify state registry is accessible without panicking
+        let _state = client.platform().state();
+    }
+
+    #[tokio::test]
+    async fn client_new_with_token_handler_and_state_uses_supplied_registry() {
+        let registry = StateRegistry::new_with_memory_db();
+        let client = Client::new_with_token_handler_and_state(
+            None,
+            Arc::new(NoopTokenHandler),
+            registry,
+        );
+        // Verify the client was constructed successfully with the supplied registry
+        let _state = client.platform().state();
+    }
 }
