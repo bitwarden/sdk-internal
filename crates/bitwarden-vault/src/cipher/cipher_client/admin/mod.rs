@@ -15,3 +15,9 @@ mod restore;
 pub struct CipherAdminClient {
     pub(crate) client: Client,
 }
+
+impl CipherAdminClient {
+    fn is_strict_decrypt(&self) -> bool {
+        self.client.internal.get_flags().strict_cipher_decryption
+    }
+}
