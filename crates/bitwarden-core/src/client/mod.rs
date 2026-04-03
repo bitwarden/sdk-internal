@@ -20,6 +20,7 @@ pub(crate) use login_method::{LoginMethod, UserLoginMethod};
 #[cfg(feature = "internal")]
 mod flags;
 
+pub use builder::ClientBuilder;
 pub use client::Client;
 pub use client_settings::{ClientName, ClientSettings, DeviceType};
 
