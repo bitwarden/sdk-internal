@@ -5,7 +5,7 @@ mod commercial;
 
 use std::sync::Arc;
 
-use bitwarden_auth::{AuthClientExt as _, token_management::PasswordManagerTokenHandler};
+use bitwarden_auth::AuthClientExt as _;
 use bitwarden_core::{
     FromClient,
     auth::{ClientManagedTokenHandler, ClientManagedTokens},
@@ -33,7 +33,9 @@ pub mod clients {
 #[cfg(feature = "bitwarden-license")]
 pub use commercial::CommercialPasswordManagerClient;
 
+mod builder;
 pub mod migrations;
+pub use builder::PasswordManagerClientBuilder;
 
 /// The main entry point for the Bitwarden Password Manager SDK
 pub struct PasswordManagerClient(pub bitwarden_core::Client);
@@ -41,11 +43,15 @@ pub struct PasswordManagerClient(pub bitwarden_core::Client);
 impl PasswordManagerClient {
     /// Initialize a new instance of the SDK client
     pub fn new(settings: Option<bitwarden_core::ClientSettings>) -> Self {
-        let token_handler = Arc::new(PasswordManagerTokenHandler::default());
-        Self(bitwarden_core::Client::new_with_token_handler(
-            settings,
-            token_handler,
-        ))
+        let mut builder = PasswordManagerClientBuilder::new();
+        if let Some(s) = settings {
+            builder = builder.with_settings(s);
+        }
+        builder.build()
+    }
+
+    pub fn builder() -> PasswordManagerClientBuilder {
+        PasswordManagerClientBuilder::new()
     }
 
     /// Initialize a new instance of the SDK client with client-managed tokens
