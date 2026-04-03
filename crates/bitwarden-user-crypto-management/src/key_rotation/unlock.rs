@@ -45,6 +45,7 @@ pub(super) enum MasterkeyUnlockMethod {
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct V1EmergencyAccessMembership {
     pub id: uuid::Uuid,
+    pub grantee_id: uuid::Uuid,
     pub name: String,
     pub public_key: PublicKey,
 }
@@ -535,6 +536,7 @@ mod tests {
             ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let emergency_access = V1EmergencyAccessMembership {
             id: Uuid::new_v4(),
+            grantee_id: Uuid::new_v4(),
             name: "Test User".to_string(),
             public_key: ctx
                 .get_public_key(organization_private_key)
