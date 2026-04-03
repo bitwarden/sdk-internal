@@ -1,5 +1,6 @@
 //! Bitwarden SDK Client
 
+pub mod builder;
 #[allow(clippy::module_inception)]
 mod client;
 #[allow(missing_docs)]

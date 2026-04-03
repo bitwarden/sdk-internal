@@ -16,25 +16,12 @@ use crate::{
     },
 };
 
-/// Builder for constructing a [`Client`] with optional configuration.
-///
-/// # Example
-///
-/// ```rust
-/// use bitwarden_core::ClientBuilder;
-///
-/// let client = ClientBuilder::new().build();
-/// ```
 pub struct ClientBuilder {
     settings: Option<ClientSettings>,
     token_handler: Arc<dyn TokenHandler>,
 }
 
 impl ClientBuilder {
-    /// Create a new [`ClientBuilder`] with default settings.
-    ///
-    /// Defaults: no custom settings (uses [`ClientSettings::default()`]),
-    /// [`NoopTokenHandler`] for token management.
     pub fn new() -> Self {
         Self {
             settings: None,
@@ -42,21 +29,16 @@ impl ClientBuilder {
         }
     }
 
-    /// Set the client settings.
     pub fn with_settings(mut self, settings: ClientSettings) -> Self {
         self.settings = Some(settings);
         self
     }
 
-    /// Set a custom token handler for authentication token management.
     pub fn with_token_handler(mut self, token_handler: Arc<dyn TokenHandler>) -> Self {
         self.token_handler = token_handler;
         self
     }
 
-    /// Build the [`Client`].
-    ///
-    /// Consumes the builder. The resulting client is ready for use.
     pub fn build(self) -> Client {
         let settings = self.settings.unwrap_or_default();
 
@@ -198,44 +180,32 @@ fn build_default_headers(settings: &ClientSettings) -> header::HeaderMap {
 mod tests {
     use super::*;
 
-    /// Verify that ClientBuilder::new().build() can construct a client without panicking.
-    /// Behavioral equivalence with Client::new(None) is validated implicitly: after Commit 2,
-    /// Client::new(None) delegates to this same code path.
     #[test]
     fn test_client_builder_default_builds() {
         let _client = ClientBuilder::new().build();
     }
 
-    /// Verify that with_settings() is accepted and does not panic.
     #[test]
     fn test_client_builder_with_settings_builds() {
         let settings = ClientSettings::default();
         let _client = ClientBuilder::new().with_settings(settings).build();
     }
 
-    /// Verify that with_token_handler() is accepted and does not panic.
     #[test]
     fn test_client_builder_with_token_handler_builds() {
         let handler: Arc<dyn TokenHandler> = Arc::new(NoopTokenHandler);
         let _client = ClientBuilder::new().with_token_handler(handler).build();
     }
 
-    /// Verify that chaining order does not matter: settings then handler == handler then settings.
-    /// Both must produce clients without panicking (behavioral equivalence is the assertion).
     #[test]
     fn test_client_builder_chain_order_independence() {
-        let settings_a = ClientSettings::default();
-        let settings_b = ClientSettings::default();
-        let handler_a: Arc<dyn TokenHandler> = Arc::new(NoopTokenHandler);
-        let handler_b: Arc<dyn TokenHandler> = Arc::new(NoopTokenHandler);
-
-        let _client_a = ClientBuilder::new()
-            .with_settings(settings_a)
-            .with_token_handler(handler_a)
+        let _a = ClientBuilder::new()
+            .with_settings(ClientSettings::default())
+            .with_token_handler(Arc::new(NoopTokenHandler) as Arc<dyn TokenHandler>)
             .build();
-        let _client_b = ClientBuilder::new()
-            .with_token_handler(handler_b)
-            .with_settings(settings_b)
+        let _b = ClientBuilder::new()
+            .with_token_handler(Arc::new(NoopTokenHandler) as Arc<dyn TokenHandler>)
+            .with_settings(ClientSettings::default())
             .build();
     }
 }
