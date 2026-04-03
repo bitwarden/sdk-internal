@@ -40,6 +40,7 @@ impl Client {
         builder.build()
     }
 
+    /// Returns a [`ClientBuilder`] for constructing a new [`Client`].
     pub fn builder() -> ClientBuilder {
         ClientBuilder::new()
     }

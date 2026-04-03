@@ -1,5 +1,6 @@
 //! Bitwarden SDK Client
 
+/// Builder pattern for constructing [`Client`] instances.
 pub mod builder;
 #[allow(clippy::module_inception)]
 mod client;

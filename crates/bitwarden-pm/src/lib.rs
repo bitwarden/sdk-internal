@@ -50,6 +50,7 @@ impl PasswordManagerClient {
         builder.build()
     }
 
+    /// Returns a [`PasswordManagerClientBuilder`] for constructing a new [`PasswordManagerClient`].
     pub fn builder() -> PasswordManagerClientBuilder {
         PasswordManagerClientBuilder::new()
     }

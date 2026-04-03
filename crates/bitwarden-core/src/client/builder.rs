@@ -16,12 +16,14 @@ use crate::{
     },
 };
 
+/// Builder for constructing [`Client`] instances with custom configuration.
 pub struct ClientBuilder {
     settings: Option<ClientSettings>,
     token_handler: Arc<dyn TokenHandler>,
 }
 
 impl ClientBuilder {
+    /// Creates a new [`ClientBuilder`] with default settings.
     pub fn new() -> Self {
         Self {
             settings: None,
@@ -29,16 +31,19 @@ impl ClientBuilder {
         }
     }
 
+    /// Sets the [`ClientSettings`] for the client being built.
     pub fn with_settings(mut self, settings: ClientSettings) -> Self {
         self.settings = Some(settings);
         self
     }
 
+    /// Sets a custom [`TokenHandler`] for managing authentication tokens.
     pub fn with_token_handler(mut self, token_handler: Arc<dyn TokenHandler>) -> Self {
         self.token_handler = token_handler;
         self
     }
 
+    /// Consumes the builder and constructs a [`Client`].
     pub fn build(self) -> Client {
         let settings = self.settings.unwrap_or_default();
 
