@@ -23,7 +23,8 @@ use super::CiphersClient;
 use crate::{
     AttachmentView, Cipher, CipherId, CipherRepromptType, CipherType, CipherView, FieldView,
     FolderId, ItemNotFoundError, PasswordHistoryView, VaultParseError,
-    cipher::cipher::PartialCipher, cipher_view_type::CipherViewType,
+    cipher::cipher::{PartialCipher, StrictDecrypt},
+    cipher_view_type::CipherViewType,
     password_history::MAX_PASSWORD_HISTORY_ENTRIES,
 };
 
@@ -332,11 +333,16 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
     repository: &R,
     encrypted_for: UserId,
     request: CipherEditRequest,
+    use_strict_decryption: bool,
 ) -> Result<CipherView, EditCipherError> {
     let cipher_id = request.id;
 
     let original_cipher = repository.get(cipher_id).await?.ok_or(ItemNotFoundError)?;
-    let original_cipher_view: CipherView = key_store.decrypt(&original_cipher)?;
+    let original_cipher_view: CipherView = if use_strict_decryption {
+        key_store.decrypt(&StrictDecrypt(original_cipher.clone()))?
+    } else {
+        key_store.decrypt(&original_cipher)?
+    };
 
     let request = CipherEditRequestInternal::new(request, &original_cipher_view);
 
@@ -348,11 +354,15 @@ async fn edit_cipher<R: Repository<Cipher> + ?Sized>(
         .put(cipher_id.into(), Some(cipher_request))
         .await
         .map_err(ApiError::from)?
-        .try_into()?;
+        .merge_with_cipher(Some(original_cipher))?;
     debug_assert!(cipher.id.unwrap_or_default() == cipher_id);
     repository.set(cipher_id, cipher.clone()).await?;
 
-    Ok(key_store.decrypt(&cipher)?)
+    if use_strict_decryption {
+        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    } else {
+        Ok(key_store.decrypt(&cipher)?)
+    }
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -391,6 +401,7 @@ impl CiphersClient {
             repository.as_ref(),
             user_id,
             request,
+            self.is_strict_decrypt(),
         )
         .await
     }
@@ -610,8 +621,15 @@ mod tests {
                 .once();
         });
 
+        let collection_id: CollectionId = "a4e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
+
         let repository = MemoryRepository::<Cipher>::default();
         repository_add_cipher(&repository, &store, cipher_id, "old_name").await;
+        // Update the stored cipher to include a collection_id so we can verify it is preserved.
+        let mut stored = repository.get(cipher_id).await.unwrap().unwrap();
+        stored.collection_ids = vec![collection_id];
+        repository.set(cipher_id, stored).await.unwrap();
+
         let cipher_view = generate_test_cipher();
 
         let request = cipher_view.try_into().unwrap();
@@ -622,12 +640,15 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
+            false,
         )
         .await
         .unwrap();
 
         assert_eq!(result.id, Some(cipher_id));
         assert_eq!(result.name, "Test Login");
+        // collection_ids must be preserved even though CipherResponseModel omits them.
+        assert_eq!(result.collection_ids, vec![collection_id]);
     }
 
     #[tokio::test]
@@ -647,6 +668,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
+            false,
         )
         .await;
 
@@ -689,6 +711,7 @@ mod tests {
             &repository,
             TEST_USER_ID.parse().unwrap(),
             request,
+            false,
         )
         .await;
 
