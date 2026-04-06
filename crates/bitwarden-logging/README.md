@@ -25,8 +25,8 @@ tracing_subscriber::registry()
     .init();
 ```
 
-The default configuration retains 1 000 events at `DEBUG` level. Use `FlightRecorderConfig::new`
-for custom settings.
+The default configuration retains 1 000 events at `DEBUG` level. Use `FlightRecorderConfig::new` for
+custom settings.
 
 ### Reading events
 
@@ -43,8 +43,8 @@ Both functions return safe defaults (`0` / empty `Vec`) if the recorder has not 
 
 ### WASM usage
 
-In `bitwarden-wasm-internal`, the recorder is automatically initialized by `init_sdk()`.
-TypeScript consumers access it through `FlightRecorderClient`:
+In `bitwarden-wasm-internal`, the recorder is automatically initialized by `init_sdk()`. TypeScript
+consumers access it through `FlightRecorderClient`:
 
 ```typescript
 import { FlightRecorderClient } from "@aspect/bitwarden-wasm-internal";
