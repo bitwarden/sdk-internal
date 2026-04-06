@@ -1,8 +1,6 @@
 use bitwarden_logging::{FlightRecorderConfig, init_flight_recorder};
 use tracing::Level;
-use tracing_subscriber::{
-    EnvFilter, Layer as _, layer::SubscriberExt as _, util::SubscriberInitExt as _,
-};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt as _, util::SubscriberInitExt as _};
 use tracing_web::MakeWebConsoleWriter;
 use wasm_bindgen::prelude::*;
 
