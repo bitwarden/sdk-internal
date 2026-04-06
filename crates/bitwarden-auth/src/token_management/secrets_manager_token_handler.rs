@@ -32,6 +32,8 @@ struct SecretsManagerTokenHandlerInner {
     key_store: Option<KeyStore<KeyIds>>,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 impl TokenHandler for SecretsManagerTokenHandler {
     fn initialize_middleware(
         &self,
@@ -48,7 +50,12 @@ impl TokenHandler for SecretsManagerTokenHandler {
         Arc::new(MiddlewareWrapper(self.clone()))
     }
 
-    fn set_tokens(&self, access_token: String, _refresh_token: Option<String>, expires_in: u64) {
+    async fn set_tokens(
+        &self,
+        access_token: String,
+        _refresh_token: Option<String>,
+        expires_in: u64,
+    ) {
         let mut inner = self.inner.write().expect("RwLock is not poisoned");
         inner.access_token = Some(access_token);
         inner.expires_on = Some(Utc::now().timestamp() + expires_in as i64);
@@ -114,7 +121,8 @@ impl MiddlewareExt for SecretsManagerTokenHandler {
             )
             .await?;
 
-        self.set_tokens(access_token.clone(), refresh_token, expires_in);
+        self.set_tokens(access_token.clone(), refresh_token, expires_in)
+            .await;
         Ok(Some(access_token))
     }
 }
@@ -158,7 +166,9 @@ mod tests {
         let identity_server = MockServer::start().await;
 
         let handler = SecretsManagerTokenHandler::default();
-        handler.set_tokens("original-token".to_string(), None, 3600);
+        handler
+            .set_tokens("original-token".to_string(), None, 3600)
+            .await;
 
         let client = build_client(handler.initialize_middleware(
             service_account_login_method(),
@@ -179,7 +189,9 @@ mod tests {
 
         let handler = SecretsManagerTokenHandler::default();
         // expires_in=0 means the token is immediately considered expired
-        handler.set_tokens("expired-token".to_string(), None, 0);
+        handler
+            .set_tokens("expired-token".to_string(), None, 0)
+            .await;
 
         let client = build_client(handler.initialize_middleware(
             service_account_login_method(),

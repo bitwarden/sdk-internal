@@ -8,6 +8,8 @@ use bitwarden_crypto::KeyStore;
 use crate::{client::LoginMethod, key_management::KeyIds};
 
 /// Trait for handling token usage and renewal.
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 pub trait TokenHandler: 'static + Send + Sync {
     /// Initialize middleware that handles token attachment and renewal.
     /// This middleware should look for the presence of the [bitwarden_api_base::AuthRequired]
@@ -25,7 +27,7 @@ pub trait TokenHandler: 'static + Send + Sync {
     /// done either during renewal (as part of the middleware) or during registration/login, in
     /// which case it would be up to the auth crate to internally set those tokens when initializing
     /// the client.
-    fn set_tokens(&self, token: String, refresh_token: Option<String>, expires_in: u64);
+    async fn set_tokens(&self, token: String, refresh_token: Option<String>, expires_in: u64);
 }
 
 /// Access tokens managed by client applications, such as the web or mobile apps.
@@ -49,6 +51,8 @@ impl ClientManagedTokenHandler {
     }
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 impl TokenHandler for ClientManagedTokenHandler {
     fn initialize_middleware(
         &self,
@@ -59,7 +63,7 @@ impl TokenHandler for ClientManagedTokenHandler {
         Arc::new(self.clone())
     }
 
-    fn set_tokens(&self, _token: String, _refresh_token: Option<String>, _expires_on: u64) {
+    async fn set_tokens(&self, _token: String, _refresh_token: Option<String>, _expires_on: u64) {
         panic!("Client-managed tokens cannot be set by the SDK");
     }
 }
@@ -98,6 +102,8 @@ impl reqwest_middleware::Middleware for ClientManagedTokenHandler {
 #[derive(Clone, Copy)]
 pub struct NoopTokenHandler;
 
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 impl TokenHandler for NoopTokenHandler {
     fn initialize_middleware(
         &self,
@@ -108,7 +114,7 @@ impl TokenHandler for NoopTokenHandler {
         Arc::new(*self)
     }
 
-    fn set_tokens(&self, _token: String, _refresh_token: Option<String>, _expires_on: u64) {
+    async fn set_tokens(&self, _token: String, _refresh_token: Option<String>, _expires_on: u64) {
         panic!("Cannot set tokens on NoopTokenHandler");
     }
 }

@@ -145,9 +145,15 @@ impl InternalClient {
     }
 
     #[cfg(any(feature = "internal", feature = "secrets"))]
-    pub(crate) fn set_tokens(&self, token: String, refresh_token: Option<String>, expires_in: u64) {
+    pub(crate) async fn set_tokens(
+        &self,
+        token: String,
+        refresh_token: Option<String>,
+        expires_in: u64,
+    ) {
         self.token_handler
-            .set_tokens(token, refresh_token, expires_in);
+            .set_tokens(token, refresh_token, expires_in)
+            .await;
     }
 
     #[allow(missing_docs)]
