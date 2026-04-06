@@ -42,10 +42,13 @@ impl Client {
     pub async fn init_test_account(account: TestAccount) -> Self {
         let client = Client::new_test(None);
 
-        client.internal.load_flags(HashMap::from([(
-            "enableCipherKeyEncryption".to_owned(),
-            true,
-        )]));
+        client
+            .internal
+            .load_flags(HashMap::from([(
+                "enableCipherKeyEncryption".to_owned(),
+                true,
+            )]))
+            .await;
 
         client
             .crypto()

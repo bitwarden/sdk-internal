@@ -100,12 +100,12 @@ impl CryptoClient {
     /// Create the data necessary to update the user's kdf settings. The user's encryption key is
     /// re-encrypted for the password under the new kdf settings. This returns the re-encrypted
     /// user key and the new password hash but does not update sdk state.
-    pub fn make_update_kdf(
+    pub async fn make_update_kdf(
         &self,
         password: String,
         kdf: Kdf,
     ) -> Result<UpdateKdfResponse, CryptoClientError> {
-        make_update_kdf(&self.client, &password, &kdf)
+        make_update_kdf(&self.client, &password, &kdf).await
     }
 
     /// Protects the current user key with the provided PIN. The result can be stored and later
@@ -191,27 +191,30 @@ impl CryptoClient {
     /// Create the data necessary to update the user's password. The user's encryption key is
     /// re-encrypted with the new password. This returns the new encrypted user key and the new
     /// password hash but does not update sdk state.
-    pub fn make_update_password(
+    pub async fn make_update_password(
         &self,
         new_password: String,
     ) -> Result<UpdatePasswordResponse, CryptoClientError> {
-        make_update_password(&self.client, new_password)
+        make_update_password(&self.client, new_password).await
     }
 
     /// Generates a PIN protected user key from the provided PIN. The result can be stored and later
     /// used to initialize another client instance by using the PIN and the PIN key with
     /// `initialize_user_crypto`.
-    pub fn derive_pin_key(&self, pin: String) -> Result<DerivePinKeyResponse, CryptoClientError> {
-        derive_pin_key(&self.client, pin)
+    pub async fn derive_pin_key(
+        &self,
+        pin: String,
+    ) -> Result<DerivePinKeyResponse, CryptoClientError> {
+        derive_pin_key(&self.client, pin).await
     }
 
     /// Derives the pin protected user key from encrypted pin. Used when pin requires master
     /// password on first unlock.
-    pub fn derive_pin_user_key(
+    pub async fn derive_pin_user_key(
         &self,
         encrypted_pin: EncString,
     ) -> Result<EncString, CryptoClientError> {
-        derive_pin_user_key(&self.client, encrypted_pin)
+        derive_pin_user_key(&self.client, encrypted_pin).await
     }
 
     /// Creates a new rotateable key set for the current user key protected

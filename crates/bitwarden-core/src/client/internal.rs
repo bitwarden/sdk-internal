@@ -116,18 +116,21 @@ impl InternalClient {
     /// Load feature flags. This is intentionally a collection and not the internal `Flag` enum as
     /// we want to avoid changes in feature flags from being a breaking change.
     #[cfg(feature = "internal")]
-    pub fn load_flags(&self, flags: std::collections::HashMap<String, bool>) {
+    #[expect(clippy::unused_async)]
+    pub async fn load_flags(&self, flags: std::collections::HashMap<String, bool>) {
         *self.flags.write().expect("RwLock is not poisoned") = Flags::load_from_map(flags);
     }
 
     /// Retrieve the active feature flags.
     #[cfg(feature = "internal")]
-    pub fn get_flags(&self) -> Flags {
+    #[expect(clippy::unused_async)]
+    pub async fn get_flags(&self) -> Flags {
         self.flags.read().expect("RwLock is not poisoned").clone()
     }
 
     #[cfg(feature = "internal")]
-    pub(crate) fn get_login_method(&self) -> Option<UserLoginMethod> {
+    #[expect(clippy::unused_async)]
+    pub(crate) async fn get_login_method(&self) -> Option<UserLoginMethod> {
         let lm = self.login_method.read().expect("RwLock is not poisoned");
         match lm.as_deref()? {
             LoginMethod::User(ulm) => Some(ulm.clone()),
@@ -137,7 +140,8 @@ impl InternalClient {
     }
 
     #[cfg(any(feature = "internal", feature = "secrets"))]
-    pub(crate) fn set_login_method(&self, login_method: LoginMethod) {
+    #[expect(clippy::unused_async)]
+    pub(crate) async fn set_login_method(&self, login_method: LoginMethod) {
         use tracing::debug;
 
         debug!(?login_method, "setting login method.");
@@ -152,7 +156,8 @@ impl InternalClient {
 
     #[allow(missing_docs)]
     #[cfg(feature = "internal")]
-    pub fn get_kdf(&self) -> Result<Kdf, NotAuthenticatedError> {
+    #[expect(clippy::unused_async)]
+    pub async fn get_kdf(&self) -> Result<Kdf, NotAuthenticatedError> {
         match self
             .login_method
             .read()
@@ -362,36 +367,42 @@ impl InternalClient {
     /// Sets the local KDF state for the master password unlock login method.
     /// Salt and user key update is not supported yet.
     #[cfg(feature = "internal")]
-    pub fn set_user_master_password_unlock(
+    pub async fn set_user_master_password_unlock(
         &self,
         master_password_unlock: MasterPasswordUnlockData,
     ) -> Result<(), NotAuthenticatedError> {
         let new_kdf = master_password_unlock.kdf;
 
-        let login_method = self.get_login_method().ok_or(NotAuthenticatedError)?;
+        let login_method = self.get_login_method().await.ok_or(NotAuthenticatedError)?;
 
-        let kdf = self.get_kdf()?;
+        let kdf = self.get_kdf().await?;
 
         if kdf != new_kdf {
             match login_method {
                 UserLoginMethod::Username {
                     client_id, email, ..
-                } => self.set_login_method(LoginMethod::User(UserLoginMethod::Username {
-                    client_id,
-                    email,
-                    kdf: new_kdf,
-                })),
+                } => {
+                    self.set_login_method(LoginMethod::User(UserLoginMethod::Username {
+                        client_id,
+                        email,
+                        kdf: new_kdf,
+                    }))
+                    .await
+                }
                 UserLoginMethod::ApiKey {
                     client_id,
                     client_secret,
                     email,
                     ..
-                } => self.set_login_method(LoginMethod::User(UserLoginMethod::ApiKey {
-                    client_id,
-                    client_secret,
-                    email,
-                    kdf: new_kdf,
-                })),
+                } => {
+                    self.set_login_method(LoginMethod::User(UserLoginMethod::ApiKey {
+                        client_id,
+                        client_secret,
+                        email,
+                        kdf: new_kdf,
+                    }))
+                    .await
+                }
             };
         }
 
@@ -453,9 +464,10 @@ mod tests {
                 master_key_wrapped_user_key: user_key,
                 salt: email,
             })
+            .await
             .unwrap();
 
-        let kdf = client.internal.get_kdf().unwrap();
+        let kdf = client.internal.get_kdf().await.unwrap();
         assert_eq!(kdf, new_kdf);
     }
 
@@ -480,9 +492,10 @@ mod tests {
                 master_key_wrapped_user_key: new_encrypted_user_key,
                 salt: new_email,
             })
+            .await
             .unwrap();
 
-        let login_method = client.internal.get_login_method().unwrap();
+        let login_method = client.internal.get_login_method().await.unwrap();
         match login_method {
             UserLoginMethod::Username { email, .. } => {
                 assert_eq!(*email, expected_email);
