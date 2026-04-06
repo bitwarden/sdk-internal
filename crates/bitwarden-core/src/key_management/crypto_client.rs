@@ -179,15 +179,19 @@ impl CryptoClient {
             .decrypt(&mut ctx, SymmetricKeyId::LocalUserData)
             .map_err(CryptoClientError::Crypto)
     }
-}
 
-impl CryptoClient {
+    /// ⚠️⚠️⚠️ HAZMAT WARNING: DO NOT USE THIS ⚠️⚠️⚠️
+    ///
     /// Get the uses's decrypted encryption key. Note: It's very important
-    /// to keep this key safe, as it can be used to decrypt all of the user's data
+    /// to keep this key safe, as it can be used to decrypt all of the user's data. It is
+    /// only permitted to use for a transition period where side effects such as biometrics
+    /// and never-lock are set from within the client code.
     pub async fn get_user_encryption_key(&self) -> Result<B64, CryptoClientError> {
         get_user_encryption_key(&self.client).await
     }
+}
 
+impl CryptoClient {
     /// Create the data necessary to update the user's password. The user's encryption key is
     /// re-encrypted with the new password. This returns the new encrypted user key and the new
     /// password hash but does not update sdk state.
