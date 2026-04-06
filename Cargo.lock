@@ -1242,6 +1242,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-ipc",
+ "bitwarden-logging",
  "bitwarden-pm",
  "bitwarden-server-communication-config",
  "bitwarden-ssh",

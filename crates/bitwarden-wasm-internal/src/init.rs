@@ -1,5 +1,8 @@
+use bitwarden_logging::{FlightRecorderConfig, init_flight_recorder};
 use tracing::Level;
-use tracing_subscriber::{EnvFilter, layer::SubscriberExt as _, util::SubscriberInitExt as _};
+use tracing_subscriber::{
+    EnvFilter, Layer as _, layer::SubscriberExt as _, util::SubscriberInitExt as _,
+};
 use tracing_web::MakeWebConsoleWriter;
 use wasm_bindgen::prelude::*;
 
@@ -38,7 +41,12 @@ pub fn init_sdk(log_level: Option<LogLevel>) {
         .without_time() // time is not supported in wasm
         .with_writer(MakeWebConsoleWriter::new()); // write events to the console
 
-    let tracing_subscriber = tracing_subscriber::registry().with(filter).with(fmt);
+    let flight_recorder_layer = init_flight_recorder(FlightRecorderConfig::default());
+
+    let tracing_subscriber = tracing_subscriber::registry()
+        .with(flight_recorder_layer)
+        .with(fmt)
+        .with(filter);
     #[cfg(feature = "performance-tracing")]
     let tracing_subscriber = {
         let perf_layer = tracing_web::performance_layer()
