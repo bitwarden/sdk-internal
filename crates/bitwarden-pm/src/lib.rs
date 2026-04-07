@@ -5,7 +5,7 @@ mod commercial;
 
 use std::sync::Arc;
 
-use bitwarden_auth::AuthClientExt as _;
+use bitwarden_auth::{AuthClientExt as _, token_management::PasswordManagerTokenHandler};
 use bitwarden_core::{
     FromClient,
     auth::{ClientManagedTokenHandler, ClientManagedTokens},
@@ -82,20 +82,19 @@ impl PasswordManagerClient {
         settings: Option<bitwarden_core::ClientSettings>,
         cookie_provider: std::sync::Arc<dyn bitwarden_server_communication_config::CookieProvider>,
     ) -> Self {
-        let token_handler = std::sync::Arc::new(PasswordManagerTokenHandler::default());
         let cookie_middleware: std::sync::Arc<dyn reqwest_middleware::Middleware> =
             std::sync::Arc::new(
                 bitwarden_server_communication_config::ServerCommunicationConfigMiddleware::new(
                     cookie_provider,
                 ),
             );
-        Self(
-            bitwarden_core::Client::new_with_token_handler_and_middleware(
-                settings,
-                token_handler,
-                vec![cookie_middleware],
-            ),
-        )
+        let mut builder = bitwarden_core::Client::builder()
+            .with_token_handler(std::sync::Arc::new(PasswordManagerTokenHandler::default()))
+            .with_middleware(vec![cookie_middleware]);
+        if let Some(s) = settings {
+            builder = builder.with_settings(s);
+        }
+        Self(builder.build())
     }
 
     /// Initialize a new instance of the SDK client with SDK managed state and sync handlers
