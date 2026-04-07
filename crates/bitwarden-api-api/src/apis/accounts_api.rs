@@ -251,41 +251,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&secret_verification_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ApiKeyResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ApiKeyResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<ApiKeyError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn delete<'a>(
@@ -303,23 +269,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&secret_verification_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<DeleteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn delete_sso_user<'a>(
@@ -340,23 +290,7 @@ impl AccountsApi for AccountsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<DeleteSsoUserError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn get_account_revision_date(&self) -> Result<i64, Error<GetAccountRevisionDateError>> {
@@ -373,41 +307,7 @@ impl AccountsApi for AccountsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `i64`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `i64`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetAccountRevisionDateError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_keys(&self) -> Result<models::KeysResponseModel, Error<GetKeysError>> {
@@ -421,41 +321,7 @@ impl AccountsApi for AccountsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::KeysResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::KeysResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetKeysError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_organizations(
@@ -477,41 +343,7 @@ impl AccountsApi for AccountsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ProfileOrganizationResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProfileOrganizationResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetOrganizationsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_profile(&self) -> Result<models::ProfileResponseModel, Error<GetProfileError>> {
@@ -525,41 +357,7 @@ impl AccountsApi for AccountsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ProfileResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProfileResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetProfileError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_sso_user_identifier(&self) -> Result<String, Error<GetSsoUserIdentifierError>> {
@@ -576,37 +374,7 @@ impl AccountsApi for AccountsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => return Ok(local_var_content),
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `String`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetSsoUserIdentifierError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_subscription(
@@ -625,41 +393,7 @@ impl AccountsApi for AccountsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::SubscriptionResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SubscriptionResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetSubscriptionError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn post_cancel<'a>(
@@ -680,23 +414,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&subscription_cancellation_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostCancelError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_delete_recover<'a>(
@@ -717,23 +435,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&delete_recover_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostDeleteRecoverError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_delete_recover_token<'a>(
@@ -754,23 +456,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&verify_delete_recover_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostDeleteRecoverTokenError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_email<'a>(
@@ -788,23 +474,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&email_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostEmailError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_email_token<'a>(
@@ -823,23 +493,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&email_token_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostEmailTokenError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_kdf<'a>(
@@ -857,23 +511,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&password_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostKdfError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_keys<'a>(
@@ -891,41 +529,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&keys_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::KeysResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::KeysResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PostKeysError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn post_license<'a>(
@@ -945,23 +549,7 @@ impl AccountsApi for AccountsApiClient {
         // TODO: support file upload for 'license' parameter
         local_var_req_builder = local_var_req_builder.multipart(local_var_form);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostLicenseError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_password<'a>(
@@ -979,23 +567,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&password_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostPasswordError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_password_hint<'a>(
@@ -1016,23 +588,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&password_hint_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostPasswordHintError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_reinstate(&self) -> Result<(), Error<PostReinstateError>> {
@@ -1049,23 +605,7 @@ impl AccountsApi for AccountsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostReinstateError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_request_otp(&self) -> Result<(), Error<PostRequestOTPError>> {
@@ -1080,23 +620,7 @@ impl AccountsApi for AccountsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostRequestOTPError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_security_stamp<'a>(
@@ -1117,23 +641,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&secret_verification_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostSecurityStampError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_set_password<'a>(
@@ -1154,23 +662,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&set_initial_password_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostSetPasswordError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_storage<'a>(
@@ -1188,41 +680,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&storage_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::PaymentResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PaymentResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PostStorageError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn post_verify_email(&self) -> Result<(), Error<PostVerifyEmailError>> {
@@ -1239,23 +697,7 @@ impl AccountsApi for AccountsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostVerifyEmailError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_verify_email_token<'a>(
@@ -1276,23 +718,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&verify_email_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostVerifyEmailTokenError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_verify_password<'a>(
@@ -1313,41 +739,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&secret_verification_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::MasterPasswordPolicyResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::MasterPasswordPolicyResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PostVerifyPasswordError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn put_avatar<'a>(
@@ -1365,41 +757,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&update_avatar_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ProfileResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProfileResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PutAvatarError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn put_profile<'a>(
@@ -1417,41 +775,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&update_profile_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ProfileResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProfileResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PutProfileError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn put_update_tde_password<'a>(
@@ -1475,23 +799,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&update_tde_offboarding_password_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PutUpdateTdePasswordError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn put_update_temp_password<'a>(
@@ -1512,23 +820,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&update_temp_password_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PutUpdateTempPasswordError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn resend_new_device_otp<'a>(
@@ -1552,23 +844,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&unauthenticated_secret_verification_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<ResendNewDeviceOtpError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn rotate_api_key<'a>(
@@ -1589,41 +865,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&secret_verification_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ApiKeyResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ApiKeyResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<RotateApiKeyError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn set_user_verify_devices<'a>(
@@ -1644,23 +886,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&set_verify_devices_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<SetUserVerifyDevicesError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn verify_otp<'a>(
@@ -1679,23 +905,7 @@ impl AccountsApi for AccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&verify_otp_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<VerifyOTPError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 }
 
