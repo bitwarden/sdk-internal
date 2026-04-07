@@ -11,7 +11,7 @@ use crate::CookieProvider;
 ///
 /// Must be outermost in the middleware chain so it observes raw 3xx responses
 /// before auth middleware. Auto-redirect must be disabled on the underlying
-/// reqwest::Client. See ADR-008 and ADR-013.
+/// reqwest::Client. 
 ///
 /// On WASM targets, uses a proactive strategy: checks `needs_bootstrap()` before
 /// each request, acquires cookies if needed, injects them, then sends. This is
