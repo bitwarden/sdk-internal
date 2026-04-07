@@ -196,6 +196,8 @@ fn inject_cookies(req: &mut reqwest::Request, cookies: Vec<(String, String)>) {
     if let Ok(header_value) = HeaderValue::from_str(&cookie_header) {
         req.headers_mut()
             .insert(reqwest::header::COOKIE, header_value);
+    } else {
+        tracing::warn!("Cookie middleware: failed to encode cookie header (invalid characters)");
     }
 }
 
