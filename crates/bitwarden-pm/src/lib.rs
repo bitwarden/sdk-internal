@@ -5,7 +5,7 @@ mod commercial;
 
 use std::sync::Arc;
 
-use bitwarden_auth::{AuthClientExt as _, token_management::PasswordManagerTokenHandler};
+use bitwarden_auth::AuthClientExt as _;
 use bitwarden_core::{
     FromClient,
     auth::{ClientManagedTokenHandler, ClientManagedTokens},
@@ -64,37 +64,6 @@ impl PasswordManagerClient {
             settings,
             ClientManagedTokenHandler::new(tokens),
         ))
-    }
-
-    /// Initialize a new instance of the SDK client with SSO load balancer cookie middleware.
-    ///
-    /// Use this constructor for self-hosted Bitwarden deployments behind load balancers
-    /// that require SSO session cookies for request affinity.
-    ///
-    /// The provided `cookie_provider` is wrapped in `ServerCommunicationConfigMiddleware`
-    /// and chained outermost in the API HTTP client middleware stack.
-    ///
-    /// # Arguments
-    ///
-    /// * `settings` - Optional client configuration
-    /// * `cookie_provider` - SSO cookie storage and acquisition implementation
-    pub fn new_with_server_communication_config(
-        settings: Option<bitwarden_core::ClientSettings>,
-        cookie_provider: std::sync::Arc<dyn bitwarden_server_communication_config::CookieProvider>,
-    ) -> Self {
-        let cookie_middleware: std::sync::Arc<dyn reqwest_middleware::Middleware> =
-            std::sync::Arc::new(
-                bitwarden_server_communication_config::ServerCommunicationConfigMiddleware::new(
-                    cookie_provider,
-                ),
-            );
-        let mut builder = bitwarden_core::Client::builder()
-            .with_token_handler(std::sync::Arc::new(PasswordManagerTokenHandler::default()))
-            .with_middleware(vec![cookie_middleware]);
-        if let Some(s) = settings {
-            builder = builder.with_settings(s);
-        }
-        Self(builder.build())
     }
 
     /// Initialize a new instance of the SDK client with SDK managed state and sync handlers
@@ -196,9 +165,8 @@ mod tests {
             }
         }
 
-        let _client = PasswordManagerClient::new_with_server_communication_config(
-            None,
-            Arc::new(MockCookieProvider),
-        );
+        let _client = PasswordManagerClient::builder()
+            .with_server_communication_config(Arc::new(MockCookieProvider))
+            .build();
     }
 }
