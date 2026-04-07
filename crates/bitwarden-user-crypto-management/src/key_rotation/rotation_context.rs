@@ -138,6 +138,7 @@ mod tests {
                 id: Uuid::new_v4(),
                 name: "Test User".to_string(),
                 public_key: ctx.get_public_key(private_key).expect("key exists"),
+                grantee_id: Uuid::new_v4(),
             },
             private_key,
         )
