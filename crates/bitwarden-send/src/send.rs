@@ -329,8 +329,9 @@ pub struct SendView {
     pub expiration_date: Option<DateTime<Utc>>,
 
     /// Email addresses for OTP authentication.
-    /// **Note**: Mutually exclusive with `new_password`. If both are set,
-    /// only password authentication will be used.
+    /// **Note**: Mutually exclusive with `new_password`. If both are set, only password
+    /// authentication will be used. When creating or editing sends, use [crate::SendAuthType]
+    /// to ensure mutual exclusivity at the type level.
     pub emails: Vec<String>,
     pub auth_type: AuthType,
 }

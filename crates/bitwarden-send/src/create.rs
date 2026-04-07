@@ -17,7 +17,10 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::{EmptyEmailListError, Send, SendAuthType, SendParseError, SendView, SendViewType};
+use crate::{
+    EmptyEmailListError, Send, SendAuthType, SendParseError, SendView, SendViewType,
+    send_client::SendClient,
+};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -116,7 +119,7 @@ impl IdentifyKey<SymmetricKeyId> for SendAddRequest {
     }
 }
 
-pub(super) async fn create_send<R: Repository<Send> + ?Sized>(
+async fn create_send<R: Repository<Send> + ?Sized>(
     key_store: &KeyStore<KeyIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
@@ -137,6 +140,18 @@ pub(super) async fn create_send<R: Repository<Send> + ?Sized>(
     repository.set(require!(send.id), send.clone()).await?;
 
     Ok(key_store.decrypt(&send)?)
+}
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl SendClient {
+    /// Create a new [Send] and save it to the server.
+    pub async fn create(&self, request: SendAddRequest) -> Result<SendView, CreateSendError> {
+        let key_store = self.client.internal.get_key_store();
+        let config = self.client.internal.get_api_configurations();
+        let repository = self.get_repository()?;
+
+        create_send(key_store, &config.api_client, repository.as_ref(), request).await
+    }
 }
 
 #[cfg(test)]

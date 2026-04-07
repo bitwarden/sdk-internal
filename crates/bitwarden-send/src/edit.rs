@@ -21,6 +21,7 @@ use wasm_bindgen::prelude::*;
 use crate::{
     EmptyEmailListError, Send, SendAuthType, SendId, SendView, SendViewType,
     error::{ItemNotFoundError, SendParseError},
+    send_client::SendClient,
 };
 
 #[allow(missing_docs)]
@@ -145,7 +146,7 @@ impl IdentifyKey<SymmetricKeyId> for SendEditRequestWithKey {
     }
 }
 
-pub(super) async fn edit_send<R: Repository<Send> + ?Sized>(
+async fn edit_send<R: Repository<Send> + ?Sized>(
     key_store: &KeyStore<KeyIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
@@ -187,6 +188,29 @@ pub(super) async fn edit_send<R: Repository<Send> + ?Sized>(
     repository.set(send_id, send.clone()).await?;
 
     Ok(key_store.decrypt(&send)?)
+}
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl SendClient {
+    /// Edit the [Send] and save it to the server.
+    pub async fn edit(
+        &self,
+        send_id: SendId,
+        request: SendEditRequest,
+    ) -> Result<SendView, EditSendError> {
+        let key_store = self.client.internal.get_key_store();
+        let config = self.client.internal.get_api_configurations();
+        let repository = self.get_repository()?;
+
+        edit_send(
+            key_store,
+            &config.api_client,
+            repository.as_ref(),
+            send_id,
+            request,
+        )
+        .await
+    }
 }
 
 #[cfg(test)]

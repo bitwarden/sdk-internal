@@ -3,8 +3,10 @@ use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
-use crate::{Send, SendId, SendView, error::ItemNotFoundError};
+use crate::{Send, SendId, SendView, error::ItemNotFoundError, send_client::SendClient};
 
 #[allow(missing_docs)]
 #[bitwarden_error(flat)]
@@ -20,7 +22,7 @@ pub enum GetSendError {
     Repository(#[from] RepositoryError),
 }
 
-pub(super) async fn get_send(
+async fn get_send(
     store: &KeyStore<KeyIds>,
     repository: &dyn Repository<Send>,
     id: SendId,
@@ -30,13 +32,32 @@ pub(super) async fn get_send(
     Ok(store.decrypt(&send)?)
 }
 
-pub(super) async fn list_sends(
+async fn list_sends(
     store: &KeyStore<KeyIds>,
     repository: &dyn Repository<Send>,
 ) -> Result<Vec<SendView>, GetSendError> {
     let sends = repository.list().await?;
     let views = store.decrypt_list(&sends)?;
     Ok(views)
+}
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl SendClient {
+    /// Get all sends from state and decrypt them to a list of [SendView].
+    pub async fn list(&self) -> Result<Vec<SendView>, GetSendError> {
+        let key_store = self.client.internal.get_key_store();
+        let repository = self.get_repository()?;
+
+        list_sends(key_store, repository.as_ref()).await
+    }
+
+    /// Get a specific [Send] by its ID from state and decrypt it to a [SendView].
+    pub async fn get(&self, send_id: SendId) -> Result<SendView, GetSendError> {
+        let key_store = self.client.internal.get_key_store();
+        let repository = self.get_repository()?;
+
+        get_send(key_store, repository.as_ref(), send_id).await
+    }
 }
 
 #[cfg(test)]
