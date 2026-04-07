@@ -8,7 +8,8 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     Cipher, CipherId, CipherView, DecryptCipherListResult, VaultParseError,
-    cipher::cipher::PartialCipher, cipher_client::admin::CipherAdminClient,
+    cipher::cipher::{PartialCipher, StrictDecrypt},
+    cipher_client::admin::CipherAdminClient,
 };
 
 #[allow(missing_docs)]
@@ -34,6 +35,7 @@ pub async fn restore_as_admin(
     cipher_id: CipherId,
     api_client: &ApiClient,
     key_store: &KeyStore<KeyIds>,
+    use_strict_decryption: bool,
 ) -> Result<CipherView, RestoreCipherAdminError> {
     let api = api_client.ciphers_api();
 
@@ -42,7 +44,11 @@ pub async fn restore_as_admin(
         .await?
         .merge_with_cipher(None)?;
 
-    Ok(key_store.decrypt(&cipher)?)
+    if use_strict_decryption {
+        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    } else {
+        Ok(key_store.decrypt(&cipher)?)
+    }
 }
 
 /// Restores multiple soft-deleted ciphers on the server.
@@ -83,7 +89,7 @@ impl CipherAdminClient {
         let api_client = &self.client.internal.get_api_configurations().api_client;
         let key_store = self.client.internal.get_key_store();
 
-        restore_as_admin(cipher_id, api_client, key_store).await
+        restore_as_admin(cipher_id, api_client, key_store, self.is_strict_decrypt()).await
     }
     /// Restores multiple soft-deleted ciphers on the server.
     pub async fn restore_many(
@@ -186,9 +192,10 @@ mod tests {
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
         let start_time = Utc::now();
-        let updated_cipher = restore_as_admin(TEST_CIPHER_ID.parse().unwrap(), &api_client, &store)
-            .await
-            .unwrap();
+        let updated_cipher =
+            restore_as_admin(TEST_CIPHER_ID.parse().unwrap(), &api_client, &store, false)
+                .await
+                .unwrap();
         let end_time = Utc::now();
 
         assert!(updated_cipher.deleted_date.is_none());

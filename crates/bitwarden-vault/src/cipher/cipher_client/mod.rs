@@ -13,7 +13,8 @@ use wasm_bindgen::prelude::*;
 use super::EncryptionContext;
 use crate::{
     Cipher, CipherError, CipherListView, CipherView, DecryptError, EncryptError,
-    cipher::cipher::DecryptCipherListResult, cipher_client::admin::CipherAdminClient,
+    cipher::cipher::{DecryptCipherListResult, StrictDecrypt},
+    cipher_client::admin::CipherAdminClient,
 };
 #[cfg(feature = "wasm")]
 use crate::{Fido2CredentialFullView, cipher::cipher::DecryptCipherResult};
@@ -161,26 +162,43 @@ impl CiphersClient {
     #[allow(missing_docs)]
     pub fn decrypt(&self, cipher: Cipher) -> Result<CipherView, DecryptError> {
         let key_store = self.client.internal.get_key_store();
-        let cipher_view = key_store.decrypt(&cipher)?;
-        Ok(cipher_view)
+        if self.is_strict_decrypt() {
+            Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+        } else {
+            Ok(key_store.decrypt(&cipher)?)
+        }
     }
 
     #[allow(missing_docs)]
     pub fn decrypt_list(&self, ciphers: Vec<Cipher>) -> Result<Vec<CipherListView>, DecryptError> {
         let key_store = self.client.internal.get_key_store();
-        let cipher_views = key_store.decrypt_list(&ciphers)?;
-        Ok(cipher_views)
+        if self.is_strict_decrypt() {
+            let strict: Vec<StrictDecrypt<Cipher>> =
+                ciphers.into_iter().map(StrictDecrypt).collect();
+            Ok(key_store.decrypt_list(&strict)?)
+        } else {
+            Ok(key_store.decrypt_list(&ciphers)?)
+        }
     }
 
     /// Decrypt cipher list with failures
     /// Returns both successfully decrypted ciphers and any that failed to decrypt
     pub fn decrypt_list_with_failures(&self, ciphers: Vec<Cipher>) -> DecryptCipherListResult {
         let key_store = self.client.internal.get_key_store();
-        let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
-
-        DecryptCipherListResult {
-            successes,
-            failures: failures.into_iter().cloned().collect(),
+        if self.is_strict_decrypt() {
+            let strict: Vec<StrictDecrypt<Cipher>> =
+                ciphers.into_iter().map(StrictDecrypt).collect();
+            let (successes, failures) = key_store.decrypt_list_with_failures(&strict);
+            DecryptCipherListResult {
+                successes,
+                failures: failures.into_iter().map(|f| f.0.clone()).collect(),
+            }
+        } else {
+            let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
+            DecryptCipherListResult {
+                successes,
+                failures: failures.into_iter().cloned().collect(),
+            }
         }
     }
 
@@ -189,6 +207,15 @@ impl CiphersClient {
     #[cfg(feature = "wasm")]
     pub fn decrypt_list_full_with_failures(&self, ciphers: Vec<Cipher>) -> DecryptCipherResult {
         let key_store = self.client.internal.get_key_store();
+        if self.is_strict_decrypt() {
+            let strict: Vec<StrictDecrypt<Cipher>> =
+                ciphers.into_iter().map(StrictDecrypt).collect();
+            let (successes, failures) = key_store.decrypt_list_with_failures(&strict);
+            return DecryptCipherResult {
+                successes,
+                failures: failures.into_iter().map(|f| f.0.clone()).collect(),
+            };
+        }
         let (successes, failures) = key_store.decrypt_list_with_failures(&ciphers);
 
         DecryptCipherResult {
@@ -259,6 +286,10 @@ impl CiphersClient {
 impl CiphersClient {
     fn get_repository(&self) -> Result<Arc<dyn Repository<Cipher>>, RepositoryError> {
         Ok(self.client.platform().state().get::<Cipher>()?)
+    }
+
+    fn is_strict_decrypt(&self) -> bool {
+        self.client.internal.get_flags().strict_cipher_decryption
     }
 }
 

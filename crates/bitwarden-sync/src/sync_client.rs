@@ -204,8 +204,6 @@ mod tests {
         let dummy_config = bitwarden_api_api::Configuration {
             base_path: String::new(),
             client: reqwest_middleware::ClientBuilder::new(reqwest::Client::new()).build(),
-            oauth_access_token: None,
-            user_agent: None,
         };
         SyncClient {
             api_configurations: Arc::new(ApiConfigurations {

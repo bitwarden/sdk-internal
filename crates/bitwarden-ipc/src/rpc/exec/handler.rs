@@ -70,8 +70,9 @@ where
     }
 }
 
+#[doc(hidden)]
 #[async_trait::async_trait]
-pub(crate) trait ErasedRpcHandler: Send + Sync {
+pub trait ErasedRpcHandler: Send + Sync {
     async fn handle(
         &self,
         serialized_request: &RpcRequestPayload,

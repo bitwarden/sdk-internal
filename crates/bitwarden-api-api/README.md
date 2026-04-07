@@ -22,7 +22,7 @@ client.
 - API version: latest
 - Package version: 2.0.0
 - Server Git commit:
-  [`5f1cdd50801effb2b283862ecd5a85deac694143`](https://github.com/bitwarden/server/commit/5f1cdd50801effb2b283862ecd5a85deac694143)
+  [`93604aae8fabed4fd479b6a8c8f3678ce237296a`](https://github.com/bitwarden/server/commit/93604aae8fabed4fd479b6a8c8f3678ce237296a)
 - Generator version: 7.15.0
 - Build package: `org.openapitools.codegen.languages.RustClientCodegen`
 
@@ -46,6 +46,7 @@ All URIs are relative to *https://api.bitwarden.com*
 | _AccessPoliciesApi_                       | [**put_service_account_people_access_policies**](docs/AccessPoliciesApi.md#access_policies_put_service_account_people_access_policies)                           | **PUT** /service-accounts/{id}/access-policies/people                                                    |
 | _AccountBillingVNextApi_                  | [**add_credit_via_bit_pay**](docs/AccountBillingVNextApi.md#account_billing_v_next_add_credit_via_bit_pay)                                                       | **POST** /account/billing/vnext/credit/bitpay                                                            |
 | _AccountBillingVNextApi_                  | [**create_portal_session**](docs/AccountBillingVNextApi.md#account_billing_v_next_create_portal_session)                                                         | **POST** /account/billing/vnext/portal-session                                                           |
+| _AccountBillingVNextApi_                  | [**create_premium_checkout_session**](docs/AccountBillingVNextApi.md#account_billing_v_next_create_premium_checkout_session)                                     | **POST** /account/billing/vnext/premium/checkout                                                         |
 | _AccountBillingVNextApi_                  | [**create_subscription**](docs/AccountBillingVNextApi.md#account_billing_v_next_create_subscription)                                                             | **POST** /account/billing/vnext/subscription                                                             |
 | _AccountBillingVNextApi_                  | [**get_applicable_discounts**](docs/AccountBillingVNextApi.md#account_billing_v_next_get_applicable_discounts)                                                   | **GET** /account/billing/vnext/discounts                                                                 |
 | _AccountBillingVNextApi_                  | [**get_credit**](docs/AccountBillingVNextApi.md#account_billing_v_next_get_credit)                                                                               | **GET** /account/billing/vnext/credit                                                                    |
@@ -318,7 +319,8 @@ All URIs are relative to *https://api.bitwarden.com*
 | _OrganizationUsersApi_                    | [**get_reset_password_details**](docs/OrganizationUsersApi.md#organization_users_get_reset_password_details)                                                     | **GET** /organizations/{orgId}/users/{id}/reset-password-details                                         |
 | _OrganizationUsersApi_                    | [**invite**](docs/OrganizationUsersApi.md#organization_users_invite)                                                                                             | **POST** /organizations/{orgId}/users/invite                                                             |
 | _OrganizationUsersApi_                    | [**put**](docs/OrganizationUsersApi.md#organization_users_put)                                                                                                   | **PUT** /organizations/{orgId}/users/{id}                                                                |
-| _OrganizationUsersApi_                    | [**put_reset_password**](docs/OrganizationUsersApi.md#organization_users_put_reset_password)                                                                     | **PUT** /organizations/{orgId}/users/{id}/reset-password                                                 |
+| _OrganizationUsersApi_                    | [**put_recover_account**](docs/OrganizationUsersApi.md#organization_users_put_recover_account)                                                                   | **PUT** /organizations/{orgId}/users/{id}/recover-account                                                |
+| _OrganizationUsersApi_                    | [**put_reset_password**](docs/OrganizationUsersApi.md#organization_users_put_reset_password)                                                                     | **PUT** /organizations/{orgId}/users/{id}/reset-password                                                 | Backward compat alias — remove after clients migrate to recover-account.                                                                                                                                                                                                                                                                    |
 | _OrganizationUsersApi_                    | [**put_reset_password_enrollment**](docs/OrganizationUsersApi.md#organization_users_put_reset_password_enrollment)                                               | **PUT** /organizations/{orgId}/users/{userId}/reset-password-enrollment                                  |
 | _OrganizationUsersApi_                    | [**reinvite**](docs/OrganizationUsersApi.md#organization_users_reinvite)                                                                                         | **POST** /organizations/{orgId}/users/{id}/reinvite                                                      |
 | _OrganizationUsersApi_                    | [**remove**](docs/OrganizationUsersApi.md#organization_users_remove)                                                                                             | **DELETE** /organizations/{orgId}/users/{id}                                                             |
@@ -617,6 +619,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [ConfigResponseModel](docs/ConfigResponseModel.md)
 - [CreateClientOrganizationRequestBody](docs/CreateClientOrganizationRequestBody.md)
 - [CreateCollectionRequestModel](docs/CreateCollectionRequestModel.md)
+- [CreatePremiumCheckoutSessionRequest](docs/CreatePremiumCheckoutSessionRequest.md)
 - [CredentialCreateOptions](docs/CredentialCreateOptions.md)
 - [DeleteAttachmentResponseModel](docs/DeleteAttachmentResponseModel.md)
 - [DeleteRecoverRequestModel](docs/DeleteRecoverRequestModel.md)
@@ -809,6 +812,7 @@ All URIs are relative to *https://api.bitwarden.com*
 - [PolicyResponseModel](docs/PolicyResponseModel.md)
 - [PolicyResponseModelListResponseModel](docs/PolicyResponseModelListResponseModel.md)
 - [PolicyStatusResponseModel](docs/PolicyStatusResponseModel.md)
+- [PolicyStatusResponseModelListResponseModel](docs/PolicyStatusResponseModelListResponseModel.md)
 - [PolicyType](docs/PolicyType.md)
 - [PotentialGranteeResponseModel](docs/PotentialGranteeResponseModel.md)
 - [PotentialGranteeResponseModelListResponseModel](docs/PotentialGranteeResponseModelListResponseModel.md)
