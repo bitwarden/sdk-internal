@@ -35,10 +35,24 @@ pub trait AccountsKeyManagementApi: Send + Sync {
         Error<GetKeyConnectorConfirmationDetailsError>,
     >;
 
+    /// POST /accounts/key-management/rotate-user-account-keys
+    async fn password_change_and_rotate_user_account_keys<'a>(
+        &self,
+        rotate_user_account_keys_and_data_request_model: Option<
+            models::RotateUserAccountKeysAndDataRequestModel,
+        >,
+    ) -> Result<(), Error<PasswordChangeAndRotateUserAccountKeysError>>;
+
     /// POST /accounts/convert-to-key-connector
     async fn post_convert_to_key_connector(
         &self,
     ) -> Result<(), Error<PostConvertToKeyConnectorError>>;
+
+    /// POST /accounts/key-connector/enroll
+    async fn post_enroll_to_key_connector<'a>(
+        &self,
+        key_connector_enrollment_request_model: Option<models::KeyConnectorEnrollmentRequestModel>,
+    ) -> Result<(), Error<PostEnrollToKeyConnectorError>>;
 
     /// POST /accounts/set-key-connector-key
     async fn post_set_key_connector_key<'a>(
@@ -52,13 +66,11 @@ pub trait AccountsKeyManagementApi: Send + Sync {
         key_regeneration_request_model: Option<models::KeyRegenerationRequestModel>,
     ) -> Result<(), Error<RegenerateKeysError>>;
 
-    /// POST /accounts/key-management/rotate-user-account-keys
-    async fn rotate_user_account_keys<'a>(
+    /// POST /accounts/key-management/rotate-user-keys
+    async fn rotate_user_keys<'a>(
         &self,
-        rotate_user_account_keys_and_data_request_model: Option<
-            models::RotateUserAccountKeysAndDataRequestModel,
-        >,
-    ) -> Result<(), Error<RotateUserAccountKeysError>>;
+        rotate_user_keys_request_model: Option<models::RotateUserKeysRequestModel>,
+    ) -> Result<(), Error<RotateUserKeysError>>;
 }
 
 pub struct AccountsKeyManagementApiClient {
@@ -95,41 +107,31 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+    }
 
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
+    async fn password_change_and_rotate_user_account_keys<'a>(
+        &self,
+        rotate_user_account_keys_and_data_request_model: Option<
+            models::RotateUserAccountKeysAndDataRequestModel,
+        >,
+    ) -> Result<(), Error<PasswordChangeAndRotateUserAccountKeysError>> {
+        let local_var_configuration = &self.configuration;
 
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::KeyConnectorConfirmationDetailsResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::KeyConnectorConfirmationDetailsResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetKeyConnectorConfirmationDetailsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/accounts/key-management/rotate-user-account-keys",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&rotate_user_account_keys_and_data_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_convert_to_key_connector(
@@ -148,23 +150,28 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
 
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+    async fn post_enroll_to_key_connector<'a>(
+        &self,
+        key_connector_enrollment_request_model: Option<models::KeyConnectorEnrollmentRequestModel>,
+    ) -> Result<(), Error<PostEnrollToKeyConnectorError>> {
+        let local_var_configuration = &self.configuration;
 
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostConvertToKeyConnectorError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/accounts/key-connector/enroll",
+            local_var_configuration.base_path
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder = local_var_req_builder.json(&key_connector_enrollment_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_set_key_connector_key<'a>(
@@ -185,23 +192,7 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&set_key_connector_key_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostSetKeyConnectorKeyError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn regenerate_keys<'a>(
@@ -222,63 +213,28 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&key_regeneration_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<RegenerateKeysError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn rotate_user_account_keys<'a>(
+    async fn rotate_user_keys<'a>(
         &self,
-        rotate_user_account_keys_and_data_request_model: Option<
-            models::RotateUserAccountKeysAndDataRequestModel,
-        >,
-    ) -> Result<(), Error<RotateUserAccountKeysError>> {
+        rotate_user_keys_request_model: Option<models::RotateUserKeysRequestModel>,
+    ) -> Result<(), Error<RotateUserKeysError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
 
         let local_var_uri_str = format!(
-            "{}/accounts/key-management/rotate-user-account-keys",
+            "{}/accounts/key-management/rotate-user-keys",
             local_var_configuration.base_path
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder =
-            local_var_req_builder.json(&rotate_user_account_keys_and_data_request_model);
+        local_var_req_builder = local_var_req_builder.json(&rotate_user_keys_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<RotateUserAccountKeysError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 }
 
@@ -289,10 +245,23 @@ impl AccountsKeyManagementApi for AccountsKeyManagementApiClient {
 pub enum GetKeyConnectorConfirmationDetailsError {
     UnknownValue(serde_json::Value),
 }
+/// struct for typed errors of method
+/// [`AccountsKeyManagementApi::password_change_and_rotate_user_account_keys`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PasswordChangeAndRotateUserAccountKeysError {
+    UnknownValue(serde_json::Value),
+}
 /// struct for typed errors of method [`AccountsKeyManagementApi::post_convert_to_key_connector`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum PostConvertToKeyConnectorError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`AccountsKeyManagementApi::post_enroll_to_key_connector`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PostEnrollToKeyConnectorError {
     UnknownValue(serde_json::Value),
 }
 /// struct for typed errors of method [`AccountsKeyManagementApi::post_set_key_connector_key`]
@@ -307,9 +276,9 @@ pub enum PostSetKeyConnectorKeyError {
 pub enum RegenerateKeysError {
     UnknownValue(serde_json::Value),
 }
-/// struct for typed errors of method [`AccountsKeyManagementApi::rotate_user_account_keys`]
+/// struct for typed errors of method [`AccountsKeyManagementApi::rotate_user_keys`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum RotateUserAccountKeysError {
+pub enum RotateUserKeysError {
     UnknownValue(serde_json::Value),
 }

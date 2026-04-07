@@ -35,6 +35,7 @@ argon2 = { version = "=0.6.0-rc.2", features = [
     "std",
     "zeroize",
 ], default-features = false }
+bitwarden-api-key-connector = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-uniffi-error = { workspace = true, optional = true }

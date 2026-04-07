@@ -45,6 +45,7 @@ pub(super) enum MasterkeyUnlockMethod {
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct V1EmergencyAccessMembership {
     pub id: uuid::Uuid,
+    pub grantee_id: uuid::Uuid,
     pub name: String,
     pub public_key: PublicKey,
 }
@@ -190,8 +191,10 @@ fn reencrypt_emergency_access_keys(
             // and the passed in public-key must be verified/trusted.
             match UnsignedSharedKey::encapsulate(new_user_key_id, &ea.public_key, ctx) {
                 Ok(reencrypted_key) => Ok(EmergencyAccessWithIdRequestModel {
+                    // Default value that is ignored on the server
                     r#type: models::EmergencyAccessType::Takeover,
-                    wait_time_days: 0,
+                    // Default value that is ignored on the server
+                    wait_time_days: 1,
                     id: ea.id,
                     key_encrypted: reencrypted_key.to_string().into(),
                 }),
@@ -290,6 +293,7 @@ fn to_authentication_and_unlock_data(
                 .to_string(),
         ),
         master_password_hint: hint,
+        master_password_salt: Some(master_password_unlock_data.salt.clone()),
     })
 }
 
@@ -532,6 +536,7 @@ mod tests {
             ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let emergency_access = V1EmergencyAccessMembership {
             id: Uuid::new_v4(),
+            grantee_id: Uuid::new_v4(),
             name: "Test User".to_string(),
             public_key: ctx
                 .get_public_key(organization_private_key)
