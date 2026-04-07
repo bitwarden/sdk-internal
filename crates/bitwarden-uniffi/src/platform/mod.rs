@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use bitwarden_core::{Client, platform::FingerprintRequest};
 use bitwarden_fido::ClientFido2Ext;
-use bitwarden_state::DatabaseConfiguration;
 use repository::{UniffiRepositoryBridge, create_uniffi_repositories};
 
 use crate::error::Result;
@@ -66,12 +65,6 @@ impl PlatformClient {
 #[derive(uniffi::Object)]
 pub struct StateClient(Client);
 
-#[derive(uniffi::Record)]
-pub struct SqliteConfiguration {
-    db_name: String,
-    folder_path: String,
-}
-
 bitwarden_pm::create_client_managed_repositories!(Repositories, create_uniffi_repositories);
 
 #[uniffi::export]
@@ -84,40 +77,5 @@ impl StateClient {
 
     pub fn register_client_managed_repositories(&self, repositories: Repositories) {
         repositories.register_all(&self.0.platform().state());
-    }
-
-    /// Initialize the database for SDK managed repositories.
-    pub async fn initialize_state(&self, configuration: SqliteConfiguration) -> Result<()> {
-        let migrations = bitwarden_pm::migrations::get_sdk_managed_migrations();
-
-        self.0
-            .platform()
-            .state()
-            .initialize_database(configuration.into(), migrations)
-            .await?;
-
-        Ok(())
-    }
-
-    /// Initialize the database for SDK managed repositories using in-memory storage.
-    pub async fn initialize_state_in_memory(&self) -> Result<()> {
-        self.0
-            .platform()
-            .state()
-            .initialize_database(
-                bitwarden_state::DatabaseConfiguration::Memory,
-                bitwarden_state::repository::RepositoryMigrations::new(vec![]),
-            )
-            .await?;
-        Ok(())
-    }
-}
-
-impl From<SqliteConfiguration> for DatabaseConfiguration {
-    fn from(config: SqliteConfiguration) -> Self {
-        DatabaseConfiguration::Sqlite {
-            db_name: config.db_name,
-            folder_path: config.folder_path.into(),
-        }
     }
 }
