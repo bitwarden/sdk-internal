@@ -4,8 +4,10 @@ use bitwarden_api_api::models::{self, UnlockMethodRequestModel};
 use bitwarden_core::key_management::{KeyIds, MasterPasswordUnlockData, SymmetricKeyId};
 use bitwarden_crypto::{Kdf, KeyStoreContext};
 
-use super::KeyRotationMethod;
-use crate::key_rotation::{RotateUserKeysError, sync::SyncedAccountData, unlock::ReencryptError};
+use crate::key_rotation::{
+    RotateUserKeysError, rotate_user_keys::KeyRotationMethod, sync::SyncedAccountData,
+    unlock::ReencryptError,
+};
 
 /// The unlock method for the account and the data needed to re-encrypt it under the new user key.
 pub(super) enum UnlockMethodInput {
@@ -36,9 +38,9 @@ impl UnlockMethodInput {
                 })
             }
             KeyRotationMethod::KeyConnector => {
-                todo!("Key connector unlock method not supported yet.")
+                Err(RotateUserKeysError::UnimplementedKeyRotationMethod)
             }
-            KeyRotationMethod::Tde => todo!("TDE unlock method not supported yet."),
+            KeyRotationMethod::Tde => Err(RotateUserKeysError::UnimplementedKeyRotationMethod),
         }
     }
 }
@@ -80,7 +82,7 @@ mod tests {
     use bitwarden_crypto::{Kdf, KeyStore, KeyStoreContext};
 
     use super::*;
-    use crate::key_rotation::{KeyRotationMethod, sync::SyncedAccountData};
+    use crate::key_rotation::{rotate_user_keys::KeyRotationMethod, sync::SyncedAccountData};
 
     fn make_synced_account_data(kdf_and_salt: Option<(Kdf, String)>) -> SyncedAccountData {
         let store: KeyStore<KeyIds> = KeyStore::default();
@@ -170,6 +172,34 @@ mod tests {
         );
 
         assert!(matches!(result, Err(RotateUserKeysError::ApiError)));
+    }
+
+    #[test]
+    fn test_from_key_rotation_method_key_connector_returns_error() {
+        let synced_data = make_synced_account_data(None);
+
+        let result = UnlockMethodInput::from_key_rotation_method(
+            KeyRotationMethod::KeyConnector,
+            &synced_data,
+        );
+
+        assert!(matches!(
+            result,
+            Err(RotateUserKeysError::UnimplementedKeyRotationMethod)
+        ));
+    }
+
+    #[test]
+    fn test_from_key_rotation_method_tde_returns_error() {
+        let synced_data = make_synced_account_data(None);
+
+        let result =
+            UnlockMethodInput::from_key_rotation_method(KeyRotationMethod::Tde, &synced_data);
+
+        assert!(matches!(
+            result,
+            Err(RotateUserKeysError::UnimplementedKeyRotationMethod)
+        ));
     }
 
     #[test]
