@@ -1,5 +1,9 @@
 [package]
 name = "bitwarden-organizations"
+description = """
+Internal crate for the bitwarden crate. Do not use.
+"""
+
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -10,7 +14,17 @@ license-file.workspace = true
 readme.workspace = true
 keywords.workspace = true
 
+[features]
+uniffi = ["bitwarden-core/uniffi", "dep:uniffi"]
+wasm = []
+
 [dependencies]
+bitwarden-core = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_repr = { workspace = true }
+uniffi = { workspace = true, optional = true }
+uuid = { workspace = true }
 
 [lints]
 workspace = true
