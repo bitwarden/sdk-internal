@@ -1,0 +1,16 @@
+[package]
+name = "bitwarden-organizations"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license-file.workspace = true
+readme.workspace = true
+keywords.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

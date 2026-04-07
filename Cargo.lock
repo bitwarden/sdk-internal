@@ -877,6 +877,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-organizations"
+version = "2.0.0"
+
+[[package]]
 name = "bitwarden-pm"
 version = "2.0.0"
 dependencies = [
