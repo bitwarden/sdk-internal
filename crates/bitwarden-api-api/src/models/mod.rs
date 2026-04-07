@@ -582,6 +582,8 @@ pub mod policy_response_model_list_response_model;
 pub use self::policy_response_model_list_response_model::PolicyResponseModelListResponseModel;
 pub mod policy_status_response_model;
 pub use self::policy_status_response_model::PolicyStatusResponseModel;
+pub mod policy_status_response_model_list_response_model;
+pub use self::policy_status_response_model_list_response_model::PolicyStatusResponseModelListResponseModel;
 pub mod policy_type;
 pub use self::policy_type::PolicyType;
 pub mod potential_grantee_response_model;
