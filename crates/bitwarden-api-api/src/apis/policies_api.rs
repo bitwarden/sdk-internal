@@ -36,7 +36,7 @@ pub trait PoliciesApi: Send + Sync {
     /// GET /organizations/{orgId}/policies
     async fn get_all<'a>(
         &self,
-        org_id: &'a str,
+        org_id: uuid::Uuid,
     ) -> Result<models::PolicyResponseModelListResponseModel, Error<GetAllError>>;
 
     /// GET /organizations/{orgId}/policies/token
@@ -104,7 +104,7 @@ impl PoliciesApi for PoliciesApiClient {
 
     async fn get_all<'a>(
         &self,
-        org_id: &'a str,
+        org_id: uuid::Uuid,
     ) -> Result<models::PolicyResponseModelListResponseModel, Error<GetAllError>> {
         let local_var_configuration = &self.configuration;
 
@@ -113,7 +113,7 @@ impl PoliciesApi for PoliciesApiClient {
         let local_var_uri_str = format!(
             "{}/organizations/{orgId}/policies",
             local_var_configuration.base_path,
-            orgId = crate::apis::urlencode(org_id)
+            orgId = org_id
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());

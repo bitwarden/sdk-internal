@@ -17,7 +17,7 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use super::linked_id::LinkedIdType;
+use super::{cipher::StrictDecrypt, linked_id::LinkedIdType};
 use crate::{PasswordHistoryView, VaultParseError};
 
 /// Represents the type of a [FieldView].
@@ -170,6 +170,21 @@ impl Decryptable<KeyIds, SymmetricKeyId, FieldView> for Field {
             value: self.value.decrypt(ctx, key).ok().flatten(),
             r#type: self.r#type,
             linked_id: self.linked_id,
+        })
+    }
+}
+
+impl Decryptable<KeyIds, SymmetricKeyId, FieldView> for StrictDecrypt<&Field> {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<FieldView, CryptoError> {
+        Ok(FieldView {
+            name: self.0.name.decrypt(ctx, key)?,
+            value: self.0.value.decrypt(ctx, key)?,
+            r#type: self.0.r#type,
+            linked_id: self.0.linked_id,
         })
     }
 }
