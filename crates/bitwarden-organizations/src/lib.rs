@@ -1,3 +1,6 @@
+// FIXME: add documentation
+#![allow(missing_docs)]
+
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
 #[cfg(feature = "uniffi")]
@@ -8,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use uuid::Uuid;
 
-#[derive(Serialize_repr, Deserialize_repr, Debug, Clone)]
+#[derive(PartialEq, Serialize_repr, Deserialize_repr, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[repr(i8)]
 pub enum OrganizationUserStatusType {
@@ -18,7 +21,7 @@ pub enum OrganizationUserStatusType {
     Confirmed = 2,
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Debug, Clone)]
+#[derive(PartialEq, Serialize_repr, Deserialize_repr, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[repr(u8)]
 pub enum OrganizationUserType {
@@ -162,4 +165,72 @@ pub struct ProfileOrganization {
     pub sso_member_decryption_type: Option<MemberDecryptionType>,
     pub use_phishing_blocker: bool,
     pub use_my_items: bool,
+}
+
+impl Default for ProfileOrganization {
+    fn default() -> Self {
+        ProfileOrganization {
+            id: Uuid::nil(),
+            name: String::new(),
+            status: OrganizationUserStatusType::Confirmed,
+            r#type: OrganizationUserType::User,
+            enabled: true,
+            use_policies: false,
+            use_groups: false,
+            use_directory: false,
+            use_events: false,
+            use_totp: false,
+            use_2fa: false,
+            use_api: false,
+            use_sso: false,
+            use_organization_domains: false,
+            use_key_connector: false,
+            use_scim: false,
+            use_custom_permissions: false,
+            use_reset_password: false,
+            use_secrets_manager: false,
+            use_password_manager: false,
+            use_activate_autofill_policy: false,
+            use_automatic_user_confirmation: false,
+            self_host: false,
+            users_get_premium: false,
+            seats: 0,
+            max_collections: 0,
+            max_storage_gb: None,
+            sso_bound: false,
+            identifier: None,
+            permissions: Permissions::default(),
+            reset_password_enrolled: false,
+            user_id: None,
+            organization_user_id: None,
+            has_public_and_private_keys: false,
+            provider_id: None,
+            provider_name: None,
+            provider_type: None,
+            is_provider_user: false,
+            is_member: true,
+            family_sponsorship_friendly_name: None,
+            family_sponsorship_available: false,
+            product_tier_type: ProductTierType::Free,
+            key_connector_enabled: false,
+            key_connector_url: None,
+            family_sponsorship_last_sync_date: None,
+            family_sponsorship_valid_until: None,
+            family_sponsorship_to_delete: None,
+            access_secrets_manager: false,
+            limit_collection_creation: false,
+            limit_collection_deletion: false,
+            limit_item_deletion: false,
+            allow_admin_access_to_all_collection_items: false,
+            user_is_managed_by_organization: false,
+            use_access_intelligence: false,
+            use_admin_sponsored_families: false,
+            use_disable_sm_ads_for_users: false,
+            is_admin_initiated: false,
+            sso_enabled: false,
+            sso_member_decryption_type: None,
+            use_phishing_blocker: false,
+            use_my_items: false,
+        }
+    }
 }
