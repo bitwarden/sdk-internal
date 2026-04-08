@@ -9,16 +9,14 @@ pub(crate) fn chunked_encode(encoding: &Encoding, data: &[u8]) -> String {
 }
 
 fn chunked_encode_with_limit(encoding: &Encoding, data: &[u8], max_safe: usize) -> String {
-    // Round down to the nearest multiple of `encode_align` so intermediate chunks
-    // produce clean output without spurious padding. Only the final chunk may produce padding.
-    let align = encoding.encode_align();
-    let max_chunk = max_safe - max_safe % align;
-
     // Base64 output is ~4/3 of input; slightly over-estimate to avoid reallocations.
     let mut output = String::with_capacity(data.len() / 3 * 4 + 4);
-    for chunk in data.chunks(max_chunk) {
-        encoding.encode_append(chunk, &mut output);
+
+    let mut enc = encoding.new_encoder(&mut output);
+    for chunk in data.chunks(max_safe) {
+        enc.append(chunk);
     }
+    enc.finalize();
     output
 }
 
@@ -40,7 +38,7 @@ mod tests {
 
     #[test]
     fn multi_chunk_matches_direct_encode_base64() {
-        // 30 bytes of input, chunked at max_safe=6 → align=3, max_chunk=6
+        // 30 bytes of input, chunked at max_safe=6
         // This forces 5 separate chunks.
         let data: Vec<u8> = (0..30).collect();
         let expected = BASE64.encode(&data);
@@ -57,9 +55,9 @@ mod tests {
     }
 
     #[test]
-    fn chunk_boundary_not_aligned_to_three() {
-        // max_safe=7 with align=3 → max_chunk=6 (rounds down), same as above
-        // but verifies the alignment rounding logic.
+    fn unaligned_chunk_boundary() {
+        // max_safe=7 is not a multiple of 3 (base64 input group size).
+        // The streaming encoder handles this correctly without manual alignment.
         let data: Vec<u8> = (0..30).collect();
         let expected = BASE64.encode(&data);
         let result = chunked_encode_with_limit(&BASE64, &data, 7);
