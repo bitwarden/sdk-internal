@@ -185,6 +185,16 @@ pub trait OrganizationUsersApi: Send + Sync {
         organization_user_update_request_model: Option<models::OrganizationUserUpdateRequestModel>,
     ) -> Result<(), Error<PutError>>;
 
+    /// PUT /organizations/{orgId}/users/{id}/recover-account
+    async fn put_recover_account<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
+        organization_user_reset_password_request_model: Option<
+            models::OrganizationUserResetPasswordRequestModel,
+        >,
+    ) -> Result<(), Error<PutRecoverAccountError>>;
+
     /// PUT /organizations/{orgId}/users/{id}/reset-password
     async fn put_reset_password<'a>(
         &self,
@@ -749,6 +759,34 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
+    async fn put_recover_account<'a>(
+        &self,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
+        organization_user_reset_password_request_model: Option<
+            models::OrganizationUserResetPasswordRequestModel,
+        >,
+    ) -> Result<(), Error<PutRecoverAccountError>> {
+        let local_var_configuration = &self.configuration;
+
+        let local_var_client = &local_var_configuration.client;
+
+        let local_var_uri_str = format!(
+            "{}/organizations/{orgId}/users/{id}/recover-account",
+            local_var_configuration.base_path,
+            orgId = org_id,
+            id = id
+        );
+        let mut local_var_req_builder =
+            local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
+
+        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
+        local_var_req_builder =
+            local_var_req_builder.json(&organization_user_reset_password_request_model);
+
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+    }
+
     async fn put_reset_password<'a>(
         &self,
         org_id: uuid::Uuid,
@@ -1057,6 +1095,12 @@ pub enum InviteError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum PutError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`OrganizationUsersApi::put_recover_account`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PutRecoverAccountError {
     UnknownValue(serde_json::Value),
 }
 /// struct for typed errors of method [`OrganizationUsersApi::put_reset_password`]
