@@ -104,6 +104,13 @@
 //!
 //! There is no further protection provided against active attackers running in userspace while the
 //! vault is unlocked on any of the clients on the device.
+//!
+//! - Attacker Model:
+//!   - Attacker controls a website that is not the web vault
+//! - Security Goal:
+//!   - Attacker cannot gain access to the vault key material
+//!
+//! This is met by origin validation.
 
 use bitwarden_core::UserId;
 use serde::{Deserialize, Serialize};
