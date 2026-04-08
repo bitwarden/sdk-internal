@@ -951,6 +951,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
+                vault_url: None,
                 cookie_value: Some(vec![AcquiredCookie {
                     name: "TestCookie".to_string(),
                     value: "existing-value".to_string(),
@@ -982,6 +983,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -1034,6 +1036,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -1060,6 +1063,7 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("AWSELBAuthSessionCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
+                vault_url: None,
                 cookie_value: Some(vec![
                     AcquiredCookie {
                         name: "AWSELBAuthSessionCookie-0".to_string(),

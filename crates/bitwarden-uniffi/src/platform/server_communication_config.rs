@@ -75,9 +75,7 @@ impl ServerCommunicationConfigClient {
         request: SetCommunicationTypeRequest,
     ) -> Result<()> {
         #[allow(deprecated)]
-        self.client
-            .set_communication_type(domain, request)
-            .await?;
+        self.client.set_communication_type(domain, request).await?;
         Ok(())
     }
 
