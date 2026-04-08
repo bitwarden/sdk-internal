@@ -32,8 +32,7 @@ struct SecretsManagerTokenHandlerInner {
     key_store: Option<KeyStore<KeyIds>>,
 }
 
-#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[async_trait::async_trait]
 impl TokenHandler for SecretsManagerTokenHandler {
     fn initialize_middleware(
         &self,

@@ -8,8 +8,7 @@ use bitwarden_crypto::KeyStore;
 use crate::{client::LoginMethod, key_management::KeyIds};
 
 /// Trait for handling token usage and renewal.
-#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[async_trait::async_trait]
 pub trait TokenHandler: 'static + Send + Sync {
     /// Initialize middleware that handles token attachment and renewal.
     /// This middleware should look for the presence of the [bitwarden_api_base::AuthRequired]
@@ -51,8 +50,7 @@ impl ClientManagedTokenHandler {
     }
 }
 
-#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[async_trait::async_trait]
 impl TokenHandler for ClientManagedTokenHandler {
     fn initialize_middleware(
         &self,
@@ -102,8 +100,7 @@ impl reqwest_middleware::Middleware for ClientManagedTokenHandler {
 #[derive(Clone, Copy)]
 pub struct NoopTokenHandler;
 
-#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[async_trait::async_trait]
 impl TokenHandler for NoopTokenHandler {
     fn initialize_middleware(
         &self,

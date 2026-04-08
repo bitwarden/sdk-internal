@@ -33,8 +33,7 @@ struct PasswordManagerTokenHandlerInner {
     identity_config: Option<bitwarden_api_api::Configuration>,
 }
 
-#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[async_trait::async_trait]
 impl TokenHandler for PasswordManagerTokenHandler {
     fn initialize_middleware(
         &self,
