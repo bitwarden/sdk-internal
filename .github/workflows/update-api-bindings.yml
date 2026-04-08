@@ -205,6 +205,10 @@ jobs:
 
           echo "✅ Branch tip commit was made by the bot. Safe to proceed."
 
+      - name: Reset API branch to main
+        if: ${{ (inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type) && steps.switch-api-branch.outputs.updating_existing_branch == 'true' }}
+        run: git reset --hard origin/main
+
       - name: Generate API bindings
         if: ${{ inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type }}
         run: ./support/generate-api-bindings-ci.sh
@@ -224,7 +228,7 @@ jobs:
           echo "👀 Committing API bindings update..."
           git add crates/bitwarden-api-api
           git commit -m "Update API bindings to $_HASH" --no-verify || echo "No changes to commit for API"
-          git push origin $_BRANCH_NAME
+          git push --force-with-lease origin $_BRANCH_NAME
 
       - name: Create or Update API Pull Request
         if: ${{ inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type }}
@@ -311,6 +315,10 @@ jobs:
 
           echo "✅ Branch tip commit was made by the bot. Safe to proceed."
 
+      - name: Reset Identity branch to main
+        if: ${{ (inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type) && steps.switch-identity-branch.outputs.updating_existing_branch == 'true' }}
+        run: git reset --hard origin/main
+
       - name: Generate Identity bindings
         if: ${{ inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type }}
         run: ./support/generate-identity-bindings-ci.sh
@@ -330,7 +338,7 @@ jobs:
           echo "👀 Committing Identity bindings update..."
           git add crates/bitwarden-api-identity
           git commit -m "Update Identity bindings to $_HASH" --no-verify || echo "No changes to commit for Identity"
-          git push origin $_BRANCH_NAME
+          git push --force-with-lease origin $_BRANCH_NAME
 
       - name: Create or Update Identity Pull Request
         if: ${{ inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type }}

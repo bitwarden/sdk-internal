@@ -42,8 +42,6 @@ pub enum MakeCredentialError {
     PublicKeyCredentialParameters(#[from] PublicKeyCredentialParametersError),
     #[error(transparent)]
     UnknownEnum(#[from] UnknownEnumError),
-    #[error(transparent)]
-    Serde(#[from] serde_json::Error),
     #[error("Missing attested_credential_data")]
     MissingAttestedCredentialData,
     #[error("make_credential error: {0}")]
@@ -56,8 +54,6 @@ pub enum MakeCredentialError {
 pub enum GetAssertionError {
     #[error(transparent)]
     UnknownEnum(#[from] UnknownEnumError),
-    #[error(transparent)]
-    Serde(#[from] serde_json::Error),
     #[error(transparent)]
     GetSelectedCredential(#[from] GetSelectedCredentialError),
     #[error(transparent)]
@@ -156,10 +152,12 @@ impl<'a> Fido2Authenticator<'a> {
                     .exclude_list
                     .map(|x| x.into_iter().map(TryInto::try_into).collect())
                     .transpose()?,
+                // TODO(PM-30510): Even though we forward the extensions to the
+                // authenticator, they will not be processed until they are
+                // enabled in the authenticator configuration.
                 extensions: request
                     .extensions
-                    .map(|e| serde_json::from_str(&e))
-                    .transpose()?,
+                    .map(passkey::types::ctap2::make_credential::ExtensionInputs::from),
                 options: passkey::types::ctap2::make_credential::Options {
                     rk: request.options.rk,
                     up: true,
@@ -182,11 +180,13 @@ impl<'a> Fido2Authenticator<'a> {
             .attested_credential_data
             .ok_or(MakeCredentialError::MissingAttestedCredentialData)?;
         let credential_id = attested_credential_data.credential_id().to_vec();
+        let extensions = response.unsigned_extension_outputs.into();
 
         Ok(MakeCredentialResult {
             authenticator_data,
             attestation_object,
             credential_id,
+            extensions,
         })
     }
 
@@ -215,10 +215,12 @@ impl<'a> Fido2Authenticator<'a> {
                             .collect::<Result<Vec<_>, _>>()
                     })
                     .transpose()?,
+                // TODO(PM-30510): Even though we forward the extensions to the
+                // authenticator, they will not be processed until they are
+                // enabled in the authenticator configuration.
                 extensions: request
                     .extensions
-                    .map(|e| serde_json::from_str(&e))
-                    .transpose()?,
+                    .map(passkey::types::ctap2::get_assertion::ExtensionInputs::from),
                 options: passkey::types::ctap2::make_credential::Options {
                     rk: request.options.rk,
                     up: true,
@@ -237,6 +239,7 @@ impl<'a> Fido2Authenticator<'a> {
         let selected_credential = self.get_selected_credential()?;
         let authenticator_data = response.auth_data.to_vec();
         let credential_id = string_to_guid_bytes(&selected_credential.credential.credential_id)?;
+        let extensions = response.unsigned_extension_outputs.into();
 
         Ok(GetAssertionResult {
             credential_id,
@@ -248,6 +251,7 @@ impl<'a> Fido2Authenticator<'a> {
                 .id
                 .into(),
             selected_credential,
+            extensions,
         })
     }
 
@@ -677,5 +681,233 @@ fn map_ui_hint(hint: UiHint<'_, CipherViewContainer>) -> UiHint<'_, CipherView> 
         InformNoCredentialsFound => InformNoCredentialsFound,
         RequestNewCredential(u, r) => RequestNewCredential(u, r),
         RequestExistingCredential(c) => RequestExistingCredential(&c.cipher),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use async_trait::async_trait;
+    use bitwarden_core::{
+        Client,
+        key_management::{KeyIds, SymmetricKeyId},
+    };
+    use bitwarden_crypto::{KeyStoreContext, PrimitiveEncryptable, SymmetricCryptoKey};
+    use bitwarden_encoding::B64Url;
+    use bitwarden_vault::{
+        CipherListView, CipherRepromptType, CipherType, CipherView, EncryptionContext,
+        Fido2Credential, Fido2CredentialNewView, LoginView,
+    };
+    use passkey::authenticator::UiHint;
+
+    use super::Fido2Authenticator;
+    use crate::{
+        CheckUserOptions, CheckUserResult, Fido2CallbackError, Fido2CredentialStore,
+        Fido2UserInterface, GetAssertionExtensionsInput, GetAssertionPrfInput, PrfInputValues,
+        guid_bytes_to_string,
+        types::{GetAssertionRequest, Options, UV},
+    };
+
+    struct MockUserInterface;
+
+    #[async_trait]
+    impl Fido2UserInterface for MockUserInterface {
+        async fn check_user<'a>(
+            &self,
+            _options: CheckUserOptions,
+            _hint: UiHint<'a, CipherView>,
+        ) -> Result<CheckUserResult, Fido2CallbackError> {
+            Ok(CheckUserResult {
+                user_present: true,
+                user_verified: true,
+            })
+        }
+
+        async fn pick_credential_for_authentication(
+            &self,
+            available_credentials: Vec<CipherView>,
+        ) -> Result<CipherView, Fido2CallbackError> {
+            available_credentials
+                .into_iter()
+                .next()
+                .ok_or(Fido2CallbackError::Unknown("no credentials".to_string()))
+        }
+
+        async fn check_user_and_pick_credential_for_creation(
+            &self,
+            _options: CheckUserOptions,
+            _new_credential: Fido2CredentialNewView,
+        ) -> Result<(CipherView, CheckUserResult), Fido2CallbackError> {
+            unimplemented!("not needed for this test")
+        }
+
+        fn is_verification_enabled(&self) -> bool {
+            true
+        }
+    }
+
+    struct MockCredentialStore {
+        cipher: CipherView,
+    }
+
+    #[async_trait]
+    impl Fido2CredentialStore for MockCredentialStore {
+        async fn find_credentials(
+            &self,
+            _ids: Option<Vec<Vec<u8>>>,
+            _rp_id: String,
+            _user_handle: Option<Vec<u8>>,
+        ) -> Result<Vec<CipherView>, Fido2CallbackError> {
+            Ok(vec![self.cipher.clone()])
+        }
+
+        async fn all_credentials(&self) -> Result<Vec<CipherListView>, Fido2CallbackError> {
+            Ok(vec![])
+        }
+
+        async fn save_credential(
+            &self,
+            _cred: EncryptionContext,
+        ) -> Result<(), Fido2CallbackError> {
+            Ok(())
+        }
+    }
+
+    static TEST_FIDO_CREDENTIAL_ID: &str = "a36f3d35-5dae-4d07-8b24-f89e11082090";
+    static TEST_FIDO_RP_ID: &str = "example.com";
+    static TEST_FIDO_USER_HANDLE: &str = "YWJjZA";
+    // Hardcoded P-256 private key in PKCS8 DER format for testing
+    static TEST_FIDO_P256_KEY: &[u8] = &[
+        0x30, 0x81, 0x87, 0x02, 0x01, 0x00, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d,
+        0x02, 0x01, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, 0x04, 0x6d, 0x30,
+        0x6b, 0x02, 0x01, 0x01, 0x04, 0x20, 0x06, 0x76, 0x5e, 0x85, 0xe0, 0x7f, 0xef, 0x43, 0xaa,
+        0x17, 0xe0, 0x7a, 0xd7, 0x85, 0x63, 0x01, 0x80, 0x70, 0x8c, 0x6c, 0x61, 0x43, 0x7d, 0xc3,
+        0xb1, 0xe6, 0xf9, 0x09, 0x24, 0xeb, 0x1f, 0xf5, 0xa1, 0x44, 0x03, 0x42, 0x00, 0x04, 0x35,
+        0x9a, 0x52, 0xf3, 0x82, 0x44, 0x66, 0x5f, 0x3f, 0xe2, 0xc4, 0x0b, 0x1c, 0x16, 0x34, 0xc5,
+        0x60, 0x07, 0x3a, 0x25, 0xfe, 0x7e, 0x7f, 0x7f, 0xda, 0xd4, 0x1c, 0x36, 0x90, 0x00, 0xee,
+        0xb1, 0x8e, 0x92, 0xb3, 0xac, 0x91, 0x7f, 0xb1, 0x8c, 0xa4, 0x85, 0xe7, 0x03, 0x07, 0xd1,
+        0xf5, 0x5b, 0xd3, 0x7b, 0xc3, 0x56, 0x11, 0xdf, 0xbc, 0x7a, 0x97, 0x70, 0x32, 0x4b, 0x3c,
+        0x84, 0x05, 0x71,
+    ];
+
+    fn create_test_cipher(ctx: &mut KeyStoreContext<KeyIds>) -> CipherView {
+        let key = SymmetricKeyId::User;
+        let key_value = B64Url::from(TEST_FIDO_P256_KEY).to_string();
+
+        let fido2_credential = Fido2Credential {
+            credential_id: TEST_FIDO_CREDENTIAL_ID.encrypt(ctx, key).unwrap(),
+            key_type: "public-key".to_string().encrypt(ctx, key).unwrap(),
+            key_algorithm: "ECDSA".to_string().encrypt(ctx, key).unwrap(),
+            key_curve: "P-256".to_string().encrypt(ctx, key).unwrap(),
+            key_value: key_value.encrypt(ctx, key).unwrap(),
+            rp_id: TEST_FIDO_RP_ID.encrypt(ctx, key).unwrap(),
+            user_handle: Some(TEST_FIDO_USER_HANDLE.encrypt(ctx, key).unwrap()),
+            user_name: None,
+            counter: "0".to_string().encrypt(ctx, key).unwrap(),
+            rp_name: None,
+            user_display_name: None,
+            discoverable: "true".to_string().encrypt(ctx, key).unwrap(),
+            creation_date: "2024-06-07T14:12:36.150Z".parse().unwrap(),
+        };
+
+        CipherView {
+            id: Some("c2c7e624-dcfd-4f23-af41-b177014ffcb5".parse().unwrap()),
+            organization_id: None,
+            folder_id: None,
+            collection_ids: vec![],
+            key: None,
+            name: "Test Login".to_string(),
+            notes: None,
+            r#type: CipherType::Login,
+            login: Some(LoginView {
+                username: None,
+                password: None,
+                password_revision_date: None,
+                uris: None,
+                totp: None,
+                autofill_on_page_load: None,
+                fido2_credentials: Some(vec![fido2_credential]),
+            }),
+            identity: None,
+            card: None,
+            secure_note: None,
+            ssh_key: None,
+            bank_account: None,
+            favorite: false,
+            reprompt: CipherRepromptType::None,
+            organization_use_totp: false,
+            edit: true,
+            permissions: None,
+            view_password: true,
+            local_data: None,
+            attachments: None,
+            attachment_decryption_failures: None,
+            fields: None,
+            password_history: None,
+            creation_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            deleted_date: None,
+            revision_date: "2024-01-30T17:55:36.150Z".parse().unwrap(),
+            archived_date: None,
+        }
+    }
+
+    /// TODO(PM-30510): Even though we forward the extensions to the
+    /// authenticator, we have disabled the configuration.
+    /// When we implement PRF, this test should be updated to test that PRF _is_
+    /// evaluated when PRF extension input is received.
+    #[tokio::test]
+    async fn test_prf_is_not_evaluated() {
+        let client = Client::new(None);
+        let user_key: SymmetricCryptoKey =
+            "w2LO+nwV4oxwswVYCxlOfRUseXfvU03VzvKQHrqeklPgiMZrspUe6sOBToCnDn9Ay0tuCBn8ykVVRb7PWhub2Q=="
+                .to_string()
+                .try_into()
+                .unwrap();
+
+        #[allow(deprecated)]
+        client
+            .internal
+            .get_key_store()
+            .context_mut()
+            .set_symmetric_key(SymmetricKeyId::User, user_key)
+            .unwrap();
+
+        let cipher = {
+            let mut ctx = client.internal.get_key_store().context();
+            create_test_cipher(&mut ctx)
+        };
+
+        let user_interface = MockUserInterface;
+        let credential_store = MockCredentialStore { cipher };
+        let mut authenticator =
+            Fido2Authenticator::new(&client, &user_interface, &credential_store);
+
+        let request = GetAssertionRequest {
+            rp_id: "example.com".to_string(),
+            client_data_hash: vec![0u8; 32],
+            allow_list: None,
+            options: Options {
+                rk: false,
+                uv: UV::Preferred,
+            },
+            extensions: Some(GetAssertionExtensionsInput {
+                prf: Some(GetAssertionPrfInput {
+                    eval: Some(PrfInputValues {
+                        first: vec![1u8; 32],
+                        second: None,
+                    }),
+                    eval_by_credential: None,
+                }),
+            }),
+        };
+
+        let result = authenticator.get_assertion(request).await.unwrap();
+        assert_eq!(
+            TEST_FIDO_CREDENTIAL_ID,
+            guid_bytes_to_string(&result.credential_id).unwrap()
+        );
+        assert!(
+            result.extensions.prf.is_none(),
+            "PRF should not be evaluated"
+        );
     }
 }

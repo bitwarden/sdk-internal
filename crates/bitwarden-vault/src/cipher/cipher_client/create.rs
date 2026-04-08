@@ -21,7 +21,7 @@ use wasm_bindgen::prelude::*;
 use super::CiphersClient;
 use crate::{
     Cipher, CipherRepromptType, CipherView, FieldView, FolderId, VaultParseError,
-    cipher_view_type::CipherViewType,
+    cipher::cipher::PartialCipher, cipher_view_type::CipherViewType,
 };
 
 #[allow(missing_docs)]
@@ -239,17 +239,18 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
     let mut cipher_request = key_store.encrypt(request)?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
-    let cipher: Cipher;
+    let mut cipher: Cipher;
     if !collection_ids.is_empty() {
         cipher = api_client
             .ciphers_api()
             .post_create(Some(CipherCreateRequestModel {
-                collection_ids: Some(collection_ids.into_iter().map(Into::into).collect()),
+                collection_ids: Some(collection_ids.iter().cloned().map(Into::into).collect()),
                 cipher: Box::new(cipher_request),
             }))
             .await
             .map_err(ApiError::from)?
-            .try_into()?;
+            .merge_with_cipher(None)?;
+        cipher.collection_ids = collection_ids;
         repository.set(require!(cipher.id), cipher.clone()).await?;
     } else {
         cipher = api_client
@@ -257,7 +258,7 @@ async fn create_cipher<R: Repository<Cipher> + ?Sized>(
             .post(Some(cipher_request))
             .await
             .map_err(ApiError::from)?
-            .try_into()?;
+            .merge_with_cipher(None)?;
         repository.set(require!(cipher.id), cipher.clone()).await?;
     }
 

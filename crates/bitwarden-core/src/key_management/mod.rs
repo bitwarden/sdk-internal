@@ -10,7 +10,9 @@
 //!   [CompositeEncryptable](bitwarden_crypto::CompositeEncryptable), and
 //!   [Decryptable](bitwarden_crypto::Decryptable).
 
-use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, key_ids};
+use bitwarden_crypto::{
+    EncString, KeyStore, SymmetricCryptoKey, key_ids, safe::PasswordProtectedKeyEnvelope,
+};
 
 #[cfg(feature = "internal")]
 pub mod account_cryptographic_state;
@@ -41,11 +43,20 @@ use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 #[cfg(feature = "internal")]
 pub use user_decryption::UserDecryptionData;
+#[cfg(feature = "internal")]
+mod v2_upgrade_token;
+#[cfg(feature = "internal")]
+pub use v2_upgrade_token::{V2UpgradeToken, V2UpgradeTokenError};
 
 #[cfg(all(feature = "internal", feature = "wasm"))]
 mod wasm_unlock_state;
 
-use crate::OrganizationId;
+#[cfg(feature = "internal")]
+mod local_user_data_key;
+#[cfg(feature = "internal")]
+mod local_user_data_key_state;
+
+use crate::{OrganizationId, UserId};
 
 /// Represents the decrypted symmetric user-key of a user. This is held in ephemeral state of the
 /// client.
@@ -59,12 +70,34 @@ pub struct UserKeyState {
 
 bitwarden_state::register_repository_item!(String => UserKeyState, "UserKey");
 
+/// Represents the local user data key, wrapped by user key.
+/// This key is used to encrypt local user data (e.g., password generator history).
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct LocalUserDataKeyState {
+    wrapped_key: EncString,
+}
+
+bitwarden_state::register_repository_item!(UserId => LocalUserDataKeyState, "LocalUserDataKey");
+
+/// Represents the PIN envelope in memory, when ephemeral PIN unlock is used.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+pub struct EphemeralPinEnvelopeState {
+    pin_envelope: PasswordProtectedKeyEnvelope,
+}
+
+bitwarden_state::register_repository_item!(String => EphemeralPinEnvelopeState, "EphemeralPinEnvelope");
+
 key_ids! {
     #[symmetric]
     pub enum SymmetricKeyId {
         Master,
         User,
         Organization(OrganizationId),
+        LocalUserData,
         #[local]
         Local(LocalId),
     }

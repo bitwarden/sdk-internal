@@ -105,6 +105,7 @@ pub enum GlobalEquivalentDomainsType {
     TakeawayEU,
     Atlassian,
     Pinterest,
+    Twitter,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -204,6 +205,7 @@ impl GlobalEquivalentDomainsType {
             Self::TakeawayEU => 88,
             Self::Atlassian => 89,
             Self::Pinterest => 90,
+            Self::Twitter => 91,
             Self::__Unknown(v) => *v,
         }
     }
@@ -301,6 +303,7 @@ impl GlobalEquivalentDomainsType {
             88 => Self::TakeawayEU,
             89 => Self::Atlassian,
             90 => Self::Pinterest,
+            91 => Self::Twitter,
             v => Self::__Unknown(v),
         }
     }

@@ -16,14 +16,14 @@ keywords.workspace = true
 
 [features]
 default = []
-no-memory-hardening = [] # Disable memory hardening features
+no-memory-hardening = []
 uniffi = [
     "argon2/parallel",
     "bitwarden-encoding/uniffi",
     "dep:bitwarden-uniffi-error",
     "dep:uniffi",
-] # Uniffi bindings
-wasm = ["dep:tsify", "dep:wasm-bindgen"] # WASM support
+]
+wasm = ["dep:tsify", "dep:wasm-bindgen"]
 # WARNING: This feature is for debugging purposes only and should never be enabled in production.
 # It disables compile-time debug prevention for cryptographic keys, exposing sensitive key material
 # in debug output, and adds tracing debug logs to encrypt/decrypt operations.
@@ -35,6 +35,7 @@ argon2 = { version = "=0.6.0-rc.2", features = [
     "std",
     "zeroize",
 ], default-features = false }
+bitwarden-api-key-connector = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-uniffi-error = { workspace = true, optional = true }

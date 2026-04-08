@@ -17,7 +17,7 @@ use crate::{
 };
 
 #[allow(missing_docs)]
-#[derive(Clone, Copy, Serialize_repr, Debug)]
+#[derive(Clone, Copy, Serialize_repr, Debug, PartialEq)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]

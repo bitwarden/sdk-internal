@@ -162,11 +162,13 @@ src/models/collection_response_model.rs
 src/models/collection_response_model_list_response_model.rs
 src/models/collection_type.rs
 src/models/collection_with_id_request_model.rs
+src/models/common_unlock_data_request_model.rs
 src/models/communication_bootstrap_settings.rs
 src/models/communication_settings.rs
 src/models/config_response_model.rs
 src/models/create_client_organization_request_body.rs
 src/models/create_collection_request_model.rs
+src/models/create_premium_checkout_session_request.rs
 src/models/credential_create_options.rs
 src/models/delete_attachment_response_model.rs
 src/models/delete_recover_request_model.rs
@@ -236,6 +238,7 @@ src/models/json_element_push_send_request_model.rs
 src/models/kdf_request_model.rs
 src/models/kdf_type.rs
 src/models/key_connector_confirmation_details_response_model.rs
+src/models/key_connector_enrollment_request_model.rs
 src/models/key_model.rs
 src/models/key_pair_request_body.rs
 src/models/key_regeneration_request_model.rs
@@ -287,6 +290,7 @@ src/models/organization_license.rs
 src/models/organization_no_payment_create_request.rs
 src/models/organization_public_key_response_model.rs
 src/models/organization_report_metrics_request.rs
+src/models/organization_report_summary_data_response.rs
 src/models/organization_response_model.rs
 src/models/organization_seat_request_model.rs
 src/models/organization_sponsorship_create_request_model.rs
@@ -358,6 +362,7 @@ src/models/policy_request_model.rs
 src/models/policy_response_model.rs
 src/models/policy_response_model_list_response_model.rs
 src/models/policy_status_response_model.rs
+src/models/policy_status_response_model_list_response_model.rs
 src/models/policy_type.rs
 src/models/potential_grantee_response_model.rs
 src/models/potential_grantee_response_model_list_response_model.rs
@@ -432,6 +437,7 @@ src/models/restart_subscription_request.rs
 src/models/restore_secret_version_request_model.rs
 src/models/revoke_access_tokens_request.rs
 src/models/rotate_user_account_keys_and_data_request_model.rs
+src/models/rotate_user_keys_request_model.rs
 src/models/saml2_binding_type.rs
 src/models/saml2_name_id_format.rs
 src/models/saml2_signing_behavior.rs
@@ -522,6 +528,8 @@ src/models/two_factor_web_authn_response_model.rs
 src/models/two_factor_yubi_key_response_model.rs
 src/models/unauthenticated_secret_verification_request_model.rs
 src/models/unlock_data_request_model.rs
+src/models/unlock_method.rs
+src/models/unlock_method_request_model.rs
 src/models/untrust_devices_request_model.rs
 src/models/update_avatar_request_model.rs
 src/models/update_client_organization_request_body.rs
@@ -563,3 +571,4 @@ src/models/web_authn_login_rotate_key_request_model.rs
 src/models/web_authn_prf_decryption_option.rs
 src/models/web_authn_prf_status.rs
 src/models/web_push_auth_request_model.rs
+src/models/wrapped_account_cryptographic_state_request_model.rs
