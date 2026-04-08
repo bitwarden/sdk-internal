@@ -134,6 +134,10 @@ impl<D: SharedUnlockDriver + Send + Sync + 'static> Leader<D> {
                             );
                         }
                     }
+                    Err(bitwarden_ipc::TypedReceiveError::Cancelled) => {
+                        tracing::info!("Shared unlock follower stopped by cancellation");
+                        break;
+                    }
                     Err(error) => {
                         tracing::error!(?error, "Failed to receive shared unlock IPC message");
                     }
