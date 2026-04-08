@@ -84,8 +84,11 @@ impl ServerCommunicationConfigClient {
     /// Extracts the `cookie_domain` from the `SsoCookieVendor` config and uses it as the
     /// storage key. If the config is `Direct` or `cookie_domain` is not set, the call
     /// is silently ignored.
-    pub async fn set_communication_type_v2(&self, config: ServerCommunicationConfig) -> Result<()> {
-        self.client.set_communication_type_v2(config).await?;
+    pub async fn set_communication_type_v2(
+        &self,
+        request: SetCommunicationTypeRequest,
+    ) -> Result<()> {
+        self.client.set_communication_type_v2(request).await?;
         Ok(())
     }
 

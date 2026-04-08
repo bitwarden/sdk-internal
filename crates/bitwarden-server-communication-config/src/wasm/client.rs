@@ -144,9 +144,9 @@ impl JsServerCommunicationConfigClient {
     #[wasm_bindgen(js_name = setCommunicationTypeV2)]
     pub async fn set_communication_type_v2(
         &self,
-        config: ServerCommunicationConfig,
+        request: SetCommunicationTypeRequest,
     ) -> Result<(), String> {
-        self.client.set_communication_type_v2(config).await
+        self.client.set_communication_type_v2(request).await
     }
 
     /// Acquires a cookie from the platform and saves it to the repository
