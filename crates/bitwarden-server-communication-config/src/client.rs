@@ -183,12 +183,25 @@ where
     /// Returns an error if the repository save operation fails
     pub async fn set_communication_type_v2(
         &self,
-        config: ServerCommunicationConfig,
+        mut config: ServerCommunicationConfig,
     ) -> Result<(), R::SaveError> {
-        if let BootstrapConfig::SsoCookieVendor(ref vendor_config) = config.bootstrap
-            && let Some(ref domain) = vendor_config.cookie_domain
-        {
-            self.repository.save(domain.clone(), config).await?;
+        if let BootstrapConfig::SsoCookieVendor(ref mut vendor_config) = config.bootstrap {
+            let Some(domain) = vendor_config.cookie_domain.clone() else {
+                return Ok(());
+            };
+
+            vendor_config.cookie_value = self
+                .repository
+                .get(domain.clone())
+                .await
+                .ok()
+                .flatten()
+                .and_then(|existing| match existing.bootstrap {
+                    BootstrapConfig::SsoCookieVendor(v) => v.cookie_value,
+                    _ => None,
+                });
+
+            self.repository.save(domain, config).await?;
         }
         Ok(())
     }
@@ -1461,5 +1474,58 @@ mod tests {
 
         // Verify nothing was saved
         assert!(repo.storage.read().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn set_communication_type_v2_preserves_existing_cookies() {
+        let repo = MockRepository::default();
+        let platform_api = MockPlatformApi::new();
+
+        // Setup existing config with acquired cookies
+        let existing_config = ServerCommunicationConfig {
+            bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
+                idp_login_url: Some("https://idp.example.com/login".to_string()),
+                cookie_name: Some("SessionCookie".to_string()),
+                cookie_domain: Some("vault.example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_value: Some(vec![AcquiredCookie {
+                    name: "SessionCookie".to_string(),
+                    value: "previously-acquired-value".to_string(),
+                }]),
+            }),
+        };
+        repo.save("vault.example.com".to_string(), existing_config)
+            .await
+            .unwrap();
+
+        let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
+
+        // Re-save the config without cookies (as would arrive from /api/config)
+        let new_config = ServerCommunicationConfig {
+            bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
+                idp_login_url: Some("https://idp.example.com/login".to_string()),
+                cookie_name: Some("SessionCookie".to_string()),
+                cookie_domain: Some("vault.example.com".to_string()),
+                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_value: None,
+            }),
+        };
+        client.set_communication_type_v2(new_config).await.unwrap();
+
+        // Verify cookies were preserved
+        let saved = repo
+            .get("vault.example.com".to_string())
+            .await
+            .unwrap()
+            .unwrap();
+        if let BootstrapConfig::SsoCookieVendor(vendor_config) = saved.bootstrap {
+            let cookies = vendor_config
+                .cookie_value
+                .expect("cookies should be preserved");
+            assert_eq!(cookies.len(), 1);
+            assert_eq!(cookies[0].value, "previously-acquired-value");
+        } else {
+            panic!("Expected SsoCookieVendor config");
+        }
     }
 }
