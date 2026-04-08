@@ -20,7 +20,7 @@ use wasm_bindgen::prelude::*;
 use crate::{
     UserCryptoManagementClient,
     key_rotation::{
-        crypto::rotate_account_cryptographic_state,
+        crypto::rotate_account_cryptographic_state_to_request_model,
         data::reencrypt_data,
         unlock::{
             ReencryptUnlockInput, V1EmergencyAccessMembership, V1OrganizationMembership,
@@ -200,7 +200,7 @@ async fn post_rotate_user_keys(
             ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         info!("Rotating account cryptographic state for user key rotation");
-        let account_keys_model = rotate_account_cryptographic_state(
+        let account_keys_model = rotate_account_cryptographic_state_to_request_model(
             &sync.wrapped_account_cryptographic_state,
             &current_user_key_id,
             &new_user_key_id,
