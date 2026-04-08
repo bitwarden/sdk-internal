@@ -107,6 +107,7 @@ pub struct InternalClient {
     #[cfg(feature = "internal")]
     pub(crate) security_state: RwLock<Option<SecurityState>>,
 
+    #[allow(dead_code)]
     pub(crate) state_registry: StateRegistry,
 }
 

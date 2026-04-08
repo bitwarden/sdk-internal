@@ -100,7 +100,9 @@ impl ClientBuilder {
                 key_store,
                 #[cfg(feature = "internal")]
                 security_state: RwLock::new(None),
-                state_registry: self.state_registry.unwrap_or_else(StateRegistry::new_with_memory_db),
+                state_registry: self
+                    .state_registry
+                    .unwrap_or_else(StateRegistry::new_with_memory_db),
             }),
         }
     }
