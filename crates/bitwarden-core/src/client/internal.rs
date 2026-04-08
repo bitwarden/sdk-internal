@@ -107,6 +107,8 @@ pub struct InternalClient {
     #[cfg(feature = "internal")]
     pub(crate) security_state: RwLock<Option<SecurityState>>,
 
+    // TODO(PM-31876): Remove once Flags are migrated to Setting, which will add an in-crate
+    // read path and satisfy the dead_code lint without suppression.
     #[allow(dead_code)]
     pub(crate) state_registry: StateRegistry,
 }
