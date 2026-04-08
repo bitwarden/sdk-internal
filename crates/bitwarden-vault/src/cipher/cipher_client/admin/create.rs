@@ -10,7 +10,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     Cipher, CipherView, VaultParseError,
-    cipher::cipher::PartialCipher,
+    cipher::cipher::{PartialCipher, StrictDecrypt},
     cipher_client::{
         admin::CipherAdminClient,
         create::{CipherCreateRequest, CipherCreateRequestInternal},
@@ -45,6 +45,7 @@ async fn create_cipher(
     encrypted_for: UserId,
     api_client: &bitwarden_api_api::apis::ApiClient,
     key_store: &KeyStore<KeyIds>,
+    use_strict_decryption: bool,
 ) -> Result<CipherView, CreateCipherAdminError> {
     let collection_ids = request.create_request.collection_ids.clone();
     let mut cipher_request = key_store.encrypt(request)?;
@@ -59,7 +60,11 @@ async fn create_cipher(
         .await?
         .merge_with_cipher(None)?;
 
-    Ok(key_store.decrypt(&cipher)?)
+    if use_strict_decryption {
+        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    } else {
+        Ok(key_store.decrypt(&cipher)?)
+    }
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -92,7 +97,14 @@ impl CipherAdminClient {
             internal_request.generate_cipher_key(&mut key_store.context(), key)?;
         }
 
-        create_cipher(internal_request, user_id, &config.api_client, key_store).await
+        create_cipher(
+            internal_request,
+            user_id,
+            &config.api_client,
+            key_store,
+            self.is_strict_decrypt(),
+        )
+        .await
     }
 }
 
@@ -176,6 +188,7 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             &api_client,
             &store,
+            false,
         )
         .await
         .unwrap();

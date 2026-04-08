@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use super::cipher::CipherKind;
+use super::cipher::{CipherKind, StrictDecrypt};
 use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -90,7 +90,7 @@ impl Decryptable<KeyIds, SymmetricKeyId, CardListView> for Card {
         key: SymmetricKeyId,
     ) -> Result<CardListView, CryptoError> {
         Ok(CardListView {
-            brand: self.brand.decrypt(ctx, key)?,
+            brand: self.brand.decrypt(ctx, key).ok().flatten(),
         })
     }
 }
@@ -102,12 +102,41 @@ impl Decryptable<KeyIds, SymmetricKeyId, CardView> for Card {
         key: SymmetricKeyId,
     ) -> Result<CardView, CryptoError> {
         Ok(CardView {
-            cardholder_name: self.cardholder_name.decrypt(ctx, key)?,
-            exp_month: self.exp_month.decrypt(ctx, key)?,
-            exp_year: self.exp_year.decrypt(ctx, key)?,
-            code: self.code.decrypt(ctx, key)?,
-            brand: self.brand.decrypt(ctx, key)?,
-            number: self.number.decrypt(ctx, key)?,
+            cardholder_name: self.cardholder_name.decrypt(ctx, key).ok().flatten(),
+            exp_month: self.exp_month.decrypt(ctx, key).ok().flatten(),
+            exp_year: self.exp_year.decrypt(ctx, key).ok().flatten(),
+            code: self.code.decrypt(ctx, key).ok().flatten(),
+            brand: self.brand.decrypt(ctx, key).ok().flatten(),
+            number: self.number.decrypt(ctx, key).ok().flatten(),
+        })
+    }
+}
+
+impl Decryptable<KeyIds, SymmetricKeyId, CardListView> for StrictDecrypt<&Card> {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<CardListView, CryptoError> {
+        Ok(CardListView {
+            brand: self.0.brand.decrypt(ctx, key)?,
+        })
+    }
+}
+
+impl Decryptable<KeyIds, SymmetricKeyId, CardView> for StrictDecrypt<&Card> {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<CardView, CryptoError> {
+        Ok(CardView {
+            cardholder_name: self.0.cardholder_name.decrypt(ctx, key)?,
+            exp_month: self.0.exp_month.decrypt(ctx, key)?,
+            exp_year: self.0.exp_year.decrypt(ctx, key)?,
+            code: self.0.code.decrypt(ctx, key)?,
+            brand: self.0.brand.decrypt(ctx, key)?,
+            number: self.0.number.decrypt(ctx, key)?,
         })
     }
 }

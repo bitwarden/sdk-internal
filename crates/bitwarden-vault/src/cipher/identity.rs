@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
-use super::cipher::CipherKind;
+use super::cipher::{CipherKind, StrictDecrypt};
 use crate::{Cipher, VaultParseError, cipher::cipher::CopyableCipherFields};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -98,24 +98,53 @@ impl Decryptable<KeyIds, SymmetricKeyId, IdentityView> for Identity {
         key: SymmetricKeyId,
     ) -> Result<IdentityView, CryptoError> {
         Ok(IdentityView {
-            title: self.title.decrypt(ctx, key)?,
-            first_name: self.first_name.decrypt(ctx, key)?,
-            middle_name: self.middle_name.decrypt(ctx, key)?,
-            last_name: self.last_name.decrypt(ctx, key)?,
-            address1: self.address1.decrypt(ctx, key)?,
-            address2: self.address2.decrypt(ctx, key)?,
-            address3: self.address3.decrypt(ctx, key)?,
-            city: self.city.decrypt(ctx, key)?,
-            state: self.state.decrypt(ctx, key)?,
-            postal_code: self.postal_code.decrypt(ctx, key)?,
-            country: self.country.decrypt(ctx, key)?,
-            company: self.company.decrypt(ctx, key)?,
-            email: self.email.decrypt(ctx, key)?,
-            phone: self.phone.decrypt(ctx, key)?,
-            ssn: self.ssn.decrypt(ctx, key)?,
-            username: self.username.decrypt(ctx, key)?,
-            passport_number: self.passport_number.decrypt(ctx, key)?,
-            license_number: self.license_number.decrypt(ctx, key)?,
+            title: self.title.decrypt(ctx, key).ok().flatten(),
+            first_name: self.first_name.decrypt(ctx, key).ok().flatten(),
+            middle_name: self.middle_name.decrypt(ctx, key).ok().flatten(),
+            last_name: self.last_name.decrypt(ctx, key).ok().flatten(),
+            address1: self.address1.decrypt(ctx, key).ok().flatten(),
+            address2: self.address2.decrypt(ctx, key).ok().flatten(),
+            address3: self.address3.decrypt(ctx, key).ok().flatten(),
+            city: self.city.decrypt(ctx, key).ok().flatten(),
+            state: self.state.decrypt(ctx, key).ok().flatten(),
+            postal_code: self.postal_code.decrypt(ctx, key).ok().flatten(),
+            country: self.country.decrypt(ctx, key).ok().flatten(),
+            company: self.company.decrypt(ctx, key).ok().flatten(),
+            email: self.email.decrypt(ctx, key).ok().flatten(),
+            phone: self.phone.decrypt(ctx, key).ok().flatten(),
+            ssn: self.ssn.decrypt(ctx, key).ok().flatten(),
+            username: self.username.decrypt(ctx, key).ok().flatten(),
+            passport_number: self.passport_number.decrypt(ctx, key).ok().flatten(),
+            license_number: self.license_number.decrypt(ctx, key).ok().flatten(),
+        })
+    }
+}
+
+impl Decryptable<KeyIds, SymmetricKeyId, IdentityView> for StrictDecrypt<&Identity> {
+    fn decrypt(
+        &self,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
+    ) -> Result<IdentityView, CryptoError> {
+        Ok(IdentityView {
+            title: self.0.title.decrypt(ctx, key)?,
+            first_name: self.0.first_name.decrypt(ctx, key)?,
+            middle_name: self.0.middle_name.decrypt(ctx, key)?,
+            last_name: self.0.last_name.decrypt(ctx, key)?,
+            address1: self.0.address1.decrypt(ctx, key)?,
+            address2: self.0.address2.decrypt(ctx, key)?,
+            address3: self.0.address3.decrypt(ctx, key)?,
+            city: self.0.city.decrypt(ctx, key)?,
+            state: self.0.state.decrypt(ctx, key)?,
+            postal_code: self.0.postal_code.decrypt(ctx, key)?,
+            country: self.0.country.decrypt(ctx, key)?,
+            company: self.0.company.decrypt(ctx, key)?,
+            email: self.0.email.decrypt(ctx, key)?,
+            phone: self.0.phone.decrypt(ctx, key)?,
+            ssn: self.0.ssn.decrypt(ctx, key)?,
+            username: self.0.username.decrypt(ctx, key)?,
+            passport_number: self.0.passport_number.decrypt(ctx, key)?,
+            license_number: self.0.license_number.decrypt(ctx, key)?,
         })
     }
 }
