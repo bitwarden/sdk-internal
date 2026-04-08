@@ -2,8 +2,10 @@
 mod crypto;
 mod data;
 mod partial_rotateable_keyset;
+mod rotate_user_keys;
 mod sync;
 mod unlock;
+mod unlock_method;
 
 use bitwarden_api_api::models::RotateUserAccountKeysAndDataRequestModel;
 use bitwarden_core::key_management::{MasterPasswordAuthenticationData, SymmetricKeyId};
@@ -111,6 +113,8 @@ pub enum RotateUserKeysError {
     InvalidPublicKey,
     #[error("Untrusted key encountered during key rotation")]
     UntrustedKeyError,
+    #[error("Unimplemented key rotation method")]
+    UnimplementedKeyRotationMethod,
 }
 
 struct UntrustedKeyError;
