@@ -877,6 +877,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-logging"
+version = "2.0.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
+ "tsify",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "bitwarden-pm"
 version = "2.0.0"
 dependencies = [
