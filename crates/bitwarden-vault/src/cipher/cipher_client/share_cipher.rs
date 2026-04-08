@@ -11,7 +11,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     Cipher, CipherError, CipherId, CipherRepromptType, CipherView, CiphersClient,
-    EncryptionContext, VaultParseError,
+    EncryptionContext, VaultParseError, cipher::cipher::PartialCipher,
 };
 
 /// Standalone function that shares a cipher to an organization via API call.
@@ -35,7 +35,7 @@ async fn share_cipher(
 
     let response = api_client.put_share(cipher_uuid, Some(req)).await?;
 
-    let mut new_cipher: Cipher = response.try_into()?;
+    let mut new_cipher: Cipher = response.merge_with_cipher(None)?;
     new_cipher.collection_ids = collection_ids;
 
     repository.set(cipher_id, new_cipher.clone()).await?;
