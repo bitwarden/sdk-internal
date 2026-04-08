@@ -14,11 +14,13 @@ use crate::{
 
 /// Wrapper for folder specific functionality.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
 pub struct FoldersClient {
     pub(crate) client: Client,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "uniffi", uniffi::export)]
 impl FoldersClient {
     /// Encrypt a [FolderView] to a [Folder].
     pub fn encrypt(&self, folder_view: FolderView) -> Result<Folder, EncryptError> {
@@ -40,7 +42,10 @@ impl FoldersClient {
         let views = key_store.decrypt_list(&folders)?;
         Ok(views)
     }
+}
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl FoldersClient {
     /// Get all folders from state and decrypt them to a list of [FolderView].
     pub async fn list(&self) -> Result<Vec<FolderView>, GetFolderError> {
         let key_store = self.client.internal.get_key_store();

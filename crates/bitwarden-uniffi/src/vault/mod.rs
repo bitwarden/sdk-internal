@@ -1,4 +1,4 @@
-use bitwarden_vault::{CipherListView, TotpResponse};
+use bitwarden_vault::{CipherListView, FoldersClient, TotpResponse};
 use chrono::{DateTime, Utc};
 
 use crate::error::Result;
@@ -10,8 +10,6 @@ pub mod ciphers;
 #[allow(missing_docs)]
 pub mod collections;
 #[allow(missing_docs)]
-pub mod folders;
-#[allow(missing_docs)]
 pub mod password_history;
 
 #[allow(missing_docs)]
@@ -21,8 +19,8 @@ pub struct VaultClient(pub(crate) bitwarden_vault::VaultClient);
 #[uniffi::export]
 impl VaultClient {
     /// Folder operations
-    pub fn folders(&self) -> folders::FoldersClient {
-        folders::FoldersClient(self.0.folders())
+    pub fn folders(&self) -> FoldersClient {
+        self.0.folders()
     }
 
     /// Collections operations
