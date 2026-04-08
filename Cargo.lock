@@ -956,12 +956,10 @@ version = "2.0.0"
 dependencies = [
  "async-trait",
  "bitwarden-core",
- "bitwarden-crypto",
  "bitwarden-encoding",
  "bitwarden-error",
  "bitwarden-ipc",
  "bitwarden-threading",
- "ciborium",
  "js-sys",
  "serde",
  "serde_bytes",
