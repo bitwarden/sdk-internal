@@ -385,7 +385,8 @@ pub(super) async fn initialize_org_crypto(
 pub(super) async fn get_user_encryption_key(client: &Client) -> Result<B64, CryptoClientError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
-    // This is needed because the mobile clients need access to the user encryption key
+    // This is needed because the clients need access to the user encryption key
+    // in order to set side-effects such as biometrics, and never-lock
     #[allow(deprecated)]
     let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
