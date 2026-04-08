@@ -29,7 +29,7 @@ uniffi = ["bitwarden-core/uniffi", "bitwarden-send/uniffi", "dep:uniffi"]
 bitwarden-api-api = { workspace = true }
 bitwarden-api-key-connector = { workspace = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
-bitwarden-crypto = { workspace = true } 
+bitwarden-crypto = { workspace = true }
 bitwarden-encoding = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-send = { workspace = true }
