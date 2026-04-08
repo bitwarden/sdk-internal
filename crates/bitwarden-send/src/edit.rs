@@ -102,7 +102,6 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, bitwarden_api_api::models::Sen
             .as_bytes()
             .to_vec();
 
-        // Derive the shareable send key for encrypting content
         let send_key = Send::derive_shareable_key(ctx, &k)?;
 
         let (send_type, file, text) = self
