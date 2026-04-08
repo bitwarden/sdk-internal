@@ -169,8 +169,7 @@ where
     /// Sets the server communication configuration using the domain from the config itself
     ///
     /// Extracts the `cookie_domain` from the `SsoCookieVendor` config and uses it as the
-    /// storage key. If the config is `Direct` or the `cookie_domain` is not set, the call
-    /// is silently ignored.
+    /// storage key. If the config is `Direct`, the call is silently ignored.
     ///
     /// Typically called when receiving the `/api/config` response from the server.
     ///
@@ -189,9 +188,7 @@ where
             return Ok(());
         };
 
-        let Some(domain) = v.cookie_domain.clone() else {
-            return Ok(());
-        };
+        let domain = v.cookie_domain.clone();
 
         let existing_cookie_value = self
             .repository
@@ -253,18 +250,13 @@ where
             return Err(AcquireCookieError::UnsupportedConfiguration);
         };
 
-        let expected_cookie_name = vendor_config
-            .cookie_name
-            .as_ref()
-            .ok_or(AcquireCookieError::UnsupportedConfiguration)?;
+        let expected_cookie_name = &vendor_config.cookie_name;
 
-        // Extract vault_url from vendor_config
-        let vault_url = vendor_config
-            .vault_url
-            .as_ref()
-            .filter(|s| !s.is_empty())
-            .ok_or(AcquireCookieError::UnsupportedConfiguration)?
-            .clone();
+        // Reject empty vault_url - the platform needs a real URL to redirect to
+        if vendor_config.vault_url.is_empty() {
+            return Err(AcquireCookieError::UnsupportedConfiguration);
+        }
+        let vault_url = vendor_config.vault_url.clone();
 
         // Call platform API to acquire cookies, passing vault_url
         let cookies = self
@@ -394,9 +386,9 @@ mod tests {
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("TestCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "TestCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: Some(vec![AcquiredCookie {
                     name: "TestCookie".to_string(),
                     value: "value123".to_string(),
@@ -427,9 +419,9 @@ mod tests {
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("TestCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "TestCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: None,
             }),
         };
@@ -453,9 +445,9 @@ mod tests {
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("TestCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "TestCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: Some(vec![AcquiredCookie {
                     name: "TestCookie".to_string(),
                     value: "value123".to_string(),
@@ -520,9 +512,9 @@ mod tests {
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("TestCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "TestCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: None,
             }),
         };
@@ -544,9 +536,9 @@ mod tests {
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("AWSELBAuthSessionCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "AWSELBAuthSessionCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: Some(vec![AcquiredCookie {
                     name: "AWSELBAuthSessionCookie".to_string(),
                     value: "eyJhbGciOiJFUzI1NiIsImtpZCI6Im...".to_string(),
@@ -584,9 +576,9 @@ mod tests {
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("AWSELBAuthSessionCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "AWSELBAuthSessionCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: Some(vec![
                     AcquiredCookie {
                         name: "AWSELBAuthSessionCookie-0".to_string(),
@@ -646,9 +638,9 @@ mod tests {
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("TestCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "TestCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: None,
             }),
         };
@@ -700,9 +692,9 @@ mod tests {
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("TestCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "TestCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: None,
             }),
         };
@@ -761,9 +753,9 @@ mod tests {
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("ExpectedCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "ExpectedCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: None,
             }),
         };
@@ -820,9 +812,9 @@ mod tests {
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("AWSELBAuthSessionCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "AWSELBAuthSessionCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: None,
             }),
         };
@@ -888,9 +880,9 @@ mod tests {
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("SessionCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "SessionCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: None,
             }),
         };
@@ -973,9 +965,9 @@ mod tests {
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("TestCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: None,
+                cookie_name: "TestCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: Some(vec![AcquiredCookie {
                     name: "TestCookie".to_string(),
                     value: "existing-value".to_string(),
@@ -1005,9 +997,9 @@ mod tests {
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("TestCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "TestCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: None,
             }),
         };
@@ -1058,9 +1050,9 @@ mod tests {
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("TestCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "TestCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: None,
             }),
         };
@@ -1085,9 +1077,9 @@ mod tests {
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("AWSELBAuthSessionCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: None,
+                cookie_name: "AWSELBAuthSessionCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: Some(vec![
                     AcquiredCookie {
                         name: "AWSELBAuthSessionCookie-0".to_string(),
@@ -1152,9 +1144,9 @@ mod tests {
         let request = SetCommunicationTypeRequest {
             bootstrap: BootstrapConfigRequest::SsoCookieVendor(SsoCookieVendorConfigRequest {
                 idp_login_url: Some("https://idp.example.com/login".to_string()),
-                cookie_name: Some("SessionCookie".to_string()),
-                cookie_domain: Some("vault.example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "SessionCookie".to_string(),
+                cookie_domain: "vault.example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
             }),
         };
 
@@ -1174,11 +1166,8 @@ mod tests {
                 vendor_config.idp_login_url,
                 Some("https://idp.example.com/login".to_string())
             );
-            assert_eq!(vendor_config.cookie_name, Some("SessionCookie".to_string()));
-            assert_eq!(
-                vendor_config.cookie_domain,
-                Some("vault.example.com".to_string())
-            );
+            assert_eq!(vendor_config.cookie_name, "SessionCookie");
+            assert_eq!(vendor_config.cookie_domain, "vault.example.com");
             assert!(vendor_config.cookie_value.is_none());
         } else {
             panic!("Expected SsoCookieVendor config");
@@ -1205,9 +1194,9 @@ mod tests {
         let request = SetCommunicationTypeRequest {
             bootstrap: BootstrapConfigRequest::SsoCookieVendor(SsoCookieVendorConfigRequest {
                 idp_login_url: Some("https://new-idp.example.com/login".to_string()),
-                cookie_name: Some("NewCookie".to_string()),
-                cookie_domain: Some("vault.example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "NewCookie".to_string(),
+                cookie_domain: "vault.example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
             }),
         };
 
@@ -1227,7 +1216,7 @@ mod tests {
                 vendor_config.idp_login_url,
                 Some("https://new-idp.example.com/login".to_string())
             );
-            assert_eq!(vendor_config.cookie_name, Some("NewCookie".to_string()));
+            assert_eq!(vendor_config.cookie_name, "NewCookie");
         } else {
             panic!("Expected SsoCookieVendor config");
         }
@@ -1251,9 +1240,9 @@ mod tests {
         let request2 = SetCommunicationTypeRequest {
             bootstrap: BootstrapConfigRequest::SsoCookieVendor(SsoCookieVendorConfigRequest {
                 idp_login_url: Some("https://idp.example.com/login".to_string()),
-                cookie_name: Some("TestCookie".to_string()),
-                cookie_domain: Some("vault2.example.com".to_string()),
-                vault_url: Some("https://vault2.example.com".to_string()),
+                cookie_name: "TestCookie".to_string(),
+                cookie_domain: "vault2.example.com".to_string(),
+                vault_url: "https://vault2.example.com".to_string(),
             }),
         };
         client
@@ -1288,9 +1277,9 @@ mod tests {
         let existing_config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://idp.example.com/login".to_string()),
-                cookie_name: Some("SessionCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "SessionCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: Some(vec![AcquiredCookie {
                     name: "SessionCookie".to_string(),
                     value: "previously-acquired-value".to_string(),
@@ -1307,9 +1296,9 @@ mod tests {
         let request = SetCommunicationTypeRequest {
             bootstrap: BootstrapConfigRequest::SsoCookieVendor(SsoCookieVendorConfigRequest {
                 idp_login_url: Some("https://idp.example.com/login".to_string()),
-                cookie_name: Some("SessionCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "SessionCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
             }),
         };
 
@@ -1346,9 +1335,9 @@ mod tests {
         let request = SetCommunicationTypeRequest {
             bootstrap: BootstrapConfigRequest::SsoCookieVendor(SsoCookieVendorConfigRequest {
                 idp_login_url: Some("https://idp.example.com/login".to_string()),
-                cookie_name: Some("SessionCookie".to_string()),
-                cookie_domain: Some("vault.example.com".to_string()),
-                vault_url: None,
+                cookie_name: "SessionCookie".to_string(),
+                cookie_domain: "vault.example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
             }),
         };
 
@@ -1366,48 +1355,10 @@ mod tests {
                 vendor_config.idp_login_url,
                 Some("https://idp.example.com/login".to_string())
             );
-            assert_eq!(vendor_config.cookie_name, Some("SessionCookie".to_string()));
+            assert_eq!(vendor_config.cookie_name, "SessionCookie");
         } else {
             panic!("Expected SsoCookieVendor config");
         }
-    }
-
-    #[tokio::test]
-    async fn acquire_cookie_returns_unsupported_when_vault_url_none() {
-        let repo = MockRepository::default();
-        let platform_api = MockPlatformApi::new();
-
-        // Setup config with SsoCookieVendor but vault_url is None
-        let config = ServerCommunicationConfig {
-            bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
-                idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("TestCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: None, // Missing vault_url
-                cookie_value: None,
-            }),
-        };
-        repo.save("vault.example.com".to_string(), config)
-            .await
-            .unwrap();
-
-        // Platform API is ready to return cookies (but shouldn't be called)
-        platform_api
-            .set_cookies(Some(vec![AcquiredCookie {
-                name: "TestCookie".to_string(),
-                value: "value".to_string(),
-            }]))
-            .await;
-
-        let client = ServerCommunicationConfigClient::new(repo, platform_api);
-
-        let result = client.acquire_cookie("vault.example.com").await;
-
-        // Should return UnsupportedConfiguration because vault_url is None
-        assert!(matches!(
-            result,
-            Err(AcquireCookieError::UnsupportedConfiguration)
-        ));
     }
 
     #[tokio::test]
@@ -1419,9 +1370,9 @@ mod tests {
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("TestCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("".to_string()), // Empty vault_url
+                cookie_name: "TestCookie".to_string(),
+                cookie_domain: "example.com".to_string(),
+                vault_url: "".to_string(), // Empty vault_url
                 cookie_value: None,
             }),
         };
@@ -1465,27 +1416,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn set_communication_type_v2_ignores_missing_cookie_domain() {
-        let repo = MockRepository::default();
-        let platform_api = MockPlatformApi::new();
-        let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
-
-        let request = SetCommunicationTypeRequest {
-            bootstrap: BootstrapConfigRequest::SsoCookieVendor(SsoCookieVendorConfigRequest {
-                idp_login_url: Some("https://idp.example.com/login".to_string()),
-                cookie_name: Some("SessionCookie".to_string()),
-                cookie_domain: None,
-                vault_url: None,
-            }),
-        };
-
-        client.set_communication_type_v2(request).await.unwrap();
-
-        // Verify nothing was saved
-        assert!(repo.storage.read().await.is_empty());
-    }
-
-    #[tokio::test]
     async fn set_communication_type_v2_preserves_existing_cookies() {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
@@ -1494,9 +1424,9 @@ mod tests {
         let existing_config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://idp.example.com/login".to_string()),
-                cookie_name: Some("SessionCookie".to_string()),
-                cookie_domain: Some("vault.example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "SessionCookie".to_string(),
+                cookie_domain: "vault.example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
                 cookie_value: Some(vec![AcquiredCookie {
                     name: "SessionCookie".to_string(),
                     value: "previously-acquired-value".to_string(),
@@ -1513,9 +1443,9 @@ mod tests {
         let new_request = SetCommunicationTypeRequest {
             bootstrap: BootstrapConfigRequest::SsoCookieVendor(SsoCookieVendorConfigRequest {
                 idp_login_url: Some("https://idp.example.com/login".to_string()),
-                cookie_name: Some("SessionCookie".to_string()),
-                cookie_domain: Some("vault.example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_name: "SessionCookie".to_string(),
+                cookie_domain: "vault.example.com".to_string(),
+                vault_url: "https://vault.example.com".to_string(),
             }),
         };
         client.set_communication_type_v2(new_request).await.unwrap();
