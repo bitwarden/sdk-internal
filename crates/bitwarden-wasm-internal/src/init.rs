@@ -30,8 +30,8 @@ fn convert_level(level: LogLevel) -> Level {
 ///
 /// - `log_level`: Minimum level for console output. Defaults to `Info`.
 /// - `flight_recorder_level`: Minimum level for the flight recorder. Defaults to `Info`.
-/// - `flight_recorder_buffer_size`: Ring-buffer capacity for the flight recorder.
-///    Defaults to 1000. Pass `0` to disable the flight recorder entirely.
+/// - `flight_recorder_buffer_size`: Ring-buffer capacity for the flight recorder. Defaults to 1000.
+///   Pass `0` to disable the flight recorder entirely.
 #[wasm_bindgen]
 pub fn init_sdk(
     log_level: Option<LogLevel>,
