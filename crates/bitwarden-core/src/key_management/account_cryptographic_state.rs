@@ -226,9 +226,7 @@ impl WrappedAccountCryptographicState {
                         bitwarden_api_api::models::SignatureKeyPairRequestModel {
                             wrapped_signing_key: Some(signing_key.to_string()),
                             verifying_key: Some(B64::from(verifying_key.to_cose()).to_string()),
-                            signature_algorithm: Some(match verifying_key.algorithm() {
-                                SignatureAlgorithm::Ed25519 => "ed25519".to_string(),
-                            }),
+                            signature_algorithm: Some(verifying_key.algorithm().to_string()),
                         },
                     ),
                     public_key_encryption_key_pair: Box::new(
@@ -288,9 +286,7 @@ impl WrappedAccountCryptographicState {
                     Box::new(bitwarden_api_api::models::SignatureKeyPairRequestModel {
                         wrapped_signing_key: Some(signing_key.to_string()),
                         verifying_key: Some(B64::from(verifying_key.to_cose()).to_string()),
-                        signature_algorithm: Some(match verifying_key.algorithm() {
-                            SignatureAlgorithm::Ed25519 => "ed25519".to_string(),
-                        }),
+                        signature_algorithm: Some(verifying_key.algorithm().to_string()),
                     })
                 }),
             public_key_encryption_key_pair: Some(Box::new(
