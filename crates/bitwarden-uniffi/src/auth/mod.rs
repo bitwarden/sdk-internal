@@ -17,8 +17,7 @@ pub struct AuthClient(pub(crate) bitwarden_core::Client);
 
 #[uniffi::export(async_runtime = "tokio")]
 impl AuthClient {
-    // Reexport the registration client from the bitwarden-auth AuthClient until everything else
-    // from here is migrated over.
+    /// Client for initializing user account cryptography and unlock methods after JIT provisioning
     pub fn registration(&self) -> RegistrationClient {
         RegistrationClient(self.0.clone())
     }
