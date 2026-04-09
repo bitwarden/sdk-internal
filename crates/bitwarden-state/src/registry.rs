@@ -213,7 +213,7 @@ mod tests {
     impl_repository!(TestC, TestItem<Vec<u8>>);
 
     #[tokio::test]
-    async fn test_repository_map() {
+    async fn test_state_registry() {
         let a = Arc::new(TestA(145832));
         let b = Arc::new(TestB("test".to_string()));
         let c = Arc::new(TestC(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]));
