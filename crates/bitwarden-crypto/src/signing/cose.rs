@@ -2,7 +2,7 @@
 
 use coset::{
     CoseKey, Label, ProtectedHeader, RegisteredLabel,
-    iana::{EllipticCurve, EnumI64, OkpKeyParameter},
+    iana::{AkpKeyParameter, EllipticCurve, EnumI64, OkpKeyParameter},
 };
 
 use super::SigningNamespace;
@@ -142,4 +142,68 @@ fn okp_curve(cose_key: &CoseKey) -> Result<i128, EncodingError> {
             _ => None,
         })
         .ok_or(EncodingError::MissingValue("OKP curve"))
+}
+
+/// Helper function to parse the private key from an AKP `CoseKey`.
+fn akp_priv(cose_key: &CoseKey) -> Result<&[u8], EncodingError> {
+    cose_key
+        .params
+        .iter()
+        .find_map(|(key, value)| match key {
+            Label::Int(i) if AkpKeyParameter::from_i64(*i) == Some(AkpKeyParameter::Priv) => {
+                value.as_bytes().map(|v| v.as_slice())
+            }
+            _ => None,
+        })
+        .ok_or(EncodingError::MissingValue("AKP private key"))
+}
+
+/// Helper function to parse the public key from an AKP `CoseKey`.
+fn akp_pub(cose_key: &CoseKey) -> Result<&[u8], EncodingError> {
+    cose_key
+        .params
+        .iter()
+        .find_map(|(key, value)| match key {
+            Label::Int(i) if AkpKeyParameter::from_i64(*i) == Some(AkpKeyParameter::Pub) => {
+                value.as_bytes().map(|v| v.as_slice())
+            }
+            _ => None,
+        })
+        .ok_or(EncodingError::MissingValue("AKP public key"))
+}
+
+/// Helper function to parse an ML-DSA-65 signing key from a `CoseKey`. The `Priv` parameter
+/// contains the 32-byte seed, from which the full key pair is deterministically derived.
+pub(super) fn mldsa65_signing_key(
+    cose_key: &CoseKey,
+) -> Result<
+    (
+        Box<[u8; 32]>,
+        ml_dsa::SigningKey<ml_dsa::MlDsa65>,
+        ml_dsa::VerifyingKey<ml_dsa::MlDsa65>,
+    ),
+    EncodingError,
+> {
+    use ml_dsa::{KeyGen as _, MlDsa65};
+
+    let priv_bytes = akp_priv(cose_key)?;
+    let seed: [u8; 32] = priv_bytes
+        .try_into()
+        .map_err(|_| EncodingError::InvalidValue("ML-DSA-65 seed length"))?;
+    let kp = MlDsa65::key_gen_internal(&seed.into());
+    Ok((
+        Box::new(seed),
+        kp.signing_key().clone(),
+        kp.verifying_key().clone(),
+    ))
+}
+
+/// Helper function to parse an ML-DSA-65 verifying key from a `CoseKey`.
+pub(super) fn mldsa65_verifying_key(
+    cose_key: &CoseKey,
+) -> Result<ml_dsa::VerifyingKey<ml_dsa::MlDsa65>, EncodingError> {
+    let pub_bytes = akp_pub(cose_key)?;
+    let vk_encoded = ml_dsa::EncodedVerifyingKey::<ml_dsa::MlDsa65>::try_from(pub_bytes)
+        .map_err(|_| EncodingError::InvalidValue("ML-DSA-65 verifying key length"))?;
+    Ok(ml_dsa::VerifyingKey::<ml_dsa::MlDsa65>::decode(&vk_encoded))
 }

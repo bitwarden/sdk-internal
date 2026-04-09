@@ -5,11 +5,12 @@
 
 use ciborium::{Value, value::Integer};
 use coset::{
-    CborSerializable, RegisteredLabel, RegisteredLabelWithPrivate,
+    CborSerializable, MlDsaVariant, RegisteredLabel, RegisteredLabelWithPrivate,
     iana::{Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter},
 };
+use ml_dsa::MlDsa65;
 
-use super::{SignatureAlgorithm, ed25519_verifying_key, key_id};
+use super::{SignatureAlgorithm, ed25519_verifying_key, key_id, mldsa65_verifying_key};
 use crate::{
     CoseKeyBytes, CryptoError,
     content_format::CoseKeyContentFormat,
@@ -22,6 +23,7 @@ use crate::{
 /// scheme.
 pub(super) enum RawVerifyingKey {
     Ed25519(ed25519_dalek::VerifyingKey),
+    MlDsa65(ml_dsa::VerifyingKey<MlDsa65>),
 }
 
 /// A verifying key is a public key used for verifying signatures. It can be published to other
@@ -36,12 +38,20 @@ impl std::fmt::Debug for VerifyingKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let key_suffix = match &self.inner {
             RawVerifyingKey::Ed25519(_) => "Ed25519",
+            RawVerifyingKey::MlDsa65(_) => "MlDsa65",
         };
         let mut debug_struct = f.debug_struct(format!("VerifyingKey::{}", key_suffix).as_str());
         debug_struct.field("id", &self.id);
-        match self.inner {
+        match &self.inner {
             RawVerifyingKey::Ed25519(key) => {
                 debug_struct.field("key", &hex::encode(key.to_bytes()));
+            }
+            RawVerifyingKey::MlDsa65(key) => {
+                let encoded = key.encode();
+                debug_struct.field(
+                    "key",
+                    &format_args!("{}... ({} bytes)", hex::encode(&encoded[..16]), encoded.len()),
+                );
             }
         }
         debug_struct.finish()
@@ -53,6 +63,7 @@ impl VerifyingKey {
     pub fn algorithm(&self) -> SignatureAlgorithm {
         match &self.inner {
             RawVerifyingKey::Ed25519(_) => SignatureAlgorithm::Ed25519,
+            RawVerifyingKey::MlDsa65(_) => SignatureAlgorithm::MlDsa65,
         }
     }
 
@@ -69,6 +80,13 @@ impl VerifyingKey {
                 );
                 key.verify_strict(data, &sig)
                     .map_err(|_| SignatureError::InvalidSignature.into())
+            }
+            RawVerifyingKey::MlDsa65(key) => {
+                let sig = ml_dsa::Signature::<MlDsa65>::try_from(signature)
+                    .map_err(|_| SignatureError::InvalidSignature)?;
+                key.verify_with_context(data, &[], &sig)
+                    .then_some(())
+                    .ok_or(SignatureError::InvalidSignature.into())
             }
         }
     }
@@ -97,6 +115,18 @@ impl CoseSerializable<CoseKeyContentFormat> for VerifyingKey {
                 .to_vec()
                 .expect("Verifying key is always serializable")
                 .into(),
+            RawVerifyingKey::MlDsa65(key) => {
+                coset::CoseKeyBuilder::new_mldsa_pub_key(
+                    MlDsaVariant::MlDsa65,
+                    key.encode().to_vec(),
+                )
+                .key_id((&self.id).into())
+                .add_key_op(KeyOperation::Verify)
+                .build()
+                .to_vec()
+                .expect("Verifying key is always serializable")
+                .into()
+            }
         }
     }
 
@@ -118,6 +148,13 @@ impl CoseSerializable<CoseKeyContentFormat> for VerifyingKey {
             ) => Ok(VerifyingKey {
                 id: key_id(&cose_key)?,
                 inner: RawVerifyingKey::Ed25519(ed25519_verifying_key(&cose_key)?),
+            }),
+            (
+                RegisteredLabel::Assigned(KeyType::AKP),
+                RegisteredLabelWithPrivate::Assigned(Algorithm::ML_DSA_65),
+            ) => Ok(VerifyingKey {
+                id: key_id(&cose_key)?,
+                inner: RawVerifyingKey::MlDsa65(mldsa65_verifying_key(&cose_key)?),
             }),
             _ => Err(EncodingError::UnsupportedValue(
                 "COSE key type or algorithm",

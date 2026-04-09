@@ -681,6 +681,7 @@ dependencies = [
  "hex",
  "hkdf",
  "hmac 0.12.1",
+ "ml-dsa",
  "num-bigint",
  "num-traits",
  "pbkdf2 0.12.2",
@@ -1228,7 +1229,7 @@ version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96eb4cdd6cf1b31d671e9efe75c5d1ec614776856cefbe109ca373554a6d514f"
 dependencies = [
- "hybrid-array",
+ "hybrid-array 0.4.7",
  "zeroize",
 ]
 
@@ -1247,7 +1248,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "710f1dd022ef4e93f8a438b4ba958de7f64308434fa6a87104481645cc30068b"
 dependencies = [
- "hybrid-array",
+ "hybrid-array 0.4.7",
 ]
 
 [[package]]
@@ -1914,7 +1915,7 @@ checksum = "8e8d50190c5aeb459e0c974f7f00c3fe2e770ef18d1abe32adb87ad8d9108f89"
 dependencies = [
  "cpubits",
  "ctutils",
- "hybrid-array",
+ "hybrid-array 0.4.7",
  "num-traits",
  "rand_core 0.10.0",
  "serdect 0.4.2",
@@ -1939,7 +1940,7 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "211f05e03c7d03754740fd9e585de910a095d6b99f8bcfffdef8319fa02a8331"
 dependencies = [
- "hybrid-array",
+ "hybrid-array 0.4.7",
  "rand_core 0.10.0",
 ]
 
@@ -2419,7 +2420,7 @@ dependencies = [
  "crypto-bigint 0.7.0-rc.26",
  "crypto-common 0.2.0",
  "digest 0.11.0-rc.12",
- "hybrid-array",
+ "hybrid-array 0.4.7",
  "pkcs8 0.11.0-rc.11",
  "rand_core 0.10.0",
  "rustcrypto-ff",
@@ -3047,6 +3048,16 @@ checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
 name = "hybrid-array"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "891d15931895091dea5c47afa5b3c9a01ba634b311919fd4d41388fa0e3d76af"
+dependencies = [
+ "typenum",
+ "zeroize",
+]
+
+[[package]]
+name = "hybrid-array"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1b229d73f5803b562cc26e4da0396c8610a4ee209f4fac8fa4f8d709166dc45"
@@ -3319,7 +3330,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4250ce6452e92010fdf7268ccc5d14faa80bb12fc741938534c58f16804e03c7"
 dependencies = [
  "block-padding 0.4.2",
- "hybrid-array",
+ "hybrid-array 0.4.7",
 ]
 
 [[package]]
@@ -3459,6 +3470,15 @@ checksum = "b011eec8cc36da2aab2d5cff675ec18454fad408585853910a202391cf9f8e65"
 dependencies = [
  "once_cell",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "keccak"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb26cec98cce3a3d96cbb7bced3c4b16e3d13f27ec56dbd62cbc8f39cfb9d653"
+dependencies = [
+ "cpufeatures 0.2.17",
 ]
 
 [[package]]
@@ -3656,6 +3676,22 @@ dependencies = [
  "log",
  "wasi",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "ml-dsa"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac4a46643af2001eafebcc37031fc459eb72d45057aac5d7a15b00046a2ad6db"
+dependencies = [
+ "const-oid 0.9.6",
+ "hybrid-array 0.3.1",
+ "num-traits",
+ "pkcs8 0.10.2",
+ "rand_core 0.6.4",
+ "sha3",
+ "signature 2.2.0",
+ "zeroize",
 ]
 
 [[package]]
@@ -5096,7 +5132,7 @@ dependencies = [
  "base16ct 1.0.0",
  "ctutils",
  "der 0.8.0-rc.12",
- "hybrid-array",
+ "hybrid-array 0.4.7",
  "subtle",
  "zeroize",
 ]
@@ -5354,6 +5390,16 @@ dependencies = [
  "cfg-if",
  "cpufeatures 0.2.17",
  "digest 0.11.0-rc.12",
+]
+
+[[package]]
+name = "sha3"
+version = "0.10.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75872d278a8f37ef87fa0ddbda7802605cb18344497949862c0d4dcb291eba60"
+dependencies = [
+ "digest 0.10.7",
+ "keccak",
 ]
 
 [[package]]

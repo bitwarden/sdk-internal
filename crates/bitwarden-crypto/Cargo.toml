@@ -48,6 +48,7 @@ generic-array = { version = ">=0.14.7, <1.0", features = ["zeroize"] }
 hex = { version = ">=0.4.0, <0.5" }
 hkdf = ">=0.12.3, <0.13"
 hmac = ">=0.12.1, <0.13"
+ml-dsa = { version = "0.0.4", features = ["zeroize"] }
 num-bigint = ">=0.4, <0.5"
 num-traits = ">=0.2.15, <0.3"
 pbkdf2 = { version = ">=0.12.1, <0.13", default-features = false }

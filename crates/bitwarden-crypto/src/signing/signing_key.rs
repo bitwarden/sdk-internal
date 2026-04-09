@@ -5,10 +5,13 @@ use coset::{
     CborSerializable, CoseKey, RegisteredLabel, RegisteredLabelWithPrivate,
     iana::{Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter},
 };
+use coset::{MlDsaVariant, iana::AkpKeyParameter};
 use ed25519_dalek::Signer;
+use ml_dsa::{KeyGen as _, MlDsa65};
+use rand::RngCore;
 
 use super::{
-    SignatureAlgorithm, ed25519_signing_key, key_id,
+    SignatureAlgorithm, ed25519_signing_key, key_id, mldsa65_signing_key,
     verifying_key::{RawVerifyingKey, VerifyingKey},
 };
 use crate::{
@@ -24,6 +27,11 @@ use crate::{
 #[derive(Clone)]
 enum RawSigningKey {
     Ed25519(Pin<Box<ed25519_dalek::SigningKey>>),
+    MlDsa65 {
+        seed: Box<[u8; 32]>,
+        signing_key: Pin<Box<ml_dsa::SigningKey<MlDsa65>>>,
+        verifying_key: ml_dsa::VerifyingKey<MlDsa65>,
+    },
 }
 
 /// A signing key is a private key used for signing data. An associated `VerifyingKey` can be
@@ -40,6 +48,7 @@ pub struct SigningKey {
 const _: fn() = || {
     fn assert_zeroize_on_drop<T: zeroize::ZeroizeOnDrop>() {}
     assert_zeroize_on_drop::<ed25519_dalek::SigningKey>();
+    assert_zeroize_on_drop::<ml_dsa::SigningKey<MlDsa65>>();
 };
 impl zeroize::ZeroizeOnDrop for SigningKey {}
 impl CryptoKey for SigningKey {}
@@ -48,11 +57,14 @@ impl std::fmt::Debug for SigningKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let key_suffix = match &self.inner {
             RawSigningKey::Ed25519(_) => "Ed25519",
+            RawSigningKey::MlDsa65 { .. } => "MlDsa65",
         };
         let mut debug_struct = f.debug_struct(format!("SigningKey::{}", key_suffix).as_str());
         debug_struct.field("id", &self.id);
+        #[cfg(feature = "dangerous-crypto-debug")]
         match &self.inner {
             RawSigningKey::Ed25519(key) => debug_struct.field("key", &hex::encode(key.to_bytes())),
+            RawSigningKey::MlDsa65 { seed, .. } => debug_struct.field("seed", &hex::encode(seed.as_ref())),
         };
         debug_struct.finish()
     }
@@ -68,12 +80,26 @@ impl SigningKey {
                     &mut rand::thread_rng(),
                 ))),
             },
+            SignatureAlgorithm::MlDsa65 => {
+                let mut seed = [0u8; 32];
+                rand::thread_rng().fill_bytes(&mut seed);
+                let kp = MlDsa65::key_gen_internal(&seed.into());
+                SigningKey {
+                    id: KeyId::make(),
+                    inner: RawSigningKey::MlDsa65 {
+                        seed: Box::new(seed),
+                        signing_key: Box::pin(kp.signing_key().clone()),
+                        verifying_key: kp.verifying_key().clone(),
+                    },
+                }
+            }
         }
     }
 
     pub(super) fn cose_algorithm(&self) -> Algorithm {
         match &self.inner {
             RawSigningKey::Ed25519(_) => Algorithm::EdDSA,
+            RawSigningKey::MlDsa65 { .. } => Algorithm::ML_DSA_65,
         }
     }
 
@@ -85,6 +111,10 @@ impl SigningKey {
                 id: self.id.clone(),
                 inner: RawVerifyingKey::Ed25519(key.verifying_key()),
             },
+            RawSigningKey::MlDsa65 { verifying_key, .. } => VerifyingKey {
+                id: self.id.clone(),
+                inner: RawVerifyingKey::MlDsa65(verifying_key.clone()),
+            },
         }
     }
 
@@ -94,6 +124,12 @@ impl SigningKey {
     pub(super) fn sign_raw(&self, data: &[u8]) -> Vec<u8> {
         match &self.inner {
             RawSigningKey::Ed25519(key) => key.sign(data).to_bytes().to_vec(),
+            RawSigningKey::MlDsa65 { signing_key, .. } => signing_key
+                .sign_deterministic(data, &[])
+                .expect("ML-DSA signing should not fail with empty context")
+                .encode()
+                .as_slice()
+                .to_vec(),
         }
     }
 }
@@ -121,6 +157,25 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
                     .expect("Signing key is always serializable")
                     .into()
             }
+            RawSigningKey::MlDsa65 {
+                seed,
+                verifying_key,
+                ..
+            } => coset::CoseKeyBuilder::new_mldsa_pub_key(
+                MlDsaVariant::MlDsa65,
+                verifying_key.encode().to_vec(),
+            )
+            .key_id((&self.id).into())
+            .param(
+                AkpKeyParameter::Priv.to_i64(),
+                Value::Bytes(seed.to_vec()),
+            )
+            .add_key_op(KeyOperation::Sign)
+            .add_key_op(KeyOperation::Verify)
+            .build()
+            .to_vec()
+            .expect("Signing key is always serializable")
+            .into(),
         }
     }
 
@@ -137,6 +192,20 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
                 id: key_id(&cose_key)?,
                 inner: RawSigningKey::Ed25519(Box::pin(ed25519_signing_key(&cose_key)?)),
             }),
+            (
+                Some(RegisteredLabelWithPrivate::Assigned(Algorithm::ML_DSA_65)),
+                RegisteredLabel::Assigned(KeyType::AKP),
+            ) => {
+                let (seed, sk, vk) = mldsa65_signing_key(&cose_key)?;
+                Ok(SigningKey {
+                    id: key_id(&cose_key)?,
+                    inner: RawSigningKey::MlDsa65 {
+                        seed,
+                        signing_key: Box::pin(sk),
+                        verifying_key: vk,
+                    },
+                })
+            }
             _ => Err(EncodingError::UnsupportedValue(
                 "COSE key type or algorithm",
             )),
@@ -152,6 +221,11 @@ mod tests {
     #[ignore = "Manual test to verify debug format"]
     fn test_key_debug() {
         let key = SigningKey::make(SignatureAlgorithm::Ed25519);
+        println!("{:?}", key);
+        let verifying_key = key.to_verifying_key();
+        println!("{:?}", verifying_key);
+
+        let key = SigningKey::make(SignatureAlgorithm::MlDsa65);
         println!("{:?}", key);
         let verifying_key = key.to_verifying_key();
         println!("{:?}", verifying_key);
@@ -176,5 +250,43 @@ mod tests {
                 .verify_raw(&signature, "Test message".as_bytes())
                 .is_ok()
         );
+    }
+
+    #[test]
+    #[ignore = "Run manually to generate ML-DSA-65 test vectors"]
+    fn generate_test_vectors_mldsa65() {
+        let signing_key = SigningKey::make(SignatureAlgorithm::MlDsa65);
+        let verifying_key = signing_key.to_verifying_key();
+        let raw_signature = signing_key.sign_raw(b"Test message");
+
+        println!(
+            "const MLDSA65_SIGNING_KEY: &str = \"{}\";",
+            hex::encode(signing_key.to_cose().as_ref())
+        );
+        println!(
+            "const MLDSA65_VERIFYING_KEY: &str = \"{}\";",
+            hex::encode(verifying_key.to_cose().as_ref())
+        );
+        println!(
+            "const MLDSA65_SIGNED_DATA_RAW: &str = \"{}\";",
+            hex::encode(raw_signature.as_slice())
+        );
+    }
+
+    #[test]
+    fn test_cose_roundtrip_encode_signing_mldsa65() {
+        let signing_key = SigningKey::make(SignatureAlgorithm::MlDsa65);
+        let cose = signing_key.to_cose();
+        let parsed_key = SigningKey::from_cose(&cose).unwrap();
+
+        assert_eq!(signing_key.to_cose(), parsed_key.to_cose());
+    }
+
+    #[test]
+    fn test_sign_roundtrip_mldsa65() {
+        let signing_key = SigningKey::make(SignatureAlgorithm::MlDsa65);
+        let signature = signing_key.sign_raw(b"Test message");
+        let verifying_key = signing_key.to_verifying_key();
+        assert!(verifying_key.verify_raw(&signature, b"Test message").is_ok());
     }
 }
