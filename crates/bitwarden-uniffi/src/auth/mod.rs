@@ -1,3 +1,4 @@
+use bitwarden_auth::{AuthClientExt, registration::RegistrationClient};
 use bitwarden_core::auth::{
     AuthRequestResponse, KeyConnectorResponse, RegisterKeyResponse, RegisterTdeKeyResponse,
     password::MasterPasswordPolicyOptions,
@@ -15,6 +16,12 @@ pub struct AuthClient(pub(crate) bitwarden_core::Client);
 
 #[uniffi::export(async_runtime = "tokio")]
 impl AuthClient {
+    // Reexport the registration client from the bitwarden-auth AuthClient until everything else
+    // from here is migrated over.
+    pub fn registration(&self) -> RegistrationClient {
+        self.0.auth_new().registration()
+    }
+
     /// Calculate Password Strength
     pub fn password_strength(
         &self,
