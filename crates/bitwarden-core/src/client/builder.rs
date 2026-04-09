@@ -52,8 +52,9 @@ impl ClientBuilder {
         middleware: Vec<Arc<dyn reqwest_middleware::Middleware>>,
     ) -> Self {
         self.middleware = middleware;
+        self
     }
-  
+
     /// Sets a custom [`StateRegistry`] for the client being built.
     /// If not set, defaults to [`StateRegistry::new_with_memory_db`].
     pub fn with_state(mut self, state_registry: StateRegistry) -> Self {
@@ -297,5 +298,6 @@ mod tests {
         let arc_middleware: Arc<dyn reqwest_middleware::Middleware> = Arc::new(StubMiddleware);
         let _client = ClientBuilder::new()
             .with_middleware(vec![arc_middleware])
+            .build();
     }
 }
