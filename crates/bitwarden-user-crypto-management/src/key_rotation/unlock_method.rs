@@ -9,8 +9,9 @@ use crate::key_rotation::{
     unlock::ReencryptError,
 };
 
-/// The unlock method for the account and the data needed to re-encrypt it under the new user key.
-pub(super) enum UnlockMethodInput {
+/// The primary unlock method for the account and the data needed to re-encrypt it under the new
+/// user key.
+pub(super) enum PrimaryUnlockMethod {
     /// The master password based unlock method.
     Password {
         password: String,
@@ -20,7 +21,7 @@ pub(super) enum UnlockMethodInput {
     // Add key connector and TDE unlock methods here and the inputs needed to rotate them.
 }
 
-impl UnlockMethodInput {
+impl PrimaryUnlockMethod {
     #[allow(dead_code)] // Will be used for user key rotation without master password change, remove once added.
     pub(super) fn from_key_rotation_method(
         method: KeyRotationMethod,
@@ -32,7 +33,7 @@ impl UnlockMethodInput {
                     .kdf_and_salt
                     .clone()
                     .ok_or(RotateUserKeysError::ApiError)?;
-                Ok(UnlockMethodInput::Password {
+                Ok(PrimaryUnlockMethod::Password {
                     password,
                     kdf,
                     salt,
@@ -49,12 +50,12 @@ impl UnlockMethodInput {
 /// Re-encrypt the unlock method data for the given input and new user key id.
 #[allow(dead_code)] // Will be used for user key rotation without master password change, remove once added.
 pub(super) fn reencrypt_unlock_method_data(
-    input: UnlockMethodInput,
+    input: PrimaryUnlockMethod,
     new_user_key_id: SymmetricKeyId,
     ctx: &mut KeyStoreContext<KeyIds>,
 ) -> Result<UnlockMethodRequestModel, ReencryptError> {
     match input {
-        UnlockMethodInput::Password {
+        PrimaryUnlockMethod::Password {
             password,
             kdf,
             salt,
@@ -141,7 +142,7 @@ mod tests {
         let salt = "test@example.com".to_string();
         let synced_data = make_synced_account_data(Some((kdf.clone(), salt.clone())));
 
-        let result = UnlockMethodInput::from_key_rotation_method(
+        let result = PrimaryUnlockMethod::from_key_rotation_method(
             KeyRotationMethod::Password {
                 password: "pass".to_string(),
             },
@@ -150,7 +151,7 @@ mod tests {
 
         let input = result.expect("should succeed");
         match input {
-            UnlockMethodInput::Password {
+            PrimaryUnlockMethod::Password {
                 password,
                 kdf: result_kdf,
                 salt: result_salt,
@@ -166,7 +167,7 @@ mod tests {
     fn test_from_key_rotation_method_password_no_kdf_returns_error() {
         let synced_data = make_synced_account_data(None);
 
-        let result = UnlockMethodInput::from_key_rotation_method(
+        let result = PrimaryUnlockMethod::from_key_rotation_method(
             KeyRotationMethod::Password {
                 password: "pass".to_string(),
             },
@@ -180,7 +181,7 @@ mod tests {
     fn test_from_key_rotation_method_key_connector_returns_error() {
         let synced_data = make_synced_account_data(None);
 
-        let result = UnlockMethodInput::from_key_rotation_method(
+        let result = PrimaryUnlockMethod::from_key_rotation_method(
             KeyRotationMethod::KeyConnector,
             &synced_data,
         );
@@ -196,7 +197,7 @@ mod tests {
         let synced_data = make_synced_account_data(None);
 
         let result =
-            UnlockMethodInput::from_key_rotation_method(KeyRotationMethod::Tde, &synced_data);
+            PrimaryUnlockMethod::from_key_rotation_method(KeyRotationMethod::Tde, &synced_data);
 
         assert!(matches!(
             result,
@@ -211,7 +212,7 @@ mod tests {
         let mut ctx = store.context_mut();
         let user_key_id = ctx.generate_symmetric_key();
 
-        let input = UnlockMethodInput::Password {
+        let input = PrimaryUnlockMethod::Password {
             password: mock_password.clone(),
             kdf: create_test_kdf_pbkdf2(),
             salt: "test@example.com".to_string(),
@@ -248,7 +249,7 @@ mod tests {
         let mut ctx = store.context_mut();
         let user_key_id = ctx.generate_symmetric_key();
 
-        let input = UnlockMethodInput::Password {
+        let input = PrimaryUnlockMethod::Password {
             password: mock_password.clone(),
             kdf: create_test_kdf_argon2id(),
             salt: "test@example.com".to_string(),
