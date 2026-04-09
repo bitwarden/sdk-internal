@@ -66,6 +66,25 @@ impl ApiConfigurations {
         })
     }
 
+    /// Create an `ApiConfigurations` from a mocked API client, filling in dummy
+    /// values for the remaining fields. Only available for testing.
+    #[cfg(feature = "test-fixtures")]
+    pub fn from_api_client(api_client: bitwarden_api_api::apis::ApiClient) -> Self {
+        let dummy_config = bitwarden_api_base::Configuration {
+            base_path: String::new(),
+            client: reqwest_middleware::ClientBuilder::new(reqwest::Client::new()).build(),
+        };
+        Self {
+            api_client,
+            identity_client: bitwarden_api_identity::apis::ApiClient::new(&std::sync::Arc::new(
+                dummy_config.clone(),
+            )),
+            api_config: dummy_config.clone(),
+            identity_config: dummy_config,
+            device_type: DeviceType::SDK,
+        }
+    }
+
     pub(crate) fn get_key_connector_client(
         self: &Arc<Self>,
         key_connector_url: String,
