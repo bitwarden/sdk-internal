@@ -51,6 +51,8 @@ pub enum PolicyType {
     AutotypeDefaultSetting = 17,
     AutomaticUserConfirmation = 18,
     BlockClaimedDomainAccountCreation = 19,
+    OrganizationUserNotification = 20,
+    SendControls = 21,
 }
 
 impl TryFrom<PolicyResponseModel> for Policy {
@@ -116,6 +118,10 @@ impl TryFrom<bitwarden_api_api::models::PolicyType> for PolicyType {
             bitwarden_api_api::models::PolicyType::BlockClaimedDomainAccountCreation => {
                 PolicyType::BlockClaimedDomainAccountCreation
             }
+            bitwarden_api_api::models::PolicyType::OrganizationUserNotification => {
+                PolicyType::OrganizationUserNotification
+            }
+            bitwarden_api_api::models::PolicyType::SendControls => PolicyType::SendControls,
             bitwarden_api_api::models::PolicyType::__Unknown(_) => {
                 return Err(MissingFieldError("type"));
             }

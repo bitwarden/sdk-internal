@@ -8,7 +8,8 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     Cipher, CipherId, CipherView, DecryptCipherListResult, VaultParseError,
-    cipher::cipher::PartialCipher, cipher_client::admin::CipherAdminClient,
+    cipher::cipher::{PartialCipher, StrictDecrypt},
+    cipher_client::admin::CipherAdminClient,
 };
 
 #[allow(missing_docs)]
@@ -34,6 +35,7 @@ pub async fn restore_as_admin(
     cipher_id: CipherId,
     api_client: &ApiClient,
     key_store: &KeyStore<KeyIds>,
+    use_strict_decryption: bool,
 ) -> Result<CipherView, RestoreCipherAdminError> {
     let api = api_client.ciphers_api();
 
@@ -42,7 +44,11 @@ pub async fn restore_as_admin(
         .await?
         .merge_with_cipher(None)?;
 
-    Ok(key_store.decrypt(&cipher)?)
+    if use_strict_decryption {
+        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
+    } else {
+        Ok(key_store.decrypt(&cipher)?)
+    }
 }
 
 /// Restores multiple soft-deleted ciphers on the server.
@@ -83,7 +89,7 @@ impl CipherAdminClient {
         let api_client = &self.client.internal.get_api_configurations().api_client;
         let key_store = self.client.internal.get_key_store();
 
-        restore_as_admin(cipher_id, api_client, key_store).await
+        restore_as_admin(cipher_id, api_client, key_store, self.is_strict_decrypt()).await
     }
     /// Restores multiple soft-deleted ciphers on the server.
     pub async fn restore_many(
@@ -105,7 +111,7 @@ mod tests {
         models::{CipherMiniResponseModel, CipherMiniResponseModelListResponseModel},
     };
     use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
-    use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricCryptoKey};
+    use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
     use chrono::Utc;
 
     use super::*;
@@ -115,23 +121,10 @@ mod tests {
     const TEST_CIPHER_ID_2: &str = "6faa9684-c793-4a2d-8a12-b33900187098";
     const TEST_ORG_ID: &str = "1bc9ac1e-f5aa-45f2-94bf-b181009709b8";
 
-    fn setup_key_store() -> KeyStore<KeyIds> {
-        let store: KeyStore<KeyIds> = KeyStore::default();
-        #[allow(deprecated)]
-        let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
-            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
-        );
-        store
-    }
-
-    fn generate_test_cipher(store: &KeyStore<KeyIds>) -> Cipher {
-        let mut ctx = store.context();
+    fn generate_test_cipher() -> Cipher {
         Cipher {
             id: TEST_CIPHER_ID.parse().ok(),
-            name: "Test cipher"
-                .encrypt(&mut ctx, SymmetricKeyId::User)
-                .unwrap(),
+            name: "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=".parse().unwrap(),
             r#type: crate::CipherType::Login,
             notes: Default::default(),
             organization_id: Default::default(),
@@ -141,12 +134,11 @@ mod tests {
             fields: Default::default(),
             collection_ids: Default::default(),
             key: Default::default(),
-            login: Some(Login {
+            login: Some(Login{
                 username: None,
                 password: None,
                 password_revision_date: None,
-                uris: None,
-                totp: None,
+                uris: None, totp: None,
                 autofill_on_page_load: None,
                 fido2_credentials: None,
             }),
@@ -171,8 +163,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_restore_as_admin() {
-        let store = setup_key_store();
-        let mut cipher = generate_test_cipher(&store);
+        let mut cipher = generate_test_cipher();
         cipher.deleted_date = Some(Utc::now());
 
         let api_client = {
@@ -194,10 +185,17 @@ mod tests {
             })
         };
 
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        #[allow(deprecated)]
+        let _ = store.context_mut().set_symmetric_key(
+            SymmetricKeyId::User,
+            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+        );
         let start_time = Utc::now();
-        let updated_cipher = restore_as_admin(TEST_CIPHER_ID.parse().unwrap(), &api_client, &store)
-            .await
-            .unwrap();
+        let updated_cipher =
+            restore_as_admin(TEST_CIPHER_ID.parse().unwrap(), &api_client, &store, false)
+                .await
+                .unwrap();
         let end_time = Utc::now();
 
         assert!(updated_cipher.deleted_date.is_none());
@@ -208,11 +206,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_restore_many_as_admin() {
-        let store = setup_key_store();
         let cipher_id_2: CipherId = TEST_CIPHER_ID_2.parse().unwrap();
-        let mut cipher_1 = generate_test_cipher(&store);
+        let mut cipher_1 = generate_test_cipher();
         cipher_1.deleted_date = Some(Utc::now());
-        let mut cipher_2 = generate_test_cipher(&store);
+        let mut cipher_2 = generate_test_cipher();
         cipher_2.deleted_date = Some(Utc::now());
         cipher_2.id = Some(cipher_id_2);
 
@@ -248,6 +245,12 @@ mod tests {
                     })
                 });
         });
+        let store: KeyStore<KeyIds> = KeyStore::default();
+        #[allow(deprecated)]
+        let _ = store.context_mut().set_symmetric_key(
+            SymmetricKeyId::User,
+            SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+        );
 
         let start_time = Utc::now();
         let ciphers = restore_many_as_admin(

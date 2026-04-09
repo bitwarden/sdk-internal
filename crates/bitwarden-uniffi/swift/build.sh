@@ -34,7 +34,6 @@ lipo -create ../../../target/aarch64-apple-ios-sim/$PROFILE/libbitwarden_uniffi.
 # Generate swift bindings
 cargo run -p uniffi-bindgen generate \
   ../../../target/aarch64-apple-ios-sim/$PROFILE/libbitwarden_uniffi.dylib \
-  --library \
   --language swift \
   --no-format \
   --out-dir tmp/bindings
