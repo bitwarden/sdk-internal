@@ -1,4 +1,4 @@
-use bitwarden_auth::{AuthClientExt, registration::RegistrationClient};
+use bitwarden_auth::AuthClientExt;
 use bitwarden_core::auth::{
     AuthRequestResponse, KeyConnectorResponse, RegisterKeyResponse, RegisterTdeKeyResponse,
     password::MasterPasswordPolicyOptions,
@@ -9,7 +9,7 @@ use bitwarden_crypto::{
 };
 use bitwarden_encoding::B64;
 
-use crate::error::Result;
+use crate::{auth::registration::RegistrationClient, error::Result};
 
 mod registration;
 
@@ -21,7 +21,7 @@ impl AuthClient {
     // Reexport the registration client from the bitwarden-auth AuthClient until everything else
     // from here is migrated over.
     pub fn registration(&self) -> RegistrationClient {
-        self.0.auth_new().registration()
+        RegistrationClient(self.0.clone())
     }
 
     /// Calculate Password Strength
