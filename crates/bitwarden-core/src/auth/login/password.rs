@@ -71,7 +71,8 @@ pub(crate) async fn login_password(
                     client_id: "web".to_owned(),
                     email: master_password_unlock.salt,
                     kdf: master_password_unlock.kdf,
-                }));
+                }))
+                .await;
         }
     }
 

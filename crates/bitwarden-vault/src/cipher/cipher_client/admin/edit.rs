@@ -136,6 +136,7 @@ impl CipherAdminClient {
                 .client
                 .internal
                 .get_flags()
+                .await
                 .enable_cipher_key_encryption
         {
             let key = request.key_identifier();
@@ -148,7 +149,7 @@ impl CipherAdminClient {
             user_id,
             original_cipher_view,
             request,
-            self.is_strict_decrypt(),
+            self.is_strict_decrypt().await,
         )
         .await
     }
@@ -164,7 +165,7 @@ impl CipherAdminClient {
             collection_ids,
             &self.client.internal.get_api_configurations().api_client,
             self.client.internal.get_key_store(),
-            self.is_strict_decrypt(),
+            self.is_strict_decrypt().await,
         )
         .await
     }
