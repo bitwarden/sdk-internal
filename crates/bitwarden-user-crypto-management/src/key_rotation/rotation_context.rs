@@ -8,6 +8,7 @@ use super::{
     unlock::{V1EmergencyAccessMembership, V1OrganizationMembership},
 };
 
+#[derive(Debug)]
 struct UntrustedKeyError;
 
 fn filter_trusted_organization(
@@ -144,6 +145,25 @@ mod tests {
         )
     }
 
+    fn assert_org_membership_eq(
+        actual: &V1OrganizationMembership,
+        expected: &V1OrganizationMembership,
+    ) {
+        assert_eq!(actual.organization_id, expected.organization_id);
+        assert_eq!(actual.name, expected.name);
+        assert_eq!(actual.public_key, expected.public_key);
+    }
+
+    fn assert_ea_membership_eq(
+        actual: &V1EmergencyAccessMembership,
+        expected: &V1EmergencyAccessMembership,
+    ) {
+        assert_eq!(actual.id, expected.id);
+        assert_eq!(actual.name, expected.name);
+        assert_eq!(actual.grantee_id, expected.grantee_id);
+        assert_eq!(actual.public_key, expected.public_key);
+    }
+
     fn make_test_sync(
         org_memberships: Vec<V1OrganizationMembership>,
         ea_memberships: Vec<V1EmergencyAccessMembership>,
@@ -189,10 +209,15 @@ mod tests {
         let (org1, _) = make_org_membership(&mut ctx);
         let (org2, _) = make_org_membership(&mut ctx);
         let trusted = [org1.public_key.clone(), org2.public_key.clone()];
+        let expected_org1 = org1.clone();
+        let expected_org2 = org2.clone();
 
         let result = filter_trusted_organization(&[org1, org2], &trusted);
 
-        assert!(matches!(result, Ok(ref v) if v.len() == 2));
+        let memberships = result.unwrap();
+        assert_eq!(memberships.len(), 2);
+        assert_org_membership_eq(&memberships[0], &expected_org1);
+        assert_org_membership_eq(&memberships[1], &expected_org2);
     }
 
     #[test]
@@ -238,10 +263,15 @@ mod tests {
         let (ea1, _) = make_ea_membership(&mut ctx);
         let (ea2, _) = make_ea_membership(&mut ctx);
         let trusted = [ea1.public_key.clone(), ea2.public_key.clone()];
+        let expected_ea1 = ea1.clone();
+        let expected_ea2 = ea2.clone();
 
         let result = filter_trusted_emergency_access(&[ea1, ea2], &trusted);
 
-        assert!(matches!(result, Ok(ref v) if v.len() == 2));
+        let memberships = result.expect("should succeed");
+        assert_eq!(memberships.len(), 2);
+        assert_ea_membership_eq(&memberships[0], &expected_ea1);
+        assert_ea_membership_eq(&memberships[1], &expected_ea2);
     }
 
     #[test]
@@ -295,13 +325,25 @@ mod tests {
         let (ea, _) = make_ea_membership(&mut ctx);
         let trusted_orgs = [org.public_key.clone()];
         let trusted_eas = [ea.public_key.clone()];
+        let expected_org = org.clone();
+        let expected_ea = ea.clone();
         let sync = make_test_sync(vec![org], vec![ea], &mut ctx);
 
         let result = make_rotation_context(&sync, &trusted_orgs, &trusted_eas, &mut ctx);
 
         let rotation_ctx = result.expect("should succeed");
         assert_eq!(rotation_ctx.v1_organization_memberships.len(), 1);
+        assert_org_membership_eq(&rotation_ctx.v1_organization_memberships[0], &expected_org);
         assert_eq!(rotation_ctx.v1_emergency_access_memberships.len(), 1);
+        assert_ea_membership_eq(
+            &rotation_ctx.v1_emergency_access_memberships[0],
+            &expected_ea,
+        );
+        assert_eq!(rotation_ctx.current_user_key_id, SymmetricKeyId::User);
+        assert_ne!(
+            rotation_ctx.new_user_key_id,
+            rotation_ctx.current_user_key_id
+        );
     }
 
     #[test]
