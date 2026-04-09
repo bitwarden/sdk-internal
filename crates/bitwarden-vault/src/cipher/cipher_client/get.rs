@@ -95,7 +95,7 @@ impl CiphersClient {
             key_store,
             repository.as_ref(),
             cipher_id,
-            self.is_strict_decrypt(),
+            self.is_strict_decrypt().await,
         )
         .await
     }
