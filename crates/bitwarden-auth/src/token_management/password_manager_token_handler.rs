@@ -85,6 +85,7 @@ impl MiddlewareExt for PasswordManagerTokenHandler {
             .clone()
             .ok_or(NotAuthenticatedError)?;
 
+        #[allow(irrefutable_let_patterns)]
         let LoginMethod::User(user_login_method) = login_method.as_ref() else {
             return Err(NotAuthenticatedError.into());
         };

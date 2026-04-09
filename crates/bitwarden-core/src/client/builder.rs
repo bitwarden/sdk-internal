@@ -1,7 +1,6 @@
 use std::sync::{Arc, OnceLock, RwLock};
 
 use bitwarden_crypto::KeyStore;
-#[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 use reqwest::header::{self, HeaderValue};
 
@@ -20,6 +19,7 @@ use crate::{
 pub struct ClientBuilder {
     settings: Option<ClientSettings>,
     token_handler: Arc<dyn TokenHandler>,
+    state_registry: Option<StateRegistry>,
     middleware: Vec<Arc<dyn reqwest_middleware::Middleware>>,
 }
 
@@ -29,6 +29,7 @@ impl ClientBuilder {
         Self {
             settings: None,
             token_handler: Arc::new(NoopTokenHandler),
+            state_registry: None,
             middleware: Vec::new(),
         }
     }
@@ -51,6 +52,12 @@ impl ClientBuilder {
         middleware: Vec<Arc<dyn reqwest_middleware::Middleware>>,
     ) -> Self {
         self.middleware = middleware;
+    }
+  
+    /// Sets a custom [`StateRegistry`] for the client being built.
+    /// If not set, defaults to [`StateRegistry::new_with_memory_db`].
+    pub fn with_state(mut self, state_registry: StateRegistry) -> Self {
+        self.state_registry = Some(state_registry);
         self
     }
 
@@ -131,8 +138,9 @@ impl ClientBuilder {
                 key_store,
                 #[cfg(feature = "internal")]
                 security_state: RwLock::new(None),
-                #[cfg(feature = "internal")]
-                repository_map: StateRegistry::new(),
+                state_registry: self
+                    .state_registry
+                    .unwrap_or_else(StateRegistry::new_with_memory_db),
             }),
         }
     }
@@ -252,7 +260,24 @@ mod tests {
             .with_settings(ClientSettings::default())
             .build();
     }
+  
+    #[test]
+    fn test_client_builder_with_state_builds() {
+        use bitwarden_state::registry::StateRegistry;
+        let registry = StateRegistry::new_with_memory_db();
+        let _client = ClientBuilder::new().with_state(registry).build();
+    }
 
+    #[test]
+    fn test_client_builder_with_state_in_chain() {
+        use bitwarden_state::registry::StateRegistry;
+        let registry = StateRegistry::new_with_memory_db();
+        let _client = ClientBuilder::new()
+            .with_settings(ClientSettings::default())
+            .with_state(registry)
+            .build();
+    }
+  
     #[test]
     fn test_client_builder_with_middleware_compiles() {
         struct StubMiddleware;
@@ -272,6 +297,5 @@ mod tests {
         let arc_middleware: Arc<dyn reqwest_middleware::Middleware> = Arc::new(StubMiddleware);
         let _client = ClientBuilder::new()
             .with_middleware(vec![arc_middleware])
-            .build();
     }
 }

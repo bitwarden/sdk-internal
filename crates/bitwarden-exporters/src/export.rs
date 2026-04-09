@@ -11,7 +11,7 @@ use crate::{
     json::export_json,
 };
 
-pub(crate) fn export_vault(
+pub(crate) async fn export_vault(
     client: &Client,
     folders: Vec<Folder>,
     ciphers: Vec<Cipher>,
@@ -34,7 +34,7 @@ pub(crate) fn export_vault(
             folders,
             ciphers,
             password,
-            client.internal.get_kdf()?,
+            client.internal.get_kdf().await?,
         )?),
     }
 }

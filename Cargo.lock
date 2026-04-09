@@ -789,6 +789,7 @@ dependencies = [
  "url",
  "uuid",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -877,6 +878,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitwarden-logging"
+version = "2.0.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
+ "tsify",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "bitwarden-pm"
 version = "2.0.0"
 dependencies = [
@@ -924,13 +938,21 @@ dependencies = [
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-encoding",
+ "bitwarden-error",
+ "bitwarden-state",
+ "bitwarden-test",
+ "bitwarden-uuid",
  "chrono",
  "serde",
  "serde_repr",
  "sha2 0.10.9",
  "thiserror 2.0.18",
+ "tokio",
+ "tsify",
  "uniffi",
  "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
  "zeroize",
 ]
 
@@ -1193,6 +1215,7 @@ dependencies = [
  "bitwarden-test",
  "bitwarden-uuid",
  "chrono",
+ "ciborium",
  "data-encoding",
  "futures",
  "hmac 0.12.1",
