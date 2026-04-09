@@ -1,6 +1,6 @@
 use bitwarden_crypto::CryptoError;
 use bitwarden_error::bitwarden_error;
-use bitwarden_state::repository::RepositoryError;
+use bitwarden_state::repository::{RepositoryError, RepositoryOption};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -25,6 +25,7 @@ impl FoldersClient {
     pub async fn get(&self, folder_id: FolderId) -> Result<FolderView, GetFolderError> {
         let folder = self
             .repository
+            .require()?
             .get(folder_id)
             .await?
             .ok_or(ItemNotFoundError)?;
@@ -34,7 +35,7 @@ impl FoldersClient {
 
     /// Get all folders from state and decrypt them to a list of [FolderView].
     pub async fn list(&self) -> Result<Vec<FolderView>, GetFolderError> {
-        let folders = self.repository.list().await?;
+        let folders = self.repository.require()?.list().await?;
         let views = self.key_store.decrypt_list(&folders)?;
         Ok(views)
     }
@@ -65,7 +66,7 @@ mod tests {
             api_configurations: Arc::new(ApiConfigurations::from_api_client(
                 ApiClient::new_mocked(|_| {}),
             )),
-            repository,
+            repository: Some(repository),
         }
     }
 
@@ -86,7 +87,13 @@ mod tests {
         let folder_id = FolderId::new(uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1"));
         let folder = make_folder(&client, folder_id, "Test Folder");
 
-        client.repository.set(folder_id, folder).await.unwrap();
+        client
+            .repository
+            .as_ref()
+            .unwrap()
+            .set(folder_id, folder)
+            .await
+            .unwrap();
 
         let result = client.get(folder_id).await.unwrap();
 
@@ -120,13 +127,12 @@ mod tests {
         let id_a = FolderId::new(uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1"));
         let id_b = FolderId::new(uuid!("35afb11c-9c95-4db5-8bac-c21cb204a3f2"));
 
-        client
-            .repository
+        let repository = client.repository.as_ref().unwrap();
+        repository
             .set(id_a, make_folder(&client, id_a, "Folder A"))
             .await
             .unwrap();
-        client
-            .repository
+        repository
             .set(id_b, make_folder(&client, id_b, "Folder B"))
             .await
             .unwrap();

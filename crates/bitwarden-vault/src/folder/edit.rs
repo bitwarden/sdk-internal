@@ -1,7 +1,7 @@
 use bitwarden_core::{ApiError, MissingFieldError};
 use bitwarden_crypto::CryptoError;
 use bitwarden_error::bitwarden_error;
-use bitwarden_state::repository::RepositoryError;
+use bitwarden_state::repository::{RepositoryError, RepositoryOption};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -39,11 +39,10 @@ impl FoldersClient {
         folder_id: FolderId,
         request: FolderAddEditRequest,
     ) -> Result<FolderView, EditFolderError> {
+        let repository = self.repository.require()?;
+
         // Verify the folder we're updating exists
-        self.repository
-            .get(folder_id)
-            .await?
-            .ok_or(ItemNotFoundError)?;
+        repository.get(folder_id).await?.ok_or(ItemNotFoundError)?;
 
         let folder_request = self.key_store.encrypt(request)?;
 
@@ -59,7 +58,7 @@ impl FoldersClient {
 
         debug_assert!(folder.id.unwrap_or_default() == folder_id);
 
-        self.repository.set(folder_id, folder.clone()).await?;
+        repository.set(folder_id, folder.clone()).await?;
 
         Ok(self.key_store.decrypt(&folder)?)
     }
@@ -85,7 +84,7 @@ mod tests {
                 SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
             ),
             api_configurations: Arc::new(ApiConfigurations::from_api_client(api_client)),
-            repository: Arc::new(MemoryRepository::<Folder>::default()),
+            repository: Some(Arc::new(MemoryRepository::<Folder>::default())),
         }
     }
 
@@ -96,7 +95,13 @@ mod tests {
             revision_date: "2024-01-01T00:00:00Z".parse().unwrap(),
         };
         let folder: Folder = client.key_store.encrypt(folder_view).unwrap();
-        client.repository.set(folder_id, folder).await.unwrap();
+        client
+            .repository
+            .as_ref()
+            .unwrap()
+            .set(folder_id, folder)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -143,7 +148,16 @@ mod tests {
         assert_eq!(
             client
                 .key_store
-                .decrypt(&client.repository.get(folder_id).await.unwrap().unwrap())
+                .decrypt(
+                    &client
+                        .repository
+                        .as_ref()
+                        .unwrap()
+                        .get(folder_id)
+                        .await
+                        .unwrap()
+                        .unwrap()
+                )
                 .unwrap(),
             result
         );

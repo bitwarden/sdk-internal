@@ -8,7 +8,7 @@ use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, IdentifyKey, KeyStoreContext, PrimitiveEncryptable,
 };
 use bitwarden_error::bitwarden_error;
-use bitwarden_state::repository::RepositoryError;
+use bitwarden_state::repository::{RepositoryError, RepositoryOption};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -82,6 +82,7 @@ impl FoldersClient {
         let folder: Folder = resp.try_into()?;
 
         self.repository
+            .require()?
             .set(require!(folder.id), folder.clone())
             .await?;
 
@@ -110,7 +111,7 @@ mod tests {
                 SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
             ),
             api_configurations: Arc::new(ApiConfigurations::from_api_client(api_client)),
-            repository: Arc::new(MemoryRepository::<Folder>::default()),
+            repository: Some(Arc::new(MemoryRepository::<Folder>::default())),
         }
     }
 
@@ -152,7 +153,16 @@ mod tests {
         assert_eq!(
             client
                 .key_store
-                .decrypt(&client.repository.get(folder_id).await.unwrap().unwrap())
+                .decrypt(
+                    &client
+                        .repository
+                        .as_ref()
+                        .unwrap()
+                        .get(folder_id)
+                        .await
+                        .unwrap()
+                        .unwrap()
+                )
                 .unwrap(),
             result
         );

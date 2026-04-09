@@ -17,7 +17,7 @@ use crate::{
 pub struct FoldersClient {
     pub(crate) key_store: KeyStore<KeyIds>,
     pub(crate) api_configurations: Arc<ApiConfigurations>,
-    pub(crate) repository: Arc<dyn Repository<Folder>>,
+    pub(crate) repository: Option<Arc<dyn Repository<Folder>>>,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]

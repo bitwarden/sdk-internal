@@ -46,7 +46,6 @@ impl VaultClient {
     /// Folder related operations.
     pub fn folders(&self) -> FoldersClient {
         FoldersClient::from_client(&self.client)
-            .expect("Failed to construct FoldersClient from Client")
     }
 
     /// TOTP related operations.
