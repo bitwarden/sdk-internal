@@ -7,7 +7,6 @@ use bitwarden_crypto::SymmetricCryptoKey;
 use bitwarden_crypto::{
     EncString, Kdf, MasterKey, PinKey, UnsignedSharedKey, safe::PasswordProtectedKeyEnvelope,
 };
-#[cfg(feature = "internal")]
 use bitwarden_state::registry::StateRegistry;
 #[cfg(feature = "internal")]
 use tracing::{debug, info, instrument};
@@ -108,8 +107,10 @@ pub struct InternalClient {
     #[cfg(feature = "internal")]
     pub(crate) security_state: RwLock<Option<SecurityState>>,
 
-    #[cfg(feature = "internal")]
-    pub(crate) repository_map: StateRegistry,
+    // TODO(PM-31876): Remove once Flags are migrated to Setting, which will add an in-crate
+    // read path and satisfy the dead_code lint without suppression.
+    #[allow(dead_code)]
+    pub(crate) state_registry: StateRegistry,
 }
 
 impl InternalClient {
