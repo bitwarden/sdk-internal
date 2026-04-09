@@ -156,8 +156,8 @@ jobs:
       build_run_id: ${{ github.run_id }}
       client_repo: "bitwarden/android"
       client_label: "android"
-      client_workflow: "sdk-breaking-change-check.yml"
-      artifact_name: ${{ needs.combine.outputs.sdk-version }}
+      client_workflow: "sdlc-sdk-update.yml"
+      artifact_identifier: ${{ needs.combine.outputs.sdk-version }}
 
   update:
     name: Trigger SDK update in Android repo

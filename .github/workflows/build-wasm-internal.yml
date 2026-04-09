@@ -171,4 +171,4 @@ jobs:
       client_repo: "bitwarden/clients"
       client_label: "typescript"
       client_workflow: "sdk-breaking-change-check.yml"
-      artifact_name: "sdk-internal"
+      artifact_identifier: "sdk-internal"
