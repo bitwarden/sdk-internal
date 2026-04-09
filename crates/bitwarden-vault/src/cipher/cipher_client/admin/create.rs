@@ -68,6 +68,7 @@ async fn create_cipher(
     cipher.folder_id = folder_id;
     cipher.favorite = favorite;
     cipher.edit = true;
+    cipher.view_password = true;
 
     if use_strict_decryption {
         Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
@@ -220,5 +221,9 @@ mod tests {
         assert_eq!(response.folder_id, cipher_request.create_request.folder_id);
         assert_eq!(response.favorite, cipher_request.create_request.favorite);
         assert!(response.edit, "edit should be true after admin create");
+        assert!(
+            response.view_password,
+            "view_password should be true after admin create"
+        );
     }
 }
