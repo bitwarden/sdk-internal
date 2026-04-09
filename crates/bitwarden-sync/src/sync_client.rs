@@ -44,9 +44,7 @@ impl SyncClient {
     /// Create a new SyncClient from a Bitwarden client
     pub fn new(client: Client) -> Self {
         Self {
-            api_configurations: client
-                .get_part()
-                .expect("ApiConfigurations should never fail"),
+            api_configurations: client.get_part(),
             sync_handlers: HandlerRegistry::new(),
             error_handlers: HandlerRegistry::new(),
             sync_lock: Mutex::new(()),
