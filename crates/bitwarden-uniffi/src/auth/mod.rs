@@ -11,6 +11,8 @@ use bitwarden_encoding::B64;
 
 use crate::error::Result;
 
+mod registration;
+
 #[derive(uniffi::Object)]
 pub struct AuthClient(pub(crate) bitwarden_core::Client);
 
