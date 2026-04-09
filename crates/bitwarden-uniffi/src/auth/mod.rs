@@ -1,4 +1,3 @@
-use bitwarden_auth::AuthClientExt;
 use bitwarden_core::auth::{
     AuthRequestResponse, KeyConnectorResponse, RegisterKeyResponse, RegisterTdeKeyResponse,
     password::MasterPasswordPolicyOptions,
