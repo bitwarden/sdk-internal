@@ -363,22 +363,22 @@ jobs:
           case "$CLIENT_STATUS" in
             "breaking-changes-detected")
               STATUS_EMOJI="❌"
-              STATUS_TEXT="Breaking changes"
-              DETAILS="[View failure](https://github.com/$_CLIENT_REPO/actions/runs/$WORKFLOW_ID)"
+              STATUS_MESSAGE="Breaking changes detected"
+              STATUS_DETAILS="Compilation failed with new SDK version - [View Details](https://github.com/$_CLIENT_REPO/actions/runs/$WORKFLOW_ID)"
               ;;
             "no-breaking-changes")
               STATUS_EMOJI="✅"
-              STATUS_TEXT="Passed"
-              DETAILS="[View details](https://github.com/$_CLIENT_REPO/actions/runs/$WORKFLOW_ID)"
+              STATUS_MESSAGE="No breaking changes detected"
+              STATUS_DETAILS="Compilation passed with new SDK version - [View Details](https://github.com/$_CLIENT_REPO/actions/runs/$WORKFLOW_ID)"
               ;;
             *)
               STATUS_EMOJI="⚠️"
-              STATUS_TEXT="Error"
-              DETAILS="Check workflow logs"
+              STATUS_MESSAGE="Workflow execution issues"
+              STATUS_DETAILS="Check workflow logs for details"
               ;;
           esac
 
-          OUR_ROW="| ${_CLIENT_LABEL} | ${STATUS_EMOJI} ${STATUS_TEXT} | ${DETAILS} |"
+          OUR_ROW="| ${_CLIENT_LABEL} | ${STATUS_EMOJI} ${STATUS_MESSAGE} | ${STATUS_DETAILS} |"
 
           # Get current comment body
           EXISTING_BODY=$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')
@@ -402,7 +402,7 @@ jobs:
           # After updating our row, check if ANY row still shows breaking changes.
           # This makes the label self-correcting across runs.
           echo "🏷️ Managing breaking change label from comment state..."
-          if echo "$NEW_BODY" | grep -q "Breaking changes"; then
+          if echo "$NEW_BODY" | grep -q "Breaking changes detected"; then
             echo "Breaking changes found in comment - adding label"
             gh issue edit $PR_NUMBER --add-label "breaking-change" --repo $GITHUB_REPOSITORY || {
               echo "::warning::Failed to add label, but continuing"
