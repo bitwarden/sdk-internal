@@ -58,7 +58,8 @@ pub(crate) async fn login_api_key(
                     client_secret: input.client_secret.clone(),
                     email: master_password_unlock.salt,
                     kdf: master_password_unlock.kdf,
-                }));
+                }))
+                .await;
         }
     }
 

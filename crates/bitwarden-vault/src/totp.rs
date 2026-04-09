@@ -90,7 +90,10 @@ pub fn generate_totp_cipher_view(
     view: CipherListView,
     time: Option<DateTime<Utc>>,
 ) -> Result<TotpResponse, TotpError> {
-    let key = view.get_totp_key(ctx)?.ok_or(TotpError::MissingSecret)?;
+    let key = view
+        .get_totp_key(ctx)?
+        .filter(|s| !s.is_empty())
+        .ok_or(TotpError::MissingSecret)?;
 
     generate_totp(key, time)
 }

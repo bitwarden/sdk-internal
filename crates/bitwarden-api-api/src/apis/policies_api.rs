@@ -37,7 +37,7 @@ pub trait PoliciesApi: Send + Sync {
     async fn get_all<'a>(
         &self,
         org_id: &'a str,
-    ) -> Result<models::PolicyResponseModelListResponseModel, Error<GetAllError>>;
+    ) -> Result<models::PolicyStatusResponseModelListResponseModel, Error<GetAllError>>;
 
     /// GET /organizations/{orgId}/policies/token
     async fn get_by_token<'a>(
@@ -105,7 +105,7 @@ impl PoliciesApi for PoliciesApiClient {
     async fn get_all<'a>(
         &self,
         org_id: &'a str,
-    ) -> Result<models::PolicyResponseModelListResponseModel, Error<GetAllError>> {
+    ) -> Result<models::PolicyStatusResponseModelListResponseModel, Error<GetAllError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;

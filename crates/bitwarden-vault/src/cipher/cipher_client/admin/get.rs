@@ -74,7 +74,7 @@ mod tests {
         models::{CipherMiniDetailsResponseModel, CipherMiniDetailsResponseModelListResponseModel},
     };
     use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
-    use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricCryptoKey};
+    use bitwarden_crypto::{KeyStore, SymmetricCryptoKey};
     use chrono::Utc;
 
     use super::*;
@@ -84,13 +84,10 @@ mod tests {
     const TEST_CIPHER_ID_1: &str = "5faa9684-c793-4a2d-8a12-b33900187097";
     const TEST_CIPHER_ID_2: &str = "6faa9684-c793-4a2d-8a12-b33900187098";
 
-    fn generate_test_cipher(store: &KeyStore<KeyIds>) -> Cipher {
-        let mut ctx = store.context();
+    fn generate_test_cipher() -> Cipher {
         Cipher {
             id: TEST_CIPHER_ID_1.parse().ok(),
-            name: "Test cipher"
-                .encrypt(&mut ctx, SymmetricKeyId::User)
-                .unwrap(),
+            name: "2.pMS6/icTQABtulw52pq2lg==|XXbxKxDTh+mWiN1HjH2N1w==|Q6PkuT+KX/axrgN9ubD5Ajk2YNwxQkgs3WJM0S0wtG8=".parse().unwrap(),
             r#type: CipherType::Login,
             notes: Default::default(),
             organization_id: Default::default(),
@@ -152,9 +149,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_org_ciphers_all_success() {
-        let store = setup_key_store();
-        let cipher_1 = generate_test_cipher(&store);
-        let mut cipher_2 = generate_test_cipher(&store);
+        let cipher_1 = generate_test_cipher();
+        let mut cipher_2 = generate_test_cipher();
         cipher_2.id = TEST_CIPHER_ID_2.parse().ok();
 
         let response_1 = mock_api_response(&cipher_1);
@@ -171,6 +167,8 @@ mod tests {
                     })
                 });
         });
+
+        let store = setup_key_store();
         let result = list_org_ciphers(TEST_ORG_ID.parse().unwrap(), true, &api_client, &store)
             .await
             .unwrap();
@@ -183,9 +181,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_org_ciphers_with_failures() {
-        let store = setup_key_store();
-        let cipher = generate_test_cipher(&store);
-        let mut cipher_with_bad_key = generate_test_cipher(&store);
+        let cipher = generate_test_cipher();
+        let mut cipher_with_bad_key = generate_test_cipher();
         cipher_with_bad_key.id = TEST_CIPHER_ID_2.parse().ok();
 
         let response_good = mock_api_response(&cipher);
@@ -204,6 +201,8 @@ mod tests {
                     })
                 });
         });
+
+        let store = setup_key_store();
         let result = list_org_ciphers(TEST_ORG_ID.parse().unwrap(), true, &api_client, &store)
             .await
             .unwrap();

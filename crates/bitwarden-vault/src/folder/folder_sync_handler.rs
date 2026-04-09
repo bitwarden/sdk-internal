@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bitwarden_core::{FromClient, require};
-use bitwarden_state::repository::Repository;
+use bitwarden_state::{registry::StateRegistryError, repository::Repository};
 use bitwarden_sync::{SyncHandler, SyncHandlerError};
 
 use crate::{Folder, FolderId};
@@ -11,7 +11,7 @@ use crate::{Folder, FolderId};
 /// This handler persists folders to SDK-managed storage.
 #[derive(FromClient)]
 pub struct FolderSyncHandler {
-    repository: Arc<dyn Repository<Folder>>,
+    repository: Option<Arc<dyn Repository<Folder>>>,
 }
 
 #[async_trait::async_trait]
@@ -20,6 +20,10 @@ impl SyncHandler for FolderSyncHandler {
         &self,
         response: &bitwarden_api_api::models::SyncResponseModel,
     ) -> Result<(), SyncHandlerError> {
+        let repository = self
+            .repository
+            .as_ref()
+            .ok_or(StateRegistryError::DatabaseNotInitialized)?;
         let api_folders = require!(response.folders.as_ref());
 
         let folders: Vec<(FolderId, Folder)> = api_folders
@@ -40,7 +44,7 @@ impl SyncHandler for FolderSyncHandler {
             })
             .collect();
 
-        self.repository.replace_all(folders).await?;
+        repository.replace_all(folders).await?;
 
         Ok(())
     }
@@ -71,7 +75,7 @@ mod tests {
     async fn test_on_sync_replaces_existing_folders() {
         let repository = Arc::new(MemoryRepository::<Folder>::default());
         let handler = FolderSyncHandler {
-            repository: repository.clone(),
+            repository: Some(repository.clone()),
         };
 
         // First sync with two folders
@@ -103,7 +107,7 @@ mod tests {
     async fn test_on_sync_no_folders_returns_error() {
         let repository = Arc::new(MemoryRepository::<Folder>::default());
         let handler = FolderSyncHandler {
-            repository: repository.clone(),
+            repository: Some(repository.clone()),
         };
 
         let response = SyncResponseModel::default();
