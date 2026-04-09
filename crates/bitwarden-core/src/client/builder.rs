@@ -261,7 +261,7 @@ mod tests {
             .with_settings(ClientSettings::default())
             .build();
     }
-  
+
     #[test]
     fn test_client_builder_with_state_builds() {
         use bitwarden_state::registry::StateRegistry;
@@ -278,7 +278,7 @@ mod tests {
             .with_state(registry)
             .build();
     }
-  
+
     #[test]
     fn test_client_builder_with_middleware_compiles() {
         struct StubMiddleware;
