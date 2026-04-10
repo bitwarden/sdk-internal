@@ -3,6 +3,8 @@
 //! This implements the lowest layer of the signature module, verifying signatures on raw byte
 //! arrays.
 
+use std::pin::Pin;
+
 use ciborium::{Value, value::Integer};
 use coset::{
     CborSerializable, MlDsaVariant, RegisteredLabel, RegisteredLabelWithPrivate,
@@ -23,7 +25,7 @@ use crate::{
 /// scheme.
 pub(super) enum RawVerifyingKey {
     Ed25519(ed25519_dalek::VerifyingKey),
-    MlDsa65(ml_dsa::VerifyingKey<MlDsa65>),
+    MlDsa65(Pin<Box<ml_dsa::VerifyingKey<MlDsa65>>>),
 }
 
 /// A verifying key is a public key used for verifying signatures. It can be published to other
@@ -156,7 +158,7 @@ impl CoseSerializable<CoseKeyContentFormat> for VerifyingKey {
                 RegisteredLabelWithPrivate::Assigned(Algorithm::ML_DSA_65),
             ) => Ok(VerifyingKey {
                 id: key_id(&cose_key)?,
-                inner: RawVerifyingKey::MlDsa65(mldsa65_verifying_key(&cose_key)?),
+                inner: RawVerifyingKey::MlDsa65(Box::pin(mldsa65_verifying_key(&cose_key)?)),
             }),
             _ => Err(EncodingError::UnsupportedValue(
                 "COSE key type or algorithm",

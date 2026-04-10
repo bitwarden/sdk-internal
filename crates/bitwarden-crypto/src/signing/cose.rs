@@ -177,26 +177,12 @@ fn akp_pub(cose_key: &CoseKey) -> Result<&[u8], EncodingError> {
 /// contains the 32-byte seed, from which the full key pair is deterministically derived.
 pub(super) fn mldsa65_signing_key(
     cose_key: &CoseKey,
-) -> Result<
-    (
-        Box<[u8; ML_DSA_SEED_SIZE]>,
-        ml_dsa::SigningKey<ml_dsa::MlDsa65>,
-        ml_dsa::VerifyingKey<ml_dsa::MlDsa65>,
-    ),
-    EncodingError,
-> {
-    use ml_dsa::{KeyGen as _, MlDsa65};
-
+) -> Result<[u8; ML_DSA_SEED_SIZE], EncodingError> {
     let priv_bytes = akp_priv(cose_key)?;
     let seed: [u8; ML_DSA_SEED_SIZE] = priv_bytes
         .try_into()
         .map_err(|_| EncodingError::InvalidValue("ML-DSA-65 seed length"))?;
-    let kp = MlDsa65::key_gen_internal(&seed.into());
-    Ok((
-        Box::new(seed),
-        kp.signing_key().clone(),
-        kp.verifying_key().clone(),
-    ))
+    Ok(seed)
 }
 
 /// Helper function to parse an ML-DSA-65 verifying key from a `CoseKey`.

@@ -2,7 +2,7 @@ use std::pin::Pin;
 
 use ciborium::{Value, value::Integer};
 use coset::{
-    CborSerializable, CoseKey, MlDsaVariant, RegisteredLabel, RegisteredLabelWithPrivate,
+    CborSerializable, CoseKey, RegisteredLabel, RegisteredLabelWithPrivate,
     iana::{
         AkpKeyParameter, Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter,
     },
@@ -32,11 +32,11 @@ enum RawSigningKey {
     Ed25519(Pin<Box<ed25519_dalek::SigningKey>>),
     MlDsa65 {
         /// The seed is what's stored when serializing
-        seed: Box<[u8; ML_DSA_SEED_SIZE]>,
+        seed: Pin<Box<[u8; ML_DSA_SEED_SIZE]>>,
         /// The expanded signing key is derived from the seed
         signing_key: Pin<Box<ml_dsa::SigningKey<MlDsa65>>>,
         /// The verifying key is also derived from the seed
-        verifying_key: ml_dsa::VerifyingKey<MlDsa65>,
+        verifying_key: Pin<Box<ml_dsa::VerifyingKey<MlDsa65>>>,
     },
 }
 
@@ -71,7 +71,7 @@ impl std::fmt::Debug for SigningKey {
         match &self.inner {
             RawSigningKey::Ed25519(key) => debug_struct.field("key", &hex::encode(key.to_bytes())),
             RawSigningKey::MlDsa65 { seed, .. } => {
-                debug_struct.field("seed", &hex::encode(seed.as_ref()))
+                debug_struct.field("seed", &hex::encode(*seed.as_ref()))
             }
         };
         debug_struct.finish()
@@ -95,9 +95,9 @@ impl SigningKey {
                 SigningKey {
                     id: KeyId::make(),
                     inner: RawSigningKey::MlDsa65 {
-                        seed: Box::new(seed),
+                        seed: Box::pin(seed),
                         signing_key: Box::pin(key_pair.signing_key().clone()),
-                        verifying_key: key_pair.verifying_key().clone(),
+                        verifying_key: Box::pin(key_pair.verifying_key().clone()),
                     },
                 }
             }
@@ -133,7 +133,7 @@ impl SigningKey {
         match &self.inner {
             RawSigningKey::Ed25519(key) => key.sign(data).to_bytes().to_vec(),
             RawSigningKey::MlDsa65 { signing_key, .. } => signing_key
-                .sign_deterministic(data, &[])
+                .sign_randomized(data, &[], &mut rand::thread_rng())
                 .expect("ML-DSA signing should not fail with empty context")
                 .encode()
                 .as_slice()
@@ -216,13 +216,16 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
                 Some(RegisteredLabelWithPrivate::Assigned(Algorithm::ML_DSA_65)),
                 RegisteredLabel::Assigned(KeyType::AKP),
             ) => {
-                let (seed, sk, vk) = mldsa65_signing_key(&cose_key)?;
+                let seed = mldsa65_signing_key(&cose_key)?;
+                let key_pair = MlDsa65::key_gen_internal(&seed.into());
+                let sk = key_pair.signing_key().clone();
+                let vk = key_pair.verifying_key().clone();
                 Ok(SigningKey {
                     id: key_id(&cose_key)?,
                     inner: RawSigningKey::MlDsa65 {
-                        seed,
+                        seed: Box::pin(seed),
                         signing_key: Box::pin(sk),
-                        verifying_key: vk,
+                        verifying_key: Box::pin(vk),
                     },
                 })
             }
