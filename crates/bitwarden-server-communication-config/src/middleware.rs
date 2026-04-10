@@ -210,8 +210,7 @@ mod tests {
     // must still allow ServerCommunicationConfigMiddleware to be cloned via Arc::clone.
     struct NoClonemockProvider;
 
-    #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-    #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+    #[async_trait::async_trait]
     impl CookieProvider for NoClonemockProvider {
         async fn cookies(&self, _hostname: &str) -> Vec<(String, String)> {
             vec![]

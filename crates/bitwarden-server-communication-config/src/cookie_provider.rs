@@ -11,8 +11,7 @@ use crate::{
 /// # Security
 ///
 /// Implementors MUST NOT log cookie values. Cookie values are sensitive SSO tokens.
-#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[async_trait::async_trait]
 pub trait CookieProvider: 'static + Send + Sync {
     /// Returns stored cookies for the given hostname as name-value pairs.
     ///
@@ -32,8 +31,7 @@ pub trait CookieProvider: 'static + Send + Sync {
     async fn needs_bootstrap(&self, hostname: &str) -> bool;
 }
 
-#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[async_trait::async_trait]
 impl<R, P> CookieProvider for ServerCommunicationConfigClient<R, P>
 where
     R: ServerCommunicationConfigRepository + Send + 'static,

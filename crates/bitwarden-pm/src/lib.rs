@@ -146,8 +146,7 @@ mod tests {
     fn new_with_server_communication_config_constructs() {
         struct MockCookieProvider;
 
-        #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-        #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+        #[async_trait::async_trait]
         impl bitwarden_server_communication_config::CookieProvider for MockCookieProvider {
             async fn cookies(&self, _hostname: &str) -> Vec<(String, String)> {
                 vec![]
