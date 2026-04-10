@@ -230,7 +230,7 @@ impl WrappedAccountCryptographicState {
                         verifying_key: Some(B64::from(verifying_key.to_cose()).to_string()),
                         signature_algorithm: Some(match verifying_key.algorithm() {
                             SignatureAlgorithm::Ed25519 => "ed25519".to_string(),
-                            SignatureAlgorithm::MlDsa65 => "mldsa65".to_string()
+                            SignatureAlgorithm::MlDsa65 => "mldsa65".to_string(),
                         }),
                     })
                 }),

@@ -50,7 +50,11 @@ impl std::fmt::Debug for VerifyingKey {
                 let encoded = key.encode();
                 debug_struct.field(
                     "key",
-                    &format_args!("{}... ({} bytes)", hex::encode(&encoded[..16]), encoded.len()),
+                    &format_args!(
+                        "{}... ({} bytes)",
+                        hex::encode(&encoded[..16]),
+                        encoded.len()
+                    ),
                 );
             }
         }
@@ -115,18 +119,16 @@ impl CoseSerializable<CoseKeyContentFormat> for VerifyingKey {
                 .to_vec()
                 .expect("Verifying key is always serializable")
                 .into(),
-            RawVerifyingKey::MlDsa65(key) => {
-                coset::CoseKeyBuilder::new_mldsa_pub_key(
-                    MlDsaVariant::MlDsa65,
-                    key.encode().to_vec(),
-                )
-                .key_id((&self.id).into())
-                .add_key_op(KeyOperation::Verify)
-                .build()
-                .to_vec()
-                .expect("Verifying key is always serializable")
-                .into()
-            }
+            RawVerifyingKey::MlDsa65(key) => coset::CoseKeyBuilder::new_mldsa_pub_key(
+                MlDsaVariant::MlDsa65,
+                key.encode().to_vec(),
+            )
+            .key_id((&self.id).into())
+            .add_key_op(KeyOperation::Verify)
+            .build()
+            .to_vec()
+            .expect("Verifying key is always serializable")
+            .into(),
         }
     }
 

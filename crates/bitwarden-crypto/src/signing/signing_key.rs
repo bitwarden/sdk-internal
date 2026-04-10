@@ -2,10 +2,11 @@ use std::pin::Pin;
 
 use ciborium::{Value, value::Integer};
 use coset::{
-    CborSerializable, CoseKey, RegisteredLabel, RegisteredLabelWithPrivate,
-    iana::{Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter},
+    CborSerializable, CoseKey, MlDsaVariant, RegisteredLabel, RegisteredLabelWithPrivate,
+    iana::{
+        AkpKeyParameter, Algorithm, EllipticCurve, EnumI64, KeyOperation, KeyType, OkpKeyParameter,
+    },
 };
-use coset::{MlDsaVariant, iana::AkpKeyParameter};
 use ed25519_dalek::Signer;
 use ml_dsa::{KeyGen as _, MlDsa65};
 use rand::RngCore;
@@ -69,7 +70,9 @@ impl std::fmt::Debug for SigningKey {
         #[cfg(feature = "dangerous-crypto-debug")]
         match &self.inner {
             RawSigningKey::Ed25519(key) => debug_struct.field("key", &hex::encode(key.to_bytes())),
-            RawSigningKey::MlDsa65 { seed, .. } => debug_struct.field("seed", &hex::encode(seed.as_ref())),
+            RawSigningKey::MlDsa65 { seed, .. } => {
+                debug_struct.field("seed", &hex::encode(seed.as_ref()))
+            }
         };
         debug_struct.finish()
     }
@@ -171,19 +174,22 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
                 let key = CoseKey {
                     key_id: (&self.id).into(),
                     kty: coset::RegisteredLabel::Assigned(KeyType::AKP),
-                    alg: Some(coset::RegisteredLabelWithPrivate::Assigned(Algorithm::ML_DSA_65)),
-                    key_ops: vec![
-                        coset::RegisteredLabel::Assigned(KeyOperation::Sign),
-                    ]
-                    .into_iter()
-                    .collect(),
-                    params: vec![(
-                        coset::Label::Int(AkpKeyParameter::Priv.to_i64()),
-                        Value::Bytes(seed.to_vec()),
-                    ), (
-                        coset::Label::Int(AkpKeyParameter::Pub.to_i64()),
-                        Value::Bytes(verifying_key.encode().to_vec()),
-                    )],
+                    alg: Some(coset::RegisteredLabelWithPrivate::Assigned(
+                        Algorithm::ML_DSA_65,
+                    )),
+                    key_ops: vec![coset::RegisteredLabel::Assigned(KeyOperation::Sign)]
+                        .into_iter()
+                        .collect(),
+                    params: vec![
+                        (
+                            coset::Label::Int(AkpKeyParameter::Priv.to_i64()),
+                            Value::Bytes(seed.to_vec()),
+                        ),
+                        (
+                            coset::Label::Int(AkpKeyParameter::Pub.to_i64()),
+                            Value::Bytes(verifying_key.encode().to_vec()),
+                        ),
+                    ],
                     ..Default::default()
                 };
                 key.to_vec()
@@ -301,6 +307,10 @@ mod tests {
         let signing_key = SigningKey::make(SignatureAlgorithm::MlDsa65);
         let signature = signing_key.sign_raw(b"Test message");
         let verifying_key = signing_key.to_verifying_key();
-        assert!(verifying_key.verify_raw(&signature, b"Test message").is_ok());
+        assert!(
+            verifying_key
+                .verify_raw(&signature, b"Test message")
+                .is_ok()
+        );
     }
 }

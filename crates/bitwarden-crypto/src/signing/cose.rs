@@ -10,7 +10,8 @@ use crate::{
     CryptoError, KEY_ID_SIZE,
     cose::SIGNING_NAMESPACE,
     error::{EncodingError, SignatureError},
-    keys::KeyId, signing::signing_key::ML_DSA_SEED_SIZE,
+    keys::KeyId,
+    signing::signing_key::ML_DSA_SEED_SIZE,
 };
 
 /// Helper function to extract the namespace from a `ProtectedHeader`. The namespace is a custom
