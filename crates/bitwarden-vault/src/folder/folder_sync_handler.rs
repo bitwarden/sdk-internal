@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bitwarden_core::{FromClient, require};
-use bitwarden_state::{registry::StateRegistryError, repository::Repository};
+use bitwarden_state::repository::{Repository, RepositoryOption};
 use bitwarden_sync::{SyncHandler, SyncHandlerError};
 
 use crate::{Folder, FolderId};
@@ -20,10 +20,7 @@ impl SyncHandler for FolderSyncHandler {
         &self,
         response: &bitwarden_api_api::models::SyncResponseModel,
     ) -> Result<(), SyncHandlerError> {
-        let repository = self
-            .repository
-            .as_ref()
-            .ok_or(StateRegistryError::DatabaseNotInitialized)?;
+        let repository = self.repository.require()?;
         let api_folders = require!(response.folders.as_ref());
 
         let folders: Vec<(FolderId, Folder)> = api_folders

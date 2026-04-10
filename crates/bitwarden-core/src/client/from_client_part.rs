@@ -31,7 +31,7 @@ use crate::{client::ApiConfigurations, key_management::KeyIds};
 /// pub struct FoldersClient {
 ///     key_store: KeyStore<KeyIds>,
 ///     api_configurations: Arc<ApiConfigurations>,
-///     repository: Arc<dyn Repository<Folder>>,
+///     repository: Option<Arc<dyn Repository<Folder>>>,
 /// }
 ///
 /// // Usage:

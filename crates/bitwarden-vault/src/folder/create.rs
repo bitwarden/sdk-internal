@@ -5,10 +5,10 @@ use bitwarden_core::{
     require,
 };
 use bitwarden_crypto::{
-    CompositeEncryptable, CryptoError, IdentifyKey, KeyStore, KeyStoreContext, PrimitiveEncryptable,
+    CompositeEncryptable, CryptoError, IdentifyKey, KeyStoreContext, PrimitiveEncryptable,
 };
 use bitwarden_error::bitwarden_error;
-use bitwarden_state::repository::{Repository, RepositoryError};
+use bitwarden_state::repository::{RepositoryError, RepositoryOption};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -16,7 +16,7 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::{Folder, FolderView, VaultParseError};
+use crate::{Folder, FolderView, FoldersClient, VaultParseError};
 
 /// Request to add or edit a folder.
 #[derive(Serialize, Deserialize, Debug)]
@@ -62,77 +62,83 @@ pub enum CreateFolderError {
     Repository(#[from] RepositoryError),
 }
 
-pub(super) async fn create_folder<R: Repository<Folder> + ?Sized>(
-    key_store: &KeyStore<KeyIds>,
-    api_client: &bitwarden_api_api::apis::ApiClient,
-    repository: &R,
-    request: FolderAddEditRequest,
-) -> Result<FolderView, CreateFolderError> {
-    let folder_request = key_store.encrypt(request)?;
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl FoldersClient {
+    /// Create a new [Folder] and save it to the server.
+    pub async fn create(
+        &self,
+        request: FolderAddEditRequest,
+    ) -> Result<FolderView, CreateFolderError> {
+        let folder_request = self.key_store.encrypt(request)?;
 
-    let resp = api_client
-        .folders_api()
-        .post(Some(folder_request))
-        .await
-        .map_err(ApiError::from)?;
+        let resp = self
+            .api_configurations
+            .api_client
+            .folders_api()
+            .post(Some(folder_request))
+            .await
+            .map_err(ApiError::from)?;
 
-    let folder: Folder = resp.try_into()?;
+        let folder: Folder = resp.try_into()?;
 
-    repository.set(require!(folder.id), folder.clone()).await?;
+        self.repository
+            .require()?
+            .set(require!(folder.id), folder.clone())
+            .await?;
 
-    Ok(key_store.decrypt(&folder)?)
+        Ok(self.key_store.decrypt(&folder)?)
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use bitwarden_api_api::{apis::ApiClient, models::FolderResponseModel};
-    use bitwarden_crypto::SymmetricKeyAlgorithm;
+    use bitwarden_core::{
+        client::ApiConfigurations, key_management::create_test_crypto_with_user_key,
+    };
+    use bitwarden_crypto::SymmetricCryptoKey;
     use bitwarden_test::MemoryRepository;
     use uuid::uuid;
 
     use super::*;
     use crate::FolderId;
 
+    fn create_client(api_client: ApiClient) -> FoldersClient {
+        FoldersClient {
+            key_store: create_test_crypto_with_user_key(
+                SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
+            ),
+            api_configurations: Arc::new(ApiConfigurations::from_api_client(api_client)),
+            repository: Some(Arc::new(MemoryRepository::<Folder>::default())),
+        }
+    }
+
     #[tokio::test]
     async fn test_create_folder() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
-        {
-            let mut ctx = store.context_mut();
-            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
-                .unwrap();
-        }
+        let folder_id = FolderId::new(uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1"));
 
-        let folder_id = uuid!("25afb11c-9c95-4db5-8bac-c21cb204a3f1");
-
-        let api_client = ApiClient::new_mocked(move |mock| {
+        let client = create_client(ApiClient::new_mocked(move |mock| {
             mock.folders_api
                 .expect_post()
                 .returning(move |model| {
                     Ok(FolderResponseModel {
-                        id: Some(folder_id),
+                        id: Some(folder_id.into()),
                         name: Some(model.unwrap().name),
                         revision_date: Some("2025-01-01T00:00:00Z".to_string()),
                         object: Some("folder".to_string()),
                     })
                 })
                 .once();
-        });
+        }));
 
-        let repository = MemoryRepository::<Folder>::default();
-
-        let result = create_folder(
-            &store,
-            &api_client,
-            &repository,
-            FolderAddEditRequest {
+        let result = client
+            .create(FolderAddEditRequest {
                 name: "test".to_string(),
-            },
-        )
-        .await
-        .unwrap();
-
-        let folder_id = FolderId::new(folder_id);
+            })
+            .await
+            .unwrap();
 
         assert_eq!(
             result,
@@ -145,8 +151,18 @@ mod tests {
 
         // Confirm the folder was stored in the repository
         assert_eq!(
-            store
-                .decrypt(&repository.get(folder_id).await.unwrap().unwrap())
+            client
+                .key_store
+                .decrypt(
+                    &client
+                        .repository
+                        .as_ref()
+                        .unwrap()
+                        .get(folder_id)
+                        .await
+                        .unwrap()
+                        .unwrap()
+                )
                 .unwrap(),
             result
         );
@@ -154,33 +170,19 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_folder_http_error() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
-        {
-            let mut ctx = store.context_mut();
-            let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
-                .unwrap();
-        }
-
-        let api_client = ApiClient::new_mocked(move |mock| {
+        let client = create_client(ApiClient::new_mocked(move |mock| {
             mock.folders_api.expect_post().returning(move |_model| {
                 Err(bitwarden_api_api::apis::Error::Io(std::io::Error::other(
                     "Simulated error",
                 )))
             });
-        });
+        }));
 
-        let repository = MemoryRepository::<Folder>::default();
-
-        let result = create_folder(
-            &store,
-            &api_client,
-            &repository,
-            FolderAddEditRequest {
+        let result = client
+            .create(FolderAddEditRequest {
                 name: "test".to_string(),
-            },
-        )
-        .await;
+            })
+            .await;
 
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), CreateFolderError::Api(_)));
