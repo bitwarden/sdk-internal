@@ -29,7 +29,7 @@ pub(crate) async fn login_access_token(
     let access_token: AccessToken = input.access_token.parse()?;
 
     if let Some(state_file) = &input.state_file
-        && let Ok(organization_id) = load_tokens_from_state(client, state_file, &access_token)
+        && let Ok(organization_id) = load_tokens_from_state(client, state_file, &access_token).await
     {
         client
             .internal
@@ -81,11 +81,14 @@ pub(crate) async fn login_access_token(
             _ = state::set(state_file, &access_token, state);
         }
 
-        client.internal.set_tokens(
-            r.access_token.clone(),
-            r.refresh_token.clone(),
-            r.expires_in,
-        );
+        client
+            .internal
+            .set_tokens(
+                r.access_token.clone(),
+                r.refresh_token.clone(),
+                r.expires_in,
+            )
+            .await;
 
         client
             .internal
@@ -116,7 +119,7 @@ async fn request_access_token(
         .await
 }
 
-fn load_tokens_from_state(
+async fn load_tokens_from_state(
     client: &Client,
     state_file: &Path,
     access_token: &AccessToken,
@@ -136,7 +139,8 @@ fn load_tokens_from_state(
 
             client
                 .internal
-                .set_tokens(client_state.token, None, time_till_expiration as u64);
+                .set_tokens(client_state.token, None, time_till_expiration as u64)
+                .await;
             client
                 .internal
                 .initialize_crypto_single_org_key(organization_id, encryption_key);

@@ -33,6 +33,7 @@ struct PasswordManagerTokenHandlerInner {
     identity_config: Option<bitwarden_api_api::Configuration>,
 }
 
+#[async_trait::async_trait]
 impl TokenHandler for PasswordManagerTokenHandler {
     fn initialize_middleware(
         &self,
@@ -48,7 +49,12 @@ impl TokenHandler for PasswordManagerTokenHandler {
         Arc::new(MiddlewareWrapper(self.clone()))
     }
 
-    fn set_tokens(&self, access_token: String, refresh_token: Option<String>, expires_in: u64) {
+    async fn set_tokens(
+        &self,
+        access_token: String,
+        refresh_token: Option<String>,
+        expires_in: u64,
+    ) {
         let mut inner = self.inner.write().expect("RwLock is not poisoned");
         inner.access_token = Some(access_token);
         inner.refresh_token = refresh_token;
@@ -98,7 +104,8 @@ impl MiddlewareExt for PasswordManagerTokenHandler {
             )
             .await?;
 
-        self.set_tokens(access_token.clone(), refresh_token, expires_in);
+        self.set_tokens(access_token.clone(), refresh_token, expires_in)
+            .await;
         Ok(Some(access_token))
     }
 }
@@ -135,11 +142,13 @@ mod tests {
         let identity_server = MockServer::start().await;
 
         let handler = PasswordManagerTokenHandler::default();
-        handler.set_tokens(
-            "original-token".to_string(),
-            Some("refresh".to_string()),
-            5000,
-        );
+        handler
+            .set_tokens(
+                "original-token".to_string(),
+                Some("refresh".to_string()),
+                5000,
+            )
+            .await;
         let client = build_client(handler.initialize_middleware(
             api_key_login_method(),
             identity_config(&identity_server.uri()),
@@ -159,11 +168,13 @@ mod tests {
 
         let handler = PasswordManagerTokenHandler::default();
         // expires_in=0 means the token is considered expired as it's less than the margin
-        handler.set_tokens(
-            "expired-token".to_string(),
-            Some("old-refresh".to_string()),
-            0,
-        );
+        handler
+            .set_tokens(
+                "expired-token".to_string(),
+                Some("old-refresh".to_string()),
+                0,
+            )
+            .await;
 
         let client = build_client(handler.initialize_middleware(
             api_key_login_method(),

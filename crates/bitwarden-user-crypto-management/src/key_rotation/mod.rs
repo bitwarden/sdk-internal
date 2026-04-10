@@ -2,9 +2,11 @@
 mod crypto;
 mod data;
 mod partial_rotateable_keyset;
+mod rotate_user_keys;
 mod rotation_context;
 mod sync;
 mod unlock;
+mod unlock_method;
 
 use bitwarden_api_api::models::RotateUserAccountKeysAndDataRequestModel;
 use bitwarden_core::key_management::MasterPasswordAuthenticationData;
@@ -21,7 +23,7 @@ use wasm_bindgen::prelude::*;
 use crate::{
     UserCryptoManagementClient,
     key_rotation::{
-        crypto::rotate_account_cryptographic_state,
+        crypto::rotate_account_cryptographic_state_to_request_model,
         data::reencrypt_data,
         rotation_context::make_rotation_context,
         unlock::{
@@ -145,7 +147,7 @@ async fn post_rotate_user_keys(
         )?;
 
         info!("Rotating account cryptographic state for user key rotation");
-        let account_keys_model = rotate_account_cryptographic_state(
+        let account_keys_model = rotate_account_cryptographic_state_to_request_model(
             &sync.wrapped_account_cryptographic_state,
             &rotation_context.current_user_key_id,
             &rotation_context.new_user_key_id,
