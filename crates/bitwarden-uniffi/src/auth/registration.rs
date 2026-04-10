@@ -11,7 +11,7 @@ use crate::error::BitwardenError;
 #[derive(uniffi::Object)]
 pub struct RegistrationClient(pub(crate) bitwarden_core::Client);
 
-#[uniffi::export]
+#[uniffi::export(async_runtime = "tokio")]
 impl RegistrationClient {
     /// Initializes a new cryptographic state for a user and posts it to the server; enrolls in
     /// admin password reset and finally enrolls the user to TDE unlock.
