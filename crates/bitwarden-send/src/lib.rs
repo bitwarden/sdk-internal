@@ -18,6 +18,12 @@ mod error;
 pub use error::SendParseError;
 mod get_list;
 pub use get_list::GetSendError;
+mod multi_file;
+pub use multi_file::{
+    MakeSendMultiFileEntry, MakeSendMultiFileError, MakeSendMultiFilePathEntry,
+    MakeSendMultiFilePathRequest, MakeSendMultiFilePathResult, MakeSendMultiFileRequest,
+    MakeSendMultiFileResult,
+};
 mod send;
 pub use send::{
     AuthType, EmptyEmailListError, Send, SendAuthType, SendFileView, SendId, SendListView,
