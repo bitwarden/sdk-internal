@@ -302,13 +302,21 @@ mod tests {
 
     #[test]
     fn test_mldsa65_test_vectors() {
-        let signing_key = SigningKey::from_cose(&CoseKeyBytes::from(hex::decode(MLDSA65_SIGNING_KEY).unwrap())).unwrap();
+        let signing_key = SigningKey::from_cose(&CoseKeyBytes::from(
+            hex::decode(MLDSA65_SIGNING_KEY).unwrap(),
+        ))
+        .unwrap();
         let verifying_key = signing_key.to_verifying_key();
         assert_eq!(
             verifying_key.to_cose().as_ref(),
             &hex::decode(MLDSA65_VERIFYING_KEY).unwrap()[..]
         );
-        verifying_key.verify_raw(&hex::decode(MLDSA65_SIGNED_DATA_RAW).unwrap(), b"Test message").unwrap();
+        verifying_key
+            .verify_raw(
+                &hex::decode(MLDSA65_SIGNED_DATA_RAW).unwrap(),
+                b"Test message",
+            )
+            .unwrap();
     }
 
     #[test]
