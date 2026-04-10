@@ -882,6 +882,7 @@ name = "bitwarden-logging"
 version = "2.0.0"
 dependencies = [
  "chrono",
+ "criterion",
  "serde",
  "serde_json",
  "tracing",
