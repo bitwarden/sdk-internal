@@ -131,6 +131,8 @@ jobs:
           app-id: ${{ steps.retrieve-secret.outputs.BW-GHAPP-ID }}
           private-key: ${{ steps.retrieve-secret.outputs.BW-GHAPP-KEY }}
           owner: ${{ github.repository_owner }}
+          repositories: sdk-internal
+          permission-actions: write
         
       - name: Trigger Swift release
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
