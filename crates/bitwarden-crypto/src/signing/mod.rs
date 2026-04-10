@@ -52,14 +52,19 @@ use {tsify::Tsify, wasm_bindgen::prelude::*};
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub enum SignatureAlgorithm {
-    /// Ed25519 is the modern, secure recommended option for digital signatures on eliptic curves.
+    /// Ed25519 is the modern, secure recommended option for digital signatures on eliptic curves,
+    /// safe under the assumption that an attacker does not have access to a large-scale quantum
+    /// computer.
     Ed25519,
+    /// ML-DSA-65 is the NIST post-quantum digital signature standard (FIPS 204), security category
+    /// 3.
+    MlDsa65,
 }
 
 impl SignatureAlgorithm {
     /// Returns the currently accepted safe algorithm for new keys.
     pub fn default_algorithm() -> Self {
-        SignatureAlgorithm::Ed25519
+        SignatureAlgorithm::MlDsa65
     }
 }
 
