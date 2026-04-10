@@ -30,186 +30,34 @@ pub trait ProviderBillingVNextApi: Send + Sync {
     async fn add_credit_via_bit_pay<'a>(
         &self,
         provider_id: &'a str,
-        id: Option<uuid::Uuid>,
-        name: Option<&'a str>,
-        business_name: Option<&'a str>,
-        business_address1: Option<&'a str>,
-        business_address2: Option<&'a str>,
-        business_address3: Option<&'a str>,
-        business_country: Option<&'a str>,
-        business_tax_number: Option<&'a str>,
-        billing_email: Option<&'a str>,
-        billing_phone: Option<&'a str>,
-        status: Option<models::ProviderStatusType>,
-        use_events: Option<bool>,
-        r#type: Option<models::ProviderType>,
-        enabled: Option<bool>,
-        creation_date: Option<String>,
-        revision_date: Option<String>,
-        gateway: Option<models::GatewayType>,
-        gateway_customer_id: Option<&'a str>,
-        gateway_subscription_id: Option<&'a str>,
-        discount_id: Option<&'a str>,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
-    ) -> Result<(), Error<AddCreditViaBitPayError>>;
+    ) -> Result<(), Error>;
 
     /// GET /providers/{providerId}/billing/vnext/address
-    async fn get_billing_address<'a>(
-        &self,
-        provider_id: &'a str,
-        id: Option<uuid::Uuid>,
-        name: Option<&'a str>,
-        business_name: Option<&'a str>,
-        business_address1: Option<&'a str>,
-        business_address2: Option<&'a str>,
-        business_address3: Option<&'a str>,
-        business_country: Option<&'a str>,
-        business_tax_number: Option<&'a str>,
-        billing_email: Option<&'a str>,
-        billing_phone: Option<&'a str>,
-        status: Option<models::ProviderStatusType>,
-        use_events: Option<bool>,
-        r#type: Option<models::ProviderType>,
-        enabled: Option<bool>,
-        creation_date: Option<String>,
-        revision_date: Option<String>,
-        gateway: Option<models::GatewayType>,
-        gateway_customer_id: Option<&'a str>,
-        gateway_subscription_id: Option<&'a str>,
-        discount_id: Option<&'a str>,
-    ) -> Result<(), Error<GetBillingAddressError>>;
+    async fn get_billing_address<'a>(&self, provider_id: &'a str) -> Result<(), Error>;
 
     /// GET /providers/{providerId}/billing/vnext/credit
-    async fn get_credit<'a>(
-        &self,
-        provider_id: &'a str,
-        id: Option<uuid::Uuid>,
-        name: Option<&'a str>,
-        business_name: Option<&'a str>,
-        business_address1: Option<&'a str>,
-        business_address2: Option<&'a str>,
-        business_address3: Option<&'a str>,
-        business_country: Option<&'a str>,
-        business_tax_number: Option<&'a str>,
-        billing_email: Option<&'a str>,
-        billing_phone: Option<&'a str>,
-        status: Option<models::ProviderStatusType>,
-        use_events: Option<bool>,
-        r#type: Option<models::ProviderType>,
-        enabled: Option<bool>,
-        creation_date: Option<String>,
-        revision_date: Option<String>,
-        gateway: Option<models::GatewayType>,
-        gateway_customer_id: Option<&'a str>,
-        gateway_subscription_id: Option<&'a str>,
-        discount_id: Option<&'a str>,
-    ) -> Result<(), Error<GetCreditError>>;
+    async fn get_credit<'a>(&self, provider_id: &'a str) -> Result<(), Error>;
 
     /// GET /providers/{providerId}/billing/vnext/payment-method
-    async fn get_payment_method<'a>(
-        &self,
-        provider_id: &'a str,
-        id: Option<uuid::Uuid>,
-        name: Option<&'a str>,
-        business_name: Option<&'a str>,
-        business_address1: Option<&'a str>,
-        business_address2: Option<&'a str>,
-        business_address3: Option<&'a str>,
-        business_country: Option<&'a str>,
-        business_tax_number: Option<&'a str>,
-        billing_email: Option<&'a str>,
-        billing_phone: Option<&'a str>,
-        status: Option<models::ProviderStatusType>,
-        use_events: Option<bool>,
-        r#type: Option<models::ProviderType>,
-        enabled: Option<bool>,
-        creation_date: Option<String>,
-        revision_date: Option<String>,
-        gateway: Option<models::GatewayType>,
-        gateway_customer_id: Option<&'a str>,
-        gateway_subscription_id: Option<&'a str>,
-        discount_id: Option<&'a str>,
-    ) -> Result<(), Error<GetPaymentMethodError>>;
+    async fn get_payment_method<'a>(&self, provider_id: &'a str) -> Result<(), Error>;
 
     /// GET /providers/{providerId}/billing/vnext/warnings
-    async fn get_warnings<'a>(
-        &self,
-        provider_id: &'a str,
-        id: Option<uuid::Uuid>,
-        name: Option<&'a str>,
-        business_name: Option<&'a str>,
-        business_address1: Option<&'a str>,
-        business_address2: Option<&'a str>,
-        business_address3: Option<&'a str>,
-        business_country: Option<&'a str>,
-        business_tax_number: Option<&'a str>,
-        billing_email: Option<&'a str>,
-        billing_phone: Option<&'a str>,
-        status: Option<models::ProviderStatusType>,
-        use_events: Option<bool>,
-        r#type: Option<models::ProviderType>,
-        enabled: Option<bool>,
-        creation_date: Option<String>,
-        revision_date: Option<String>,
-        gateway: Option<models::GatewayType>,
-        gateway_customer_id: Option<&'a str>,
-        gateway_subscription_id: Option<&'a str>,
-        discount_id: Option<&'a str>,
-    ) -> Result<(), Error<GetWarningsError>>;
+    async fn get_warnings<'a>(&self, provider_id: &'a str) -> Result<(), Error>;
 
     /// PUT /providers/{providerId}/billing/vnext/address
     async fn update_billing_address<'a>(
         &self,
         provider_id: &'a str,
-        id: Option<uuid::Uuid>,
-        name: Option<&'a str>,
-        business_name: Option<&'a str>,
-        business_address1: Option<&'a str>,
-        business_address2: Option<&'a str>,
-        business_address3: Option<&'a str>,
-        business_country: Option<&'a str>,
-        business_tax_number: Option<&'a str>,
-        billing_email: Option<&'a str>,
-        billing_phone: Option<&'a str>,
-        status: Option<models::ProviderStatusType>,
-        use_events: Option<bool>,
-        r#type: Option<models::ProviderType>,
-        enabled: Option<bool>,
-        creation_date: Option<String>,
-        revision_date: Option<String>,
-        gateway: Option<models::GatewayType>,
-        gateway_customer_id: Option<&'a str>,
-        gateway_subscription_id: Option<&'a str>,
-        discount_id: Option<&'a str>,
         billing_address_request: Option<models::BillingAddressRequest>,
-    ) -> Result<(), Error<UpdateBillingAddressError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /providers/{providerId}/billing/vnext/payment-method
     async fn update_payment_method<'a>(
         &self,
         provider_id: &'a str,
-        id: Option<uuid::Uuid>,
-        name: Option<&'a str>,
-        business_name: Option<&'a str>,
-        business_address1: Option<&'a str>,
-        business_address2: Option<&'a str>,
-        business_address3: Option<&'a str>,
-        business_country: Option<&'a str>,
-        business_tax_number: Option<&'a str>,
-        billing_email: Option<&'a str>,
-        billing_phone: Option<&'a str>,
-        status: Option<models::ProviderStatusType>,
-        use_events: Option<bool>,
-        r#type: Option<models::ProviderType>,
-        enabled: Option<bool>,
-        creation_date: Option<String>,
-        revision_date: Option<String>,
-        gateway: Option<models::GatewayType>,
-        gateway_customer_id: Option<&'a str>,
-        gateway_subscription_id: Option<&'a str>,
-        discount_id: Option<&'a str>,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
-    ) -> Result<(), Error<UpdatePaymentMethodError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct ProviderBillingVNextApiClient {
@@ -228,28 +76,8 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
     async fn add_credit_via_bit_pay<'a>(
         &self,
         provider_id: &'a str,
-        id: Option<uuid::Uuid>,
-        name: Option<&'a str>,
-        business_name: Option<&'a str>,
-        business_address1: Option<&'a str>,
-        business_address2: Option<&'a str>,
-        business_address3: Option<&'a str>,
-        business_country: Option<&'a str>,
-        business_tax_number: Option<&'a str>,
-        billing_email: Option<&'a str>,
-        billing_phone: Option<&'a str>,
-        status: Option<models::ProviderStatusType>,
-        use_events: Option<bool>,
-        r#type: Option<models::ProviderType>,
-        enabled: Option<bool>,
-        creation_date: Option<String>,
-        revision_date: Option<String>,
-        gateway: Option<models::GatewayType>,
-        gateway_customer_id: Option<&'a str>,
-        gateway_subscription_id: Option<&'a str>,
-        discount_id: Option<&'a str>,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
-    ) -> Result<(), Error<AddCreditViaBitPayError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -262,116 +90,13 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
-        if let Some(ref param_value) = id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("id", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = name {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("name", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_name {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessName", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address1 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress1", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address2 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress2", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address3 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress3", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_country {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessCountry", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_tax_number {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessTaxNumber", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = billing_email {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("billingEmail", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = billing_phone {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("billingPhone", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = status {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("status", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = use_events {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("useEvents", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = r#type {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("type", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = enabled {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("enabled", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = creation_date {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("creationDate", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = revision_date {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("revisionDate", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gateway", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway_customer_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway_subscription_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = discount_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("discountId", &param_value.to_string())]);
-        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&bit_pay_credit_request);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_billing_address<'a>(
-        &self,
-        provider_id: &'a str,
-        id: Option<uuid::Uuid>,
-        name: Option<&'a str>,
-        business_name: Option<&'a str>,
-        business_address1: Option<&'a str>,
-        business_address2: Option<&'a str>,
-        business_address3: Option<&'a str>,
-        business_country: Option<&'a str>,
-        business_tax_number: Option<&'a str>,
-        billing_email: Option<&'a str>,
-        billing_phone: Option<&'a str>,
-        status: Option<models::ProviderStatusType>,
-        use_events: Option<bool>,
-        r#type: Option<models::ProviderType>,
-        enabled: Option<bool>,
-        creation_date: Option<String>,
-        revision_date: Option<String>,
-        gateway: Option<models::GatewayType>,
-        gateway_customer_id: Option<&'a str>,
-        gateway_subscription_id: Option<&'a str>,
-        discount_id: Option<&'a str>,
-    ) -> Result<(), Error<GetBillingAddressError>> {
+    async fn get_billing_address<'a>(&self, provider_id: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -384,115 +109,12 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref param_value) = id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("id", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = name {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("name", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_name {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessName", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address1 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress1", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address2 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress2", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address3 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress3", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_country {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessCountry", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_tax_number {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessTaxNumber", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = billing_email {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("billingEmail", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = billing_phone {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("billingPhone", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = status {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("status", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = use_events {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("useEvents", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = r#type {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("type", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = enabled {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("enabled", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = creation_date {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("creationDate", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = revision_date {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("revisionDate", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gateway", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway_customer_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway_subscription_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = discount_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("discountId", &param_value.to_string())]);
-        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_credit<'a>(
-        &self,
-        provider_id: &'a str,
-        id: Option<uuid::Uuid>,
-        name: Option<&'a str>,
-        business_name: Option<&'a str>,
-        business_address1: Option<&'a str>,
-        business_address2: Option<&'a str>,
-        business_address3: Option<&'a str>,
-        business_country: Option<&'a str>,
-        business_tax_number: Option<&'a str>,
-        billing_email: Option<&'a str>,
-        billing_phone: Option<&'a str>,
-        status: Option<models::ProviderStatusType>,
-        use_events: Option<bool>,
-        r#type: Option<models::ProviderType>,
-        enabled: Option<bool>,
-        creation_date: Option<String>,
-        revision_date: Option<String>,
-        gateway: Option<models::GatewayType>,
-        gateway_customer_id: Option<&'a str>,
-        gateway_subscription_id: Option<&'a str>,
-        discount_id: Option<&'a str>,
-    ) -> Result<(), Error<GetCreditError>> {
+    async fn get_credit<'a>(&self, provider_id: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -505,115 +127,12 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref param_value) = id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("id", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = name {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("name", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_name {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessName", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address1 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress1", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address2 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress2", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address3 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress3", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_country {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessCountry", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_tax_number {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessTaxNumber", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = billing_email {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("billingEmail", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = billing_phone {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("billingPhone", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = status {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("status", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = use_events {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("useEvents", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = r#type {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("type", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = enabled {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("enabled", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = creation_date {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("creationDate", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = revision_date {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("revisionDate", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gateway", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway_customer_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway_subscription_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = discount_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("discountId", &param_value.to_string())]);
-        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_payment_method<'a>(
-        &self,
-        provider_id: &'a str,
-        id: Option<uuid::Uuid>,
-        name: Option<&'a str>,
-        business_name: Option<&'a str>,
-        business_address1: Option<&'a str>,
-        business_address2: Option<&'a str>,
-        business_address3: Option<&'a str>,
-        business_country: Option<&'a str>,
-        business_tax_number: Option<&'a str>,
-        billing_email: Option<&'a str>,
-        billing_phone: Option<&'a str>,
-        status: Option<models::ProviderStatusType>,
-        use_events: Option<bool>,
-        r#type: Option<models::ProviderType>,
-        enabled: Option<bool>,
-        creation_date: Option<String>,
-        revision_date: Option<String>,
-        gateway: Option<models::GatewayType>,
-        gateway_customer_id: Option<&'a str>,
-        gateway_subscription_id: Option<&'a str>,
-        discount_id: Option<&'a str>,
-    ) -> Result<(), Error<GetPaymentMethodError>> {
+    async fn get_payment_method<'a>(&self, provider_id: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -626,115 +145,12 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref param_value) = id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("id", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = name {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("name", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_name {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessName", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address1 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress1", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address2 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress2", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address3 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress3", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_country {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessCountry", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_tax_number {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessTaxNumber", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = billing_email {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("billingEmail", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = billing_phone {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("billingPhone", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = status {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("status", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = use_events {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("useEvents", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = r#type {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("type", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = enabled {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("enabled", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = creation_date {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("creationDate", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = revision_date {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("revisionDate", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gateway", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway_customer_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway_subscription_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = discount_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("discountId", &param_value.to_string())]);
-        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_warnings<'a>(
-        &self,
-        provider_id: &'a str,
-        id: Option<uuid::Uuid>,
-        name: Option<&'a str>,
-        business_name: Option<&'a str>,
-        business_address1: Option<&'a str>,
-        business_address2: Option<&'a str>,
-        business_address3: Option<&'a str>,
-        business_country: Option<&'a str>,
-        business_tax_number: Option<&'a str>,
-        billing_email: Option<&'a str>,
-        billing_phone: Option<&'a str>,
-        status: Option<models::ProviderStatusType>,
-        use_events: Option<bool>,
-        r#type: Option<models::ProviderType>,
-        enabled: Option<bool>,
-        creation_date: Option<String>,
-        revision_date: Option<String>,
-        gateway: Option<models::GatewayType>,
-        gateway_customer_id: Option<&'a str>,
-        gateway_subscription_id: Option<&'a str>,
-        discount_id: Option<&'a str>,
-    ) -> Result<(), Error<GetWarningsError>> {
+    async fn get_warnings<'a>(&self, provider_id: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -747,86 +163,6 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        if let Some(ref param_value) = id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("id", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = name {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("name", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_name {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessName", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address1 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress1", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address2 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress2", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address3 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress3", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_country {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessCountry", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_tax_number {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessTaxNumber", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = billing_email {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("billingEmail", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = billing_phone {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("billingPhone", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = status {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("status", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = use_events {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("useEvents", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = r#type {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("type", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = enabled {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("enabled", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = creation_date {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("creationDate", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = revision_date {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("revisionDate", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gateway", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway_customer_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway_subscription_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = discount_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("discountId", &param_value.to_string())]);
-        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
@@ -835,28 +171,8 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
     async fn update_billing_address<'a>(
         &self,
         provider_id: &'a str,
-        id: Option<uuid::Uuid>,
-        name: Option<&'a str>,
-        business_name: Option<&'a str>,
-        business_address1: Option<&'a str>,
-        business_address2: Option<&'a str>,
-        business_address3: Option<&'a str>,
-        business_country: Option<&'a str>,
-        business_tax_number: Option<&'a str>,
-        billing_email: Option<&'a str>,
-        billing_phone: Option<&'a str>,
-        status: Option<models::ProviderStatusType>,
-        use_events: Option<bool>,
-        r#type: Option<models::ProviderType>,
-        enabled: Option<bool>,
-        creation_date: Option<String>,
-        revision_date: Option<String>,
-        gateway: Option<models::GatewayType>,
-        gateway_customer_id: Option<&'a str>,
-        gateway_subscription_id: Option<&'a str>,
-        discount_id: Option<&'a str>,
         billing_address_request: Option<models::BillingAddressRequest>,
-    ) -> Result<(), Error<UpdateBillingAddressError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -869,86 +185,6 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref param_value) = id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("id", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = name {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("name", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_name {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessName", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address1 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress1", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address2 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress2", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address3 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress3", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_country {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessCountry", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_tax_number {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessTaxNumber", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = billing_email {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("billingEmail", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = billing_phone {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("billingPhone", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = status {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("status", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = use_events {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("useEvents", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = r#type {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("type", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = enabled {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("enabled", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = creation_date {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("creationDate", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = revision_date {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("revisionDate", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gateway", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway_customer_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway_subscription_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = discount_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("discountId", &param_value.to_string())]);
-        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&billing_address_request);
 
@@ -958,28 +194,8 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
     async fn update_payment_method<'a>(
         &self,
         provider_id: &'a str,
-        id: Option<uuid::Uuid>,
-        name: Option<&'a str>,
-        business_name: Option<&'a str>,
-        business_address1: Option<&'a str>,
-        business_address2: Option<&'a str>,
-        business_address3: Option<&'a str>,
-        business_country: Option<&'a str>,
-        business_tax_number: Option<&'a str>,
-        billing_email: Option<&'a str>,
-        billing_phone: Option<&'a str>,
-        status: Option<models::ProviderStatusType>,
-        use_events: Option<bool>,
-        r#type: Option<models::ProviderType>,
-        enabled: Option<bool>,
-        creation_date: Option<String>,
-        revision_date: Option<String>,
-        gateway: Option<models::GatewayType>,
-        gateway_customer_id: Option<&'a str>,
-        gateway_subscription_id: Option<&'a str>,
-        discount_id: Option<&'a str>,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
-    ) -> Result<(), Error<UpdatePaymentMethodError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -992,132 +208,9 @@ impl ProviderBillingVNextApi for ProviderBillingVNextApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
-        if let Some(ref param_value) = id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("id", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = name {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("name", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_name {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessName", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address1 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress1", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address2 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress2", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_address3 {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessAddress3", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_country {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessCountry", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = business_tax_number {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("businessTaxNumber", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = billing_email {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("billingEmail", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = billing_phone {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("billingPhone", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = status {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("status", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = use_events {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("useEvents", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = r#type {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("type", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = enabled {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("enabled", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = creation_date {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("creationDate", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = revision_date {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("revisionDate", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gateway", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway_customer_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = gateway_subscription_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
-        }
-        if let Some(ref param_value) = discount_id {
-            local_var_req_builder =
-                local_var_req_builder.query(&[("discountId", &param_value.to_string())]);
-        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&tokenized_payment_method_request);
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`ProviderBillingVNextApi::add_credit_via_bit_pay`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AddCreditViaBitPayError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderBillingVNextApi::get_billing_address`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetBillingAddressError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderBillingVNextApi::get_credit`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetCreditError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderBillingVNextApi::get_payment_method`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetPaymentMethodError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderBillingVNextApi::get_warnings`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetWarningsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderBillingVNextApi::update_billing_address`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateBillingAddressError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ProviderBillingVNextApi::update_payment_method`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdatePaymentMethodError {
-    UnknownValue(serde_json::Value),
 }

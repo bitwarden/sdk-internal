@@ -2,8 +2,10 @@
 mod crypto;
 mod data;
 mod partial_rotateable_keyset;
+mod rotate_user_keys;
 mod sync;
 mod unlock;
+mod unlock_method;
 
 use bitwarden_api_api::models::RotateUserAccountKeysAndDataRequestModel;
 use bitwarden_core::key_management::{MasterPasswordAuthenticationData, SymmetricKeyId};
@@ -20,11 +22,12 @@ use wasm_bindgen::prelude::*;
 use crate::{
     UserCryptoManagementClient,
     key_rotation::{
-        crypto::rotate_account_cryptographic_state,
+        crypto::rotate_account_cryptographic_state_to_request_model,
         data::reencrypt_data,
         unlock::{
-            ReencryptUnlockInput, V1EmergencyAccessMembership, V1OrganizationMembership,
-            reencrypt_unlock,
+            ReencryptCommonUnlockDataInput, ReencryptMasterPasswordChangeAndUnlockInput,
+            V1EmergencyAccessMembership, V1OrganizationMembership,
+            reencrypt_master_password_change_unlock_data,
         },
     },
 };
@@ -111,6 +114,8 @@ pub enum RotateUserKeysError {
     InvalidPublicKey,
     #[error("Untrusted key encountered during key rotation")]
     UntrustedKeyError,
+    #[error("Unimplemented key rotation method")]
+    UnimplementedKeyRotationMethod,
 }
 
 struct UntrustedKeyError;
@@ -200,7 +205,7 @@ async fn post_rotate_user_keys(
             ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
         info!("Rotating account cryptographic state for user key rotation");
-        let account_keys_model = rotate_account_cryptographic_state(
+        let account_keys_model = rotate_account_cryptographic_state_to_request_model(
             &sync.wrapped_account_cryptographic_state,
             &current_user_key_id,
             &new_user_key_id,
@@ -220,34 +225,27 @@ async fn post_rotate_user_keys(
         .map_err(|_| RotateUserKeysError::CryptoError)?;
 
         info!("Re-encrypting account unlock data for user key rotation");
-        let unlock_data_model = reencrypt_unlock(
-            ReencryptUnlockInput {
-                master_key_unlock_method: match master_key_unlock_method {
-                    MasterkeyUnlockMethod::Password {
-                        old_password: _,
-                        ref password,
-                        ref hint,
-                    } => {
-                        let (kdf, salt) = sync
-                            .kdf_and_salt
-                            .clone()
-                            .ok_or(RotateUserKeysError::ApiError)?;
-                        unlock::MasterkeyUnlockMethod::Password {
-                            password: password.to_owned(),
-                            hint: hint.to_owned(),
-                            kdf,
-                            salt,
-                        }
-                    }
-                    MasterkeyUnlockMethod::KeyConnector => {
-                        unlock::MasterkeyUnlockMethod::KeyConnector
-                    }
-                    MasterkeyUnlockMethod::None => unlock::MasterkeyUnlockMethod::None,
+        let MasterkeyUnlockMethod::Password {
+            old_password,
+            password,
+            hint,
+        } = master_key_unlock_method
+        else {
+            return Err(RotateUserKeysError::UnimplementedKeyRotationMethod);
+        };
+        let (kdf, salt) = sync.kdf_and_salt.ok_or(RotateUserKeysError::ApiError)?;
+        let unlock_data_model = reencrypt_master_password_change_unlock_data(
+            ReencryptMasterPasswordChangeAndUnlockInput {
+                password,
+                hint,
+                kdf: kdf.clone(),
+                salt: salt.clone(),
+                common_unlock_data: ReencryptCommonUnlockDataInput {
+                    trusted_devices: sync.trusted_devices,
+                    webauthn_credentials: sync.passkeys,
+                    trusted_organization_keys: v1_organization_memberships,
+                    trusted_emergency_access_keys: v1_emergency_access_memberships,
                 },
-                trusted_devices: sync.trusted_devices,
-                webauthn_credentials: sync.passkeys,
-                trusted_organization_keys: v1_organization_memberships,
-                trusted_emergency_access_keys: v1_emergency_access_memberships,
             },
             current_user_key_id,
             new_user_key_id,
@@ -255,36 +253,13 @@ async fn post_rotate_user_keys(
         )
         .map_err(|_| RotateUserKeysError::CryptoError)?;
 
-        let old_masterpassword_authentication_data = match master_key_unlock_method {
-            MasterkeyUnlockMethod::Password {
-                old_password,
-                password: _,
-                hint: _,
-            } => {
-                let (kdf, salt) = sync
-                    .kdf_and_salt
-                    .clone()
-                    .ok_or(RotateUserKeysError::ApiError)?;
-                let authentication_data =
-                    MasterPasswordAuthenticationData::derive(&old_password, &kdf, &salt)
-                        .map_err(|_| RotateUserKeysError::CryptoError)?;
-                Some(authentication_data)
-            }
-            MasterkeyUnlockMethod::KeyConnector => {
-                tracing::error!("Key-connector based key rotation is not yet implemented");
-                None
-            }
-            MasterkeyUnlockMethod::None => {
-                tracing::error!(
-                    "Key-rotation without master-key based unlock is not supported yet"
-                );
-                None
-            }
-        }
-        .expect("Master password authentication data is required for password-based key rotation");
+        let old_master_password_authentication_data =
+            MasterPasswordAuthenticationData::derive(&old_password, &kdf, &salt)
+                .map_err(|_| RotateUserKeysError::CryptoError)?;
+
         RotateUserAccountKeysAndDataRequestModel {
             old_master_key_authentication_hash: Some(
-                old_masterpassword_authentication_data
+                old_master_password_authentication_data
                     .master_password_authentication_hash
                     .to_string(),
             ),
