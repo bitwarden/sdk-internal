@@ -12,13 +12,13 @@ use coset::{
 };
 use ml_dsa::MlDsa65;
 
-use super::{SignatureAlgorithm, ed25519_verifying_key, key_id, mldsa65_verifying_key};
+use super::{SignatureAlgorithm, ed25519_verifying_key, key_id};
 use crate::{
     CoseKeyBytes, CryptoError,
     content_format::CoseKeyContentFormat,
     cose::CoseSerializable,
     error::{EncodingError, SignatureError},
-    keys::KeyId,
+    keys::KeyId, signing::mldsa65_verifying_key,
 };
 
 /// A `VerifyingKey` without the key id. This enum contains a variant for each supported signature

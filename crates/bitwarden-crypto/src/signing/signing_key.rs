@@ -12,7 +12,7 @@ use ml_dsa::{KeyGen as _, MlDsa65};
 use rand::RngCore;
 
 use super::{
-    SignatureAlgorithm, ed25519_signing_key, key_id, mldsa65_signing_key,
+    SignatureAlgorithm, ed25519_signing_key, key_id, mldsa_seed,
     verifying_key::{RawVerifyingKey, VerifyingKey},
 };
 use crate::{
@@ -142,90 +142,31 @@ impl SigningKey {
     }
 }
 
-impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
-    /// Serializes the signing key to a COSE-formatted byte array.
-    fn to_cose(&self) -> CoseKeyBytes {
-        match &self.inner {
-            RawSigningKey::Ed25519(key) => {
-                coset::CoseKeyBuilder::new_okp_key()
-                    .key_id((&self.id).into())
-                    .algorithm(Algorithm::EdDSA)
-                    .param(
-                        OkpKeyParameter::D.to_i64(), // Signing key
-                        Value::Bytes(key.to_bytes().into()),
-                    )
-                    .param(
-                        OkpKeyParameter::Crv.to_i64(), // Elliptic curve identifier
-                        Value::Integer(Integer::from(EllipticCurve::Ed25519.to_i64())),
-                    )
-                    .add_key_op(KeyOperation::Sign)
-                    .add_key_op(KeyOperation::Verify)
-                    .build()
-                    .to_vec()
-                    .expect("Signing key is always serializable")
-                    .into()
-            }
-            RawSigningKey::MlDsa65 {
-                seed,
-                verifying_key,
-                ..
-            } => {
-                // https://datatracker.ietf.org/doc/draft-ietf-cose-dilithium/
-                let key = CoseKey {
-                    key_id: (&self.id).into(),
-                    kty: coset::RegisteredLabel::Assigned(KeyType::AKP),
-                    alg: Some(coset::RegisteredLabelWithPrivate::Assigned(
-                        Algorithm::ML_DSA_65,
-                    )),
-                    key_ops: vec![coset::RegisteredLabel::Assigned(KeyOperation::Sign)]
-                        .into_iter()
-                        .collect(),
-                    params: vec![
-                        (
-                            coset::Label::Int(AkpKeyParameter::Priv.to_i64()),
-                            Value::Bytes(seed.to_vec()),
-                        ),
-                        (
-                            coset::Label::Int(AkpKeyParameter::Pub.to_i64()),
-                            Value::Bytes(verifying_key.encode().to_vec()),
-                        ),
-                    ],
-                    ..Default::default()
-                };
-                key.to_vec()
-                    .expect("Signing key is always serializable")
-                    .into()
-            }
-        }
-    }
+impl TryFrom<&CoseKey> for SigningKey {
+    type Error = EncodingError;
 
-    /// Deserializes a COSE-formatted byte array into a signing key.
-    fn from_cose(bytes: &CoseKeyBytes) -> Result<Self, EncodingError> {
-        let cose_key =
-            CoseKey::from_slice(bytes.as_ref()).map_err(|_| EncodingError::InvalidCoseEncoding)?;
-
+    fn try_from(cose_key: &CoseKey) -> Result<Self, Self::Error> {
         match (&cose_key.alg, &cose_key.kty) {
             (
                 Some(RegisteredLabelWithPrivate::Assigned(Algorithm::EdDSA)),
                 RegisteredLabel::Assigned(KeyType::OKP),
             ) => Ok(SigningKey {
-                id: key_id(&cose_key)?,
-                inner: RawSigningKey::Ed25519(Box::pin(ed25519_signing_key(&cose_key)?)),
+                id: key_id(cose_key)?,
+                inner: RawSigningKey::Ed25519(Box::pin(ed25519_signing_key(cose_key)?)),
             }),
             (
                 Some(RegisteredLabelWithPrivate::Assigned(Algorithm::ML_DSA_65)),
                 RegisteredLabel::Assigned(KeyType::AKP),
             ) => {
-                let seed = mldsa65_signing_key(&cose_key)?;
+                let seed = mldsa_seed(cose_key)?;
+                // Expand the seed into the full key pair.
                 let key_pair = MlDsa65::key_gen_internal(&seed.into());
-                let sk = key_pair.signing_key().clone();
-                let vk = key_pair.verifying_key().clone();
                 Ok(SigningKey {
-                    id: key_id(&cose_key)?,
+                    id: key_id(cose_key)?,
                     inner: RawSigningKey::MlDsa65 {
                         seed: Box::pin(seed),
-                        signing_key: Box::pin(sk),
-                        verifying_key: Box::pin(vk),
+                        signing_key: Box::pin(key_pair.signing_key().clone()),
+                        verifying_key: Box::pin(key_pair.verifying_key().clone()),
                     },
                 })
             }
@@ -233,6 +174,83 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
                 "COSE key type or algorithm",
             )),
         }
+    }
+}
+
+impl TryFrom<CoseKey> for SigningKey {
+    type Error = EncodingError;
+
+    fn try_from(cose_key: CoseKey) -> Result<Self, Self::Error> {
+        SigningKey::try_from(&cose_key)
+    }
+}
+
+impl From<&SigningKey> for CoseKey {
+    fn from(signing_key: &SigningKey) -> Self {
+        match &signing_key.inner {
+            RawSigningKey::Ed25519(key) => coset::CoseKeyBuilder::new_okp_key()
+                .key_id((&signing_key.id).into())
+                .algorithm(Algorithm::EdDSA)
+                .param(
+                    OkpKeyParameter::D.to_i64(),
+                    Value::Bytes(key.to_bytes().into()),
+                )
+                .param(
+                    OkpKeyParameter::Crv.to_i64(),
+                    Value::Integer(Integer::from(EllipticCurve::Ed25519.to_i64())),
+                )
+                .add_key_op(KeyOperation::Sign)
+                .add_key_op(KeyOperation::Verify)
+                .build(),
+            RawSigningKey::MlDsa65 {
+                seed,
+                verifying_key,
+                ..
+            } => CoseKey {
+                key_id: (&signing_key.id).into(),
+                kty: coset::RegisteredLabel::Assigned(KeyType::AKP),
+                alg: Some(coset::RegisteredLabelWithPrivate::Assigned(
+                    Algorithm::ML_DSA_65,
+                )),
+                key_ops: vec![coset::RegisteredLabel::Assigned(KeyOperation::Sign)]
+                    .into_iter()
+                    .collect(),
+                params: vec![
+                    (
+                        coset::Label::Int(AkpKeyParameter::Priv.to_i64()),
+                        Value::Bytes(seed.to_vec()),
+                    ),
+                    (
+                        coset::Label::Int(AkpKeyParameter::Pub.to_i64()),
+                        Value::Bytes(verifying_key.encode().to_vec()),
+                    ),
+                ],
+                ..Default::default()
+            },
+        }
+    }
+}
+
+impl From<SigningKey> for CoseKey {
+    fn from(signing_key: SigningKey) -> Self {
+        CoseKey::from(&signing_key)
+    }
+}
+
+impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
+    /// Serializes the signing key to a COSE-formatted byte array.
+    fn to_cose(&self) -> CoseKeyBytes {
+        CoseKey::from(self)
+            .to_vec()
+            .expect("Signing key is always serializable")
+            .into()
+    }
+
+    /// Deserializes a COSE-formatted byte array into a signing key.
+    fn from_cose(bytes: &CoseKeyBytes) -> Result<Self, EncodingError> {
+        let cose_key =
+            CoseKey::from_slice(bytes.as_ref()).map_err(|_| EncodingError::InvalidCoseEncoding)?;
+        SigningKey::try_from(cose_key)
     }
 }
 
