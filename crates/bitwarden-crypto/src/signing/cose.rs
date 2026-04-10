@@ -175,9 +175,7 @@ fn akp_pub(cose_key: &CoseKey) -> Result<&[u8], EncodingError> {
 
 /// Helper function to parse an ML-DSA-65 signing key from a `CoseKey`. The `Priv` parameter
 /// contains the 32-byte seed, from which the full key pair is deterministically derived.
-pub(super) fn mldsa_seed(
-    cose_key: &CoseKey,
-) -> Result<[u8; ML_DSA_SEED_SIZE], EncodingError> {
+pub(super) fn mldsa_seed(cose_key: &CoseKey) -> Result<[u8; ML_DSA_SEED_SIZE], EncodingError> {
     let priv_bytes = akp_priv(cose_key)?;
     let seed: [u8; ML_DSA_SEED_SIZE] = priv_bytes
         .try_into()

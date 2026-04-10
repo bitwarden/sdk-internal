@@ -18,7 +18,8 @@ use crate::{
     content_format::CoseKeyContentFormat,
     cose::CoseSerializable,
     error::{EncodingError, SignatureError},
-    keys::KeyId, signing::mldsa65_verifying_key,
+    keys::KeyId,
+    signing::mldsa65_verifying_key,
 };
 
 /// A `VerifyingKey` without the key id. This enum contains a variant for each supported signature
