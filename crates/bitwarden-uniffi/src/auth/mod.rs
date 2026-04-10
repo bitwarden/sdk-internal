@@ -8,13 +8,20 @@ use bitwarden_crypto::{
 };
 use bitwarden_encoding::B64;
 
-use crate::error::Result;
+use crate::{auth::registration::RegistrationClient, error::Result};
+
+mod registration;
 
 #[derive(uniffi::Object)]
 pub struct AuthClient(pub(crate) bitwarden_core::Client);
 
 #[uniffi::export(async_runtime = "tokio")]
 impl AuthClient {
+    /// Client for initializing user account cryptography and unlock methods after JIT provisioning
+    pub fn registration(&self) -> RegistrationClient {
+        RegistrationClient(self.0.clone())
+    }
+
     /// Calculate Password Strength
     pub fn password_strength(
         &self,
