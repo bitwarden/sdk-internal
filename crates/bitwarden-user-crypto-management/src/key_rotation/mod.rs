@@ -2,16 +2,19 @@
 mod crypto;
 mod data;
 mod partial_rotateable_keyset;
+mod rotate_user_keys;
+mod rotation_context;
 mod sync;
 mod unlock;
+mod unlock_method;
 
 use bitwarden_api_api::models::RotateUserAccountKeysAndDataRequestModel;
-use bitwarden_core::key_management::{MasterPasswordAuthenticationData, SymmetricKeyId};
+use bitwarden_core::key_management::MasterPasswordAuthenticationData;
 use bitwarden_crypto::PublicKey;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tracing::{debug, info, info_span, warn};
+use tracing::{info, info_span};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 #[cfg(feature = "wasm")]
@@ -20,8 +23,9 @@ use wasm_bindgen::prelude::*;
 use crate::{
     UserCryptoManagementClient,
     key_rotation::{
-        crypto::rotate_account_cryptographic_state,
+        crypto::rotate_account_cryptographic_state_to_request_model,
         data::reencrypt_data,
+        rotation_context::make_rotation_context,
         unlock::{
             ReencryptCommonUnlockDataInput, ReencryptMasterPasswordChangeAndUnlockInput,
             V1EmergencyAccessMembership, V1OrganizationMembership,
@@ -116,50 +120,6 @@ pub enum RotateUserKeysError {
     UnimplementedKeyRotationMethod,
 }
 
-struct UntrustedKeyError;
-
-fn filter_trusted_organization(
-    org: &[V1OrganizationMembership],
-    trusted_orgs: &[PublicKey],
-) -> Result<Vec<V1OrganizationMembership>, UntrustedKeyError> {
-    org.iter()
-        .map(|o| {
-            let is_trusted = trusted_orgs.iter().any(|tk| tk == &o.public_key);
-            if !is_trusted {
-                warn!(
-                    "Filtering out untrusted organization with id={}",
-                    o.organization_id
-                );
-                Err(UntrustedKeyError)
-            } else {
-                Ok(o.clone())
-            }
-        })
-        .collect::<Result<Vec<V1OrganizationMembership>, UntrustedKeyError>>()
-}
-
-fn filter_trusted_emergency_access(
-    ea: &[V1EmergencyAccessMembership],
-    trusted_emergency_access_user_public_keys: &[PublicKey],
-) -> Result<Vec<V1EmergencyAccessMembership>, UntrustedKeyError> {
-    ea.iter()
-        .map(|e| {
-            let is_trusted = trusted_emergency_access_user_public_keys
-                .iter()
-                .any(|tk| tk == &e.public_key);
-            if !is_trusted {
-                warn!(
-                    "Filtering out untrusted emergency access membership with id={}",
-                    e.id
-                );
-                Err(UntrustedKeyError)
-            } else {
-                Ok(e.to_owned())
-            }
-        })
-        .collect::<Result<Vec<V1EmergencyAccessMembership>, UntrustedKeyError>>()
-}
-
 async fn post_rotate_user_keys(
     registration_client: &UserCryptoManagementClient,
     api_client: &bitwarden_api_api::apis::ApiClient,
@@ -179,34 +139,18 @@ async fn post_rotate_user_keys(
     let request = {
         let mut ctx = key_store.context_mut();
 
-        // Filter organization memberships and emergency access memberships to only include trusted
-        // keys
-        let v1_organization_memberships = filter_trusted_organization(
-            sync.organization_memberships.as_slice(),
+        let rotation_context = make_rotation_context(
+            &sync,
             trusted_organization_public_keys,
-        )
-        .map_err(|_| RotateUserKeysError::UntrustedKey)?;
-        let v1_emergency_access_memberships = filter_trusted_emergency_access(
-            sync.emergency_access_memberships.as_slice(),
             trusted_emergency_access_public_keys,
-        )
-        .map_err(|_| RotateUserKeysError::UntrustedKey)?;
-
-        info!(
-            "Existing user cryptographic version {:?}",
-            sync.wrapped_account_cryptographic_state
-        );
-        let current_user_key_id = SymmetricKeyId::User;
-
-        debug!("Generating new xchacha20-poly1305 user key for key rotation");
-        let new_user_key_id =
-            ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            &mut ctx,
+        )?;
 
         info!("Rotating account cryptographic state for user key rotation");
-        let account_keys_model = rotate_account_cryptographic_state(
+        let account_keys_model = rotate_account_cryptographic_state_to_request_model(
             &sync.wrapped_account_cryptographic_state,
-            &current_user_key_id,
-            &new_user_key_id,
+            &rotation_context.current_user_key_id,
+            &rotation_context.new_user_key_id,
             &mut ctx,
         )
         .map_err(|_| RotateUserKeysError::Crypto)?;
@@ -216,8 +160,8 @@ async fn post_rotate_user_keys(
             sync.folders.as_slice(),
             sync.ciphers.as_slice(),
             sync.sends.as_slice(),
-            current_user_key_id,
-            new_user_key_id,
+            rotation_context.current_user_key_id,
+            rotation_context.new_user_key_id,
             &mut ctx,
         )
         .map_err(|_| RotateUserKeysError::Crypto)?;
@@ -241,12 +185,12 @@ async fn post_rotate_user_keys(
                 common_unlock_data: ReencryptCommonUnlockDataInput {
                     trusted_devices: sync.trusted_devices,
                     webauthn_credentials: sync.passkeys,
-                    trusted_organization_keys: v1_organization_memberships,
-                    trusted_emergency_access_keys: v1_emergency_access_memberships,
+                    trusted_organization_keys: rotation_context.v1_organization_memberships,
+                    trusted_emergency_access_keys: rotation_context.v1_emergency_access_memberships,
                 },
             },
-            current_user_key_id,
-            new_user_key_id,
+            rotation_context.current_user_key_id,
+            rotation_context.new_user_key_id,
             &mut ctx,
         )
         .map_err(|_| RotateUserKeysError::Crypto)?;

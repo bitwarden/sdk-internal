@@ -31,19 +31,13 @@ pub trait OrganizationBillingApi: Send + Sync {
         &self,
         organization_id: uuid::Uuid,
         change_plan_frequency_request: Option<models::ChangePlanFrequencyRequest>,
-    ) -> Result<(), Error<ChangePlanSubscriptionFrequencyError>>;
+    ) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/billing
-    async fn get_billing<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-    ) -> Result<(), Error<GetBillingError>>;
+    async fn get_billing<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/billing/history
-    async fn get_history<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-    ) -> Result<(), Error<GetHistoryError>>;
+    async fn get_history<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/billing/invoices
     async fn get_invoices<'a>(
@@ -51,21 +45,21 @@ pub trait OrganizationBillingApi: Send + Sync {
         organization_id: uuid::Uuid,
         status: Option<&'a str>,
         start_after: Option<&'a str>,
-    ) -> Result<(), Error<GetInvoicesError>>;
+    ) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/billing/transactions
     async fn get_transactions<'a>(
         &self,
         organization_id: uuid::Uuid,
         start_after: Option<String>,
-    ) -> Result<(), Error<GetTransactionsError>>;
+    ) -> Result<(), Error>;
 
     /// POST /organizations/{organizationId}/billing/setup-business-unit
     async fn setup_business_unit<'a>(
         &self,
         organization_id: uuid::Uuid,
         setup_business_unit_request_body: Option<models::SetupBusinessUnitRequestBody>,
-    ) -> Result<(), Error<SetupBusinessUnitError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct OrganizationBillingApiClient {
@@ -85,7 +79,7 @@ impl OrganizationBillingApi for OrganizationBillingApiClient {
         &self,
         organization_id: uuid::Uuid,
         change_plan_frequency_request: Option<models::ChangePlanFrequencyRequest>,
-    ) -> Result<(), Error<ChangePlanSubscriptionFrequencyError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -104,10 +98,7 @@ impl OrganizationBillingApi for OrganizationBillingApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_billing<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-    ) -> Result<(), Error<GetBillingError>> {
+    async fn get_billing<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -125,10 +116,7 @@ impl OrganizationBillingApi for OrganizationBillingApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_history<'a>(
-        &self,
-        organization_id: uuid::Uuid,
-    ) -> Result<(), Error<GetHistoryError>> {
+    async fn get_history<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -151,7 +139,7 @@ impl OrganizationBillingApi for OrganizationBillingApiClient {
         organization_id: uuid::Uuid,
         status: Option<&'a str>,
         start_after: Option<&'a str>,
-    ) -> Result<(), Error<GetInvoicesError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -181,7 +169,7 @@ impl OrganizationBillingApi for OrganizationBillingApiClient {
         &self,
         organization_id: uuid::Uuid,
         start_after: Option<String>,
-    ) -> Result<(), Error<GetTransactionsError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -207,7 +195,7 @@ impl OrganizationBillingApi for OrganizationBillingApiClient {
         &self,
         organization_id: uuid::Uuid,
         setup_business_unit_request_body: Option<models::SetupBusinessUnitRequestBody>,
-    ) -> Result<(), Error<SetupBusinessUnitError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -225,41 +213,4 @@ impl OrganizationBillingApi for OrganizationBillingApiClient {
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`OrganizationBillingApi::change_plan_subscription_frequency`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ChangePlanSubscriptionFrequencyError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingApi::get_billing`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetBillingError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingApi::get_history`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetHistoryError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingApi::get_invoices`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetInvoicesError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingApi::get_transactions`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetTransactionsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationBillingApi::setup_business_unit`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum SetupBusinessUnitError {
-    UnknownValue(serde_json::Value),
 }

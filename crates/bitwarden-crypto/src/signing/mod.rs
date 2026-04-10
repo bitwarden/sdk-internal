@@ -63,6 +63,14 @@ impl SignatureAlgorithm {
     }
 }
 
+impl std::fmt::Display for SignatureAlgorithm {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SignatureAlgorithm::Ed25519 => write!(f, "ed25519"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
