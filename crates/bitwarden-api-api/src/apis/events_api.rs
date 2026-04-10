@@ -33,7 +33,7 @@ pub trait EventsApi: Send + Sync {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetCipherError>>;
+    ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{id}/events
     async fn get_organization<'a>(
@@ -42,17 +42,17 @@ pub trait EventsApi: Send + Sync {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetOrganizationError>>;
+    ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{orgId}/users/{id}/events
     async fn get_organization_user<'a>(
         &self,
-        org_id: &'a str,
-        id: &'a str,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetOrganizationUserError>>;
+    ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
     /// GET /organization/{orgId}/projects/{id}/events
     async fn get_projects<'a>(
@@ -62,7 +62,7 @@ pub trait EventsApi: Send + Sync {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetProjectsError>>;
+    ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
     /// GET /providers/{providerId}/events
     async fn get_provider<'a>(
@@ -71,7 +71,7 @@ pub trait EventsApi: Send + Sync {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetProviderError>>;
+    ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
     /// GET /providers/{providerId}/users/{id}/events
     async fn get_provider_user<'a>(
@@ -81,7 +81,7 @@ pub trait EventsApi: Send + Sync {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetProviderUserError>>;
+    ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
     /// GET /organization/{orgId}/secrets/{id}/events
     async fn get_secrets<'a>(
@@ -91,7 +91,7 @@ pub trait EventsApi: Send + Sync {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetSecretsError>>;
+    ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
     /// GET /organization/{orgId}/service-account/{id}/events
     async fn get_service_accounts<'a>(
@@ -101,7 +101,7 @@ pub trait EventsApi: Send + Sync {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetServiceAccountsError>>;
+    ) -> Result<models::EventResponseModelListResponseModel, Error>;
 
     /// GET /events
     async fn get_user<'a>(
@@ -109,7 +109,7 @@ pub trait EventsApi: Send + Sync {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetUserError>>;
+    ) -> Result<models::EventResponseModelListResponseModel, Error>;
 }
 
 pub struct EventsApiClient {
@@ -131,7 +131,7 @@ impl EventsApi for EventsApiClient {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetCipherError>> {
+    ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -158,41 +158,7 @@ impl EventsApi for EventsApiClient {
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::EventResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::EventResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetCipherError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_organization<'a>(
@@ -201,7 +167,7 @@ impl EventsApi for EventsApiClient {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetOrganizationError>> {
+    ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -228,51 +194,17 @@ impl EventsApi for EventsApiClient {
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::EventResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::EventResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetOrganizationError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_organization_user<'a>(
         &self,
-        org_id: &'a str,
-        id: &'a str,
+        org_id: uuid::Uuid,
+        id: uuid::Uuid,
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetOrganizationUserError>> {
+    ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -280,8 +212,8 @@ impl EventsApi for EventsApiClient {
         let local_var_uri_str = format!(
             "{}/organizations/{orgId}/users/{id}/events",
             local_var_configuration.base_path,
-            orgId = crate::apis::urlencode(org_id),
-            id = crate::apis::urlencode(id)
+            orgId = org_id,
+            id = id
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
@@ -300,41 +232,7 @@ impl EventsApi for EventsApiClient {
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::EventResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::EventResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetOrganizationUserError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_projects<'a>(
@@ -344,7 +242,7 @@ impl EventsApi for EventsApiClient {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetProjectsError>> {
+    ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -372,41 +270,7 @@ impl EventsApi for EventsApiClient {
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::EventResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::EventResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetProjectsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_provider<'a>(
@@ -415,7 +279,7 @@ impl EventsApi for EventsApiClient {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetProviderError>> {
+    ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -442,41 +306,7 @@ impl EventsApi for EventsApiClient {
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::EventResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::EventResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetProviderError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_provider_user<'a>(
@@ -486,7 +316,7 @@ impl EventsApi for EventsApiClient {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetProviderUserError>> {
+    ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -514,41 +344,7 @@ impl EventsApi for EventsApiClient {
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::EventResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::EventResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetProviderUserError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_secrets<'a>(
@@ -558,7 +354,7 @@ impl EventsApi for EventsApiClient {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetSecretsError>> {
+    ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -586,41 +382,7 @@ impl EventsApi for EventsApiClient {
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::EventResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::EventResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetSecretsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_service_accounts<'a>(
@@ -630,7 +392,7 @@ impl EventsApi for EventsApiClient {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetServiceAccountsError>> {
+    ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -658,41 +420,7 @@ impl EventsApi for EventsApiClient {
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::EventResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::EventResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetServiceAccountsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_user<'a>(
@@ -700,7 +428,7 @@ impl EventsApi for EventsApiClient {
         start: Option<String>,
         end: Option<String>,
         continuation_token: Option<&'a str>,
-    ) -> Result<models::EventResponseModelListResponseModel, Error<GetUserError>> {
+    ) -> Result<models::EventResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -723,95 +451,6 @@ impl EventsApi for EventsApiClient {
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::EventResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::EventResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetUserError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`EventsApi::get_cipher`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetCipherError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`EventsApi::get_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetOrganizationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`EventsApi::get_organization_user`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetOrganizationUserError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`EventsApi::get_projects`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetProjectsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`EventsApi::get_provider`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetProviderError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`EventsApi::get_provider_user`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetProviderUserError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`EventsApi::get_secrets`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetSecretsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`EventsApi::get_service_accounts`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetServiceAccountsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`EventsApi::get_user`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetUserError {
-    UnknownValue(serde_json::Value),
 }

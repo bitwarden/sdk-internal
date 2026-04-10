@@ -39,7 +39,8 @@ pub(crate) async fn login_access_token(
                     organization_id,
                     state_file: Some(state_file.to_path_buf()),
                 },
-            ));
+            ))
+            .await;
 
         return Ok(AccessTokenLoginResponse {
             authenticated: true,
@@ -98,7 +99,8 @@ pub(crate) async fn login_access_token(
                     organization_id,
                     state_file: input.state_file.clone(),
                 },
-            ));
+            ))
+            .await;
     }
 
     AccessTokenLoginResponse::process_response(response)

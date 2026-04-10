@@ -3,7 +3,6 @@ use bitwarden_api_api::models::{
 };
 use bitwarden_core::{
     OrganizationId,
-    client::Client,
     key_management::{KeyIds, SymmetricKeyId},
     require,
 };
@@ -12,7 +11,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::error::SecretsManagerError;
+use crate::{SecretsManagerClient, error::SecretsManagerError};
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
@@ -23,9 +22,10 @@ pub struct SecretIdentifiersRequest {
 }
 
 pub(crate) async fn list_secrets(
-    client: &Client,
+    client: &SecretsManagerClient,
     input: &SecretIdentifiersRequest,
 ) -> Result<SecretIdentifiersResponse, SecretsManagerError> {
+    let client = client.client();
     let config = client.internal.get_api_configurations();
     let res = config
         .api_client
@@ -47,9 +47,10 @@ pub struct SecretIdentifiersByProjectRequest {
 }
 
 pub(crate) async fn list_secrets_by_project(
-    client: &Client,
+    client: &SecretsManagerClient,
     input: &SecretIdentifiersByProjectRequest,
 ) -> Result<SecretIdentifiersResponse, SecretsManagerError> {
+    let client = client.client();
     let config = client.internal.get_api_configurations();
     let res = config
         .api_client

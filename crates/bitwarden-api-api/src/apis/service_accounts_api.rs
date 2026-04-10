@@ -30,57 +30,54 @@ pub trait ServiceAccountsApi: Send + Sync {
     async fn bulk_delete<'a>(
         &self,
         uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-    ) -> Result<models::BulkDeleteResponseModelListResponseModel, Error<BulkDeleteError>>;
+    ) -> Result<models::BulkDeleteResponseModelListResponseModel, Error>;
 
     /// POST /organizations/{organizationId}/service-accounts
     async fn create<'a>(
         &self,
         organization_id: uuid::Uuid,
         service_account_create_request_model: Option<models::ServiceAccountCreateRequestModel>,
-    ) -> Result<models::ServiceAccountResponseModel, Error<CreateError>>;
+    ) -> Result<models::ServiceAccountResponseModel, Error>;
 
     /// POST /service-accounts/{id}/access-tokens
     async fn create_access_token<'a>(
         &self,
         id: uuid::Uuid,
         access_token_create_request_model: Option<models::AccessTokenCreateRequestModel>,
-    ) -> Result<models::AccessTokenCreationResponseModel, Error<CreateAccessTokenError>>;
+    ) -> Result<models::AccessTokenCreationResponseModel, Error>;
 
     /// GET /service-accounts/{id}/access-tokens
     async fn get_access_tokens<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::AccessTokenResponseModelListResponseModel, Error<GetAccessTokensError>>;
+    ) -> Result<models::AccessTokenResponseModelListResponseModel, Error>;
 
     /// GET /service-accounts/{id}
     async fn get_by_service_account_id<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::ServiceAccountResponseModel, Error<GetByServiceAccountIdError>>;
+    ) -> Result<models::ServiceAccountResponseModel, Error>;
 
     /// GET /organizations/{organizationId}/service-accounts
     async fn list_by_organization<'a>(
         &self,
         organization_id: uuid::Uuid,
         include_access_to_secrets: Option<bool>,
-    ) -> Result<
-        models::ServiceAccountSecretsDetailsResponseModelListResponseModel,
-        Error<ListByOrganizationError>,
-    >;
+    ) -> Result<models::ServiceAccountSecretsDetailsResponseModelListResponseModel, Error>;
 
     /// POST /service-accounts/{id}/access-tokens/revoke
     async fn revoke_access_tokens<'a>(
         &self,
         id: uuid::Uuid,
         revoke_access_tokens_request: Option<models::RevokeAccessTokensRequest>,
-    ) -> Result<(), Error<RevokeAccessTokensError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /service-accounts/{id}
     async fn update<'a>(
         &self,
         id: uuid::Uuid,
         service_account_update_request_model: Option<models::ServiceAccountUpdateRequestModel>,
-    ) -> Result<models::ServiceAccountResponseModel, Error<UpdateError>>;
+    ) -> Result<models::ServiceAccountResponseModel, Error>;
 }
 
 pub struct ServiceAccountsApiClient {
@@ -99,7 +96,7 @@ impl ServiceAccountsApi for ServiceAccountsApiClient {
     async fn bulk_delete<'a>(
         &self,
         uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-    ) -> Result<models::BulkDeleteResponseModelListResponseModel, Error<BulkDeleteError>> {
+    ) -> Result<models::BulkDeleteResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -114,48 +111,14 @@ impl ServiceAccountsApi for ServiceAccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&uuid_colon_colon_uuid);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::BulkDeleteResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::BulkDeleteResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<BulkDeleteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn create<'a>(
         &self,
         organization_id: uuid::Uuid,
         service_account_create_request_model: Option<models::ServiceAccountCreateRequestModel>,
-    ) -> Result<models::ServiceAccountResponseModel, Error<CreateError>> {
+    ) -> Result<models::ServiceAccountResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -171,48 +134,14 @@ impl ServiceAccountsApi for ServiceAccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&service_account_create_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ServiceAccountResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ServiceAccountResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<CreateError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn create_access_token<'a>(
         &self,
         id: uuid::Uuid,
         access_token_create_request_model: Option<models::AccessTokenCreateRequestModel>,
-    ) -> Result<models::AccessTokenCreationResponseModel, Error<CreateAccessTokenError>> {
+    ) -> Result<models::AccessTokenCreationResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -228,48 +157,13 @@ impl ServiceAccountsApi for ServiceAccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&access_token_create_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::AccessTokenCreationResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::AccessTokenCreationResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<CreateAccessTokenError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_access_tokens<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::AccessTokenResponseModelListResponseModel, Error<GetAccessTokensError>>
-    {
+    ) -> Result<models::AccessTokenResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -284,47 +178,13 @@ impl ServiceAccountsApi for ServiceAccountsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::AccessTokenResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::AccessTokenResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetAccessTokensError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_by_service_account_id<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::ServiceAccountResponseModel, Error<GetByServiceAccountIdError>> {
+    ) -> Result<models::ServiceAccountResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -339,51 +199,14 @@ impl ServiceAccountsApi for ServiceAccountsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ServiceAccountResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ServiceAccountResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetByServiceAccountIdError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn list_by_organization<'a>(
         &self,
         organization_id: uuid::Uuid,
         include_access_to_secrets: Option<bool>,
-    ) -> Result<
-        models::ServiceAccountSecretsDetailsResponseModelListResponseModel,
-        Error<ListByOrganizationError>,
-    > {
+    ) -> Result<models::ServiceAccountSecretsDetailsResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -402,48 +225,14 @@ impl ServiceAccountsApi for ServiceAccountsApiClient {
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ServiceAccountSecretsDetailsResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ServiceAccountSecretsDetailsResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<ListByOrganizationError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn revoke_access_tokens<'a>(
         &self,
         id: uuid::Uuid,
         revoke_access_tokens_request: Option<models::RevokeAccessTokensRequest>,
-    ) -> Result<(), Error<RevokeAccessTokensError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -459,30 +248,14 @@ impl ServiceAccountsApi for ServiceAccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&revoke_access_tokens_request);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<RevokeAccessTokensError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn update<'a>(
         &self,
         id: uuid::Uuid,
         service_account_update_request_model: Option<models::ServiceAccountUpdateRequestModel>,
-    ) -> Result<models::ServiceAccountResponseModel, Error<UpdateError>> {
+    ) -> Result<models::ServiceAccountResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -498,89 +271,6 @@ impl ServiceAccountsApi for ServiceAccountsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&service_account_update_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::ServiceAccountResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ServiceAccountResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<UpdateError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`ServiceAccountsApi::bulk_delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkDeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ServiceAccountsApi::create`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ServiceAccountsApi::create_access_token`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateAccessTokenError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ServiceAccountsApi::get_access_tokens`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAccessTokensError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ServiceAccountsApi::get_by_service_account_id`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetByServiceAccountIdError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ServiceAccountsApi::list_by_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ListByOrganizationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ServiceAccountsApi::revoke_access_tokens`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RevokeAccessTokensError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ServiceAccountsApi::update`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateError {
-    UnknownValue(serde_json::Value),
 }

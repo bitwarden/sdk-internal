@@ -30,7 +30,7 @@ pub trait ImportCiphersApi: Send + Sync {
     async fn post_import<'a>(
         &self,
         import_ciphers_request_model: Option<models::ImportCiphersRequestModel>,
-    ) -> Result<(), Error<PostImportError>>;
+    ) -> Result<(), Error>;
 
     /// POST /ciphers/import-organization
     async fn post_import_organization<'a>(
@@ -39,7 +39,7 @@ pub trait ImportCiphersApi: Send + Sync {
         import_organization_ciphers_request_model: Option<
             models::ImportOrganizationCiphersRequestModel,
         >,
-    ) -> Result<(), Error<PostImportOrganizationError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct ImportCiphersApiClient {
@@ -58,7 +58,7 @@ impl ImportCiphersApi for ImportCiphersApiClient {
     async fn post_import<'a>(
         &self,
         import_ciphers_request_model: Option<models::ImportCiphersRequestModel>,
-    ) -> Result<(), Error<PostImportError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -70,23 +70,7 @@ impl ImportCiphersApi for ImportCiphersApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&import_ciphers_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostImportError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn post_import_organization<'a>(
@@ -95,7 +79,7 @@ impl ImportCiphersApi for ImportCiphersApiClient {
         import_organization_ciphers_request_model: Option<
             models::ImportOrganizationCiphersRequestModel,
         >,
-    ) -> Result<(), Error<PostImportOrganizationError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -115,35 +99,6 @@ impl ImportCiphersApi for ImportCiphersApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&import_organization_ciphers_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<PostImportOrganizationError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`ImportCiphersApi::post_import`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostImportError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`ImportCiphersApi::post_import_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostImportOrganizationError {
-    UnknownValue(serde_json::Value),
 }
