@@ -280,6 +280,7 @@ impl CiphersClient {
             .client
             .internal
             .get_flags()
+            .await
             .enable_cipher_key_encryption
         {
             let key = internal_request.key_identifier();

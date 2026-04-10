@@ -30,10 +30,10 @@ pub trait AccountBillingVNextApi: Send + Sync {
     async fn add_credit_via_bit_pay<'a>(
         &self,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
-    ) -> Result<(), Error<AddCreditViaBitPayError>>;
+    ) -> Result<(), Error>;
 
     /// POST /account/billing/vnext/portal-session
-    async fn create_portal_session(&self) -> Result<(), Error<CreatePortalSessionError>>;
+    async fn create_portal_session(&self) -> Result<(), Error>;
 
     /// POST /account/billing/vnext/premium/checkout
     async fn create_premium_checkout_session<'a>(
@@ -41,7 +41,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         create_premium_checkout_session_request: Option<
             models::CreatePremiumCheckoutSessionRequest,
         >,
-    ) -> Result<(), Error<CreatePremiumCheckoutSessionError>>;
+    ) -> Result<(), Error>;
 
     /// POST /account/billing/vnext/subscription
     async fn create_subscription<'a>(
@@ -49,37 +49,37 @@ pub trait AccountBillingVNextApi: Send + Sync {
         premium_cloud_hosted_subscription_request: Option<
             models::PremiumCloudHostedSubscriptionRequest,
         >,
-    ) -> Result<(), Error<CreateSubscriptionError>>;
+    ) -> Result<(), Error>;
 
     /// GET /account/billing/vnext/discounts
-    async fn get_applicable_discounts(&self) -> Result<(), Error<GetApplicableDiscountsError>>;
+    async fn get_applicable_discounts(&self) -> Result<(), Error>;
 
     /// GET /account/billing/vnext/credit
-    async fn get_credit(&self) -> Result<(), Error<GetCreditError>>;
+    async fn get_credit(&self) -> Result<(), Error>;
 
     /// GET /account/billing/vnext/license
-    async fn get_license(&self) -> Result<(), Error<GetLicenseError>>;
+    async fn get_license(&self) -> Result<(), Error>;
 
     /// GET /account/billing/vnext/payment-method
-    async fn get_payment_method(&self) -> Result<(), Error<GetPaymentMethodError>>;
+    async fn get_payment_method(&self) -> Result<(), Error>;
 
     /// GET /account/billing/vnext/subscription
-    async fn get_subscription(&self) -> Result<(), Error<GetSubscriptionError>>;
+    async fn get_subscription(&self) -> Result<(), Error>;
 
     /// POST /account/billing/vnext/subscription/reinstate
-    async fn reinstate_subscription(&self) -> Result<(), Error<ReinstateSubscriptionError>>;
+    async fn reinstate_subscription(&self) -> Result<(), Error>;
 
     /// PUT /account/billing/vnext/payment-method
     async fn update_payment_method<'a>(
         &self,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
-    ) -> Result<(), Error<UpdatePaymentMethodError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /account/billing/vnext/subscription/storage
     async fn update_subscription_storage<'a>(
         &self,
         storage_update_request: Option<models::StorageUpdateRequest>,
-    ) -> Result<(), Error<UpdateSubscriptionStorageError>>;
+    ) -> Result<(), Error>;
 
     /// POST /account/billing/vnext/upgrade
     async fn upgrade_premium_to_organization<'a>(
@@ -87,7 +87,7 @@ pub trait AccountBillingVNextApi: Send + Sync {
         upgrade_premium_to_organization_request: Option<
             models::UpgradePremiumToOrganizationRequest,
         >,
-    ) -> Result<(), Error<UpgradePremiumToOrganizationError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct AccountBillingVNextApiClient {
@@ -106,7 +106,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
     async fn add_credit_via_bit_pay<'a>(
         &self,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
-    ) -> Result<(), Error<AddCreditViaBitPayError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -124,7 +124,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn create_portal_session(&self) -> Result<(), Error<CreatePortalSessionError>> {
+    async fn create_portal_session(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -146,7 +146,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         create_premium_checkout_session_request: Option<
             models::CreatePremiumCheckoutSessionRequest,
         >,
-    ) -> Result<(), Error<CreatePremiumCheckoutSessionError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -170,7 +170,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         premium_cloud_hosted_subscription_request: Option<
             models::PremiumCloudHostedSubscriptionRequest,
         >,
-    ) -> Result<(), Error<CreateSubscriptionError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -189,7 +189,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_applicable_discounts(&self) -> Result<(), Error<GetApplicableDiscountsError>> {
+    async fn get_applicable_discounts(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -206,7 +206,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_credit(&self) -> Result<(), Error<GetCreditError>> {
+    async fn get_credit(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -223,7 +223,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_license(&self) -> Result<(), Error<GetLicenseError>> {
+    async fn get_license(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -240,7 +240,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_payment_method(&self) -> Result<(), Error<GetPaymentMethodError>> {
+    async fn get_payment_method(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -257,7 +257,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn get_subscription(&self) -> Result<(), Error<GetSubscriptionError>> {
+    async fn get_subscription(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -274,7 +274,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn reinstate_subscription(&self) -> Result<(), Error<ReinstateSubscriptionError>> {
+    async fn reinstate_subscription(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -294,7 +294,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
     async fn update_payment_method<'a>(
         &self,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
-    ) -> Result<(), Error<UpdatePaymentMethodError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -315,7 +315,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
     async fn update_subscription_storage<'a>(
         &self,
         storage_update_request: Option<models::StorageUpdateRequest>,
-    ) -> Result<(), Error<UpdateSubscriptionStorageError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -338,7 +338,7 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         upgrade_premium_to_organization_request: Option<
             models::UpgradePremiumToOrganizationRequest,
         >,
-    ) -> Result<(), Error<UpgradePremiumToOrganizationError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -356,83 +356,4 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`AccountBillingVNextApi::add_credit_via_bit_pay`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AddCreditViaBitPayError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::create_portal_session`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreatePortalSessionError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::create_premium_checkout_session`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreatePremiumCheckoutSessionError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::create_subscription`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateSubscriptionError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::get_applicable_discounts`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetApplicableDiscountsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::get_credit`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetCreditError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::get_license`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetLicenseError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::get_payment_method`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetPaymentMethodError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::get_subscription`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetSubscriptionError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::reinstate_subscription`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ReinstateSubscriptionError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::update_payment_method`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdatePaymentMethodError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::update_subscription_storage`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateSubscriptionStorageError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`AccountBillingVNextApi::upgrade_premium_to_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpgradePremiumToOrganizationError {
-    UnknownValue(serde_json::Value),
 }
