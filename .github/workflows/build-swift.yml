@@ -114,7 +114,7 @@ jobs:
           tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           client_id: ${{ secrets.AZURE_CLIENT_ID }}
 
-      - name: Retrieve github PAT secrets
+      - name: Retrieve github secrets
         id: retrieve-secret
         uses: bitwarden/gh-actions/get-keyvault-secrets@main
         with:
