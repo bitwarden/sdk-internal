@@ -22,7 +22,6 @@ pub(super) enum PrimaryUnlockMethod {
 }
 
 impl PrimaryUnlockMethod {
-    #[allow(dead_code)] // Will be used for user key rotation without master password change, remove once added.
     pub(super) fn from_key_rotation_method(
         method: KeyRotationMethod,
         synced_account_data: &SyncedAccountData,
@@ -48,7 +47,6 @@ impl PrimaryUnlockMethod {
 }
 
 /// Re-encrypt the unlock method data for the given input and new user key id.
-#[allow(dead_code)] // Will be used for user key rotation without master password change, remove once added.
 pub(super) fn reencrypt_unlock_method_data(
     input: PrimaryUnlockMethod,
     new_user_key_id: SymmetricKeyId,
