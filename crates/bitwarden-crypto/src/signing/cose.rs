@@ -10,7 +10,7 @@ use crate::{
     CryptoError, KEY_ID_SIZE,
     cose::SIGNING_NAMESPACE,
     error::{EncodingError, SignatureError},
-    keys::KeyId,
+    keys::KeyId, signing::signing_key::ML_DSA_SEED_SIZE,
 };
 
 /// Helper function to extract the namespace from a `ProtectedHeader`. The namespace is a custom
@@ -178,7 +178,7 @@ pub(super) fn mldsa65_signing_key(
     cose_key: &CoseKey,
 ) -> Result<
     (
-        Box<[u8; 32]>,
+        Box<[u8; ML_DSA_SEED_SIZE]>,
         ml_dsa::SigningKey<ml_dsa::MlDsa65>,
         ml_dsa::VerifyingKey<ml_dsa::MlDsa65>,
     ),
@@ -187,7 +187,7 @@ pub(super) fn mldsa65_signing_key(
     use ml_dsa::{KeyGen as _, MlDsa65};
 
     let priv_bytes = akp_priv(cose_key)?;
-    let seed: [u8; 32] = priv_bytes
+    let seed: [u8; ML_DSA_SEED_SIZE] = priv_bytes
         .try_into()
         .map_err(|_| EncodingError::InvalidValue("ML-DSA-65 seed length"))?;
     let kp = MlDsa65::key_gen_internal(&seed.into());

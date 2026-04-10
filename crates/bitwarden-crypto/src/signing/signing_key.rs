@@ -22,14 +22,19 @@ use crate::{
     keys::KeyId,
 };
 
+pub(crate) const ML_DSA_SEED_SIZE: usize = 32;
+
 /// A `SigningKey` without the key id. This enum contains a variant for each supported signature
 /// scheme.
 #[derive(Clone)]
 enum RawSigningKey {
     Ed25519(Pin<Box<ed25519_dalek::SigningKey>>),
     MlDsa65 {
-        seed: Box<[u8; 32]>,
+        /// The seed is what's stored when serializing
+        seed: Box<[u8; ML_DSA_SEED_SIZE]>,
+        /// The expanded signing key is derived from the seed
         signing_key: Pin<Box<ml_dsa::SigningKey<MlDsa65>>>,
+        /// The verifying key is also derived from the seed
         verifying_key: ml_dsa::VerifyingKey<MlDsa65>,
     },
 }
@@ -81,15 +86,15 @@ impl SigningKey {
                 ))),
             },
             SignatureAlgorithm::MlDsa65 => {
-                let mut seed = [0u8; 32];
+                let mut seed = [0u8; ML_DSA_SEED_SIZE];
                 rand::thread_rng().fill_bytes(&mut seed);
-                let kp = MlDsa65::key_gen_internal(&seed.into());
+                let key_pair = MlDsa65::key_gen_internal(&seed.into());
                 SigningKey {
                     id: KeyId::make(),
                     inner: RawSigningKey::MlDsa65 {
                         seed: Box::new(seed),
-                        signing_key: Box::pin(kp.signing_key().clone()),
-                        verifying_key: kp.verifying_key().clone(),
+                        signing_key: Box::pin(key_pair.signing_key().clone()),
+                        verifying_key: key_pair.verifying_key().clone(),
                     },
                 }
             }
@@ -161,21 +166,30 @@ impl CoseSerializable<CoseKeyContentFormat> for SigningKey {
                 seed,
                 verifying_key,
                 ..
-            } => coset::CoseKeyBuilder::new_mldsa_pub_key(
-                MlDsaVariant::MlDsa65,
-                verifying_key.encode().to_vec(),
-            )
-            .key_id((&self.id).into())
-            .param(
-                AkpKeyParameter::Priv.to_i64(),
-                Value::Bytes(seed.to_vec()),
-            )
-            .add_key_op(KeyOperation::Sign)
-            .add_key_op(KeyOperation::Verify)
-            .build()
-            .to_vec()
-            .expect("Signing key is always serializable")
-            .into(),
+            } => {
+                // https://datatracker.ietf.org/doc/draft-ietf-cose-dilithium/
+                let key = CoseKey {
+                    key_id: (&self.id).into(),
+                    kty: coset::RegisteredLabel::Assigned(KeyType::AKP),
+                    alg: Some(coset::RegisteredLabelWithPrivate::Assigned(Algorithm::ML_DSA_65)),
+                    key_ops: vec![
+                        coset::RegisteredLabel::Assigned(KeyOperation::Sign),
+                    ]
+                    .into_iter()
+                    .collect(),
+                    params: vec![(
+                        coset::Label::Int(AkpKeyParameter::Priv.to_i64()),
+                        Value::Bytes(seed.to_vec()),
+                    ), (
+                        coset::Label::Int(AkpKeyParameter::Pub.to_i64()),
+                        Value::Bytes(verifying_key.encode().to_vec()),
+                    )],
+                    ..Default::default()
+                };
+                key.to_vec()
+                    .expect("Signing key is always serializable")
+                    .into()
+            }
         }
     }
 
