@@ -47,9 +47,9 @@ pub(super) struct SyncedAccountData {
 #[bitwarden_error(flat)]
 pub(super) enum SyncError {
     #[error("Network error during sync")]
-    NetworkError,
+    Network,
     #[error("Failed to parse sync data")]
-    DataError,
+    Data,
 }
 
 /// Fetch the public key for a single organization
@@ -61,15 +61,15 @@ async fn fetch_organization_public_key(
         .organizations_api()
         .get_public_key(&organization_id.to_string())
         .await
-        .debug_map_err(SyncError::NetworkError)?
+        .debug_map_err(SyncError::Network)?
         .public_key
-        .ok_or(SyncError::DataError)?;
+        .ok_or(SyncError::Data)?;
     PublicKey::from_der(&SpkiPublicKeyBytes::from(
         B64::from_str(&org_details)
-            .debug_map_err(SyncError::DataError)?
+            .debug_map_err(SyncError::Data)?
             .into_bytes(),
     ))
-    .debug_map_err(SyncError::DataError)
+    .debug_map_err(SyncError::Data)
 }
 
 // Download the public keys for the organizations for which reset password is enrolled, since these
@@ -81,19 +81,19 @@ pub(crate) async fn sync_orgs(
         .organizations_api()
         .get_user()
         .await
-        .debug_map_err(SyncError::NetworkError)?
+        .debug_map_err(SyncError::Network)?
         .data
-        .ok_or(SyncError::DataError)?
+        .ok_or(SyncError::Data)?
         .into_iter();
     let organizations = organizations
         .into_iter()
         .filter(|org| org.reset_password_enrolled.unwrap_or(false))
         .map(async |org| {
-            let id = org.id.ok_or(SyncError::DataError)?;
+            let id = org.id.ok_or(SyncError::Data)?;
             let public_key = fetch_organization_public_key(api_client, id).await?;
             Ok(V1OrganizationMembership {
                 organization_id: id,
-                name: org.name.ok_or(SyncError::DataError)?,
+                name: org.name.ok_or(SyncError::Data)?,
                 public_key,
             })
         })
@@ -121,14 +121,14 @@ async fn fetch_user_public_key(
         .users_api()
         .get_public_key(user_id)
         .await
-        .debug_map_err(SyncError::NetworkError)?;
-    let public_key_b64 = user_key_response.public_key.ok_or(SyncError::DataError)?;
+        .debug_map_err(SyncError::Network)?;
+    let public_key_b64 = user_key_response.public_key.ok_or(SyncError::Data)?;
     PublicKey::from_der(&SpkiPublicKeyBytes::from(
         B64::from_str(&public_key_b64)
-            .debug_map_err(SyncError::DataError)?
+            .debug_map_err(SyncError::Data)?
             .into_bytes(),
     ))
-    .debug_map_err(SyncError::DataError)
+    .debug_map_err(SyncError::Data)
 }
 
 /// Download the emergency access memberships and their public keys
@@ -139,15 +139,15 @@ pub(crate) async fn sync_emergency_access(
         .emergency_access_api()
         .get_contacts()
         .await
-        .debug_map_err(SyncError::NetworkError)?
+        .debug_map_err(SyncError::Network)?
         .data
-        .ok_or(SyncError::DataError)?
+        .ok_or(SyncError::Data)?
         .into_iter()
         .map(async |ea| {
-            let user_id = ea.grantee_id.ok_or(SyncError::DataError)?;
+            let user_id = ea.grantee_id.ok_or(SyncError::Data)?;
             let public_key = fetch_user_public_key(api_client, user_id).await?;
             Ok(V1EmergencyAccessMembership {
-                id: ea.id.ok_or(SyncError::DataError)?,
+                id: ea.id.ok_or(SyncError::Data)?,
                 grantee_id: user_id,
                 // The name can be null if a user does not set a name.
                 name: ea
@@ -177,23 +177,23 @@ async fn sync_passkeys(api_client: &ApiClient) -> Result<Vec<PartialRotateableKe
         .web_authn_api()
         .get()
         .await
-        .debug_map_err(SyncError::NetworkError)?
+        .debug_map_err(SyncError::Network)?
         .data
-        .ok_or(SyncError::DataError)?
+        .ok_or(SyncError::Data)?
         .into_iter()
         .filter(|cred| cred.prf_status == Some(WebAuthnPrfStatus::Enabled))
         .map(|cred| {
             Ok(PartialRotateableKeyset {
-                id: Uuid::from_str(&cred.id.ok_or(SyncError::DataError)?)
-                    .debug_map_err(SyncError::DataError)?,
+                id: Uuid::from_str(&cred.id.ok_or(SyncError::Data)?)
+                    .debug_map_err(SyncError::Data)?,
                 encrypted_public_key: EncString::from_str(
-                    &cred.encrypted_public_key.ok_or(SyncError::DataError)?,
+                    &cred.encrypted_public_key.ok_or(SyncError::Data)?,
                 )
-                .debug_map_err(SyncError::DataError)?,
+                .debug_map_err(SyncError::Data)?,
                 encrypted_user_key: UnsignedSharedKey::from_str(
-                    &cred.encrypted_user_key.ok_or(SyncError::DataError)?,
+                    &cred.encrypted_user_key.ok_or(SyncError::Data)?,
                 )
-                .debug_map_err(SyncError::DataError)?,
+                .debug_map_err(SyncError::Data)?,
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -207,22 +207,22 @@ async fn sync_devices(api_client: &ApiClient) -> Result<Vec<PartialRotateableKey
         .devices_api()
         .get_all()
         .await
-        .debug_map_err(SyncError::NetworkError)?
+        .debug_map_err(SyncError::Network)?
         .data
-        .ok_or(SyncError::DataError)?
+        .ok_or(SyncError::Data)?
         .into_iter()
         .filter(|device| device.is_trusted.unwrap_or(false))
         .map(|device| {
             Ok(PartialRotateableKeyset {
-                id: device.id.ok_or(SyncError::DataError)?,
+                id: device.id.ok_or(SyncError::Data)?,
                 encrypted_public_key: EncString::from_str(
-                    &device.encrypted_public_key.ok_or(SyncError::DataError)?,
+                    &device.encrypted_public_key.ok_or(SyncError::Data)?,
                 )
-                .debug_map_err(SyncError::DataError)?,
+                .debug_map_err(SyncError::Data)?,
                 encrypted_user_key: UnsignedSharedKey::from_str(
-                    &device.encrypted_user_key.ok_or(SyncError::DataError)?,
+                    &device.encrypted_user_key.ok_or(SyncError::Data)?,
                 )
-                .debug_map_err(SyncError::DataError)?,
+                .debug_map_err(SyncError::Data)?,
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -234,12 +234,12 @@ fn parse_ciphers(
     ciphers: Option<Vec<bitwarden_api_api::models::CipherDetailsResponseModel>>,
 ) -> Result<Vec<Cipher>, SyncError> {
     let ciphers = ciphers
-        .ok_or(SyncError::DataError)?
+        .ok_or(SyncError::Data)?
         .into_iter()
         .filter(|c| c.organization_id.is_none())
         .map(|c| {
             let _span = debug_span!("deserializing_cipher", cipher_id = ?c.id).entered();
-            Cipher::try_from(c).debug_map_err(SyncError::DataError)
+            Cipher::try_from(c).debug_map_err(SyncError::Data)
         })
         .collect::<Result<Vec<_>, _>>()?;
     info!("Deserialized {} ciphers", ciphers.len());
@@ -250,11 +250,11 @@ fn parse_folders(
     folders: Option<Vec<bitwarden_api_api::models::FolderResponseModel>>,
 ) -> Result<Vec<Folder>, SyncError> {
     let folders = folders
-        .ok_or(SyncError::DataError)?
+        .ok_or(SyncError::Data)?
         .into_iter()
         .map(|f| {
             let _span = debug_span!("deserializing_folder", folder_id = ?f.id).entered();
-            Folder::try_from(f).debug_map_err(SyncError::DataError)
+            Folder::try_from(f).debug_map_err(SyncError::Data)
         })
         .collect::<Result<Vec<_>, _>>()?;
     info!("Deserialized {} folders", folders.len());
@@ -265,11 +265,11 @@ fn parse_sends(
     sends: Option<Vec<bitwarden_api_api::models::SendResponseModel>>,
 ) -> Result<Vec<bitwarden_send::Send>, SyncError> {
     let sends = sends
-        .ok_or(SyncError::DataError)?
+        .ok_or(SyncError::Data)?
         .into_iter()
         .map(|s| {
             let _span = debug_span!("deserializing_send", send_id = ?s.id).entered();
-            bitwarden_send::Send::try_from(s).debug_map_err(SyncError::DataError)
+            bitwarden_send::Send::try_from(s).debug_map_err(SyncError::Data)
         })
         .collect::<Result<Vec<_>, _>>()?;
     info!("Deserialized {} sends", sends.len());
@@ -304,14 +304,10 @@ fn from_kdf(
 fn parse_kdf_and_salt(
     user_decryption: &Option<Box<bitwarden_api_api::models::UserDecryptionResponseModel>>,
 ) -> Result<Option<(Kdf, String)>, SyncError> {
-    let user_decryption_options = user_decryption.as_ref().ok_or(SyncError::DataError)?;
+    let user_decryption_options = user_decryption.as_ref().ok_or(SyncError::Data)?;
     if let Some(master_password_unlock) = &user_decryption_options.master_password_unlock {
-        let kdf =
-            from_kdf(&master_password_unlock.clone().kdf).debug_map_err(SyncError::DataError)?;
-        let salt = master_password_unlock
-            .clone()
-            .salt
-            .ok_or(SyncError::DataError)?;
+        let kdf = from_kdf(&master_password_unlock.clone().kdf).debug_map_err(SyncError::Data)?;
+        let salt = master_password_unlock.clone().salt.ok_or(SyncError::Data)?;
         debug!("Parsed password KDF and salt from sync response");
         Ok(Some((kdf, salt)))
     } else {
@@ -330,21 +326,18 @@ pub(super) async fn sync_current_account_data(
         .sync_api()
         .get(Some(true))
         .await
-        .debug_map_err(SyncError::NetworkError)?;
+        .debug_map_err(SyncError::Network)?;
 
-    let profile = sync.profile.as_ref().ok_or(SyncError::DataError)?;
+    let profile = sync.profile.as_ref().ok_or(SyncError::Data)?;
     // This is optional for master-password-users!
     let kdf_and_salt = parse_kdf_and_salt(&sync.user_decryption)?;
-    let account_cryptographic_state = profile
-        .account_keys
-        .to_owned()
-        .ok_or(SyncError::DataError)?;
+    let account_cryptographic_state = profile.account_keys.to_owned().ok_or(SyncError::Data)?;
     let ciphers = parse_ciphers(sync.ciphers)?;
     let folders = parse_folders(sync.folders)?;
     let sends = parse_sends(sync.sends)?;
     let wrapped_account_cryptographic_state =
         WrappedAccountCryptographicState::try_from(account_cryptographic_state.as_ref())
-            .debug_map_err(SyncError::DataError)?;
+            .debug_map_err(SyncError::Data)?;
 
     // Concurrently sync organization memberships, emergency access memberships, trusted devices,
     // and passkeys
@@ -727,7 +720,7 @@ mod tests {
 
         let result = sync_current_account_data(&api_client).await;
 
-        assert!(matches!(result, Err(SyncError::NetworkError)));
+        assert!(matches!(result, Err(SyncError::Network)));
 
         if let ApiClient::Mock(mut mock) = api_client {
             mock.sync_api.checkpoint();
@@ -810,7 +803,7 @@ mod tests {
 
         let result = fetch_organization_public_key(&api_client, org_id).await;
 
-        assert!(matches!(result, Err(SyncError::NetworkError)));
+        assert!(matches!(result, Err(SyncError::Network)));
 
         if let ApiClient::Mock(mut mock) = api_client {
             mock.organizations_api.checkpoint();
@@ -918,7 +911,7 @@ mod tests {
 
         let result = sync_orgs(&api_client).await;
 
-        assert!(matches!(result, Err(SyncError::NetworkError)));
+        assert!(matches!(result, Err(SyncError::Network)));
 
         if let ApiClient::Mock(mut mock) = api_client {
             mock.organizations_api.checkpoint();
@@ -957,7 +950,7 @@ mod tests {
         });
 
         let result = sync_orgs(&api_client).await;
-        assert!(matches!(result, Err(SyncError::NetworkError)));
+        assert!(matches!(result, Err(SyncError::Network)));
 
         if let ApiClient::Mock(mut mock) = api_client {
             mock.organizations_api.checkpoint();
@@ -1106,7 +1099,7 @@ mod tests {
 
         let result = sync_passkeys(&api_client).await;
 
-        assert!(matches!(result, Err(SyncError::NetworkError)));
+        assert!(matches!(result, Err(SyncError::Network)));
 
         if let ApiClient::Mock(mut mock) = api_client {
             mock.web_authn_api.checkpoint();
@@ -1198,7 +1191,7 @@ mod tests {
 
         let result = sync_devices(&api_client).await;
 
-        assert!(matches!(result, Err(SyncError::NetworkError)));
+        assert!(matches!(result, Err(SyncError::Network)));
 
         if let ApiClient::Mock(mut mock) = api_client {
             mock.devices_api.checkpoint();
@@ -1260,7 +1253,7 @@ mod tests {
 
         let result = fetch_user_public_key(&api_client, user_id).await;
 
-        assert!(matches!(result, Err(SyncError::NetworkError)));
+        assert!(matches!(result, Err(SyncError::Network)));
 
         if let ApiClient::Mock(mut mock) = api_client {
             mock.users_api.checkpoint();
@@ -1375,7 +1368,7 @@ mod tests {
 
         let result = sync_emergency_access(&api_client).await;
 
-        assert!(matches!(result, Err(SyncError::NetworkError)));
+        assert!(matches!(result, Err(SyncError::Network)));
 
         if let ApiClient::Mock(mut mock) = api_client {
             mock.emergency_access_api.checkpoint();
@@ -1418,7 +1411,7 @@ mod tests {
         });
 
         let result = sync_emergency_access(&api_client).await;
-        assert!(matches!(result, Err(SyncError::NetworkError)));
+        assert!(matches!(result, Err(SyncError::Network)));
 
         if let ApiClient::Mock(mut mock) = api_client {
             mock.emergency_access_api.checkpoint();
