@@ -113,9 +113,6 @@ impl CipherKind for BankAccount {
             self.pin
                 .as_ref()
                 .map(|_| CopyableCipherFields::BankAccountPin),
-            self.swift_code
-                .as_ref()
-                .map(|_| CopyableCipherFields::BankAccountSwiftCode),
             self.iban
                 .as_ref()
                 .map(|_| CopyableCipherFields::BankAccountIban),
@@ -223,7 +220,6 @@ mod tests {
                 CopyableCipherFields::BankAccountAccountNumber,
                 CopyableCipherFields::BankAccountRoutingNumber,
                 CopyableCipherFields::BankAccountPin,
-                CopyableCipherFields::BankAccountSwiftCode,
                 CopyableCipherFields::BankAccountIban,
             ]
         );

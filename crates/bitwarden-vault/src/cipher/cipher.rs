@@ -430,7 +430,6 @@ pub enum CopyableCipherFields {
     BankAccountAccountNumber,
     BankAccountRoutingNumber,
     BankAccountPin,
-    BankAccountSwiftCode,
     BankAccountIban,
 }
 
