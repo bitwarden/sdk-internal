@@ -148,6 +148,7 @@ pub(crate) async fn sync_emergency_access(
             let public_key = fetch_user_public_key(api_client, user_id).await?;
             Ok(V1EmergencyAccessMembership {
                 id: ea.id.ok_or(SyncError::Data)?,
+                grantee_id: user_id,
                 // The name can be null if a user does not set a name.
                 name: ea
                     .name
@@ -379,6 +380,7 @@ mod tests {
         },
     };
     use bitwarden_encoding::B64;
+    use bitwarden_send::SendId;
     use bitwarden_vault::{CipherId, FolderId};
 
     use super::*;
@@ -666,7 +668,7 @@ mod tests {
 
         // Verify sends
         assert_eq!(data.sends.len(), 1);
-        assert_eq!(data.sends[0].id, Some(send_id));
+        assert_eq!(data.sends[0].id, Some(SendId::new(send_id)));
         assert_eq!(data.sends[0].name, TEST_ENC_STRING.parse().unwrap());
         assert_eq!(data.sends[0].key, KEY_ENC_STRING.parse().unwrap());
 

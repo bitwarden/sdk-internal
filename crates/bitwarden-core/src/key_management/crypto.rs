@@ -355,7 +355,8 @@ pub(super) async fn initialize_user_crypto(
             client_id: "".to_string(),
             email: req.email,
             kdf: req.kdf_params,
-        }));
+        }))
+        .await;
 
     info!("User crypto initialized successfully");
 
@@ -385,7 +386,8 @@ pub(super) async fn initialize_org_crypto(
 pub(super) async fn get_user_encryption_key(client: &Client) -> Result<B64, CryptoClientError> {
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
-    // This is needed because the mobile clients need access to the user encryption key
+    // This is needed because the clients need access to the user encryption key
+    // in order to set side-effects such as biometrics, and never-lock
     #[allow(deprecated)]
     let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
@@ -406,36 +408,39 @@ pub struct UpdateKdfResponse {
     old_master_password_authentication_data: MasterPasswordAuthenticationData,
 }
 
-pub(super) fn make_update_kdf(
+pub(super) async fn make_update_kdf(
     client: &Client,
     password: &str,
     new_kdf: &Kdf,
 ) -> Result<UpdateKdfResponse, CryptoClientError> {
-    let key_store = client.internal.get_key_store();
-    let ctx = key_store.context();
-
     let login_method = client
         .internal
         .get_login_method()
+        .await
         .ok_or(NotAuthenticatedError)?;
     let email = match login_method {
         UserLoginMethod::Username { email, .. } | UserLoginMethod::ApiKey { email, .. } => email,
     };
+
+    let old_authentication_data = MasterPasswordAuthenticationData::derive(
+        password,
+        &client
+            .internal
+            .get_kdf()
+            .await
+            .map_err(|_| NotAuthenticatedError)?,
+        &email,
+    )
+    .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
+
+    let key_store = client.internal.get_key_store();
+    let ctx = key_store.context();
 
     let authentication_data = MasterPasswordAuthenticationData::derive(password, new_kdf, &email)
         .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
     let unlock_data =
         MasterPasswordUnlockData::derive(password, new_kdf, &email, SymmetricKeyId::User, &ctx)
             .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
-    let old_authentication_data = MasterPasswordAuthenticationData::derive(
-        password,
-        &client
-            .internal
-            .get_kdf()
-            .map_err(|_| NotAuthenticatedError)?,
-        &email,
-    )
-    .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
 
     Ok(UpdateKdfResponse {
         master_password_authentication_data: authentication_data,
@@ -456,20 +461,21 @@ pub struct UpdatePasswordResponse {
     new_key: EncString,
 }
 
-pub(super) fn make_update_password(
+pub(super) async fn make_update_password(
     client: &Client,
     new_password: String,
 ) -> Result<UpdatePasswordResponse, CryptoClientError> {
+    let login_method = client
+        .internal
+        .get_login_method()
+        .await
+        .ok_or(NotAuthenticatedError)?;
+
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18099] Once MasterKey deals with KeyIds, this should be updated
     #[allow(deprecated)]
     let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
-
-    let login_method = client
-        .internal
-        .get_login_method()
-        .ok_or(NotAuthenticatedError)?;
 
     // Derive a new master key from password
     let new_master_key = match login_method {
@@ -536,20 +542,21 @@ pub struct DerivePinKeyResponse {
     encrypted_pin: EncString,
 }
 
-pub(super) fn derive_pin_key(
+pub(super) async fn derive_pin_key(
     client: &Client,
     pin: String,
 ) -> Result<DerivePinKeyResponse, CryptoClientError> {
+    let login_method = client
+        .internal
+        .get_login_method()
+        .await
+        .ok_or(NotAuthenticatedError)?;
+
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
     #[allow(deprecated)]
     let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
-
-    let login_method = client
-        .internal
-        .get_login_method()
-        .ok_or(NotAuthenticatedError)?;
 
     let pin_protected_user_key = derive_pin_protected_user_key(&pin, &login_method, user_key)?;
 
@@ -559,10 +566,16 @@ pub(super) fn derive_pin_key(
     })
 }
 
-pub(super) fn derive_pin_user_key(
+pub(super) async fn derive_pin_user_key(
     client: &Client,
     encrypted_pin: EncString,
 ) -> Result<EncString, CryptoClientError> {
+    let login_method = client
+        .internal
+        .get_login_method()
+        .await
+        .ok_or(NotAuthenticatedError)?;
+
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
     // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
@@ -570,10 +583,6 @@ pub(super) fn derive_pin_user_key(
     let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     let pin: String = encrypted_pin.decrypt_with_key(user_key)?;
-    let login_method = client
-        .internal
-        .get_login_method()
-        .ok_or(NotAuthenticatedError)?;
 
     derive_pin_protected_user_key(&pin, &login_method, user_key)
 }
@@ -1186,7 +1195,9 @@ mod tests {
         let new_kdf = Kdf::PBKDF2 {
             iterations: 600_000.try_into().unwrap(),
         };
-        let new_kdf_response = make_update_kdf(&client, "123412341234", &new_kdf).unwrap();
+        let new_kdf_response = make_update_kdf(&client, "123412341234", &new_kdf)
+            .await
+            .unwrap();
 
         let client2 = Client::new_test(None);
 
@@ -1285,7 +1296,9 @@ mod tests {
             .await
             .unwrap();
 
-        let new_password_response = make_update_password(&client, "123412341234".into()).unwrap();
+        let new_password_response = make_update_password(&client, "123412341234".into())
+            .await
+            .unwrap();
 
         let client2 = Client::new_test(None);
 
@@ -1377,7 +1390,7 @@ mod tests {
             .await
             .unwrap();
 
-        let pin_key = derive_pin_key(&client, "1234".into()).unwrap();
+        let pin_key = derive_pin_key(&client, "1234".into()).await.unwrap();
 
         // Verify we can unlock with the pin
         let client2 = Client::new_test(None);
@@ -1423,7 +1436,9 @@ mod tests {
         assert_eq!(client_key, client2_key);
 
         // Verify we can derive the pin protected user key from the encrypted pin
-        let pin_protected_user_key = derive_pin_user_key(&client, pin_key.encrypted_pin).unwrap();
+        let pin_protected_user_key = derive_pin_user_key(&client, pin_key.encrypted_pin)
+            .await
+            .unwrap();
 
         let client3 = Client::new_test(None);
 
@@ -1886,10 +1901,12 @@ mod tests {
         .unwrap();
 
         let key_store = client.internal.get_key_store();
-        let context = key_store.context();
-        assert!(context.has_symmetric_key(SymmetricKeyId::User));
-        assert!(context.has_private_key(PrivateKeyId::UserPrivateKey));
-        let login_method = client.internal.get_login_method().unwrap();
+        {
+            let context = key_store.context();
+            assert!(context.has_symmetric_key(SymmetricKeyId::User));
+            assert!(context.has_private_key(PrivateKeyId::UserPrivateKey));
+        }
+        let login_method = client.internal.get_login_method().await.unwrap();
         if let UserLoginMethod::Username {
             email,
             kdf,
