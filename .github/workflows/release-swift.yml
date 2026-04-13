@@ -175,15 +175,14 @@ jobs:
         with:
           token: ${{ steps.app-token-sdk-swift.outputs.token }}
           branch: ${{ inputs.sdk-swift-branch-name }}
-          message: "Release Swift SDK v$_RELEASE_NAME (bitwarden/sdk-internal@$_SDK_INTERNAL_SHORT_REF) - $_SDK_INTERNAL_COMMIT_MSG"
-          tag_name: "v$_RELEASE_NAME"
+          message: "Release Swift SDK v${{ steps.set-release-name.outputs.release_name }} (bitwarden/sdk-internal@${{ steps.get-sdk-internal-ref.outputs.short_sha }}) - ${{ steps.get-sdk-internal-ref.outputs.commit_message }}"
+          tag_name: "v${{ steps.set-release-name.outputs.release_name }}"
 
       - name: Echo changes
         working-directory: sdk-swift
         env:
           _RELEASE_NAME: ${{ steps.set-release-name.outputs.release_name }}
           _SDK_INTERNAL_REF: ${{ steps.get-sdk-internal-ref.outputs.sha }}
-          _SDK_INTERNAL_COMMIT_MSG: ${{ steps.get-sdk-internal-ref.outputs.commit_message }} 
           _BRANCH_NAME: ${{ inputs.sdk-swift-branch-name }}
           _COMMIT_HASH: ${{ steps.commit-changes.outputs.commit-sha }}
         run: |
