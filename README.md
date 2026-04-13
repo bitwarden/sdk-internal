@@ -225,6 +225,21 @@ You can do this in two different ways - automatically through a pull request, or
 2. Merge the pull request to `main` on `clients`.
 3. Pull the change into your feature branch to continue development.
 
+> [!NOTE]
+>
+> **When your SDK changes include breaking changes**, the auto-generated `clients` PR will contain
+> TypeScript compilation errors and cannot be merged as-is. You have two options:
+>
+> 1. **Update the auto-generated PR directly**: Fix the type errors in the generated PR to make it
+>    compile (e.g. adapt call sites to the new API). This is appropriate when the changes needed in
+>    `clients` are small and straightforward.
+> 2. **Merge your own feature PR in `clients` instead**: If the `clients` changes are substantial or
+>    already in progress on a feature branch, merge that feature PR (which includes the updated SDK
+>    version and the necessary code changes) and close the auto-generated PR.
+>
+> In either case, breaking changes must be resolved promptly after the SDK PR merges to avoid
+> blocking other teams.
+
 #### The manual option
 
 1. Merge the `sdk-internal` pull request. This will trigger a publish of the latest changes to npm.
