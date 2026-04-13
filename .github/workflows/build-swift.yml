@@ -106,6 +106,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      actions: write
     steps:
       - name: Log in to Azure
         uses: bitwarden/gh-actions/azure-login@main
