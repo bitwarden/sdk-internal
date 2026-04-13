@@ -489,6 +489,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(deprecated)]
     async fn cookies_returns_empty_for_direct() {
         let repo = MockRepository::default();
         let config = ServerCommunicationConfig {
@@ -507,6 +508,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(deprecated)]
     async fn cookies_returns_empty_when_value_none() {
         let repo = MockRepository::default();
         let config = ServerCommunicationConfig {
@@ -531,6 +533,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(deprecated)]
     async fn cookies_returns_unsharded_cookie_without_suffix() {
         let repo = MockRepository::default();
         let config = ServerCommunicationConfig {
@@ -561,6 +564,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(deprecated)]
     async fn cookies_returns_empty_when_no_config() {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
@@ -571,6 +575,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(deprecated)]
     async fn cookies_returns_shards_with_numbered_suffixes() {
         let repo = MockRepository::default();
         let config = ServerCommunicationConfig {
@@ -1269,6 +1274,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(deprecated)]
     async fn set_communication_type_preserves_existing_cookies() {
         let repo = MockRepository::default();
         let platform_api = MockPlatformApi::new();
