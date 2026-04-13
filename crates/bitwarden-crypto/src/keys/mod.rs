@@ -27,8 +27,9 @@ mod kdf;
 #[allow(deprecated)]
 pub use kdf::dangerous_derive_kdf_material;
 mod key_id;
+pub use key_id::KeyId;
 pub use kdf::Kdf;
-pub(crate) use key_id::{KEY_ID_SIZE, KeyId};
+pub(crate) use key_id::KEY_ID_SIZE;
 mod prf;
 mod rotateable_key_set;
 pub use rotateable_key_set::RotateableKeySet;

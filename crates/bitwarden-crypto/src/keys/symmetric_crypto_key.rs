@@ -283,7 +283,7 @@ impl SymmetricCryptoKey {
 
     /// Returns the key ID of the key, if it has one. Only
     /// [SymmetricCryptoKey::XChaCha20Poly1305Key] has a key ID.
-    pub(crate) fn key_id(&self) -> Option<KeyId> {
+    pub fn key_id(&self) -> Option<KeyId> {
         match self {
             Self::Aes256CbcKey(_) => None,
             Self::Aes256CbcHmacKey(_) => None,

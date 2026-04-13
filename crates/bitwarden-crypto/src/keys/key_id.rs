@@ -35,6 +35,7 @@ impl KeyId {
         Self(key_id)
     }
 
+    /// Returns the key ID as a slice of bytes.
     pub fn as_slice(&self) -> &[u8] {
         &self.0
     }
