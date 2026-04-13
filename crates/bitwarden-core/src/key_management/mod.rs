@@ -11,7 +11,7 @@
 //!   [Decryptable](bitwarden_crypto::Decryptable).
 
 use bitwarden_crypto::{
-    EncString, KeyStore, SymmetricCryptoKey, key_ids, safe::PasswordProtectedKeyEnvelope,
+    EncString, KeyStore, SymmetricCryptoKey, key_slot_ids, safe::PasswordProtectedKeyEnvelope,
 };
 
 #[cfg(feature = "internal")]
@@ -91,7 +91,7 @@ pub struct EphemeralPinEnvelopeState {
 
 bitwarden_state::register_repository_item!(String => EphemeralPinEnvelopeState, "EphemeralPinEnvelope");
 
-key_ids! {
+key_slot_ids! {
     #[symmetric]
     pub enum SymmetricKeyId {
         Master,

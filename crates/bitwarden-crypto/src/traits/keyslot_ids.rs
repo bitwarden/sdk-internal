@@ -8,8 +8,8 @@ use crate::{CryptoKey, PrivateKey, SigningKey, SymmetricCryptoKey};
 /// key store. It is used to avoid exposing the key material directly in the public API.
 ///
 /// This trait is user-implemented, and the recommended implementation is using enums with variants
-/// for each expected key purpose. We provide a macro ([crate::key_ids]) that simplifies the trait
-/// implementation
+/// for each expected key purpose. We provide a macro ([crate::key_slot_ids]) that simplifies the
+/// trait implementation
 ///
 /// To implement it manually, note that you need a few types:
 /// - One implementing [KeySlotId<KeyValue = SymmetricCryptoKey>]
@@ -53,8 +53,8 @@ impl LocalId {
 /// Just a small derive_like macro that can be used to generate the key identifier enums.
 /// Example usage:
 /// ```rust
-/// use bitwarden_crypto::key_ids;
-/// key_ids! {
+/// use bitwarden_crypto::key_slot_ids;
+/// key_slot_ids! {
 ///     #[symmetric]
 ///     pub enum SymmKeyId {
 ///         User,
@@ -80,7 +80,7 @@ impl LocalId {
 ///     pub Ids => SymmKeyId, PrivateKeyId, SigningKeyId;
 /// }
 #[macro_export]
-macro_rules! key_ids {
+macro_rules! key_slot_ids {
     ( $(
         #[$meta_type:tt]
         $vis:vis enum $name:ident {
@@ -105,19 +105,19 @@ macro_rules! key_ids {
             )* }
 
             impl $crate::KeySlotId for $name {
-                type KeyValue = key_ids!(@key_type $meta_type);
+                type KeyValue = key_slot_ids!(@key_type $meta_type);
 
                 fn is_local(&self) -> bool {
                     use $name::*;
                     match self { $(
-                        key_ids!(@variant_match $variant $( ( $inner ) )?) =>
-                            key_ids!(@variant_value $( $variant_tag )? ),
+                        key_slot_ids!(@variant_match $variant $( ( $inner ) )?) =>
+                            key_slot_ids!(@variant_value $( $variant_tag )? ),
                     )* }
                 }
 
                 fn new_local(id: LocalId) -> Self {
                     $(
-                        { key_ids!(@new_local $variant  id $( $variant_tag )? ) }
+                        { key_slot_ids!(@new_local $variant  id $( $variant_tag )? ) }
                     )*
                 }
             }

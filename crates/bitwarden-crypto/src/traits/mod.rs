@@ -16,8 +16,8 @@ pub trait IdentifyKey<Key: KeySlotId> {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use crate::key_ids;
-    key_ids! {
+    use crate::key_slot_ids;
+    key_slot_ids! {
         #[symmetric]
         pub enum TestSymmKey {
             A(u8),
