@@ -15,7 +15,11 @@ license-file.workspace = true
 keywords.workspace = true
 
 [package.metadata.cargo-udeps.ignore]
-normal = ["getrandom"] # Only used to enable WASM support, not used directly
+normal = [
+    "getrandom2",
+    "getrandom3",
+    "getrandom4",
+] # Only used to enable WASM support, not used directly
 
 [features]
 internal = ["dep:zxcvbn"]
