@@ -31,41 +31,41 @@ pub trait OrganizationReportsApi: Send + Sync {
         &self,
         organization_id: uuid::Uuid,
         add_organization_report_request: Option<models::AddOrganizationReportRequest>,
-    ) -> Result<(), Error<CreateOrganizationReportError>>;
+    ) -> Result<(), Error>;
 
     /// GET /reports/organizations/{organizationId}/latest
     async fn get_latest_organization_report<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<(), Error<GetLatestOrganizationReportError>>;
+    ) -> Result<(), Error>;
 
     /// GET /reports/organizations/{organizationId}/{reportId}
     async fn get_organization_report<'a>(
         &self,
         organization_id: uuid::Uuid,
         report_id: uuid::Uuid,
-    ) -> Result<(), Error<GetOrganizationReportError>>;
+    ) -> Result<(), Error>;
 
     /// GET /reports/organizations/{organizationId}/data/application/{reportId}
     async fn get_organization_report_application_data<'a>(
         &self,
         organization_id: uuid::Uuid,
         report_id: uuid::Uuid,
-    ) -> Result<(), Error<GetOrganizationReportApplicationDataError>>;
+    ) -> Result<(), Error>;
 
     /// GET /reports/organizations/{organizationId}/data/report/{reportId}
     async fn get_organization_report_data<'a>(
         &self,
         organization_id: uuid::Uuid,
         report_id: uuid::Uuid,
-    ) -> Result<(), Error<GetOrganizationReportDataError>>;
+    ) -> Result<(), Error>;
 
     /// GET /reports/organizations/{organizationId}/data/summary/{reportId}
     async fn get_organization_report_summary<'a>(
         &self,
         organization_id: uuid::Uuid,
         report_id: uuid::Uuid,
-    ) -> Result<(), Error<GetOrganizationReportSummaryError>>;
+    ) -> Result<(), Error>;
 
     /// GET /reports/organizations/{organizationId}/data/summary
     async fn get_organization_report_summary_data_by_date_range<'a>(
@@ -73,10 +73,7 @@ pub trait OrganizationReportsApi: Send + Sync {
         organization_id: uuid::Uuid,
         start_date: Option<String>,
         end_date: Option<String>,
-    ) -> Result<
-        Vec<models::OrganizationReportSummaryDataResponse>,
-        Error<GetOrganizationReportSummaryDataByDateRangeError>,
-    >;
+    ) -> Result<Vec<models::OrganizationReportSummaryDataResponse>, Error>;
 
     /// PATCH /reports/organizations/{organizationId}/{reportId}
     async fn update_organization_report<'a>(
@@ -84,7 +81,7 @@ pub trait OrganizationReportsApi: Send + Sync {
         organization_id: uuid::Uuid,
         report_id: &'a str,
         update_organization_report_request: Option<models::UpdateOrganizationReportRequest>,
-    ) -> Result<(), Error<UpdateOrganizationReportError>>;
+    ) -> Result<(), Error>;
 
     /// PATCH /reports/organizations/{organizationId}/data/application/{reportId}
     async fn update_organization_report_application_data<'a>(
@@ -94,7 +91,7 @@ pub trait OrganizationReportsApi: Send + Sync {
         update_organization_report_application_data_request: Option<
             models::UpdateOrganizationReportApplicationDataRequest,
         >,
-    ) -> Result<(), Error<UpdateOrganizationReportApplicationDataError>>;
+    ) -> Result<(), Error>;
 
     /// PATCH /reports/organizations/{organizationId}/data/report/{reportId}
     async fn update_organization_report_data<'a>(
@@ -104,7 +101,7 @@ pub trait OrganizationReportsApi: Send + Sync {
         update_organization_report_data_request: Option<
             models::UpdateOrganizationReportDataRequest,
         >,
-    ) -> Result<(), Error<UpdateOrganizationReportDataError>>;
+    ) -> Result<(), Error>;
 
     /// PATCH /reports/organizations/{organizationId}/data/summary/{reportId}
     async fn update_organization_report_summary<'a>(
@@ -114,7 +111,7 @@ pub trait OrganizationReportsApi: Send + Sync {
         update_organization_report_summary_request: Option<
             models::UpdateOrganizationReportSummaryRequest,
         >,
-    ) -> Result<(), Error<UpdateOrganizationReportSummaryError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct OrganizationReportsApiClient {
@@ -134,7 +131,7 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         &self,
         organization_id: uuid::Uuid,
         add_organization_report_request: Option<models::AddOrganizationReportRequest>,
-    ) -> Result<(), Error<CreateOrganizationReportError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -150,29 +147,13 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&add_organization_report_request);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<CreateOrganizationReportError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn get_latest_organization_report<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<(), Error<GetLatestOrganizationReportError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -187,30 +168,14 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<GetLatestOrganizationReportError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn get_organization_report<'a>(
         &self,
         organization_id: uuid::Uuid,
         report_id: uuid::Uuid,
-    ) -> Result<(), Error<GetOrganizationReportError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -226,30 +191,14 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<GetOrganizationReportError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn get_organization_report_application_data<'a>(
         &self,
         organization_id: uuid::Uuid,
         report_id: uuid::Uuid,
-    ) -> Result<(), Error<GetOrganizationReportApplicationDataError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -265,30 +214,14 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<GetOrganizationReportApplicationDataError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn get_organization_report_data<'a>(
         &self,
         organization_id: uuid::Uuid,
         report_id: uuid::Uuid,
-    ) -> Result<(), Error<GetOrganizationReportDataError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -304,30 +237,14 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<GetOrganizationReportDataError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn get_organization_report_summary<'a>(
         &self,
         organization_id: uuid::Uuid,
         report_id: uuid::Uuid,
-    ) -> Result<(), Error<GetOrganizationReportSummaryError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -343,23 +260,7 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<GetOrganizationReportSummaryError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn get_organization_report_summary_data_by_date_range<'a>(
@@ -367,10 +268,7 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         organization_id: uuid::Uuid,
         start_date: Option<String>,
         end_date: Option<String>,
-    ) -> Result<
-        Vec<models::OrganizationReportSummaryDataResponse>,
-        Error<GetOrganizationReportSummaryDataByDateRangeError>,
-    > {
+    ) -> Result<Vec<models::OrganizationReportSummaryDataResponse>, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -393,41 +291,7 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `Vec&lt;models::OrganizationReportSummaryDataResponse&gt;`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `Vec&lt;models::OrganizationReportSummaryDataResponse&gt;`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetOrganizationReportSummaryDataByDateRangeError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn update_organization_report<'a>(
@@ -435,7 +299,7 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         organization_id: uuid::Uuid,
         report_id: &'a str,
         update_organization_report_request: Option<models::UpdateOrganizationReportRequest>,
-    ) -> Result<(), Error<UpdateOrganizationReportError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -452,23 +316,7 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&update_organization_report_request);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<UpdateOrganizationReportError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn update_organization_report_application_data<'a>(
@@ -478,7 +326,7 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         update_organization_report_application_data_request: Option<
             models::UpdateOrganizationReportApplicationDataRequest,
         >,
-    ) -> Result<(), Error<UpdateOrganizationReportApplicationDataError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -496,23 +344,7 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&update_organization_report_application_data_request);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<UpdateOrganizationReportApplicationDataError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn update_organization_report_data<'a>(
@@ -522,7 +354,7 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         update_organization_report_data_request: Option<
             models::UpdateOrganizationReportDataRequest,
         >,
-    ) -> Result<(), Error<UpdateOrganizationReportDataError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -540,23 +372,7 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&update_organization_report_data_request);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<UpdateOrganizationReportDataError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn update_organization_report_summary<'a>(
@@ -566,7 +382,7 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         update_organization_report_summary_request: Option<
             models::UpdateOrganizationReportSummaryRequest,
         >,
-    ) -> Result<(), Error<UpdateOrganizationReportSummaryError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -584,94 +400,6 @@ impl OrganizationReportsApi for OrganizationReportsApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&update_organization_report_summary_request);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<UpdateOrganizationReportSummaryError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`OrganizationReportsApi::create_organization_report`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateOrganizationReportError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationReportsApi::get_latest_organization_report`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetLatestOrganizationReportError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationReportsApi::get_organization_report`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetOrganizationReportError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method
-/// [`OrganizationReportsApi::get_organization_report_application_data`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetOrganizationReportApplicationDataError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationReportsApi::get_organization_report_data`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetOrganizationReportDataError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationReportsApi::get_organization_report_summary`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetOrganizationReportSummaryError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method
-/// [`OrganizationReportsApi::get_organization_report_summary_data_by_date_range`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetOrganizationReportSummaryDataByDateRangeError {
-    Status400(),
-    Status404(),
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationReportsApi::update_organization_report`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateOrganizationReportError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method
-/// [`OrganizationReportsApi::update_organization_report_application_data`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateOrganizationReportApplicationDataError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationReportsApi::update_organization_report_data`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateOrganizationReportDataError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationReportsApi::update_organization_report_summary`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateOrganizationReportSummaryError {
-    UnknownValue(serde_json::Value),
 }

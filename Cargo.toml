@@ -38,9 +38,12 @@ bitwarden-encoding = { path = "crates/bitwarden-encoding", version = "=2.0.0" }
 bitwarden-error = { path = "crates/bitwarden-error", version = "=2.0.0" }
 bitwarden-error-macro = { path = "crates/bitwarden-error-macro", version = "=2.0.0" }
 bitwarden-exporters = { path = "crates/bitwarden-exporters", version = "=2.0.0" }
+bitwarden-ffi = { path = "crates/bitwarden-ffi", version = "=2.0.0" }
+bitwarden-ffi-macro = { path = "crates/bitwarden-ffi-macro", version = "=2.0.0" }
 bitwarden-fido = { path = "crates/bitwarden-fido", version = "=2.0.0" }
 bitwarden-generators = { path = "crates/bitwarden-generators", version = "=2.0.0" }
 bitwarden-ipc = { path = "crates/bitwarden-ipc", version = "=2.0.0" }
+bitwarden-logging = { path = "crates/bitwarden-logging", version = "=2.0.0" }
 bitwarden-pm = { path = "crates/bitwarden-pm", version = "=2.0.0" }
 bitwarden-policies = { path = "crates/bitwarden-policies", version = "=2.0.0" }
 bitwarden-send = { path = "crates/bitwarden-send", version = "=2.0.0" }
@@ -62,6 +65,7 @@ chrono = { version = ">=0.4.26, <0.5", features = [
     "serde",
     "std",
 ], default-features = false }
+ciborium = ">=0.2.2, <0.3"
 data-encoding = ">=2.0, <3"
 ed25519-dalek = { version = ">=2.1.1, <=2.2.0" }
 futures = ">=0.3.31, <0.4"
@@ -102,7 +106,8 @@ tracing-subscriber = { version = "0.3.20", features = [
 tsify = { version = ">=0.5.5, <0.6", features = [
     "js",
 ], default-features = false }
-uniffi = "=0.29.4"
+uniffi = "=0.31.0"
+url = ">=2.5.8, <3.0"
 uuid = { version = ">=1.3.3, <2.0", features = ["serde", "v4", "js"] }
 validator = { version = ">=0.18.1, <0.21", features = ["derive"] }
 wasm-bindgen = { version = "=0.2.114", features = ["serde-serialize"] }
@@ -128,15 +133,6 @@ unexpected_cfgs = { level = "warn", check-cfg = [
 
 [workspace.metadata.dylint]
 libraries = [{ path = "support/lints" }]
-
-[patch.crates-io]
-
-uniffi = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-uniffi_core = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-uniffi_macros = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-uniffi_internal_macros = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-uniffi_bindgen = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
-uniffi_build = { git = "https://github.com/mozilla/uniffi-rs", rev = "6d46b3f756dde3213357c477d86771a0fc5da7b4" }
 
 # Turn on a small amount of optimisation in development mode. This might interfere when trying to use a debugger
 # if the compiler decides to optimize some code away, if that's the case, it can be set to 0 or commented out

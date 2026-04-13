@@ -31,13 +31,13 @@ pub trait PoliciesApi: Send + Sync {
         &self,
         org_id: uuid::Uuid,
         r#type: models::PolicyType,
-    ) -> Result<models::PolicyStatusResponseModel, Error<GetError>>;
+    ) -> Result<models::PolicyStatusResponseModel, Error>;
 
     /// GET /organizations/{orgId}/policies
     async fn get_all<'a>(
         &self,
         org_id: &'a str,
-    ) -> Result<models::PolicyResponseModelListResponseModel, Error<GetAllError>>;
+    ) -> Result<models::PolicyStatusResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{orgId}/policies/token
     async fn get_by_token<'a>(
@@ -46,13 +46,13 @@ pub trait PoliciesApi: Send + Sync {
         email: Option<&'a str>,
         token: Option<&'a str>,
         organization_user_id: Option<uuid::Uuid>,
-    ) -> Result<models::PolicyResponseModelListResponseModel, Error<GetByTokenError>>;
+    ) -> Result<models::PolicyResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{orgId}/policies/master-password
     async fn get_master_password_policy<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<models::PolicyResponseModel, Error<GetMasterPasswordPolicyError>>;
+    ) -> Result<models::PolicyResponseModel, Error>;
 
     /// PUT /organizations/{orgId}/policies/{type}
     async fn put<'a>(
@@ -60,7 +60,7 @@ pub trait PoliciesApi: Send + Sync {
         org_id: uuid::Uuid,
         r#type: models::PolicyType,
         policy_request_model: Option<models::PolicyRequestModel>,
-    ) -> Result<models::PolicyResponseModel, Error<PutError>>;
+    ) -> Result<models::PolicyResponseModel, Error>;
 
     /// PUT /organizations/{orgId}/policies/{type}/vnext
     async fn put_v_next<'a>(
@@ -68,7 +68,7 @@ pub trait PoliciesApi: Send + Sync {
         org_id: uuid::Uuid,
         r#type: models::PolicyType,
         save_policy_request: Option<models::SavePolicyRequest>,
-    ) -> Result<models::PolicyResponseModel, Error<PutVNextError>>;
+    ) -> Result<models::PolicyResponseModel, Error>;
 }
 
 pub struct PoliciesApiClient {
@@ -88,7 +88,7 @@ impl PoliciesApi for PoliciesApiClient {
         &self,
         org_id: uuid::Uuid,
         r#type: models::PolicyType,
-    ) -> Result<models::PolicyStatusResponseModel, Error<GetError>> {
+    ) -> Result<models::PolicyStatusResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -99,46 +99,13 @@ impl PoliciesApi for PoliciesApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::PolicyStatusResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PolicyStatusResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_all<'a>(
         &self,
         org_id: &'a str,
-    ) -> Result<models::PolicyResponseModelListResponseModel, Error<GetAllError>> {
+    ) -> Result<models::PolicyStatusResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -153,41 +120,7 @@ impl PoliciesApi for PoliciesApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::PolicyResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PolicyResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetAllError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_by_token<'a>(
@@ -196,7 +129,7 @@ impl PoliciesApi for PoliciesApiClient {
         email: Option<&'a str>,
         token: Option<&'a str>,
         organization_user_id: Option<uuid::Uuid>,
-    ) -> Result<models::PolicyResponseModelListResponseModel, Error<GetByTokenError>> {
+    ) -> Result<models::PolicyResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -223,47 +156,13 @@ impl PoliciesApi for PoliciesApiClient {
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::PolicyResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PolicyResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetByTokenError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_master_password_policy<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<models::PolicyResponseModel, Error<GetMasterPasswordPolicyError>> {
+    ) -> Result<models::PolicyResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -278,41 +177,7 @@ impl PoliciesApi for PoliciesApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::PolicyResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PolicyResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetMasterPasswordPolicyError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn put<'a>(
@@ -320,7 +185,7 @@ impl PoliciesApi for PoliciesApiClient {
         org_id: uuid::Uuid,
         r#type: models::PolicyType,
         policy_request_model: Option<models::PolicyRequestModel>,
-    ) -> Result<models::PolicyResponseModel, Error<PutError>> {
+    ) -> Result<models::PolicyResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -332,40 +197,7 @@ impl PoliciesApi for PoliciesApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&policy_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::PolicyResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PolicyResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PutError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn put_v_next<'a>(
@@ -373,7 +205,7 @@ impl PoliciesApi for PoliciesApiClient {
         org_id: uuid::Uuid,
         r#type: models::PolicyType,
         save_policy_request: Option<models::SavePolicyRequest>,
-    ) -> Result<models::PolicyResponseModel, Error<PutVNextError>> {
+    ) -> Result<models::PolicyResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -385,77 +217,6 @@ impl PoliciesApi for PoliciesApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&save_policy_request);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::PolicyResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PolicyResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<PutVNextError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`PoliciesApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`PoliciesApi::get_all`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAllError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`PoliciesApi::get_by_token`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetByTokenError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`PoliciesApi::get_master_password_policy`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetMasterPasswordPolicyError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`PoliciesApi::put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`PoliciesApi::put_v_next`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutVNextError {
-    UnknownValue(serde_json::Value),
 }

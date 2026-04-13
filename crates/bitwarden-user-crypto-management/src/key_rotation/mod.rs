@@ -2,16 +2,19 @@
 mod crypto;
 mod data;
 mod partial_rotateable_keyset;
+mod rotate_user_keys;
+mod rotation_context;
 mod sync;
 mod unlock;
+mod unlock_method;
 
 use bitwarden_api_api::models::RotateUserAccountKeysAndDataRequestModel;
-use bitwarden_core::key_management::{MasterPasswordAuthenticationData, SymmetricKeyId};
+use bitwarden_core::key_management::MasterPasswordAuthenticationData;
 use bitwarden_crypto::PublicKey;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tracing::{debug, info, info_span, warn};
+use tracing::{info, info_span};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 #[cfg(feature = "wasm")]
@@ -20,11 +23,13 @@ use wasm_bindgen::prelude::*;
 use crate::{
     UserCryptoManagementClient,
     key_rotation::{
-        crypto::rotate_account_cryptographic_state,
+        crypto::rotate_account_cryptographic_state_to_request_model,
         data::reencrypt_data,
+        rotation_context::make_rotation_context,
         unlock::{
-            ReencryptUnlockInput, V1EmergencyAccessMembership, V1OrganizationMembership,
-            reencrypt_unlock,
+            ReencryptCommonUnlockDataInput, ReencryptMasterPasswordChangeAndUnlockInput,
+            V1EmergencyAccessMembership, V1OrganizationMembership,
+            reencrypt_master_password_change_unlock_data,
         },
     },
 };
@@ -111,50 +116,8 @@ pub enum RotateUserKeysError {
     InvalidPublicKey,
     #[error("Untrusted key encountered during key rotation")]
     UntrustedKeyError,
-}
-
-struct UntrustedKeyError;
-
-fn filter_trusted_organization(
-    org: &[V1OrganizationMembership],
-    trusted_orgs: &[PublicKey],
-) -> Result<Vec<V1OrganizationMembership>, UntrustedKeyError> {
-    org.iter()
-        .map(|o| {
-            let is_trusted = trusted_orgs.iter().any(|tk| tk == &o.public_key);
-            if !is_trusted {
-                warn!(
-                    "Filtering out untrusted organization with id={}",
-                    o.organization_id
-                );
-                Err(UntrustedKeyError)
-            } else {
-                Ok(o.clone())
-            }
-        })
-        .collect::<Result<Vec<V1OrganizationMembership>, UntrustedKeyError>>()
-}
-
-fn filter_trusted_emergency_access(
-    ea: &[V1EmergencyAccessMembership],
-    trusted_emergency_access_user_public_keys: &[PublicKey],
-) -> Result<Vec<V1EmergencyAccessMembership>, UntrustedKeyError> {
-    ea.iter()
-        .map(|e| {
-            let is_trusted = trusted_emergency_access_user_public_keys
-                .iter()
-                .any(|tk| tk == &e.public_key);
-            if !is_trusted {
-                warn!(
-                    "Filtering out untrusted emergency access membership with id={}",
-                    e.id
-                );
-                Err(UntrustedKeyError)
-            } else {
-                Ok(e.to_owned())
-            }
-        })
-        .collect::<Result<Vec<V1EmergencyAccessMembership>, UntrustedKeyError>>()
+    #[error("Unimplemented key rotation method")]
+    UnimplementedKeyRotationMethod,
 }
 
 async fn post_rotate_user_keys(
@@ -176,34 +139,18 @@ async fn post_rotate_user_keys(
     let request = {
         let mut ctx = key_store.context_mut();
 
-        // Filter organization memberships and emergency access memberships to only include trusted
-        // keys
-        let v1_organization_memberships = filter_trusted_organization(
-            sync.organization_memberships.as_slice(),
+        let rotation_context = make_rotation_context(
+            &sync,
             trusted_organization_public_keys,
-        )
-        .map_err(|_| RotateUserKeysError::UntrustedKeyError)?;
-        let v1_emergency_access_memberships = filter_trusted_emergency_access(
-            sync.emergency_access_memberships.as_slice(),
             trusted_emergency_access_public_keys,
-        )
-        .map_err(|_| RotateUserKeysError::UntrustedKeyError)?;
-
-        info!(
-            "Existing user cryptographic version {:?}",
-            sync.wrapped_account_cryptographic_state
-        );
-        let current_user_key_id = SymmetricKeyId::User;
-
-        debug!("Generating new xchacha20-poly1305 user key for key rotation");
-        let new_user_key_id =
-            ctx.make_symmetric_key(bitwarden_crypto::SymmetricKeyAlgorithm::XChaCha20Poly1305);
+            &mut ctx,
+        )?;
 
         info!("Rotating account cryptographic state for user key rotation");
-        let account_keys_model = rotate_account_cryptographic_state(
+        let account_keys_model = rotate_account_cryptographic_state_to_request_model(
             &sync.wrapped_account_cryptographic_state,
-            &current_user_key_id,
-            &new_user_key_id,
+            &rotation_context.current_user_key_id,
+            &rotation_context.new_user_key_id,
             &mut ctx,
         )
         .map_err(|_| RotateUserKeysError::CryptoError)?;
@@ -213,78 +160,48 @@ async fn post_rotate_user_keys(
             sync.folders.as_slice(),
             sync.ciphers.as_slice(),
             sync.sends.as_slice(),
-            current_user_key_id,
-            new_user_key_id,
+            rotation_context.current_user_key_id,
+            rotation_context.new_user_key_id,
             &mut ctx,
         )
         .map_err(|_| RotateUserKeysError::CryptoError)?;
 
         info!("Re-encrypting account unlock data for user key rotation");
-        let unlock_data_model = reencrypt_unlock(
-            ReencryptUnlockInput {
-                master_key_unlock_method: match master_key_unlock_method {
-                    MasterkeyUnlockMethod::Password {
-                        old_password: _,
-                        ref password,
-                        ref hint,
-                    } => {
-                        let (kdf, salt) = sync
-                            .kdf_and_salt
-                            .clone()
-                            .ok_or(RotateUserKeysError::ApiError)?;
-                        unlock::MasterkeyUnlockMethod::Password {
-                            password: password.to_owned(),
-                            hint: hint.to_owned(),
-                            kdf,
-                            salt,
-                        }
-                    }
-                    MasterkeyUnlockMethod::KeyConnector => {
-                        unlock::MasterkeyUnlockMethod::KeyConnector
-                    }
-                    MasterkeyUnlockMethod::None => unlock::MasterkeyUnlockMethod::None,
+        let MasterkeyUnlockMethod::Password {
+            old_password,
+            password,
+            hint,
+        } = master_key_unlock_method
+        else {
+            return Err(RotateUserKeysError::UnimplementedKeyRotationMethod);
+        };
+        let (kdf, salt) = sync.kdf_and_salt.ok_or(RotateUserKeysError::ApiError)?;
+        let unlock_data_model = reencrypt_master_password_change_unlock_data(
+            ReencryptMasterPasswordChangeAndUnlockInput {
+                password,
+                hint,
+                kdf: kdf.clone(),
+                salt: salt.clone(),
+                common_unlock_data: ReencryptCommonUnlockDataInput {
+                    trusted_devices: sync.trusted_devices,
+                    webauthn_credentials: sync.passkeys,
+                    trusted_organization_keys: rotation_context.v1_organization_memberships,
+                    trusted_emergency_access_keys: rotation_context.v1_emergency_access_memberships,
                 },
-                trusted_devices: sync.trusted_devices,
-                webauthn_credentials: sync.passkeys,
-                trusted_organization_keys: v1_organization_memberships,
-                trusted_emergency_access_keys: v1_emergency_access_memberships,
             },
-            current_user_key_id,
-            new_user_key_id,
+            rotation_context.current_user_key_id,
+            rotation_context.new_user_key_id,
             &mut ctx,
         )
         .map_err(|_| RotateUserKeysError::CryptoError)?;
 
-        let old_masterpassword_authentication_data = match master_key_unlock_method {
-            MasterkeyUnlockMethod::Password {
-                old_password,
-                password: _,
-                hint: _,
-            } => {
-                let (kdf, salt) = sync
-                    .kdf_and_salt
-                    .clone()
-                    .ok_or(RotateUserKeysError::ApiError)?;
-                let authentication_data =
-                    MasterPasswordAuthenticationData::derive(&old_password, &kdf, &salt)
-                        .map_err(|_| RotateUserKeysError::CryptoError)?;
-                Some(authentication_data)
-            }
-            MasterkeyUnlockMethod::KeyConnector => {
-                tracing::error!("Key-connector based key rotation is not yet implemented");
-                None
-            }
-            MasterkeyUnlockMethod::None => {
-                tracing::error!(
-                    "Key-rotation without master-key based unlock is not supported yet"
-                );
-                None
-            }
-        }
-        .expect("Master password authentication data is required for password-based key rotation");
+        let old_master_password_authentication_data =
+            MasterPasswordAuthenticationData::derive(&old_password, &kdf, &salt)
+                .map_err(|_| RotateUserKeysError::CryptoError)?;
+
         RotateUserAccountKeysAndDataRequestModel {
             old_master_key_authentication_hash: Some(
-                old_masterpassword_authentication_data
+                old_master_password_authentication_data
                     .master_password_authentication_hash
                     .to_string(),
             ),
@@ -301,7 +218,7 @@ async fn post_rotate_user_keys(
         .get_api_configurations()
         .api_client
         .accounts_key_management_api()
-        .rotate_user_account_keys(Some(request))
+        .password_change_and_rotate_user_account_keys(Some(request))
         .await
         .map_err(|_| RotateUserKeysError::ApiError)?;
     info!("Successfully rotated user account keys and data");

@@ -33,29 +33,29 @@ pub trait SecurityTaskApi: Send + Sync {
         bulk_create_security_tasks_request_model: Option<
             models::BulkCreateSecurityTasksRequestModel,
         >,
-    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error<BulkCreateTasksError>>;
+    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error>;
 
     /// PATCH /tasks/{taskId}/complete
-    async fn complete<'a>(&self, task_id: uuid::Uuid) -> Result<(), Error<CompleteError>>;
+    async fn complete<'a>(&self, task_id: uuid::Uuid) -> Result<(), Error>;
 
     /// GET /tasks
     async fn get<'a>(
         &self,
         status: Option<models::SecurityTaskStatus>,
-    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error<GetError>>;
+    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error>;
 
     /// GET /tasks/{organizationId}/metrics
     async fn get_task_metrics_for_organization<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::SecurityTaskMetricsResponseModel, Error<GetTaskMetricsForOrganizationError>>;
+    ) -> Result<models::SecurityTaskMetricsResponseModel, Error>;
 
     /// GET /tasks/organization
     async fn list_for_organization<'a>(
         &self,
         organization_id: Option<uuid::Uuid>,
         status: Option<models::SecurityTaskStatus>,
-    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error<ListForOrganizationError>>;
+    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error>;
 }
 
 pub struct SecurityTaskApiClient {
@@ -77,8 +77,7 @@ impl SecurityTaskApi for SecurityTaskApiClient {
         bulk_create_security_tasks_request_model: Option<
             models::BulkCreateSecurityTasksRequestModel,
         >,
-    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error<BulkCreateTasksError>>
-    {
+    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -95,44 +94,10 @@ impl SecurityTaskApi for SecurityTaskApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&bulk_create_security_tasks_request_model);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::SecurityTasksResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SecurityTasksResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<BulkCreateTasksError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn complete<'a>(&self, task_id: uuid::Uuid) -> Result<(), Error<CompleteError>> {
+    async fn complete<'a>(&self, task_id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -147,29 +112,13 @@ impl SecurityTaskApi for SecurityTaskApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            Ok(())
-        } else {
-            let local_var_entity: Option<CompleteError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
     async fn get<'a>(
         &self,
         status: Option<models::SecurityTaskStatus>,
-    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error<GetError>> {
+    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -184,47 +133,13 @@ impl SecurityTaskApi for SecurityTaskApiClient {
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::SecurityTasksResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SecurityTasksResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn get_task_metrics_for_organization<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::SecurityTaskMetricsResponseModel, Error<GetTaskMetricsForOrganizationError>>
-    {
+    ) -> Result<models::SecurityTaskMetricsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -239,49 +154,14 @@ impl SecurityTaskApi for SecurityTaskApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::SecurityTaskMetricsResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SecurityTaskMetricsResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<GetTaskMetricsForOrganizationError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
     async fn list_for_organization<'a>(
         &self,
         organization_id: Option<uuid::Uuid>,
         status: Option<models::SecurityTaskStatus>,
-    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error<ListForOrganizationError>>
-    {
+    ) -> Result<models::SecurityTasksResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -300,71 +180,6 @@ impl SecurityTaskApi for SecurityTaskApiClient {
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        let local_var_resp = local_var_req_builder.send().await?;
-
-        let local_var_status = local_var_resp.status();
-        let local_var_content_type = local_var_resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("application/octet-stream");
-        let local_var_content_type = super::ContentType::from(local_var_content_type);
-        let local_var_content = local_var_resp.text().await?;
-
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            match local_var_content_type {
-                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
-                ContentType::Text => {
-                    return Err(Error::from(serde_json::Error::custom(
-                        "Received `text/plain` content type response that cannot be converted to `models::SecurityTasksResponseModelListResponseModel`",
-                    )));
-                }
-                ContentType::Unsupported(local_var_unknown_type) => {
-                    return Err(Error::from(serde_json::Error::custom(format!(
-                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SecurityTasksResponseModelListResponseModel`"
-                    ))));
-                }
-            }
-        } else {
-            let local_var_entity: Option<ListForOrganizationError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`SecurityTaskApi::bulk_create_tasks`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkCreateTasksError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SecurityTaskApi::complete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CompleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SecurityTaskApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SecurityTaskApi::get_task_metrics_for_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetTaskMetricsForOrganizationError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SecurityTaskApi::list_for_organization`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ListForOrganizationError {
-    UnknownValue(serde_json::Value),
 }

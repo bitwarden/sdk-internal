@@ -1,11 +1,11 @@
 use bitwarden_api_api::models::ProjectResponseModelListResponseModel;
-use bitwarden_core::{client::Client, key_management::KeyIds};
+use bitwarden_core::key_management::KeyIds;
 use bitwarden_crypto::KeyStoreContext;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{error::SecretsManagerError, projects::ProjectResponse};
+use crate::{SecretsManagerClient, error::SecretsManagerError, projects::ProjectResponse};
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
@@ -16,9 +16,10 @@ pub struct ProjectsListRequest {
 }
 
 pub(crate) async fn list_projects(
-    client: &Client,
+    client: &SecretsManagerClient,
     input: &ProjectsListRequest,
 ) -> Result<ProjectsResponse, SecretsManagerError> {
+    let client = client.client();
     let config = client.internal.get_api_configurations();
     let res = config
         .api_client

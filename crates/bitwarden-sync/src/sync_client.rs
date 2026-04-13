@@ -44,9 +44,7 @@ impl SyncClient {
     /// Create a new SyncClient from a Bitwarden client
     pub fn new(client: Client) -> Self {
         Self {
-            api_configurations: client
-                .get_part()
-                .expect("ApiConfigurations should never fail"),
+            api_configurations: client.get_part(),
             sync_handlers: HandlerRegistry::new(),
             error_handlers: HandlerRegistry::new(),
             sync_lock: Mutex::new(()),
@@ -204,8 +202,6 @@ mod tests {
         let dummy_config = bitwarden_api_api::Configuration {
             base_path: String::new(),
             client: reqwest_middleware::ClientBuilder::new(reqwest::Client::new()).build(),
-            oauth_access_token: None,
-            user_agent: None,
         };
         SyncClient {
             api_configurations: Arc::new(ApiConfigurations {

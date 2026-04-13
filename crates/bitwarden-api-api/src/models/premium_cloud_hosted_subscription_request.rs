@@ -35,11 +35,11 @@ pub struct PremiumCloudHostedSubscriptionRequest {
     )]
     pub additional_storage_gb: Option<i32>,
     #[serde(
-        rename = "coupon",
-        alias = "Coupon",
+        rename = "coupons",
+        alias = "Coupons",
         skip_serializing_if = "Option::is_none"
     )]
-    pub coupon: Option<String>,
+    pub coupons: Option<Vec<String>>,
 }
 
 impl PremiumCloudHostedSubscriptionRequest {
@@ -51,7 +51,7 @@ impl PremiumCloudHostedSubscriptionRequest {
             non_tokenized_payment_method: None,
             billing_address: Box::new(billing_address),
             additional_storage_gb: None,
-            coupon: None,
+            coupons: None,
         }
     }
 }
