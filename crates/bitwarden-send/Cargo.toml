@@ -36,7 +36,7 @@ bitwarden-uuid = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }
 serde_repr = { workspace = true }
-sha2 = { version = ">=0.10.6, <0.11" }
+sha2 = { version = ">=0.10.6, <0.12" }
 thiserror = { workspace = true }
 tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
