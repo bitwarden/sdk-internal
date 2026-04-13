@@ -12,10 +12,10 @@ use crate::{CryptoKey, PrivateKey, SigningKey, SymmetricCryptoKey};
 /// implementation
 ///
 /// To implement it manually, note that you need a few types:
-/// - One implementing [KeyId<KeyValue = SymmetricCryptoKey>]
-/// - One implementing [KeyId<KeyValue = PrivateKey>]
-/// - One implementing [KeyIds]
-pub trait KeyId:
+/// - One implementing [KeySlotId<KeyValue = SymmetricCryptoKey>]
+/// - One implementing [KeySlotId<KeyValue = PrivateKey>]
+/// - One implementing [KeySlotIds]
+pub trait KeySlotId:
     Debug + Clone + Copy + Hash + Eq + PartialEq + Ord + PartialOrd + Send + Sync + 'static
 {
     #[allow(missing_docs)]
@@ -30,13 +30,13 @@ pub trait KeyId:
 }
 
 /// Represents a set of all the key identifiers that need to be defined to use a key store.
-pub trait KeyIds {
+pub trait KeySlotIds {
     #[allow(missing_docs)]
-    type Symmetric: KeyId<KeyValue = SymmetricCryptoKey>;
+    type Symmetric: KeySlotId<KeyValue = SymmetricCryptoKey>;
     #[allow(missing_docs)]
-    type Private: KeyId<KeyValue = PrivateKey>;
+    type Private: KeySlotId<KeyValue = PrivateKey>;
     /// Signing keys are used to create detached signatures and to sign objects.
-    type Signing: KeyId<KeyValue = SigningKey>;
+    type Signing: KeySlotId<KeyValue = SigningKey>;
 }
 
 /// An opaque identifier for a local key. Currently only contains a unique ID, but it can be
@@ -104,7 +104,7 @@ macro_rules! key_ids {
                 $variant  $( ($inner) )?,
             )* }
 
-            impl $crate::KeyId for $name {
+            impl $crate::KeySlotId for $name {
                 type KeyValue = key_ids!(@key_type $meta_type);
 
                 fn is_local(&self) -> bool {
@@ -125,7 +125,7 @@ macro_rules! key_ids {
 
         #[allow(missing_docs)]
         $ids_vis struct $ids_name;
-        impl $crate::KeyIds for $ids_name {
+        impl $crate::KeySlotIds for $ids_name {
             type Symmetric = $symm_name;
             type Private = $private_name;
             type Signing = $signing_name;
@@ -150,7 +150,7 @@ macro_rules! key_ids {
 pub(crate) mod tests {
 
     use crate::{
-        KeyId, LocalId,
+        KeySlotId, LocalId,
         traits::tests::{TestPrivateKey, TestSigningKey, TestSymmKey},
     };
 

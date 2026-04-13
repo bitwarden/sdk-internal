@@ -5,7 +5,9 @@ use bitwarden_api_api::models::{
     MasterPasswordUnlockDataRequestModel,
     master_password_unlock_response_model::MasterPasswordUnlockResponseModel,
 };
-use bitwarden_crypto::{EncString, Kdf, KeyIds, KeyStoreContext, MasterKey, SymmetricCryptoKey};
+use bitwarden_crypto::{
+    EncString, Kdf, KeySlotIds, KeyStoreContext, MasterKey, SymmetricCryptoKey,
+};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
@@ -60,7 +62,7 @@ pub struct MasterPasswordUnlockData {
 
 impl MasterPasswordUnlockData {
     /// Unwrap the user key into the key store context using the provided password.
-    pub fn unwrap_to_context<Ids: KeyIds>(
+    pub fn unwrap_to_context<Ids: KeySlotIds>(
         &self,
         password: &str,
         ctx: &mut KeyStoreContext<Ids>,
@@ -94,7 +96,7 @@ impl MasterPasswordUnlockData {
 
     /// Derive master password unlock data from a password and user key in the key store.
     #[tracing::instrument(skip(password, salt, ctx))]
-    pub fn derive<Ids: KeyIds>(
+    pub fn derive<Ids: KeySlotIds>(
         password: &str,
         kdf: &Kdf,
         salt: &str,
