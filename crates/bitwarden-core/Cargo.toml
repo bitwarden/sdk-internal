@@ -14,6 +14,9 @@ repository.workspace = true
 license-file.workspace = true
 keywords.workspace = true
 
+[package.metadata.cargo-udeps.ignore]
+normal = ["getrandom"] # Only used to enable WASM support, not used directly
+
 [features]
 internal = ["dep:zxcvbn"]
 no-memory-hardening = [
@@ -101,6 +104,3 @@ zeroize = { workspace = true, features = ["derive", "aarch64"] }
 
 [lints]
 workspace = true
-
-[package.metadata.cargo-udeps.ignore]
-normal = ["getrandom"] # Only used to enable WASM support, not used directly
