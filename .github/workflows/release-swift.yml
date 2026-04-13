@@ -130,12 +130,6 @@ jobs:
           token: ${{ steps.app-token-sdk-swift.outputs.token }}
           persist-credentials: true
 
-      - name: Setup Git
-        working-directory: sdk-swift
-        run: |
-          git config --local user.email "$_BOT_EMAIL"
-          git config --local user.name "$_BOT_NAME"
-
       - name: Download BitwardenSdk sources artifact
         uses: bitwarden/gh-actions/download-artifacts@main
         id: download-artifact
@@ -170,32 +164,41 @@ jobs:
           cp --verbose -rf sdk/crates/bitwarden-uniffi/swift/Sources sdk-swift
           cp --verbose -rf sdk/crates/bitwarden-uniffi/swift/Tests sdk-swift
 
-      - name: Push changes
-        id: push-changes
+      - name: Add changes
+        id: add-changes
+        working-directory: sdk-swift
+        run: |
+          git add .
+
+      - name: Commit changes
+        uses: bitwarden/gh-actions/api-commit@main
+        id: commit-changes
+        with:
+          token: ${{ steps.app-token-sdk-swift.outputs.token }}
+          branch: ${{ inputs.sdk-swift-branch-name }}
+          message: "Release Swift SDK v$_RELEASE_NAME (bitwarden/sdk-internal@$_SDK_INTERNAL_SHORT_REF) - $_SDK_INTERNAL_COMMIT_MSG"
+          tag_name: "v$_RELEASE_NAME"
+
+      - name: Echo changes
+        id: echo-changes
         working-directory: sdk-swift
         env:
           _RELEASE_NAME: ${{ steps.set-release-name.outputs.release_name }}
           _SDK_INTERNAL_REF: ${{ steps.get-sdk-internal-ref.outputs.sha }}
-          _SDK_INTERNAL_COMMIT_MSG: ${{ steps.get-sdk-internal-ref.outputs.commit_message }}
+          _SDK_INTERNAL_COMMIT_MSG: ${{ steps.get-sdk-internal-ref.outputs.commit_message }} 
           _BRANCH_NAME: ${{ inputs.sdk-swift-branch-name }}
+          _COMMIT_HASH: ${{ steps.commit-changes.outputs.commit-sha }}
         run: |
           # NOTE: bitwarden/ios repo expects the full sdk-internal commit hash in sdk-swift commit message
-          git add .
-          git commit -m "bitwarden/sdk-internal@$_SDK_INTERNAL_REF $_RELEASE_NAME - $_SDK_INTERNAL_COMMIT_MSG"
-          git push origin $_BRANCH_NAME
-          COMMIT_HASH=$(git rev-parse HEAD)
-          echo "👀 Commit hash: $COMMIT_HASH"
-          echo "commit-hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
-
-          git tag v$_RELEASE_NAME
-          git push origin v$_RELEASE_NAME
+          echo "👀 Commit hash: $_COMMIT_HASH"
+          echo "commit-hash=$_COMMIT_HASH" >> $GITHUB_OUTPUT
           echo "👀 Release Tag: v$_RELEASE_NAME"
 
           echo "# 🚀 Swift SDK Updated Successfully!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📋 **Branch:** [\`$_BRANCH_NAME\`](https://github.com/bitwarden/sdk-swift/commits/$_BRANCH_NAME)" >> $GITHUB_STEP_SUMMARY
-          echo "📝 **Commit:** bitwarden/sdk-swift@$COMMIT_HASH" >> $GITHUB_STEP_SUMMARY
-
+          echo "📝 **Commit:** bitwarden/sdk-swift@$_COMMIT_HASH" >> $GITHUB_STEP_SUMMARY
+      
       - name: Create release
         env:
           GH_TOKEN: ${{ steps.app-token-sdk-swift.outputs.token }}
@@ -224,7 +227,7 @@ jobs:
         if: inputs.update-ios-repo
         env:
           GH_TOKEN: ${{ steps.app-token-ios.outputs.token }}
-          _SDK_SWIFT_REF: ${{ steps.push-changes.outputs.commit-hash }}
+          _SDK_SWIFT_REF: ${{ steps.commit-changes.outputs.commit-sha }}
           _RELEASE_NAME: ${{ steps.set-release-name.outputs.release_name }}
         working-directory: sdk
         run: |
