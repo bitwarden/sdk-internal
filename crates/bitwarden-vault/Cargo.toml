@@ -43,6 +43,7 @@ bitwarden-state = { workspace = true }
 bitwarden-sync = { workspace = true }
 bitwarden-uuid = { workspace = true }
 chrono = { workspace = true }
+ciborium = { workspace = true }
 data-encoding = { workspace = true }
 futures = { workspace = true }
 hmac = { workspace = true }
