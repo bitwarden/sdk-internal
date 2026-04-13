@@ -48,17 +48,27 @@ async fn create_cipher(
     use_strict_decryption: bool,
 ) -> Result<CipherView, CreateCipherAdminError> {
     let collection_ids = request.create_request.collection_ids.clone();
+    // CipherMiniResponseModel does not include folder_id, favorite, or edit — save them from
+    // the request before it is consumed so they can be applied to the merged result.
+    let folder_id = request.create_request.folder_id;
+    let favorite = request.create_request.favorite;
     let mut cipher_request = key_store.encrypt(request)?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
-    let cipher: Cipher = api_client
+    let mut cipher: Cipher = api_client
         .ciphers_api()
         .post_admin(Some(CipherCreateRequestModel {
-            collection_ids: Some(collection_ids.into_iter().map(Into::into).collect()),
+            collection_ids: Some(collection_ids.iter().cloned().map(Into::into).collect()),
             cipher: Box::new(cipher_request),
         }))
         .await?
         .merge_with_cipher(None)?;
+
+    cipher.collection_ids = collection_ids;
+    cipher.folder_id = folder_id;
+    cipher.favorite = favorite;
+    cipher.edit = true;
+    cipher.view_password = true;
 
     if use_strict_decryption {
         Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
@@ -163,13 +173,18 @@ mod tests {
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
 
+        let test_folder_id: crate::FolderId =
+            "a4e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
+        let test_collection_id: bitwarden_collections::collection::CollectionId =
+            TEST_COLLECTION_ID.parse().unwrap();
+
         let cipher_request: CipherCreateRequestInternal = CipherCreateRequest {
             organization_id: Some(TEST_ORG_ID.parse().unwrap()),
-            collection_ids: vec![TEST_COLLECTION_ID.parse().unwrap()],
-            folder_id: None,
+            collection_ids: vec![test_collection_id],
+            folder_id: Some(test_folder_id),
             name: "Test Cipher".into(),
             notes: None,
-            favorite: false,
+            favorite: true,
             reprompt: CipherRepromptType::None,
             r#type: CipherViewType::Login(LoginView {
                 username: None,
@@ -198,6 +213,18 @@ mod tests {
         assert_eq!(
             response.organization_id,
             cipher_request.create_request.organization_id
+        );
+        // Fields omitted from CipherMiniResponseModel must be preserved from the request.
+        assert_eq!(
+            response.collection_ids,
+            cipher_request.create_request.collection_ids
+        );
+        assert_eq!(response.folder_id, cipher_request.create_request.folder_id);
+        assert_eq!(response.favorite, cipher_request.create_request.favorite);
+        assert!(response.edit, "edit should be true after admin create");
+        assert!(
+            response.view_password,
+            "view_password should be true after admin create"
         );
     }
 }
