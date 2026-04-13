@@ -165,7 +165,6 @@ jobs:
           cp --verbose -rf sdk/crates/bitwarden-uniffi/swift/Tests sdk-swift
 
       - name: Add changes
-        id: add-changes
         working-directory: sdk-swift
         run: |
           git add .
@@ -180,7 +179,6 @@ jobs:
           tag_name: "v$_RELEASE_NAME"
 
       - name: Echo changes
-        id: echo-changes
         working-directory: sdk-swift
         env:
           _RELEASE_NAME: ${{ steps.set-release-name.outputs.release_name }}
@@ -191,7 +189,6 @@ jobs:
         run: |
           # NOTE: bitwarden/ios repo expects the full sdk-internal commit hash in sdk-swift commit message
           echo "👀 Commit hash: $_COMMIT_HASH"
-          echo "commit-hash=$_COMMIT_HASH" >> $GITHUB_OUTPUT
           echo "👀 Release Tag: v$_RELEASE_NAME"
 
           echo "# 🚀 Swift SDK Updated Successfully!" >> $GITHUB_STEP_SUMMARY
