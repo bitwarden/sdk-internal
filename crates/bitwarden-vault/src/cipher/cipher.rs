@@ -1068,6 +1068,7 @@ impl IdentifyKey<SymmetricKeyId> for StrictDecrypt<Cipher> {
 }
 
 impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for StrictDecrypt<Cipher> {
+    #[instrument(err, skip_all, fields(cipher_id = ?self.0.id, org_id = ?self.0.organization_id, kind = ?self.0.r#type))]
     fn decrypt(
         &self,
         ctx: &mut KeyStoreContext<KeyIds>,

@@ -70,12 +70,6 @@ impl CipherViewType {
         }
     }
 
-    pub(crate) fn as_bank_account_view_mut(&mut self) -> Option<&mut BankAccountView> {
-        match self {
-            CipherViewType::BankAccount(b) => Some(b),
-            _ => None,
-        }
-    }
     pub(crate) fn as_login_view(&self) -> Option<&LoginView> {
         match self {
             CipherViewType::Login(l) => Some(l),
