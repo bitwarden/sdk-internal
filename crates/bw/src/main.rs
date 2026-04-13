@@ -7,9 +7,11 @@
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use bitwarden_cli::install_color_eyre;
+use bitwarden_core::{Client, ClientBuilder, global::GlobalClient};
+use bitwarden_pm::PasswordManagerClient;
 use clap::{CommandFactory, Parser};
 use clap_complete::Shell;
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{Error, Result};
 use tracing_subscriber::{
     EnvFilter, prelude::__tracing_subscriber_SubscriberExt as _, util::SubscriberInitExt as _,
 };
@@ -64,21 +66,30 @@ async fn main() -> Result<()> {
 }
 
 async fn process_commands(command: Commands, _session: Option<String>) -> CommandResult {
-    // Try to initialize the client with the session if provided
-    // Ideally we'd have separate clients and this would be an enum, something like:
-    // enum CliClient {
-    //   Unlocked(_),  // If the user already logged in and the provided session is valid
-    //   Locked(_),    // If the user is logged in, but the session hasn't been provided
-    //   LoggedOut(_), // If the user is not logged in
-    // }
-    // If the session was invalid, we'd just return an error immediately
-    // This would allow each command to match on the client type that they need, and we don't need
-    // to do two matches over the whole command tree
-    let client = bitwarden_pm::PasswordManagerClient::new(None);
+    let global_client = GlobalClient::new();
+    let client: Option<PasswordManagerClient> = PasswordManagerClient::load_from_state().ok();
+
+    fn require_client(
+        client: Option<PasswordManagerClient>,
+    ) -> Result<PasswordManagerClient, Error> {
+        client.ok_or_else(|| {
+            color_eyre::eyre::eyre!("No active session found. Please log in using `bw login`.")
+        })
+    }
+
+    fn require_logged_in_client(
+        client: Option<PasswordManagerClient>,
+    ) -> Result<PasswordManagerClient, Error> {
+        let client = require_client(client)?;
+        // Here we would add additional checks to ensure the client is logged in
+        Ok(client)
+    }
 
     // Temporary until rehydration
     if let (Ok(email), Ok(password)) = (std::env::var("BW_EMAIL"), std::env::var("BW_PASSWORD")) {
-        temp_login(&client.0, email, password).await?;
+        if let Some(client) = &client {
+            temp_login(&client.0, email, password).await?;
+        }
     }
 
     match command {
@@ -91,7 +102,7 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         Commands::Unlock(_args) => todo!(),
 
         // Platform commands
-        Commands::Sync(args) => args.execute_sync(client).await,
+        Commands::Sync(args) => args.execute_sync(require_logged_in_client(client)?).await,
 
         Commands::Encode => {
             let input = std::io::read_to_string(std::io::stdin())?;
@@ -136,7 +147,7 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         Commands::Move(_args) => todo!(),
 
         // Tools commands
-        Commands::Generate(arg) => arg.run(&client),
+        Commands::Generate(arg) => arg.run(&require_logged_in_client(client)?),
         Commands::Import(_args) => todo!(),
         Commands::Export(_args) => todo!(),
         Commands::Send(_args) => todo!(),

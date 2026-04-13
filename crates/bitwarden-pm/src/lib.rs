@@ -50,6 +50,12 @@ impl PasswordManagerClient {
         builder.build()
     }
 
+    pub fn load_from_state() -> Result<Self, ()> {
+        // bitwarden_core::Client.load_from_state().map(Self)
+
+        todo!()
+    }
+
     /// Returns a [`PasswordManagerClientBuilder`] for constructing a new [`PasswordManagerClient`].
     pub fn builder() -> PasswordManagerClientBuilder {
         PasswordManagerClientBuilder::new()
