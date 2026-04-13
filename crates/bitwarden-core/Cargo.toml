@@ -83,7 +83,7 @@ uniffi = { workspace = true, optional = true, features = ["tokio"] }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
-zeroize = { version = ">=1.7.0, <2.0", features = ["derive", "aarch64"] }
+zeroize = { workspace = true, features = ["derive", "aarch64"] }
 zxcvbn = { workspace = true, optional = true }
 
 [target.'cfg(not(target_arch="wasm32"))'.dependencies]
@@ -97,7 +97,7 @@ rustls-platform-verifier = "0.6.0"
 rand_chacha = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
 wiremock = { workspace = true }
-zeroize = { version = ">=1.7.0, <2.0", features = ["derive", "aarch64"] }
+zeroize = { workspace = true, features = ["derive", "aarch64"] }
 
 [lints]
 workspace = true
