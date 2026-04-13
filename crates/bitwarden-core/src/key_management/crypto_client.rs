@@ -1,7 +1,8 @@
 #[cfg(feature = "wasm")]
 use bitwarden_crypto::safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeNamespace};
 use bitwarden_crypto::{
-    BitwardenLegacyKeyBytes, CryptoError, Decryptable, Kdf, KeyId, PrimitiveEncryptable, RotateableKeySet, SymmetricCryptoKey, SymmetricKeyAlgorithm
+    BitwardenLegacyKeyBytes, CryptoError, Decryptable, Kdf, PrimitiveEncryptable,
+    RotateableKeySet, SymmetricCryptoKey, SymmetricKeyAlgorithm,
 };
 #[cfg(feature = "internal")]
 use bitwarden_crypto::{EncString, UnsignedSharedKey};
@@ -190,9 +191,11 @@ impl CryptoClient {
         get_user_encryption_key(&self.client).await
     }
 
-    /// Takes a raw key and returns the corresponding key id. This is used for the biometrics subsystem and should
-    /// be removed after moving over biometric management to the SDK.
-    pub fn get_key_id_for_symmetric_key(key: Vec<u8>) -> Result<Option<Vec<u8>>, CryptoClientError> {
+    /// Takes a raw key and returns the corresponding key id. This is used for the biometrics
+    /// subsystem and should be removed after moving over biometric management to the SDK.
+    pub fn get_key_id_for_symmetric_key(
+        key: Vec<u8>,
+    ) -> Result<Option<Vec<u8>>, CryptoClientError> {
         let symmetric_key = SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(key))?;
         Ok(symmetric_key.key_id().map(|id| id.as_slice().to_vec()))
     }
