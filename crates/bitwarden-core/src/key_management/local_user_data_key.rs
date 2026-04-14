@@ -27,7 +27,7 @@ impl WrappedLocalUserDataKey {
     }
 
     /// Unwrap the local user data key and set it in the context under the
-    /// [`SymmetricKeyId::LocalUserData`] key id.
+    /// [`SymmetricKeySlotId::LocalUserData`] key id.
     #[instrument(skip(self, ctx), err)]
     pub(crate) fn unwrap_to_context(
         &self,

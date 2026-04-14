@@ -1,10 +1,10 @@
 //! This module contains the definition for the key identifiers used by the rest of the crates.
 //! Any code that needs to interact with the [KeyStore] should use these types.
 //!
-//! - [SymmetricKeyId] is used to identify symmetric keys.
-//! - [PrivateKeyId] is used to identify private keys.
-//! - [KeyIds] is a helper type that combines both symmetric and private key identifiers. This is
-//!   usually used in the type bounds of [KeyStore],
+//! - [SymmetricKeySlotId] is used to identify symmetric keys.
+//! - [PrivateKeySlotId] is used to identify private keys.
+//! - [KeySlotIds] is a helper type that combines both symmetric and private key identifiers. This
+//!   is usually used in the type bounds of [KeyStore],
 //!   [KeyStoreContext](bitwarden_crypto::KeyStoreContext),
 //!   [PrimitiveEncryptable](bitwarden_crypto::PrimitiveEncryptable),
 //!   [CompositeEncryptable](bitwarden_crypto::CompositeEncryptable), and

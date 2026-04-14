@@ -1060,7 +1060,7 @@ pub(crate) fn make_user_key_connector_registration(
     })
 }
 
-/// Ensures the [`SymmetricKeyId::LocalUserData`] key is loaded into the key store context.
+/// Ensures the [`SymmetricKeySlotId::LocalUserData`] key is loaded into the key store context.
 ///
 /// On first call the key is generated (wrapping the user key with itself) and persisted to state.
 /// Subsequent calls are idempotent: if the key already exists in state it is loaded as-is,
