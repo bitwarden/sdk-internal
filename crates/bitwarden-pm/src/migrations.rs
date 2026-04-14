@@ -1,6 +1,7 @@
 //! Manages repository migrations for the Bitwarden SDK.
 
 use bitwarden_core::key_management::UserKeyState;
+use bitwarden_policies::Policy;
 use bitwarden_state::{
     SettingItem,
     repository::{RepositoryItem, RepositoryMigrationStep, RepositoryMigrations},
@@ -17,6 +18,7 @@ pub fn get_sdk_managed_migrations() -> RepositoryMigrations {
         Add(Folder::data()),
         Add(UserKeyState::data()),
         Add(SettingItem::data()),
+        Add(Policy::data()),
     ])
 }
 

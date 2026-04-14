@@ -7,7 +7,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use uuid::Uuid;
 
 /// Represents a policy that can be applied to an organization.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Policy {
     id: Uuid,
     organization_id: Uuid,
@@ -16,7 +16,31 @@ pub struct Policy {
     enabled: bool,
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Debug)]
+bitwarden_state::register_repository_item!(Uuid => Policy, "Policy");
+
+impl Policy {
+    /// Returns the unique identifier for this policy.
+    pub fn id(&self) -> Uuid {
+        self.id
+    }
+
+    /// Returns the type of this policy.
+    pub fn policy_type(&self) -> &PolicyType {
+        &self.r#type
+    }
+
+    /// Returns the policy's configuration data as a generic JSON map, if present.
+    pub fn policy_data(&self) -> Option<&HashMap<String, serde_json::Value>> {
+        self.data.as_ref()
+    }
+
+    /// Returns whether this policy is enabled.
+    pub fn enabled(&self) -> bool {
+        self.enabled
+    }
+}
+
+#[derive(Serialize_repr, Deserialize_repr, Debug, Clone)]
 #[repr(u8)]
 pub enum PolicyType {
     /// Requires users to have 2fa enabled
@@ -52,6 +76,8 @@ pub enum PolicyType {
     AutomaticUserConfirmation = 18,
     BlockClaimedDomainAccountCreation = 19,
     OrganizationUserNotification = 20,
+    /// Configure Send-related behavior: disabling Sends, email visibility, access controls,
+    /// Send types, and deletion
     SendControls = 21,
 }
 

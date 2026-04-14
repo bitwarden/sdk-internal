@@ -12,6 +12,7 @@ use bitwarden_core::{
 };
 use bitwarden_exporters::ExporterClientExt as _;
 use bitwarden_generators::GeneratorClientsExt as _;
+use bitwarden_policies::PolicySyncHandler;
 use bitwarden_send::SendClientExt as _;
 use bitwarden_sync::SyncClientExt as _;
 use bitwarden_user_crypto_management::UserCryptoManagementClientExt;
@@ -76,8 +77,9 @@ impl PasswordManagerClient {
         client
             .sync()
             .register_sync_handler(Arc::new(FolderSyncHandler::from_client(&client.0)));
-
-        // TODO: Add more sync handlers here!
+        client
+            .sync()
+            .register_sync_handler(Arc::new(PolicySyncHandler::from_client(&client.0)));
 
         client
     }
