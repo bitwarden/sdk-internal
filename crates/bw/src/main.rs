@@ -19,6 +19,7 @@ use crate::{command::*, render::CommandResult};
 mod admin_console;
 mod auth;
 mod command;
+mod dirt;
 mod key_management;
 mod platform;
 mod render;
@@ -117,16 +118,13 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
             Ok(().into())
         }
 
-        Commands::Status => todo!(),
+        Commands::Status(_) => todo!(),
 
         // Vault commands
-        Commands::List(_args) => todo!(),
-        Commands::Get { command } => match command {
-            GetCommands::Template { command } => command.run(),
-            _ => todo!("Get command implementation with {:?}", command),
-        },
-        Commands::Create { .. } => todo!(),
-        Commands::Edit(_args) => todo!(),
+        Commands::List { .. } => todo!(),
+        Commands::Get { command } => command.run(),
+        Commands::Create { command } => command.run(),
+        Commands::Edit { .. } => todo!(),
         Commands::Delete { .. } => todo!(),
         Commands::Restore(_args) => todo!(),
 
