@@ -8,13 +8,20 @@ use bitwarden_crypto::{
 };
 use bitwarden_encoding::B64;
 
-use crate::error::Result;
+use crate::{auth::registration::RegistrationClient, error::Result};
+
+mod registration;
 
 #[derive(uniffi::Object)]
 pub struct AuthClient(pub(crate) bitwarden_core::Client);
 
 #[uniffi::export(async_runtime = "tokio")]
 impl AuthClient {
+    /// Client for initializing user account cryptography and unlock methods after JIT provisioning
+    pub fn registration(&self) -> RegistrationClient {
+        RegistrationClient(self.0.clone())
+    }
+
     /// Calculate Password Strength
     pub fn password_strength(
         &self,
@@ -63,7 +70,7 @@ impl AuthClient {
     }
 
     /// Generate keys needed for TDE process
-    pub fn make_register_tde_keys(
+    pub async fn make_register_tde_keys(
         &self,
         email: String,
         org_public_key: B64,
@@ -72,7 +79,8 @@ impl AuthClient {
         Ok(self
             .0
             .auth()
-            .make_register_tde_keys(email, org_public_key, remember_device)?)
+            .make_register_tde_keys(email, org_public_key, remember_device)
+            .await?)
     }
 
     /// Generate keys needed to onboard a new user without master key to key connector
@@ -85,8 +93,12 @@ impl AuthClient {
     /// To retrieve the user's password hash, use [`AuthClient::hash_password`] with
     /// `HashPurpose::LocalAuthentication` during login and persist it. If the login method has no
     /// password, use the email OTP.
-    pub fn validate_password(&self, password: String, password_hash: B64) -> Result<bool> {
-        Ok(self.0.auth().validate_password(password, password_hash)?)
+    pub async fn validate_password(&self, password: String, password_hash: B64) -> Result<bool> {
+        Ok(self
+            .0
+            .auth()
+            .validate_password(password, password_hash)
+            .await?)
     }
 
     /// Validate the user password without knowing the password hash
@@ -95,7 +107,7 @@ impl AuthClient {
     /// password. Some example are login with device or TDE.
     ///
     /// This works by comparing the provided password against the encrypted user key.
-    pub fn validate_password_user_key(
+    pub async fn validate_password_user_key(
         &self,
         password: String,
         encrypted_user_key: String,
@@ -103,7 +115,8 @@ impl AuthClient {
         Ok(self
             .0
             .auth()
-            .validate_password_user_key(password, encrypted_user_key)?)
+            .validate_password_user_key(password, encrypted_user_key)
+            .await?)
     }
 
     /// Validate the user PIN
@@ -113,8 +126,16 @@ impl AuthClient {
     ///
     /// This works by comparing the decrypted user key with the current user key, so the client must
     /// be unlocked.
-    pub fn validate_pin(&self, pin: String, pin_protected_user_key: EncString) -> Result<bool> {
-        Ok(self.0.auth().validate_pin(pin, pin_protected_user_key)?)
+    pub async fn validate_pin(
+        &self,
+        pin: String,
+        pin_protected_user_key: EncString,
+    ) -> Result<bool> {
+        Ok(self
+            .0
+            .auth()
+            .validate_pin(pin, pin_protected_user_key)
+            .await?)
     }
 
     /// Validates a PIN against a PIN-protected user key envelope.

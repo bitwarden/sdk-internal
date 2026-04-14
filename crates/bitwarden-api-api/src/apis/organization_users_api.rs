@@ -32,7 +32,7 @@ pub trait OrganizationUsersApi: Send + Sync {
         org_id: uuid::Uuid,
         organization_user_id: uuid::Uuid,
         organization_user_accept_request_model: Option<models::OrganizationUserAcceptRequestModel>,
-    ) -> Result<(), Error<AcceptError>>;
+    ) -> Result<(), Error>;
 
     /// POST /organizations/{orgId}/users/{organizationUserId}/accept-init
     async fn accept_init<'a>(
@@ -42,7 +42,7 @@ pub trait OrganizationUsersApi: Send + Sync {
         organization_user_accept_init_request_model: Option<
             models::OrganizationUserAcceptInitRequestModel,
         >,
-    ) -> Result<(), Error<AcceptInitError>>;
+    ) -> Result<(), Error>;
 
     /// POST /organizations/{orgId}/users/{id}/auto-confirm
     async fn automatically_confirm_organization_user<'a>(
@@ -52,7 +52,7 @@ pub trait OrganizationUsersApi: Send + Sync {
         organization_user_confirm_request_model: Option<
             models::OrganizationUserConfirmRequestModel,
         >,
-    ) -> Result<(), Error<AutomaticallyConfirmOrganizationUserError>>;
+    ) -> Result<(), Error>;
 
     /// POST /organizations/{orgId}/users/confirm
     async fn bulk_confirm<'a>(
@@ -61,52 +61,49 @@ pub trait OrganizationUsersApi: Send + Sync {
         organization_user_bulk_confirm_request_model: Option<
             models::OrganizationUserBulkConfirmRequestModel,
         >,
-    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error<BulkConfirmError>>;
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error>;
 
     /// DELETE /organizations/{orgId}/users/delete-account
     async fn bulk_delete_account<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<
-        models::OrganizationUserBulkResponseModelListResponseModel,
-        Error<BulkDeleteAccountError>,
-    >;
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error>;
 
     /// PUT /organizations/{orgId}/users/enable-secrets-manager
     async fn bulk_enable_secrets_manager<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<(), Error<BulkEnableSecretsManagerError>>;
+    ) -> Result<(), Error>;
 
     /// POST /organizations/{orgId}/users/reinvite
     async fn bulk_reinvite<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error<BulkReinviteError>>;
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error>;
 
     /// DELETE /organizations/{orgId}/users
     async fn bulk_remove<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error<BulkRemoveError>>;
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error>;
 
     /// PUT /organizations/{orgId}/users/restore
     async fn bulk_restore<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error<BulkRestoreError>>;
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error>;
 
     /// PUT /organizations/{orgId}/users/revoke
     async fn bulk_revoke<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error<BulkRevokeError>>;
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error>;
 
     /// POST /organizations/{orgId}/users/{id}/confirm
     async fn confirm<'a>(
@@ -116,14 +113,10 @@ pub trait OrganizationUsersApi: Send + Sync {
         organization_user_confirm_request_model: Option<
             models::OrganizationUserConfirmRequestModel,
         >,
-    ) -> Result<(), Error<ConfirmError>>;
+    ) -> Result<(), Error>;
 
     /// DELETE /organizations/{orgId}/users/{id}/delete-account
-    async fn delete_account<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<DeleteAccountError>>;
+    async fn delete_account<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
 
     /// GET /organizations/{orgId}/users/{id}
     async fn get<'a>(
@@ -131,17 +124,14 @@ pub trait OrganizationUsersApi: Send + Sync {
         org_id: uuid::Uuid,
         id: uuid::Uuid,
         include_groups: Option<bool>,
-    ) -> Result<models::OrganizationUserDetailsResponseModel, Error<GetError>>;
+    ) -> Result<models::OrganizationUserDetailsResponseModel, Error>;
 
     /// POST /organizations/{orgId}/users/account-recovery-details
     async fn get_account_recovery_details<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<
-        models::OrganizationUserResetPasswordDetailsResponseModelListResponseModel,
-        Error<GetAccountRecoveryDetailsError>,
-    >;
+    ) -> Result<models::OrganizationUserResetPasswordDetailsResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{orgId}/users
     async fn get_all<'a>(
@@ -149,33 +139,27 @@ pub trait OrganizationUsersApi: Send + Sync {
         org_id: uuid::Uuid,
         include_groups: Option<bool>,
         include_collections: Option<bool>,
-    ) -> Result<models::OrganizationUserUserDetailsResponseModelListResponseModel, Error<GetAllError>>;
+    ) -> Result<models::OrganizationUserUserDetailsResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{orgId}/users/mini-details
     async fn get_mini_details<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<
-        models::OrganizationUserUserMiniDetailsResponseModelListResponseModel,
-        Error<GetMiniDetailsError>,
-    >;
+    ) -> Result<models::OrganizationUserUserMiniDetailsResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{orgId}/users/{id}/reset-password-details
     async fn get_reset_password_details<'a>(
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<
-        models::OrganizationUserResetPasswordDetailsResponseModel,
-        Error<GetResetPasswordDetailsError>,
-    >;
+    ) -> Result<models::OrganizationUserResetPasswordDetailsResponseModel, Error>;
 
     /// POST /organizations/{orgId}/users/invite
     async fn invite<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_invite_request_model: Option<models::OrganizationUserInviteRequestModel>,
-    ) -> Result<(), Error<InviteError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /organizations/{orgId}/users/{id}
     async fn put<'a>(
@@ -183,7 +167,7 @@ pub trait OrganizationUsersApi: Send + Sync {
         org_id: uuid::Uuid,
         id: uuid::Uuid,
         organization_user_update_request_model: Option<models::OrganizationUserUpdateRequestModel>,
-    ) -> Result<(), Error<PutError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /organizations/{orgId}/users/{id}/recover-account
     async fn put_recover_account<'a>(
@@ -193,7 +177,7 @@ pub trait OrganizationUsersApi: Send + Sync {
         organization_user_reset_password_request_model: Option<
             models::OrganizationUserResetPasswordRequestModel,
         >,
-    ) -> Result<(), Error<PutRecoverAccountError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /organizations/{orgId}/users/{id}/reset-password
     async fn put_reset_password<'a>(
@@ -203,7 +187,7 @@ pub trait OrganizationUsersApi: Send + Sync {
         organization_user_reset_password_request_model: Option<
             models::OrganizationUserResetPasswordRequestModel,
         >,
-    ) -> Result<(), Error<PutResetPasswordError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /organizations/{orgId}/users/{userId}/reset-password-enrollment
     async fn put_reset_password_enrollment<'a>(
@@ -213,21 +197,13 @@ pub trait OrganizationUsersApi: Send + Sync {
         organization_user_reset_password_enrollment_request_model: Option<
             models::OrganizationUserResetPasswordEnrollmentRequestModel,
         >,
-    ) -> Result<(), Error<PutResetPasswordEnrollmentError>>;
+    ) -> Result<(), Error>;
 
     /// POST /organizations/{orgId}/users/{id}/reinvite
-    async fn reinvite<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<ReinviteError>>;
+    async fn reinvite<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
 
     /// DELETE /organizations/{orgId}/users/{id}
-    async fn remove<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<RemoveError>>;
+    async fn remove<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
 
     /// PUT /organizations/{orgId}/users/{id}/restore/vnext
     async fn restore_async_v_next<'a>(
@@ -235,27 +211,20 @@ pub trait OrganizationUsersApi: Send + Sync {
         org_id: uuid::Uuid,
         id: uuid::Uuid,
         organization_user_restore_request: Option<models::OrganizationUserRestoreRequest>,
-    ) -> Result<(), Error<RestoreAsync_vNextError>>;
+    ) -> Result<(), Error>;
 
     /// PUT /organizations/{orgId}/users/{id}/revoke
-    async fn revoke<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<RevokeError>>;
+    async fn revoke<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error>;
 
     /// PUT /organizations/{orgId}/users/revoke-self
-    async fn revoke_self<'a>(&self, org_id: uuid::Uuid) -> Result<(), Error<RevokeSelfError>>;
+    async fn revoke_self<'a>(&self, org_id: uuid::Uuid) -> Result<(), Error>;
 
     /// POST /organizations/{orgId}/users/public-keys
     async fn user_public_keys<'a>(
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<
-        models::OrganizationUserPublicKeyResponseModelListResponseModel,
-        Error<UserPublicKeysError>,
-    >;
+    ) -> Result<models::OrganizationUserPublicKeyResponseModelListResponseModel, Error>;
 }
 
 pub struct OrganizationUsersApiClient {
@@ -276,7 +245,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         org_id: uuid::Uuid,
         organization_user_id: uuid::Uuid,
         organization_user_accept_request_model: Option<models::OrganizationUserAcceptRequestModel>,
-    ) -> Result<(), Error<AcceptError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -303,7 +272,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         organization_user_accept_init_request_model: Option<
             models::OrganizationUserAcceptInitRequestModel,
         >,
-    ) -> Result<(), Error<AcceptInitError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -331,7 +300,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         organization_user_confirm_request_model: Option<
             models::OrganizationUserConfirmRequestModel,
         >,
-    ) -> Result<(), Error<AutomaticallyConfirmOrganizationUserError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -358,8 +327,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         organization_user_bulk_confirm_request_model: Option<
             models::OrganizationUserBulkConfirmRequestModel,
         >,
-    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error<BulkConfirmError>>
-    {
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -383,10 +351,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<
-        models::OrganizationUserBulkResponseModelListResponseModel,
-        Error<BulkDeleteAccountError>,
-    > {
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -409,7 +374,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<(), Error<BulkEnableSecretsManagerError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -432,8 +397,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error<BulkReinviteError>>
-    {
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -456,8 +420,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error<BulkRemoveError>>
-    {
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -480,8 +443,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error<BulkRestoreError>>
-    {
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -504,8 +466,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error<BulkRevokeError>>
-    {
+    ) -> Result<models::OrganizationUserBulkResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -531,7 +492,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         organization_user_confirm_request_model: Option<
             models::OrganizationUserConfirmRequestModel,
         >,
-    ) -> Result<(), Error<ConfirmError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -552,11 +513,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn delete_account<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<DeleteAccountError>> {
+    async fn delete_account<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -580,7 +537,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         org_id: uuid::Uuid,
         id: uuid::Uuid,
         include_groups: Option<bool>,
-    ) -> Result<models::OrganizationUserDetailsResponseModel, Error<GetError>> {
+    ) -> Result<models::OrganizationUserDetailsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -607,10 +564,8 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<
-        models::OrganizationUserResetPasswordDetailsResponseModelListResponseModel,
-        Error<GetAccountRecoveryDetailsError>,
-    > {
+    ) -> Result<models::OrganizationUserResetPasswordDetailsResponseModelListResponseModel, Error>
+    {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -634,8 +589,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         org_id: uuid::Uuid,
         include_groups: Option<bool>,
         include_collections: Option<bool>,
-    ) -> Result<models::OrganizationUserUserDetailsResponseModelListResponseModel, Error<GetAllError>>
-    {
+    ) -> Result<models::OrganizationUserUserDetailsResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -664,10 +618,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
     async fn get_mini_details<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<
-        models::OrganizationUserUserMiniDetailsResponseModelListResponseModel,
-        Error<GetMiniDetailsError>,
-    > {
+    ) -> Result<models::OrganizationUserUserMiniDetailsResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -689,10 +640,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         &self,
         org_id: uuid::Uuid,
         id: uuid::Uuid,
-    ) -> Result<
-        models::OrganizationUserResetPasswordDetailsResponseModel,
-        Error<GetResetPasswordDetailsError>,
-    > {
+    ) -> Result<models::OrganizationUserResetPasswordDetailsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -715,7 +663,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         &self,
         org_id: uuid::Uuid,
         organization_user_invite_request_model: Option<models::OrganizationUserInviteRequestModel>,
-    ) -> Result<(), Error<InviteError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -739,7 +687,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         org_id: uuid::Uuid,
         id: uuid::Uuid,
         organization_user_update_request_model: Option<models::OrganizationUserUpdateRequestModel>,
-    ) -> Result<(), Error<PutError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -766,7 +714,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         organization_user_reset_password_request_model: Option<
             models::OrganizationUserResetPasswordRequestModel,
         >,
-    ) -> Result<(), Error<PutRecoverAccountError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -794,7 +742,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         organization_user_reset_password_request_model: Option<
             models::OrganizationUserResetPasswordRequestModel,
         >,
-    ) -> Result<(), Error<PutResetPasswordError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -822,7 +770,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         organization_user_reset_password_enrollment_request_model: Option<
             models::OrganizationUserResetPasswordEnrollmentRequestModel,
         >,
-    ) -> Result<(), Error<PutResetPasswordEnrollmentError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -843,11 +791,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn reinvite<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<ReinviteError>> {
+    async fn reinvite<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -866,11 +810,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn remove<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<RemoveError>> {
+    async fn remove<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -894,7 +834,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         org_id: uuid::Uuid,
         id: uuid::Uuid,
         organization_user_restore_request: Option<models::OrganizationUserRestoreRequest>,
-    ) -> Result<(), Error<RestoreAsync_vNextError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -914,11 +854,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn revoke<'a>(
-        &self,
-        org_id: uuid::Uuid,
-        id: uuid::Uuid,
-    ) -> Result<(), Error<RevokeError>> {
+    async fn revoke<'a>(&self, org_id: uuid::Uuid, id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -937,7 +873,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn revoke_self<'a>(&self, org_id: uuid::Uuid) -> Result<(), Error<RevokeSelfError>> {
+    async fn revoke_self<'a>(&self, org_id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -959,10 +895,7 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
         &self,
         org_id: uuid::Uuid,
         organization_user_bulk_request_model: Option<models::OrganizationUserBulkRequestModel>,
-    ) -> Result<
-        models::OrganizationUserPublicKeyResponseModelListResponseModel,
-        Error<UserPublicKeysError>,
-    > {
+    ) -> Result<models::OrganizationUserPublicKeyResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -980,174 +913,4 @@ impl OrganizationUsersApi for OrganizationUsersApiClient {
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`OrganizationUsersApi::accept`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AcceptError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::accept_init`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AcceptInitError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method
-/// [`OrganizationUsersApi::automatically_confirm_organization_user`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AutomaticallyConfirmOrganizationUserError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::bulk_confirm`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkConfirmError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::bulk_delete_account`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkDeleteAccountError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::bulk_enable_secrets_manager`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkEnableSecretsManagerError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::bulk_reinvite`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkReinviteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::bulk_remove`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkRemoveError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::bulk_restore`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkRestoreError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::bulk_revoke`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkRevokeError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::confirm`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ConfirmError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::delete_account`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteAccountError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::get_account_recovery_details`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAccountRecoveryDetailsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::get_all`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAllError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::get_mini_details`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetMiniDetailsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::get_reset_password_details`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetResetPasswordDetailsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::invite`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum InviteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::put_recover_account`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutRecoverAccountError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::put_reset_password`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutResetPasswordError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::put_reset_password_enrollment`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutResetPasswordEnrollmentError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::reinvite`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ReinviteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::remove`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RemoveError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::restore_async_v_next`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RestoreAsync_vNextError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::revoke`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RevokeError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::revoke_self`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RevokeSelfError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`OrganizationUsersApi::user_public_keys`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UserPublicKeysError {
-    UnknownValue(serde_json::Value),
 }
