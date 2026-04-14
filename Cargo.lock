@@ -789,6 +789,7 @@ dependencies = [
  "url",
  "uuid",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -1108,6 +1109,7 @@ name = "bitwarden-uniffi"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "bitwarden-auth",
  "bitwarden-collections",
  "bitwarden-core",
  "bitwarden-crypto",
@@ -1241,6 +1243,7 @@ dependencies = [
  "bitwarden-crypto",
  "bitwarden-error",
  "bitwarden-ipc",
+ "bitwarden-logging",
  "bitwarden-pm",
  "bitwarden-server-communication-config",
  "bitwarden-ssh",

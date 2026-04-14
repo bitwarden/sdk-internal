@@ -70,16 +70,16 @@ impl PasswordManagerClient {
     /// registered
     ///
     /// This will eventually replace `new` when the SDK fully owns sync on all clients.
-    pub fn new_with_sync(settings: Option<bitwarden_core::ClientSettings>) -> Result<Self, String> {
+    pub fn new_with_sync(settings: Option<bitwarden_core::ClientSettings>) -> Self {
         let client = Self::new(settings);
 
         client
             .sync()
-            .register_sync_handler(Arc::new(FolderSyncHandler::from_client(&client.0)?));
+            .register_sync_handler(Arc::new(FolderSyncHandler::from_client(&client.0)));
 
         // TODO: Add more sync handlers here!
 
-        Ok(client)
+        client
     }
 
     /// Platform operations

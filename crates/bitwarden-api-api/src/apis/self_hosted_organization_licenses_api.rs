@@ -34,17 +34,17 @@ pub trait SelfHostedOrganizationLicensesApi: Send + Sync {
         keys_encrypted_private_key: &'a str,
         license: std::path::PathBuf,
         collection_name: Option<&'a str>,
-    ) -> Result<models::OrganizationResponseModel, Error<CreateLicenseError>>;
+    ) -> Result<models::OrganizationResponseModel, Error>;
 
     /// POST /organizations/licenses/self-hosted/{id}/sync
-    async fn sync_license<'a>(&self, id: &'a str) -> Result<(), Error<SyncLicenseError>>;
+    async fn sync_license<'a>(&self, id: &'a str) -> Result<(), Error>;
 
     /// POST /organizations/licenses/self-hosted/{id}
     async fn update_license<'a>(
         &self,
         id: &'a str,
         license: std::path::PathBuf,
-    ) -> Result<(), Error<UpdateLicenseError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct SelfHostedOrganizationLicensesApiClient {
@@ -67,7 +67,7 @@ impl SelfHostedOrganizationLicensesApi for SelfHostedOrganizationLicensesApiClie
         keys_encrypted_private_key: &'a str,
         license: std::path::PathBuf,
         collection_name: Option<&'a str>,
-    ) -> Result<models::OrganizationResponseModel, Error<CreateLicenseError>> {
+    ) -> Result<models::OrganizationResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -98,7 +98,7 @@ impl SelfHostedOrganizationLicensesApi for SelfHostedOrganizationLicensesApiClie
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn sync_license<'a>(&self, id: &'a str) -> Result<(), Error<SyncLicenseError>> {
+    async fn sync_license<'a>(&self, id: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -120,7 +120,7 @@ impl SelfHostedOrganizationLicensesApi for SelfHostedOrganizationLicensesApiClie
         &self,
         id: &'a str,
         license: std::path::PathBuf,
-    ) -> Result<(), Error<UpdateLicenseError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -140,23 +140,4 @@ impl SelfHostedOrganizationLicensesApi for SelfHostedOrganizationLicensesApiClie
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`SelfHostedOrganizationLicensesApi::create_license`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateLicenseError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SelfHostedOrganizationLicensesApi::sync_license`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum SyncLicenseError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SelfHostedOrganizationLicensesApi::update_license`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UpdateLicenseError {
-    UnknownValue(serde_json::Value),
 }

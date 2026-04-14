@@ -27,14 +27,10 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait SlackIntegrationApi: Send + Sync {
     /// GET /organizations/integrations/slack/create
-    async fn create<'a>(
-        &self,
-        code: Option<&'a str>,
-        state: Option<&'a str>,
-    ) -> Result<(), Error<CreateError>>;
+    async fn create<'a>(&self, code: Option<&'a str>, state: Option<&'a str>) -> Result<(), Error>;
 
     /// GET /organizations/{organizationId}/integrations/slack/redirect
-    async fn redirect<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error<RedirectError>>;
+    async fn redirect<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error>;
 }
 
 pub struct SlackIntegrationApiClient {
@@ -50,11 +46,7 @@ impl SlackIntegrationApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl SlackIntegrationApi for SlackIntegrationApiClient {
-    async fn create<'a>(
-        &self,
-        code: Option<&'a str>,
-        state: Option<&'a str>,
-    ) -> Result<(), Error<CreateError>> {
+    async fn create<'a>(&self, code: Option<&'a str>, state: Option<&'a str>) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -79,7 +71,7 @@ impl SlackIntegrationApi for SlackIntegrationApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn redirect<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error<RedirectError>> {
+    async fn redirect<'a>(&self, organization_id: uuid::Uuid) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -96,17 +88,4 @@ impl SlackIntegrationApi for SlackIntegrationApiClient {
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`SlackIntegrationApi::create`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreateError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`SlackIntegrationApi::redirect`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RedirectError {
-    UnknownValue(serde_json::Value),
 }
