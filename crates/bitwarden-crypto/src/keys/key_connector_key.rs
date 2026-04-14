@@ -8,7 +8,7 @@ use tracing::instrument;
 use typenum::U32;
 
 use crate::{
-    BitwardenLegacyKeyBytes, CryptoError, EncString, KeyDecryptable, KeyIds, KeyStoreContext,
+    BitwardenLegacyKeyBytes, CryptoError, EncString, KeyDecryptable, KeySlotIds, KeyStoreContext,
     SymmetricCryptoKey, keys::utils::stretch_key,
 };
 
@@ -31,7 +31,7 @@ impl KeyConnectorKey {
     /// The user key identified by `user_key_id` is read from the context and encrypted.
     #[cfg_attr(feature = "dangerous-crypto-debug", instrument(skip(ctx), err))]
     #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
-    pub fn wrap_user_key<Ids: KeyIds>(
+    pub fn wrap_user_key<Ids: KeySlotIds>(
         &self,
         user_key_id: Ids::Symmetric,
         ctx: &KeyStoreContext<Ids>,
@@ -46,7 +46,7 @@ impl KeyConnectorKey {
     /// Returns the local key identifier for the unwrapped user key.
     #[cfg_attr(feature = "dangerous-crypto-debug", instrument(skip(ctx), err))]
     #[cfg_attr(not(feature = "dangerous-crypto-debug"), instrument(skip_all, err))]
-    pub fn unwrap_user_key<Ids: KeyIds>(
+    pub fn unwrap_user_key<Ids: KeySlotIds>(
         &self,
         wrapped_user_key: EncString,
         ctx: &mut KeyStoreContext<Ids>,

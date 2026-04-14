@@ -27,7 +27,7 @@ use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, EncodedSymmetricKey,
-    KEY_ID_SIZE, KeyIds, KeyStoreContext, SymmetricCryptoKey,
+    KEY_ID_SIZE, KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
     cose::{
         ALG_ARGON2ID13, ARGON2_ITERATIONS, ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
         CONTAINED_KEY_ID, ContentNamespace, CoseExtractError, SafeObjectNamespace, extract_bytes,
@@ -62,7 +62,7 @@ impl PasswordProtectedKeyEnvelope {
     /// salt.
     ///
     /// This should never fail, except for memory allocation error, when running the KDF.
-    pub fn seal<Ids: KeyIds>(
+    pub fn seal<Ids: KeySlotIds>(
         key_to_seal: Ids::Symmetric,
         password: &str,
         namespace: PasswordProtectedKeyEnvelopeNamespace,
@@ -155,7 +155,7 @@ impl PasswordProtectedKeyEnvelope {
 
     /// Unseals a symmetric key from the password-protected envelope, and stores it in the key store
     /// context.
-    pub fn unseal<Ids: KeyIds>(
+    pub fn unseal<Ids: KeySlotIds>(
         &self,
         password: &str,
         namespace: PasswordProtectedKeyEnvelopeNamespace,
