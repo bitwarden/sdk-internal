@@ -7,19 +7,24 @@
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use bitwarden_cli::install_color_eyre;
-use bitwarden_core::{Client, ClientBuilder, global::GlobalClient};
+use bitwarden_core::global::GlobalClient;
 use bitwarden_pm::PasswordManagerClient;
 use clap::{CommandFactory, Parser};
 use clap_complete::Shell;
-use color_eyre::eyre::{Error, Result};
+use color_eyre::eyre::Result;
 use tracing_subscriber::{
     EnvFilter, prelude::__tracing_subscriber_SubscriberExt as _, util::SubscriberInitExt as _,
 };
 
-use crate::{command::*, render::CommandResult};
+use crate::{
+    client_state::{BwCommand as _, ClientContext},
+    command::*,
+    render::CommandResult,
+};
 
 mod admin_console;
 mod auth;
+mod client_state;
 mod command;
 mod key_management;
 mod platform;
@@ -66,35 +71,26 @@ async fn main() -> Result<()> {
 }
 
 async fn process_commands(command: Commands, _session: Option<String>) -> CommandResult {
-    let global_client = GlobalClient::new();
-    let client: Option<PasswordManagerClient> = PasswordManagerClient::load_from_state().ok();
-
-    fn require_client(
-        client: Option<PasswordManagerClient>,
-    ) -> Result<PasswordManagerClient, Error> {
-        client.ok_or_else(|| {
-            color_eyre::eyre::eyre!("No active session found. Please log in using `bw login`.")
-        })
-    }
-
-    fn require_logged_in_client(
-        client: Option<PasswordManagerClient>,
-    ) -> Result<PasswordManagerClient, Error> {
-        let client = require_client(client)?;
-        // Here we would add additional checks to ensure the client is logged in
-        Ok(client)
-    }
-
     // Temporary until rehydration
-    if let (Ok(email), Ok(password)) = (std::env::var("BW_EMAIL"), std::env::var("BW_PASSWORD")) {
-        if let Some(client) = &client {
-            temp_login(&client.0, email, password).await?;
-        }
-    }
+    let user_client = if let (Ok(email), Ok(password)) =
+        (std::env::var("BW_EMAIL"), std::env::var("BW_PASSWORD"))
+    {
+        let client = PasswordManagerClient::new(None);
+        temp_login(&client.0, email, password).await?;
+        Some(client)
+    } else {
+        None
+    };
+
+    let ctx: ClientContext = ClientContext {
+        global: GlobalClient::new(),
+        user: user_client,
+        //user: PasswordManagerClient::load_from_state().ok(),
+    };
 
     match command {
         // Auth commands
-        Commands::Login(args) => args.run().await,
+        Commands::Login(args) => args.run(ctx.try_into()?).await,
         Commands::Logout => todo!(),
 
         // KM commands
@@ -102,7 +98,7 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         Commands::Unlock(_args) => todo!(),
 
         // Platform commands
-        Commands::Sync(args) => args.execute_sync(require_logged_in_client(client)?).await,
+        Commands::Sync(args) => args.run(ctx.try_into()?).await,
 
         Commands::Encode => {
             let input = std::io::read_to_string(std::io::stdin())?;
@@ -147,7 +143,7 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
         Commands::Move(_args) => todo!(),
 
         // Tools commands
-        Commands::Generate(arg) => arg.run(&require_logged_in_client(client)?),
+        Commands::Generate(arg) => arg.run(ctx.try_into()?).await,
         Commands::Import(_args) => todo!(),
         Commands::Export(_args) => todo!(),
         Commands::Send(_args) => todo!(),

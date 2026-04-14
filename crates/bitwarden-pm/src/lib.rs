@@ -50,6 +50,7 @@ impl PasswordManagerClient {
         builder.build()
     }
 
+    /// Initialize a new instance of the SDK client by loading state from disk, if available.
     pub fn load_from_state() -> Result<Self, ()> {
         // bitwarden_core::Client.load_from_state().map(Self)
 
