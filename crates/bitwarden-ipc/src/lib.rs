@@ -2,9 +2,12 @@
 
 mod constants;
 mod crypto_provider;
-mod discover;
+pub mod discover;
 mod endpoint;
+mod error;
 mod ipc_client;
+mod ipc_client_ext;
+mod ipc_client_trait;
 mod message;
 mod rpc;
 mod serde_utils;
@@ -14,8 +17,28 @@ mod traits;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
-pub use ipc_client::{
-    IpcClient, IpcClientSubscription, IpcClientTypedSubscription, ReceiveError, RequestError,
-    SubscribeError, TypedReceiveError,
+pub use endpoint::{Endpoint, HostId, Source};
+pub use error::{ReceiveError, RequestError, SendError, SubscribeError, TypedReceiveError};
+pub use ipc_client::{IpcClientImpl, IpcClientSubscription, IpcClientTypedSubscription};
+pub use ipc_client_ext::IpcClientExt;
+pub use ipc_client_trait::IpcClient;
+pub use message::{
+    IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage, TypedOutgoingMessage,
 };
-pub use rpc::exec::handler::RpcHandler;
+#[doc(hidden)]
+pub use rpc::exec::handler::ErasedRpcHandler;
+pub use rpc::{exec::handler::RpcHandler, request::RpcRequest};
+#[cfg(any(test, feature = "test-support"))]
+pub use traits::NoEncryptionCryptoProvider;
+#[cfg(any(test, feature = "test-support"))]
+pub use traits::TestCommunicationBackend;
+pub use traits::{InMemorySessionRepository, NoopCommunicationBackend};
+
+// Test configuration of the IPC client, always available in test and test-support contexts.
+#[cfg(any(test, feature = "test-support"))]
+#[allow(missing_docs)]
+pub type TestIpcClient = ipc_client::IpcClientImpl<
+    crate::traits::NoEncryptionCryptoProvider,
+    crate::traits::TestCommunicationBackend,
+    crate::traits::InMemorySessionRepository<()>,
+>;

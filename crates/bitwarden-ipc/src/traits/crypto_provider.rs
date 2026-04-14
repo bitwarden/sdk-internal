@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-#[cfg(any(test, not(feature = "noise")))]
+#[cfg(any(test, feature = "test-support"))]
 use super::CommunicationBackendReceiver;
 use super::{CommunicationBackend, SessionRepository};
 use crate::message::{IncomingMessage, OutgoingMessage};
@@ -50,10 +50,11 @@ where
     ) -> impl std::future::Future<Output = Result<IncomingMessage, Self::ReceiveError>> + Send + Sync;
 }
 
-#[cfg(any(test, not(feature = "noise")))]
+/// A no-op crypto provider that performs no encryption and simply passes messages through as-is.
+#[cfg(any(test, feature = "test-support"))]
 pub struct NoEncryptionCryptoProvider;
 
-#[cfg(any(test, not(feature = "noise")))]
+#[cfg(any(test, feature = "test-support"))]
 impl<Com, Ses> CryptoProvider<Com, Ses> for NoEncryptionCryptoProvider
 where
     Com: CommunicationBackend,

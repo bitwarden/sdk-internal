@@ -1,38 +1,25 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use bitwarden_threading::cancellation_token::wasm::{AbortSignal, AbortSignalExt};
 use wasm_bindgen::prelude::*;
 
 use super::communication_backend::JsCommunicationBackend;
-#[cfg(not(feature = "noise"))]
-use crate::traits::NoEncryptionCryptoProvider;
 use crate::{
-    IpcClient,
-    ipc_client::{IpcClientSubscription, ReceiveError, SubscribeError},
+    IpcClientImpl,
+    crypto_provider::noise::crypto_provider::NoiseCryptoProvider,
+    error::{AlreadyRunningError, ReceiveError, SubscribeError},
+    ipc_client::IpcClientSubscription,
+    ipc_client_trait::IpcClient,
     message::{IncomingMessage, OutgoingMessage},
     traits::InMemorySessionRepository,
-};
-#[cfg(feature = "noise")]
-use crate::{
-    crypto_provider::noise::crypto_provider::NoiseCryptoProvider,
     wasm::{
         JsSessionRepository, RawJsSessionRepository,
         generic_session_repository::GenericSessionRepository,
     },
 };
 
-#[cfg(feature = "noise")]
-type IpcCryptoProvider = NoiseCryptoProvider;
-#[cfg(not(feature = "noise"))]
-type IpcCryptoProvider = NoEncryptionCryptoProvider;
-
-#[cfg(feature = "noise")]
-type IpcSessionRepository = GenericSessionRepository;
-#[cfg(not(feature = "noise"))]
-type IpcSessionRepository = InMemorySessionRepository<()>;
-
 /// JavaScript wrapper around the IPC client. For more information, see the
-/// [IpcClient] documentation.
+/// [`IpcClient`] trait documentation.
 #[wasm_bindgen(js_name = IpcClient)]
 pub struct JsIpcClient {
     #[wasm_bindgen(skip)]
@@ -40,7 +27,7 @@ pub struct JsIpcClient {
     /// that interact with the IPC client, e.g. to register RPC handlers, trigger RPC requests,
     /// send typed messages, etc. For examples see
     /// [wasm::ipc_register_discover_handler](crate::wasm::ipc_register_discover_handler).
-    pub client: Arc<IpcClient<IpcCryptoProvider, JsCommunicationBackend, IpcSessionRepository>>,
+    pub client: Arc<dyn IpcClient>,
 }
 
 /// JavaScript wrapper around the IPC client subscription. For more information, see the
@@ -50,8 +37,12 @@ pub struct JsIpcClientSubscription {
     subscription: IpcClientSubscription,
 }
 
+#[bitwarden_ffi::wasm_export]
 #[wasm_bindgen(js_class = IpcClientSubscription)]
 impl JsIpcClientSubscription {
+    #[wasm_only(
+        note = "Use the `subscribe` method on `IpcClient` to create a subscription instance."
+    )]
     #[allow(missing_docs)]
     pub async fn receive(
         &mut self,
@@ -62,79 +53,74 @@ impl JsIpcClientSubscription {
     }
 }
 
+#[bitwarden_ffi::wasm_export]
 #[wasm_bindgen(js_class = IpcClient)]
 impl JsIpcClient {
     /// Create a new `IpcClient` instance with an in-memory session repository for saving
     /// sessions within the SDK.
+    #[wasm_only]
     #[wasm_bindgen(js_name = newWithSdkInMemorySessions)]
     pub fn new_with_sdk_in_memory_sessions(
         communication_provider: &JsCommunicationBackend,
     ) -> JsIpcClient {
-        #[cfg(feature = "noise")]
-        {
-            use std::collections::HashMap;
-
-            JsIpcClient {
-                client: IpcClient::new(
-                    NoiseCryptoProvider,
-                    communication_provider.clone(),
-                    GenericSessionRepository::InMemory(Arc::new(InMemorySessionRepository::new(
-                        HashMap::new(),
-                    ))),
-                ),
-            }
-        }
-
-        #[cfg(not(feature = "noise"))]
-        {
-            JsIpcClient {
-                client: IpcClient::new(
-                    NoEncryptionCryptoProvider,
-                    communication_provider.clone(),
-                    InMemorySessionRepository::default(),
-                ),
-            }
+        JsIpcClient {
+            client: Arc::new(IpcClientImpl::new(
+                NoiseCryptoProvider,
+                communication_provider.clone(),
+                GenericSessionRepository::InMemory(Arc::new(InMemorySessionRepository::new(
+                    HashMap::new(),
+                ))),
+            )),
         }
     }
 
     /// Create a new `IpcClient` instance with a client-managed session repository for saving
     /// sessions using State Provider.
-    #[cfg(feature = "noise")]
+    #[wasm_only]
     #[wasm_bindgen(js_name = newWithClientManagedSessions)]
     pub fn new_with_client_managed_sessions(
         communication_provider: &JsCommunicationBackend,
         session_repository: RawJsSessionRepository,
     ) -> JsIpcClient {
         JsIpcClient {
-            client: IpcClient::new(
+            client: Arc::new(IpcClientImpl::new(
                 NoiseCryptoProvider,
                 communication_provider.clone(),
                 GenericSessionRepository::JsSessionRepository(Arc::new(JsSessionRepository::new(
                     session_repository,
                 ))),
-            ),
+            )),
         }
     }
 
+    #[wasm_only]
     #[allow(missing_docs)]
-    pub async fn start(&self) {
-        self.client.start().await
+    pub async fn start(
+        &self,
+        abort_signal: Option<AbortSignal>,
+    ) -> Result<(), AlreadyRunningError> {
+        self.client
+            .start(abort_signal.map(|signal| signal.to_cancellation_token()))
+            .await
     }
 
+    #[wasm_only]
     #[wasm_bindgen(js_name = isRunning)]
     #[allow(missing_docs)]
-    pub async fn is_running(&self) -> bool {
-        self.client.is_running().await
+    pub fn is_running(&self) -> bool {
+        self.client.is_running()
     }
 
+    #[wasm_only]
     #[allow(missing_docs)]
     pub async fn send(&self, message: OutgoingMessage) -> Result<(), JsError> {
         self.client
             .send(message)
             .await
-            .map_err(|e| JsError::new(&format!("{e:?}")))
+            .map_err(|e| JsError::new(&e.to_string()))
     }
 
+    #[wasm_only]
     #[allow(missing_docs)]
     pub async fn subscribe(&self) -> Result<JsIpcClientSubscription, SubscribeError> {
         let subscription = self.client.subscribe(None).await?;

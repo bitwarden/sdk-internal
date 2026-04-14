@@ -33,7 +33,8 @@ bitwarden-commercial-vault = { workspace = true, optional = true, features = [
 bitwarden-core = { workspace = true, features = ["wasm", "internal"] }
 bitwarden-crypto = { workspace = true, features = ["wasm"] }
 bitwarden-error = { workspace = true }
-bitwarden-ipc = { workspace = true, features = ["wasm", "noise"] }
+bitwarden-ipc = { workspace = true, features = ["wasm"] }
+bitwarden-logging = { workspace = true, features = ["wasm"] }
 bitwarden-pm = { workspace = true, features = ["wasm"] }
 bitwarden-server-communication-config = { workspace = true, features = ["wasm"] }
 bitwarden-ssh = { workspace = true, features = ["wasm"] }

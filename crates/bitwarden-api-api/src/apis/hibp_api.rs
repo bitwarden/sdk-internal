@@ -27,7 +27,7 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait HibpApi: Send + Sync {
     /// GET /hibp/breach
-    async fn get<'a>(&self, username: Option<&'a str>) -> Result<(), Error<GetError>>;
+    async fn get<'a>(&self, username: Option<&'a str>) -> Result<(), Error>;
 }
 
 pub struct HibpApiClient {
@@ -43,7 +43,7 @@ impl HibpApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl HibpApi for HibpApiClient {
-    async fn get<'a>(&self, username: Option<&'a str>) -> Result<(), Error<GetError>> {
+    async fn get<'a>(&self, username: Option<&'a str>) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -60,11 +60,4 @@ impl HibpApi for HibpApiClient {
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`HibpApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
 }

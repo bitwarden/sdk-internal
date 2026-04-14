@@ -44,7 +44,7 @@ impl NoiseCryptoProvider {
         communication
             .send(OutgoingMessage {
                 payload: handshake_frame.to_cbor(),
-                destination,
+                destination: destination.clone(),
                 topic: None,
             })
             .await
@@ -75,7 +75,7 @@ impl NoiseCryptoProvider {
             state: (&mut initiator).into(),
         };
         sessions
-            .save(destination, crypto_state)
+            .save(destination.clone(), crypto_state)
             .await
             .expect("Save session should not fail");
         info!(
@@ -120,10 +120,10 @@ where
         // updating.
         let _send_guard = SEND_GUARD.lock().await;
 
-        let destination = message.destination;
+        let destination = message.destination.clone();
 
         let crypto_state = sessions
-            .get(destination)
+            .get(destination.clone())
             .await
             .expect("Get session should not fail");
 
@@ -136,7 +136,7 @@ where
                 destination, REHANDSHAKE_INTERVAL_SECS
             );
             sessions
-                .remove(destination)
+                .remove(destination.clone())
                 .await
                 .expect("Delete session should not fail");
             should_handshake = true;
@@ -155,11 +155,11 @@ where
                 );
             }
 
-            Self::perform_handshake(communication, sessions, destination).await?;
+            Self::perform_handshake(communication, sessions, destination.clone()).await?;
         }
 
         let mut crypto_state = sessions
-            .get(destination)
+            .get(destination.clone())
             .await
             .expect("Get session should not fail")
             .expect("Session should exist after handshake");
@@ -172,7 +172,7 @@ where
         communication
             .send(OutgoingMessage {
                 payload: Frame::TransportFrame(transport_frame).to_cbor(),
-                destination,
+                destination: destination.clone(),
                 topic: message.topic,
             })
             .await
@@ -196,8 +196,9 @@ where
             let message = receiver.receive().await.map_err(|_| ())?;
 
             // Ensure session exists
+            let source_endpoint: crate::endpoint::Endpoint = message.source.clone().into();
             let crypto_state = sessions
-                .get(message.source)
+                .get(source_endpoint.clone())
                 .await
                 .expect("Get session should not fail");
 
@@ -217,7 +218,7 @@ where
                     communication
                         .send(OutgoingMessage {
                             payload: handshake_frame.to_cbor(),
-                            destination: message.source,
+                            destination: source_endpoint.clone(),
                             topic: None,
                         })
                         .await
@@ -227,7 +228,7 @@ where
                         state: (&mut responder).into(),
                     };
                     sessions
-                        .save(message.source, crypto_state)
+                        .save(source_endpoint, crypto_state)
                         .await
                         .expect("Save session should not fail");
                 }
@@ -238,7 +239,7 @@ where
                         communication
                             .send(OutgoingMessage {
                                 payload: frame,
-                                destination: message.source,
+                                destination: source_endpoint,
                                 topic: None,
                             })
                             .await
@@ -248,7 +249,7 @@ where
 
                     let payload = state.state.receive(&transport_frame).map_err(|_| ())?;
                     sessions
-                        .save(message.source, state)
+                        .save(source_endpoint, state)
                         .await
                         .expect("Save session should not fail");
 
@@ -265,7 +266,7 @@ where
                         message.source
                     );
                     sessions
-                        .remove(message.source)
+                        .remove(source_endpoint)
                         .await
                         .expect("Delete session should not fail");
                 }
@@ -305,11 +306,12 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::{
-        IpcClient,
+        IpcClientImpl,
         crypto_provider::noise::crypto_provider::NoiseCryptoProvider,
         endpoint::Endpoint,
+        ipc_client_trait::IpcClient,
         message::OutgoingMessage,
-        traits::{InMemorySessionRepository, tests::TestTwoWayCommunicationBackend},
+        traits::{InMemorySessionRepository, TestTwoWayCommunicationBackend},
     };
 
     #[tokio::test]
@@ -317,13 +319,13 @@ mod tests {
         let (provider_1, provider_2) = TestTwoWayCommunicationBackend::new();
 
         let session_map_1 = InMemorySessionRepository::new(HashMap::new());
-        let client_1 = IpcClient::new(NoiseCryptoProvider, provider_1, session_map_1);
-        client_1.start().await;
+        let client_1 = IpcClientImpl::new(NoiseCryptoProvider, provider_1, session_map_1);
+        let _ = client_1.start(None).await;
         let mut recv_1 = client_1.subscribe(None).await.unwrap();
 
         let session_map_2 = InMemorySessionRepository::new(HashMap::new());
-        let client_2 = IpcClient::new(NoiseCryptoProvider, provider_2, session_map_2);
-        client_2.start().await;
+        let client_2 = IpcClientImpl::new(NoiseCryptoProvider, provider_2, session_map_2);
+        let _ = client_2.start(None).await;
         let mut recv_2 = client_2.subscribe(None).await.unwrap();
 
         let handle_1 = tokio::spawn(async move {
