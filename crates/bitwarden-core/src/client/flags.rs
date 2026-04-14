@@ -6,7 +6,7 @@
 ///
 /// **Note:** This struct while public, is intended for internal use and may change in future
 /// releases.
-#[derive(Debug, Default, Clone, serde::Deserialize)]
+#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct Flags {
     /// Enable cipher key encryption.
