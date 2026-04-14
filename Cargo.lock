@@ -1267,6 +1267,7 @@ dependencies = [
  "bitwarden-logging",
  "bitwarden-pm",
  "bitwarden-server-communication-config",
+ "bitwarden-shared-unlock",
  "bitwarden-ssh",
  "bitwarden-state",
  "bitwarden-threading",
