@@ -24,14 +24,24 @@ pub struct GenerateArgs {
     )]
     pub special: bool,
 
-    #[arg(long, default_value = "16", help = "Length of generated password")]
+    #[arg(long, default_value = "14", help = "Length of generated password")]
     pub length: u8,
 
-    #[arg(long, help = "Minimum number of numeric characters")]
-    pub min_numbers: Option<u8>,
+    #[arg(
+        long,
+        alias = "minNumber",
+        default_value = "1",
+        help = "Minimum number of numeric characters"
+    )]
+    pub min_number: u8,
 
-    #[arg(long, help = "Minimum number of special characters")]
-    pub min_special: Option<u8>,
+    #[arg(
+        long,
+        alias = "minSpecial",
+        default_value = "0",
+        help = "Minimum number of special characters"
+    )]
+    pub min_special: u8,
 
     #[arg(long, action, help = "Avoid ambiguous characters")]
     pub ambiguous: bool,
@@ -40,25 +50,44 @@ pub struct GenerateArgs {
     #[arg(short = 'p', long, action, help = "Generate a passphrase")]
     pub passphrase: bool,
 
-    #[arg(long, default_value = "5", help = "Number of words in the passphrase")]
+    #[arg(long, default_value = "6", help = "Number of words in the passphrase")]
     pub words: u8,
 
     #[arg(long, default_value = "-", help = "Separator between words")]
-    pub separator: char,
+    pub separator: String,
 
-    #[arg(long, action, help = "Capitalize the first letter of each word")]
+    #[arg(long, action, help = "Title case passphrase.")]
     pub capitalize: bool,
 
-    #[arg(long, action, help = "Include a number in one of the words")]
+    #[arg(
+        long,
+        alias = "includeNumber",
+        action,
+        help = "Include a number in one of the words"
+    )]
     pub include_number: bool,
 }
 
 impl GenerateArgs {
     pub fn run(mut self, client: &PasswordManagerClient) -> CommandResult {
         let result = if self.passphrase {
+            // If a user specifies less than three words, the number of words will be silently
+            // increased to three, matching behavior in the legacy CLI
+            if self.words < 3 {
+                self.words = 3;
+            }
+
+            // Map words ("space" or "empty") entered in the terminal to actual output
+            let separator = match self.separator.as_str() {
+                "space" => " ".to_string(),
+                "empty" => String::new(),
+                s if s.len() > 1 => s.chars().next().map(|c| c.to_string()).unwrap_or_default(),
+                _ => self.separator,
+            };
+
             client.generator().passphrase(PassphraseGeneratorRequest {
                 num_words: self.words,
-                word_separator: self.separator.to_string(),
+                word_separator: separator,
                 capitalize: self.capitalize,
                 include_number: self.include_number,
             })?
@@ -70,14 +99,19 @@ impl GenerateArgs {
                 self.number = true;
             }
 
+            // Match legacy CLI behavior that silently enforces a minimum length for entropy
+            if self.length < 5 {
+                self.length = 5;
+            }
+
             client.generator().password(PasswordGeneratorRequest {
                 lowercase: self.lowercase,
                 uppercase: self.uppercase,
                 numbers: self.number,
                 special: self.special,
                 length: self.length,
-                min_number: self.min_numbers,
-                min_special: self.min_special,
+                min_number: Some(self.min_number),
+                min_special: Some(self.min_special),
                 avoid_ambiguous: self.ambiguous,
                 ..Default::default()
             })?
