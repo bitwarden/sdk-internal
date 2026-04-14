@@ -9,7 +9,10 @@ use thiserror::Error;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::{Send, SendListView, SendView};
+use crate::{
+    MakeSendMultiFileError, MakeSendMultiFilePathRequest, MakeSendMultiFilePathResult,
+    MakeSendMultiFileRequest, MakeSendMultiFileResult, Send, SendListView, SendView,
+};
 
 /// Generic error type for send encryption errors.
 #[allow(missing_docs)]
@@ -55,6 +58,18 @@ pub enum SendDecryptFileError {
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct SendClient {
     pub(crate) client: Client,
+}
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl SendClient {
+    /// Zip the provided files into a single archive and return the zip bytes along with
+    /// [`SendFileView`](crate::SendFileView) metadata suitable for creating a file Send.
+    pub fn make_send_multi_file(
+        &self,
+        request: MakeSendMultiFileRequest,
+    ) -> Result<MakeSendMultiFileResult, MakeSendMultiFileError> {
+        crate::multi_file::make_send_multi_file(request)
+    }
 }
 
 impl SendClient {
@@ -135,6 +150,14 @@ impl SendClient {
 
         let encrypted = OctetStreamBytes::from(buffer).encrypt(&mut ctx, key)?;
         Ok(encrypted.to_buffer()?)
+    }
+
+    /// Zip files from disk into a single archive and write it to the destination path.
+    pub fn make_send_multi_file_path(
+        &self,
+        request: MakeSendMultiFilePathRequest,
+    ) -> Result<MakeSendMultiFilePathResult, MakeSendMultiFileError> {
+        crate::multi_file::make_send_multi_file_path(request)
     }
 }
 
