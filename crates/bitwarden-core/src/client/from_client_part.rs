@@ -13,7 +13,7 @@ use bitwarden_crypto::KeyStore;
 use bitwarden_state::repository::{Repository, RepositoryItem};
 
 use super::Client;
-use crate::{client::ApiConfigurations, key_management::KeyIds};
+use crate::{client::ApiConfigurations, key_management::KeySlotIds};
 
 /// Trait for types that can be constructed from a [`Client`].
 ///
@@ -55,10 +55,10 @@ pub trait FromClientPart<T> {
     fn get_part(&self) -> Result<T, Self::Error>;
 }
 
-impl FromClientPart<KeyStore<KeyIds>> for Client {
+impl FromClientPart<KeyStore<KeySlotIds>> for Client {
     type Error = std::convert::Infallible;
 
-    fn get_part(&self) -> Result<KeyStore<KeyIds>, Self::Error> {
+    fn get_part(&self) -> Result<KeyStore<KeySlotIds>, Self::Error> {
         Ok(self.internal.get_key_store().clone())
     }
 }

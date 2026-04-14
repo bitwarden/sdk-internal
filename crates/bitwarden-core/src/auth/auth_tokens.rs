@@ -5,7 +5,7 @@ use std::sync::{Arc, RwLock};
 
 use bitwarden_crypto::KeyStore;
 
-use crate::{client::LoginMethod, key_management::KeyIds};
+use crate::{client::LoginMethod, key_management::KeySlotIds};
 
 /// Trait for handling token usage and renewal.
 pub trait TokenHandler: 'static + Send + Sync {
@@ -17,7 +17,7 @@ pub trait TokenHandler: 'static + Send + Sync {
         &self,
         login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
         identity_config: bitwarden_api_base::Configuration,
-        key_store: KeyStore<KeyIds>,
+        key_store: KeyStore<KeySlotIds>,
     ) -> Arc<dyn reqwest_middleware::Middleware>;
 
     /// This method is available only as a backwards compatibility measure until all the
@@ -54,7 +54,7 @@ impl TokenHandler for ClientManagedTokenHandler {
         &self,
         _login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
         _identity_config: bitwarden_api_base::Configuration,
-        _key_store: KeyStore<KeyIds>,
+        _key_store: KeyStore<KeySlotIds>,
     ) -> Arc<dyn reqwest_middleware::Middleware> {
         Arc::new(self.clone())
     }
@@ -103,7 +103,7 @@ impl TokenHandler for NoopTokenHandler {
         &self,
         _login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
         _identity_config: bitwarden_api_base::Configuration,
-        _key_store: KeyStore<KeyIds>,
+        _key_store: KeyStore<KeySlotIds>,
     ) -> Arc<dyn reqwest_middleware::Middleware> {
         Arc::new(*self)
     }

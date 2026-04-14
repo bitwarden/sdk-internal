@@ -93,7 +93,7 @@ bitwarden_state::register_repository_item!(String => EphemeralPinEnvelopeState, 
 
 key_slot_ids! {
     #[symmetric]
-    pub enum SymmetricKeyId {
+    pub enum SymmetricKeySlotId {
         Master,
         User,
         Organization(OrganizationId),
@@ -103,32 +103,32 @@ key_slot_ids! {
     }
 
     #[private]
-    pub enum PrivateKeyId {
+    pub enum PrivateKeySlotId {
         UserPrivateKey,
         #[local]
         Local(LocalId),
     }
 
     #[signing]
-    pub enum SigningKeyId {
+    pub enum SigningKeySlotId {
         UserSigningKey,
         #[local]
         Local(LocalId),
     }
 
-    pub KeyIds => SymmetricKeyId, PrivateKeyId, SigningKeyId;
+    pub KeySlotIds => SymmetricKeySlotId, PrivateKeySlotId, SigningKeySlotId;
 }
 
 /// This is a helper function to create a test KeyStore with a single user key.
 /// While this function is not marked as #[cfg(test)], it should only be used for testing purposes.
 /// It's only public so that other crates can make use of it in their own tests.
-pub fn create_test_crypto_with_user_key(key: SymmetricCryptoKey) -> KeyStore<KeyIds> {
+pub fn create_test_crypto_with_user_key(key: SymmetricCryptoKey) -> KeyStore<KeySlotIds> {
     let store = KeyStore::default();
 
     #[allow(deprecated)]
     store
         .context_mut()
-        .set_symmetric_key(SymmetricKeyId::User, key.clone())
+        .set_symmetric_key(SymmetricKeySlotId::User, key.clone())
         .expect("Mutable context");
 
     store
@@ -142,19 +142,19 @@ pub fn create_test_crypto_with_user_and_org_key(
     key: SymmetricCryptoKey,
     org_id: OrganizationId,
     org_key: SymmetricCryptoKey,
-) -> KeyStore<KeyIds> {
+) -> KeyStore<KeySlotIds> {
     let store = KeyStore::default();
 
     #[allow(deprecated)]
     store
         .context_mut()
-        .set_symmetric_key(SymmetricKeyId::User, key.clone())
+        .set_symmetric_key(SymmetricKeySlotId::User, key.clone())
         .expect("Mutable context");
 
     #[allow(deprecated)]
     store
         .context_mut()
-        .set_symmetric_key(SymmetricKeyId::Organization(org_id), org_key.clone())
+        .set_symmetric_key(SymmetricKeySlotId::Organization(org_id), org_key.clone())
         .expect("Mutable context");
 
     store

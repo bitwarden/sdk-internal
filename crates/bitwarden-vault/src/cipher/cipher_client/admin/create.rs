@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::CipherCreateRequestModel;
 use bitwarden_core::{
-    ApiError, MissingFieldError, NotAuthenticatedError, UserId, key_management::KeyIds,
+    ApiError, MissingFieldError, NotAuthenticatedError, UserId, key_management::KeySlotIds,
 };
 use bitwarden_crypto::{CryptoError, IdentifyKey, KeyStore};
 use bitwarden_error::bitwarden_error;
@@ -44,7 +44,7 @@ async fn create_cipher(
     request: CipherCreateRequestInternal,
     encrypted_for: UserId,
     api_client: &bitwarden_api_api::apis::ApiClient,
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
     use_strict_decryption: bool,
 ) -> Result<CipherView, CreateCipherAdminError> {
     let collection_ids = request.create_request.collection_ids.clone();
@@ -111,7 +111,7 @@ impl CipherAdminClient {
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::models::CipherMiniResponseModel;
-    use bitwarden_core::{OrganizationId, key_management::SymmetricKeyId};
+    use bitwarden_core::{OrganizationId, key_management::SymmetricKeySlotId};
     use bitwarden_crypto::SymmetricCryptoKey;
     use chrono::Utc;
 
@@ -150,15 +150,15 @@ mod tests {
                 });
         });
 
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::User,
+            SymmetricKeySlotId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeyId::Organization(TEST_ORG_ID.parse::<OrganizationId>().unwrap()),
+            SymmetricKeySlotId::Organization(TEST_ORG_ID.parse::<OrganizationId>().unwrap()),
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
 

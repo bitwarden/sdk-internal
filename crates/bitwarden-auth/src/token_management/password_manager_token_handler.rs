@@ -6,7 +6,7 @@ use bitwarden_core::{
     NotAuthenticatedError,
     auth::{TokenHandler, login::LoginError},
     client::login_method::LoginMethod,
-    key_management::KeyIds,
+    key_management::KeySlotIds,
 };
 use bitwarden_crypto::KeyStore;
 use chrono::Utc;
@@ -38,7 +38,7 @@ impl TokenHandler for PasswordManagerTokenHandler {
         &self,
         login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
         identity_config: bitwarden_api_api::Configuration,
-        _key_store: KeyStore<KeyIds>,
+        _key_store: KeyStore<KeySlotIds>,
     ) -> Arc<dyn reqwest_middleware::Middleware> {
         {
             let mut inner = self.inner.write().expect("RwLock is not poisoned");
@@ -109,7 +109,7 @@ mod tests {
     use bitwarden_core::{
         auth::TokenHandler,
         client::login_method::{LoginMethod, UserLoginMethod},
-        key_management::KeyIds,
+        key_management::KeySlotIds,
     };
     use bitwarden_crypto::{Kdf, KeyStore};
     use wiremock::MockServer;
@@ -142,7 +142,7 @@ mod tests {
         let client = build_client(handler.initialize_middleware(
             api_key_login_method(),
             identity_config(&identity_server.uri()),
-            KeyStore::<KeyIds>::default(),
+            KeyStore::<KeySlotIds>::default(),
         ));
 
         let auth = send_auth_request(&client, &app_server).await;
@@ -167,7 +167,7 @@ mod tests {
         let client = build_client(handler.initialize_middleware(
             api_key_login_method(),
             identity_config(&identity_server.uri()),
-            KeyStore::<KeyIds>::default(),
+            KeyStore::<KeySlotIds>::default(),
         ));
 
         let auth = send_auth_request(&client, &app_server).await;

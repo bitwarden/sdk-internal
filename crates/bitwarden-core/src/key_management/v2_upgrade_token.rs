@@ -172,11 +172,11 @@ mod tests {
     use bitwarden_crypto::{KeyStore, SymmetricKeyAlgorithm};
 
     use super::*;
-    use crate::key_management::KeyIds;
+    use crate::key_management::KeySlotIds;
 
     #[test]
     fn test_create_and_round_trip() {
-        let key_store = KeyStore::<KeyIds>::default();
+        let key_store = KeyStore::<KeySlotIds>::default();
         let mut ctx = key_store.context_mut();
 
         // Create V1 and V2 keys
@@ -207,7 +207,7 @@ mod tests {
 
     #[test]
     fn test_unwrap_bidirectional() {
-        let key_store = KeyStore::<KeyIds>::default();
+        let key_store = KeyStore::<KeySlotIds>::default();
         let mut ctx = key_store.context_mut();
 
         // Create V1 and V2 keys
@@ -244,7 +244,7 @@ mod tests {
 
     #[test]
     fn test_create_wrong_key_type_error() {
-        let key_store = KeyStore::<KeyIds>::default();
+        let key_store = KeyStore::<KeySlotIds>::default();
         let mut ctx = key_store.context_mut();
 
         // Try to create token with two V1 keys
@@ -257,7 +257,7 @@ mod tests {
 
     #[test]
     fn test_serialization_round_trip() {
-        let key_store = KeyStore::<KeyIds>::default();
+        let key_store = KeyStore::<KeySlotIds>::default();
         let mut ctx = key_store.context_mut();
 
         let v1_key_id = ctx.generate_symmetric_key();
@@ -309,7 +309,7 @@ mod tests {
 
     #[test]
     fn test_from_response_model_missing_wrapped_uk2() {
-        let key_store = KeyStore::<KeyIds>::default();
+        let key_store = KeyStore::<KeySlotIds>::default();
         let mut ctx = key_store.context_mut();
 
         let v1_key_id = ctx.generate_symmetric_key();
@@ -326,7 +326,7 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let key_store = KeyStore::<KeyIds>::default();
+        let key_store = KeyStore::<KeySlotIds>::default();
         let mut ctx = key_store.context_mut();
 
         let v1_key_id = ctx.generate_symmetric_key();

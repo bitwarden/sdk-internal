@@ -10,7 +10,7 @@ use bitwarden_api_api::models::{
     WebAuthnLoginRotateKeyRequestModel,
 };
 use bitwarden_core::key_management::{
-    KeyIds, MasterPasswordAuthenticationData, MasterPasswordUnlockData, SymmetricKeyId,
+    KeySlotIds, MasterPasswordAuthenticationData, MasterPasswordUnlockData, SymmetricKeySlotId,
 };
 use bitwarden_crypto::{Kdf, KeyStoreContext, PublicKey, UnsignedSharedKey};
 use serde::{Deserialize, Serialize};
@@ -87,9 +87,9 @@ pub(super) struct ReencryptUnlockInput {
 /// Update the unlock methods for the updated user-key.
 pub(super) fn reencrypt_unlock(
     input: ReencryptUnlockInput,
-    current_user_key_id: SymmetricKeyId,
-    new_user_key_id: SymmetricKeyId,
-    ctx: &mut KeyStoreContext<KeyIds>,
+    current_user_key_id: SymmetricKeySlotId,
+    new_user_key_id: SymmetricKeySlotId,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<UnlockDataRequestModel, ReencryptError> {
     let master_password_unlock_data = match input.master_key_unlock_method {
         MasterkeyUnlockMethod::Password {
@@ -141,9 +141,9 @@ pub(super) fn reencrypt_unlock(
 /// Re-encrypt TDE device keys for the new user key.
 fn reencrypt_tde_devices(
     trusted_devices: &[PartialRotateableKeyset],
-    current_user_key_id: SymmetricKeyId,
-    new_user_key_id: SymmetricKeyId,
-    ctx: &mut KeyStoreContext<KeyIds>,
+    current_user_key_id: SymmetricKeySlotId,
+    new_user_key_id: SymmetricKeySlotId,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<Vec<OtherDeviceKeysUpdateRequestModel>, ReencryptError> {
     trusted_devices
         .iter()
@@ -160,9 +160,9 @@ fn reencrypt_tde_devices(
 /// Re-encrypt passkey (WebAuthn PRF) credentials for the new user key.
 fn reencrypt_passkey_credentials(
     webauthn_credentials: &[PartialRotateableKeyset],
-    current_user_key_id: SymmetricKeyId,
-    new_user_key_id: SymmetricKeyId,
-    ctx: &mut KeyStoreContext<KeyIds>,
+    current_user_key_id: SymmetricKeySlotId,
+    new_user_key_id: SymmetricKeySlotId,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<Vec<WebAuthnLoginRotateKeyRequestModel>, ReencryptError> {
     webauthn_credentials
         .iter()
@@ -179,8 +179,8 @@ fn reencrypt_passkey_credentials(
 /// Re-encrypt emergency access keys for the new user key.
 fn reencrypt_emergency_access_keys(
     trusted_emergency_access_keys: Vec<V1EmergencyAccessMembership>,
-    new_user_key_id: SymmetricKeyId,
-    ctx: &mut KeyStoreContext<KeyIds>,
+    new_user_key_id: SymmetricKeySlotId,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<Vec<EmergencyAccessWithIdRequestModel>, ReencryptError> {
     trusted_emergency_access_keys
         .into_iter()
@@ -207,8 +207,8 @@ fn reencrypt_emergency_access_keys(
 /// Re-encrypt organization membership keys for the new user key.
 fn reencrypt_organization_memberships(
     trusted_organization_keys: Vec<V1OrganizationMembership>,
-    new_user_key_id: SymmetricKeyId,
-    ctx: &mut KeyStoreContext<KeyIds>,
+    new_user_key_id: SymmetricKeySlotId,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<Vec<ResetPasswordWithOrgIdRequestModel>, ReencryptError> {
     trusted_organization_keys
         .into_iter()
@@ -235,8 +235,8 @@ fn reencrypt_userkey_for_masterpassword_unlock(
     hint: Option<String>,
     kdf: Kdf,
     salt: String,
-    new_user_key_id: SymmetricKeyId,
-    ctx: &mut KeyStoreContext<KeyIds>,
+    new_user_key_id: SymmetricKeySlotId,
+    ctx: &mut KeyStoreContext<KeySlotIds>,
 ) -> Result<MasterPasswordUnlockAndAuthenticationDataModel, ReencryptError> {
     let _span = debug_span!("derive_master_password_unlock_data").entered();
     let unlock_data =
@@ -302,7 +302,7 @@ mod tests {
     use std::num::NonZeroU32;
 
     use bitwarden_api_api::models::KdfType;
-    use bitwarden_core::key_management::KeyIds;
+    use bitwarden_core::key_management::KeySlotIds;
     use bitwarden_crypto::{Kdf, KeyStore, PublicKeyEncryptionAlgorithm, UnsignedSharedKey};
     use uuid::Uuid;
 
@@ -336,9 +336,9 @@ mod tests {
     }
 
     fn assert_symmetric_keys_equal(
-        key_id_1: SymmetricKeyId,
-        key_id_2: SymmetricKeyId,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        key_id_1: SymmetricKeySlotId,
+        key_id_2: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) {
         #[allow(deprecated)]
         let key_1 = ctx
@@ -353,7 +353,7 @@ mod tests {
 
     #[test]
     fn test_to_authentication_and_unlock_data_pbkdf2() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let kdf = create_test_kdf_pbkdf2();
@@ -397,7 +397,7 @@ mod tests {
 
     #[test]
     fn test_to_authentication_and_unlock_data_argon2id() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let kdf = create_test_kdf_argon2id();
@@ -440,7 +440,7 @@ mod tests {
 
     #[test]
     fn test_reencrypt_unlock_device_key_data() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let current_user_key_id = ctx.generate_symmetric_key();
@@ -482,7 +482,7 @@ mod tests {
 
     #[test]
     fn test_reencrypt_unlock_webauthn_prf_credential_data() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let current_user_key_id = ctx.generate_symmetric_key();
@@ -525,7 +525,7 @@ mod tests {
 
     #[test]
     fn test_reencrypt_unlock_emergency_access_data() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let current_user_key_id = ctx.generate_symmetric_key();
@@ -578,7 +578,7 @@ mod tests {
 
     #[test]
     fn test_reencrypt_unlock_organization_membership_data() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let kdf = create_test_kdf_argon2id();

@@ -14,7 +14,7 @@ use tracing::{debug, info, instrument};
 
 use crate::{
     DeviceType, UserId, auth::auth_tokens::TokenHandler, client::login_method::LoginMethod,
-    error::UserIdAlreadySetError, key_management::KeyIds,
+    error::UserIdAlreadySetError, key_management::KeySlotIds,
 };
 #[cfg(any(feature = "internal", feature = "secrets"))]
 use crate::{OrganizationId, client::encryption_settings::EncryptionSettings};
@@ -104,7 +104,7 @@ pub struct InternalClient {
     #[allow(unused)]
     pub(crate) external_http_client: reqwest::Client,
 
-    pub(super) key_store: KeyStore<KeyIds>,
+    pub(super) key_store: KeyStore<KeySlotIds>,
     #[cfg(feature = "internal")]
     pub(crate) security_state: RwLock<Option<SecurityState>>,
 
@@ -187,7 +187,7 @@ impl InternalClient {
     }
 
     #[allow(missing_docs)]
-    pub fn get_key_store(&self) -> &KeyStore<KeyIds> {
+    pub fn get_key_store(&self) -> &KeyStore<KeySlotIds> {
         &self.key_store
     }
 

@@ -6,7 +6,7 @@ mod sync;
 mod unlock;
 
 use bitwarden_api_api::models::RotateUserAccountKeysAndDataRequestModel;
-use bitwarden_core::key_management::{MasterPasswordAuthenticationData, SymmetricKeyId};
+use bitwarden_core::key_management::{MasterPasswordAuthenticationData, SymmetricKeySlotId};
 use bitwarden_crypto::PublicKey;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
@@ -193,7 +193,7 @@ async fn post_rotate_user_keys(
             "Existing user cryptographic version {:?}",
             sync.wrapped_account_cryptographic_state
         );
-        let current_user_key_id = SymmetricKeyId::User;
+        let current_user_key_id = SymmetricKeySlotId::User;
 
         debug!("Generating new xchacha20-poly1305 user key for key rotation");
         let new_user_key_id =

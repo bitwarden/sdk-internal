@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use bitwarden_core::key_management::KeyIds;
+use bitwarden_core::key_management::KeySlotIds;
 #[allow(deprecated)]
 use bitwarden_crypto::dangerous_derive_kdf_material;
 use bitwarden_crypto::{
@@ -157,7 +157,7 @@ impl PureCrypto {
         wrapping_key: Vec<u8>,
     ) -> Result<String, CryptoError> {
         let _span = tracing::info_span!("PureCrypto::wrap_symmetric_key").entered();
-        let tmp_store: KeyStore<KeyIds> = KeyStore::default();
+        let tmp_store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut context = tmp_store.context();
         let wrapping_key =
             SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(wrapping_key))?;
@@ -178,7 +178,7 @@ impl PureCrypto {
         wrapping_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
         let _span = tracing::info_span!("PureCrypto::unwrap_symmetric_key").entered();
-        let tmp_store: KeyStore<KeyIds> = KeyStore::default();
+        let tmp_store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut context = tmp_store.context();
         let wrapping_key =
             SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(wrapping_key))?;
@@ -201,7 +201,7 @@ impl PureCrypto {
         wrapping_key: Vec<u8>,
     ) -> Result<String, CryptoError> {
         let _span = tracing::info_span!("PureCrypto::wrap_encapsulation_key").entered();
-        let tmp_store: KeyStore<KeyIds> = KeyStore::default();
+        let tmp_store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut context = tmp_store.context();
         let wrapping_key = context.add_local_symmetric_key(SymmetricCryptoKey::try_from(
             &BitwardenLegacyKeyBytes::from(wrapping_key),
@@ -218,7 +218,7 @@ impl PureCrypto {
         wrapping_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
         let _span = tracing::info_span!("PureCrypto::unwrap_encapsulation_key").entered();
-        let tmp_store: KeyStore<KeyIds> = KeyStore::default();
+        let tmp_store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut context = tmp_store.context();
         let wrapping_key = context.add_local_symmetric_key(SymmetricCryptoKey::try_from(
             &BitwardenLegacyKeyBytes::from(wrapping_key),
@@ -233,7 +233,7 @@ impl PureCrypto {
         wrapping_key: Vec<u8>,
     ) -> Result<String, CryptoError> {
         let _span = tracing::info_span!("PureCrypto::wrap_decapsulation_key").entered();
-        let tmp_store: KeyStore<KeyIds> = KeyStore::default();
+        let tmp_store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut context = tmp_store.context();
         let wrapping_key = context.add_local_symmetric_key(SymmetricCryptoKey::try_from(
             &BitwardenLegacyKeyBytes::from(wrapping_key),
@@ -250,7 +250,7 @@ impl PureCrypto {
         wrapping_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
         let _span = tracing::info_span!("PureCrypto::unwrap_decapsulation_key").entered();
-        let tmp_store: KeyStore<KeyIds> = KeyStore::default();
+        let tmp_store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut context = tmp_store.context();
         let wrapping_key = context.add_local_symmetric_key(SymmetricCryptoKey::try_from(
             &BitwardenLegacyKeyBytes::from(wrapping_key),

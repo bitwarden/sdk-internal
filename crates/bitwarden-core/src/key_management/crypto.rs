@@ -34,8 +34,8 @@ use crate::{
     client::{LoginMethod, UserLoginMethod, encryption_settings::EncryptionSettingsError},
     error::StatefulCryptoError,
     key_management::{
-        MasterPasswordError, PrivateKeyId, SecurityState, SignedSecurityState, SigningKeyId,
-        SymmetricKeyId, V2UpgradeToken,
+        MasterPasswordError, PrivateKeySlotId, SecurityState, SignedSecurityState,
+        SigningKeySlotId, SymmetricKeySlotId, V2UpgradeToken,
         account_cryptographic_state::{
             AccountCryptographyInitializationError, WrappedAccountCryptographicState,
         },
@@ -388,7 +388,7 @@ pub(super) async fn get_user_encryption_key(client: &Client) -> Result<B64, Cryp
     // This is needed because the clients need access to the user encryption key
     // in order to set side-effects such as biometrics, and never-lock
     #[allow(deprecated)]
-    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)?;
 
     Ok(user_key.to_base64())
 }
@@ -426,7 +426,7 @@ pub(super) fn make_update_kdf(
     let authentication_data = MasterPasswordAuthenticationData::derive(password, new_kdf, &email)
         .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
     let unlock_data =
-        MasterPasswordUnlockData::derive(password, new_kdf, &email, SymmetricKeyId::User, &ctx)
+        MasterPasswordUnlockData::derive(password, new_kdf, &email, SymmetricKeySlotId::User, &ctx)
             .map_err(|_| CryptoClientError::InvalidKdfSettings)?;
     let old_authentication_data = MasterPasswordAuthenticationData::derive(
         password,
@@ -465,7 +465,7 @@ pub(super) fn make_update_password(
     let ctx = key_store.context();
     // FIXME: [PM-18099] Once MasterKey deals with KeyIds, this should be updated
     #[allow(deprecated)]
-    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)?;
 
     let login_method = client
         .internal
@@ -513,12 +513,12 @@ pub(super) fn enroll_pin(
     let mut ctx = key_store.context_mut();
 
     let key_envelope = PasswordProtectedKeyEnvelope::seal(
-        SymmetricKeyId::User,
+        SymmetricKeySlotId::User,
         &pin,
         PasswordProtectedKeyEnvelopeNamespace::PinUnlock,
         &ctx,
     )?;
-    let encrypted_pin = pin.encrypt(&mut ctx, SymmetricKeyId::User)?;
+    let encrypted_pin = pin.encrypt(&mut ctx, SymmetricKeySlotId::User)?;
     Ok(EnrollPinResponse {
         pin_protected_user_key_envelope: key_envelope,
         user_key_encrypted_pin: encrypted_pin,
@@ -545,7 +545,7 @@ pub(super) fn derive_pin_key(
     let ctx = key_store.context();
     // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
     #[allow(deprecated)]
-    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)?;
 
     let login_method = client
         .internal
@@ -568,7 +568,7 @@ pub(super) fn derive_pin_user_key(
     let ctx = key_store.context();
     // FIXME: [PM-18099] Once PinKey deals with KeyIds, this should be updated
     #[allow(deprecated)]
-    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)?;
 
     let pin: String = encrypted_pin.decrypt_with_key(user_key)?;
     let login_method = client
@@ -603,7 +603,7 @@ pub(super) fn make_prf_user_key_set(
     let prf_key = derive_symmetric_key_from_prf(prf.as_bytes())
         .map_err(|_| CryptoClientError::InvalidPrfInput)?;
     let ctx = client.internal.get_key_store().context();
-    let key_set = RotateableKeySet::new(&ctx, &prf_key, SymmetricKeyId::User)?;
+    let key_set = RotateableKeySet::new(&ctx, &prf_key, SymmetricKeySlotId::User)?;
     Ok(key_set)
 }
 
@@ -626,7 +626,7 @@ pub(super) fn enroll_admin_password_reset(
     let ctx = key_store.context();
     // FIXME: [PM-18110] This should be removed once the key store can handle public key encryption
     #[allow(deprecated)]
-    let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+    let key = ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)?;
 
     #[expect(deprecated)]
     Ok(UnsignedSharedKey::encapsulate_key_unsigned(
@@ -819,7 +819,7 @@ pub(crate) fn make_v2_keys_for_v1_user(
     let mut ctx = key_store.context();
 
     // Re-use existing private key
-    let private_key_id = PrivateKeyId::UserPrivateKey;
+    let private_key_id = PrivateKeySlotId::UserPrivateKey;
 
     // Ensure that the function is only called for a V1 user.
     if client.internal.get_security_version() != 1 {
@@ -832,7 +832,7 @@ pub(crate) fn make_v2_keys_for_v1_user(
     // Ensure the user has a private key.
     // V1 user must have a private key to upgrade. This should be ensured by the client before
     // calling the upgrade function.
-    if !ctx.has_private_key(PrivateKeyId::UserPrivateKey) {
+    if !ctx.has_private_key(PrivateKeySlotId::UserPrivateKey) {
         return Err(StatefulCryptoError::Crypto(CryptoError::MissingKeyId(
             "UserPrivateKey".to_string(),
         )));
@@ -903,8 +903,8 @@ pub(crate) fn get_v2_rotated_account_keys(
 
     #[expect(deprecated)]
     let rotated_keys = dangerous_get_v2_rotated_account_keys(
-        PrivateKeyId::UserPrivateKey,
-        SigningKeyId::UserSigningKey,
+        PrivateKeySlotId::UserPrivateKey,
+        SigningKeySlotId::UserSigningKey,
         &ctx,
     )?;
 
@@ -918,7 +918,7 @@ pub(crate) fn get_v2_rotated_account_keys(
         signing_key: rotated_keys.signing_key,
         verifying_key: rotated_keys.verifying_key.into(),
 
-        security_state: security_state.sign(SigningKeyId::UserSigningKey, &mut ctx)?,
+        security_state: security_state.sign(SigningKeySlotId::UserSigningKey, &mut ctx)?,
         security_version: security_state.version(),
     })
 }
@@ -1133,7 +1133,7 @@ mod tests {
     use crate::{
         Client,
         client::test_accounts::{test_bitwarden_com_account, test_bitwarden_com_account_v2},
-        key_management::{KeyIds, V2UpgradeToken},
+        key_management::{KeySlotIds, V2UpgradeToken},
     };
 
     const TEST_VECTOR_USER_KEY_V2_B64: &str = "pQEEAlACHUUoybNAuJoZzqNMxz2bAzoAARFvBIQDBAUGIFggAvGl4ifaUAomQdCdUPpXLHtypiQxHjZwRHeI83caZM4B";
@@ -1238,7 +1238,7 @@ mod tests {
             let key_store = client.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+            ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
                 .unwrap()
                 .to_base64()
         };
@@ -1247,7 +1247,7 @@ mod tests {
             let key_store = client2.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+            ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
                 .unwrap()
                 .to_base64()
         };
@@ -1330,7 +1330,7 @@ mod tests {
             let key_store = client.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+            ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
                 .unwrap()
                 .to_base64()
         };
@@ -1339,7 +1339,7 @@ mod tests {
             let key_store = client2.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+            ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
                 .unwrap()
                 .to_base64()
         };
@@ -1407,7 +1407,7 @@ mod tests {
             let key_store = client.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+            ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
                 .unwrap()
                 .to_base64()
         };
@@ -1416,7 +1416,7 @@ mod tests {
             let key_store = client2.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+            ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
                 .unwrap()
                 .to_base64()
         };
@@ -1453,7 +1453,7 @@ mod tests {
             let key_store = client.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+            ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
                 .unwrap()
                 .to_base64()
         };
@@ -1462,7 +1462,7 @@ mod tests {
             let key_store = client3.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
+            ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
                 .unwrap()
                 .to_base64()
         };
@@ -1566,7 +1566,7 @@ mod tests {
         let ctx = key_store.context();
         #[allow(deprecated)]
         let expected = ctx
-            .dangerous_get_symmetric_key(SymmetricKeyId::User)
+            .dangerous_get_symmetric_key(SymmetricKeySlotId::User)
             .unwrap();
 
         assert_eq!(decrypted, *expected);
@@ -1808,7 +1808,7 @@ mod tests {
         let client = Client::new(None);
         let mut ctx = client.internal.get_key_store().context_mut();
         let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+        ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
             .unwrap();
         drop(ctx);
 
@@ -1888,8 +1888,8 @@ mod tests {
 
         let key_store = client.internal.get_key_store();
         let context = key_store.context();
-        assert!(context.has_symmetric_key(SymmetricKeyId::User));
-        assert!(context.has_private_key(PrivateKeyId::UserPrivateKey));
+        assert!(context.has_symmetric_key(SymmetricKeySlotId::User));
+        assert!(context.has_private_key(PrivateKeySlotId::UserPrivateKey));
         let login_method = client.internal.get_login_method().unwrap();
         if let UserLoginMethod::Username {
             email,
@@ -2042,7 +2042,7 @@ mod tests {
         let upgrade_token = {
             let mut ctx = client1.internal.get_key_store().context_mut();
             let v2_key_id = ctx.add_local_symmetric_key(expected_v2_key.clone());
-            V2UpgradeToken::create(SymmetricKeyId::User, v2_key_id, &ctx).unwrap()
+            V2UpgradeToken::create(SymmetricKeySlotId::User, v2_key_id, &ctx).unwrap()
         };
 
         let client2 = Client::new_test(None);
@@ -2089,7 +2089,7 @@ mod tests {
     #[tokio::test]
     async fn test_initialize_user_crypto_with_upgrade_token_ignored_for_v2_key() {
         let dummy_token = {
-            let key_store = KeyStore::<KeyIds>::default();
+            let key_store = KeyStore::<KeySlotIds>::default();
             let mut ctx = key_store.context_mut();
             let v1_id = ctx.generate_symmetric_key();
             let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
@@ -2136,7 +2136,7 @@ mod tests {
     async fn test_initialize_user_crypto_with_invalid_upgrade_token_fails() {
         // Token built with a different V1 key — decryption with the test account's V1 key fails.
         let mismatched_token = {
-            let key_store = KeyStore::<KeyIds>::default();
+            let key_store = KeyStore::<KeySlotIds>::default();
             let mut ctx = key_store.context_mut();
             let wrong_v1_id = ctx.generate_symmetric_key();
             let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
@@ -2190,10 +2190,10 @@ mod tests {
         let mut ctx = key_store.context_mut();
         let plaintext = "test";
         let ciphertext = plaintext
-            .encrypt(&mut ctx, SymmetricKeyId::User)
+            .encrypt(&mut ctx, SymmetricKeySlotId::User)
             .expect("encryption with user key should succeed");
         let decrypted: String = ciphertext
-            .decrypt(&mut ctx, SymmetricKeyId::LocalUserData)
+            .decrypt(&mut ctx, SymmetricKeySlotId::LocalUserData)
             .expect("decryption with local user data key should succeed");
         assert_eq!(decrypted, plaintext);
     }
@@ -2210,7 +2210,7 @@ mod tests {
             let key_store = client.internal.get_key_store();
             let mut ctx = key_store.context_mut();
             "test"
-                .encrypt(&mut ctx, SymmetricKeyId::LocalUserData)
+                .encrypt(&mut ctx, SymmetricKeySlotId::LocalUserData)
                 .expect("encryption should succeed")
         };
 
@@ -2223,7 +2223,7 @@ mod tests {
         let key_store = client.internal.get_key_store();
         let mut ctx = key_store.context_mut();
         let decrypted: String = ciphertext
-            .decrypt(&mut ctx, SymmetricKeyId::LocalUserData)
+            .decrypt(&mut ctx, SymmetricKeySlotId::LocalUserData)
             .expect("decryption after second initialization should succeed");
         assert_eq!(decrypted, "test");
     }
