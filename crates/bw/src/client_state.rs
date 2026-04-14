@@ -76,6 +76,26 @@ impl TryFrom<ClientContext> for Unlocked {
     }
 }
 
+/// Client state for commands that can run regardless of authentication or unlock state.
+/// Used for complex scenarios where the command itself handles different states internally (e.g.
+/// `bw sync`, `bw status`, ...).
+pub struct AnyState {
+    pub global: GlobalClient,
+    pub client: Option<PasswordManagerClient>,
+}
+
+impl TryFrom<ClientContext> for AnyState {
+    type Error = Error;
+
+    fn try_from(ctx: ClientContext) -> Result<Self, Error> {
+        Ok(AnyState {
+            global: ctx.global,
+            client: ctx.user,
+        })
+    }
+}
+
 impl ClientState for LoggedOut {}
 impl ClientState for LoggedIn {}
 impl ClientState for Unlocked {}
+impl ClientState for AnyState {}
