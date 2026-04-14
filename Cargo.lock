@@ -932,6 +932,7 @@ name = "bitwarden-send"
 version = "2.0.0"
 dependencies = [
  "bitwarden-api-api",
+ "bitwarden-api-base",
  "bitwarden-core",
  "bitwarden-crypto",
  "bitwarden-encoding",
@@ -940,6 +941,7 @@ dependencies = [
  "bitwarden-test",
  "bitwarden-uuid",
  "chrono",
+ "reqwest",
  "serde",
  "serde_repr",
  "sha2 0.10.9",
