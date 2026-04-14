@@ -41,8 +41,8 @@
 //!
 //! ## Frame Types
 //!
-//! All frames are CBOR-encoded [`Frame`](crypto_provider::Frame) variants sent over the
-//! IPC channel:
+//! All frames are CBOR-encoded [`Frame`](crypto_provider::Frame) variants sent over
+//! the IPC channel:
 //! - **HandshakeStart** — initiates a Noise NN handshake
 //! - **HandshakeFinish** — completes the handshake
 //! - **TransportFrame** — encrypted payload

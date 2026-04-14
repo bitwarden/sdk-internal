@@ -278,7 +278,7 @@ where
 
 /// The raw frame that is sent via IPC.
 #[derive(Serialize, Deserialize)]
-enum Frame {
+pub(super) enum Frame {
     // Handshake Frames
     HandshakeStart(HandshakeStartMessage),
     HandshakeFinish(HandshakeFinishMessage),
