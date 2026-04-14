@@ -70,6 +70,7 @@ impl TryFrom<ClientContext> for Unlocked {
             global: ctx.global,
             client: ctx
                 .user
+                .filter(|client| client.is_unlocked())
                 .ok_or_else(|| eyre!("No active session found. Please log in using `bw login`."))?,
         })
     }
