@@ -7,7 +7,7 @@
 //! Subcommand that have an explicit owner lives under the team's corresponding module, such as the
 //! `sync` subcommand living under the `platform` module. Subcommands that don't have a clear owner,
 //! such as `get item`, live in this module. Each subcommand has a `run` method that executes the
-//! command's logic and returns a [`CommandOutput`].
+//! command's logic and returns a [`crate::render::CommandOutput`].
 
 use bitwarden_cli::Color;
 use clap::{Parser, Subcommand};
