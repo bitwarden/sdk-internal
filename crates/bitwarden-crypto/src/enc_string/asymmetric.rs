@@ -7,7 +7,7 @@ use serde::Deserialize;
 
 use super::{from_b64_vec, split_enc_string};
 use crate::{
-    BitwardenLegacyKeyBytes, KeyIds, KeyStoreContext, PrivateKey, PublicKey, RawPrivateKey,
+    BitwardenLegacyKeyBytes, KeySlotIds, KeyStoreContext, PrivateKey, PublicKey, RawPrivateKey,
     RawPublicKey, SymmetricCryptoKey,
     error::{CryptoError, EncStringParseError, Result},
     rsa::encrypt_rsa2048_oaep_sha1,
@@ -185,7 +185,7 @@ impl UnsignedSharedKey {
     /// Encapsulate a symmetric key, to be shared asymmetrically. Produces a
     /// [UnsignedSharedKey::Rsa2048_OaepSha1_B64] variant. Note, this does not sign the data
     /// and thus does not guarantee sender authenticity.
-    pub fn encapsulate<Ids: KeyIds>(
+    pub fn encapsulate<Ids: KeySlotIds>(
         key_to_encapsulate: Ids::Symmetric,
         encapsulation_key: &PublicKey,
         ctx: &KeyStoreContext<Ids>,
@@ -214,7 +214,7 @@ impl UnsignedSharedKey {
 impl UnsignedSharedKey {
     /// Decapsulate a symmetric key using an asymmetric decapsulation key from the key store.
     /// Returns the key ID of the decapsulated symmetric key added to the context.
-    pub fn decapsulate<Ids: KeyIds>(
+    pub fn decapsulate<Ids: KeySlotIds>(
         &self,
         decapsulation_key: Ids::Private,
         ctx: &mut KeyStoreContext<Ids>,
