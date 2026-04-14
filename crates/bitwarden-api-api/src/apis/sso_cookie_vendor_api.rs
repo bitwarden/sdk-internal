@@ -27,7 +27,7 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait SsoCookieVendorApi: Send + Sync {
     /// GET /sso-cookie-vendor
-    async fn get(&self) -> Result<(), Error<GetError>>;
+    async fn get(&self) -> Result<(), Error>;
 }
 
 pub struct SsoCookieVendorApiClient {
@@ -43,7 +43,7 @@ impl SsoCookieVendorApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl SsoCookieVendorApi for SsoCookieVendorApiClient {
-    async fn get(&self) -> Result<(), Error<GetError>> {
+    async fn get(&self) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -56,11 +56,4 @@ impl SsoCookieVendorApi for SsoCookieVendorApiClient {
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`SsoCookieVendorApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
 }

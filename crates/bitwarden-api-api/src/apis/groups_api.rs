@@ -31,10 +31,10 @@ pub trait GroupsApi: Send + Sync {
         &self,
         org_id: &'a str,
         group_bulk_request_model: Option<models::GroupBulkRequestModel>,
-    ) -> Result<(), Error<BulkDeleteError>>;
+    ) -> Result<(), Error>;
 
     /// DELETE /organizations/{orgId}/groups/{id}
-    async fn delete<'a>(&self, org_id: &'a str, id: &'a str) -> Result<(), Error<DeleteError>>;
+    async fn delete<'a>(&self, org_id: &'a str, id: &'a str) -> Result<(), Error>;
 
     /// DELETE /organizations/{orgId}/groups/{id}/user/{orgUserId}
     async fn delete_user<'a>(
@@ -42,50 +42,43 @@ pub trait GroupsApi: Send + Sync {
         org_id: &'a str,
         id: &'a str,
         org_user_id: &'a str,
-    ) -> Result<(), Error<DeleteUserError>>;
+    ) -> Result<(), Error>;
 
     /// GET /organizations/{orgId}/groups/{id}
     async fn get<'a>(
         &self,
         org_id: &'a str,
         id: &'a str,
-    ) -> Result<models::GroupResponseModel, Error<GetError>>;
+    ) -> Result<models::GroupResponseModel, Error>;
 
     /// GET /organizations/{orgId}/groups/{id}/details
     async fn get_details<'a>(
         &self,
         org_id: &'a str,
         id: &'a str,
-    ) -> Result<models::GroupDetailsResponseModel, Error<GetDetailsError>>;
+    ) -> Result<models::GroupDetailsResponseModel, Error>;
 
     /// GET /organizations/{orgId}/groups/details
     async fn get_organization_group_details<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<
-        models::GroupDetailsResponseModelListResponseModel,
-        Error<GetOrganizationGroupDetailsError>,
-    >;
+    ) -> Result<models::GroupDetailsResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{orgId}/groups
     async fn get_organization_groups<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<models::GroupResponseModelListResponseModel, Error<GetOrganizationGroupsError>>;
+    ) -> Result<models::GroupResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{orgId}/groups/{id}/users
-    async fn get_users<'a>(
-        &self,
-        org_id: &'a str,
-        id: &'a str,
-    ) -> Result<Vec<uuid::Uuid>, Error<GetUsersError>>;
+    async fn get_users<'a>(&self, org_id: &'a str, id: &'a str) -> Result<Vec<uuid::Uuid>, Error>;
 
     /// POST /organizations/{orgId}/groups
     async fn post<'a>(
         &self,
         org_id: uuid::Uuid,
         group_request_model: Option<models::GroupRequestModel>,
-    ) -> Result<models::GroupResponseModel, Error<PostError>>;
+    ) -> Result<models::GroupResponseModel, Error>;
 
     /// PUT /organizations/{orgId}/groups/{id}
     async fn put<'a>(
@@ -93,7 +86,7 @@ pub trait GroupsApi: Send + Sync {
         org_id: uuid::Uuid,
         id: uuid::Uuid,
         group_request_model: Option<models::GroupRequestModel>,
-    ) -> Result<models::GroupResponseModel, Error<PutError>>;
+    ) -> Result<models::GroupResponseModel, Error>;
 }
 
 pub struct GroupsApiClient {
@@ -113,7 +106,7 @@ impl GroupsApi for GroupsApiClient {
         &self,
         org_id: &'a str,
         group_bulk_request_model: Option<models::GroupBulkRequestModel>,
-    ) -> Result<(), Error<BulkDeleteError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -132,7 +125,7 @@ impl GroupsApi for GroupsApiClient {
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
 
-    async fn delete<'a>(&self, org_id: &'a str, id: &'a str) -> Result<(), Error<DeleteError>> {
+    async fn delete<'a>(&self, org_id: &'a str, id: &'a str) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -156,7 +149,7 @@ impl GroupsApi for GroupsApiClient {
         org_id: &'a str,
         id: &'a str,
         org_user_id: &'a str,
-    ) -> Result<(), Error<DeleteUserError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -180,7 +173,7 @@ impl GroupsApi for GroupsApiClient {
         &self,
         org_id: &'a str,
         id: &'a str,
-    ) -> Result<models::GroupResponseModel, Error<GetError>> {
+    ) -> Result<models::GroupResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -203,7 +196,7 @@ impl GroupsApi for GroupsApiClient {
         &self,
         org_id: &'a str,
         id: &'a str,
-    ) -> Result<models::GroupDetailsResponseModel, Error<GetDetailsError>> {
+    ) -> Result<models::GroupDetailsResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -225,10 +218,7 @@ impl GroupsApi for GroupsApiClient {
     async fn get_organization_group_details<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<
-        models::GroupDetailsResponseModelListResponseModel,
-        Error<GetOrganizationGroupDetailsError>,
-    > {
+    ) -> Result<models::GroupDetailsResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -249,8 +239,7 @@ impl GroupsApi for GroupsApiClient {
     async fn get_organization_groups<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<models::GroupResponseModelListResponseModel, Error<GetOrganizationGroupsError>>
-    {
+    ) -> Result<models::GroupResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -268,11 +257,7 @@ impl GroupsApi for GroupsApiClient {
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
 
-    async fn get_users<'a>(
-        &self,
-        org_id: &'a str,
-        id: &'a str,
-    ) -> Result<Vec<uuid::Uuid>, Error<GetUsersError>> {
+    async fn get_users<'a>(&self, org_id: &'a str, id: &'a str) -> Result<Vec<uuid::Uuid>, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -295,7 +280,7 @@ impl GroupsApi for GroupsApiClient {
         &self,
         org_id: uuid::Uuid,
         group_request_model: Option<models::GroupRequestModel>,
-    ) -> Result<models::GroupResponseModel, Error<PostError>> {
+    ) -> Result<models::GroupResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -319,7 +304,7 @@ impl GroupsApi for GroupsApiClient {
         org_id: uuid::Uuid,
         id: uuid::Uuid,
         group_request_model: Option<models::GroupRequestModel>,
-    ) -> Result<models::GroupResponseModel, Error<PutError>> {
+    ) -> Result<models::GroupResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -338,65 +323,4 @@ impl GroupsApi for GroupsApiClient {
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`GroupsApi::bulk_delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum BulkDeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`GroupsApi::delete`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`GroupsApi::delete_user`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum DeleteUserError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`GroupsApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`GroupsApi::get_details`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetDetailsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`GroupsApi::get_organization_group_details`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetOrganizationGroupDetailsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`GroupsApi::get_organization_groups`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetOrganizationGroupsError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`GroupsApi::get_users`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetUsersError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`GroupsApi::post`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PostError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`GroupsApi::put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutError {
-    UnknownValue(serde_json::Value),
 }

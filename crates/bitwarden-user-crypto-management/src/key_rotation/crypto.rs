@@ -1,4 +1,7 @@
 //! Functionality for re-encrypting account cryptographic state during user key rotation.
+use bitwarden_api_api::models::{
+    AccountKeysRequestModel, WrappedAccountCryptographicStateRequestModel,
+};
 use bitwarden_core::key_management::{
     KeySlotIds, SymmetricKeySlotId, account_cryptographic_state::WrappedAccountCryptographicState,
 };
@@ -7,12 +10,58 @@ use tracing::debug;
 /// Rotates an account cryptographic state and upgrades it to V2 if necessary.
 /// This function fails and logs an error via tracing if the passed keys are invalid, or if the
 /// account cryptographic state is malformed.
-pub(super) fn rotate_account_cryptographic_state(
+pub(super) fn rotate_account_cryptographic_state_to_request_model(
     wrapped_account_cryptographic_state: &WrappedAccountCryptographicState,
     current_user_key_id: &SymmetricKeySlotId,
     new_user_key_id: &SymmetricKeySlotId,
     ctx: &mut bitwarden_crypto::KeyStoreContext<KeySlotIds>,
-) -> Result<bitwarden_api_api::models::AccountKeysRequestModel, ()> {
+) -> Result<AccountKeysRequestModel, ()> {
+    let rotated_account_cryptographic_state = rotate_account_cryptographic_state(
+        wrapped_account_cryptographic_state,
+        current_user_key_id,
+        new_user_key_id,
+        ctx,
+    )?;
+
+    debug!("Converting rotated account cryptographic state to account keys request model",);
+
+    // Rotate the account keys for the user
+    let account_keys_model = rotated_account_cryptographic_state
+        .to_request_model(new_user_key_id, ctx)
+        .map_err(|_| ())?;
+    Ok(account_keys_model)
+}
+
+// Will be used for user key rotation without master password change, remove once added.
+#[allow(dead_code)]
+pub(super) fn rotate_account_cryptographic_state_to_wrapped_model(
+    wrapped_account_cryptographic_state: &WrappedAccountCryptographicState,
+    current_user_key_id: &SymmetricKeySlotId,
+    new_user_key_id: &SymmetricKeySlotId,
+    ctx: &mut bitwarden_crypto::KeyStoreContext<KeySlotIds>,
+) -> Result<WrappedAccountCryptographicStateRequestModel, ()> {
+    let rotated_account_cryptographic_state = rotate_account_cryptographic_state(
+        wrapped_account_cryptographic_state,
+        current_user_key_id,
+        new_user_key_id,
+        ctx,
+    )?;
+
+    debug!("Converting rotated account cryptographic state to wrapped request model",);
+
+    // Rotate the account keys for the user
+    let wrapped_request_model = rotated_account_cryptographic_state
+        .to_wrapped_request_model(new_user_key_id, ctx)
+        .map_err(|_| ())?;
+    Ok(wrapped_request_model)
+}
+
+fn rotate_account_cryptographic_state(
+    wrapped_account_cryptographic_state: &WrappedAccountCryptographicState,
+    current_user_key_id: &SymmetricKeySlotId,
+    new_user_key_id: &SymmetricKeySlotId,
+    ctx: &mut bitwarden_crypto::KeyStoreContext<KeySlotIds>,
+) -> Result<WrappedAccountCryptographicState, ()> {
     debug!(
         ?current_user_key_id,
         ?new_user_key_id,
@@ -29,13 +78,7 @@ pub(super) fn rotate_account_cryptographic_state(
     )
     .map_err(|_| ())?;
 
-    debug!("Converting rotated account cryptographic state to request model",);
-
-    // Rotate the account keys for the user
-    let account_keys_model = rotated_account_cryptographic_state
-        .to_request_model(new_user_key_id, ctx)
-        .map_err(|_| ())?;
-    Ok(account_keys_model)
+    Ok(rotated_account_cryptographic_state)
 }
 
 #[cfg(test)]
@@ -70,6 +113,118 @@ mod tests {
         )
     }
 
+    fn assert_wrapped_request_model_fields(
+        model: &WrappedAccountCryptographicStateRequestModel,
+        actual_public_key: &B64,
+    ) {
+        let model_public_key = model
+            .public_key_encryption_key_pair
+            .public_key
+            .as_ref()
+            .expect("public_key should be present");
+        assert_eq!(
+            actual_public_key.to_string(),
+            *model_public_key,
+            "Public key should be correctly included in the model"
+        );
+
+        // Assert signed_public_key is present
+        assert!(
+            model
+                .public_key_encryption_key_pair
+                .signed_public_key
+                .is_some(),
+            "signed_public_key should be present for V2 state"
+        );
+
+        // Note: The actual cryptographic correctness of these values (signatures, key material)
+        // is verified in the account_cryptographic_state tests. This test only asserts that
+        // the conversion to AccountKeysRequestModel is reasonable (i.e., expected fields are
+        // present).
+        assert!(
+            model.signature_key_pair.verifying_key.is_some(),
+            "verifying_key should be present"
+        );
+        assert!(
+            model.signature_key_pair.wrapped_signing_key.is_some(),
+            "wrapped_signing_key should be present"
+        );
+        assert!(
+            model.signature_key_pair.signature_algorithm.is_some(),
+            "signature_algorithm should be present"
+        );
+        assert!(
+            model.security_state.security_state.is_some(),
+            "security_state content should be present"
+        );
+    }
+
+    #[test]
+    fn test_rotate_v1_to_v2_returns_wrapped_request_model() {
+        // Create a key store and context
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        // Create a V1-style wrapped state
+        let (old_user_key_id, public_key, wrapped_state) = make_v1_wrapped_state(&mut ctx);
+
+        // Create a new user key for rotation
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let model = rotate_account_cryptographic_state_to_wrapped_model(
+            &wrapped_state,
+            &old_user_key_id,
+            &new_user_key_id,
+            &mut ctx,
+        )
+        .expect("rotate_account_cryptographic_state_to_wrapped_model should succeed");
+
+        let actual_public_key: B64 = public_key.to_der().unwrap().into();
+        assert_wrapped_request_model_fields(&model, &actual_public_key);
+    }
+
+    #[test]
+    fn test_rotate_v2_to_v2_returns_wrapped_request_model() {
+        // Create a key store and context
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+
+        // Create a V2-style wrapped state
+        let (old_user_key_id, wrapped_state) =
+            WrappedAccountCryptographicState::make(&mut ctx).unwrap();
+
+        // Get the public key before rotation
+        let private_key_id = match &wrapped_state {
+            WrappedAccountCryptographicState::V2 { private_key, .. } => ctx
+                .unwrap_private_key(old_user_key_id, private_key)
+                .unwrap(),
+            _ => panic!("Expected V2 state"),
+        };
+        let signing_key_id = match &wrapped_state {
+            WrappedAccountCryptographicState::V2 { signing_key, .. } => ctx
+                .unwrap_signing_key(old_user_key_id, signing_key)
+                .unwrap(),
+            _ => panic!("Expected V2 state"),
+        };
+        let public_key = ctx.get_public_key(private_key_id).unwrap();
+        ctx.get_verifying_key(signing_key_id)
+            .expect("verifying key should be obtainable");
+
+        // Create a new user key for rotation
+        let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let model = rotate_account_cryptographic_state_to_wrapped_model(
+            &wrapped_state,
+            &old_user_key_id,
+            &new_user_key_id,
+            &mut ctx,
+        )
+        .expect("rotate_account_cryptographic_state_to_wrapped_model should succeed");
+
+        let actual_public_key: B64 = public_key.to_der().unwrap().into();
+        assert_wrapped_request_model_fields(&model, &actual_public_key);
+    }
+
     #[test]
     fn test_rotate_v1_to_v2_returns_account_keys_model() {
         // Create a key store and context
@@ -82,13 +237,13 @@ mod tests {
         // Create a new user key for rotation
         let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let model = rotate_account_cryptographic_state(
+        let model = rotate_account_cryptographic_state_to_request_model(
             &wrapped_state,
             &old_user_key_id,
             &new_user_key_id,
             &mut ctx,
         )
-        .expect("rotate_account_cryptographic_state should succeed");
+        .expect("rotate_account_cryptographic_state_to_request_model should succeed");
 
         let actual_public_key: B64 = public_key.to_der().unwrap().into();
         let public_key_encryption_key_pair = model
@@ -176,13 +331,13 @@ mod tests {
         // Create a new user key for rotation
         let new_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
 
-        let model = rotate_account_cryptographic_state(
+        let model = rotate_account_cryptographic_state_to_request_model(
             &wrapped_state,
             &old_user_key_id,
             &new_user_key_id,
             &mut ctx,
         )
-        .expect("rotate_account_cryptographic_state should succeed");
+        .expect("rotate_account_cryptographic_state_to_request_model should succeed");
 
         let actual_public_key: B64 = public_key.to_der().unwrap().into();
         let public_key_encryption_key_pair = model

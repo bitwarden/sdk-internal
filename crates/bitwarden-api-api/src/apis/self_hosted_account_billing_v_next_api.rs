@@ -27,10 +27,7 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait SelfHostedAccountBillingVNextApi: Send + Sync {
     /// POST /account/billing/vnext/self-host/license
-    async fn upload_license<'a>(
-        &self,
-        license: std::path::PathBuf,
-    ) -> Result<(), Error<UploadLicenseError>>;
+    async fn upload_license<'a>(&self, license: std::path::PathBuf) -> Result<(), Error>;
 }
 
 pub struct SelfHostedAccountBillingVNextApiClient {
@@ -46,10 +43,7 @@ impl SelfHostedAccountBillingVNextApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl SelfHostedAccountBillingVNextApi for SelfHostedAccountBillingVNextApiClient {
-    async fn upload_license<'a>(
-        &self,
-        license: std::path::PathBuf,
-    ) -> Result<(), Error<UploadLicenseError>> {
+    async fn upload_license<'a>(&self, license: std::path::PathBuf) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -68,11 +62,4 @@ impl SelfHostedAccountBillingVNextApi for SelfHostedAccountBillingVNextApiClient
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`SelfHostedAccountBillingVNextApi::upload_license`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum UploadLicenseError {
-    UnknownValue(serde_json::Value),
 }

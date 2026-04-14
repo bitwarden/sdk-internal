@@ -111,7 +111,7 @@ impl CiphersClient {
             api_client,
             &*self.get_repository()?,
             key_store,
-            self.is_strict_decrypt(),
+            self.is_strict_decrypt().await,
         )
         .await
     }

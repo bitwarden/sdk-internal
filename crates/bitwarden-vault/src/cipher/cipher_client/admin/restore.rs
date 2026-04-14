@@ -89,7 +89,13 @@ impl CipherAdminClient {
         let api_client = &self.client.internal.get_api_configurations().api_client;
         let key_store = self.client.internal.get_key_store();
 
-        restore_as_admin(cipher_id, api_client, key_store, self.is_strict_decrypt()).await
+        restore_as_admin(
+            cipher_id,
+            api_client,
+            key_store,
+            self.is_strict_decrypt().await,
+        )
+        .await
     }
     /// Restores multiple soft-deleted ciphers on the server.
     pub async fn restore_many(

@@ -389,6 +389,7 @@ impl CiphersClient {
                 .client
                 .internal
                 .get_flags()
+                .await
                 .enable_cipher_key_encryption
         {
             let key = request.key_identifier();
@@ -401,7 +402,7 @@ impl CiphersClient {
             repository.as_ref(),
             user_id,
             request,
-            self.is_strict_decrypt(),
+            self.is_strict_decrypt().await,
         )
         .await
     }
@@ -437,7 +438,10 @@ impl CiphersClient {
             response
         };
 
-        Ok(self.decrypt(cipher).map_err(|_| CryptoError::KeyDecrypt)?)
+        Ok(self
+            .decrypt(cipher)
+            .await
+            .map_err(|_| CryptoError::KeyDecrypt)?)
     }
 }
 

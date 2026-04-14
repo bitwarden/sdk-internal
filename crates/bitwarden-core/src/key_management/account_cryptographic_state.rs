@@ -12,6 +12,7 @@ use std::sync::RwLock;
 
 use bitwarden_api_api::models::{
     AccountKeysRequestModel, PrivateKeysResponseModel, SecurityStateModel,
+    WrappedAccountCryptographicStateRequestModel,
 };
 use bitwarden_crypto::{
     CoseSerializable, CryptoError, EncString, KeyStore, KeyStoreContext,
@@ -193,6 +194,63 @@ impl TryFrom<&PrivateKeysResponseModel> for WrappedAccountCryptographicState {
 }
 
 impl WrappedAccountCryptographicState {
+    /// Converts to a WrappedAccountCryptographicStateRequestModel in order to make API requests.
+    /// Since the [WrappedAccountCryptographicState] is encrypted, the key store needs to
+    /// contain the user key required to unlock this state. This request model only supports v2
+    /// encryption.
+    pub fn to_wrapped_request_model(
+        &self,
+        user_key: &SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+    ) -> Result<WrappedAccountCryptographicStateRequestModel, AccountCryptographyInitializationError>
+    {
+        match self {
+            WrappedAccountCryptographicState::V1 { .. } => {
+                Err(AccountCryptographyInitializationError::WrongUserKeyType)
+            }
+            WrappedAccountCryptographicState::V2 {
+                private_key,
+                signing_key,
+                security_state,
+                signed_public_key,
+                ..
+            } => {
+                let private_key = private_key.clone();
+                let private_key_tmp_id = ctx.unwrap_private_key(*user_key, &private_key)?;
+                let public_key = ctx.get_public_key(private_key_tmp_id)?;
+
+                let signing_key_tmp_id = ctx.unwrap_signing_key(*user_key, signing_key)?;
+                let verifying_key = ctx.get_verifying_key(signing_key_tmp_id)?;
+
+                Ok(WrappedAccountCryptographicStateRequestModel {
+                    signature_key_pair: Box::new(
+                        bitwarden_api_api::models::SignatureKeyPairRequestModel {
+                            wrapped_signing_key: Some(signing_key.to_string()),
+                            verifying_key: Some(B64::from(verifying_key.to_cose()).to_string()),
+                            signature_algorithm: Some(verifying_key.algorithm().to_string()),
+                        },
+                    ),
+                    public_key_encryption_key_pair: Box::new(
+                        bitwarden_api_api::models::PublicKeyEncryptionKeyPairRequestModel {
+                            wrapped_private_key: Some(private_key.to_string()),
+                            public_key: Some(B64::from(public_key.to_der()?).to_string()),
+                            signed_public_key: signed_public_key.clone().map(|spk| spk.into()),
+                        },
+                    ),
+                    // Convert the verified state's version to i32 for the API model
+                    security_state: Box::new(SecurityStateModel {
+                        security_state: Some(security_state.into()),
+                        security_version: security_state
+                            .to_owned()
+                            .verify_and_unwrap(&verifying_key)
+                            .map_err(|_| AccountCryptographyInitializationError::TamperedData)?
+                            .version() as i32,
+                    }),
+                })
+            }
+        }
+    }
+
     /// Converts to a AccountKeysRequestModel in order to make API requests. Since the
     /// [WrappedAccountCryptographicState] is encrypted, the key store needs to contain the
     /// user key required to unlock this state.
@@ -229,9 +287,7 @@ impl WrappedAccountCryptographicState {
                     Box::new(bitwarden_api_api::models::SignatureKeyPairRequestModel {
                         wrapped_signing_key: Some(signing_key.to_string()),
                         verifying_key: Some(B64::from(verifying_key.to_cose()).to_string()),
-                        signature_algorithm: Some(match verifying_key.algorithm() {
-                            SignatureAlgorithm::Ed25519 => "ed25519".to_string(),
-                        }),
+                        signature_algorithm: Some(verifying_key.algorithm().to_string()),
                     })
                 }),
             public_key_encryption_key_pair: Some(Box::new(
@@ -1107,5 +1163,117 @@ mod tests {
             public_key_after_rotation.to_der().unwrap(),
             "Private key should be preserved during rotation from V2 to V2"
         );
+    }
+
+    #[test]
+    fn test_to_wrapped_request_model_v1_returns_wrong_user_key_type() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let (user_key_id, wrapped) = WrappedAccountCryptographicState::make_v1(&mut ctx).unwrap();
+        let result = wrapped.to_wrapped_request_model(&user_key_id, &mut ctx);
+        assert!(matches!(
+            result.unwrap_err(),
+            AccountCryptographyInitializationError::WrongUserKeyType
+        ));
+    }
+
+    #[test]
+    fn test_to_wrapped_request_model_v2() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let (user_key_id, wrapped) = WrappedAccountCryptographicState::make(&mut ctx).unwrap();
+        let result = wrapped
+            .to_wrapped_request_model(&user_key_id, &mut ctx)
+            .unwrap();
+
+        let wrapped_signing_key_str = result
+            .signature_key_pair
+            .wrapped_signing_key
+            .as_ref()
+            .unwrap();
+        assert!(!wrapped_signing_key_str.is_empty());
+
+        let enc_signing_key: EncString = wrapped_signing_key_str.parse().unwrap();
+        let signing_key_tmp = ctx
+            .unwrap_signing_key(user_key_id, &enc_signing_key)
+            .unwrap();
+        let verifying_key = ctx.get_verifying_key(signing_key_tmp).unwrap();
+        let expected = B64::from(verifying_key.to_cose()).to_string();
+        assert!(
+            result
+                .signature_key_pair
+                .verifying_key
+                .as_ref()
+                .is_some_and(|s| s == &expected),
+            "verifying_key should match expected value"
+        );
+
+        assert_eq!(
+            result.signature_key_pair.signature_algorithm.as_deref(),
+            Some("ed25519")
+        );
+
+        assert!(
+            result
+                .public_key_encryption_key_pair
+                .wrapped_private_key
+                .as_ref()
+                .is_some_and(|s| !s.is_empty()),
+            "wrapped_private_key should be non-empty"
+        );
+        let wrapped_private_key_str = result
+            .public_key_encryption_key_pair
+            .wrapped_private_key
+            .as_ref()
+            .unwrap();
+        let enc_private_key: EncString = wrapped_private_key_str.parse().unwrap();
+        let private_key_tmp = ctx
+            .unwrap_private_key(user_key_id, &enc_private_key)
+            .unwrap();
+        let public_key = ctx.get_public_key(private_key_tmp).unwrap();
+
+        let expected = B64::from(public_key.to_der().unwrap()).to_string();
+        assert!(
+            result
+                .public_key_encryption_key_pair
+                .public_key
+                .as_ref()
+                .is_some_and(|s| s == &expected),
+            "public_key should match expected value"
+        );
+        assert!(
+            result
+                .public_key_encryption_key_pair
+                .signed_public_key
+                .is_some(),
+            "signed_public_key should be present"
+        );
+        assert!(
+            result
+                .security_state
+                .security_state
+                .as_ref()
+                .is_some_and(|s| !s.is_empty()),
+            "security_state string should be non-empty"
+        );
+        assert!(result.security_state.security_version == 2);
+    }
+
+    #[test]
+    fn test_to_wrapped_request_model_wrong_user_key_returns_error() {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let mut ctx = store.context_mut();
+        let (_user_key_id, wrapped) = WrappedAccountCryptographicState::make(&mut ctx).unwrap();
+
+        // Create a different XChaCha20Poly1305 user key that wasn't used to wrap these keys
+        let wrong_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
+
+        let result = wrapped.to_wrapped_request_model(&wrong_user_key_id, &mut ctx);
+        assert!(result.is_err());
+        // Decryption failure, not a key type mismatch
+        assert!(!matches!(
+            result.unwrap_err(),
+            AccountCryptographyInitializationError::WrongUserKeyType
+        ));
     }
 }

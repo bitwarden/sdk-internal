@@ -35,11 +35,11 @@ use crate::{client::ApiConfigurations, key_management::KeySlotIds};
 /// }
 ///
 /// // Usage:
-/// let folders_client = FoldersClient::from_client(&client)?;
+/// let folders_client = FoldersClient::from_client(&client);
 /// ```
 pub trait FromClient: Sized {
     /// Construct this type from a [`Client`] reference.
-    fn from_client(client: &Client) -> Result<Self, String>;
+    fn from_client(client: &Client) -> Self;
 }
 
 /// Trait for extracting parts/dependencies from a [`Client`].
@@ -48,34 +48,25 @@ pub trait FromClient: Sized {
 /// `#[derive(FromClient)]` - users should derive [`FromClient`] rather than using this trait
 /// directly.
 pub trait FromClientPart<T> {
-    /// The error type returned when extraction fails.
-    type Error;
-
     /// Extract a dependency of type `T` from self.
-    fn get_part(&self) -> Result<T, Self::Error>;
+    fn get_part(&self) -> T;
 }
 
 impl FromClientPart<KeyStore<KeySlotIds>> for Client {
-    type Error = std::convert::Infallible;
-
-    fn get_part(&self) -> Result<KeyStore<KeySlotIds>, Self::Error> {
-        Ok(self.internal.get_key_store().clone())
+    fn get_part(&self) -> KeyStore<KeySlotIds> {
+        self.internal.get_key_store().clone()
     }
 }
 
 impl FromClientPart<Arc<ApiConfigurations>> for Client {
-    type Error = std::convert::Infallible;
-
-    fn get_part(&self) -> Result<Arc<ApiConfigurations>, Self::Error> {
-        Ok(self.internal.get_api_configurations())
+    fn get_part(&self) -> Arc<ApiConfigurations> {
+        self.internal.get_api_configurations()
     }
 }
 
 #[cfg(feature = "internal")]
-impl<T: RepositoryItem> FromClientPart<Arc<dyn Repository<T>>> for Client {
-    type Error = bitwarden_state::registry::StateRegistryError;
-
-    fn get_part(&self) -> Result<Arc<dyn Repository<T>>, Self::Error> {
-        self.platform().state().get::<T>()
+impl<T: RepositoryItem> FromClientPart<Option<Arc<dyn Repository<T>>>> for Client {
+    fn get_part(&self) -> Option<Arc<dyn Repository<T>>> {
+        self.platform().state().get::<T>().ok()
     }
 }
