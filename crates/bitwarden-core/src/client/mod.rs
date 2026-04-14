@@ -21,6 +21,7 @@ pub(crate) use login_method::{LoginMethod, UserLoginMethod};
 mod flags;
 
 pub use builder::ClientBuilder;
+pub(crate) use builder::{build_default_headers, new_http_client_builder};
 pub use client::Client;
 pub use client_settings::{ClientName, ClientSettings, DeviceType};
 

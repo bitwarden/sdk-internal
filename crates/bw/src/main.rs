@@ -83,7 +83,7 @@ async fn process_commands(command: Commands, _session: Option<String>) -> Comman
     };
 
     let ctx: ClientContext = ClientContext {
-        global: GlobalClient::new(),
+        global: GlobalClient::new(None),
         user: user_client,
         //user: PasswordManagerClient::load_from_state().ok(),
     };
