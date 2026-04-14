@@ -14,7 +14,7 @@ pub struct Flags {
     pub enable_cipher_key_encryption: bool,
 
     /// Enable strict cipher field decryption (propagates errors instead of nulling fields).
-    #[serde(alias = "PM-34500-strict-cipher-decryption")]
+    #[serde(alias = "pm-34500-strict-cipher-decryption")]
     pub strict_cipher_decryption: bool,
 }
 
