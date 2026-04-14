@@ -10,6 +10,8 @@ license-file.workspace = true
 keywords.workspace = true
 
 [features]
+# Force the noise-based crypto provider to use FIPS-compatible crypto primitives.
+fips = []
 wasm = [
     "dep:tsify",
     "dep:wasm-bindgen",
@@ -25,10 +27,13 @@ async-trait = { workspace = true }
 bitwarden-error = { workspace = true }
 bitwarden-ffi = { workspace = true }
 bitwarden-threading = { workspace = true }
+ciborium = { version = ">=0.2.2, <0.3" }
 erased-serde = ">=0.4.6, <0.5"
 js-sys = { workspace = true, optional = true }
 serde = { workspace = true }
+serde_bytes = { workspace = true }
 serde_json = { workspace = true }
+snow = { version = "0.9.6", features = ["risky-raw-split"] }
 thiserror = { workspace = true }
 tokio = { features = ["sync", "time", "rt"], workspace = true }
 tracing = { workspace = true }
@@ -36,6 +41,7 @@ tsify = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
+web-time = "1.1.0"
 
 [lints]
 workspace = true
