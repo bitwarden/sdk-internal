@@ -1,11 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    client::{
-        build_default_headers, new_http_client_builder,
-        client_settings::ClientSettings,
-        internal::ApiConfigurations,
-    },
+    client::{build_default_headers, client_settings::ClientSettings, new_http_client_builder},
     global::global_internal_client::GlobalInternalClient,
 };
 
@@ -27,22 +23,11 @@ impl GlobalClient {
         let http_client = new_http_client_builder()
             .default_headers(headers)
             .build()
-            .expect("Global HTTP Client build should not fail");
-
-        let identity = bitwarden_api_identity::Configuration {
-            base_path: settings.identity_url,
-            client: http_client.clone().into(),
-        };
-
-        let api = bitwarden_api_api::Configuration {
-            base_path: settings.api_url,
-            client: http_client.into(),
-        };
-
-        let api_configurations = ApiConfigurations::new(identity, api, settings.device_type);
+            .expect("Global HTTP Client build should not fail")
+            .into();
 
         Self {
-            internal: Arc::new(GlobalInternalClient { api_configurations }),
+            internal: Arc::new(GlobalInternalClient { http_client }),
         }
     }
 }
