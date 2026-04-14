@@ -395,7 +395,7 @@ mod tests {
 
         assert!(matches!(
             result,
-            Err(super::super::PlayError::ServerError { status: 500, .. })
+            Err(super::super::PlayError::Response { status: 500, .. })
         ));
     }
 

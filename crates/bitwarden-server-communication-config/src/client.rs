@@ -149,15 +149,15 @@ where
     ///   ([`AcquireCookieError::UnsupportedConfiguration`])
     /// - Acquired cookie name doesn't match expected name
     ///   ([`AcquireCookieError::CookieNameMismatch`])
-    /// - Repository operations fail ([`AcquireCookieError::RepositoryGetError`] or
-    ///   [`AcquireCookieError::RepositorySaveError`])
+    /// - Repository operations fail ([`AcquireCookieError::RepositoryGet`] or
+    ///   [`AcquireCookieError::RepositorySave`])
     pub async fn acquire_cookie(&self, hostname: &str) -> Result<(), AcquireCookieError> {
         // Get existing configuration - we need this to know what cookie to expect
         let mut config = self
             .repository
             .get(hostname.to_string())
             .await
-            .map_err(|e| AcquireCookieError::RepositoryGetError(format!("{:?}", e)))?
+            .map_err(|e| AcquireCookieError::RepositoryGet(format!("{:?}", e)))?
             .ok_or(AcquireCookieError::UnsupportedConfiguration)?;
 
         // Verify this is an SSO cookie vendor configuration and get mutable reference
@@ -226,7 +226,7 @@ where
         self.repository
             .save(hostname.to_string(), config)
             .await
-            .map_err(|e| AcquireCookieError::RepositorySaveError(format!("{:?}", e)))?;
+            .map_err(|e| AcquireCookieError::RepositorySave(format!("{:?}", e)))?;
 
         Ok(())
     }

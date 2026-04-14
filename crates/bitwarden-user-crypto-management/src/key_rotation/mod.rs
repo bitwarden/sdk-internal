@@ -88,7 +88,7 @@ impl UserCryptoManagementClient {
         let api_client = &self.client.internal.get_api_configurations().api_client;
         let organizations = sync::sync_orgs(api_client)
             .await
-            .map_err(|_| RotateUserKeysError::ApiError)?;
+            .map_err(|_| RotateUserKeysError::Api)?;
         Ok(organizations)
     }
 
@@ -100,7 +100,7 @@ impl UserCryptoManagementClient {
         let api_client = &self.client.internal.get_api_configurations().api_client;
         let emergency_access = sync::sync_emergency_access(api_client)
             .await
-            .map_err(|_| RotateUserKeysError::ApiError)?;
+            .map_err(|_| RotateUserKeysError::Api)?;
         Ok(emergency_access)
     }
 }
@@ -109,13 +109,13 @@ impl UserCryptoManagementClient {
 #[bitwarden_error(flat)]
 pub enum RotateUserKeysError {
     #[error("API error during key rotation")]
-    ApiError,
+    Api,
     #[error("Cryptographic error during key rotation")]
-    CryptoError,
+    Crypto,
     #[error("Invalid public key provided during key rotation")]
     InvalidPublicKey,
     #[error("Untrusted key encountered during key rotation")]
-    UntrustedKeyError,
+    UntrustedKey,
     #[error("Unimplemented key rotation method")]
     UnimplementedKeyRotationMethod,
 }
@@ -132,7 +132,7 @@ async fn post_rotate_user_keys(
     let _span = info_span!("rotate_user_keys").entered();
     let sync = sync::sync_current_account_data(api_client)
         .await
-        .map_err(|_| RotateUserKeysError::ApiError)?;
+        .map_err(|_| RotateUserKeysError::Api)?;
 
     let key_store = registration_client.client.internal.get_key_store();
     // Create a separate scope so that the mutable context is not held across the await point
@@ -153,7 +153,7 @@ async fn post_rotate_user_keys(
             &rotation_context.new_user_key_id,
             &mut ctx,
         )
-        .map_err(|_| RotateUserKeysError::CryptoError)?;
+        .map_err(|_| RotateUserKeysError::Crypto)?;
 
         info!("Re-encrypting account data for user key rotation");
         let account_data_model = reencrypt_data(
@@ -164,7 +164,7 @@ async fn post_rotate_user_keys(
             rotation_context.new_user_key_id,
             &mut ctx,
         )
-        .map_err(|_| RotateUserKeysError::CryptoError)?;
+        .map_err(|_| RotateUserKeysError::Crypto)?;
 
         info!("Re-encrypting account unlock data for user key rotation");
         let MasterkeyUnlockMethod::Password {
@@ -175,7 +175,7 @@ async fn post_rotate_user_keys(
         else {
             return Err(RotateUserKeysError::UnimplementedKeyRotationMethod);
         };
-        let (kdf, salt) = sync.kdf_and_salt.ok_or(RotateUserKeysError::ApiError)?;
+        let (kdf, salt) = sync.kdf_and_salt.ok_or(RotateUserKeysError::Api)?;
         let unlock_data_model = reencrypt_master_password_change_unlock_data(
             ReencryptMasterPasswordChangeAndUnlockInput {
                 password,
@@ -193,11 +193,11 @@ async fn post_rotate_user_keys(
             rotation_context.new_user_key_id,
             &mut ctx,
         )
-        .map_err(|_| RotateUserKeysError::CryptoError)?;
+        .map_err(|_| RotateUserKeysError::Crypto)?;
 
         let old_master_password_authentication_data =
             MasterPasswordAuthenticationData::derive(&old_password, &kdf, &salt)
-                .map_err(|_| RotateUserKeysError::CryptoError)?;
+                .map_err(|_| RotateUserKeysError::Crypto)?;
 
         RotateUserAccountKeysAndDataRequestModel {
             old_master_key_authentication_hash: Some(
@@ -220,7 +220,7 @@ async fn post_rotate_user_keys(
         .accounts_key_management_api()
         .password_change_and_rotate_user_account_keys(Some(request))
         .await
-        .map_err(|_| RotateUserKeysError::ApiError)?;
+        .map_err(|_| RotateUserKeysError::Api)?;
     info!("Successfully rotated user account keys and data");
     Ok(())
 }
