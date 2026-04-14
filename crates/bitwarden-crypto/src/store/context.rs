@@ -11,7 +11,7 @@ use zeroize::Zeroizing;
 use super::KeyStoreInner;
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseEncrypt0Bytes, CoseKeyBytes, CoseSerializable,
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeyId, KeyIds, LocalId,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeySlotId, KeySlotIds, LocalId,
     Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, PublicKeyEncryptionAlgorithm, Result,
     RotatedUserKeys, Signature, SignatureAlgorithm, SignedObject, SignedPublicKey,
     SignedPublicKeyMessage, SigningKey, SymmetricCryptoKey, SymmetricKeyAlgorithm, VerifyingKey,
@@ -77,7 +77,7 @@ use crate::{
 /// }
 /// ```
 #[must_use]
-pub struct KeyStoreContext<'a, Ids: KeyIds> {
+pub struct KeyStoreContext<'a, Ids: KeySlotIds> {
     pub(super) global_keys: GlobalKeys<'a, Ids>,
 
     pub(super) local_symmetric_keys: Box<dyn StoreBackend<Ids::Symmetric>>,
@@ -95,12 +95,12 @@ pub struct KeyStoreContext<'a, Ids: KeyIds> {
 /// encryption/decryption. We also have the option to create a read/write context, which allows us
 /// to modify the global keys, but only allows one context at a time. This is controlled by a
 /// [std::sync::RwLock] on the global keys, and this struct stores both types of guards.
-pub(crate) enum GlobalKeys<'a, Ids: KeyIds> {
+pub(crate) enum GlobalKeys<'a, Ids: KeySlotIds> {
     ReadOnly(RwLockReadGuard<'a, KeyStoreInner<Ids>>),
     ReadWrite(RwLockWriteGuard<'a, KeyStoreInner<Ids>>),
 }
 
-impl<Ids: KeyIds> GlobalKeys<'_, Ids> {
+impl<Ids: KeySlotIds> GlobalKeys<'_, Ids> {
     /// Get a shared reference to the underlying `KeyStoreInner`.
     ///
     /// This returns a shared reference regardless of whether the global keys were locked
@@ -129,7 +129,7 @@ impl<Ids: KeyIds> GlobalKeys<'_, Ids> {
     }
 }
 
-impl<Ids: KeyIds> KeyStoreContext<'_, Ids> {
+impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     /// Clears all the local keys stored in this context
     /// This will not affect the global keys even if this context has write access.
     /// To clear the global keys, you need to use [super::KeyStore::clear] instead.
