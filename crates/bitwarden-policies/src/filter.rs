@@ -7,13 +7,13 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(PartialEq, Serialize, Deserialize, Debug)]
-pub struct PolicyType(pub i32);
+pub struct RawPolicyType(pub i32);
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RawPolicy {
     id: Uuid,
     organization_id: Uuid,
-    r#type: PolicyType,
+    r#type: RawPolicyType,
     data: Option<HashMap<String, serde_json::Value>>,
     enabled: bool,
 }
@@ -21,7 +21,7 @@ pub struct RawPolicy {
 pub trait PolicyDefinition: Send + Sync + 'static {
     /// The wire-format integer for this policy type. Known at compile time
     /// and usable in static contexts.
-    const TYPE: PolicyType;
+    const TYPE: RawPolicyType;
 
     fn exempt_roles(&self) -> &[OrganizationUserType] {
         &[OrganizationUserType::Owner, OrganizationUserType::Admin]
@@ -76,7 +76,7 @@ mod tests {
         RawPolicy {
             id: Uuid::new_v4(),
             organization_id,
-            r#type: PolicyType(policy_type),
+            r#type: RawPolicyType(policy_type),
             data: None,
             enabled,
         }
@@ -100,7 +100,7 @@ mod tests {
 
     struct TestPolicy;
     impl PolicyDefinition for TestPolicy {
-        const TYPE: PolicyType = PolicyType(1);
+        const TYPE: RawPolicyType = RawPolicyType(1);
 
         // These happen to match the default impl, but repeating here
         // to decouple the filter tests from the default impl
