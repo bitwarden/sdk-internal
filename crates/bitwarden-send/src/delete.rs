@@ -47,7 +47,7 @@ impl SendClient {
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::apis::ApiClient;
-    use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
+    use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
     use bitwarden_crypto::{KeyStore, SymmetricKeyAlgorithm};
     use bitwarden_test::MemoryRepository;
     use uuid::uuid;
@@ -57,12 +57,12 @@ mod tests {
 
     async fn make_store_with_send(
         send_id: uuid::Uuid,
-    ) -> (KeyStore<KeyIds>, MemoryRepository<Send>) {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+    ) -> (KeyStore<KeySlotIds>, MemoryRepository<Send>) {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .unwrap();
         }
 

@@ -1,4 +1,4 @@
-use bitwarden_core::{ApiError, MissingFieldError, key_management::KeyIds, require};
+use bitwarden_core::{ApiError, MissingFieldError, key_management::KeySlotIds, require};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -25,7 +25,7 @@ pub enum RemoveSendPasswordError {
 }
 
 async fn remove_send_password<R: Repository<Send> + ?Sized>(
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
     send_id: SendId,
@@ -61,7 +61,7 @@ impl SendClient {
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::{apis::ApiClient, models::SendResponseModel};
-    use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
+    use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
     use bitwarden_crypto::{KeyStore, SymmetricKeyAlgorithm};
     use bitwarden_test::MemoryRepository;
     use uuid::uuid;
@@ -71,12 +71,12 @@ mod tests {
 
     async fn make_store_with_send(
         send_id: uuid::Uuid,
-    ) -> (KeyStore<KeyIds>, MemoryRepository<Send>) {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+    ) -> (KeyStore<KeySlotIds>, MemoryRepository<Send>) {
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .unwrap();
         }
 

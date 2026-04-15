@@ -1,5 +1,5 @@
 use bitwarden_api_base::AuthRequired;
-use bitwarden_core::{ApiError, MissingFieldError, key_management::KeyIds, require};
+use bitwarden_core::{ApiError, MissingFieldError, key_management::KeySlotIds, require};
 use bitwarden_crypto::{CryptoError, KeyStore};
 use bitwarden_error::bitwarden_error;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -59,7 +59,7 @@ pub enum CreateFileSendError {
 }
 
 async fn create_file_send<R: Repository<Send> + ?Sized>(
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
     request: SendAddRequest,
