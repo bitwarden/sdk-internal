@@ -38,14 +38,14 @@ chrono = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_repr = { workspace = true }
-sha2 = { version = ">=0.10.6, <0.11" }
+sha2 = { workspace = true }
 thiserror = { workspace = true }
 tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true }
 uuid = { workspace = true }
 wasm-bindgen = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
-zeroize = { version = ">=1.7.0, <2.0" }
+zeroize = { workspace = true }
 
 [dev-dependencies]
 bitwarden-api-api = { workspace = true, features = ["mockall"] }

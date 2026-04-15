@@ -9,7 +9,7 @@ use thiserror::Error;
 use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
-    CONTENT_TYPE_PADDED_CBOR, CoseEncrypt0Bytes, CryptoError, EncString, EncodingError, KeyIds,
+    CONTENT_TYPE_PADDED_CBOR, CoseEncrypt0Bytes, CryptoError, EncString, EncodingError, KeySlotIds,
     SerializedMessage, SymmetricCryptoKey, XChaCha20Poly1305Key,
     cose::{ContentNamespace, SafeObjectNamespace, XCHACHA20_POLY1305},
     safe::helpers::{debug_fmt, set_safe_namespaces, validate_safe_namespaces},
@@ -60,7 +60,7 @@ pub struct DataEnvelope {
 impl DataEnvelope {
     /// Seals a struct into an encrypted blob, and stores the content-encryption-key in the provided
     /// context.
-    pub fn seal<Ids: KeyIds, T>(
+    pub fn seal<Ids: KeySlotIds, T>(
         data: T,
         ctx: &mut crate::store::KeyStoreContext<Ids>,
     ) -> Result<(Self, Ids::Symmetric), DataEnvelopeError>
@@ -76,7 +76,7 @@ impl DataEnvelope {
 
     /// Seals a struct into an encrypted blob. The content encryption key is wrapped with the
     /// provided wrapping key
-    pub fn seal_with_wrapping_key<Ids: KeyIds, T>(
+    pub fn seal_with_wrapping_key<Ids: KeySlotIds, T>(
         data: T,
         wrapping_key: &Ids::Symmetric,
         ctx: &mut crate::store::KeyStoreContext<Ids>,
@@ -155,7 +155,7 @@ impl DataEnvelope {
 
     /// Unseals the data from the encrypted blob using a content-encryption-key stored in the
     /// context.
-    pub fn unseal<Ids: KeyIds, T>(
+    pub fn unseal<Ids: KeySlotIds, T>(
         &self,
         cek_keyslot: Ids::Symmetric,
         ctx: &mut crate::store::KeyStoreContext<Ids>,
@@ -174,7 +174,7 @@ impl DataEnvelope {
     }
 
     /// Unseals the data from the encrypted blob and wrapped content-encryption-key.
-    pub fn unseal_with_wrapping_key<Ids: KeyIds, T>(
+    pub fn unseal_with_wrapping_key<Ids: KeySlotIds, T>(
         &self,
         wrapping_key: &Ids::Symmetric,
         wrapped_cek: &EncString,

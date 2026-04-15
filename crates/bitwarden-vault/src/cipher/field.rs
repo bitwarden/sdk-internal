@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bitwarden_api_api::models::CipherFieldModel;
 use bitwarden_core::{
     MissingFieldError,
-    key_management::{KeyIds, SymmetricKeyId},
+    key_management::{KeySlotIds, SymmetricKeySlotId},
     require,
 };
 use bitwarden_crypto::{
@@ -106,11 +106,11 @@ impl From<FieldView> for FieldListView {
     }
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, Field> for FieldView {
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Field> for FieldView {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<Field, CryptoError> {
         Ok(Field {
             name: self.name.encrypt(ctx, key)?,
@@ -159,11 +159,11 @@ impl FieldView {
     }
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, FieldView> for Field {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, FieldView> for Field {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<FieldView, CryptoError> {
         Ok(FieldView {
             name: self.name.decrypt(ctx, key).ok().flatten(),
@@ -174,11 +174,11 @@ impl Decryptable<KeyIds, SymmetricKeyId, FieldView> for Field {
     }
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, FieldView> for StrictDecrypt<&Field> {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, FieldView> for StrictDecrypt<&Field> {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<FieldView, CryptoError> {
         Ok(FieldView {
             name: self.0.name.decrypt(ctx, key)?,

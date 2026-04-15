@@ -19,7 +19,7 @@ use argon2::Params;
 use bitwarden_encoding::{B64, FromStrVisitor};
 use ciborium::{Value, value::Integer};
 use coset::{CborSerializable, CoseError, Header, HeaderBuilder};
-use rand::RngCore;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 #[cfg(feature = "wasm")]
@@ -27,7 +27,7 @@ use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
     BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, CryptoError, EncodedSymmetricKey,
-    KEY_ID_SIZE, KeyIds, KeyStoreContext, SymmetricCryptoKey,
+    KEY_ID_SIZE, KeySlotIds, KeyStoreContext, SymmetricCryptoKey,
     cose::{
         ALG_ARGON2ID13, ARGON2_ITERATIONS, ARGON2_MEMORY, ARGON2_PARALLELISM, ARGON2_SALT,
         CONTAINED_KEY_ID, ContentNamespace, CoseExtractError, SafeObjectNamespace, extract_bytes,
@@ -62,7 +62,7 @@ impl PasswordProtectedKeyEnvelope {
     /// salt.
     ///
     /// This should never fail, except for memory allocation error, when running the KDF.
-    pub fn seal<Ids: KeyIds>(
+    pub fn seal<Ids: KeySlotIds>(
         key_to_seal: Ids::Symmetric,
         password: &str,
         namespace: PasswordProtectedKeyEnvelopeNamespace,
@@ -155,7 +155,7 @@ impl PasswordProtectedKeyEnvelope {
 
     /// Unseals a symmetric key from the password-protected envelope, and stores it in the key store
     /// context.
-    pub fn unseal<Ids: KeyIds>(
+    pub fn unseal<Ids: KeySlotIds>(
         &self,
         password: &str,
         namespace: PasswordProtectedKeyEnvelopeNamespace,
@@ -451,7 +451,7 @@ impl TryInto<Argon2RawSettings> for &Header {
 
 fn make_salt() -> [u8; ENVELOPE_ARGON2_SALT_SIZE] {
     let mut salt = [0u8; ENVELOPE_ARGON2_SALT_SIZE];
-    rand::thread_rng().fill_bytes(&mut salt);
+    rand::rng().fill_bytes(&mut salt);
     salt
 }
 
