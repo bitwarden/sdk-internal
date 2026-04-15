@@ -53,7 +53,7 @@ pub(crate) async fn validate_password_user_key(
 
             let key_store = client.internal.get_key_store();
             let ctx = key_store.context();
-            // FIXME: [PM-18099] Once MasterKey deals with KeyIds, this should be updated
+            // FIXME: [PM-18099] Once MasterKey deals with KeySlotIds, this should be updated
             #[allow(deprecated)]
             let existing_key = ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)?;
 

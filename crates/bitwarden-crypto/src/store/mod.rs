@@ -52,41 +52,41 @@ pub use key_rotation::*;
 /// // We need to define our own key identifier types. We provide a macro to make this easier.
 /// key_slot_ids! {
 ///     #[symmetric]
-///     pub enum SymmKeyId {
+///     pub enum SymmKeySlotIds {
 ///         User,
 ///         #[local]
 ///         Local(LocalId),
 ///     }
 ///     #[private]
-///     pub enum PrivateKeyId {
+///     pub enum PrivateKeySlotIds {
 ///         UserPrivate,
 ///         #[local]
 ///         Local(LocalId),
 ///     }
 ///     #[signing]
-///     pub enum SigningKeyId {
+///     pub enum SigningKeySlotIds {
 ///        UserSigning,
 ///        #[local]
 ///        Local(LocalId),
 ///     }
-///     pub Ids => SymmKeyId, PrivateKeyId, SigningKeyId;
+///     pub Ids => SymmKeySlotIds, PrivateKeySlotIds, SigningKeySlotIds;
 /// }
 ///
 /// // Initialize the store and insert a test key
 /// let store: KeyStore<Ids> = KeyStore::default();
 ///
 /// #[allow(deprecated)]
-/// store.context_mut().set_symmetric_key(SymmKeyId::User, SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+/// store.context_mut().set_symmetric_key(SymmKeySlotIds::User, SymmetricCryptoKey::make_aes256_cbc_hmac_key());
 ///
 /// // Define some data that needs to be encrypted
 /// struct Data(String);
-/// impl IdentifyKey<SymmKeyId> for Data {
-///    fn key_identifier(&self) -> SymmKeyId {
-///        SymmKeyId::User
+/// impl IdentifyKey<SymmKeySlotIds> for Data {
+///    fn key_identifier(&self) -> SymmKeySlotIds {
+///        SymmKeySlotIds::User
 ///    }
 /// }
-/// impl CompositeEncryptable<Ids, SymmKeyId, EncString> for Data {
-///     fn encrypt_composite(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
+/// impl CompositeEncryptable<Ids, SymmKeySlotIds, EncString> for Data {
+///     fn encrypt_composite(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeySlotIds) -> Result<EncString, CryptoError> {
 ///         self.0.encrypt(ctx, key)
 ///     }
 /// }

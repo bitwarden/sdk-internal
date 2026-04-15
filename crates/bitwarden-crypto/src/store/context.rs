@@ -39,38 +39,38 @@ use crate::{
 /// # use bitwarden_crypto::*;
 /// # key_slot_ids! {
 /// #     #[symmetric]
-/// #     pub enum SymmKeyId {
+/// #     pub enum SymmKeySlotIds {
 /// #         User,
 /// #         #[local]
 /// #         Local(LocalId),
 /// #     }
 /// #     #[private]
-/// #     pub enum PrivateKeyId {
+/// #     pub enum PrivateKeySlotIds {
 /// #         UserPrivate,
 /// #         #[local]
 /// #         Local(LocalId),
 /// #     }
 /// #     #[signing]
-/// #     pub enum SigningKeyId {
+/// #     pub enum SigningKeySlotIds {
 /// #         UserSigning,
 /// #         #[local]
 /// #         Local(LocalId),
 /// #     }
-/// #     pub Ids => SymmKeyId, PrivateKeyId, SigningKeyId;
+/// #     pub Ids => SymmKeySlotIds, PrivateKeySlotIds, SigningKeySlotIds;
 /// # }
 /// struct Data {
 ///     key: EncString,
 ///     name: String,
 /// }
-/// # impl IdentifyKey<SymmKeyId> for Data {
-/// #    fn key_identifier(&self) -> SymmKeyId {
-/// #        SymmKeyId::User
+/// # impl IdentifyKey<SymmKeySlotIds> for Data {
+/// #    fn key_identifier(&self) -> SymmKeySlotIds {
+/// #        SymmKeySlotIds::User
 /// #    }
 /// # }
 ///
 ///
-/// impl CompositeEncryptable<Ids, SymmKeyId, EncString> for Data {
-///     fn encrypt_composite(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
+/// impl CompositeEncryptable<Ids, SymmKeySlotIds, EncString> for Data {
+///     fn encrypt_composite(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeySlotIds) -> Result<EncString, CryptoError> {
 ///         let local_key_id = ctx.unwrap_symmetric_key(key, &self.key)?;
 ///         self.name.encrypt(ctx, local_key_id)
 ///     }

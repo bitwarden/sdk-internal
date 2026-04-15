@@ -56,7 +56,7 @@ impl LocalId {
 /// use bitwarden_crypto::key_slot_ids;
 /// key_slot_ids! {
 ///     #[symmetric]
-///     pub enum SymmKeyId {
+///     pub enum SymmKeySlotIds {
 ///         User,
 ///         Org(uuid::Uuid),
 ///         #[local]
@@ -64,20 +64,20 @@ impl LocalId {
 ///     }
 ///
 ///     #[private]
-///     pub enum PrivateKeyId {
+///     pub enum PrivateKeySlotIds {
 ///         PrivateKey,
 ///         #[local]
 ///         Local(LocalId),
 ///     }
 ///
 ///     #[signing]
-///     pub enum SigningKeyId {
+///     pub enum SigningKeySlotIds {
 ///        SigningKey,
 ///        #[local]
 ///        Local(LocalId),
 ///     }
 ///
-///     pub Ids => SymmKeyId, PrivateKeyId, SigningKeyId;
+///     pub Ids => SymmKeySlotIds, PrivateKeySlotIds, SigningKeySlotIds;
 /// }
 #[macro_export]
 macro_rules! key_slot_ids {
