@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 
 use bitwarden_organizations::{
@@ -6,11 +8,9 @@ use bitwarden_organizations::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[expect(dead_code)]
 #[derive(PartialEq, Serialize, Deserialize, Debug)]
 pub struct RawPolicyType(pub i32);
 
-#[expect(dead_code)]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RawPolicy {
     id: Uuid,
@@ -20,7 +20,6 @@ pub struct RawPolicy {
     enabled: bool,
 }
 
-#[expect(dead_code)]
 pub trait PolicyDefinition: Send + Sync + 'static {
     /// The wire-format integer for this policy type. Known at compile time
     /// and usable in static contexts.
@@ -42,7 +41,6 @@ pub trait PolicyDefinition: Send + Sync + 'static {
     }
 }
 
-#[expect(dead_code)]
 pub fn filter<'a, P: PolicyDefinition>(
     policy_definition: &P,
     policies: &'a [RawPolicy],

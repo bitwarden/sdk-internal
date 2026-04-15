@@ -61,7 +61,7 @@ pub enum ProductTierType {
     TeamsStarter = 4,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[serde(rename_all = "camelCase", default)]
 pub struct Permissions {
@@ -78,26 +78,6 @@ pub struct Permissions {
     pub manage_users: bool,
     pub manage_reset_password: bool,
     pub manage_scim: bool,
-}
-
-impl Default for Permissions {
-    fn default() -> Self {
-        Permissions {
-            access_event_logs: false,
-            access_import_export: false,
-            access_reports: false,
-            create_new_collections: false,
-            edit_any_collection: false,
-            delete_any_collection: false,
-            manage_ciphers: false,
-            manage_groups: false,
-            manage_sso: false,
-            manage_policies: false,
-            manage_users: false,
-            manage_reset_password: false,
-            manage_scim: false,
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
