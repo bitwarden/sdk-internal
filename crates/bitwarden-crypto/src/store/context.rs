@@ -529,7 +529,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     /// internally when possible.
     ///
     /// # Errors
-    /// Returns [`CryptoError::MissingKeySlotIds`] if the key id does not exist in the context.
+    /// Returns [`CryptoError::MissingKeyId`] if the key id does not exist in the context.
     #[deprecated(note = "This function should ideally never be used outside this crate")]
     pub fn dangerous_get_symmetric_key(
         &self,
@@ -546,7 +546,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     /// possible
     ///
     /// # Errors
-    /// Returns [`CryptoError::MissingKeySlotIds`] if the key id does not exist in
+    /// Returns [`CryptoError::MissingKeyId`] if the key id does not exist in
     /// the context.
     #[deprecated(note = "This function should ideally never be used outside this crate")]
     pub fn dangerous_get_signing_key(&self, key_id: Ids::Signing) -> Result<&SigningKey> {
@@ -560,7 +560,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     /// using the public key via `get_public_key` or other higher-level APIs instead.
     ///
     /// # Errors
-    /// Returns [`CryptoError::MissingKeySlotIds`] if the key id does not exist in the context.
+    /// Returns [`CryptoError::MissingKeyId`] if the key id does not exist in the context.
     #[deprecated(note = "This function should ideally never be used outside this crate")]
     pub fn dangerous_get_private_key(&self, key_id: Ids::Private) -> Result<&PrivateKey> {
         self.get_private_key(key_id)
