@@ -1,4 +1,4 @@
-// FIXME: add documentation
+#![doc = include_str!("../README.md")]
 #![allow(missing_docs)]
 
 #[cfg(feature = "uniffi")]
