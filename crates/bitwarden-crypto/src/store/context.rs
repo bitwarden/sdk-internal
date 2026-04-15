@@ -39,38 +39,38 @@ use crate::{
 /// # use bitwarden_crypto::*;
 /// # key_slot_ids! {
 /// #     #[symmetric]
-/// #     pub enum SymmKeyId {
+/// #     pub enum SymmKeySlotIds {
 /// #         User,
 /// #         #[local]
 /// #         Local(LocalId),
 /// #     }
 /// #     #[private]
-/// #     pub enum PrivateKeyId {
+/// #     pub enum PrivateKeySlotIds {
 /// #         UserPrivate,
 /// #         #[local]
 /// #         Local(LocalId),
 /// #     }
 /// #     #[signing]
-/// #     pub enum SigningKeyId {
+/// #     pub enum SigningKeySlotIds {
 /// #         UserSigning,
 /// #         #[local]
 /// #         Local(LocalId),
 /// #     }
-/// #     pub Ids => SymmKeyId, PrivateKeyId, SigningKeyId;
+/// #     pub Ids => SymmKeySlotIds, PrivateKeySlotIds, SigningKeySlotIds;
 /// # }
 /// struct Data {
 ///     key: EncString,
 ///     name: String,
 /// }
-/// # impl IdentifyKey<SymmKeyId> for Data {
-/// #    fn key_identifier(&self) -> SymmKeyId {
-/// #        SymmKeyId::User
+/// # impl IdentifyKey<SymmKeySlotIds> for Data {
+/// #    fn key_identifier(&self) -> SymmKeySlotIds {
+/// #        SymmKeySlotIds::User
 /// #    }
 /// # }
 ///
 ///
-/// impl CompositeEncryptable<Ids, SymmKeyId, EncString> for Data {
-///     fn encrypt_composite(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
+/// impl CompositeEncryptable<Ids, SymmKeySlotIds, EncString> for Data {
+///     fn encrypt_composite(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeySlotIds) -> Result<EncString, CryptoError> {
 ///         let local_key_id = ctx.unwrap_symmetric_key(key, &self.key)?;
 ///         self.name.encrypt(ctx, local_key_id)
 ///     }
@@ -529,7 +529,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     /// internally when possible.
     ///
     /// # Errors
-    /// Returns [`CryptoError::MissingKeyId`] if the key id does not exist in the context.
+    /// Returns [`CryptoError::MissingKeySlotIds`] if the key id does not exist in the context.
     #[deprecated(note = "This function should ideally never be used outside this crate")]
     pub fn dangerous_get_symmetric_key(
         &self,
@@ -546,7 +546,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     /// possible
     ///
     /// # Errors
-    /// Returns [`CryptoError::MissingKeyId`] if the key id does not exist in
+    /// Returns [`CryptoError::MissingKeySlotIds`] if the key id does not exist in
     /// the context.
     #[deprecated(note = "This function should ideally never be used outside this crate")]
     pub fn dangerous_get_signing_key(&self, key_id: Ids::Signing) -> Result<&SigningKey> {
@@ -560,7 +560,7 @@ impl<Ids: KeySlotIds> KeyStoreContext<'_, Ids> {
     /// using the public key via `get_public_key` or other higher-level APIs instead.
     ///
     /// # Errors
-    /// Returns [`CryptoError::MissingKeyId`] if the key id does not exist in the context.
+    /// Returns [`CryptoError::MissingKeySlotIds`] if the key id does not exist in the context.
     #[deprecated(note = "This function should ideally never be used outside this crate")]
     pub fn dangerous_get_private_key(&self, key_id: Ids::Private) -> Result<&PrivateKey> {
         self.get_private_key(key_id)
