@@ -227,7 +227,7 @@ fn trust_device(client: &Client) -> Result<TrustDeviceResponse, TrustDeviceError
 
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
-    // FIXME: [PM-18099] Once DeviceKey deals with KeyIds, this should be updated
+    // FIXME: [PM-18099] Once DeviceKey deals with KeySlotIds, this should be updated
     #[allow(deprecated)]
     let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)?;
 
