@@ -19,7 +19,7 @@ use super::crypto::{
 use crate::key_management::V2UpgradeToken;
 #[cfg(feature = "internal")]
 use crate::key_management::{
-    SymmetricKeyId,
+    SymmetricKeySlotId,
     crypto::{
         DerivePinKeyResponse, InitOrgCryptoRequest, InitUserCryptoRequest, UpdatePasswordResponse,
         derive_pin_key, derive_pin_user_key, enroll_admin_password_reset, get_user_encryption_key,
@@ -126,7 +126,7 @@ impl CryptoClient {
         let encrypted_pin: EncString = encrypted_pin.parse()?;
         let pin = encrypted_pin.decrypt(
             &mut self.client.internal.get_key_store().context_mut(),
-            SymmetricKeyId::User,
+            SymmetricKeySlotId::User,
         )?;
         enroll_pin(&self.client, pin)
     }
@@ -159,7 +159,7 @@ impl CryptoClient {
     ) -> Result<String, CryptoClientError> {
         let mut ctx = self.client.internal.get_key_store().context_mut();
         plaintext
-            .encrypt(&mut ctx, SymmetricKeyId::LocalUserData)
+            .encrypt(&mut ctx, SymmetricKeySlotId::LocalUserData)
             .map_err(CryptoClientError::Crypto)
             .map(|enc| enc.to_string())
     }
@@ -176,7 +176,7 @@ impl CryptoClient {
             .parse()
             .map_err(CryptoClientError::Crypto)?;
         encrypted
-            .decrypt(&mut ctx, SymmetricKeyId::LocalUserData)
+            .decrypt(&mut ctx, SymmetricKeySlotId::LocalUserData)
             .map_err(CryptoClientError::Crypto)
     }
 
@@ -290,7 +290,7 @@ impl CryptoClient {
         let mut ctx = self.client.internal.get_key_store().context_mut();
 
         let algorithm = ctx
-            .get_symmetric_key_algorithm(SymmetricKeyId::User)
+            .get_symmetric_key_algorithm(SymmetricKeySlotId::User)
             .map_err(|_| CryptoClientError::NotAuthenticated(NotAuthenticatedError))?;
 
         match (algorithm, upgrade_token) {
@@ -298,14 +298,14 @@ impl CryptoClient {
             (SymmetricKeyAlgorithm::XChaCha20Poly1305, _) => {
                 #[allow(deprecated)]
                 let current_key = ctx
-                    .dangerous_get_symmetric_key(SymmetricKeyId::User)
+                    .dangerous_get_symmetric_key(SymmetricKeySlotId::User)
                     .map_err(|_| CryptoClientError::NotAuthenticated(NotAuthenticatedError))?;
                 Ok(current_key.clone().to_base64())
             }
             // V1 with token, extract V2
             (SymmetricKeyAlgorithm::Aes256CbcHmac, Some(token)) => {
                 let v2_key_id = token
-                    .unwrap_v2(SymmetricKeyId::User, &mut ctx)
+                    .unwrap_v2(SymmetricKeySlotId::User, &mut ctx)
                     .map_err(|_| CryptoClientError::InvalidUpgradeToken)?;
                 #[allow(deprecated)]
                 let v2_key = ctx
@@ -337,7 +337,7 @@ mod tests {
     use super::*;
     use crate::{
         client::test_accounts::{test_bitwarden_com_account, test_bitwarden_com_account_v2},
-        key_management::{KeyIds, V2UpgradeToken},
+        key_management::{KeySlotIds, V2UpgradeToken},
     };
 
     #[tokio::test]
@@ -399,7 +399,7 @@ mod tests {
             let v2_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
             #[allow(deprecated)]
             let v2_key = ctx.dangerous_get_symmetric_key(v2_key_id).unwrap().clone();
-            let token = V2UpgradeToken::create(SymmetricKeyId::User, v2_key_id, &ctx).unwrap();
+            let token = V2UpgradeToken::create(SymmetricKeySlotId::User, v2_key_id, &ctx).unwrap();
             (token, v2_key.to_base64())
         };
 
@@ -413,7 +413,7 @@ mod tests {
 
         // Token built with a different V1 key — unwrapping with the client's V1 key will fail
         let mismatched_token = {
-            let key_store = KeyStore::<KeyIds>::default();
+            let key_store = KeyStore::<KeySlotIds>::default();
             let mut ctx = key_store.context_mut();
             let wrong_v1_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
             let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
@@ -447,7 +447,7 @@ mod tests {
 
         // Build a structurally valid token with unrelated keys; it must be ignored for V2 users.
         let dummy_token = {
-            let key_store = KeyStore::<KeyIds>::default();
+            let key_store = KeyStore::<KeySlotIds>::default();
             let mut ctx = key_store.context_mut();
             let v1_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
             let v2_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);

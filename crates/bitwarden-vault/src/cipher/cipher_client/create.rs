@@ -2,7 +2,7 @@ use bitwarden_api_api::models::{CipherCreateRequestModel, CipherRequestModel};
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     ApiError, MissingFieldError, NotAuthenticatedError, OrganizationId, UserId,
-    key_management::{KeyIds, SymmetricKeyId},
+    key_management::{KeySlotIds, SymmetricKeySlotId},
     require,
 };
 use bitwarden_crypto::{
@@ -87,8 +87,8 @@ impl CipherCreateRequestInternal {
     /// encrypted key to the cipher data.
     pub(crate) fn generate_cipher_key(
         &mut self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<(), CryptoError> {
         let old_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
@@ -110,13 +110,13 @@ impl CipherCreateRequestInternal {
     }
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, CipherRequestModel>
     for CipherCreateRequestInternal
 {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<CipherRequestModel, CryptoError> {
         // Clone self so we can generating the checksums before encrypting.
         let mut cipher_data = (*self).clone();
@@ -211,17 +211,17 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, CipherRequestModel>
     }
 }
 
-impl IdentifyKey<SymmetricKeyId> for CipherCreateRequestInternal {
-    fn key_identifier(&self) -> SymmetricKeyId {
+impl IdentifyKey<SymmetricKeySlotId> for CipherCreateRequestInternal {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
         match self.create_request.organization_id {
-            Some(organization_id) => SymmetricKeyId::Organization(organization_id),
-            None => SymmetricKeyId::User,
+            Some(organization_id) => SymmetricKeySlotId::Organization(organization_id),
+            None => SymmetricKeySlotId::User,
         }
     }
 }
 
 async fn create_cipher<R: Repository<Cipher> + ?Sized>(
-    key_store: &KeyStore<KeyIds>,
+    key_store: &KeyStore<KeySlotIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
     encrypted_for: UserId,
@@ -345,11 +345,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_cipher() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .unwrap();
         }
 
@@ -440,11 +440,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_cipher_http_error() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
                 .unwrap();
         }
 
@@ -497,13 +497,13 @@ mod tests {
                 .once();
         });
 
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
             ctx.persist_symmetric_key(
                 local_key_id,
-                SymmetricKeyId::Organization(TEST_ORG_ID.parse().unwrap()),
+                SymmetricKeySlotId::Organization(TEST_ORG_ID.parse().unwrap()),
             )
             .unwrap();
         }

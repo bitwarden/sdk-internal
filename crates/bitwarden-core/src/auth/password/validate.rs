@@ -35,7 +35,7 @@ pub(crate) async fn validate_password_user_key(
     password: String,
     encrypted_user_key: String,
 ) -> Result<B64, AuthValidateError> {
-    use crate::key_management::SymmetricKeyId;
+    use crate::key_management::SymmetricKeySlotId;
 
     let login_method = client
         .internal
@@ -55,7 +55,7 @@ pub(crate) async fn validate_password_user_key(
             let ctx = key_store.context();
             // FIXME: [PM-18099] Once MasterKey deals with KeyIds, this should be updated
             #[allow(deprecated)]
-            let existing_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
+            let existing_key = ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)?;
 
             if user_key != *existing_key {
                 return Err(AuthValidateError::WrongUserKey);

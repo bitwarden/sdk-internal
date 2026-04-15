@@ -176,7 +176,7 @@ mod tests {
     use bitwarden_crypto::{CoseKeyBytes, KeyStore, SignatureAlgorithm, SigningKey};
 
     use super::*;
-    use crate::key_management::KeyIds;
+    use crate::key_management::KeySlotIds;
 
     const TEST_SIGNED_SECURITY_STATE: &str = "hFgepAEnAxg8BFBHo5ojcqDqbynNymOZGgJzOgABOH8CoFgkomhlbnRpdHlJZFBHmj2OTpBFO7aDLgeNnbZPZ3ZlcnNpb24CWEA4mQbYRRoPpc77tVHH4LlwY52Vz6tutThv8b/BV3ntQmjuKUxbzIGRxSyOhzCn3ouFJGEVnfsl6SqSm6K9XcME";
     const TEST_VERIFYING_KEY: &str =
@@ -185,7 +185,7 @@ mod tests {
     #[test]
     #[ignore = "Manual test for debug logs"]
     fn test_security_state_debug_logs() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let security_state = SecurityState::new();
@@ -199,7 +199,7 @@ mod tests {
     #[test]
     #[ignore = "Make test vectors"]
     fn test_make_test_vector() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let security_state = SecurityState::new();
@@ -220,7 +220,7 @@ mod tests {
 
     #[test]
     fn test_security_state_signing() {
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let security_state = SecurityState::new();

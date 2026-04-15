@@ -37,7 +37,7 @@ use crate::{
 ///
 /// ```rust
 /// # use bitwarden_crypto::*;
-/// # key_ids! {
+/// # key_slot_ids! {
 /// #     #[symmetric]
 /// #     pub enum SymmKeyId {
 /// #         User,

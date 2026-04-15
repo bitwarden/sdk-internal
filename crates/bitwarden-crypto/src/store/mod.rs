@@ -9,7 +9,7 @@
 //! identifiers in its API. These key identifiers are user-defined types that contain no key
 //! material, and are used to uniquely identify each key in the store. The key store doesn't specify
 //! how these traits should be implemented, but we recommend using `enums`, and we provide an
-//! optional macro ([key_ids](crate::key_ids)) that makes it easier to define them.
+//! optional macro ([key_slot_ids](crate::key_slot_ids)) that makes it easier to define them.
 //!
 //! ### Key Store
 //! [KeyStore] is a thread-safe in-memory key store and the main entry point for using this module.
@@ -50,7 +50,7 @@ pub use key_rotation::*;
 /// # use bitwarden_crypto::*;
 ///
 /// // We need to define our own key identifier types. We provide a macro to make this easier.
-/// key_ids! {
+/// key_slot_ids! {
 ///     #[symmetric]
 ///     pub enum SymmKeyId {
 ///         User,
