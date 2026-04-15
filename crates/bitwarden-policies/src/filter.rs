@@ -54,7 +54,8 @@ pub fn filter<'a, P: PolicyDefinition>(
         .filter(|p| {
             match org_map.get(&p.organization_id) {
                 Some(org) => {
-                    org.use_policies
+                    org.enabled
+                        && org.use_policies
                         && policy_definition
                             .applicable_statuses()
                             .contains(&org.status)
@@ -132,6 +133,24 @@ mod tests {
 
         let result = filter(&TestPolicy, &policies, &orgs);
         assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn disabled_organization_is_filtered_out() {
+        let org_id = Uuid::new_v4();
+        let orgs = [ProfileOrganization {
+            enabled: false,
+            id: org_id,
+            r#type: OrganizationUserType::User,
+            status: OrganizationUserStatusType::Confirmed,
+            use_policies: true,
+            is_provider_user: false,
+            ..Default::default()
+        }];
+        let policies = [raw_policy(org_id, 1, true)];
+
+        let result = filter(&TestPolicy, &policies, &orgs);
+        assert!(result.is_empty());
     }
 
     #[test]
