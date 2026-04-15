@@ -11,32 +11,32 @@ use crate::Result;
 #[derive(uniffi::Object)]
 pub struct CiphersClient(pub(crate) bitwarden_vault::CiphersClient);
 
-#[uniffi::export(async_runtime = "tokio")]
+#[uniffi::export]
 impl CiphersClient {
     /// Encrypt cipher
-    pub async fn encrypt(&self, cipher_view: CipherView) -> Result<EncryptionContext> {
-        Ok(self.0.encrypt(cipher_view).await?)
+    pub fn encrypt(&self, cipher_view: CipherView) -> Result<EncryptionContext> {
+        Ok(self.0.encrypt(cipher_view)?)
     }
 
     /// Decrypt cipher
-    pub async fn decrypt(&self, cipher: Cipher) -> Result<CipherView> {
-        Ok(self.0.decrypt(cipher).await?)
+    pub fn decrypt(&self, cipher: Cipher) -> Result<CipherView> {
+        Ok(self.0.decrypt(cipher)?)
     }
 
     /// Decrypt cipher list
-    pub async fn decrypt_list(&self, ciphers: Vec<Cipher>) -> Result<Vec<CipherListView>> {
-        Ok(self.0.decrypt_list(ciphers).await?)
+    pub fn decrypt_list(&self, ciphers: Vec<Cipher>) -> Result<Vec<CipherListView>> {
+        Ok(self.0.decrypt_list(ciphers)?)
     }
 
     /// Decrypt cipher list with failures
     /// Returns both successfully decrypted ciphers and any that failed to decrypt
     // Note that this function still needs to return a Result, as the parameter conversion can still
     // fail
-    pub async fn decrypt_list_with_failures(
+    pub fn decrypt_list_with_failures(
         &self,
         ciphers: Vec<Cipher>,
     ) -> Result<DecryptCipherListResult> {
-        Ok(self.0.decrypt_list_with_failures(ciphers).await)
+        Ok(self.0.decrypt_list_with_failures(ciphers))
     }
 
     pub fn decrypt_fido2_credentials(

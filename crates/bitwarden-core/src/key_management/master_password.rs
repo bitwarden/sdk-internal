@@ -5,9 +5,7 @@ use bitwarden_api_api::models::{
     MasterPasswordUnlockDataRequestModel,
     master_password_unlock_response_model::MasterPasswordUnlockResponseModel,
 };
-use bitwarden_crypto::{
-    EncString, Kdf, KeySlotIds, KeyStoreContext, MasterKey, SymmetricCryptoKey,
-};
+use bitwarden_crypto::{EncString, Kdf, KeyIds, KeyStoreContext, MasterKey, SymmetricCryptoKey};
 use bitwarden_encoding::B64;
 use bitwarden_error::bitwarden_error;
 use serde::{Deserialize, Serialize};
@@ -62,7 +60,7 @@ pub struct MasterPasswordUnlockData {
 
 impl MasterPasswordUnlockData {
     /// Unwrap the user key into the key store context using the provided password.
-    pub fn unwrap_to_context<Ids: KeySlotIds>(
+    pub fn unwrap_to_context<Ids: KeyIds>(
         &self,
         password: &str,
         ctx: &mut KeyStoreContext<Ids>,
@@ -96,7 +94,7 @@ impl MasterPasswordUnlockData {
 
     /// Derive master password unlock data from a password and user key in the key store.
     #[tracing::instrument(skip(password, salt, ctx))]
-    pub fn derive<Ids: KeySlotIds>(
+    pub fn derive<Ids: KeyIds>(
         password: &str,
         kdf: &Kdf,
         salt: &str,
@@ -233,7 +231,7 @@ mod tests {
     use bitwarden_crypto::KeyStore;
 
     use super::*;
-    use crate::key_management::{KeySlotIds, SymmetricKeySlotId};
+    use crate::key_management::{KeyIds, SymmetricKeyId};
 
     const TEST_USER_KEY: &str = "2.Q/2PhzcC7GdeiMHhWguYAQ==|GpqzVdr0go0ug5cZh1n+uixeBC3oC90CIe0hd/HWA/pTRDZ8ane4fmsEIcuc8eMKUt55Y2q/fbNzsYu41YTZzzsJUSeqVjT8/iTQtgnNdpo=|dwI+uyvZ1h/iZ03VQ+/wrGEFYVewBUUl/syYgjsNMbE=";
     const TEST_INVALID_USER_KEY: &str = "-1.8UClLa8IPE1iZT7chy5wzQ==|6PVfHnVk5S3XqEtQemnM5yb4JodxmPkkWzmDRdfyHtjORmvxqlLX40tBJZ+CKxQWmS8tpEB5w39rbgHg/gqs0haGdZG4cPbywsgGzxZ7uNI=";
@@ -513,10 +511,10 @@ mod tests {
             .expect("Failed to derive master password unlock data");
 
         // Create a key store and unwrap the user key into the context
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let key_id = data
-            .unwrap_to_context::<KeySlotIds>(TEST_PASSWORD, &mut ctx)
+            .unwrap_to_context::<KeyIds>(TEST_PASSWORD, &mut ctx)
             .expect("Failed to unwrap to context");
 
         // Verify that the key was added to the context
@@ -541,9 +539,9 @@ mod tests {
             .expect("Failed to derive master password unlock data");
 
         // Attempt to unwrap with wrong password
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
-        let result = data.unwrap_to_context::<KeySlotIds>("wrong_password", &mut ctx);
+        let result = data.unwrap_to_context::<KeyIds>("wrong_password", &mut ctx);
 
         assert!(matches!(result, Err(MasterPasswordError::WrongPassword)));
     }
@@ -559,20 +557,20 @@ mod tests {
             .expect("Failed to derive master password unlock data");
 
         // Create a key store and unwrap the user key into the context
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let store: KeyStore<KeyIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = data
-                .unwrap_to_context::<KeySlotIds>(TEST_PASSWORD, &mut ctx)
+                .unwrap_to_context::<KeyIds>(TEST_PASSWORD, &mut ctx)
                 .expect("Failed to unwrap to context");
 
             // Persist the local key to the User key slot
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
                 .expect("Failed to persist symmetric key");
         }
 
         // Verify the key is accessible with the User key id in a new context
         let ctx = store.context();
-        assert!(ctx.has_symmetric_key(SymmetricKeySlotId::User));
+        assert!(ctx.has_symmetric_key(SymmetricKeyId::User));
     }
 }

@@ -22,9 +22,7 @@ pub struct PublicKeyCredentialDescriptor {
         skip_serializing_if = "Option::is_none"
     )]
     pub r#type: Option<models::PublicKeyCredentialType>,
-    #[serde_as(
-        as = "Option<serde_with::base64::Base64<serde_with::base64::UrlSafe, serde_with::formats::Unpadded>>"
-    )]
+    #[serde_as(as = "Option<serde_with::base64::Base64>")]
     #[serde(rename = "id", alias = "Id", skip_serializing_if = "Option::is_none")]
     pub id: Option<Vec<u8>>,
     #[serde(

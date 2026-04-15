@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use bitwarden_error::bitwarden_error;
-use rand::{Rng, RngExt, distr::Distribution, seq::SliceRandom};
+use rand::{RngCore, distributions::Distribution, seq::SliceRandom};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -123,7 +123,7 @@ impl<'a> IntoIterator for &'a CharSet {
 }
 impl Distribution<char> for CharSet {
     fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> char {
-        let idx = rng.random_range(0..self.0.len());
+        let idx = rng.gen_range(0..self.0.len());
         *self.0.iter().nth(idx).expect("Valid index")
     }
 }
@@ -227,10 +227,10 @@ impl PasswordGeneratorRequest {
 /// Implementation of the random password generator.
 pub(crate) fn password(input: PasswordGeneratorRequest) -> Result<String, PasswordError> {
     let options = input.validate_options()?;
-    Ok(password_with_rng(rand::rng(), options))
+    Ok(password_with_rng(rand::thread_rng(), options))
 }
 
-fn password_with_rng(mut rng: impl Rng, options: PasswordGeneratorOptions) -> String {
+fn password_with_rng(mut rng: impl RngCore, options: PasswordGeneratorOptions) -> String {
     let mut buf: Vec<char> = Vec::with_capacity(options.length);
 
     let opts = [
@@ -286,7 +286,7 @@ mod test {
         assert_eq!(to_set(&options.special.0), ref_to_set(SPECIAL_CHARS));
 
         let pass = password_with_rng(&mut rng, options);
-        assert_eq!(pass, "0oA772tQjaUO$a@L");
+        assert_eq!(pass, "Z!^B5r%hUa23dFM@");
     }
 
     #[test]
@@ -310,7 +310,7 @@ mod test {
         assert_eq!(to_set(&options.special.0), to_set([]));
 
         let pass = password_with_rng(&mut rng, options);
-        assert_eq!(pass, "FrNSJGvhnAbXggMU");
+        assert_eq!(pass, "NQiFrGufQMiNUAmj");
     }
 
     #[test]
@@ -338,7 +338,7 @@ mod test {
         assert_eq!(to_set(&options.special.0), to_set([]));
 
         let pass = password_with_rng(&mut rng, options);
-        assert_eq!(pass, "5uat85wos2jg4n9f");
+        assert_eq!(pass, "mnjabfz5ct272prf");
     }
 
     #[test]
@@ -365,7 +365,7 @@ mod test {
         assert_eq!(to_set(&options.number.0), to_set([]));
 
         let pass = password_with_rng(&mut rng, options);
-        assert_eq!(pass, "%VBT*%YPT!LH$PAF");
+        assert_eq!(pass, "B*GBQANS%UZPQD!K");
     }
 
     #[test]
@@ -398,6 +398,6 @@ mod test {
         assert_eq!(options.special.1, 5);
 
         let pass = password_with_rng(&mut rng, options);
-        assert_eq!(pass, "t&c0L73*D*G%aak7goq!N2T4");
+        assert_eq!(pass, "236q5!a#R%PG5rI%k1!*@uRt");
     }
 }

@@ -29,65 +29,531 @@ pub trait AccountBillingVNextApi: Send + Sync {
     /// POST /account/billing/vnext/credit/bitpay
     async fn add_credit_via_bit_pay<'a>(
         &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
-    ) -> Result<(), Error>;
-
-    /// POST /account/billing/vnext/portal-session
-    async fn create_portal_session(&self) -> Result<(), Error>;
-
-    /// POST /account/billing/vnext/premium/checkout
-    async fn create_premium_checkout_session<'a>(
-        &self,
-        create_premium_checkout_session_request: Option<
-            models::CreatePremiumCheckoutSessionRequest,
-        >,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<AddCreditViaBitPayError>>;
 
     /// POST /account/billing/vnext/subscription
     async fn create_subscription<'a>(
         &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
         premium_cloud_hosted_subscription_request: Option<
             models::PremiumCloudHostedSubscriptionRequest,
         >,
-    ) -> Result<(), Error>;
-
-    /// GET /account/billing/vnext/discounts
-    async fn get_applicable_discounts(&self) -> Result<(), Error>;
+    ) -> Result<(), Error<CreateSubscriptionError>>;
 
     /// GET /account/billing/vnext/credit
-    async fn get_credit(&self) -> Result<(), Error>;
+    async fn get_credit<'a>(
+        &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
+    ) -> Result<(), Error<GetCreditError>>;
 
     /// GET /account/billing/vnext/license
-    async fn get_license(&self) -> Result<(), Error>;
+    async fn get_license<'a>(
+        &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
+    ) -> Result<(), Error<GetLicenseError>>;
 
     /// GET /account/billing/vnext/payment-method
-    async fn get_payment_method(&self) -> Result<(), Error>;
+    async fn get_payment_method<'a>(
+        &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
+    ) -> Result<(), Error<GetPaymentMethodError>>;
 
     /// GET /account/billing/vnext/subscription
-    async fn get_subscription(&self) -> Result<(), Error>;
+    async fn get_subscription<'a>(
+        &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
+    ) -> Result<(), Error<GetSubscriptionError>>;
 
     /// POST /account/billing/vnext/subscription/reinstate
-    async fn reinstate_subscription(&self) -> Result<(), Error>;
+    async fn reinstate_subscription<'a>(
+        &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
+    ) -> Result<(), Error<ReinstateSubscriptionError>>;
 
     /// PUT /account/billing/vnext/payment-method
     async fn update_payment_method<'a>(
         &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<UpdatePaymentMethodError>>;
 
     /// PUT /account/billing/vnext/subscription/storage
     async fn update_subscription_storage<'a>(
         &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
         storage_update_request: Option<models::StorageUpdateRequest>,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<UpdateSubscriptionStorageError>>;
 
     /// POST /account/billing/vnext/upgrade
     async fn upgrade_premium_to_organization<'a>(
         &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
         upgrade_premium_to_organization_request: Option<
             models::UpgradePremiumToOrganizationRequest,
         >,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<UpgradePremiumToOrganizationError>>;
 }
 
 pub struct AccountBillingVNextApiClient {
@@ -105,8 +571,55 @@ impl AccountBillingVNextApiClient {
 impl AccountBillingVNextApi for AccountBillingVNextApiClient {
     async fn add_credit_via_bit_pay<'a>(
         &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
         bit_pay_credit_request: Option<models::BitPayCreditRequest>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<AddCreditViaBitPayError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -118,59 +631,261 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("id", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = name {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("name", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("email", &email.to_string())]);
+        if let Some(ref param_value) = email_verified {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("emailVerified", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPassword", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password_hint {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordHint", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = culture {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("culture", &param_value.to_string())]);
+        }
+        local_var_req_builder =
+            local_var_req_builder.query(&[("securityStamp", &security_stamp.to_string())]);
+        if let Some(ref param_value) = two_factor_providers {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorProviders", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = two_factor_recovery_code {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorRecoveryCode", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = equivalent_domains {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("equivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = excluded_global_equivalent_domains {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("excludedGlobalEquivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = account_revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("accountRevisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("key", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("publicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = private_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("privateKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = signed_public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("signedPublicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_version {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityVersion", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_state {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityState", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premium", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium_expiration_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premiumExpirationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = renewal_reminder_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("renewalReminderDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = storage {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("storage", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = max_storage_gb {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("maxStorageGb", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gateway", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_customer_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_subscription_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = reference_data {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("referenceData", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = license_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("licenseKey", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("apiKey", &api_key.to_string())]);
+        if let Some(ref param_value) = kdf {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdf", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_iterations {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfIterations", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_memory {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfMemory", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_parallelism {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfParallelism", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = creation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("creationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("revisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = force_password_reset {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("forcePasswordReset", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = uses_key_connector {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usesKeyConnector", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = failed_login_count {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("failedLoginCount", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_failed_login_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastFailedLoginDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = avatar_color {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("avatarColor", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_password_change_date {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("lastPasswordChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_kdf_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKdfChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_key_rotation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKeyRotationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_email_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastEmailChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = verify_devices {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("verifyDevices", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = v2_upgrade_token {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&bit_pay_credit_request);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
-    }
+        let local_var_resp = local_var_req_builder.send().await?;
 
-    async fn create_portal_session(&self) -> Result<(), Error> {
-        let local_var_configuration = &self.configuration;
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
 
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/account/billing/vnext/portal-session",
-            local_var_configuration.base_path
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
-    }
-
-    async fn create_premium_checkout_session<'a>(
-        &self,
-        create_premium_checkout_session_request: Option<
-            models::CreatePremiumCheckoutSessionRequest,
-        >,
-    ) -> Result<(), Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/account/billing/vnext/premium/checkout",
-            local_var_configuration.base_path
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-        local_var_req_builder =
-            local_var_req_builder.json(&create_premium_checkout_session_request);
-
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<AddCreditViaBitPayError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn create_subscription<'a>(
         &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
         premium_cloud_hosted_subscription_request: Option<
             models::PremiumCloudHostedSubscriptionRequest,
         >,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<CreateSubscriptionError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -182,31 +897,259 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("id", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = name {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("name", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("email", &email.to_string())]);
+        if let Some(ref param_value) = email_verified {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("emailVerified", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPassword", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password_hint {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordHint", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = culture {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("culture", &param_value.to_string())]);
+        }
+        local_var_req_builder =
+            local_var_req_builder.query(&[("securityStamp", &security_stamp.to_string())]);
+        if let Some(ref param_value) = two_factor_providers {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorProviders", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = two_factor_recovery_code {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorRecoveryCode", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = equivalent_domains {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("equivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = excluded_global_equivalent_domains {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("excludedGlobalEquivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = account_revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("accountRevisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("key", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("publicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = private_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("privateKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = signed_public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("signedPublicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_version {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityVersion", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_state {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityState", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premium", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium_expiration_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premiumExpirationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = renewal_reminder_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("renewalReminderDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = storage {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("storage", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = max_storage_gb {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("maxStorageGb", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gateway", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_customer_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_subscription_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = reference_data {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("referenceData", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = license_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("licenseKey", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("apiKey", &api_key.to_string())]);
+        if let Some(ref param_value) = kdf {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdf", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_iterations {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfIterations", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_memory {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfMemory", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_parallelism {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfParallelism", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = creation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("creationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("revisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = force_password_reset {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("forcePasswordReset", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = uses_key_connector {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usesKeyConnector", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = failed_login_count {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("failedLoginCount", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_failed_login_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastFailedLoginDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = avatar_color {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("avatarColor", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_password_change_date {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("lastPasswordChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_kdf_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKdfChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_key_rotation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKeyRotationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_email_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastEmailChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = verify_devices {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("verifyDevices", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = v2_upgrade_token {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&premium_cloud_hosted_subscription_request);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<CreateSubscriptionError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
-    async fn get_applicable_discounts(&self) -> Result<(), Error> {
-        let local_var_configuration = &self.configuration;
-
-        let local_var_client = &local_var_configuration.client;
-
-        let local_var_uri_str = format!(
-            "{}/account/billing/vnext/discounts",
-            local_var_configuration.base_path
-        );
-        let mut local_var_req_builder =
-            local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
-
-        local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
-
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
-    }
-
-    async fn get_credit(&self) -> Result<(), Error> {
+    async fn get_credit<'a>(
+        &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
+    ) -> Result<(), Error<GetCreditError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -218,12 +1161,257 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("id", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = name {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("name", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("email", &email.to_string())]);
+        if let Some(ref param_value) = email_verified {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("emailVerified", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPassword", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password_hint {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordHint", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = culture {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("culture", &param_value.to_string())]);
+        }
+        local_var_req_builder =
+            local_var_req_builder.query(&[("securityStamp", &security_stamp.to_string())]);
+        if let Some(ref param_value) = two_factor_providers {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorProviders", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = two_factor_recovery_code {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorRecoveryCode", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = equivalent_domains {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("equivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = excluded_global_equivalent_domains {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("excludedGlobalEquivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = account_revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("accountRevisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("key", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("publicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = private_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("privateKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = signed_public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("signedPublicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_version {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityVersion", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_state {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityState", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premium", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium_expiration_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premiumExpirationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = renewal_reminder_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("renewalReminderDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = storage {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("storage", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = max_storage_gb {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("maxStorageGb", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gateway", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_customer_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_subscription_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = reference_data {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("referenceData", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = license_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("licenseKey", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("apiKey", &api_key.to_string())]);
+        if let Some(ref param_value) = kdf {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdf", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_iterations {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfIterations", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_memory {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfMemory", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_parallelism {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfParallelism", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = creation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("creationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("revisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = force_password_reset {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("forcePasswordReset", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = uses_key_connector {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usesKeyConnector", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = failed_login_count {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("failedLoginCount", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_failed_login_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastFailedLoginDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = avatar_color {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("avatarColor", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_password_change_date {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("lastPasswordChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_kdf_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKdfChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_key_rotation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKeyRotationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_email_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastEmailChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = verify_devices {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("verifyDevices", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = v2_upgrade_token {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<GetCreditError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
-    async fn get_license(&self) -> Result<(), Error> {
+    async fn get_license<'a>(
+        &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
+    ) -> Result<(), Error<GetLicenseError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -235,12 +1423,257 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("id", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = name {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("name", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("email", &email.to_string())]);
+        if let Some(ref param_value) = email_verified {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("emailVerified", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPassword", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password_hint {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordHint", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = culture {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("culture", &param_value.to_string())]);
+        }
+        local_var_req_builder =
+            local_var_req_builder.query(&[("securityStamp", &security_stamp.to_string())]);
+        if let Some(ref param_value) = two_factor_providers {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorProviders", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = two_factor_recovery_code {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorRecoveryCode", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = equivalent_domains {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("equivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = excluded_global_equivalent_domains {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("excludedGlobalEquivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = account_revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("accountRevisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("key", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("publicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = private_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("privateKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = signed_public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("signedPublicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_version {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityVersion", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_state {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityState", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premium", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium_expiration_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premiumExpirationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = renewal_reminder_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("renewalReminderDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = storage {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("storage", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = max_storage_gb {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("maxStorageGb", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gateway", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_customer_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_subscription_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = reference_data {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("referenceData", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = license_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("licenseKey", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("apiKey", &api_key.to_string())]);
+        if let Some(ref param_value) = kdf {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdf", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_iterations {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfIterations", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_memory {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfMemory", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_parallelism {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfParallelism", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = creation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("creationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("revisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = force_password_reset {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("forcePasswordReset", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = uses_key_connector {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usesKeyConnector", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = failed_login_count {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("failedLoginCount", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_failed_login_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastFailedLoginDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = avatar_color {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("avatarColor", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_password_change_date {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("lastPasswordChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_kdf_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKdfChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_key_rotation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKeyRotationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_email_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastEmailChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = verify_devices {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("verifyDevices", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = v2_upgrade_token {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<GetLicenseError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
-    async fn get_payment_method(&self) -> Result<(), Error> {
+    async fn get_payment_method<'a>(
+        &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
+    ) -> Result<(), Error<GetPaymentMethodError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -252,12 +1685,257 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("id", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = name {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("name", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("email", &email.to_string())]);
+        if let Some(ref param_value) = email_verified {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("emailVerified", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPassword", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password_hint {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordHint", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = culture {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("culture", &param_value.to_string())]);
+        }
+        local_var_req_builder =
+            local_var_req_builder.query(&[("securityStamp", &security_stamp.to_string())]);
+        if let Some(ref param_value) = two_factor_providers {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorProviders", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = two_factor_recovery_code {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorRecoveryCode", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = equivalent_domains {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("equivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = excluded_global_equivalent_domains {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("excludedGlobalEquivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = account_revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("accountRevisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("key", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("publicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = private_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("privateKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = signed_public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("signedPublicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_version {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityVersion", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_state {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityState", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premium", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium_expiration_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premiumExpirationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = renewal_reminder_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("renewalReminderDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = storage {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("storage", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = max_storage_gb {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("maxStorageGb", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gateway", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_customer_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_subscription_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = reference_data {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("referenceData", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = license_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("licenseKey", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("apiKey", &api_key.to_string())]);
+        if let Some(ref param_value) = kdf {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdf", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_iterations {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfIterations", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_memory {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfMemory", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_parallelism {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfParallelism", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = creation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("creationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("revisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = force_password_reset {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("forcePasswordReset", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = uses_key_connector {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usesKeyConnector", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = failed_login_count {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("failedLoginCount", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_failed_login_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastFailedLoginDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = avatar_color {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("avatarColor", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_password_change_date {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("lastPasswordChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_kdf_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKdfChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_key_rotation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKeyRotationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_email_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastEmailChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = verify_devices {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("verifyDevices", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = v2_upgrade_token {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<GetPaymentMethodError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
-    async fn get_subscription(&self) -> Result<(), Error> {
+    async fn get_subscription<'a>(
+        &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
+    ) -> Result<(), Error<GetSubscriptionError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -269,12 +1947,257 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("id", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = name {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("name", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("email", &email.to_string())]);
+        if let Some(ref param_value) = email_verified {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("emailVerified", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPassword", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password_hint {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordHint", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = culture {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("culture", &param_value.to_string())]);
+        }
+        local_var_req_builder =
+            local_var_req_builder.query(&[("securityStamp", &security_stamp.to_string())]);
+        if let Some(ref param_value) = two_factor_providers {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorProviders", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = two_factor_recovery_code {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorRecoveryCode", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = equivalent_domains {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("equivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = excluded_global_equivalent_domains {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("excludedGlobalEquivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = account_revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("accountRevisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("key", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("publicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = private_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("privateKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = signed_public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("signedPublicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_version {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityVersion", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_state {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityState", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premium", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium_expiration_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premiumExpirationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = renewal_reminder_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("renewalReminderDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = storage {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("storage", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = max_storage_gb {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("maxStorageGb", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gateway", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_customer_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_subscription_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = reference_data {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("referenceData", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = license_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("licenseKey", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("apiKey", &api_key.to_string())]);
+        if let Some(ref param_value) = kdf {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdf", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_iterations {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfIterations", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_memory {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfMemory", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_parallelism {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfParallelism", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = creation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("creationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("revisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = force_password_reset {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("forcePasswordReset", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = uses_key_connector {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usesKeyConnector", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = failed_login_count {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("failedLoginCount", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_failed_login_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastFailedLoginDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = avatar_color {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("avatarColor", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_password_change_date {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("lastPasswordChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_kdf_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKdfChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_key_rotation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKeyRotationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_email_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastEmailChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = verify_devices {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("verifyDevices", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = v2_upgrade_token {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<GetSubscriptionError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
-    async fn reinstate_subscription(&self) -> Result<(), Error> {
+    async fn reinstate_subscription<'a>(
+        &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
+    ) -> Result<(), Error<ReinstateSubscriptionError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -286,15 +2209,258 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("id", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = name {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("name", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("email", &email.to_string())]);
+        if let Some(ref param_value) = email_verified {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("emailVerified", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPassword", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password_hint {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordHint", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = culture {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("culture", &param_value.to_string())]);
+        }
+        local_var_req_builder =
+            local_var_req_builder.query(&[("securityStamp", &security_stamp.to_string())]);
+        if let Some(ref param_value) = two_factor_providers {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorProviders", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = two_factor_recovery_code {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorRecoveryCode", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = equivalent_domains {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("equivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = excluded_global_equivalent_domains {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("excludedGlobalEquivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = account_revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("accountRevisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("key", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("publicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = private_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("privateKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = signed_public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("signedPublicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_version {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityVersion", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_state {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityState", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premium", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium_expiration_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premiumExpirationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = renewal_reminder_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("renewalReminderDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = storage {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("storage", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = max_storage_gb {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("maxStorageGb", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gateway", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_customer_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_subscription_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = reference_data {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("referenceData", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = license_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("licenseKey", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("apiKey", &api_key.to_string())]);
+        if let Some(ref param_value) = kdf {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdf", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_iterations {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfIterations", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_memory {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfMemory", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_parallelism {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfParallelism", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = creation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("creationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("revisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = force_password_reset {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("forcePasswordReset", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = uses_key_connector {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usesKeyConnector", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = failed_login_count {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("failedLoginCount", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_failed_login_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastFailedLoginDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = avatar_color {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("avatarColor", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_password_change_date {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("lastPasswordChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_kdf_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKdfChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_key_rotation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKeyRotationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_email_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastEmailChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = verify_devices {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("verifyDevices", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = v2_upgrade_token {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<ReinstateSubscriptionError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn update_payment_method<'a>(
         &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
         tokenized_payment_method_request: Option<models::TokenizedPaymentMethodRequest>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<UpdatePaymentMethodError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -306,16 +2472,259 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("id", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = name {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("name", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("email", &email.to_string())]);
+        if let Some(ref param_value) = email_verified {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("emailVerified", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPassword", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password_hint {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordHint", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = culture {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("culture", &param_value.to_string())]);
+        }
+        local_var_req_builder =
+            local_var_req_builder.query(&[("securityStamp", &security_stamp.to_string())]);
+        if let Some(ref param_value) = two_factor_providers {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorProviders", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = two_factor_recovery_code {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorRecoveryCode", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = equivalent_domains {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("equivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = excluded_global_equivalent_domains {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("excludedGlobalEquivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = account_revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("accountRevisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("key", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("publicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = private_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("privateKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = signed_public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("signedPublicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_version {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityVersion", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_state {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityState", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premium", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium_expiration_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premiumExpirationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = renewal_reminder_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("renewalReminderDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = storage {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("storage", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = max_storage_gb {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("maxStorageGb", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gateway", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_customer_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_subscription_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = reference_data {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("referenceData", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = license_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("licenseKey", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("apiKey", &api_key.to_string())]);
+        if let Some(ref param_value) = kdf {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdf", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_iterations {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfIterations", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_memory {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfMemory", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_parallelism {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfParallelism", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = creation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("creationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("revisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = force_password_reset {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("forcePasswordReset", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = uses_key_connector {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usesKeyConnector", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = failed_login_count {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("failedLoginCount", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_failed_login_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastFailedLoginDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = avatar_color {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("avatarColor", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_password_change_date {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("lastPasswordChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_kdf_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKdfChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_key_rotation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKeyRotationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_email_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastEmailChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = verify_devices {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("verifyDevices", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = v2_upgrade_token {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&tokenized_payment_method_request);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<UpdatePaymentMethodError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn update_subscription_storage<'a>(
         &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
         storage_update_request: Option<models::StorageUpdateRequest>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<UpdateSubscriptionStorageError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -327,18 +2736,261 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::PUT, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("id", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = name {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("name", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("email", &email.to_string())]);
+        if let Some(ref param_value) = email_verified {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("emailVerified", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPassword", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password_hint {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordHint", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = culture {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("culture", &param_value.to_string())]);
+        }
+        local_var_req_builder =
+            local_var_req_builder.query(&[("securityStamp", &security_stamp.to_string())]);
+        if let Some(ref param_value) = two_factor_providers {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorProviders", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = two_factor_recovery_code {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorRecoveryCode", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = equivalent_domains {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("equivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = excluded_global_equivalent_domains {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("excludedGlobalEquivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = account_revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("accountRevisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("key", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("publicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = private_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("privateKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = signed_public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("signedPublicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_version {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityVersion", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_state {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityState", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premium", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium_expiration_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premiumExpirationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = renewal_reminder_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("renewalReminderDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = storage {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("storage", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = max_storage_gb {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("maxStorageGb", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gateway", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_customer_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_subscription_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = reference_data {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("referenceData", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = license_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("licenseKey", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("apiKey", &api_key.to_string())]);
+        if let Some(ref param_value) = kdf {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdf", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_iterations {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfIterations", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_memory {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfMemory", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_parallelism {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfParallelism", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = creation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("creationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("revisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = force_password_reset {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("forcePasswordReset", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = uses_key_connector {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usesKeyConnector", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = failed_login_count {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("failedLoginCount", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_failed_login_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastFailedLoginDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = avatar_color {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("avatarColor", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_password_change_date {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("lastPasswordChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_kdf_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKdfChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_key_rotation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKeyRotationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_email_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastEmailChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = verify_devices {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("verifyDevices", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = v2_upgrade_token {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&storage_update_request);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<UpdateSubscriptionStorageError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn upgrade_premium_to_organization<'a>(
         &self,
+        email: &'a str,
+        security_stamp: &'a str,
+        api_key: &'a str,
+        id: Option<uuid::Uuid>,
+        name: Option<&'a str>,
+        email_verified: Option<bool>,
+        master_password: Option<&'a str>,
+        master_password_hint: Option<&'a str>,
+        culture: Option<&'a str>,
+        two_factor_providers: Option<&'a str>,
+        two_factor_recovery_code: Option<&'a str>,
+        equivalent_domains: Option<&'a str>,
+        excluded_global_equivalent_domains: Option<&'a str>,
+        account_revision_date: Option<String>,
+        key: Option<&'a str>,
+        public_key: Option<&'a str>,
+        private_key: Option<&'a str>,
+        signed_public_key: Option<&'a str>,
+        security_version: Option<i32>,
+        security_state: Option<&'a str>,
+        premium: Option<bool>,
+        premium_expiration_date: Option<String>,
+        renewal_reminder_date: Option<String>,
+        storage: Option<i64>,
+        max_storage_gb: Option<i32>,
+        gateway: Option<models::GatewayType>,
+        gateway_customer_id: Option<&'a str>,
+        gateway_subscription_id: Option<&'a str>,
+        reference_data: Option<&'a str>,
+        license_key: Option<&'a str>,
+        kdf: Option<models::KdfType>,
+        kdf_iterations: Option<i32>,
+        kdf_memory: Option<i32>,
+        kdf_parallelism: Option<i32>,
+        creation_date: Option<String>,
+        revision_date: Option<String>,
+        force_password_reset: Option<bool>,
+        uses_key_connector: Option<bool>,
+        failed_login_count: Option<i32>,
+        last_failed_login_date: Option<String>,
+        avatar_color: Option<&'a str>,
+        last_password_change_date: Option<String>,
+        last_kdf_change_date: Option<String>,
+        last_key_rotation_date: Option<String>,
+        last_email_change_date: Option<String>,
+        verify_devices: Option<bool>,
+        v2_upgrade_token: Option<&'a str>,
         upgrade_premium_to_organization_request: Option<
             models::UpgradePremiumToOrganizationRequest,
         >,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<UpgradePremiumToOrganizationError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -350,10 +3002,267 @@ impl AccountBillingVNextApi for AccountBillingVNextApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
 
+        if let Some(ref param_value) = id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("id", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = name {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("name", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("email", &email.to_string())]);
+        if let Some(ref param_value) = email_verified {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("emailVerified", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPassword", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = master_password_hint {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("masterPasswordHint", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = culture {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("culture", &param_value.to_string())]);
+        }
+        local_var_req_builder =
+            local_var_req_builder.query(&[("securityStamp", &security_stamp.to_string())]);
+        if let Some(ref param_value) = two_factor_providers {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorProviders", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = two_factor_recovery_code {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("twoFactorRecoveryCode", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = equivalent_domains {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("equivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = excluded_global_equivalent_domains {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("excludedGlobalEquivalentDomains", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = account_revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("accountRevisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("key", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("publicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = private_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("privateKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = signed_public_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("signedPublicKey", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_version {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityVersion", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = security_state {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("securityState", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premium", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = premium_expiration_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("premiumExpirationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = renewal_reminder_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("renewalReminderDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = storage {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("storage", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = max_storage_gb {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("maxStorageGb", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gateway", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_customer_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewayCustomerId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = gateway_subscription_id {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("gatewaySubscriptionId", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = reference_data {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("referenceData", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = license_key {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("licenseKey", &param_value.to_string())]);
+        }
+        local_var_req_builder = local_var_req_builder.query(&[("apiKey", &api_key.to_string())]);
+        if let Some(ref param_value) = kdf {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdf", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_iterations {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfIterations", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_memory {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfMemory", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = kdf_parallelism {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("kdfParallelism", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = creation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("creationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = revision_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("revisionDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = force_password_reset {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("forcePasswordReset", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = uses_key_connector {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("usesKeyConnector", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = failed_login_count {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("failedLoginCount", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_failed_login_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastFailedLoginDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = avatar_color {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("avatarColor", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_password_change_date {
+            local_var_req_builder = local_var_req_builder
+                .query(&[("lastPasswordChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_kdf_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKdfChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_key_rotation_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastKeyRotationDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = last_email_change_date {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("lastEmailChangeDate", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = verify_devices {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("verifyDevices", &param_value.to_string())]);
+        }
+        if let Some(ref param_value) = v2_upgrade_token {
+            local_var_req_builder =
+                local_var_req_builder.query(&[("v2UpgradeToken", &param_value.to_string())]);
+        }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder =
             local_var_req_builder.json(&upgrade_premium_to_organization_request);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<UpgradePremiumToOrganizationError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
+}
+
+/// struct for typed errors of method [`AccountBillingVNextApi::add_credit_via_bit_pay`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AddCreditViaBitPayError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`AccountBillingVNextApi::create_subscription`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CreateSubscriptionError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`AccountBillingVNextApi::get_credit`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetCreditError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`AccountBillingVNextApi::get_license`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetLicenseError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`AccountBillingVNextApi::get_payment_method`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetPaymentMethodError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`AccountBillingVNextApi::get_subscription`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetSubscriptionError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`AccountBillingVNextApi::reinstate_subscription`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ReinstateSubscriptionError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`AccountBillingVNextApi::update_payment_method`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum UpdatePaymentMethodError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`AccountBillingVNextApi::update_subscription_storage`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum UpdateSubscriptionStorageError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`AccountBillingVNextApi::upgrade_premium_to_organization`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum UpgradePremiumToOrganizationError {
+    UnknownValue(serde_json::Value),
 }

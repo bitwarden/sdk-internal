@@ -73,9 +73,15 @@ async fn request(
         .client
         .request(method, url)
         .header(reqwest::header::CONTENT_TYPE, "application/json")
-        .header(reqwest::header::ACCEPT, "application/json")
-        .with_extension(AuthRequired::Bearer);
+        .header(reqwest::header::ACCEPT, "application/json");
 
+    if let Some(ref user_agent) = configuration.user_agent {
+        request = request.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+    if let Some(ref access_token) = configuration.oauth_access_token {
+        request = request.bearer_auth(access_token.clone());
+    }
+    request = request.with_extension(AuthRequired::Bearer);
     if let Some(ref body) = body {
         request =
             request.body(serde_json::to_string(&body).expect("Serialize should be infallible"))
@@ -101,6 +107,7 @@ mod tests {
         models::user_key_request_model::UserKeyKeyRequestModel,
     };
 
+    const ACCESS_TOKEN: &str = "test_access_token";
     const KEY_CONNECTOR_KEY: &str = "test_key_connector_key";
 
     async fn setup_mock_server_with_auth() -> (MockServer, Configuration) {
@@ -108,7 +115,9 @@ mod tests {
 
         let configuration = Configuration {
             base_path: format!("http://{}", server.address()),
+            user_agent: Some("Bitwarden Rust-SDK [TEST]".to_string()),
             client: reqwest::Client::new().into(),
+            oauth_access_token: Some(ACCESS_TOKEN.to_string()),
         };
 
         (server, configuration)
@@ -120,6 +129,7 @@ mod tests {
 
         Mock::given(method("GET"))
             .and(path("/user-keys"))
+            .and(header("authorization", format!("Bearer {ACCESS_TOKEN}")))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "key": KEY_CONNECTOR_KEY.to_string()
             })))
@@ -141,6 +151,7 @@ mod tests {
 
         Mock::given(method("POST"))
             .and(path("/user-keys"))
+            .and(header("authorization", format!("Bearer {ACCESS_TOKEN}")))
             .and(header("content-type", "application/json"))
             .respond_with(ResponseTemplate::new(200))
             .expect(1)
@@ -164,6 +175,7 @@ mod tests {
 
         Mock::given(method("PUT"))
             .and(path("/user-keys"))
+            .and(header("authorization", format!("Bearer {ACCESS_TOKEN}")))
             .and(header("content-type", "application/json"))
             .respond_with(ResponseTemplate::new(200))
             .expect(1)

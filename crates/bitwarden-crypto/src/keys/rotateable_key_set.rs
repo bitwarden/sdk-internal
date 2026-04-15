@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeySlotIds, KeyStoreContext,
+    CryptoError, EncString, KeyDecryptable, KeyEncryptable, KeyIds, KeyStoreContext,
     Pkcs8PrivateKeyBytes, PrivateKey, PublicKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
     UnsignedSharedKey,
 };
@@ -36,7 +36,7 @@ pub struct RotateableKeySet {
 impl RotateableKeySet {
     /// Create a set of keys to allow access to the downstream key via the provided
     /// upstream key while allowing the downstream key to be rotated.
-    pub fn new<Ids: KeySlotIds>(
+    pub fn new<Ids: KeyIds>(
         ctx: &KeyStoreContext<Ids>,
         upstream_key: &SymmetricCryptoKey,
         downstream_key_id: Ids::Symmetric,
@@ -76,7 +76,7 @@ impl RotateableKeySet {
     // TODO: Eventually, the webauthn-login-strategy service should be migrated
     // to use this method, and we can remove the #[allow(dead_code)] attribute.
     #[allow(dead_code)]
-    fn unlock<Ids: KeySlotIds>(
+    fn unlock<Ids: KeyIds>(
         &self,
         ctx: &mut KeyStoreContext<Ids>,
         upstream_key: &SymmetricCryptoKey,
@@ -97,7 +97,7 @@ impl RotateableKeySet {
 }
 
 #[allow(dead_code)]
-fn rotate_key_set<Ids: KeySlotIds>(
+fn rotate_key_set<Ids: KeyIds>(
     ctx: &KeyStoreContext<Ids>,
     key_set: RotateableKeySet,
     old_downstream_key_id: Ids::Symmetric,

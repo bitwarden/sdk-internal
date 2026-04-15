@@ -15,10 +15,8 @@ license-file.workspace = true
 keywords.workspace = true
 
 [dependencies]
-http = ">=1.4.0, <2"
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
-serde = { workspace = true }
 serde_json = { workspace = true }
 url = ">=2.5, <3"
 

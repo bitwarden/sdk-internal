@@ -30,30 +30,33 @@ pub trait ProjectsApi: Send + Sync {
     async fn bulk_delete<'a>(
         &self,
         uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-    ) -> Result<models::BulkDeleteResponseModelListResponseModel, Error>;
+    ) -> Result<models::BulkDeleteResponseModelListResponseModel, Error<BulkDeleteError>>;
 
     /// POST /organizations/{organizationId}/projects
     async fn create<'a>(
         &self,
         organization_id: uuid::Uuid,
         project_create_request_model: Option<models::ProjectCreateRequestModel>,
-    ) -> Result<models::ProjectResponseModel, Error>;
+    ) -> Result<models::ProjectResponseModel, Error<CreateError>>;
 
     /// GET /projects/{id}
-    async fn get<'a>(&self, id: uuid::Uuid) -> Result<models::ProjectResponseModel, Error>;
+    async fn get<'a>(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<models::ProjectResponseModel, Error<GetError>>;
 
     /// GET /organizations/{organizationId}/projects
     async fn list_by_organization<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::ProjectResponseModelListResponseModel, Error>;
+    ) -> Result<models::ProjectResponseModelListResponseModel, Error<ListByOrganizationError>>;
 
     /// PUT /projects/{id}
     async fn update<'a>(
         &self,
         id: uuid::Uuid,
         project_update_request_model: Option<models::ProjectUpdateRequestModel>,
-    ) -> Result<models::ProjectResponseModel, Error>;
+    ) -> Result<models::ProjectResponseModel, Error<UpdateError>>;
 }
 
 pub struct ProjectsApiClient {
@@ -72,7 +75,7 @@ impl ProjectsApi for ProjectsApiClient {
     async fn bulk_delete<'a>(
         &self,
         uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-    ) -> Result<models::BulkDeleteResponseModelListResponseModel, Error> {
+    ) -> Result<models::BulkDeleteResponseModelListResponseModel, Error<BulkDeleteError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -84,14 +87,48 @@ impl ProjectsApi for ProjectsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&uuid_colon_colon_uuid);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::BulkDeleteResponseModelListResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::BulkDeleteResponseModelListResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<BulkDeleteError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn create<'a>(
         &self,
         organization_id: uuid::Uuid,
         project_create_request_model: Option<models::ProjectCreateRequestModel>,
-    ) -> Result<models::ProjectResponseModel, Error> {
+    ) -> Result<models::ProjectResponseModel, Error<CreateError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -107,10 +144,47 @@ impl ProjectsApi for ProjectsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&project_create_request_model);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::ProjectResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProjectResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<CreateError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
-    async fn get<'a>(&self, id: uuid::Uuid) -> Result<models::ProjectResponseModel, Error> {
+    async fn get<'a>(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<models::ProjectResponseModel, Error<GetError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -125,13 +199,46 @@ impl ProjectsApi for ProjectsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::ProjectResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProjectResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn list_by_organization<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::ProjectResponseModelListResponseModel, Error> {
+    ) -> Result<models::ProjectResponseModelListResponseModel, Error<ListByOrganizationError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -146,14 +253,48 @@ impl ProjectsApi for ProjectsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::ProjectResponseModelListResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProjectResponseModelListResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<ListByOrganizationError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn update<'a>(
         &self,
         id: uuid::Uuid,
         project_update_request_model: Option<models::ProjectUpdateRequestModel>,
-    ) -> Result<models::ProjectResponseModel, Error> {
+    ) -> Result<models::ProjectResponseModel, Error<UpdateError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -169,6 +310,71 @@ impl ProjectsApi for ProjectsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&project_update_request_model);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::ProjectResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProjectResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<UpdateError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
+}
+
+/// struct for typed errors of method [`ProjectsApi::bulk_delete`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum BulkDeleteError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`ProjectsApi::create`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CreateError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`ProjectsApi::get`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`ProjectsApi::list_by_organization`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ListByOrganizationError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`ProjectsApi::update`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum UpdateError {
+    UnknownValue(serde_json::Value),
 }

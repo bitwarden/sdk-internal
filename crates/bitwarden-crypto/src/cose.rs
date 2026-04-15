@@ -9,7 +9,7 @@ use coset::{
     CborSerializable, ContentType, CoseEncrypt0, CoseEncrypt0Builder, Header, Label,
     iana::{self, CoapContentFormat, KeyOperation},
 };
-use hybrid_array::Array;
+use generic_array::GenericArray;
 use thiserror::Error;
 use tracing::instrument;
 use typenum::U32;
@@ -275,9 +275,12 @@ impl TryFrom<&coset::CoseKey> for SymmetricCryptoKey {
 
         match alg {
             coset::Algorithm::PrivateUse(XCHACHA20_POLY1305) => {
-                let enc_key = Box::pin(
-                    Array::<u8, U32>::try_from(key_bytes).map_err(|_| CryptoError::InvalidKey)?,
-                );
+                // Ensure the length is correct since `GenericArray::clone_from_slice` panics if it
+                // receives the wrong length.
+                if key_bytes.len() != xchacha20::KEY_SIZE {
+                    return Err(CryptoError::InvalidKey);
+                }
+                let enc_key = Box::pin(GenericArray::<u8, U32>::clone_from_slice(key_bytes));
                 let key_id = cose_key
                     .key_id
                     .as_slice()
@@ -514,7 +517,7 @@ mod test {
     fn test_decrypt_test_vector() {
         let key = XChaCha20Poly1305Key {
             key_id: KeyId::from(KEY_ID),
-            enc_key: Box::pin(Array::from(KEY_DATA)),
+            enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
             supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
@@ -535,7 +538,7 @@ mod test {
     fn test_fail_wrong_key_id() {
         let key = XChaCha20Poly1305Key {
             key_id: KeyId::from([1; 16]), // Different key ID
-            enc_key: Box::pin(Array::from(KEY_DATA)),
+            enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
             supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,
@@ -565,7 +568,7 @@ mod test {
 
         let key = XChaCha20Poly1305Key {
             key_id: KeyId::from(KEY_ID),
-            enc_key: Box::pin(Array::from(KEY_DATA)),
+            enc_key: Box::pin(*GenericArray::from_slice(&KEY_DATA)),
             supported_operations: vec![
                 KeyOperation::Decrypt,
                 KeyOperation::Encrypt,

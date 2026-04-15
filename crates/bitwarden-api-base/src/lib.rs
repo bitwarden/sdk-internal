@@ -1,11 +1,14 @@
-#![doc = include_str!("../README.md")]
+//! Base types and utilities for Bitwarden API clients.
+//!
+//! This crate provides common functionality shared across all Bitwarden API client crates:
+//! - Configuration types for API clients
+//! - Error handling types
+//! - URL encoding and query parameter utilities
 
 mod configuration;
 mod error;
-mod request;
 mod util;
 
 pub use configuration::Configuration;
 pub use error::{Error, ResponseContent};
-pub use request::{process_with_empty_response, process_with_json_response};
 pub use util::{AuthRequired, ContentType, parse_deep_object, urlencode};

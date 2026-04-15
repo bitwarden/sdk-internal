@@ -31,10 +31,10 @@ pub trait GroupsApi: Send + Sync {
         &self,
         org_id: &'a str,
         group_bulk_request_model: Option<models::GroupBulkRequestModel>,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<BulkDeleteError>>;
 
     /// DELETE /organizations/{orgId}/groups/{id}
-    async fn delete<'a>(&self, org_id: &'a str, id: &'a str) -> Result<(), Error>;
+    async fn delete<'a>(&self, org_id: &'a str, id: &'a str) -> Result<(), Error<DeleteError>>;
 
     /// DELETE /organizations/{orgId}/groups/{id}/user/{orgUserId}
     async fn delete_user<'a>(
@@ -42,43 +42,50 @@ pub trait GroupsApi: Send + Sync {
         org_id: &'a str,
         id: &'a str,
         org_user_id: &'a str,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<DeleteUserError>>;
 
     /// GET /organizations/{orgId}/groups/{id}
     async fn get<'a>(
         &self,
         org_id: &'a str,
         id: &'a str,
-    ) -> Result<models::GroupResponseModel, Error>;
+    ) -> Result<models::GroupResponseModel, Error<GetError>>;
 
     /// GET /organizations/{orgId}/groups/{id}/details
     async fn get_details<'a>(
         &self,
         org_id: &'a str,
         id: &'a str,
-    ) -> Result<models::GroupDetailsResponseModel, Error>;
+    ) -> Result<models::GroupDetailsResponseModel, Error<GetDetailsError>>;
 
     /// GET /organizations/{orgId}/groups/details
     async fn get_organization_group_details<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<models::GroupDetailsResponseModelListResponseModel, Error>;
+    ) -> Result<
+        models::GroupDetailsResponseModelListResponseModel,
+        Error<GetOrganizationGroupDetailsError>,
+    >;
 
     /// GET /organizations/{orgId}/groups
     async fn get_organization_groups<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<models::GroupResponseModelListResponseModel, Error>;
+    ) -> Result<models::GroupResponseModelListResponseModel, Error<GetOrganizationGroupsError>>;
 
     /// GET /organizations/{orgId}/groups/{id}/users
-    async fn get_users<'a>(&self, org_id: &'a str, id: &'a str) -> Result<Vec<uuid::Uuid>, Error>;
+    async fn get_users<'a>(
+        &self,
+        org_id: &'a str,
+        id: &'a str,
+    ) -> Result<Vec<uuid::Uuid>, Error<GetUsersError>>;
 
     /// POST /organizations/{orgId}/groups
     async fn post<'a>(
         &self,
         org_id: uuid::Uuid,
         group_request_model: Option<models::GroupRequestModel>,
-    ) -> Result<models::GroupResponseModel, Error>;
+    ) -> Result<models::GroupResponseModel, Error<PostError>>;
 
     /// PUT /organizations/{orgId}/groups/{id}
     async fn put<'a>(
@@ -86,7 +93,7 @@ pub trait GroupsApi: Send + Sync {
         org_id: uuid::Uuid,
         id: uuid::Uuid,
         group_request_model: Option<models::GroupRequestModel>,
-    ) -> Result<models::GroupResponseModel, Error>;
+    ) -> Result<models::GroupResponseModel, Error<PutError>>;
 }
 
 pub struct GroupsApiClient {
@@ -106,7 +113,7 @@ impl GroupsApi for GroupsApiClient {
         &self,
         org_id: &'a str,
         group_bulk_request_model: Option<models::GroupBulkRequestModel>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<BulkDeleteError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -122,10 +129,26 @@ impl GroupsApi for GroupsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&group_bulk_request_model);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<BulkDeleteError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
-    async fn delete<'a>(&self, org_id: &'a str, id: &'a str) -> Result<(), Error> {
+    async fn delete<'a>(&self, org_id: &'a str, id: &'a str) -> Result<(), Error<DeleteError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -141,7 +164,23 @@ impl GroupsApi for GroupsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<DeleteError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn delete_user<'a>(
@@ -149,7 +188,7 @@ impl GroupsApi for GroupsApiClient {
         org_id: &'a str,
         id: &'a str,
         org_user_id: &'a str,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<DeleteUserError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -166,14 +205,30 @@ impl GroupsApi for GroupsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<DeleteUserError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn get<'a>(
         &self,
         org_id: &'a str,
         id: &'a str,
-    ) -> Result<models::GroupResponseModel, Error> {
+    ) -> Result<models::GroupResponseModel, Error<GetError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -189,14 +244,47 @@ impl GroupsApi for GroupsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::GroupResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::GroupResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn get_details<'a>(
         &self,
         org_id: &'a str,
         id: &'a str,
-    ) -> Result<models::GroupDetailsResponseModel, Error> {
+    ) -> Result<models::GroupDetailsResponseModel, Error<GetDetailsError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -212,13 +300,50 @@ impl GroupsApi for GroupsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::GroupDetailsResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::GroupDetailsResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<GetDetailsError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn get_organization_group_details<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<models::GroupDetailsResponseModelListResponseModel, Error> {
+    ) -> Result<
+        models::GroupDetailsResponseModelListResponseModel,
+        Error<GetOrganizationGroupDetailsError>,
+    > {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -233,13 +358,48 @@ impl GroupsApi for GroupsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::GroupDetailsResponseModelListResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::GroupDetailsResponseModelListResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<GetOrganizationGroupDetailsError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn get_organization_groups<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<models::GroupResponseModelListResponseModel, Error> {
+    ) -> Result<models::GroupResponseModelListResponseModel, Error<GetOrganizationGroupsError>>
+    {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -254,10 +414,48 @@ impl GroupsApi for GroupsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::GroupResponseModelListResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::GroupResponseModelListResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<GetOrganizationGroupsError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
-    async fn get_users<'a>(&self, org_id: &'a str, id: &'a str) -> Result<Vec<uuid::Uuid>, Error> {
+    async fn get_users<'a>(
+        &self,
+        org_id: &'a str,
+        id: &'a str,
+    ) -> Result<Vec<uuid::Uuid>, Error<GetUsersError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -273,14 +471,48 @@ impl GroupsApi for GroupsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `Vec&lt;uuid::Uuid&gt;`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `Vec&lt;uuid::Uuid&gt;`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<GetUsersError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn post<'a>(
         &self,
         org_id: uuid::Uuid,
         group_request_model: Option<models::GroupRequestModel>,
-    ) -> Result<models::GroupResponseModel, Error> {
+    ) -> Result<models::GroupResponseModel, Error<PostError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -296,7 +528,40 @@ impl GroupsApi for GroupsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&group_request_model);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::GroupResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::GroupResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<PostError> = serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn put<'a>(
@@ -304,7 +569,7 @@ impl GroupsApi for GroupsApiClient {
         org_id: uuid::Uuid,
         id: uuid::Uuid,
         group_request_model: Option<models::GroupRequestModel>,
-    ) -> Result<models::GroupResponseModel, Error> {
+    ) -> Result<models::GroupResponseModel, Error<PutError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -321,6 +586,100 @@ impl GroupsApi for GroupsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&group_request_model);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::GroupResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::GroupResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<PutError> = serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
+}
+
+/// struct for typed errors of method [`GroupsApi::bulk_delete`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum BulkDeleteError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`GroupsApi::delete`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DeleteError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`GroupsApi::delete_user`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DeleteUserError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`GroupsApi::get`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`GroupsApi::get_details`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetDetailsError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`GroupsApi::get_organization_group_details`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetOrganizationGroupDetailsError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`GroupsApi::get_organization_groups`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetOrganizationGroupsError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`GroupsApi::get_users`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetUsersError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`GroupsApi::post`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PostError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`GroupsApi::put`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PutError {
+    UnknownValue(serde_json::Value),
 }

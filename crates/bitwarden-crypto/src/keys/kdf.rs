@@ -1,6 +1,6 @@
 use std::{num::NonZeroU32, pin::Pin};
 
-use hybrid_array::Array;
+use generic_array::GenericArray;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
@@ -26,7 +26,7 @@ const ARGON2ID_MIN_PARALLELISM: u32 = 1;
 ///
 /// Uses a pinned heap data structure, as noted in [Pinned heap data][crate#pinned-heap-data]
 #[cfg_attr(feature = "dangerous-crypto-debug", derive(Debug))]
-pub struct KdfDerivedKeyMaterial(pub(super) Pin<Box<Array<u8, U32>>>);
+pub struct KdfDerivedKeyMaterial(pub(super) Pin<Box<GenericArray<u8, U32>>>);
 
 impl KdfDerivedKeyMaterial {
     /// Derive a key from a secret and salt using the provided KDF.
@@ -66,7 +66,7 @@ impl KdfDerivedKeyMaterial {
 
                 let salt_sha = sha2::Sha256::new().chain_update(salt).finalize();
 
-                let mut hash = Box::pin(Array::<u8, U32>::default());
+                let mut hash = Box::pin(GenericArray::<u8, U32>::default());
 
                 use argon2::*;
                 let params = Params::new(memory, iterations, parallelism, Some(32))?;

@@ -19,7 +19,7 @@ fn validate_identifier(name: &'static str) -> Result<&'static str, DatabaseError
         Ok(name)
     } else {
         Err(DatabaseError::Internal(
-            rusqlite::Error::InvalidParameterName(name.to_string()).to_string(),
+            rusqlite::Error::InvalidParameterName(name.to_string()),
         ))
     }
 }

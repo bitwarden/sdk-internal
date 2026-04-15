@@ -1,6 +1,6 @@
 use zeroize::ZeroizeOnDrop;
 
-use crate::store::KeySlotId;
+use crate::store::KeyId;
 
 mod implementation;
 
@@ -18,7 +18,7 @@ pub use implementation::create_store;
 /// memory.
 ///
 /// Other implementations could use secure enclaves, HSMs or OS provided keychains.
-pub trait StoreBackend<Key: KeySlotId>: ZeroizeOnDrop + Send + Sync {
+pub trait StoreBackend<Key: KeyId>: ZeroizeOnDrop + Send + Sync {
     /// Inserts a key into the store. If the key already exists, it will be replaced.
     fn upsert(&mut self, key_id: Key, key: Key::KeyValue);
 

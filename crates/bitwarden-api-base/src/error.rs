@@ -4,7 +4,7 @@ use std::{error, fmt};
 
 /// Response content from a failed API call.
 #[derive(Debug)]
-pub struct ResponseContent<T = ()> {
+pub struct ResponseContent<T> {
     /// HTTP status code of the response.
     pub status: reqwest::StatusCode,
     /// Raw response body content.
@@ -15,7 +15,7 @@ pub struct ResponseContent<T = ()> {
 
 /// Errors that can occur during API operations.
 #[derive(Debug)]
-pub enum Error<T = ()> {
+pub enum Error<T> {
     /// Error from the reqwest HTTP client.
     Reqwest(reqwest::Error),
     /// Error from the reqwest middleware.

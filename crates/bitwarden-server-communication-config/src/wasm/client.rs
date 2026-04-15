@@ -1,7 +1,7 @@
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    ServerCommunicationConfig, ServerCommunicationConfigClient, SetCommunicationTypeRequest,
+    ServerCommunicationConfig, ServerCommunicationConfigClient,
     wasm::{
         JsServerCommunicationConfigPlatformApi, JsServerCommunicationConfigRepository,
         RawJsServerCommunicationConfigPlatformApi, RawJsServerCommunicationConfigRepository,
@@ -86,12 +86,11 @@ impl JsServerCommunicationConfigClient {
     ///
     /// This method saves the provided communication configuration to the repository.
     /// Typically called when receiving the `/api/config` response from the server.
-    /// Previously acquired cookies are preserved automatically.
     ///
     /// # Arguments
     ///
     /// * `hostname` - The server hostname (e.g., "vault.acme.com")
-    /// * `request` - The server communication configuration to store
+    /// * `config` - The server communication configuration to store
     ///
     /// # Errors
     ///
@@ -100,9 +99,9 @@ impl JsServerCommunicationConfigClient {
     pub async fn set_communication_type(
         &self,
         hostname: String,
-        request: SetCommunicationTypeRequest,
+        config: ServerCommunicationConfig,
     ) -> Result<(), String> {
-        self.client.set_communication_type(hostname, request).await
+        self.client.set_communication_type(hostname, config).await
     }
 
     /// Acquires a cookie from the platform and saves it to the repository

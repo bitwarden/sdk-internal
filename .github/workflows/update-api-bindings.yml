@@ -74,7 +74,7 @@ jobs:
         uses: bitwarden/gh-actions/azure-logout@main
 
       - name: Generate GH App token
-        uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
         id: app-token
         with:
           app-id: ${{ steps.get-kv-secrets.outputs.BW-GHAPP-ID }}
@@ -205,10 +205,6 @@ jobs:
 
           echo "✅ Branch tip commit was made by the bot. Safe to proceed."
 
-      - name: Reset API branch to main
-        if: ${{ (inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type) && steps.switch-api-branch.outputs.updating_existing_branch == 'true' }}
-        run: git reset --hard origin/main
-
       - name: Generate API bindings
         if: ${{ inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type }}
         run: ./support/generate-api-bindings-ci.sh
@@ -228,7 +224,7 @@ jobs:
           echo "👀 Committing API bindings update..."
           git add crates/bitwarden-api-api
           git commit -m "Update API bindings to $_HASH" --no-verify || echo "No changes to commit for API"
-          git push --force-with-lease origin $_BRANCH_NAME
+          git push origin $_BRANCH_NAME
 
       - name: Create or Update API Pull Request
         if: ${{ inputs.binding_type == 'api' || inputs.binding_type == 'both' || !inputs.binding_type }}
@@ -315,10 +311,6 @@ jobs:
 
           echo "✅ Branch tip commit was made by the bot. Safe to proceed."
 
-      - name: Reset Identity branch to main
-        if: ${{ (inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type) && steps.switch-identity-branch.outputs.updating_existing_branch == 'true' }}
-        run: git reset --hard origin/main
-
       - name: Generate Identity bindings
         if: ${{ inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type }}
         run: ./support/generate-identity-bindings-ci.sh
@@ -338,7 +330,7 @@ jobs:
           echo "👀 Committing Identity bindings update..."
           git add crates/bitwarden-api-identity
           git commit -m "Update Identity bindings to $_HASH" --no-verify || echo "No changes to commit for Identity"
-          git push --force-with-lease origin $_BRANCH_NAME
+          git push origin $_BRANCH_NAME
 
       - name: Create or Update Identity Pull Request
         if: ${{ inputs.binding_type == 'identity' || inputs.binding_type == 'both' || !inputs.binding_type }}

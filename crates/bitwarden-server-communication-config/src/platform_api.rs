@@ -63,18 +63,22 @@ pub enum AcquireCookieError {
 #[cfg_attr(feature = "uniffi", uniffi::export(with_foreign))]
 #[async_trait::async_trait]
 pub trait ServerCommunicationConfigPlatformApi: Send + Sync {
-    /// Acquires cookies using the provided vault URL
+    /// Acquires cookies for the given hostname
     ///
     /// The platform client should trigger any necessary user interaction
     /// (e.g., browser redirect to IdP) to acquire cookies from the
     /// load balancer.
     ///
-    /// # Parameters
-    /// - `vault_url`: The full vault URL (scheme + host + port, e.g., `"https://vault.bitwarden.com"`
-    ///   or `"https://localhost:8000"`). This URL is used for constructing the redirect URL.
+    /// For sharded cookies, the platform should return multiple `AcquiredCookie`
+    /// entries, each with its full name including the `-{N}` suffix.
+    ///
+    /// # Arguments
+    ///
+    /// * `hostname` - The server hostname (e.g., "vault.acme.com")
     ///
     /// # Returns
-    /// Returns `Some(Vec<AcquiredCookie>)` if cookies were successfully acquired,
-    /// or `None` if the operation was cancelled or failed.
-    async fn acquire_cookies(&self, vault_url: String) -> Option<Vec<AcquiredCookie>>;
+    ///
+    /// - `Some(cookies)` - Cookies were successfully acquired
+    /// - `None` - Cookie acquisition failed or was cancelled
+    async fn acquire_cookies(&self, hostname: String) -> Option<Vec<AcquiredCookie>>;
 }

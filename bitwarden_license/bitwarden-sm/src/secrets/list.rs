@@ -3,7 +3,8 @@ use bitwarden_api_api::models::{
 };
 use bitwarden_core::{
     OrganizationId,
-    key_management::{KeySlotIds, SymmetricKeySlotId},
+    client::Client,
+    key_management::{KeyIds, SymmetricKeyId},
     require,
 };
 use bitwarden_crypto::{Decryptable, EncString, KeyStoreContext};
@@ -11,7 +12,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{SecretsManagerClient, error::SecretsManagerError};
+use crate::error::SecretsManagerError;
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
@@ -22,10 +23,9 @@ pub struct SecretIdentifiersRequest {
 }
 
 pub(crate) async fn list_secrets(
-    client: &SecretsManagerClient,
+    client: &Client,
     input: &SecretIdentifiersRequest,
 ) -> Result<SecretIdentifiersResponse, SecretsManagerError> {
-    let client = client.client();
     let config = client.internal.get_api_configurations();
     let res = config
         .api_client
@@ -47,10 +47,9 @@ pub struct SecretIdentifiersByProjectRequest {
 }
 
 pub(crate) async fn list_secrets_by_project(
-    client: &SecretsManagerClient,
+    client: &Client,
     input: &SecretIdentifiersByProjectRequest,
 ) -> Result<SecretIdentifiersResponse, SecretsManagerError> {
-    let client = client.client();
     let config = client.internal.get_api_configurations();
     let res = config
         .api_client
@@ -73,7 +72,7 @@ pub struct SecretIdentifiersResponse {
 impl SecretIdentifiersResponse {
     pub(crate) fn process_response(
         response: SecretWithProjectsListResponseModel,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
+        ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<SecretIdentifiersResponse, SecretsManagerError> {
         Ok(SecretIdentifiersResponse {
             data: response
@@ -98,10 +97,10 @@ pub struct SecretIdentifierResponse {
 impl SecretIdentifierResponse {
     pub(crate) fn process_response(
         response: SecretsWithProjectsInnerSecret,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
+        ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<SecretIdentifierResponse, SecretsManagerError> {
         let organization_id = require!(response.organization_id);
-        let enc_key = SymmetricKeySlotId::Organization(OrganizationId::new(organization_id));
+        let enc_key = SymmetricKeyId::Organization(OrganizationId::new(organization_id));
 
         let key = require!(response.key)
             .parse::<EncString>()?

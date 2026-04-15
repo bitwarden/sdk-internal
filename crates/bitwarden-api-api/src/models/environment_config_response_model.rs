@@ -42,12 +42,6 @@ pub struct EnvironmentConfigResponseModel {
     pub notifications: Option<String>,
     #[serde(rename = "sso", alias = "Sso", skip_serializing_if = "Option::is_none")]
     pub sso: Option<String>,
-    #[serde(
-        rename = "fillAssistRules",
-        alias = "FillAssistRules",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub fill_assist_rules: Option<String>,
 }
 
 impl EnvironmentConfigResponseModel {
@@ -59,7 +53,6 @@ impl EnvironmentConfigResponseModel {
             identity: None,
             notifications: None,
             sso: None,
-            fill_assist_rules: None,
         }
     }
 }

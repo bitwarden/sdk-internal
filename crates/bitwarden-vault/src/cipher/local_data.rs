@@ -1,4 +1,4 @@
-use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
+use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{CompositeEncryptable, CryptoError, Decryptable, KeyStoreContext};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -23,11 +23,11 @@ pub struct LocalDataView {
     last_launched: Option<DateTime<Utc>>,
 }
 
-impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, LocalData> for LocalDataView {
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, LocalData> for LocalDataView {
     fn encrypt_composite(
         &self,
-        _ctx: &mut KeyStoreContext<KeySlotIds>,
-        _key: SymmetricKeySlotId,
+        _ctx: &mut KeyStoreContext<KeyIds>,
+        _key: SymmetricKeyId,
     ) -> Result<LocalData, CryptoError> {
         Ok(LocalData {
             last_used_date: self.last_used_date,
@@ -36,11 +36,11 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, LocalData> for LocalDa
     }
 }
 
-impl Decryptable<KeySlotIds, SymmetricKeySlotId, LocalDataView> for LocalData {
+impl Decryptable<KeyIds, SymmetricKeyId, LocalDataView> for LocalData {
     fn decrypt(
         &self,
-        _ctx: &mut KeyStoreContext<KeySlotIds>,
-        _key: SymmetricKeySlotId,
+        _ctx: &mut KeyStoreContext<KeyIds>,
+        _key: SymmetricKeyId,
     ) -> Result<LocalDataView, CryptoError> {
         Ok(LocalDataView {
             last_used_date: self.last_used_date,

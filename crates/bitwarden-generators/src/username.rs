@@ -1,6 +1,6 @@
 use bitwarden_crypto::EFF_LONG_WORD_LIST;
 use bitwarden_error::bitwarden_error;
-use rand::{Rng, RngExt, distr::Distribution, seq::IndexedRandom};
+use rand::{Rng, RngCore, distributions::Distribution, seq::SliceRandom};
 use reqwest::StatusCode;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -157,19 +157,19 @@ pub(crate) async fn username(
     http: &reqwest::Client,
 ) -> Result<String, UsernameError> {
     use UsernameGeneratorRequest::*;
-    use rand::rng;
+    use rand::thread_rng;
     match input {
         Word {
             capitalize,
             include_number,
-        } => Ok(username_word(&mut rng(), capitalize, include_number)),
-        Subaddress { r#type, email } => Ok(username_subaddress(&mut rng(), r#type, email)),
-        Catchall { r#type, domain } => Ok(username_catchall(&mut rng(), r#type, domain)),
+        } => Ok(username_word(&mut thread_rng(), capitalize, include_number)),
+        Subaddress { r#type, email } => Ok(username_subaddress(&mut thread_rng(), r#type, email)),
+        Catchall { r#type, domain } => Ok(username_catchall(&mut thread_rng(), r#type, domain)),
         Forwarded { service, website } => service.generate(http, website).await,
     }
 }
 
-fn username_word(mut rng: impl Rng, capitalize: bool, include_number: bool) -> String {
+fn username_word(mut rng: impl RngCore, capitalize: bool, include_number: bool) -> String {
     let word = EFF_LONG_WORD_LIST
         .choose(&mut rng)
         .expect("slice is not empty");
@@ -188,14 +188,14 @@ fn username_word(mut rng: impl Rng, capitalize: bool, include_number: bool) -> S
 }
 
 /// Generate a random 4 digit number, including leading zeros
-fn random_number(mut rng: impl Rng) -> String {
-    let num = rng.random_range(0..=9999);
+fn random_number(mut rng: impl RngCore) -> String {
+    let num = rng.gen_range(0..=9999);
     format!("{num:0>4}")
 }
 
 /// Generate a username using a plus addressed email address
 /// The format is `<username>+<random-or-website>@<domain>`
-fn username_subaddress(mut rng: impl Rng, r#type: AppendType, email: String) -> String {
+fn username_subaddress(mut rng: impl RngCore, r#type: AppendType, email: String) -> String {
     if email.len() < 3 {
         return email;
     }
@@ -217,7 +217,7 @@ fn username_subaddress(mut rng: impl Rng, r#type: AppendType, email: String) -> 
 
 /// Generate a username using a catchall email address
 /// The format is `<random-or-website>@<domain>`
-fn username_catchall(mut rng: impl Rng, r#type: AppendType, domain: String) -> String {
+fn username_catchall(mut rng: impl RngCore, r#type: AppendType, domain: String) -> String {
     if domain.is_empty() {
         return domain;
     }
@@ -230,9 +230,9 @@ fn username_catchall(mut rng: impl Rng, r#type: AppendType, domain: String) -> S
     format!("{email_start}@{domain}")
 }
 
-fn random_lowercase_string(mut rng: impl Rng, length: usize) -> String {
+fn random_lowercase_string(mut rng: impl RngCore, length: usize) -> String {
     const LOWERCASE_ALPHANUMERICAL: &[u8] = b"abcdefghijklmnopqrstuvwxyz1234567890";
-    let dist = rand::distr::slice::Choose::new(LOWERCASE_ALPHANUMERICAL).expect("Non-empty slice");
+    let dist = rand::distributions::Slice::new(LOWERCASE_ALPHANUMERICAL).expect("Non-empty slice");
 
     dist.sample_iter(&mut rng)
         .take(length)
@@ -249,16 +249,16 @@ mod tests {
     #[test]
     fn test_username_word() {
         let mut rng = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
-        assert_eq!(username_word(&mut rng, true, true), "Crust8369");
-        assert_eq!(username_word(&mut rng, true, false), "Undertook");
-        assert_eq!(username_word(&mut rng, false, true), "protector7619");
+        assert_eq!(username_word(&mut rng, true, true), "Subsystem6314");
+        assert_eq!(username_word(&mut rng, true, false), "Silenced");
+        assert_eq!(username_word(&mut rng, false, true), "dinginess4487");
     }
 
     #[test]
     fn test_username_subaddress() {
         let mut rng = rand_chacha::ChaCha8Rng::from_seed([0u8; 32]);
         let user = username_subaddress(&mut rng, AppendType::Random, "demo@test.com".into());
-        assert_eq!(user, "demo+g57w2ite@test.com");
+        assert_eq!(user, "demo+5wiejdaj@test.com");
 
         let user = username_subaddress(
             &mut rng,
@@ -274,7 +274,7 @@ mod tests {
     fn test_username_catchall() {
         let mut rng = rand_chacha::ChaCha8Rng::from_seed([1u8; 32]);
         let user = username_catchall(&mut rng, AppendType::Random, "test.com".into());
-        assert_eq!(user, "5ko9gye6@test.com");
+        assert_eq!(user, "k9y6yw7j@test.com");
 
         let user = username_catchall(
             &mut rng,

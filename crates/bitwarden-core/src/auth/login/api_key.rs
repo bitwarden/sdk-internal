@@ -25,14 +25,11 @@ pub(crate) async fn login_api_key(
     let response = request_api_identity_tokens(client, input).await?;
 
     if let IdentityTokenResponse::Authenticated(r) = &response {
-        client
-            .internal
-            .set_tokens(
-                r.access_token.clone(),
-                r.refresh_token.clone(),
-                r.expires_in,
-            )
-            .await;
+        client.internal.set_tokens(
+            r.access_token.clone(),
+            r.refresh_token.clone(),
+            r.expires_in,
+        );
 
         let private_key: EncString = require!(&r.private_key).parse()?;
 
@@ -61,8 +58,7 @@ pub(crate) async fn login_api_key(
                     client_secret: input.client_secret.clone(),
                     email: master_password_unlock.salt,
                     kdf: master_password_unlock.kdf,
-                }))
-                .await;
+                }));
         }
     }
 

@@ -8,14 +8,14 @@ use crate::{CryptoKey, PrivateKey, SigningKey, SymmetricCryptoKey};
 /// key store. It is used to avoid exposing the key material directly in the public API.
 ///
 /// This trait is user-implemented, and the recommended implementation is using enums with variants
-/// for each expected key purpose. We provide a macro ([crate::key_slot_ids]) that simplifies the
-/// trait implementation
+/// for each expected key purpose. We provide a macro ([crate::key_ids]) that simplifies the trait
+/// implementation
 ///
 /// To implement it manually, note that you need a few types:
-/// - One implementing [KeySlotId<KeyValue = SymmetricCryptoKey>]
-/// - One implementing [KeySlotId<KeyValue = PrivateKey>]
-/// - One implementing [KeySlotIds]
-pub trait KeySlotId:
+/// - One implementing [KeyId<KeyValue = SymmetricCryptoKey>]
+/// - One implementing [KeyId<KeyValue = PrivateKey>]
+/// - One implementing [KeyIds]
+pub trait KeyId:
     Debug + Clone + Copy + Hash + Eq + PartialEq + Ord + PartialOrd + Send + Sync + 'static
 {
     #[allow(missing_docs)]
@@ -30,13 +30,13 @@ pub trait KeySlotId:
 }
 
 /// Represents a set of all the key identifiers that need to be defined to use a key store.
-pub trait KeySlotIds {
+pub trait KeyIds {
     #[allow(missing_docs)]
-    type Symmetric: KeySlotId<KeyValue = SymmetricCryptoKey>;
+    type Symmetric: KeyId<KeyValue = SymmetricCryptoKey>;
     #[allow(missing_docs)]
-    type Private: KeySlotId<KeyValue = PrivateKey>;
+    type Private: KeyId<KeyValue = PrivateKey>;
     /// Signing keys are used to create detached signatures and to sign objects.
-    type Signing: KeySlotId<KeyValue = SigningKey>;
+    type Signing: KeyId<KeyValue = SigningKey>;
 }
 
 /// An opaque identifier for a local key. Currently only contains a unique ID, but it can be
@@ -53,10 +53,10 @@ impl LocalId {
 /// Just a small derive_like macro that can be used to generate the key identifier enums.
 /// Example usage:
 /// ```rust
-/// use bitwarden_crypto::key_slot_ids;
-/// key_slot_ids! {
+/// use bitwarden_crypto::key_ids;
+/// key_ids! {
 ///     #[symmetric]
-///     pub enum SymmKeySlotIds {
+///     pub enum SymmKeyId {
 ///         User,
 ///         Org(uuid::Uuid),
 ///         #[local]
@@ -64,23 +64,23 @@ impl LocalId {
 ///     }
 ///
 ///     #[private]
-///     pub enum PrivateKeySlotIds {
+///     pub enum PrivateKeyId {
 ///         PrivateKey,
 ///         #[local]
 ///         Local(LocalId),
 ///     }
 ///
 ///     #[signing]
-///     pub enum SigningKeySlotIds {
+///     pub enum SigningKeyId {
 ///        SigningKey,
 ///        #[local]
 ///        Local(LocalId),
 ///     }
 ///
-///     pub Ids => SymmKeySlotIds, PrivateKeySlotIds, SigningKeySlotIds;
+///     pub Ids => SymmKeyId, PrivateKeyId, SigningKeyId;
 /// }
 #[macro_export]
-macro_rules! key_slot_ids {
+macro_rules! key_ids {
     ( $(
         #[$meta_type:tt]
         $vis:vis enum $name:ident {
@@ -97,27 +97,26 @@ macro_rules! key_slot_ids {
         use $crate::LocalId;
 
         $(
-            #[must_use]
             #[derive(std::fmt::Debug, Clone, Copy, std::hash::Hash, Eq, PartialEq, Ord, PartialOrd)]
             #[allow(missing_docs)]
             $vis enum $name { $(
                 $variant  $( ($inner) )?,
             )* }
 
-            impl $crate::KeySlotId for $name {
-                type KeyValue = key_slot_ids!(@key_type $meta_type);
+            impl $crate::KeyId for $name {
+                type KeyValue = key_ids!(@key_type $meta_type);
 
                 fn is_local(&self) -> bool {
                     use $name::*;
                     match self { $(
-                        key_slot_ids!(@variant_match $variant $( ( $inner ) )?) =>
-                            key_slot_ids!(@variant_value $( $variant_tag )? ),
+                        key_ids!(@variant_match $variant $( ( $inner ) )?) =>
+                            key_ids!(@variant_value $( $variant_tag )? ),
                     )* }
                 }
 
                 fn new_local(id: LocalId) -> Self {
                     $(
-                        { key_slot_ids!(@new_local $variant  id $( $variant_tag )? ) }
+                        { key_ids!(@new_local $variant  id $( $variant_tag )? ) }
                     )*
                 }
             }
@@ -125,7 +124,7 @@ macro_rules! key_slot_ids {
 
         #[allow(missing_docs)]
         $ids_vis struct $ids_name;
-        impl $crate::KeySlotIds for $ids_name {
+        impl $crate::KeyIds for $ids_name {
             type Symmetric = $symm_name;
             type Private = $private_name;
             type Signing = $signing_name;
@@ -150,7 +149,7 @@ macro_rules! key_slot_ids {
 pub(crate) mod tests {
 
     use crate::{
-        KeySlotId, LocalId,
+        KeyId, LocalId,
         traits::tests::{TestPrivateKey, TestSigningKey, TestSymmKey},
     };
 

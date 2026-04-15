@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use bitwarden_core::key_management::KeySlotIds;
+use bitwarden_core::key_management::KeyIds;
 #[allow(deprecated)]
 use bitwarden_crypto::dangerous_derive_kdf_material;
 use bitwarden_crypto::{
@@ -10,7 +10,7 @@ use bitwarden_crypto::{
     PublicKeyEncryptionAlgorithm, SignatureAlgorithm, SignedPublicKey, SigningKey,
     SpkiPublicKeyBytes, SymmetricCryptoKey, UnsignedSharedKey, VerifyingKey,
 };
-use rand::RngExt;
+use rand::Rng;
 use rsa::{
     Oaep, RsaPrivateKey, RsaPublicKey,
     pkcs8::{DecodePrivateKey, DecodePublicKey},
@@ -157,7 +157,7 @@ impl PureCrypto {
         wrapping_key: Vec<u8>,
     ) -> Result<String, CryptoError> {
         let _span = tracing::info_span!("PureCrypto::wrap_symmetric_key").entered();
-        let tmp_store: KeyStore<KeySlotIds> = KeyStore::default();
+        let tmp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut context = tmp_store.context();
         let wrapping_key =
             SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(wrapping_key))?;
@@ -178,7 +178,7 @@ impl PureCrypto {
         wrapping_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
         let _span = tracing::info_span!("PureCrypto::unwrap_symmetric_key").entered();
-        let tmp_store: KeyStore<KeySlotIds> = KeyStore::default();
+        let tmp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut context = tmp_store.context();
         let wrapping_key =
             SymmetricCryptoKey::try_from(&BitwardenLegacyKeyBytes::from(wrapping_key))?;
@@ -201,7 +201,7 @@ impl PureCrypto {
         wrapping_key: Vec<u8>,
     ) -> Result<String, CryptoError> {
         let _span = tracing::info_span!("PureCrypto::wrap_encapsulation_key").entered();
-        let tmp_store: KeyStore<KeySlotIds> = KeyStore::default();
+        let tmp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut context = tmp_store.context();
         let wrapping_key = context.add_local_symmetric_key(SymmetricCryptoKey::try_from(
             &BitwardenLegacyKeyBytes::from(wrapping_key),
@@ -218,7 +218,7 @@ impl PureCrypto {
         wrapping_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
         let _span = tracing::info_span!("PureCrypto::unwrap_encapsulation_key").entered();
-        let tmp_store: KeyStore<KeySlotIds> = KeyStore::default();
+        let tmp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut context = tmp_store.context();
         let wrapping_key = context.add_local_symmetric_key(SymmetricCryptoKey::try_from(
             &BitwardenLegacyKeyBytes::from(wrapping_key),
@@ -233,7 +233,7 @@ impl PureCrypto {
         wrapping_key: Vec<u8>,
     ) -> Result<String, CryptoError> {
         let _span = tracing::info_span!("PureCrypto::wrap_decapsulation_key").entered();
-        let tmp_store: KeyStore<KeySlotIds> = KeyStore::default();
+        let tmp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut context = tmp_store.context();
         let wrapping_key = context.add_local_symmetric_key(SymmetricCryptoKey::try_from(
             &BitwardenLegacyKeyBytes::from(wrapping_key),
@@ -250,7 +250,7 @@ impl PureCrypto {
         wrapping_key: Vec<u8>,
     ) -> Result<Vec<u8>, CryptoError> {
         let _span = tracing::info_span!("PureCrypto::unwrap_decapsulation_key").entered();
-        let tmp_store: KeyStore<KeySlotIds> = KeyStore::default();
+        let tmp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut context = tmp_store.context();
         let wrapping_key = context.add_local_symmetric_key(SymmetricCryptoKey::try_from(
             &BitwardenLegacyKeyBytes::from(wrapping_key),
@@ -393,7 +393,7 @@ impl PureCrypto {
         let _span = tracing::info_span!("PureCrypto::rsa_decrypt_data").entered();
         let private_key = RsaPrivateKey::from_pkcs8_der(private_key.as_slice())
             .map_err(|_| RsaError::KeyParse)?;
-        let padding = Oaep::<Sha1>::new();
+        let padding = Oaep::new::<Sha1>();
         private_key
             .decrypt(padding, &encrypted_data)
             .map_err(|_| RsaError::Decryption)
@@ -405,8 +405,8 @@ impl PureCrypto {
         let _span = tracing::info_span!("PureCrypto::rsa_encrypt_data").entered();
         let public_key = RsaPublicKey::from_public_key_der(public_key.as_slice())
             .map_err(|_| RsaError::KeyParse)?;
-        let padding = Oaep::<Sha1>::new();
-        let mut rng = rand::rng();
+        let padding = Oaep::new::<Sha1>();
+        let mut rng = rand::thread_rng();
         public_key
             .encrypt(&mut rng, padding, &plain_data)
             .map_err(|_| RsaError::Encryption)
@@ -416,8 +416,8 @@ impl PureCrypto {
     /// (inclusive).
     pub fn random_number(min: u32, max: u32) -> u32 {
         let _span = tracing::info_span!("PureCrypto::random_number").entered();
-        let mut rng = rand::rng();
-        rng.random_range(min..=max)
+        let mut rng = rand::thread_rng();
+        rng.gen_range(min..=max)
     }
 }
 

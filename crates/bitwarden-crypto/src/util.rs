@@ -1,12 +1,12 @@
 use std::pin::Pin;
 
+use ::aes::cipher::{ArrayLength, Unsigned};
+use generic_array::GenericArray;
 use hmac::digest::OutputSizeUser;
-use hybrid_array::{Array, ArraySize};
 use rand::{
-    RngExt,
-    distr::{Alphanumeric, Distribution, SampleString, StandardUniform},
+    Rng,
+    distributions::{Alphanumeric, DistString, Distribution, Standard},
 };
-use typenum::Unsigned;
 use zeroize::{Zeroize, Zeroizing};
 
 use crate::Result;
@@ -22,16 +22,16 @@ pub(crate) enum HkdfExpandError {
 }
 
 /// [RFC5869](https://datatracker.ietf.org/doc/html/rfc5869) HKDF-Expand operation
-pub(crate) fn hkdf_expand<T: ArraySize>(
+pub(crate) fn hkdf_expand<T: ArrayLength<u8>>(
     prk: &[u8],
     info: Option<&str>,
-) -> Result<Pin<Box<Array<u8, T>>>, HkdfExpandError> {
+) -> Result<Pin<Box<GenericArray<u8, T>>>, HkdfExpandError> {
     let hkdf = hkdf::Hkdf::<sha2::Sha256>::from_prk(prk)
         .map_err(|_| HkdfExpandError::InvalidInputLegth)?;
-    let mut key = Box::<Array<u8, T>>::default();
+    let mut key = Box::<GenericArray<u8, T>>::default();
 
     let i = info.map(|i| i.as_bytes()).unwrap_or(&[]);
-    hkdf.expand(i, key.as_mut_slice())
+    hkdf.expand(i, &mut key)
         .map_err(|_| HkdfExpandError::InvalidOutputLength)?;
 
     Ok(Box::into_pin(key))
@@ -40,10 +40,10 @@ pub(crate) fn hkdf_expand<T: ArraySize>(
 /// Generate random bytes that are cryptographically secure
 pub fn generate_random_bytes<T>() -> Zeroizing<T>
 where
-    StandardUniform: Distribution<T>,
+    Standard: Distribution<T>,
     T: Zeroize,
 {
-    Zeroizing::new(rand::rng().random::<T>())
+    Zeroizing::new(rand::thread_rng().r#gen::<T>())
 }
 
 /// Generate a random alphanumeric string of a given length
@@ -51,7 +51,7 @@ where
 /// Note: Do not use this generating user facing passwords. Use the `bitwarden-generator` crate for
 /// that.
 pub fn generate_random_alphanumeric(len: usize) -> String {
-    Alphanumeric.sample_string(&mut rand::rng(), len)
+    Alphanumeric.sample_string(&mut rand::thread_rng(), len)
 }
 
 /// Derive pbkdf2 of a given password and salt
@@ -74,7 +74,7 @@ mod tests {
         ];
         let info = Some("info");
 
-        let result: Pin<Box<Array<u8, U64>>> = hkdf_expand(prk, info).unwrap();
+        let result: Pin<Box<GenericArray<u8, U64>>> = hkdf_expand(prk, info).unwrap();
 
         let expected_output: [u8; 64] = [
             6, 114, 42, 38, 87, 231, 30, 109, 30, 255, 104, 129, 255, 94, 92, 108, 124, 145, 215,
@@ -92,7 +92,8 @@ mod tests {
         let prk = &[1, 2, 3, 4, 5];
         let info = Some("info");
 
-        let result: Result<Pin<Box<Array<u8, U64>>>, HkdfExpandError> = hkdf_expand(prk, info);
+        let result: Result<Pin<Box<GenericArray<u8, U64>>>, HkdfExpandError> =
+            hkdf_expand(prk, info);
 
         assert!(matches!(result, Err(HkdfExpandError::InvalidInputLegth)));
     }
@@ -107,7 +108,8 @@ mod tests {
 
         // HKDF-SHA256 can produce at most 255 * 32 = 8160 bytes, requesting more should fail
         type TooLarge = typenum::U8192;
-        let result: Result<Pin<Box<Array<u8, TooLarge>>>, HkdfExpandError> = hkdf_expand(prk, info);
+        let result: Result<Pin<Box<GenericArray<u8, TooLarge>>>, HkdfExpandError> =
+            hkdf_expand(prk, info);
 
         assert!(matches!(result, Err(HkdfExpandError::InvalidOutputLength)));
     }

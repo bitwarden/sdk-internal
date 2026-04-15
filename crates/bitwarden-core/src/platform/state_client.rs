@@ -21,7 +21,7 @@ impl StateClient {
     ) {
         self.client
             .internal
-            .state_registry
+            .repository_map
             .register_client_managed(store)
     }
 
@@ -33,7 +33,7 @@ impl StateClient {
     ) -> Result<(), StateRegistryError> {
         self.client
             .internal
-            .state_registry
+            .repository_map
             .initialize_database(configuration, migrations)
             .await
     }
@@ -49,7 +49,7 @@ impl StateClient {
     where
         T: RepositoryItem,
     {
-        self.client.internal.state_registry.get()
+        self.client.internal.repository_map.get()
     }
 
     /// Get a handle to a setting by its type-safe key.
@@ -75,7 +75,7 @@ impl StateClient {
     /// # }
     /// ```
     pub fn setting<T>(&self, key: Key<T>) -> Result<Setting<T>, SettingsError> {
-        let repository = self.client.internal.state_registry.get::<SettingItem>()?;
+        let repository = self.client.internal.repository_map.get::<SettingItem>()?;
         Ok(Setting::new(repository, key))
     }
 }

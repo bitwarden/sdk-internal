@@ -17,7 +17,7 @@ pub enum LoginMethod {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum UserLoginMethod {
     Username {
         client_id: String,

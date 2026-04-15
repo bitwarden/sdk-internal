@@ -31,13 +31,19 @@ pub trait ProviderBillingApi: Send + Sync {
         &self,
         provider_id: uuid::Uuid,
         invoice_id: &'a str,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<GenerateClientInvoiceReportError>>;
 
     /// GET /providers/{providerId}/billing/invoices
-    async fn get_invoices<'a>(&self, provider_id: uuid::Uuid) -> Result<(), Error>;
+    async fn get_invoices<'a>(
+        &self,
+        provider_id: uuid::Uuid,
+    ) -> Result<(), Error<GetInvoicesError>>;
 
     /// GET /providers/{providerId}/billing/subscription
-    async fn get_subscription<'a>(&self, provider_id: uuid::Uuid) -> Result<(), Error>;
+    async fn get_subscription<'a>(
+        &self,
+        provider_id: uuid::Uuid,
+    ) -> Result<(), Error<GetSubscriptionError>>;
 }
 
 pub struct ProviderBillingApiClient {
@@ -57,7 +63,7 @@ impl ProviderBillingApi for ProviderBillingApiClient {
         &self,
         provider_id: uuid::Uuid,
         invoice_id: &'a str,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<GenerateClientInvoiceReportError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -73,10 +79,29 @@ impl ProviderBillingApi for ProviderBillingApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<GenerateClientInvoiceReportError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
-    async fn get_invoices<'a>(&self, provider_id: uuid::Uuid) -> Result<(), Error> {
+    async fn get_invoices<'a>(
+        &self,
+        provider_id: uuid::Uuid,
+    ) -> Result<(), Error<GetInvoicesError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -91,10 +116,29 @@ impl ProviderBillingApi for ProviderBillingApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<GetInvoicesError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
-    async fn get_subscription<'a>(&self, provider_id: uuid::Uuid) -> Result<(), Error> {
+    async fn get_subscription<'a>(
+        &self,
+        provider_id: uuid::Uuid,
+    ) -> Result<(), Error<GetSubscriptionError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -109,6 +153,41 @@ impl ProviderBillingApi for ProviderBillingApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<GetSubscriptionError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
+}
+
+/// struct for typed errors of method [`ProviderBillingApi::generate_client_invoice_report`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GenerateClientInvoiceReportError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`ProviderBillingApi::get_invoices`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetInvoicesError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`ProviderBillingApi::get_subscription`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetSubscriptionError {
+    UnknownValue(serde_json::Value),
 }

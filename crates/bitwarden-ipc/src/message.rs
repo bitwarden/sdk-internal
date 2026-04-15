@@ -2,23 +2,15 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::{
-    endpoint::{Endpoint, Source},
-    serde_utils,
-};
+use crate::{endpoint::Endpoint, serde_utils};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
-/// An untyped IPC message to be sent to another endpoint.
 pub struct OutgoingMessage {
-    /// Serialized payload bytes.
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
     pub payload: Vec<u8>,
-    /// Destination endpoint for this message.
-    #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
     pub destination: Endpoint,
-    /// Optional topic used for routing/dispatch.
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
     pub topic: Option<String>,
 }
@@ -26,29 +18,19 @@ pub struct OutgoingMessage {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[cfg_attr(test, derive(PartialEq))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
-/// An untyped IPC message received from another endpoint.
 pub struct IncomingMessage {
-    /// Serialized payload bytes.
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
     pub payload: Vec<u8>,
-    /// Destination endpoint that received this message.
-    #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
     pub destination: Endpoint,
-    /// Source that sent this message, with per-variant metadata.
-    #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
-    pub source: Source,
-    /// Optional topic used for routing/dispatch.
+    pub source: Endpoint,
     #[cfg_attr(feature = "wasm", wasm_bindgen(getter_with_clone))]
     pub topic: Option<String>,
 }
 
-/// A typed wrapper around [`OutgoingMessage`] that stores the payload as a deserialized type.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct TypedOutgoingMessage<Payload> {
-    /// The typed payload of this message.
     pub payload: Payload,
-    /// Destination endpoint for this message.
     pub destination: Endpoint,
 }
 
@@ -81,22 +63,17 @@ where
     }
 }
 
-/// A typed wrapper around [`IncomingMessage`] that stores the payload as a deserialized type.
 #[derive(Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct TypedIncomingMessage<Payload: PayloadTypeName> {
-    /// The typed payload of this message.
     pub payload: Payload,
-    /// Destination endpoint that received this message.
     pub destination: Endpoint,
-    /// Source that sent this message, with per-variant metadata.
-    pub source: Source,
+    pub source: Endpoint,
 }
 
 /// This trait is used to ensure that the payload type has a topic associated with it.
 pub trait PayloadTypeName {
-    /// The topic name associated with this payload type, used for routing/dispatch.
-    const PAYLOAD_TYPE_NAME: &'static str;
+    const PAYLOAD_TYPE_NAME: &str;
 }
 
 impl<Payload> TryFrom<IncomingMessage> for TypedIncomingMessage<Payload>

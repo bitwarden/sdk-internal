@@ -60,7 +60,7 @@ pub struct ClientFido2Authenticator(
     pub(crate) Arc<dyn Fido2CredentialStore>,
 );
 
-#[uniffi::export(async_runtime = "tokio")]
+#[uniffi::export]
 impl ClientFido2Authenticator {
     pub async fn make_credential(
         &self,
@@ -121,7 +121,7 @@ impl ClientFido2Authenticator {
 #[derive(uniffi::Object)]
 pub struct ClientFido2Client(pub(crate) ClientFido2Authenticator);
 
-#[uniffi::export(async_runtime = "tokio")]
+#[uniffi::export]
 impl ClientFido2Client {
     pub async fn register(
         &self,

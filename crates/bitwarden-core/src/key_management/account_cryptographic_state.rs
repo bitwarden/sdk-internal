@@ -12,7 +12,6 @@ use std::sync::RwLock;
 
 use bitwarden_api_api::models::{
     AccountKeysRequestModel, PrivateKeysResponseModel, SecurityStateModel,
-    WrappedAccountCryptographicStateRequestModel,
 };
 use bitwarden_crypto::{
     CoseSerializable, CryptoError, EncString, KeyStore, KeyStoreContext,
@@ -29,8 +28,7 @@ use tsify::Tsify;
 use crate::{
     MissingFieldError,
     key_management::{
-        KeySlotIds, PrivateKeySlotId, SecurityState, SignedSecurityState, SigningKeySlotId,
-        SymmetricKeySlotId,
+        KeyIds, PrivateKeyId, SecurityState, SignedSecurityState, SigningKeyId, SymmetricKeyId,
     },
     require,
 };
@@ -194,71 +192,14 @@ impl TryFrom<&PrivateKeysResponseModel> for WrappedAccountCryptographicState {
 }
 
 impl WrappedAccountCryptographicState {
-    /// Converts to a WrappedAccountCryptographicStateRequestModel in order to make API requests.
-    /// Since the [WrappedAccountCryptographicState] is encrypted, the key store needs to
-    /// contain the user key required to unlock this state. This request model only supports v2
-    /// encryption.
-    pub fn to_wrapped_request_model(
-        &self,
-        user_key: &SymmetricKeySlotId,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-    ) -> Result<WrappedAccountCryptographicStateRequestModel, AccountCryptographyInitializationError>
-    {
-        match self {
-            WrappedAccountCryptographicState::V1 { .. } => {
-                Err(AccountCryptographyInitializationError::WrongUserKeyType)
-            }
-            WrappedAccountCryptographicState::V2 {
-                private_key,
-                signing_key,
-                security_state,
-                signed_public_key,
-                ..
-            } => {
-                let private_key = private_key.clone();
-                let private_key_tmp_id = ctx.unwrap_private_key(*user_key, &private_key)?;
-                let public_key = ctx.get_public_key(private_key_tmp_id)?;
-
-                let signing_key_tmp_id = ctx.unwrap_signing_key(*user_key, signing_key)?;
-                let verifying_key = ctx.get_verifying_key(signing_key_tmp_id)?;
-
-                Ok(WrappedAccountCryptographicStateRequestModel {
-                    signature_key_pair: Box::new(
-                        bitwarden_api_api::models::SignatureKeyPairRequestModel {
-                            wrapped_signing_key: Some(signing_key.to_string()),
-                            verifying_key: Some(B64::from(verifying_key.to_cose()).to_string()),
-                            signature_algorithm: Some(verifying_key.algorithm().to_string()),
-                        },
-                    ),
-                    public_key_encryption_key_pair: Box::new(
-                        bitwarden_api_api::models::PublicKeyEncryptionKeyPairRequestModel {
-                            wrapped_private_key: Some(private_key.to_string()),
-                            public_key: Some(B64::from(public_key.to_der()?).to_string()),
-                            signed_public_key: signed_public_key.clone().map(|spk| spk.into()),
-                        },
-                    ),
-                    // Convert the verified state's version to i32 for the API model
-                    security_state: Box::new(SecurityStateModel {
-                        security_state: Some(security_state.into()),
-                        security_version: security_state
-                            .to_owned()
-                            .verify_and_unwrap(&verifying_key)
-                            .map_err(|_| AccountCryptographyInitializationError::TamperedData)?
-                            .version() as i32,
-                    }),
-                })
-            }
-        }
-    }
-
     /// Converts to a AccountKeysRequestModel in order to make API requests. Since the
     /// [WrappedAccountCryptographicState] is encrypted, the key store needs to contain the
     /// user key required to unlock this state.
     #[instrument(skip_all, err)]
     pub fn to_request_model(
         &self,
-        user_key: &SymmetricKeySlotId,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
+        user_key: &SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<AccountKeysRequestModel, AccountCryptographyInitializationError> {
         let private_key = match self {
             WrappedAccountCryptographicState::V1 { private_key }
@@ -287,7 +228,9 @@ impl WrappedAccountCryptographicState {
                     Box::new(bitwarden_api_api::models::SignatureKeyPairRequestModel {
                         wrapped_signing_key: Some(signing_key.to_string()),
                         verifying_key: Some(B64::from(verifying_key.to_cose()).to_string()),
-                        signature_algorithm: Some(verifying_key.algorithm().to_string()),
+                        signature_algorithm: Some(match verifying_key.algorithm() {
+                            SignatureAlgorithm::Ed25519 => "ed25519".to_string(),
+                        }),
                     })
                 }),
             public_key_encryption_key_pair: Some(Box::new(
@@ -328,8 +271,8 @@ impl WrappedAccountCryptographicState {
     /// Creates a new V2 account cryptographic state with fresh keys. This does not change the user
     /// state, but does set some keys to the local context.
     pub fn make(
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-    ) -> Result<(SymmetricKeySlotId, Self), AccountCryptographyInitializationError> {
+        ctx: &mut KeyStoreContext<KeyIds>,
+    ) -> Result<(SymmetricKeyId, Self), AccountCryptographyInitializationError> {
         let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
         let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
         let signing_key = ctx.make_signing_key(SignatureAlgorithm::Ed25519);
@@ -351,8 +294,8 @@ impl WrappedAccountCryptographicState {
 
     #[cfg(test)]
     fn make_v1(
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-    ) -> Result<(SymmetricKeySlotId, Self), AccountCryptographyInitializationError> {
+        ctx: &mut KeyStoreContext<KeyIds>,
+    ) -> Result<(SymmetricKeyId, Self), AccountCryptographyInitializationError> {
         let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
         let private_key = ctx.make_private_key(PublicKeyEncryptionAlgorithm::RsaOaepSha1);
 
@@ -369,9 +312,9 @@ impl WrappedAccountCryptographicState {
     #[instrument(skip(self, ctx), err)]
     pub fn rotate(
         &self,
-        current_user_key: &SymmetricKeySlotId,
-        new_user_key: &SymmetricKeySlotId,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
+        current_user_key: &SymmetricKeyId,
+        new_user_key: &SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<Self, RotateCryptographyStateError> {
         match self {
             WrappedAccountCryptographicState::V1 { private_key } => {
@@ -454,13 +397,13 @@ impl WrappedAccountCryptographicState {
     pub(crate) fn set_to_context(
         &self,
         security_state_rwlock: &RwLock<Option<SecurityState>>,
-        user_key: SymmetricKeySlotId,
-        store: &KeyStore<KeySlotIds>,
-        mut ctx: KeyStoreContext<KeySlotIds>,
+        user_key: SymmetricKeyId,
+        store: &KeyStore<KeyIds>,
+        mut ctx: KeyStoreContext<KeyIds>,
     ) -> Result<(), AccountCryptographyInitializationError> {
-        if ctx.has_symmetric_key(SymmetricKeySlotId::User)
-            || ctx.has_private_key(PrivateKeySlotId::UserPrivateKey)
-            || ctx.has_signing_key(SigningKeySlotId::UserSigningKey)
+        if ctx.has_symmetric_key(SymmetricKeyId::User)
+            || ctx.has_private_key(PrivateKeyId::UserPrivateKey)
+            || ctx.has_signing_key(SigningKeyId::UserSigningKey)
         {
             return Err(AccountCryptographyInitializationError::KeyStoreAlreadyInitialized);
         }
@@ -477,24 +420,24 @@ impl WrappedAccountCryptographicState {
                 // Some users have unreadable V1 private keys. In this case, we set no keys to
                 // state.
                 if let Ok(private_key_id) = ctx.unwrap_private_key(user_key, private_key) {
-                    ctx.persist_private_key(private_key_id, PrivateKeySlotId::UserPrivateKey)?;
+                    ctx.persist_private_key(private_key_id, PrivateKeyId::UserPrivateKey)?;
                 } else {
                     tracing::warn!(
                         "V1 private key could not be unwrapped, skipping setting private key"
                     );
                 }
 
-                ctx.persist_symmetric_key(user_key, SymmetricKeySlotId::User)?;
+                ctx.persist_symmetric_key(user_key, SymmetricKeyId::User)?;
                 #[cfg(feature = "dangerous-crypto-debug")]
                 #[allow(deprecated)]
                 {
                     let user_key = ctx
-                        .dangerous_get_symmetric_key(SymmetricKeySlotId::User)
+                        .dangerous_get_symmetric_key(SymmetricKeyId::User)
                         .expect("User key should be set");
                     let private_key = ctx
-                        .dangerous_get_private_key(PrivateKeySlotId::UserPrivateKey)
+                        .dangerous_get_private_key(PrivateKeyId::UserPrivateKey)
                         .ok();
-                    let public_key = ctx.get_public_key(PrivateKeySlotId::UserPrivateKey).ok();
+                    let public_key = ctx.get_public_key(PrivateKeyId::UserPrivateKey).ok();
                     info!(
                         ?user_key,
                         ?private_key,
@@ -540,25 +483,24 @@ impl WrappedAccountCryptographicState {
                     verifying_key = ?verifying_key,
                     "V2 account cryptographic state verified"
                 );
-                ctx.persist_private_key(private_key_id, PrivateKeySlotId::UserPrivateKey)?;
-                ctx.persist_signing_key(signing_key_id, SigningKeySlotId::UserSigningKey)?;
-                ctx.persist_symmetric_key(user_key, SymmetricKeySlotId::User)?;
+                ctx.persist_private_key(private_key_id, PrivateKeyId::UserPrivateKey)?;
+                ctx.persist_signing_key(signing_key_id, SigningKeyId::UserSigningKey)?;
+                ctx.persist_symmetric_key(user_key, SymmetricKeyId::User)?;
 
                 #[cfg(feature = "dangerous-crypto-debug")]
                 #[allow(deprecated)]
                 {
                     let user_key = ctx
-                        .dangerous_get_symmetric_key(SymmetricKeySlotId::User)
+                        .dangerous_get_symmetric_key(SymmetricKeyId::User)
                         .expect("User key should be set");
                     let private_key = ctx
-                        .dangerous_get_private_key(PrivateKeySlotId::UserPrivateKey)
+                        .dangerous_get_private_key(PrivateKeyId::UserPrivateKey)
                         .ok();
                     let signing_key = ctx
-                        .dangerous_get_signing_key(SigningKeySlotId::UserSigningKey)
+                        .dangerous_get_signing_key(SigningKeyId::UserSigningKey)
                         .ok();
-                    let verifying_key =
-                        ctx.get_verifying_key(SigningKeySlotId::UserSigningKey).ok();
-                    let public_key = ctx.get_public_key(PrivateKeySlotId::UserPrivateKey).ok();
+                    let verifying_key = ctx.get_verifying_key(SigningKeyId::UserSigningKey).ok();
+                    let public_key = ctx.get_public_key(PrivateKeyId::UserPrivateKey).ok();
                     info!(
                         ?user_key,
                         ?private_key,
@@ -602,12 +544,12 @@ mod tests {
     use bitwarden_crypto::{KeyStore, PrimitiveEncryptable};
 
     use super::*;
-    use crate::key_management::{PrivateKeySlotId, SigningKeySlotId, SymmetricKeySlotId};
+    use crate::key_management::{PrivateKeyId, SigningKeyId, SymmetricKeyId};
 
     #[test]
     #[ignore = "Manual test to verify debug format"]
     fn test_debug() {
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         let (_, v1) = WrappedAccountCryptographicState::make_v1(&mut ctx).unwrap();
@@ -628,7 +570,7 @@ mod tests {
     #[test]
     fn test_set_to_context_v1() {
         // Prepare a temporary store to create wrapped state using a known user key
-        let temp_store: KeyStore<KeySlotIds> = KeyStore::default();
+        let temp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut temp_ctx = temp_store.context_mut();
 
         // Create a V1-style user key (Aes256CbcHmac) and add to temp context
@@ -651,7 +593,7 @@ mod tests {
         drop(temp_store);
 
         // Now attempt to set this wrapped state into a fresh store using the same user key
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let user_key = ctx.add_local_symmetric_key(user_key);
         let security_state = RwLock::new(None);
@@ -663,14 +605,14 @@ mod tests {
         let ctx = store.context();
 
         // Assert that the private key and user symmetric key were set in the store
-        assert!(ctx.has_private_key(PrivateKeySlotId::UserPrivateKey));
-        assert!(ctx.has_symmetric_key(SymmetricKeySlotId::User));
+        assert!(ctx.has_private_key(PrivateKeyId::UserPrivateKey));
+        assert!(ctx.has_symmetric_key(SymmetricKeyId::User));
     }
 
     #[test]
     fn test_set_to_context_v2() {
         // Prepare a temporary store to create wrapped state using a known user key
-        let temp_store: KeyStore<KeySlotIds> = KeyStore::default();
+        let temp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut temp_ctx = temp_store.context_mut();
 
         // Create a V2-style user key (XChaCha20Poly1305) and add to temp context
@@ -706,7 +648,7 @@ mod tests {
         drop(temp_store);
 
         // Now attempt to set this wrapped state into a fresh store using the same user key
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let user_key = ctx.add_local_symmetric_key(user_key);
         let security_state = RwLock::new(None);
@@ -715,17 +657,17 @@ mod tests {
             .set_to_context(&security_state, user_key, &store, ctx)
             .unwrap();
 
-        assert!(store.context().has_symmetric_key(SymmetricKeySlotId::User));
+        assert!(store.context().has_symmetric_key(SymmetricKeyId::User));
         // Assert that the account keys and security state were set
         assert!(
             store
                 .context()
-                .has_private_key(PrivateKeySlotId::UserPrivateKey)
+                .has_private_key(PrivateKeyId::UserPrivateKey)
         );
         assert!(
             store
                 .context()
-                .has_signing_key(SigningKeySlotId::UserSigningKey)
+                .has_signing_key(SigningKeyId::UserSigningKey)
         );
         // Ensure security state was recorded
         assert!(security_state.read().unwrap().is_some());
@@ -733,7 +675,7 @@ mod tests {
 
     #[test]
     fn test_to_private_keys_request_model_v2() {
-        let temp_store: KeyStore<KeySlotIds> = KeyStore::default();
+        let temp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut temp_ctx = temp_store.context_mut();
         let (user_key, wrapped_account_cryptography_state) =
             WrappedAccountCryptographicState::make(&mut temp_ctx).unwrap();
@@ -744,7 +686,7 @@ mod tests {
 
         let mut ctx = temp_store.context_mut();
         let model = wrapped_account_cryptography_state
-            .to_request_model(&SymmetricKeySlotId::User, &mut ctx)
+            .to_request_model(&SymmetricKeyId::User, &mut ctx)
             .expect("to_private_keys_request_model should succeed");
         drop(ctx);
 
@@ -756,7 +698,7 @@ mod tests {
         assert_eq!(
             sig_pair.verifying_key.unwrap(),
             B64::from(
-                ctx.get_verifying_key(SigningKeySlotId::UserSigningKey)
+                ctx.get_verifying_key(SigningKeyId::UserSigningKey)
                     .unwrap()
                     .to_cose()
             )
@@ -767,7 +709,7 @@ mod tests {
         assert_eq!(
             pk_pair.public_key.unwrap(),
             B64::from(
-                ctx.get_public_key(PrivateKeySlotId::UserPrivateKey)
+                ctx.get_public_key(PrivateKeyId::UserPrivateKey)
                     .unwrap()
                     .to_der()
                     .unwrap()
@@ -782,10 +724,7 @@ mod tests {
         let security_state =
             SignedSecurityState::from_str(signed_security_state.security_state.unwrap().as_str())
                 .unwrap()
-                .verify_and_unwrap(
-                    &ctx.get_verifying_key(SigningKeySlotId::UserSigningKey)
-                        .unwrap(),
-                )
+                .verify_and_unwrap(&ctx.get_verifying_key(SigningKeyId::UserSigningKey).unwrap())
                 .expect("security state should verify");
         assert_eq!(
             security_state.version(),
@@ -797,7 +736,7 @@ mod tests {
     fn test_set_to_context_v1_corrupt_private_key() {
         // Test that a V1 account with a corrupt private key (valid EncString but invalid key data)
         // can still initialize, but skips setting the private key
-        let temp_store: KeyStore<KeySlotIds> = KeyStore::default();
+        let temp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut temp_ctx = temp_store.context_mut();
 
         let user_key = temp_ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
@@ -819,7 +758,7 @@ mod tests {
         drop(temp_store);
 
         // Now attempt to set this wrapped state into a fresh store
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let user_key = ctx.add_local_symmetric_key(user_key_material);
         let security_state = RwLock::new(None);
@@ -831,9 +770,9 @@ mod tests {
         let ctx = store.context();
 
         // The user symmetric key should be set
-        assert!(ctx.has_symmetric_key(SymmetricKeySlotId::User));
+        assert!(ctx.has_symmetric_key(SymmetricKeyId::User));
         // But the private key should NOT be set (due to corruption)
-        assert!(!ctx.has_private_key(PrivateKeySlotId::UserPrivateKey));
+        assert!(!ctx.has_private_key(PrivateKeyId::UserPrivateKey));
     }
 
     #[test]
@@ -843,7 +782,7 @@ mod tests {
             SignatureKeyPairResponseModel,
         };
 
-        let temp_store: KeyStore<KeySlotIds> = KeyStore::default();
+        let temp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut temp_ctx = temp_store.context_mut();
         let (user_key, wrapped_state) =
             WrappedAccountCryptographicState::make(&mut temp_ctx).unwrap();
@@ -854,7 +793,7 @@ mod tests {
 
         let mut ctx = temp_store.context_mut();
         let request_model = wrapped_state
-            .to_request_model(&SymmetricKeySlotId::User, &mut ctx)
+            .to_request_model(&SymmetricKeyId::User, &mut ctx)
             .unwrap();
         drop(ctx);
 
@@ -891,7 +830,7 @@ mod tests {
     fn test_try_from_response_v1() {
         use bitwarden_api_api::models::PublicKeyEncryptionKeyPairResponseModel;
 
-        let temp_store: KeyStore<KeySlotIds> = KeyStore::default();
+        let temp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut temp_ctx = temp_store.context_mut();
         let (_user_key, wrapped_state) =
             WrappedAccountCryptographicState::make_v1(&mut temp_ctx).unwrap();
@@ -952,7 +891,7 @@ mod tests {
         use bitwarden_api_api::models::PublicKeyEncryptionKeyPairResponseModel;
 
         // Create a V2 state to get a COSE-encrypted private key
-        let temp_store: KeyStore<KeySlotIds> = KeyStore::default();
+        let temp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut temp_ctx = temp_store.context_mut();
         let (user_key, wrapped_state) =
             WrappedAccountCryptographicState::make(&mut temp_ctx).unwrap();
@@ -963,7 +902,7 @@ mod tests {
 
         let mut ctx = temp_store.context_mut();
         let request_model = wrapped_state
-            .to_request_model(&SymmetricKeySlotId::User, &mut ctx)
+            .to_request_model(&SymmetricKeyId::User, &mut ctx)
             .unwrap();
         drop(ctx);
 
@@ -996,7 +935,7 @@ mod tests {
         };
 
         // Create a V1 state to get an AES-encrypted private key
-        let temp_store: KeyStore<KeySlotIds> = KeyStore::default();
+        let temp_store: KeyStore<KeyIds> = KeyStore::default();
         let mut temp_ctx = temp_store.context_mut();
         let (_user_key, wrapped_state) =
             WrappedAccountCryptographicState::make_v1(&mut temp_ctx).unwrap();
@@ -1034,7 +973,7 @@ mod tests {
     #[test]
     fn test_rotate_v1_to_v2() {
         // Create a key store and context
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         // Create a V1-style user key and add to context
@@ -1057,7 +996,7 @@ mod tests {
 
         // Rotate the state
         let rotated_state = wrapped_state
-            .rotate(&SymmetricKeySlotId::User, &new_user_key_id, &mut ctx)
+            .rotate(&SymmetricKeyId::User, &new_user_key_id, &mut ctx)
             .unwrap();
 
         // We need to ensure two things after a rotation from V1 to V2:
@@ -1069,7 +1008,7 @@ mod tests {
             WrappedAccountCryptographicState::V2 { .. } => {}
             _ => panic!("Expected V2 after rotation from V1"),
         }
-        let store_2 = KeyStore::<KeySlotIds>::default();
+        let store_2 = KeyStore::<KeyIds>::default();
         let mut ctx_2 = store_2.context_mut();
         let user_key_id = ctx_2.add_local_symmetric_key(new_user_key_owned.clone());
         rotated_state
@@ -1080,10 +1019,10 @@ mod tests {
 
         // 2. The new state uses the same private and signing keys
         let public_key_before_rotation = ctx
-            .get_public_key(PrivateKeySlotId::UserPrivateKey)
+            .get_public_key(PrivateKeyId::UserPrivateKey)
             .expect("Private key should be present in context before rotation");
         let public_key_after_rotation = ctx_2
-            .get_public_key(PrivateKeySlotId::UserPrivateKey)
+            .get_public_key(PrivateKeyId::UserPrivateKey)
             .expect("Private key should be present in context after rotation");
         assert_eq!(
             public_key_before_rotation.to_der().unwrap(),
@@ -1095,7 +1034,7 @@ mod tests {
     #[test]
     fn test_rotate_v2() {
         // Create a key store and context
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let store: KeyStore<KeyIds> = KeyStore::default();
         let mut ctx = store.context_mut();
 
         // Create a V2-style user key and add to context
@@ -1118,7 +1057,7 @@ mod tests {
 
         // Rotate the state
         let rotated_state = wrapped_state
-            .rotate(&SymmetricKeySlotId::User, &new_user_key_id, &mut ctx)
+            .rotate(&SymmetricKeyId::User, &new_user_key_id, &mut ctx)
             .unwrap();
 
         // We need to ensure two things after a rotation from V1 to V2:
@@ -1130,7 +1069,7 @@ mod tests {
             WrappedAccountCryptographicState::V2 { .. } => {}
             _ => panic!("Expected V2 after rotation from V2"),
         }
-        let store_2 = KeyStore::<KeySlotIds>::default();
+        let store_2 = KeyStore::<KeyIds>::default();
         let mut ctx_2 = store_2.context_mut();
         let user_key_id = ctx_2.add_local_symmetric_key(new_user_key_owned.clone());
         rotated_state
@@ -1141,10 +1080,10 @@ mod tests {
 
         // 2. The new state uses the same private and signing keys
         let verifying_key_before_rotation = ctx
-            .get_verifying_key(SigningKeySlotId::UserSigningKey)
+            .get_verifying_key(SigningKeyId::UserSigningKey)
             .expect("Signing key should be present in context before rotation");
         let verifying_key_after_rotation = ctx_2
-            .get_verifying_key(SigningKeySlotId::UserSigningKey)
+            .get_verifying_key(SigningKeyId::UserSigningKey)
             .expect("Signing key should be present in context after rotation");
         assert_eq!(
             verifying_key_before_rotation.to_cose(),
@@ -1153,127 +1092,15 @@ mod tests {
         );
 
         let public_key_before_rotation = ctx
-            .get_public_key(PrivateKeySlotId::UserPrivateKey)
+            .get_public_key(PrivateKeyId::UserPrivateKey)
             .expect("Private key should be present in context before rotation");
         let public_key_after_rotation = ctx_2
-            .get_public_key(PrivateKeySlotId::UserPrivateKey)
+            .get_public_key(PrivateKeyId::UserPrivateKey)
             .expect("Private key should be present in context after rotation");
         assert_eq!(
             public_key_before_rotation.to_der().unwrap(),
             public_key_after_rotation.to_der().unwrap(),
             "Private key should be preserved during rotation from V2 to V2"
         );
-    }
-
-    #[test]
-    fn test_to_wrapped_request_model_v1_returns_wrong_user_key_type() {
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
-        let mut ctx = store.context_mut();
-        let (user_key_id, wrapped) = WrappedAccountCryptographicState::make_v1(&mut ctx).unwrap();
-        let result = wrapped.to_wrapped_request_model(&user_key_id, &mut ctx);
-        assert!(matches!(
-            result.unwrap_err(),
-            AccountCryptographyInitializationError::WrongUserKeyType
-        ));
-    }
-
-    #[test]
-    fn test_to_wrapped_request_model_v2() {
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
-        let mut ctx = store.context_mut();
-        let (user_key_id, wrapped) = WrappedAccountCryptographicState::make(&mut ctx).unwrap();
-        let result = wrapped
-            .to_wrapped_request_model(&user_key_id, &mut ctx)
-            .unwrap();
-
-        let wrapped_signing_key_str = result
-            .signature_key_pair
-            .wrapped_signing_key
-            .as_ref()
-            .unwrap();
-        assert!(!wrapped_signing_key_str.is_empty());
-
-        let enc_signing_key: EncString = wrapped_signing_key_str.parse().unwrap();
-        let signing_key_tmp = ctx
-            .unwrap_signing_key(user_key_id, &enc_signing_key)
-            .unwrap();
-        let verifying_key = ctx.get_verifying_key(signing_key_tmp).unwrap();
-        let expected = B64::from(verifying_key.to_cose()).to_string();
-        assert!(
-            result
-                .signature_key_pair
-                .verifying_key
-                .as_ref()
-                .is_some_and(|s| s == &expected),
-            "verifying_key should match expected value"
-        );
-
-        assert_eq!(
-            result.signature_key_pair.signature_algorithm.as_deref(),
-            Some("ed25519")
-        );
-
-        assert!(
-            result
-                .public_key_encryption_key_pair
-                .wrapped_private_key
-                .as_ref()
-                .is_some_and(|s| !s.is_empty()),
-            "wrapped_private_key should be non-empty"
-        );
-        let wrapped_private_key_str = result
-            .public_key_encryption_key_pair
-            .wrapped_private_key
-            .as_ref()
-            .unwrap();
-        let enc_private_key: EncString = wrapped_private_key_str.parse().unwrap();
-        let private_key_tmp = ctx
-            .unwrap_private_key(user_key_id, &enc_private_key)
-            .unwrap();
-        let public_key = ctx.get_public_key(private_key_tmp).unwrap();
-
-        let expected = B64::from(public_key.to_der().unwrap()).to_string();
-        assert!(
-            result
-                .public_key_encryption_key_pair
-                .public_key
-                .as_ref()
-                .is_some_and(|s| s == &expected),
-            "public_key should match expected value"
-        );
-        assert!(
-            result
-                .public_key_encryption_key_pair
-                .signed_public_key
-                .is_some(),
-            "signed_public_key should be present"
-        );
-        assert!(
-            result
-                .security_state
-                .security_state
-                .as_ref()
-                .is_some_and(|s| !s.is_empty()),
-            "security_state string should be non-empty"
-        );
-        assert!(result.security_state.security_version == 2);
-    }
-
-    #[test]
-    fn test_to_wrapped_request_model_wrong_user_key_returns_error() {
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
-        let mut ctx = store.context_mut();
-        let (_user_key_id, wrapped) = WrappedAccountCryptographicState::make(&mut ctx).unwrap();
-
-        // Create a different XChaCha20Poly1305 user key that wasn't used to wrap these keys
-        let wrong_user_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::XChaCha20Poly1305);
-
-        let result = wrapped.to_wrapped_request_model(&wrong_user_key_id, &mut ctx);
-        assert!(result.is_err());
-        // Decryption failure, not a key type mismatch
-        assert!(!matches!(
-            result.unwrap_err(),
-            AccountCryptographyInitializationError::WrongUserKeyType
-        ));
     }
 }

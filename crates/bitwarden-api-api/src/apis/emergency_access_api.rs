@@ -31,10 +31,10 @@ pub trait EmergencyAccessApi: Send + Sync {
         &self,
         id: uuid::Uuid,
         organization_user_accept_request_model: Option<models::OrganizationUserAcceptRequestModel>,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<AcceptError>>;
 
     /// POST /emergency-access/{id}/approve
-    async fn approve<'a>(&self, id: uuid::Uuid) -> Result<(), Error>;
+    async fn approve<'a>(&self, id: uuid::Uuid) -> Result<(), Error<ApproveError>>;
 
     /// POST /emergency-access/{id}/confirm
     async fn confirm<'a>(
@@ -43,16 +43,16 @@ pub trait EmergencyAccessApi: Send + Sync {
         organization_user_confirm_request_model: Option<
             models::OrganizationUserConfirmRequestModel,
         >,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<ConfirmError>>;
 
     /// DELETE /emergency-access/{id}
-    async fn delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error>;
+    async fn delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error<DeleteError>>;
 
     /// GET /emergency-access/{id}
     async fn get<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::EmergencyAccessGranteeDetailsResponseModel, Error>;
+    ) -> Result<models::EmergencyAccessGranteeDetailsResponseModel, Error<GetError>>;
 
     /// GET /emergency-access/{id}/{cipherId}/attachment/{attachmentId}
     async fn get_attachment_data<'a>(
@@ -60,26 +60,32 @@ pub trait EmergencyAccessApi: Send + Sync {
         id: uuid::Uuid,
         cipher_id: uuid::Uuid,
         attachment_id: &'a str,
-    ) -> Result<models::AttachmentResponseModel, Error>;
+    ) -> Result<models::AttachmentResponseModel, Error<GetAttachmentDataError>>;
 
     /// GET /emergency-access/trusted
     async fn get_contacts(
         &self,
-    ) -> Result<models::EmergencyAccessGranteeDetailsResponseModelListResponseModel, Error>;
+    ) -> Result<
+        models::EmergencyAccessGranteeDetailsResponseModelListResponseModel,
+        Error<GetContactsError>,
+    >;
 
     /// GET /emergency-access/granted
     async fn get_grantees(
         &self,
-    ) -> Result<models::EmergencyAccessGrantorDetailsResponseModelListResponseModel, Error>;
+    ) -> Result<
+        models::EmergencyAccessGrantorDetailsResponseModelListResponseModel,
+        Error<GetGranteesError>,
+    >;
 
     /// POST /emergency-access/{id}/initiate
-    async fn initiate<'a>(&self, id: uuid::Uuid) -> Result<(), Error>;
+    async fn initiate<'a>(&self, id: uuid::Uuid) -> Result<(), Error<InitiateError>>;
 
     /// POST /emergency-access/invite
     async fn invite<'a>(
         &self,
         emergency_access_invite_request_model: Option<models::EmergencyAccessInviteRequestModel>,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<InviteError>>;
 
     /// POST /emergency-access/{id}/password
     async fn password<'a>(
@@ -88,38 +94,38 @@ pub trait EmergencyAccessApi: Send + Sync {
         emergency_access_password_request_model: Option<
             models::EmergencyAccessPasswordRequestModel,
         >,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<PasswordError>>;
 
     /// GET /emergency-access/{id}/policies
     async fn policies<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::PolicyResponseModelListResponseModel, Error>;
+    ) -> Result<models::PolicyResponseModelListResponseModel, Error<PoliciesError>>;
 
     /// PUT /emergency-access/{id}
     async fn put<'a>(
         &self,
         id: uuid::Uuid,
         emergency_access_update_request_model: Option<models::EmergencyAccessUpdateRequestModel>,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<PutError>>;
 
     /// POST /emergency-access/{id}/reinvite
-    async fn reinvite<'a>(&self, id: uuid::Uuid) -> Result<(), Error>;
+    async fn reinvite<'a>(&self, id: uuid::Uuid) -> Result<(), Error<ReinviteError>>;
 
     /// POST /emergency-access/{id}/reject
-    async fn reject<'a>(&self, id: uuid::Uuid) -> Result<(), Error>;
+    async fn reject<'a>(&self, id: uuid::Uuid) -> Result<(), Error<RejectError>>;
 
     /// POST /emergency-access/{id}/takeover
     async fn takeover<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::EmergencyAccessTakeoverResponseModel, Error>;
+    ) -> Result<models::EmergencyAccessTakeoverResponseModel, Error<TakeoverError>>;
 
     /// POST /emergency-access/{id}/view
     async fn view_ciphers<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::EmergencyAccessViewResponseModel, Error>;
+    ) -> Result<models::EmergencyAccessViewResponseModel, Error<ViewCiphersError>>;
 }
 
 pub struct EmergencyAccessApiClient {
@@ -139,7 +145,7 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
         &self,
         id: uuid::Uuid,
         organization_user_accept_request_model: Option<models::OrganizationUserAcceptRequestModel>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<AcceptError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -155,10 +161,26 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&organization_user_accept_request_model);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<AcceptError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
-    async fn approve<'a>(&self, id: uuid::Uuid) -> Result<(), Error> {
+    async fn approve<'a>(&self, id: uuid::Uuid) -> Result<(), Error<ApproveError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -173,7 +195,23 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<ApproveError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn confirm<'a>(
@@ -182,7 +220,7 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
         organization_user_confirm_request_model: Option<
             models::OrganizationUserConfirmRequestModel,
         >,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<ConfirmError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -199,10 +237,26 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&organization_user_confirm_request_model);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<ConfirmError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
-    async fn delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error> {
+    async fn delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error<DeleteError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -217,13 +271,29 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<DeleteError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn get<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::EmergencyAccessGranteeDetailsResponseModel, Error> {
+    ) -> Result<models::EmergencyAccessGranteeDetailsResponseModel, Error<GetError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -238,7 +308,40 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::EmergencyAccessGranteeDetailsResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::EmergencyAccessGranteeDetailsResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn get_attachment_data<'a>(
@@ -246,7 +349,7 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
         id: uuid::Uuid,
         cipher_id: uuid::Uuid,
         attachment_id: &'a str,
-    ) -> Result<models::AttachmentResponseModel, Error> {
+    ) -> Result<models::AttachmentResponseModel, Error<GetAttachmentDataError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -263,12 +366,49 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::AttachmentResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::AttachmentResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<GetAttachmentDataError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn get_contacts(
         &self,
-    ) -> Result<models::EmergencyAccessGranteeDetailsResponseModelListResponseModel, Error> {
+    ) -> Result<
+        models::EmergencyAccessGranteeDetailsResponseModelListResponseModel,
+        Error<GetContactsError>,
+    > {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -282,12 +422,49 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::EmergencyAccessGranteeDetailsResponseModelListResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::EmergencyAccessGranteeDetailsResponseModelListResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<GetContactsError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn get_grantees(
         &self,
-    ) -> Result<models::EmergencyAccessGrantorDetailsResponseModelListResponseModel, Error> {
+    ) -> Result<
+        models::EmergencyAccessGrantorDetailsResponseModelListResponseModel,
+        Error<GetGranteesError>,
+    > {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -301,10 +478,44 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::EmergencyAccessGrantorDetailsResponseModelListResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::EmergencyAccessGrantorDetailsResponseModelListResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<GetGranteesError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
-    async fn initiate<'a>(&self, id: uuid::Uuid) -> Result<(), Error> {
+    async fn initiate<'a>(&self, id: uuid::Uuid) -> Result<(), Error<InitiateError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -319,13 +530,29 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<InitiateError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn invite<'a>(
         &self,
         emergency_access_invite_request_model: Option<models::EmergencyAccessInviteRequestModel>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<InviteError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -340,7 +567,23 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&emergency_access_invite_request_model);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<InviteError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn password<'a>(
@@ -349,7 +592,7 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
         emergency_access_password_request_model: Option<
             models::EmergencyAccessPasswordRequestModel,
         >,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<PasswordError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -366,13 +609,29 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&emergency_access_password_request_model);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<PasswordError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn policies<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::PolicyResponseModelListResponseModel, Error> {
+    ) -> Result<models::PolicyResponseModelListResponseModel, Error<PoliciesError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -387,14 +646,48 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::PolicyResponseModelListResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PolicyResponseModelListResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<PoliciesError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn put<'a>(
         &self,
         id: uuid::Uuid,
         emergency_access_update_request_model: Option<models::EmergencyAccessUpdateRequestModel>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<PutError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -410,10 +703,25 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&emergency_access_update_request_model);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<PutError> = serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
-    async fn reinvite<'a>(&self, id: uuid::Uuid) -> Result<(), Error> {
+    async fn reinvite<'a>(&self, id: uuid::Uuid) -> Result<(), Error<ReinviteError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -428,10 +736,26 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<ReinviteError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
-    async fn reject<'a>(&self, id: uuid::Uuid) -> Result<(), Error> {
+    async fn reject<'a>(&self, id: uuid::Uuid) -> Result<(), Error<RejectError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -446,13 +770,29 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<RejectError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn takeover<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::EmergencyAccessTakeoverResponseModel, Error> {
+    ) -> Result<models::EmergencyAccessTakeoverResponseModel, Error<TakeoverError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -467,13 +807,47 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::EmergencyAccessTakeoverResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::EmergencyAccessTakeoverResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<TakeoverError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn view_ciphers<'a>(
         &self,
         id: uuid::Uuid,
-    ) -> Result<models::EmergencyAccessViewResponseModel, Error> {
+    ) -> Result<models::EmergencyAccessViewResponseModel, Error<ViewCiphersError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -488,6 +862,143 @@ impl EmergencyAccessApi for EmergencyAccessApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::EmergencyAccessViewResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::EmergencyAccessViewResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<ViewCiphersError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
+}
+
+/// struct for typed errors of method [`EmergencyAccessApi::accept`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AcceptError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`EmergencyAccessApi::approve`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ApproveError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`EmergencyAccessApi::confirm`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ConfirmError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`EmergencyAccessApi::delete`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DeleteError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`EmergencyAccessApi::get`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`EmergencyAccessApi::get_attachment_data`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetAttachmentDataError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`EmergencyAccessApi::get_contacts`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetContactsError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`EmergencyAccessApi::get_grantees`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetGranteesError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`EmergencyAccessApi::initiate`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum InitiateError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`EmergencyAccessApi::invite`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum InviteError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`EmergencyAccessApi::password`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PasswordError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`EmergencyAccessApi::policies`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PoliciesError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`EmergencyAccessApi::put`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PutError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`EmergencyAccessApi::reinvite`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ReinviteError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`EmergencyAccessApi::reject`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum RejectError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`EmergencyAccessApi::takeover`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TakeoverError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`EmergencyAccessApi::view_ciphers`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ViewCiphersError {
+    UnknownValue(serde_json::Value),
 }

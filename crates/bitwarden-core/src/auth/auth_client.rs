@@ -83,18 +83,18 @@ impl AuthClient {
     }
 
     #[allow(missing_docs)]
-    pub async fn make_register_tde_keys(
+    pub fn make_register_tde_keys(
         &self,
         email: String,
         org_public_key: B64,
         remember_device: bool,
     ) -> Result<RegisterTdeKeyResponse, EncryptionSettingsError> {
-        make_register_tde_keys(&self.client, email, org_public_key, remember_device).await
+        make_register_tde_keys(&self.client, email, org_public_key, remember_device)
     }
 
     #[allow(missing_docs)]
     pub fn make_key_connector_keys(&self) -> Result<KeyConnectorResponse, CryptoError> {
-        let mut rng = rand::rng();
+        let mut rng = rand::thread_rng();
         make_key_connector_keys(&mut rng)
     }
 
@@ -130,30 +130,30 @@ impl AuthClient {
     }
 
     #[allow(missing_docs)]
-    pub async fn validate_password(
+    pub fn validate_password(
         &self,
         password: String,
         password_hash: B64,
     ) -> Result<bool, AuthValidateError> {
-        validate_password(&self.client, password, password_hash).await
+        validate_password(&self.client, password, password_hash)
     }
 
     #[allow(missing_docs)]
-    pub async fn validate_password_user_key(
+    pub fn validate_password_user_key(
         &self,
         password: String,
         encrypted_user_key: String,
     ) -> Result<B64, AuthValidateError> {
-        validate_password_user_key(&self.client, password, encrypted_user_key).await
+        validate_password_user_key(&self.client, password, encrypted_user_key)
     }
 
     #[allow(missing_docs)]
-    pub async fn validate_pin(
+    pub fn validate_pin(
         &self,
         pin: String,
         pin_protected_user_key: EncString,
     ) -> Result<bool, AuthValidateError> {
-        validate_pin(&self.client, pin, pin_protected_user_key).await
+        validate_pin(&self.client, pin, pin_protected_user_key)
     }
 
     /// Validates a PIN against a PIN-protected user key envelope.
@@ -223,13 +223,13 @@ pub enum TrustDeviceError {
 
 #[cfg(feature = "internal")]
 fn trust_device(client: &Client) -> Result<TrustDeviceResponse, TrustDeviceError> {
-    use crate::key_management::SymmetricKeySlotId;
+    use crate::key_management::SymmetricKeyId;
 
     let key_store = client.internal.get_key_store();
     let ctx = key_store.context();
-    // FIXME: [PM-18099] Once DeviceKey deals with KeySlotIds, this should be updated
+    // FIXME: [PM-18099] Once DeviceKey deals with KeyIds, this should be updated
     #[allow(deprecated)]
-    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)?;
+    let user_key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     Ok(DeviceKey::trust_device(user_key)?)
 }

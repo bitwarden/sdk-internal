@@ -30,49 +30,50 @@ pub trait SecretsApi: Send + Sync {
     async fn bulk_delete<'a>(
         &self,
         uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-    ) -> Result<models::BulkDeleteResponseModelListResponseModel, Error>;
+    ) -> Result<models::BulkDeleteResponseModelListResponseModel, Error<BulkDeleteError>>;
 
     /// POST /organizations/{organizationId}/secrets
     async fn create<'a>(
         &self,
         organization_id: uuid::Uuid,
         secret_create_request_model: Option<models::SecretCreateRequestModel>,
-    ) -> Result<models::SecretResponseModel, Error>;
+    ) -> Result<models::SecretResponseModel, Error<CreateError>>;
 
     /// GET /secrets/{id}
-    async fn get<'a>(&self, id: uuid::Uuid) -> Result<models::SecretResponseModel, Error>;
+    async fn get<'a>(&self, id: uuid::Uuid)
+    -> Result<models::SecretResponseModel, Error<GetError>>;
 
     /// POST /secrets/get-by-ids
     async fn get_secrets_by_ids<'a>(
         &self,
         get_secrets_request_model: Option<models::GetSecretsRequestModel>,
-    ) -> Result<models::BaseSecretResponseModelListResponseModel, Error>;
+    ) -> Result<models::BaseSecretResponseModelListResponseModel, Error<GetSecretsByIdsError>>;
 
     /// GET /projects/{projectId}/secrets
     async fn get_secrets_by_project<'a>(
         &self,
         project_id: uuid::Uuid,
-    ) -> Result<models::SecretWithProjectsListResponseModel, Error>;
+    ) -> Result<models::SecretWithProjectsListResponseModel, Error<GetSecretsByProjectError>>;
 
     /// GET /organizations/{organizationId}/secrets/sync
     async fn get_secrets_sync<'a>(
         &self,
         organization_id: uuid::Uuid,
         last_synced_date: Option<String>,
-    ) -> Result<models::SecretsSyncResponseModel, Error>;
+    ) -> Result<models::SecretsSyncResponseModel, Error<GetSecretsSyncError>>;
 
     /// GET /organizations/{organizationId}/secrets
     async fn list_by_organization<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::SecretWithProjectsListResponseModel, Error>;
+    ) -> Result<models::SecretWithProjectsListResponseModel, Error<ListByOrganizationError>>;
 
     /// PUT /secrets/{id}
     async fn update_secret<'a>(
         &self,
         id: uuid::Uuid,
         secret_update_request_model: Option<models::SecretUpdateRequestModel>,
-    ) -> Result<models::SecretResponseModel, Error>;
+    ) -> Result<models::SecretResponseModel, Error<UpdateSecretError>>;
 }
 
 pub struct SecretsApiClient {
@@ -91,7 +92,7 @@ impl SecretsApi for SecretsApiClient {
     async fn bulk_delete<'a>(
         &self,
         uuid_colon_colon_uuid: Option<Vec<uuid::Uuid>>,
-    ) -> Result<models::BulkDeleteResponseModelListResponseModel, Error> {
+    ) -> Result<models::BulkDeleteResponseModelListResponseModel, Error<BulkDeleteError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -103,14 +104,48 @@ impl SecretsApi for SecretsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&uuid_colon_colon_uuid);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::BulkDeleteResponseModelListResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::BulkDeleteResponseModelListResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<BulkDeleteError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn create<'a>(
         &self,
         organization_id: uuid::Uuid,
         secret_create_request_model: Option<models::SecretCreateRequestModel>,
-    ) -> Result<models::SecretResponseModel, Error> {
+    ) -> Result<models::SecretResponseModel, Error<CreateError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -126,10 +161,47 @@ impl SecretsApi for SecretsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&secret_create_request_model);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::SecretResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SecretResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<CreateError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
-    async fn get<'a>(&self, id: uuid::Uuid) -> Result<models::SecretResponseModel, Error> {
+    async fn get<'a>(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<models::SecretResponseModel, Error<GetError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -144,13 +216,46 @@ impl SecretsApi for SecretsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::SecretResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SecretResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn get_secrets_by_ids<'a>(
         &self,
         get_secrets_request_model: Option<models::GetSecretsRequestModel>,
-    ) -> Result<models::BaseSecretResponseModelListResponseModel, Error> {
+    ) -> Result<models::BaseSecretResponseModelListResponseModel, Error<GetSecretsByIdsError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -162,13 +267,47 @@ impl SecretsApi for SecretsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&get_secrets_request_model);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::BaseSecretResponseModelListResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::BaseSecretResponseModelListResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<GetSecretsByIdsError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn get_secrets_by_project<'a>(
         &self,
         project_id: uuid::Uuid,
-    ) -> Result<models::SecretWithProjectsListResponseModel, Error> {
+    ) -> Result<models::SecretWithProjectsListResponseModel, Error<GetSecretsByProjectError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -183,14 +322,48 @@ impl SecretsApi for SecretsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::SecretWithProjectsListResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SecretWithProjectsListResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<GetSecretsByProjectError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn get_secrets_sync<'a>(
         &self,
         organization_id: uuid::Uuid,
         last_synced_date: Option<String>,
-    ) -> Result<models::SecretsSyncResponseModel, Error> {
+    ) -> Result<models::SecretsSyncResponseModel, Error<GetSecretsSyncError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -209,13 +382,47 @@ impl SecretsApi for SecretsApiClient {
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::SecretsSyncResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SecretsSyncResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<GetSecretsSyncError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn list_by_organization<'a>(
         &self,
         organization_id: uuid::Uuid,
-    ) -> Result<models::SecretWithProjectsListResponseModel, Error> {
+    ) -> Result<models::SecretWithProjectsListResponseModel, Error<ListByOrganizationError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -230,14 +437,48 @@ impl SecretsApi for SecretsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::SecretWithProjectsListResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SecretWithProjectsListResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<ListByOrganizationError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn update_secret<'a>(
         &self,
         id: uuid::Uuid,
         secret_update_request_model: Option<models::SecretUpdateRequestModel>,
-    ) -> Result<models::SecretResponseModel, Error> {
+    ) -> Result<models::SecretResponseModel, Error<UpdateSecretError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -253,6 +494,89 @@ impl SecretsApi for SecretsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&secret_update_request_model);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::SecretResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::SecretResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<UpdateSecretError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
+}
+
+/// struct for typed errors of method [`SecretsApi::bulk_delete`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum BulkDeleteError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`SecretsApi::create`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CreateError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`SecretsApi::get`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`SecretsApi::get_secrets_by_ids`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetSecretsByIdsError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`SecretsApi::get_secrets_by_project`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetSecretsByProjectError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`SecretsApi::get_secrets_sync`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetSecretsSyncError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`SecretsApi::list_by_organization`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ListByOrganizationError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`SecretsApi::update_secret`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum UpdateSecretError {
+    UnknownValue(serde_json::Value),
 }

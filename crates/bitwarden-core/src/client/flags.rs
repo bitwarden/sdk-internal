@@ -12,10 +12,6 @@ pub struct Flags {
     /// Enable cipher key encryption.
     #[serde(alias = "enableCipherKeyEncryption", alias = "cipher-key-encryption")]
     pub enable_cipher_key_encryption: bool,
-
-    /// Enable strict cipher field decryption (propagates errors instead of nulling fields).
-    #[serde(alias = "pm-34500-strict-cipher-decryption")]
-    pub strict_cipher_decryption: bool,
 }
 
 impl Flags {

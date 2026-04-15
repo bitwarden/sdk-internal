@@ -9,7 +9,7 @@
 //! identifiers in its API. These key identifiers are user-defined types that contain no key
 //! material, and are used to uniquely identify each key in the store. The key store doesn't specify
 //! how these traits should be implemented, but we recommend using `enums`, and we provide an
-//! optional macro ([key_slot_ids](crate::key_slot_ids)) that makes it easier to define them.
+//! optional macro ([key_ids](crate::key_ids)) that makes it easier to define them.
 //!
 //! ### Key Store
 //! [KeyStore] is a thread-safe in-memory key store and the main entry point for using this module.
@@ -26,7 +26,7 @@ use std::sync::{Arc, RwLock};
 
 use rayon::{iter::Either, prelude::*};
 
-use crate::{CompositeEncryptable, Decryptable, IdentifyKey, KeySlotId, KeySlotIds};
+use crate::{CompositeEncryptable, Decryptable, IdentifyKey, KeyId, KeyIds};
 
 mod backend;
 mod context;
@@ -40,8 +40,8 @@ pub use key_rotation::*;
 
 /// An in-memory key store that provides a safe and secure way to store keys and use them for
 /// encryption/decryption operations. The store API is designed to work only on key identifiers
-/// ([KeySlotId]). These identifiers are user-defined types that contain no key material, which
-/// means the API users don't have to worry about accidentally leaking keys.
+/// ([KeyId]). These identifiers are user-defined types that contain no key material, which means
+/// the API users don't have to worry about accidentally leaking keys.
 ///
 /// Each store is designed to be used by a single user and should not be shared between users, but
 /// the store itself is thread safe and can be cloned to share between threads.
@@ -50,43 +50,43 @@ pub use key_rotation::*;
 /// # use bitwarden_crypto::*;
 ///
 /// // We need to define our own key identifier types. We provide a macro to make this easier.
-/// key_slot_ids! {
+/// key_ids! {
 ///     #[symmetric]
-///     pub enum SymmKeySlotIds {
+///     pub enum SymmKeyId {
 ///         User,
 ///         #[local]
 ///         Local(LocalId),
 ///     }
 ///     #[private]
-///     pub enum PrivateKeySlotIds {
+///     pub enum PrivateKeyId {
 ///         UserPrivate,
 ///         #[local]
 ///         Local(LocalId),
 ///     }
 ///     #[signing]
-///     pub enum SigningKeySlotIds {
+///     pub enum SigningKeyId {
 ///        UserSigning,
 ///        #[local]
 ///        Local(LocalId),
 ///     }
-///     pub Ids => SymmKeySlotIds, PrivateKeySlotIds, SigningKeySlotIds;
+///     pub Ids => SymmKeyId, PrivateKeyId, SigningKeyId;
 /// }
 ///
 /// // Initialize the store and insert a test key
 /// let store: KeyStore<Ids> = KeyStore::default();
 ///
 /// #[allow(deprecated)]
-/// store.context_mut().set_symmetric_key(SymmKeySlotIds::User, SymmetricCryptoKey::make_aes256_cbc_hmac_key());
+/// store.context_mut().set_symmetric_key(SymmKeyId::User, SymmetricCryptoKey::make_aes256_cbc_hmac_key());
 ///
 /// // Define some data that needs to be encrypted
 /// struct Data(String);
-/// impl IdentifyKey<SymmKeySlotIds> for Data {
-///    fn key_identifier(&self) -> SymmKeySlotIds {
-///        SymmKeySlotIds::User
+/// impl IdentifyKey<SymmKeyId> for Data {
+///    fn key_identifier(&self) -> SymmKeyId {
+///        SymmKeyId::User
 ///    }
 /// }
-/// impl CompositeEncryptable<Ids, SymmKeySlotIds, EncString> for Data {
-///     fn encrypt_composite(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeySlotIds) -> Result<EncString, CryptoError> {
+/// impl CompositeEncryptable<Ids, SymmKeyId, EncString> for Data {
+///     fn encrypt_composite(&self, ctx: &mut KeyStoreContext<Ids>, key: SymmKeyId) -> Result<EncString, CryptoError> {
 ///         self.0.encrypt(ctx, key)
 ///     }
 /// }
@@ -95,14 +95,14 @@ pub use key_rotation::*;
 /// let decrypted = Data("Hello, World!".to_string());
 /// let encrypted = store.encrypt(decrypted).unwrap();
 /// ```
-pub struct KeyStore<Ids: KeySlotIds> {
+pub struct KeyStore<Ids: KeyIds> {
     // We use an Arc<> to make it easier to pass this store around, as we can
     // clone it instead of passing references
     inner: Arc<RwLock<KeyStoreInner<Ids>>>,
 }
 
 // Manually implement Clone to avoid requiring Ids: Clone
-impl<Ids: KeySlotIds> Clone for KeyStore<Ids> {
+impl<Ids: KeyIds> Clone for KeyStore<Ids> {
     fn clone(&self) -> Self {
         KeyStore {
             inner: Arc::clone(&self.inner),
@@ -111,13 +111,13 @@ impl<Ids: KeySlotIds> Clone for KeyStore<Ids> {
 }
 
 /// [KeyStore] contains sensitive data, provide a dummy [Debug] implementation.
-impl<Ids: KeySlotIds> std::fmt::Debug for KeyStore<Ids> {
+impl<Ids: KeyIds> std::fmt::Debug for KeyStore<Ids> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("KeyStore").finish()
     }
 }
 
-struct KeyStoreInner<Ids: KeySlotIds> {
+struct KeyStoreInner<Ids: KeyIds> {
     symmetric_keys: Box<dyn StoreBackend<Ids::Symmetric>>,
     private_keys: Box<dyn StoreBackend<Ids::Private>>,
     signing_keys: Box<dyn StoreBackend<Ids::Signing>>,
@@ -125,7 +125,7 @@ struct KeyStoreInner<Ids: KeySlotIds> {
 }
 
 /// Create a new key store with the best available implementation for the current platform.
-impl<Ids: KeySlotIds> Default for KeyStore<Ids> {
+impl<Ids: KeyIds> Default for KeyStore<Ids> {
     fn default() -> Self {
         Self {
             inner: Arc::new(RwLock::new(KeyStoreInner {
@@ -138,7 +138,7 @@ impl<Ids: KeySlotIds> Default for KeyStore<Ids> {
     }
 }
 
-impl<Ids: KeySlotIds> KeyStore<Ids> {
+impl<Ids: KeyIds> KeyStore<Ids> {
     /// Clear all keys from the store. This can be used to clear all keys from memory in case of
     /// lock/logout, and is equivalent to destroying the store and creating a new one.
     pub fn clear(&self) {
@@ -234,11 +234,7 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
     /// already be present in the store, otherwise this will return an error.
     /// This method is not parallelized, and is meant for single item decryption.
     /// If you need to decrypt multiple items, use `decrypt_list` instead.
-    pub fn decrypt<
-        Key: KeySlotId,
-        Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key>,
-        Output,
-    >(
+    pub fn decrypt<Key: KeyId, Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key>, Output>(
         &self,
         data: &Data,
     ) -> Result<Output, crate::CryptoError> {
@@ -251,7 +247,7 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
     /// This method is not parallelized, and is meant for single item encryption.
     /// If you need to encrypt multiple items, use `encrypt_list` instead.
     pub fn encrypt<
-        Key: KeySlotId,
+        Key: KeyId,
         Data: CompositeEncryptable<Ids, Key, Output> + IdentifyKey<Key>,
         Output,
     >(
@@ -267,7 +263,7 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
     /// return an error. This method will try to parallelize the decryption of the items, for
     /// better performance on large lists.
     pub fn decrypt_list<
-        Key: KeySlotId,
+        Key: KeyId,
         Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key> + Send + Sync,
         Output: Send + Sync,
     >(
@@ -306,7 +302,7 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
     /// and the second vector contains the original items that failed to decrypt.
     pub fn decrypt_list_with_failures<
         'a,
-        Key: KeySlotId,
+        Key: KeyId,
         Data: Decryptable<Ids, Key, Output> + IdentifyKey<Key> + Send + Sync + 'a,
         Output: Send + Sync,
     >(
@@ -343,7 +339,7 @@ impl<Ids: KeySlotIds> KeyStore<Ids> {
     /// better performance on large lists. This method is not parallelized, and is meant for
     /// single item encryption.
     pub fn encrypt_list<
-        Key: KeySlotId,
+        Key: KeyId,
         Data: CompositeEncryptable<Ids, Key, Output> + IdentifyKey<Key> + Send + Sync,
         Output: Send + Sync,
     >(

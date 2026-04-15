@@ -37,24 +37,21 @@ impl CryptoClient {
     /// Create the data necessary to update the user's password. The user's encryption key is
     /// re-encrypted with the new password. This returns the new encrypted user key and the new
     /// password hash but does not update sdk state.
-    pub async fn make_update_password(
-        &self,
-        new_password: String,
-    ) -> Result<UpdatePasswordResponse> {
-        Ok(self.0.make_update_password(new_password).await?)
+    pub fn make_update_password(&self, new_password: String) -> Result<UpdatePasswordResponse> {
+        Ok(self.0.make_update_password(new_password)?)
     }
 
     /// Generates a PIN protected user key from the provided PIN. The result can be stored and later
     /// used to initialize another client instance by using the PIN and the PIN key with
     /// `initialize_user_crypto`.
-    pub async fn derive_pin_key(&self, pin: String) -> Result<DerivePinKeyResponse> {
-        Ok(self.0.derive_pin_key(pin).await?)
+    pub fn derive_pin_key(&self, pin: String) -> Result<DerivePinKeyResponse> {
+        Ok(self.0.derive_pin_key(pin)?)
     }
 
     /// Derives the pin protected user key from encrypted pin. Used when pin requires master
     /// password on first unlock.
-    pub async fn derive_pin_user_key(&self, encrypted_pin: EncString) -> Result<EncString> {
-        Ok(self.0.derive_pin_user_key(encrypted_pin).await?)
+    pub fn derive_pin_user_key(&self, encrypted_pin: EncString) -> Result<EncString> {
+        Ok(self.0.derive_pin_user_key(encrypted_pin)?)
     }
 
     /// Protects the current user key with the provided PIN. The result can be stored and later
@@ -94,8 +91,8 @@ impl CryptoClient {
     /// Create the data necessary to update the user's kdf settings. The user's encryption key is
     /// re-encrypted for the password under the new kdf settings. This returns the new encrypted
     /// user key and the new password hash but does not update sdk state.
-    pub async fn make_update_kdf(&self, password: String, kdf: Kdf) -> Result<UpdateKdfResponse> {
-        Ok(self.0.make_update_kdf(password, kdf).await?)
+    pub fn make_update_kdf(&self, password: String, kdf: Kdf) -> Result<UpdateKdfResponse> {
+        Ok(self.0.make_update_kdf(password, kdf)?)
     }
 
     /// Gets the upgraded V2 user key using an upgrade token.

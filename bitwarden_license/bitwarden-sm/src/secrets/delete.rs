@@ -1,12 +1,12 @@
 use bitwarden_api_api::models::{
     BulkDeleteResponseModel, BulkDeleteResponseModelListResponseModel,
 };
-use bitwarden_core::require;
+use bitwarden_core::{client::Client, require};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{SecretsManagerClient, error::SecretsManagerError};
+use crate::error::SecretsManagerError;
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
@@ -17,10 +17,9 @@ pub struct SecretsDeleteRequest {
 }
 
 pub(crate) async fn delete_secrets(
-    client: &SecretsManagerClient,
+    client: &Client,
     input: SecretsDeleteRequest,
 ) -> Result<SecretsDeleteResponse, SecretsManagerError> {
-    let client = client.client();
     let config = client.internal.get_api_configurations();
     let res = config
         .api_client

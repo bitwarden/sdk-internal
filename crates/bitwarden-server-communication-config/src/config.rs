@@ -47,77 +47,12 @@ pub struct SsoCookieVendorConfig {
     pub cookie_name: Option<String>,
     /// Cookie domain for validation
     pub cookie_domain: Option<String>,
-    /// Vault URL for cookie acquisition redirect
-    ///
-    /// This is the full vault URL (scheme + host + port) where the browser
-    /// should be redirected for SSO cookie acquisition.
-    pub vault_url: Option<String>,
     /// Acquired cookies
     ///
     /// For sharded cookies, this contains multiple entries with names like
     /// `AWSELBAuthSessionCookie-0`, `AWSELBAuthSessionCookie-1`, etc.
     /// For unsharded cookies, this contains a single entry with the base name.
     pub cookie_value: Option<Vec<crate::AcquiredCookie>>,
-}
-
-/// Request to set server communication configuration for a hostname
-///
-/// This is the input type for
-/// [`ServerCommunicationConfigClient::set_communication_type`](crate::ServerCommunicationConfigClient::set_communication_type).
-/// Unlike [`ServerCommunicationConfig`], this type does not include acquired cookies,
-/// since cookies are managed separately via
-/// [`ServerCommunicationConfigClient::acquire_cookie`](crate::ServerCommunicationConfigClient::acquire_cookie).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-pub struct SetCommunicationTypeRequest {
-    /// Bootstrap configuration determining how to establish server communication
-    pub bootstrap: BootstrapConfigRequest,
-}
-
-/// Bootstrap configuration variant for [`SetCommunicationTypeRequest`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
-#[serde(tag = "type", rename_all = "camelCase")]
-pub enum BootstrapConfigRequest {
-    /// Direct connection with no special authentication requirements
-    Direct,
-    /// SSO cookie vendor configuration for load balancer authentication
-    SsoCookieVendor(SsoCookieVendorConfigRequest),
-}
-
-/// SSO cookie vendor configuration for [`SetCommunicationTypeRequest`]
-///
-/// Contains the server-provided configuration fields without acquired cookies.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "wasm",
-    derive(tsify::Tsify),
-    tsify(into_wasm_abi, from_wasm_abi)
-)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-pub struct SsoCookieVendorConfigRequest {
-    /// Identity provider login URL for browser redirect during bootstrap
-    pub idp_login_url: Option<String>,
-    /// Cookie name (base name, without shard suffix)
-    pub cookie_name: Option<String>,
-    /// Cookie domain for validation
-    pub cookie_domain: Option<String>,
-    /// Vault URL for cookie acquisition redirect
-    ///
-    /// This is the full vault URL (scheme + host + port) where the browser
-    /// should be redirected for SSO cookie acquisition.
-    pub vault_url: Option<String>,
 }
 
 // We manually implement Debug to make sure we don't print sensitive cookie values
@@ -127,7 +62,6 @@ impl std::fmt::Debug for SsoCookieVendorConfig {
             .field("idp_login_url", &self.idp_login_url)
             .field("cookie_name", &self.cookie_name)
             .field("cookie_domain", &self.cookie_domain)
-            .field("vault_url", &self.vault_url)
             .field(
                 "cookie_value",
                 &self.cookie_value.as_ref().map(|_| "[REDACTED]"),
@@ -160,7 +94,6 @@ mod tests {
                 idp_login_url: Some("https://timeloop-auth.acme.com/login".to_string()),
                 cookie_name: Some("ALBAuthSessionCookie".to_string()),
                 cookie_domain: Some("vault.example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -171,7 +104,7 @@ mod tests {
         assert!(json.contains("ALBAuthSessionCookie"));
 
         // Verify SDK can parse server JSON with camelCase fields
-        let server_json = r#"{"bootstrap":{"type":"ssoCookieVendor","idpLoginUrl":"https://idp.example.com/login","cookieName":"TestCookie","cookieDomain":"example.com","vaultUrl":"https://vault.example.com"}}"#;
+        let server_json = r#"{"bootstrap":{"type":"ssoCookieVendor","idpLoginUrl":"https://idp.example.com/login","cookieName":"TestCookie","cookieDomain":"example.com"}}"#;
         let parsed = serde_json::from_str::<ServerCommunicationConfig>(server_json).unwrap();
         if let BootstrapConfig::SsoCookieVendor(vendor) = parsed.bootstrap {
             assert_eq!(
@@ -213,7 +146,6 @@ mod tests {
             idp_login_url: Some("https://example.com".to_string()),
             cookie_name: Some("TestCookie".to_string()),
             cookie_domain: Some("example.com".to_string()),
-            vault_url: Some("https://vault.example.com".to_string()),
             cookie_value: None,
         };
 
@@ -226,7 +158,6 @@ mod tests {
             idp_login_url: Some("https://example.com".to_string()),
             cookie_name: Some("TestCookie".to_string()),
             cookie_domain: Some("example.com".to_string()),
-            vault_url: Some("https://vault.example.com".to_string()),
             cookie_value: Some(vec![AcquiredCookie {
                 name: "TestCookie".to_string(),
                 value: "eyJhbGciOiJFUzI1NiIsImtpZCI6Im...".to_string(),
@@ -246,7 +177,6 @@ mod tests {
             idp_login_url: Some("https://example.com".to_string()),
             cookie_name: Some("TestCookie".to_string()),
             cookie_domain: Some("example.com".to_string()),
-            vault_url: Some("https://vault.example.com".to_string()),
             cookie_value: Some(vec![
                 AcquiredCookie {
                     name: "TestCookie-0".to_string(),
@@ -282,7 +212,6 @@ mod tests {
             idp_login_url: Some("https://example.com".to_string()),
             cookie_name: Some("Cookie".to_string()),
             cookie_domain: Some("example.com".to_string()),
-            vault_url: Some("https://vault.example.com".to_string()),
             cookie_value: None,
         });
         assert!(matches!(vendor, BootstrapConfig::SsoCookieVendor(_)));
@@ -297,7 +226,6 @@ mod tests {
             idp_login_url: Some("https://example.com/login".to_string()),
             cookie_name: Some("SessionCookie".to_string()),
             cookie_domain: Some("example.com".to_string()),
-            vault_url: Some("https://vault.example.com".to_string()),
             cookie_value: Some(vec![AcquiredCookie {
                 name: "SessionCookie".to_string(),
                 value: "super-secret-cookie-value-abc123".to_string(),

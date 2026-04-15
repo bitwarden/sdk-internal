@@ -18,8 +18,4 @@ pub enum DatabaseConfiguration {
         /// names to avoid conflicts.
         db_name: String,
     },
-
-    /// In-memory configuration — no fields needed.
-    /// Data is stored in process RAM only and is not persisted.
-    Memory,
 }

@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::CipherPasswordHistoryModel;
-use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
+use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext,
     PrimitiveEncryptable,
@@ -34,22 +34,22 @@ pub struct PasswordHistoryView {
     pub last_used_date: DateTime<Utc>,
 }
 
-impl IdentifyKey<SymmetricKeySlotId> for PasswordHistory {
-    fn key_identifier(&self) -> SymmetricKeySlotId {
-        SymmetricKeySlotId::User
+impl IdentifyKey<SymmetricKeyId> for PasswordHistory {
+    fn key_identifier(&self) -> SymmetricKeyId {
+        SymmetricKeyId::User
     }
 }
-impl IdentifyKey<SymmetricKeySlotId> for PasswordHistoryView {
-    fn key_identifier(&self) -> SymmetricKeySlotId {
-        SymmetricKeySlotId::User
+impl IdentifyKey<SymmetricKeyId> for PasswordHistoryView {
+    fn key_identifier(&self) -> SymmetricKeyId {
+        SymmetricKeyId::User
     }
 }
 
-impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, PasswordHistory> for PasswordHistoryView {
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, PasswordHistory> for PasswordHistoryView {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
     ) -> Result<PasswordHistory, CryptoError> {
         Ok(PasswordHistory {
             password: self.password.encrypt(ctx, key)?,
@@ -58,11 +58,11 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, PasswordHistory> for P
     }
 }
 
-impl Decryptable<KeySlotIds, SymmetricKeySlotId, PasswordHistoryView> for PasswordHistory {
+impl Decryptable<KeyIds, SymmetricKeyId, PasswordHistoryView> for PasswordHistory {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
     ) -> Result<PasswordHistoryView, CryptoError> {
         Ok(PasswordHistoryView {
             password: self.password.decrypt(ctx, key).ok().unwrap_or_default(),

@@ -11,8 +11,8 @@ use crate::{
 use crate::{
     auth::api::request::AccessTokenRequest,
     client::ServiceAccountLoginMethod,
-    key_management::KeySlotIds,
-    key_management::SymmetricKeySlotId,
+    key_management::KeyIds,
+    key_management::SymmetricKeyId,
     secrets_manager::state::{self, ClientState},
 };
 
@@ -56,7 +56,7 @@ pub async fn renew_pm_token_sdk_managed(
 pub async fn renew_sm_token_sdk_managed(
     login_method: &ServiceAccountLoginMethod,
     identity_config: bitwarden_api_api::Configuration,
-    key_store: KeyStore<KeySlotIds>,
+    key_store: KeyStore<KeyIds>,
 ) -> Result<(String, Option<String>, u64), LoginError> {
     let res = match login_method {
         ServiceAccountLoginMethod::AccessToken {
@@ -72,7 +72,7 @@ pub async fn renew_sm_token_sdk_managed(
             if let (IdentityTokenResponse::Payload(r), Some(state_file)) = (&result, state_file) {
                 let ctx = key_store.context();
                 #[allow(deprecated)]
-                if let Ok(enc_key) = ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User) {
+                if let Ok(enc_key) = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User) {
                     let state = ClientState::new(r.access_token.clone(), enc_key.to_base64());
                     _ = state::set(state_file, access_token, state);
                 }

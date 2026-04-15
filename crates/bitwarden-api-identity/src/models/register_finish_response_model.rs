@@ -20,10 +20,19 @@ pub struct RegisterFinishResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub object: Option<String>,
+    #[serde(
+        rename = "captchaBypassToken",
+        alias = "CaptchaBypassToken",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub captcha_bypass_token: Option<String>,
 }
 
 impl RegisterFinishResponseModel {
     pub fn new() -> RegisterFinishResponseModel {
-        RegisterFinishResponseModel { object: None }
+        RegisterFinishResponseModel {
+            object: None,
+            captcha_bypass_token: None,
+        }
     }
 }
