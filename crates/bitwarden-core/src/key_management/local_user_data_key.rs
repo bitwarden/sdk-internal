@@ -5,7 +5,7 @@ use tracing::instrument;
 
 use crate::{
     key_management,
-    key_management::{KeySlotIds, SymmetricKeySlotId},
+    key_management::{KeyIds, SymmetricKeyId},
 };
 
 /// An indirect symmetric key for encrypting local user data (e.g. password generator history).
@@ -18,25 +18,25 @@ impl WrappedLocalUserDataKey {
     /// Create a user key, wrapped by the user key.
     #[instrument(skip(ctx), err)]
     pub(crate) fn from_context_user_key(
-        ctx: &mut KeyStoreContext<KeySlotIds>,
+        ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<Self, LocalUserDataKeyError> {
         let wrapped_local_user_data_key = ctx
-            .wrap_symmetric_key(SymmetricKeySlotId::User, SymmetricKeySlotId::User)
+            .wrap_symmetric_key(SymmetricKeyId::User, SymmetricKeyId::User)
             .map_err(|_| LocalUserDataKeyError::EncryptionFailed)?;
         Ok(WrappedLocalUserDataKey(wrapped_local_user_data_key))
     }
 
     /// Unwrap the local user data key and set it in the context under the
-    /// [`SymmetricKeySlotId::LocalUserData`] key id.
+    /// [`SymmetricKeyId::LocalUserData`] key id.
     #[instrument(skip(self, ctx), err)]
     pub(crate) fn unwrap_to_context(
         &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
+        ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<(), LocalUserDataKeyError> {
         let local_id = ctx
-            .unwrap_symmetric_key(SymmetricKeySlotId::User, &self.0)
+            .unwrap_symmetric_key(SymmetricKeyId::User, &self.0)
             .map_err(|_| LocalUserDataKeyError::DecryptionFailed)?;
-        ctx.persist_symmetric_key(local_id, SymmetricKeySlotId::LocalUserData)
+        ctx.persist_symmetric_key(local_id, SymmetricKeyId::LocalUserData)
             .map_err(|_| LocalUserDataKeyError::DecryptionFailed)?;
         Ok(())
     }
@@ -66,13 +66,13 @@ mod tests {
     use bitwarden_crypto::{Decryptable, KeyStore, PrimitiveEncryptable};
 
     use super::*;
-    use crate::key_management::{KeySlotIds, SymmetricKeySlotId};
+    use crate::key_management::{KeyIds, SymmetricKeyId};
 
-    fn make_key_store_with_user_key() -> KeyStore<KeySlotIds> {
-        let key_store = KeyStore::<KeySlotIds>::default();
+    fn make_key_store_with_user_key() -> KeyStore<KeyIds> {
+        let key_store = KeyStore::<KeyIds>::default();
         let mut ctx = key_store.context_mut();
         let user_key = ctx.generate_symmetric_key();
-        ctx.persist_symmetric_key(user_key, SymmetricKeySlotId::User)
+        ctx.persist_symmetric_key(user_key, SymmetricKeyId::User)
             .expect("persisting user key should succeed");
         drop(ctx);
         key_store
@@ -85,7 +85,7 @@ mod tests {
 
         let plaintext = "test data";
         let ciphertext = plaintext
-            .encrypt(&mut ctx, SymmetricKeySlotId::User)
+            .encrypt(&mut ctx, SymmetricKeyId::User)
             .expect("encryption with user key should succeed");
 
         let wrapped = WrappedLocalUserDataKey::from_context_user_key(&mut ctx)
@@ -97,7 +97,7 @@ mod tests {
         // Verify LocalUserData key is the same as User key: data encrypted with User
         // must be decryptable with LocalUserData.
         let decrypted: String = ciphertext
-            .decrypt(&mut ctx, SymmetricKeySlotId::LocalUserData)
+            .decrypt(&mut ctx, SymmetricKeyId::LocalUserData)
             .expect("decryption with local user data key should succeed");
         assert_eq!(decrypted, plaintext);
     }

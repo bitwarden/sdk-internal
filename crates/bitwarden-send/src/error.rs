@@ -10,8 +10,3 @@ pub enum SendParseError {
     #[error(transparent)]
     MissingField(#[from] bitwarden_core::MissingFieldError),
 }
-
-/// Item does not exist error.
-#[derive(Debug, thiserror::Error)]
-#[error("Item does not exist")]
-pub struct ItemNotFoundError;

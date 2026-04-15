@@ -28,9 +28,7 @@ pub struct AssertionOptions {
         skip_serializing_if = "Option::is_none"
     )]
     pub error_message: Option<String>,
-    #[serde_as(
-        as = "Option<serde_with::base64::Base64<serde_with::base64::UrlSafe, serde_with::formats::Unpadded>>"
-    )]
+    #[serde_as(as = "Option<serde_with::base64::Base64>")]
     #[serde(
         rename = "challenge",
         alias = "Challenge",

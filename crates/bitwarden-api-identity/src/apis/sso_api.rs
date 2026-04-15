@@ -71,7 +71,24 @@ impl SsoApi for SsoApiClient {
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_req = local_var_req_builder.build()?;
+        let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<ExternalCallbackError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn external_challenge<'a>(
@@ -109,7 +126,24 @@ impl SsoApi for SsoApiClient {
                 local_var_req_builder.query(&[("ssoToken", &param_value.to_string())]);
         }
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_req = local_var_req_builder.build()?;
+        let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<ExternalChallengeError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn login<'a>(&self, return_url: Option<&'a str>) -> Result<(), Error<LoginError>> {
@@ -126,7 +160,24 @@ impl SsoApi for SsoApiClient {
                 local_var_req_builder.query(&[("returnUrl", &param_value.to_string())]);
         }
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_req = local_var_req_builder.build()?;
+        let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<LoginError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn pre_validate<'a>(
@@ -146,7 +197,24 @@ impl SsoApi for SsoApiClient {
                 local_var_req_builder.query(&[("domainHint", &param_value.to_string())]);
         }
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_req = local_var_req_builder.build()?;
+        let local_var_resp = local_var_client.execute(local_var_req).await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<PreValidateError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 }
 

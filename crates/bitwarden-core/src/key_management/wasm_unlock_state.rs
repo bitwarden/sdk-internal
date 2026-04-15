@@ -11,7 +11,7 @@ use tracing::info;
 
 use crate::{
     Client,
-    key_management::{self, SymmetricKeySlotId},
+    key_management::{self, SymmetricKeyId},
 };
 
 // The repository pattern requires us to specify a key. Here we use an empty string as the only
@@ -31,7 +31,7 @@ pub(crate) async fn copy_user_key_to_client_managed_state(
         let key_store = client.internal.get_key_store();
         let ctx = key_store.context();
         #[expect(deprecated)]
-        ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
+        ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
             .map_err(|_| UnableToSetError)?
             .clone()
     };

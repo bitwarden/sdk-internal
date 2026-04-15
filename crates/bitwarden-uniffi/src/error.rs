@@ -28,8 +28,6 @@ pub enum BitwardenError {
     ApproveAuthRequest(#[from] bitwarden_core::auth::ApproveAuthRequestError),
     #[error(transparent)]
     TrustDevice(#[from] bitwarden_core::auth::auth_client::TrustDeviceError),
-    #[error(transparent)]
-    Registration(#[from] bitwarden_auth::registration::RegistrationError),
 
     #[error(transparent)]
     Fingerprint(#[from] bitwarden_core::platform::FingerprintError),

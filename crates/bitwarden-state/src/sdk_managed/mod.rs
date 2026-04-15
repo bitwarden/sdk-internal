@@ -10,12 +10,17 @@ pub use configuration::DatabaseConfiguration;
 
 #[cfg(target_arch = "wasm32")]
 mod indexed_db;
+#[cfg(target_arch = "wasm32")]
+pub(super) type SystemDatabase = indexed_db::IndexedDbDatabase;
+#[cfg(target_arch = "wasm32")]
+type InternalError = ::indexed_db::Error<indexed_db::IndexedDbInternalError>;
 
 #[cfg(not(target_arch = "wasm32"))]
 mod sqlite;
-
-mod memory;
-pub(super) use memory::MemoryDatabase;
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) type SystemDatabase = sqlite::SqliteDatabase;
+#[cfg(not(target_arch = "wasm32"))]
+type InternalError = ::rusqlite::Error;
 
 #[bitwarden_error(flat)]
 #[derive(Debug, Error)]
@@ -32,22 +37,8 @@ pub enum DatabaseError {
     #[error("JS error: {0}")]
     JS(String),
 
-    #[error("Internal error: {0}")]
-    Internal(String),
-}
-
-#[cfg(target_arch = "wasm32")]
-impl From<::indexed_db::Error<indexed_db::IndexedDbInternalError>> for DatabaseError {
-    fn from(e: ::indexed_db::Error<indexed_db::IndexedDbInternalError>) -> Self {
-        DatabaseError::Internal(e.to_string())
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-impl From<rusqlite::Error> for DatabaseError {
-    fn from(e: rusqlite::Error) -> Self {
-        DatabaseError::Internal(e.to_string())
-    }
+    #[error(transparent)]
+    Internal(#[from] InternalError),
 }
 
 pub trait Database {
@@ -74,109 +65,6 @@ pub trait Database {
     async fn remove_bulk<T: RepositoryItem>(&self, keys: Vec<String>) -> Result<(), DatabaseError>;
 
     async fn remove_all<T: RepositoryItem>(&self) -> Result<(), DatabaseError>;
-}
-
-#[derive(Clone)]
-pub(super) enum SystemDatabase {
-    #[cfg(not(target_arch = "wasm32"))]
-    Sqlite(sqlite::SqliteDatabase),
-    #[cfg(target_arch = "wasm32")]
-    IndexedDb(indexed_db::IndexedDbDatabase),
-    Memory(MemoryDatabase),
-}
-
-impl Database for SystemDatabase {
-    async fn initialize(
-        configuration: DatabaseConfiguration,
-        migrations: RepositoryMigrations,
-    ) -> Result<Self, DatabaseError> {
-        match configuration {
-            #[cfg(not(target_arch = "wasm32"))]
-            DatabaseConfiguration::Sqlite { .. } => Ok(SystemDatabase::Sqlite(
-                sqlite::SqliteDatabase::initialize(configuration, migrations).await?,
-            )),
-            #[cfg(target_arch = "wasm32")]
-            DatabaseConfiguration::IndexedDb { .. } => Ok(SystemDatabase::IndexedDb(
-                indexed_db::IndexedDbDatabase::initialize(configuration, migrations).await?,
-            )),
-            DatabaseConfiguration::Memory => Ok(SystemDatabase::Memory(MemoryDatabase::new())),
-            #[allow(unreachable_patterns)]
-            other => Err(DatabaseError::UnsupportedConfiguration(other)),
-        }
-    }
-
-    async fn get<T: RepositoryItem>(&self, key: &str) -> Result<Option<T>, DatabaseError> {
-        match self {
-            #[cfg(not(target_arch = "wasm32"))]
-            SystemDatabase::Sqlite(db) => db.get(key).await,
-            #[cfg(target_arch = "wasm32")]
-            SystemDatabase::IndexedDb(db) => db.get(key).await,
-            SystemDatabase::Memory(db) => db.get(key).await,
-        }
-    }
-
-    async fn list<T: RepositoryItem>(&self) -> Result<Vec<T>, DatabaseError> {
-        match self {
-            #[cfg(not(target_arch = "wasm32"))]
-            SystemDatabase::Sqlite(db) => db.list().await,
-            #[cfg(target_arch = "wasm32")]
-            SystemDatabase::IndexedDb(db) => db.list().await,
-            SystemDatabase::Memory(db) => db.list().await,
-        }
-    }
-
-    async fn set<T: RepositoryItem>(&self, key: &str, value: T) -> Result<(), DatabaseError> {
-        match self {
-            #[cfg(not(target_arch = "wasm32"))]
-            SystemDatabase::Sqlite(db) => db.set(key, value).await,
-            #[cfg(target_arch = "wasm32")]
-            SystemDatabase::IndexedDb(db) => db.set(key, value).await,
-            SystemDatabase::Memory(db) => db.set(key, value).await,
-        }
-    }
-
-    async fn set_bulk<T: RepositoryItem>(
-        &self,
-        values: Vec<(String, T)>,
-    ) -> Result<(), DatabaseError> {
-        match self {
-            #[cfg(not(target_arch = "wasm32"))]
-            SystemDatabase::Sqlite(db) => db.set_bulk(values).await,
-            #[cfg(target_arch = "wasm32")]
-            SystemDatabase::IndexedDb(db) => db.set_bulk(values).await,
-            SystemDatabase::Memory(db) => db.set_bulk(values).await,
-        }
-    }
-
-    async fn remove<T: RepositoryItem>(&self, key: &str) -> Result<(), DatabaseError> {
-        match self {
-            #[cfg(not(target_arch = "wasm32"))]
-            SystemDatabase::Sqlite(db) => db.remove::<T>(key).await,
-            #[cfg(target_arch = "wasm32")]
-            SystemDatabase::IndexedDb(db) => db.remove::<T>(key).await,
-            SystemDatabase::Memory(db) => db.remove::<T>(key).await,
-        }
-    }
-
-    async fn remove_bulk<T: RepositoryItem>(&self, keys: Vec<String>) -> Result<(), DatabaseError> {
-        match self {
-            #[cfg(not(target_arch = "wasm32"))]
-            SystemDatabase::Sqlite(db) => db.remove_bulk::<T>(keys).await,
-            #[cfg(target_arch = "wasm32")]
-            SystemDatabase::IndexedDb(db) => db.remove_bulk::<T>(keys).await,
-            SystemDatabase::Memory(db) => db.remove_bulk::<T>(keys).await,
-        }
-    }
-
-    async fn remove_all<T: RepositoryItem>(&self) -> Result<(), DatabaseError> {
-        match self {
-            #[cfg(not(target_arch = "wasm32"))]
-            SystemDatabase::Sqlite(db) => db.remove_all::<T>().await,
-            #[cfg(target_arch = "wasm32")]
-            SystemDatabase::IndexedDb(db) => db.remove_all::<T>().await,
-            SystemDatabase::Memory(db) => db.remove_all::<T>().await,
-        }
-    }
 }
 
 struct DBRepository<T: RepositoryItem> {

@@ -22,13 +22,13 @@ impl ExporterClient {
     }
 
     #[allow(missing_docs)]
-    pub async fn export_vault(
+    pub fn export_vault(
         &self,
         folders: Vec<Folder>,
         ciphers: Vec<Cipher>,
         format: ExportFormat,
     ) -> Result<String, ExportError> {
-        export_vault(&self.client, folders, ciphers, format).await
+        export_vault(&self.client, folders, ciphers, format)
     }
 
     #[allow(missing_docs)]

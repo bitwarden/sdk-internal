@@ -31,7 +31,7 @@ pub trait LicensesApi: Send + Sync {
         &self,
         id: &'a str,
         key: Option<&'a str>,
-    ) -> Result<models::UserLicense, Error>;
+    ) -> Result<models::UserLicense, Error<GetUserError>>;
 
     /// GET /licenses/organization/{id}
     async fn organization_sync<'a>(
@@ -40,7 +40,7 @@ pub trait LicensesApi: Send + Sync {
         self_hosted_organization_license_request_model: Option<
             models::SelfHostedOrganizationLicenseRequestModel,
         >,
-    ) -> Result<models::OrganizationLicense, Error>;
+    ) -> Result<models::OrganizationLicense, Error<OrganizationSyncError>>;
 }
 
 pub struct LicensesApiClient {
@@ -60,7 +60,7 @@ impl LicensesApi for LicensesApiClient {
         &self,
         id: &'a str,
         key: Option<&'a str>,
-    ) -> Result<models::UserLicense, Error> {
+    ) -> Result<models::UserLicense, Error<GetUserError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -79,7 +79,41 @@ impl LicensesApi for LicensesApiClient {
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::UserLicense`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::UserLicense`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<GetUserError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn organization_sync<'a>(
@@ -88,7 +122,7 @@ impl LicensesApi for LicensesApiClient {
         self_hosted_organization_license_request_model: Option<
             models::SelfHostedOrganizationLicenseRequestModel,
         >,
-    ) -> Result<models::OrganizationLicense, Error> {
+    ) -> Result<models::OrganizationLicense, Error<OrganizationSyncError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -105,6 +139,53 @@ impl LicensesApi for LicensesApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&self_hosted_organization_license_request_model);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationLicense`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationLicense`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<OrganizationSyncError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
+}
+
+/// struct for typed errors of method [`LicensesApi::get_user`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetUserError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`LicensesApi::organization_sync`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrganizationSyncError {
+    UnknownValue(serde_json::Value),
 }

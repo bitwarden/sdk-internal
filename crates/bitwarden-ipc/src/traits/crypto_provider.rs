@@ -48,7 +48,6 @@ where
     ) -> impl std::future::Future<Output = Result<IncomingMessage, Self::ReceiveError>> + Send + Sync;
 }
 
-/// A no-op crypto provider that performs no encryption and simply passes messages through as-is.
 pub struct NoEncryptionCryptoProvider;
 
 impl<Com, Ses> CryptoProvider<Com, Ses> for NoEncryptionCryptoProvider

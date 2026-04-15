@@ -173,10 +173,10 @@ impl CryptoKey for PrivateKey {}
 impl PrivateKey {
     /// Generate a random PrivateKey (RSA-2048).
     pub fn make(algorithm: PublicKeyEncryptionAlgorithm) -> Self {
-        Self::make_internal(algorithm, &mut rand::rng())
+        Self::make_internal(algorithm, &mut rand::thread_rng())
     }
 
-    fn make_internal<R: rand::CryptoRng + rand::Rng>(
+    fn make_internal<R: rand::CryptoRng + rand::RngCore>(
         algorithm: PublicKeyEncryptionAlgorithm,
         rng: &mut R,
     ) -> Self {

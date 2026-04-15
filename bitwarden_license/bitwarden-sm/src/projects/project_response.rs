@@ -1,7 +1,7 @@
 use bitwarden_api_api::models::ProjectResponseModel;
 use bitwarden_core::{
     OrganizationId,
-    key_management::{KeySlotIds, SymmetricKeySlotId},
+    key_management::{KeyIds, SymmetricKeyId},
     require,
 };
 use bitwarden_crypto::{Decryptable, EncString, KeyStoreContext};
@@ -26,10 +26,10 @@ pub struct ProjectResponse {
 impl ProjectResponse {
     pub(crate) fn process_response(
         response: ProjectResponseModel,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
+        ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<Self, SecretsManagerError> {
         let organization_id = require!(response.organization_id);
-        let key = SymmetricKeySlotId::Organization(OrganizationId::new(organization_id));
+        let key = SymmetricKeyId::Organization(OrganizationId::new(organization_id));
 
         let name = require!(response.name)
             .parse::<EncString>()?

@@ -1,7 +1,7 @@
 use bitwarden_api_api::models::CollectionDetailsResponseModel;
 use bitwarden_core::{
     OrganizationId,
-    key_management::{KeySlotIds, SymmetricKeySlotId},
+    key_management::{KeyIds, SymmetricKeyId},
     require,
 };
 use bitwarden_crypto::{CryptoError, Decryptable, EncString, IdentifyKey, KeyStoreContext};
@@ -67,11 +67,11 @@ pub enum CollectionType {
 }
 
 #[allow(missing_docs)]
-impl Decryptable<KeySlotIds, SymmetricKeySlotId, CollectionView> for Collection {
+impl Decryptable<KeyIds, SymmetricKeyId, CollectionView> for Collection {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
     ) -> Result<CollectionView, CryptoError> {
         let name = self
             .default_user_collection_email
@@ -112,9 +112,9 @@ impl TryFrom<CollectionDetailsResponseModel> for Collection {
 }
 
 #[allow(missing_docs)]
-impl IdentifyKey<SymmetricKeySlotId> for Collection {
-    fn key_identifier(&self) -> SymmetricKeySlotId {
-        SymmetricKeySlotId::Organization(self.organization_id)
+impl IdentifyKey<SymmetricKeyId> for Collection {
+    fn key_identifier(&self) -> SymmetricKeyId {
+        SymmetricKeyId::Organization(self.organization_id)
     }
 }
 
@@ -158,7 +158,7 @@ impl TryFrom<bitwarden_api_api::models::CollectionType> for CollectionType {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
+    use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
     use bitwarden_crypto::{KeyStore, PrimitiveEncryptable, SymmetricKeyAlgorithm};
 
     use super::*;
@@ -167,14 +167,14 @@ mod tests {
     const COLLECTION_ID: &str = "87654321-4321-4321-4321-210987654321";
 
     // Helper function to create a test key store with a symmetric key
-    fn create_test_key_store() -> KeyStore<KeySlotIds> {
-        let store = KeyStore::<KeySlotIds>::default();
+    fn create_test_key_store() -> KeyStore<KeyIds> {
+        let store = KeyStore::<KeyIds>::default();
         let org_id = ORGANIZATION_ID.parse().unwrap();
 
         let mut ctx = store.context_mut();
 
         let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-        ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::Organization(org_id))
+        ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::Organization(org_id))
             .unwrap();
         drop(ctx);
 
@@ -186,7 +186,7 @@ mod tests {
         let store = create_test_key_store();
         let mut ctx = store.context();
         let org_id = ORGANIZATION_ID.parse().unwrap();
-        let key = SymmetricKeySlotId::Organization(org_id);
+        let key = SymmetricKeyId::Organization(org_id);
 
         let collection_name: &str = "Collection Name";
 
@@ -212,7 +212,7 @@ mod tests {
         let store = create_test_key_store();
         let mut ctx = store.context();
         let org_id = ORGANIZATION_ID.parse().unwrap();
-        let key = SymmetricKeySlotId::Organization(org_id);
+        let key = SymmetricKeyId::Organization(org_id);
 
         let collection_name: &str = "Collection Name";
         let default_user_collection_email = String::from("test-user@bitwarden.com");
@@ -240,7 +240,7 @@ mod tests {
         let store = create_test_key_store();
         let mut ctx = store.context();
         let org_id = ORGANIZATION_ID.parse().unwrap();
-        let key = SymmetricKeySlotId::Organization(org_id);
+        let key = SymmetricKeyId::Organization(org_id);
 
         let collection_id = Some(COLLECTION_ID.parse().unwrap());
         let external_id = Some("external-test-id".to_string());

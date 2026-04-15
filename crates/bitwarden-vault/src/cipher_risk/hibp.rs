@@ -14,10 +14,7 @@ fn hash_password_for_hibp(password: &str) -> (String, String) {
     use sha1::{Digest, Sha1};
 
     let hash = Sha1::digest(password.as_bytes());
-    let hash_hex = hash
-        .iter()
-        .map(|b| format!("{:02X}", b))
-        .collect::<String>();
+    let hash_hex = format!("{:X}", hash);
     let (prefix, suffix) = hash_hex.split_at(5);
     (prefix.to_string(), suffix.to_string())
 }

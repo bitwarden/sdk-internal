@@ -26,12 +26,6 @@ pub struct OrganizationSubscriptionPurchaseRequest {
         skip_serializing_if = "Option::is_none"
     )]
     pub secrets_manager: Option<Box<models::SecretsManagerPurchaseSelections>>,
-    #[serde(
-        rename = "coupons",
-        alias = "Coupons",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub coupons: Option<Vec<String>>,
 }
 
 impl OrganizationSubscriptionPurchaseRequest {
@@ -45,7 +39,6 @@ impl OrganizationSubscriptionPurchaseRequest {
             cadence,
             password_manager: Box::new(password_manager),
             secrets_manager: None,
-            coupons: None,
         }
     }
 }

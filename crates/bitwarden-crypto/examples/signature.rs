@@ -1,4 +1,3 @@
-#![allow(clippy::print_stdout)]
 //! This example demonstrates how to create signatures and countersignatures for a message, and how
 //! to verify them.
 

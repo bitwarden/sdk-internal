@@ -69,9 +69,8 @@ pub struct SendRequestModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub expiration_date: Option<String>,
-    /// The date after which a send may be automatically deleted from the server. The server
-    /// enforces a maximum of 31 days from creation. A background job deletes sends once this date
-    /// has passed.
+    /// The date after which a send may be automatically deleted from the server. When this is
+    /// null, the send may be deleted after it has exceeded the global send timeout limit.
     #[serde(rename = "deletionDate", alias = "DeletionDate")]
     pub deletion_date: String,
     #[serde(

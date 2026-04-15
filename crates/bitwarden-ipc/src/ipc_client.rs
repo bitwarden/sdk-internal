@@ -1,33 +1,55 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
+use bitwarden_error::bitwarden_error;
 use bitwarden_threading::cancellation_token::CancellationToken;
 use serde::de::DeserializeOwned;
 use thiserror::Error;
-use tokio::select;
+use tokio::{select, sync::RwLock};
 
 use crate::{
+    RpcHandler,
     constants::CHANNEL_BUFFER_CAPACITY,
-    error::{AlreadyRunningError, ReceiveError, SendError, SubscribeError, TypedReceiveError},
+    endpoint::Endpoint,
     message::{
         IncomingMessage, OutgoingMessage, PayloadTypeName, TypedIncomingMessage,
         TypedOutgoingMessage,
     },
     rpc::{
-        exec::{handler::ErasedRpcHandler, handler_registry::RpcHandlerRegistry},
-        request_message::{RPC_REQUEST_PAYLOAD_TYPE_NAME, RpcRequestPayload},
-        response_message::OutgoingRpcResponseMessage,
+        error::RpcError,
+        exec::handler_registry::RpcHandlerRegistry,
+        request::RpcRequest,
+        request_message::{RPC_REQUEST_PAYLOAD_TYPE_NAME, RpcRequestMessage, RpcRequestPayload},
+        response_message::{IncomingRpcResponseMessage, OutgoingRpcResponseMessage},
     },
     serde_utils,
     traits::{CommunicationBackend, CryptoProvider, SessionRepository},
 };
+
+/// An IPC client that handles communication between different components and clients.
+/// It uses a crypto provider to encrypt and decrypt messages, a communication backend to send and
+/// receive messages, and a session repository to persist sessions.
+pub struct IpcClient<Crypto, Com, Ses>
+where
+    Crypto: CryptoProvider<Com, Ses>,
+    Com: CommunicationBackend,
+    Ses: SessionRepository<Crypto::Session>,
+{
+    crypto: Crypto,
+    communication: Com,
+    sessions: Ses,
+
+    handlers: RpcHandlerRegistry,
+    incoming: RwLock<Option<tokio::sync::broadcast::Receiver<IncomingMessage>>>,
+    cancellation_token: RwLock<Option<CancellationToken>>,
+}
 
 /// A subscription to receive messages over IPC.
 /// The subcription will start buffering messages after its creation and return them
 /// when receive() is called. Messages received before the subscription was created will not be
 /// returned.
 pub struct IpcClientSubscription {
-    pub(crate) receiver: tokio::sync::broadcast::Receiver<IncomingMessage>,
-    pub(crate) topic: Option<String>,
+    receiver: tokio::sync::broadcast::Receiver<IncomingMessage>,
+    topic: Option<String>,
 }
 
 /// A subscription to receive messages over IPC.
@@ -39,50 +61,76 @@ pub struct IpcClientTypedSubscription<Payload: DeserializeOwned + PayloadTypeNam
     std::marker::PhantomData<Payload>,
 );
 
-/// Internal shared state for the IPC client.
-struct IpcClientInner<Crypto, Com, Ses>
-where
-    Crypto: CryptoProvider<Com, Ses>,
-    Com: CommunicationBackend,
-    Ses: SessionRepository<Crypto::Session>,
-{
-    crypto: Crypto,
-    communication: Com,
-    sessions: Ses,
-
-    handlers: RpcHandlerRegistry,
-    incoming: Mutex<Option<tokio::sync::broadcast::Receiver<IncomingMessage>>>,
-    cancellation_token: Mutex<Option<CancellationToken>>,
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
+#[bitwarden_error(flat)]
+#[allow(missing_docs)]
+pub enum SubscribeError {
+    #[error("The IPC processing thread is not running")]
+    NotStarted,
 }
 
-/// An IPC client that handles communication between different components and clients.
-/// It uses a crypto provider to encrypt and decrypt messages, a communication backend to send and
-/// receive messages, and a session repository to persist sessions.
-///
-/// This is the concrete implementation of the [`IpcClient`](crate::IpcClient) trait.
-pub struct IpcClientImpl<Crypto, Com, Ses>
-where
-    Crypto: CryptoProvider<Com, Ses>,
-    Com: CommunicationBackend,
-    Ses: SessionRepository<Crypto::Session>,
-{
-    inner: Arc<IpcClientInner<Crypto, Com, Ses>>,
+#[derive(Debug, Error, PartialEq, Eq)]
+#[bitwarden_error(flat)]
+#[allow(missing_docs)]
+pub enum ReceiveError {
+    #[error("Failed to subscribe to the IPC channel: {0}")]
+    Channel(#[from] tokio::sync::broadcast::error::RecvError),
+
+    #[error("Timed out while waiting for a message: {0}")]
+    Timeout(#[from] tokio::time::error::Elapsed),
+
+    #[error("Cancelled while waiting for a message")]
+    Cancelled,
 }
 
-impl<Crypto, Com, Ses> Clone for IpcClientImpl<Crypto, Com, Ses>
-where
-    Crypto: CryptoProvider<Com, Ses>,
-    Com: CommunicationBackend,
-    Ses: SessionRepository<Crypto::Session>,
-{
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
+#[derive(Debug, Error, PartialEq, Eq)]
+#[bitwarden_error(flat)]
+#[allow(missing_docs)]
+pub enum TypedReceiveError {
+    #[error("Failed to subscribe to the IPC channel: {0}")]
+    Channel(#[from] tokio::sync::broadcast::error::RecvError),
+
+    #[error("Timed out while waiting for a message: {0}")]
+    Timeout(#[from] tokio::time::error::Elapsed),
+
+    #[error("Cancelled while waiting for a message")]
+    Cancelled,
+
+    #[error("Typing error: {0}")]
+    Typing(String),
+}
+
+impl From<ReceiveError> for TypedReceiveError {
+    fn from(value: ReceiveError) -> Self {
+        match value {
+            ReceiveError::Channel(e) => TypedReceiveError::Channel(e),
+            ReceiveError::Timeout(e) => TypedReceiveError::Timeout(e),
+            ReceiveError::Cancelled => TypedReceiveError::Cancelled,
         }
     }
 }
 
-impl<Crypto, Com, Ses> IpcClientImpl<Crypto, Com, Ses>
+#[derive(Debug, Error, PartialEq, Eq)]
+#[bitwarden_error(flat)]
+#[allow(missing_docs)]
+pub enum RequestError {
+    #[error(transparent)]
+    Subscribe(#[from] SubscribeError),
+
+    #[error(transparent)]
+    Receive(#[from] TypedReceiveError),
+
+    #[error("Timed out while waiting for a message: {0}")]
+    Timeout(#[from] tokio::time::error::Elapsed),
+
+    #[error("Failed to send message: {0}")]
+    Send(String),
+
+    #[error("Error occured on the remote target: {0}")]
+    Rpc(#[from] RpcError),
+}
+
+impl<Crypto, Com, Ses> IpcClient<Crypto, Com, Ses>
 where
     Crypto: CryptoProvider<Com, Ses>,
     Com: CommunicationBackend,
@@ -90,53 +138,38 @@ where
 {
     /// Create a new IPC client with the provided crypto provider, communication backend, and
     /// session repository.
-    pub fn new(crypto: Crypto, communication: Com, sessions: Ses) -> Self {
-        Self {
-            inner: Arc::new(IpcClientInner {
-                crypto,
-                communication,
-                sessions,
+    pub fn new(crypto: Crypto, communication: Com, sessions: Ses) -> Arc<Self> {
+        Arc::new(Self {
+            crypto,
+            communication,
+            sessions,
 
-                handlers: RpcHandlerRegistry::new(),
-                incoming: Mutex::new(None),
-                cancellation_token: Mutex::new(None),
-            }),
-        }
+            handlers: RpcHandlerRegistry::new(),
+            incoming: RwLock::new(None),
+            cancellation_token: RwLock::new(None),
+        })
     }
-}
 
-#[async_trait::async_trait]
-impl<Crypto, Com, Ses> crate::ipc_client_trait::IpcClient for IpcClientImpl<Crypto, Com, Ses>
-where
-    Crypto: CryptoProvider<Com, Ses>,
-    Com: CommunicationBackend,
-    Ses: SessionRepository<Crypto::Session>,
-{
-    async fn start(
-        &self,
-        cancellation_token: Option<CancellationToken>,
-    ) -> Result<(), AlreadyRunningError> {
-        if self.is_running() {
-            return Err(AlreadyRunningError);
-        }
-
-        let cancellation_token = cancellation_token.unwrap_or_default();
-        self.inner
-            .cancellation_token
-            .lock()
-            .expect("Failed to lock cancellation token mutex")
+    /// Start the IPC client, which will begin listening for incoming messages and processing them.
+    /// This will be done in a separate task, allowing the client to receive messages
+    /// asynchronously. The client will stop automatically if an error occurs during message
+    /// processing or if the cancellation token is triggered.
+    ///
+    /// Note: The client can and will send messages in the background while it is running, even if
+    /// no active subscriptions are present.
+    pub async fn start(self: &Arc<Self>) {
+        let cancellation_token = CancellationToken::new();
+        self.cancellation_token
+            .write()
+            .await
             .replace(cancellation_token.clone());
 
-        let com_receiver = self.inner.communication.subscribe().await;
+        let com_receiver = self.communication.subscribe().await;
         let (client_tx, client_rx) = tokio::sync::broadcast::channel(CHANNEL_BUFFER_CAPACITY);
 
-        self.inner
-            .incoming
-            .lock()
-            .expect("Failed to lock incoming mutex")
-            .replace(client_rx);
+        self.incoming.write().await.replace(client_rx);
 
-        let inner = self.inner.clone();
+        let client = self.clone();
         let future = async move {
             loop {
                 let rpc_topic = RPC_REQUEST_PAYLOAD_TYPE_NAME.to_owned();
@@ -145,10 +178,10 @@ where
                         tracing::debug!("Cancellation signal received, stopping IPC client");
                         break;
                     }
-                    received = inner.crypto.receive(&com_receiver, &inner.communication, &inner.sessions) => {
+                    received = client.crypto.receive(&com_receiver, &client.communication, &client.sessions) => {
                         match received {
                             Ok(message) if message.topic == Some(rpc_topic) => {
-                                handle_rpc_request(&inner, message)
+                                client.handle_rpc_request(message)
                             }
                             Ok(message) => {
                                 if client_tx.send(message).is_err() {
@@ -165,7 +198,7 @@ where
                 }
             }
             tracing::debug!("IPC client shutting down");
-            stop_inner(&inner);
+            client.stop().await;
         };
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -173,53 +206,62 @@ where
 
         #[cfg(target_arch = "wasm32")]
         wasm_bindgen_futures::spawn_local(future);
-
-        Ok(())
     }
 
-    fn is_running(&self) -> bool {
-        let has_incoming = self
-            .inner
-            .incoming
-            .lock()
-            .expect("Failed to lock incoming mutex")
-            .as_ref()
-            .map(|receiver| !receiver.is_closed())
-            .unwrap_or(false);
-        let has_cancellation_token = self
-            .inner
-            .cancellation_token
-            .lock()
-            .expect("Failed to lock cancellation token mutex")
-            .is_some();
+    /// Check if the IPC client task is currently running.
+    pub async fn is_running(self: &Arc<Self>) -> bool {
+        let has_incoming = self.incoming.read().await.is_some();
+        let has_cancellation_token = self.cancellation_token.read().await.is_some();
         has_incoming && has_cancellation_token
     }
 
-    async fn send(&self, message: OutgoingMessage) -> Result<(), SendError> {
-        let result = self
-            .inner
-            .crypto
-            .send(&self.inner.communication, &self.inner.sessions, message)
-            .await;
+    /// Stop the IPC client task. This will stop listening for incoming messages.
+    pub async fn stop(self: &Arc<Self>) {
+        let mut incoming = self.incoming.write().await;
+        let _ = incoming.take();
 
-        if let Err(ref error) = result {
-            tracing::error!(?error, "Error sending message");
-            stop_inner(&self.inner);
+        let mut cancellation_token = self.cancellation_token.write().await;
+        if let Some(cancellation_token) = cancellation_token.take() {
+            cancellation_token.cancel();
         }
-
-        result.map_err(|e| SendError(format!("{e:?}")))
     }
 
-    async fn subscribe(
-        &self,
+    /// Register a new RPC handler for processing incoming RPC requests.
+    /// The handler will be executed by the IPC client when an RPC request is received and
+    /// the response will be sent back over IPC.
+    pub async fn register_rpc_handler<H>(self: &Arc<Self>, handler: H)
+    where
+        H: RpcHandler + Send + Sync + 'static,
+    {
+        self.handlers.register(handler).await;
+    }
+
+    /// Send a message
+    pub async fn send(self: &Arc<Self>, message: OutgoingMessage) -> Result<(), Crypto::SendError> {
+        let result = self
+            .crypto
+            .send(&self.communication, &self.sessions, message)
+            .await;
+
+        if result.is_err() {
+            tracing::error!(?result, "Error sending message");
+            self.stop().await;
+        }
+
+        result
+    }
+
+    /// Create a subscription to receive messages, optionally filtered by topic.
+    /// Setting the topic to `None` will receive all messages.
+    pub async fn subscribe(
+        self: &Arc<Self>,
         topic: Option<String>,
     ) -> Result<IpcClientSubscription, SubscribeError> {
         Ok(IpcClientSubscription {
             receiver: self
-                .inner
                 .incoming
-                .lock()
-                .expect("Failed to lock incoming mutex")
+                .read()
+                .await
                 .as_ref()
                 .ok_or(SubscribeError::NotStarted)?
                 .resubscribe(),
@@ -227,98 +269,130 @@ where
         })
     }
 
-    async fn register_rpc_handler_erased(&self, name: &str, handler: Box<dyn ErasedRpcHandler>) {
-        self.inner
-            .handlers
-            .register_erased(name.to_owned(), handler)
-            .await;
+    /// Create a subscription to receive messages that can be deserialized into the provided payload
+    /// type.
+    pub async fn subscribe_typed<Payload>(
+        self: &Arc<Self>,
+    ) -> Result<IpcClientTypedSubscription<Payload>, SubscribeError>
+    where
+        Payload: DeserializeOwned + PayloadTypeName,
+    {
+        Ok(IpcClientTypedSubscription(
+            self.subscribe(Some(Payload::PAYLOAD_TYPE_NAME.to_owned()))
+                .await?,
+            std::marker::PhantomData,
+        ))
     }
-}
 
-fn stop_inner<Crypto, Com, Ses>(inner: &IpcClientInner<Crypto, Com, Ses>)
-where
-    Crypto: CryptoProvider<Com, Ses>,
-    Com: CommunicationBackend,
-    Ses: SessionRepository<Crypto::Session>,
-{
-    let mut cancellation_token = inner
-        .cancellation_token
-        .lock()
-        .expect("Failed to lock cancellation token mutex");
+    /// Send a request to the specified destination and wait for a response.
+    /// The destination must have a registered RPC handler for the request type, otherwise
+    /// an error will be returned by the remote endpoint.
+    pub async fn request<Request>(
+        self: &Arc<Self>,
+        request: Request,
+        destination: Endpoint,
+        cancellation_token: Option<CancellationToken>,
+    ) -> Result<Request::Response, RequestError>
+    where
+        Request: RpcRequest,
+    {
+        let request_id = uuid::Uuid::new_v4().to_string();
+        let mut response_subscription = self
+            .subscribe_typed::<IncomingRpcResponseMessage<_>>()
+            .await?;
 
-    if let Some(cancellation_token) = cancellation_token.take() {
-        cancellation_token.cancel();
-    }
-}
+        let request_payload = RpcRequestMessage {
+            request,
+            request_id: request_id.clone(),
+            request_type: Request::NAME.to_owned(),
+        };
 
-fn handle_rpc_request<Crypto, Com, Ses>(
-    inner: &Arc<IpcClientInner<Crypto, Com, Ses>>,
-    incoming_message: IncomingMessage,
-) where
-    Crypto: CryptoProvider<Com, Ses>,
-    Com: CommunicationBackend,
-    Ses: SessionRepository<Crypto::Session>,
-{
-    let inner = inner.clone();
-    let future = async move {
-        #[derive(Debug, Error)]
-        enum HandleError {
-            #[error("Failed to deserialize request message: {0}")]
-            Deserialize(String),
-
-            #[error("Failed to serialize response message: {0}")]
-            Serialize(String),
+        let message = TypedOutgoingMessage {
+            payload: request_payload,
+            destination,
         }
+        .try_into()
+        .map_err(|e: serde_utils::DeserializeError| {
+            RequestError::Rpc(RpcError::RequestSerialization(e.to_string()))
+        })?;
 
-        async fn handle(
-            incoming_message: IncomingMessage,
-            handlers: &RpcHandlerRegistry,
-        ) -> Result<OutgoingMessage, HandleError> {
-            let request = RpcRequestPayload::from_slice(incoming_message.payload.clone()).map_err(
-                |e: serde_utils::DeserializeError| HandleError::Deserialize(e.to_string()),
-            )?;
+        self.send(message)
+            .await
+            .map_err(|e| RequestError::Send(format!("{e:?}")))?;
 
-            let response = handlers.handle(&request).await;
+        let response = loop {
+            let received = response_subscription
+                .receive(cancellation_token.clone())
+                .await
+                .map_err(RequestError::Receive)?;
 
-            let response_message = OutgoingRpcResponseMessage {
-                request_id: request.request_id(),
-                request_type: request.request_type(),
-                result: response,
-            };
-
-            let outgoing = TypedOutgoingMessage {
-                payload: response_message,
-                destination: incoming_message.source.into(),
+            if received.payload.request_id == request_id {
+                break received;
             }
-            .try_into()
-            .map_err(|e: serde_utils::SerializeError| HandleError::Serialize(e.to_string()))?;
+        };
 
-            Ok(outgoing)
-        }
+        Ok(response.payload.result?)
+    }
 
-        match handle(incoming_message, &inner.handlers).await {
-            Ok(outgoing_message) => {
-                // Send response directly through the crypto provider (not through the trait)
-                // since we're inside the background task and don't have a trait object.
-                let result = inner
-                    .crypto
-                    .send(&inner.communication, &inner.sessions, outgoing_message)
-                    .await;
-                if result.is_err() {
-                    tracing::error!("Failed to send response message");
+    fn handle_rpc_request(self: &Arc<Self>, incoming_message: IncomingMessage) {
+        let client = self.clone();
+        let future = async move {
+            let client = client.clone();
+
+            #[derive(Debug, Error)]
+            enum HandleError {
+                #[error("Failed to deserialize request message: {0}")]
+                Deserialize(String),
+
+                #[error("Failed to serialize response message: {0}")]
+                Serialize(String),
+            }
+
+            async fn handle(
+                incoming_message: IncomingMessage,
+                handlers: &RpcHandlerRegistry,
+            ) -> Result<OutgoingMessage, HandleError> {
+                let request = RpcRequestPayload::from_slice(incoming_message.payload.clone())
+                    .map_err(|e: serde_utils::DeserializeError| {
+                        HandleError::Deserialize(e.to_string())
+                    })?;
+
+                let response = handlers.handle(&request).await;
+
+                let response_message = OutgoingRpcResponseMessage {
+                    request_id: request.request_id(),
+                    request_type: request.request_type(),
+                    result: response,
+                };
+
+                let outgoing = TypedOutgoingMessage {
+                    payload: response_message,
+                    destination: incoming_message.source,
+                }
+                .try_into()
+                .map_err(|e: serde_utils::SerializeError| HandleError::Serialize(e.to_string()))?;
+
+                Ok(outgoing)
+            }
+
+            match handle(incoming_message, &client.handlers).await {
+                Ok(outgoing_message) => {
+                    if client.send(outgoing_message).await.is_err() {
+                        tracing::error!("Failed to send response message");
+                    }
+                }
+                Err(error) => {
+                    tracing::error!(%error, "Error handling RPC request");
                 }
             }
-            Err(error) => {
-                tracing::error!(%error, "Error handling RPC request");
-            }
-        }
-    };
+        };
 
-    #[cfg(not(target_arch = "wasm32"))]
-    tokio::spawn(future);
+        #[cfg(not(target_arch = "wasm32"))]
+        tokio::spawn(future);
 
-    #[cfg(target_arch = "wasm32")]
-    wasm_bindgen_futures::spawn_local(future);
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_futures::spawn_local(future);
+    }
 }
 
 impl IpcClientSubscription {
@@ -350,10 +424,6 @@ impl<Payload> IpcClientTypedSubscription<Payload>
 where
     Payload: DeserializeOwned + PayloadTypeName,
 {
-    pub(crate) fn new(subscription: IpcClientSubscription) -> Self {
-        Self(subscription, std::marker::PhantomData)
-    }
-
     /// Receive a message.
     /// Setting the cancellation_token to `None` will wait indefinitely.
     pub async fn receive(
@@ -376,16 +446,10 @@ mod tests {
 
     use super::*;
     use crate::{
-        IpcClientExt,
-        endpoint::{Endpoint, HostId, Source},
-        ipc_client_trait::IpcClient,
-        message::PayloadTypeName,
-        rpc::{
-            request::RpcRequest,
-            request_message::{RPC_REQUEST_PAYLOAD_TYPE_NAME, RpcRequestMessage},
-            response_message::IncomingRpcResponseMessage,
+        endpoint::Endpoint,
+        traits::{
+            InMemorySessionRepository, NoEncryptionCryptoProvider, tests::TestCommunicationBackend,
         },
-        traits::{InMemorySessionRepository, NoEncryptionCryptoProvider, TestCommunicationBackend},
     };
 
     struct TestCryptoProvider {
@@ -438,7 +502,7 @@ mod tests {
     async fn returns_send_error_when_crypto_provider_returns_error() {
         let message = OutgoingMessage {
             payload: vec![],
-            destination: Endpoint::BrowserBackground { id: HostId::Own },
+            destination: Endpoint::BrowserBackground,
             topic: None,
         };
         let crypto_provider = TestCryptoProvider {
@@ -447,27 +511,26 @@ mod tests {
         };
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
-        let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
-        let _ = client.start(None).await;
+        let client = IpcClient::new(crypto_provider, communication_provider, session_map);
+        client.start().await;
 
         let error = client.send(message).await.unwrap_err();
 
-        assert!(error.to_string().contains("Crypto error"));
+        assert_eq!(error, "Crypto error".to_string());
     }
 
     #[tokio::test]
     async fn communication_provider_has_outgoing_message_when_sending_through_ipc_client() {
         let message = OutgoingMessage {
             payload: vec![],
-            destination: Endpoint::BrowserBackground { id: HostId::Own },
+            destination: Endpoint::BrowserBackground,
             topic: None,
         };
         let crypto_provider = NoEncryptionCryptoProvider;
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
-        let client =
-            IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-        let _ = client.start(None).await;
+        let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
+        client.start().await;
 
         client.send(message.clone()).await.unwrap();
 
@@ -479,20 +542,15 @@ mod tests {
     async fn returns_received_message_when_received_from_backend() {
         let message = IncomingMessage {
             payload: vec![],
-            source: Source::Web {
-                tab_id: 9001,
-                document_id: "doc-1".to_string(),
-                origin: "https://example.com".to_string(),
-            },
-            destination: Endpoint::BrowserBackground { id: HostId::Own },
+            source: Endpoint::Web { id: 9001 },
+            destination: Endpoint::BrowserBackground,
             topic: None,
         };
         let crypto_provider = NoEncryptionCryptoProvider;
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
-        let client =
-            IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-        let _ = client.start(None).await;
+        let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
+        client.start().await;
 
         let mut subscription = client
             .subscribe(None)
@@ -508,31 +566,22 @@ mod tests {
     async fn skips_non_matching_topics_and_returns_first_matching_message() {
         let non_matching_message = IncomingMessage {
             payload: vec![],
-            source: Source::Web {
-                tab_id: 9001,
-                document_id: "doc-1".to_string(),
-                origin: "https://example.com".to_string(),
-            },
-            destination: Endpoint::BrowserBackground { id: HostId::Own },
+            source: Endpoint::Web { id: 9001 },
+            destination: Endpoint::BrowserBackground,
             topic: Some("non_matching_topic".to_owned()),
         };
         let matching_message = IncomingMessage {
             payload: vec![109],
-            source: Source::Web {
-                tab_id: 9001,
-                document_id: "doc-1".to_string(),
-                origin: "https://example.com".to_string(),
-            },
-            destination: Endpoint::BrowserBackground { id: HostId::Own },
+            source: Endpoint::Web { id: 9001 },
+            destination: Endpoint::BrowserBackground,
             topic: Some("matching_topic".to_owned()),
         };
 
         let crypto_provider = NoEncryptionCryptoProvider;
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
-        let client =
-            IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-        let _ = client.start(None).await;
+        let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
+        client.start().await;
         let mut subscription = client
             .subscribe(Some("matching_topic".to_owned()))
             .await
@@ -559,32 +608,23 @@ mod tests {
 
         let unrelated = IncomingMessage {
             payload: vec![],
-            source: Source::Web {
-                tab_id: 9001,
-                document_id: "doc-1".to_string(),
-                origin: "https://example.com".to_string(),
-            },
-            destination: Endpoint::BrowserBackground { id: HostId::Own },
+            source: Endpoint::Web { id: 9001 },
+            destination: Endpoint::BrowserBackground,
             topic: None,
         };
-        let typed_message = crate::message::TypedIncomingMessage {
+        let typed_message = TypedIncomingMessage {
             payload: TestPayload {
                 some_data: "Hello, world!".to_string(),
             },
-            source: Source::Web {
-                tab_id: 9001,
-                document_id: "doc-1".to_string(),
-                origin: "https://example.com".to_string(),
-            },
-            destination: Endpoint::BrowserBackground { id: HostId::Own },
+            source: Endpoint::Web { id: 9001 },
+            destination: Endpoint::BrowserBackground,
         };
 
         let crypto_provider = NoEncryptionCryptoProvider;
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
-        let client =
-            IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-        let _ = client.start(None).await;
+        let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
+        client.start().await;
         let mut subscription = client
             .subscribe_typed::<TestPayload>()
             .await
@@ -616,21 +656,16 @@ mod tests {
 
         let non_deserializable_message = IncomingMessage {
             payload: vec![],
-            source: Source::Web {
-                tab_id: 9001,
-                document_id: "doc-1".to_string(),
-                origin: "https://example.com".to_string(),
-            },
-            destination: Endpoint::BrowserBackground { id: HostId::Own },
+            source: Endpoint::Web { id: 9001 },
+            destination: Endpoint::BrowserBackground,
             topic: Some("TestPayload".to_owned()),
         };
 
         let crypto_provider = NoEncryptionCryptoProvider;
         let communication_provider = TestCommunicationBackend::new();
         let session_map = InMemorySessionRepository::new(HashMap::new());
-        let client =
-            IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-        let _ = client.start(None).await;
+        let client = IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
+        client.start().await;
         let mut subscription = client
             .subscribe_typed::<TestPayload>()
             .await
@@ -645,7 +680,7 @@ mod tests {
     async fn ipc_client_stops_if_crypto_returns_send_error() {
         let message = OutgoingMessage {
             payload: vec![],
-            destination: Endpoint::BrowserBackground { id: HostId::Own },
+            destination: Endpoint::BrowserBackground,
             topic: None,
         };
         let crypto_provider = TestCryptoProvider {
@@ -654,13 +689,13 @@ mod tests {
         };
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
-        let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
-        let _ = client.start(None).await;
+        let client = IpcClient::new(crypto_provider, communication_provider, session_map);
+        client.start().await;
 
         let error = client.send(message).await.unwrap_err();
-        let is_running = client.is_running();
+        let is_running = client.is_running().await;
 
-        assert!(error.to_string().contains("Crypto error"));
+        assert_eq!(error, "Crypto error".to_string());
         assert!(!is_running);
     }
 
@@ -672,37 +707,12 @@ mod tests {
         };
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
-        let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
-        let cancellation_token = CancellationToken::new();
-        let _ = client.start(Some(cancellation_token.clone())).await;
+        let client = IpcClient::new(crypto_provider, communication_provider, session_map);
+        client.start().await;
 
         // Give the client some time to process the error
         tokio::time::sleep(Duration::from_millis(100)).await;
-        let is_running = client.is_running();
-
-        assert!(!is_running);
-        assert!(cancellation_token.is_cancelled());
-    }
-
-    #[tokio::test]
-    async fn ipc_client_is_not_running_if_cancellation_token_is_cancelled() {
-        let crypto_provider = TestCryptoProvider {
-            send_result: None,
-            receive_result: None,
-        };
-        let communication_provider = TestCommunicationBackend::new();
-        let session_map = TestSessionRepository::new(HashMap::new());
-        let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
-        let cancellation_token = CancellationToken::new();
-        let _ = client.start(Some(cancellation_token.clone())).await;
-
-        // Give the client some time to process
-        tokio::time::sleep(Duration::from_millis(100)).await;
-
-        // Cancel the token and give the client some time to process the cancellation
-        cancellation_token.cancel();
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        let is_running = client.is_running();
+        let is_running = client.is_running().await;
 
         assert!(!is_running);
     }
@@ -715,59 +725,19 @@ mod tests {
         };
         let communication_provider = TestCommunicationBackend::new();
         let session_map = TestSessionRepository::new(HashMap::new());
-        let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
-        let cancellation_token = CancellationToken::new();
-        let _ = client.start(Some(cancellation_token.clone())).await;
+        let client = IpcClient::new(crypto_provider, communication_provider, session_map);
+        client.start().await;
 
         // Give the client some time to process
         tokio::time::sleep(Duration::from_millis(100)).await;
-        let is_running = client.is_running();
+        let is_running = client.is_running().await;
 
         assert!(is_running);
-        assert!(!cancellation_token.is_cancelled());
-    }
-
-    #[tokio::test]
-    async fn ipc_client_is_not_running_if_not_started() {
-        let crypto_provider = TestCryptoProvider {
-            send_result: None,
-            receive_result: None,
-        };
-        let communication_provider = TestCommunicationBackend::new();
-        let session_map = TestSessionRepository::new(HashMap::new());
-        let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
-
-        // Give the client some time to process
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        let is_running = client.is_running();
-
-        assert!(!is_running);
-    }
-
-    #[tokio::test]
-    async fn ipc_client_start_returns_error_if_already_running() {
-        let crypto_provider = TestCryptoProvider {
-            send_result: None,
-            receive_result: None,
-        };
-        let communication_provider = TestCommunicationBackend::new();
-        let session_map = TestSessionRepository::new(HashMap::new());
-        let client = IpcClientImpl::new(crypto_provider, communication_provider, session_map);
-        let cancellation_token = CancellationToken::new();
-        let first_result = client.start(Some(cancellation_token.clone())).await;
-        assert_eq!(first_result, Ok(()));
-
-        // Give the client some time to process
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        assert!(client.is_running());
-
-        let second_result = client.start(Some(cancellation_token.clone())).await;
-        assert_eq!(second_result, Err(AlreadyRunningError));
     }
 
     mod request {
         use super::*;
-        use crate::RpcHandler;
+        use crate::rpc::response_message::IncomingRpcResponseMessage;
 
         #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
         struct TestRequest {
@@ -804,21 +774,17 @@ mod tests {
             let communication_provider = TestCommunicationBackend::new();
             let session_map = InMemorySessionRepository::new(HashMap::new());
             let client =
-                IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-            let _ = client.start(None).await;
+                IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
+            client.start().await;
             let request = TestRequest { a: 1, b: 2 };
             let response = TestResponse { result: 3 };
 
             // Send the request
             let request_clone = request.clone();
-            let client_clone = client.clone();
             let result_handle = tokio::spawn(async move {
-                client_clone
-                    .request::<TestRequest>(
-                        request_clone,
-                        Endpoint::BrowserBackground { id: HostId::Own },
-                        None,
-                    )
+                let client = client.clone();
+                client
+                    .request::<TestRequest>(request_clone, Endpoint::BrowserBackground, None)
                     .await
             });
             tokio::time::sleep(Duration::from_millis(100)).await;
@@ -840,11 +806,8 @@ mod tests {
             let simulated_response = IncomingMessage {
                 payload: serde_utils::to_vec(&simulated_response)
                     .expect("Serialization should not fail"),
-                source: Source::BrowserBackground { id: HostId::Own },
-                destination: Endpoint::Web {
-                    tab_id: 9001,
-                    document_id: "doc-1".to_string(),
-                },
+                source: Endpoint::BrowserBackground,
+                destination: Endpoint::Web { id: 9001 },
                 topic: Some(
                     IncomingRpcResponseMessage::<TestRequest>::PAYLOAD_TYPE_NAME.to_owned(),
                 ),
@@ -862,8 +825,8 @@ mod tests {
             let communication_provider = TestCommunicationBackend::new();
             let session_map = InMemorySessionRepository::new(HashMap::new());
             let client =
-                IpcClientImpl::new(crypto_provider, communication_provider.clone(), session_map);
-            let _ = client.start(None).await;
+                IpcClient::new(crypto_provider, communication_provider.clone(), session_map);
+            client.start().await;
             let request_id = uuid::Uuid::new_v4().to_string();
             let request = TestRequest { a: 1, b: 2 };
             let response = TestResponse { result: 3 };
@@ -880,12 +843,8 @@ mod tests {
             let simulated_request_message = IncomingMessage {
                 payload: serde_utils::to_vec(&simulated_request)
                     .expect("Serialization should not fail"),
-                source: Source::Web {
-                    tab_id: 9001,
-                    document_id: "doc-1".to_string(),
-                    origin: "https://example.com".to_string(),
-                },
-                destination: Endpoint::BrowserBackground { id: HostId::Own },
+                source: Endpoint::Web { id: 9001 },
+                destination: Endpoint::BrowserBackground,
                 topic: Some(RPC_REQUEST_PAYLOAD_TYPE_NAME.to_owned()),
             };
             communication_provider.push_incoming(simulated_request_message);

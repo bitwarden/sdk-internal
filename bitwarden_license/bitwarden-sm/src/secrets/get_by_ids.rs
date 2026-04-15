@@ -1,9 +1,10 @@
 use bitwarden_api_api::models::GetSecretsRequestModel;
+use bitwarden_core::client::Client;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{SecretsManagerClient, error::SecretsManagerError, secrets::SecretsResponse};
+use crate::{error::SecretsManagerError, secrets::SecretsResponse};
 
 #[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
@@ -14,10 +15,9 @@ pub struct SecretsGetRequest {
 }
 
 pub(crate) async fn get_secrets_by_ids(
-    client: &SecretsManagerClient,
+    client: &Client,
     input: SecretsGetRequest,
 ) -> Result<SecretsResponse, SecretsManagerError> {
-    let client = client.client();
     let request = Some(GetSecretsRequestModel { ids: input.ids });
 
     let config = client.internal.get_api_configurations();

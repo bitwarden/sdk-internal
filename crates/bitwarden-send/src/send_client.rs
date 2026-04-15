@@ -1,13 +1,10 @@
-use std::{path::Path, sync::Arc};
+use std::path::Path;
 
 use bitwarden_core::Client;
 use bitwarden_crypto::{
     Decryptable, EncString, IdentifyKey, OctetStreamBytes, PrimitiveEncryptable,
 };
-use bitwarden_state::repository::{Repository, RepositoryError};
 use thiserror::Error;
-#[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
 
 use crate::{Send, SendListView, SendView};
 
@@ -52,9 +49,8 @@ pub enum SendDecryptFileError {
 }
 
 #[allow(missing_docs)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct SendClient {
-    pub(crate) client: Client,
+    client: Client,
 }
 
 impl SendClient {
@@ -135,12 +131,6 @@ impl SendClient {
 
         let encrypted = OctetStreamBytes::from(buffer).encrypt(&mut ctx, key)?;
         Ok(encrypted.to_buffer()?)
-    }
-}
-
-impl SendClient {
-    pub(crate) fn get_repository(&self) -> Result<Arc<dyn Repository<Send>>, RepositoryError> {
-        Ok(self.client.platform().state().get::<Send>()?)
     }
 }
 

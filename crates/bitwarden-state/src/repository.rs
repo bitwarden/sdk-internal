@@ -42,15 +42,6 @@ pub trait Repository<V: RepositoryItem>: Send + Sync {
     async fn remove_bulk(&self, keys: Vec<V::Key>) -> Result<(), RepositoryError>;
     /// Removes all items from the repository.
     async fn remove_all(&self) -> Result<(), RepositoryError>;
-
-    /// Replaces all items in the repository with the provided values. This is a convenience method
-    /// that first removes all existing items and then sets the new items in bulk.
-    ///
-    /// In the future we may want to explore using revision dates to optimize this operation.
-    async fn replace_all(&self, values: Vec<(V::Key, V)>) -> Result<(), RepositoryError> {
-        self.remove_all().await?;
-        self.set_bulk(values).await
-    }
 }
 
 /// This trait is used to mark types that can be stored in a repository.

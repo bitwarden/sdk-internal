@@ -10,7 +10,7 @@ use thiserror::Error;
 
 #[cfg(feature = "internal")]
 use crate::client::encryption_settings::EncryptionSettingsError;
-use crate::{Client, key_management::SymmetricKeySlotId};
+use crate::{Client, key_management::SymmetricKeyId};
 
 /// Response for `new_auth_request`.
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -97,7 +97,7 @@ pub(crate) fn approve_auth_request(
 
     // FIXME: [PM-18110] This should be removed once the key store can handle public key encryption
     #[allow(deprecated)]
-    let key = ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)?;
+    let key = ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)?;
 
     #[expect(deprecated)]
     Ok(UnsignedSharedKey::encapsulate_key_unsigned(
@@ -116,7 +116,7 @@ mod tests {
     use crate::{
         UserId,
         key_management::{
-            MasterPasswordUnlockData, SymmetricKeySlotId,
+            MasterPasswordUnlockData, SymmetricKeyId,
             account_cryptographic_state::WrappedAccountCryptographicState,
             crypto::{AuthRequestMethod, InitUserCryptoMethod, InitUserCryptoRequest},
         },
@@ -278,7 +278,7 @@ mod tests {
             let key_store = existing_device.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
+            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
         };
@@ -287,7 +287,7 @@ mod tests {
             let key_store = new_device.internal.get_key_store();
             let ctx = key_store.context();
             #[allow(deprecated)]
-            ctx.dangerous_get_symmetric_key(SymmetricKeySlotId::User)
+            ctx.dangerous_get_symmetric_key(SymmetricKeyId::User)
                 .unwrap()
                 .to_base64()
         };

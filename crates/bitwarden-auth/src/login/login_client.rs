@@ -66,6 +66,7 @@ use wasm_bindgen::prelude::*;
 /// # }
 /// ```
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Object))]
 pub struct LoginClient {
     pub(crate) client: Client,
 }

@@ -13,7 +13,7 @@ use bitwarden_crypto::KeyStore;
 use bitwarden_state::repository::{Repository, RepositoryItem};
 
 use super::Client;
-use crate::{client::ApiConfigurations, key_management::KeySlotIds};
+use crate::{client::ApiConfigurations, key_management::KeyIds};
 
 /// Trait for types that can be constructed from a [`Client`].
 ///
@@ -29,17 +29,17 @@ use crate::{client::ApiConfigurations, key_management::KeySlotIds};
 ///
 /// #[derive(FromClient)]
 /// pub struct FoldersClient {
-///     key_store: KeyStore<KeySlotIds>,
+///     key_store: KeyStore<KeyIds>,
 ///     api_configurations: Arc<ApiConfigurations>,
 ///     repository: Arc<dyn Repository<Folder>>,
 /// }
 ///
 /// // Usage:
-/// let folders_client = FoldersClient::from_client(&client);
+/// let folders_client = FoldersClient::from_client(&client)?;
 /// ```
 pub trait FromClient: Sized {
     /// Construct this type from a [`Client`] reference.
-    fn from_client(client: &Client) -> Self;
+    fn from_client(client: &Client) -> Result<Self, String>;
 }
 
 /// Trait for extracting parts/dependencies from a [`Client`].
@@ -48,25 +48,34 @@ pub trait FromClient: Sized {
 /// `#[derive(FromClient)]` - users should derive [`FromClient`] rather than using this trait
 /// directly.
 pub trait FromClientPart<T> {
+    /// The error type returned when extraction fails.
+    type Error;
+
     /// Extract a dependency of type `T` from self.
-    fn get_part(&self) -> T;
+    fn get_part(&self) -> Result<T, Self::Error>;
 }
 
-impl FromClientPart<KeyStore<KeySlotIds>> for Client {
-    fn get_part(&self) -> KeyStore<KeySlotIds> {
-        self.internal.get_key_store().clone()
+impl FromClientPart<KeyStore<KeyIds>> for Client {
+    type Error = std::convert::Infallible;
+
+    fn get_part(&self) -> Result<KeyStore<KeyIds>, Self::Error> {
+        Ok(self.internal.get_key_store().clone())
     }
 }
 
 impl FromClientPart<Arc<ApiConfigurations>> for Client {
-    fn get_part(&self) -> Arc<ApiConfigurations> {
-        self.internal.get_api_configurations()
+    type Error = std::convert::Infallible;
+
+    fn get_part(&self) -> Result<Arc<ApiConfigurations>, Self::Error> {
+        Ok(self.internal.get_api_configurations())
     }
 }
 
 #[cfg(feature = "internal")]
-impl<T: RepositoryItem> FromClientPart<Option<Arc<dyn Repository<T>>>> for Client {
-    fn get_part(&self) -> Option<Arc<dyn Repository<T>>> {
-        self.platform().state().get::<T>().ok()
+impl<T: RepositoryItem> FromClientPart<Arc<dyn Repository<T>>> for Client {
+    type Error = bitwarden_state::registry::StateRegistryError;
+
+    fn get_part(&self) -> Result<Arc<dyn Repository<T>>, Self::Error> {
+        self.platform().state().get::<T>()
     }
 }

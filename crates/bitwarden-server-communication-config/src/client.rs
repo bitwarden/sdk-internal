@@ -1,9 +1,8 @@
 #[cfg(test)]
 use crate::AcquiredCookie;
 use crate::{
-    AcquireCookieError, BootstrapConfig, BootstrapConfigRequest, ServerCommunicationConfig,
+    AcquireCookieError, BootstrapConfig, ServerCommunicationConfig,
     ServerCommunicationConfigPlatformApi, ServerCommunicationConfigRepository,
-    SetCommunicationTypeRequest, SsoCookieVendorConfig,
 };
 
 /// Server communication configuration client
@@ -48,15 +47,12 @@ where
             }))
     }
 
-    /// Returns whether this domain uses cookie bootstrapping
-    ///
-    /// Returns `true` if the domain has an `SsoCookieVendor` configuration,
-    /// regardless of whether cookies have already been acquired. This is useful
-    /// for determining if the domain requires the bootstrap flow (e.g., to show
-    /// appropriate UI), without making claims about cookie validity.
-    pub async fn needs_bootstrap(&self, domain: String) -> bool {
-        if let Ok(Some(config)) = self.repository.get(domain).await {
-            return matches!(config.bootstrap, BootstrapConfig::SsoCookieVendor(_));
+    /// Determines if cookie bootstrapping is needed for this hostname
+    pub async fn needs_bootstrap(&self, hostname: String) -> bool {
+        if let Ok(Some(config)) = self.repository.get(hostname).await
+            && let BootstrapConfig::SsoCookieVendor(vendor_config) = config.bootstrap
+        {
+            return vendor_config.cookie_value.is_none();
         }
         false
     }
@@ -83,14 +79,10 @@ where
     /// This method saves the provided communication configuration to the repository.
     /// Typically called when receiving the `/api/config` response from the server.
     ///
-    /// The request type intentionally excludes `cookie_value`, since cookies are
-    /// managed separately via [`Self::acquire_cookie`]. Any previously acquired
-    /// cookies stored in the repository are preserved across calls to this method.
-    ///
     /// # Arguments
     ///
     /// * `hostname` - The server hostname (e.g., "vault.acme.com")
-    /// * `request` - The server communication configuration to store
+    /// * `config` - The server communication configuration to store
     ///
     /// # Errors
     ///
@@ -98,37 +90,8 @@ where
     pub async fn set_communication_type(
         &self,
         hostname: String,
-        request: SetCommunicationTypeRequest,
+        config: ServerCommunicationConfig,
     ) -> Result<(), R::SaveError> {
-        let existing_cookie_value = match &request.bootstrap {
-            BootstrapConfigRequest::SsoCookieVendor(_) => self
-                .repository
-                .get(hostname.clone())
-                .await
-                .ok()
-                .flatten()
-                .and_then(|existing| match existing.bootstrap {
-                    BootstrapConfig::SsoCookieVendor(v) => v.cookie_value,
-                    _ => None,
-                }),
-            BootstrapConfigRequest::Direct => None,
-        };
-
-        let config = ServerCommunicationConfig {
-            bootstrap: match request.bootstrap {
-                BootstrapConfigRequest::Direct => BootstrapConfig::Direct,
-                BootstrapConfigRequest::SsoCookieVendor(v) => {
-                    BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
-                        idp_login_url: v.idp_login_url,
-                        cookie_name: v.cookie_name,
-                        cookie_domain: v.cookie_domain,
-                        vault_url: v.vault_url,
-                        cookie_value: existing_cookie_value,
-                    })
-                }
-            },
-        };
-
         self.repository.save(hostname, config).await
     }
 
@@ -170,18 +133,10 @@ where
             .as_ref()
             .ok_or(AcquireCookieError::UnsupportedConfiguration)?;
 
-        // Extract vault_url from vendor_config
-        let vault_url = vendor_config
-            .vault_url
-            .as_ref()
-            .filter(|s| !s.is_empty())
-            .ok_or(AcquireCookieError::UnsupportedConfiguration)?
-            .clone();
-
-        // Call platform API to acquire cookies, passing vault_url
+        // Call platform API to acquire cookies
         let cookies = self
             .platform_api
-            .acquire_cookies(vault_url)
+            .acquire_cookies(hostname.to_string())
             .await
             .ok_or(AcquireCookieError::Cancelled)?;
 
@@ -239,7 +194,7 @@ mod tests {
     use tokio::sync::RwLock;
 
     use super::*;
-    use crate::{SsoCookieVendorConfig, SsoCookieVendorConfigRequest};
+    use crate::SsoCookieVendorConfig;
 
     /// Mock in-memory repository for testing
     #[derive(Default, Clone)]
@@ -285,7 +240,7 @@ mod tests {
 
     #[async_trait::async_trait]
     impl ServerCommunicationConfigPlatformApi for MockPlatformApi {
-        async fn acquire_cookies(&self, _vault_url: String) -> Option<Vec<AcquiredCookie>> {
+        async fn acquire_cookies(&self, _hostname: String) -> Option<Vec<AcquiredCookie>> {
             self.cookies_to_return.read().await.clone()
         }
     }
@@ -312,7 +267,6 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: Some(vec![AcquiredCookie {
                     name: "TestCookie".to_string(),
                     value: "value123".to_string(),
@@ -338,14 +292,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn needs_bootstrap_true_for_sso_cookie_vendor() {
+    async fn needs_bootstrap_true_when_cookie_missing() {
         let repo = MockRepository::default();
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -364,14 +317,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn needs_bootstrap_true_when_cookie_already_present() {
+    async fn needs_bootstrap_false_when_cookie_present() {
         let repo = MockRepository::default();
         let config = ServerCommunicationConfig {
             bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: Some(vec![AcquiredCookie {
                     name: "TestCookie".to_string(),
                     value: "value123".to_string(),
@@ -386,7 +338,7 @@ mod tests {
         let platform_api = MockPlatformApi::new();
         let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
         assert!(
-            client
+            !client
                 .needs_bootstrap("vault.example.com".to_string())
                 .await
         );
@@ -438,7 +390,6 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -462,7 +413,6 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("AWSELBAuthSessionCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: Some(vec![AcquiredCookie {
                     name: "AWSELBAuthSessionCookie".to_string(),
                     value: "eyJhbGciOiJFUzI1NiIsImtpZCI6Im...".to_string(),
@@ -502,7 +452,6 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("AWSELBAuthSessionCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: Some(vec![
                     AcquiredCookie {
                         name: "AWSELBAuthSessionCookie-0".to_string(),
@@ -564,7 +513,6 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -618,7 +566,6 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -679,7 +626,6 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("ExpectedCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -738,7 +684,6 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("AWSELBAuthSessionCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -806,7 +751,6 @@ mod tests {
                 idp_login_url: Some("https://example.com".to_string()),
                 cookie_name: Some("SessionCookie".to_string()),
                 cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
                 cookie_value: None,
             }),
         };
@@ -855,15 +799,17 @@ mod tests {
         let platform_api = MockPlatformApi::new();
         let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
 
-        let request = SetCommunicationTypeRequest {
-            bootstrap: BootstrapConfigRequest::Direct,
+        let config = ServerCommunicationConfig {
+            bootstrap: BootstrapConfig::Direct,
         };
 
+        // Call set_communication_type
         client
-            .set_communication_type("vault.example.com".to_string(), request)
+            .set_communication_type("vault.example.com".to_string(), config.clone())
             .await
             .unwrap();
 
+        // Verify config was saved
         let saved_config = repo
             .get("vault.example.com".to_string())
             .await
@@ -879,20 +825,22 @@ mod tests {
         let platform_api = MockPlatformApi::new();
         let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
 
-        let request = SetCommunicationTypeRequest {
-            bootstrap: BootstrapConfigRequest::SsoCookieVendor(SsoCookieVendorConfigRequest {
+        let config = ServerCommunicationConfig {
+            bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://idp.example.com/login".to_string()),
                 cookie_name: Some("SessionCookie".to_string()),
                 cookie_domain: Some("vault.example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_value: None,
             }),
         };
 
+        // Call set_communication_type
         client
-            .set_communication_type("vault.example.com".to_string(), request)
+            .set_communication_type("vault.example.com".to_string(), config.clone())
             .await
             .unwrap();
 
+        // Verify config was saved
         let saved_config = repo
             .get("vault.example.com".to_string())
             .await
@@ -931,20 +879,21 @@ mod tests {
         let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
 
         // Overwrite with SsoCookieVendor config
-        let request = SetCommunicationTypeRequest {
-            bootstrap: BootstrapConfigRequest::SsoCookieVendor(SsoCookieVendorConfigRequest {
+        let new_config = ServerCommunicationConfig {
+            bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://new-idp.example.com/login".to_string()),
                 cookie_name: Some("NewCookie".to_string()),
                 cookie_domain: Some("vault.example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
+                cookie_value: None,
             }),
         };
 
         client
-            .set_communication_type("vault.example.com".to_string(), request)
+            .set_communication_type("vault.example.com".to_string(), new_config)
             .await
             .unwrap();
 
+        // Verify new config replaced old config
         let saved_config = repo
             .get("vault.example.com".to_string())
             .await
@@ -968,27 +917,30 @@ mod tests {
         let platform_api = MockPlatformApi::new();
         let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
 
-        let request1 = SetCommunicationTypeRequest {
-            bootstrap: BootstrapConfigRequest::Direct,
+        // Save config for first hostname
+        let config1 = ServerCommunicationConfig {
+            bootstrap: BootstrapConfig::Direct,
         };
         client
-            .set_communication_type("vault1.example.com".to_string(), request1)
+            .set_communication_type("vault1.example.com".to_string(), config1)
             .await
             .unwrap();
 
-        let request2 = SetCommunicationTypeRequest {
-            bootstrap: BootstrapConfigRequest::SsoCookieVendor(SsoCookieVendorConfigRequest {
+        // Save different config for second hostname
+        let config2 = ServerCommunicationConfig {
+            bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
                 idp_login_url: Some("https://idp.example.com/login".to_string()),
                 cookie_name: Some("TestCookie".to_string()),
                 cookie_domain: Some("vault2.example.com".to_string()),
-                vault_url: Some("https://vault2.example.com".to_string()),
+                cookie_value: None,
             }),
         };
         client
-            .set_communication_type("vault2.example.com".to_string(), request2)
+            .set_communication_type("vault2.example.com".to_string(), config2)
             .await
             .unwrap();
 
+        // Verify both configs are stored independently
         let saved_config1 = repo
             .get("vault1.example.com".to_string())
             .await
@@ -1004,140 +956,6 @@ mod tests {
         assert!(matches!(
             saved_config2.bootstrap,
             BootstrapConfig::SsoCookieVendor(_)
-        ));
-    }
-
-    #[tokio::test]
-    async fn set_communication_type_preserves_existing_cookies() {
-        let repo = MockRepository::default();
-        let platform_api = MockPlatformApi::new();
-
-        // Setup existing config with acquired cookies
-        let existing_config = ServerCommunicationConfig {
-            bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
-                idp_login_url: Some("https://idp.example.com/login".to_string()),
-                cookie_name: Some("SessionCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
-                cookie_value: Some(vec![AcquiredCookie {
-                    name: "SessionCookie".to_string(),
-                    value: "previously-acquired-value".to_string(),
-                }]),
-            }),
-        };
-        repo.save("vault.example.com".to_string(), existing_config)
-            .await
-            .unwrap();
-
-        let client = ServerCommunicationConfigClient::new(repo.clone(), platform_api);
-
-        // Re-emit the same config (as happens during auth state transitions)
-        let request = SetCommunicationTypeRequest {
-            bootstrap: BootstrapConfigRequest::SsoCookieVendor(SsoCookieVendorConfigRequest {
-                idp_login_url: Some("https://idp.example.com/login".to_string()),
-                cookie_name: Some("SessionCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("https://vault.example.com".to_string()),
-            }),
-        };
-
-        client
-            .set_communication_type("vault.example.com".to_string(), request)
-            .await
-            .unwrap();
-
-        // Verify cookies were preserved
-        let saved_config = repo
-            .get("vault.example.com".to_string())
-            .await
-            .unwrap()
-            .unwrap();
-
-        if let BootstrapConfig::SsoCookieVendor(vendor_config) = saved_config.bootstrap {
-            let cookies = vendor_config
-                .cookie_value
-                .expect("cookies should be preserved");
-            assert_eq!(cookies.len(), 1);
-            assert_eq!(cookies[0].name, "SessionCookie");
-            assert_eq!(cookies[0].value, "previously-acquired-value");
-        } else {
-            panic!("Expected SsoCookieVendor config");
-        }
-    }
-
-    #[tokio::test]
-    async fn acquire_cookie_returns_unsupported_when_vault_url_none() {
-        let repo = MockRepository::default();
-        let platform_api = MockPlatformApi::new();
-
-        // Setup config with SsoCookieVendor but vault_url is None
-        let config = ServerCommunicationConfig {
-            bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
-                idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("TestCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: None, // Missing vault_url
-                cookie_value: None,
-            }),
-        };
-        repo.save("vault.example.com".to_string(), config)
-            .await
-            .unwrap();
-
-        // Platform API is ready to return cookies (but shouldn't be called)
-        platform_api
-            .set_cookies(Some(vec![AcquiredCookie {
-                name: "TestCookie".to_string(),
-                value: "value".to_string(),
-            }]))
-            .await;
-
-        let client = ServerCommunicationConfigClient::new(repo, platform_api);
-
-        let result = client.acquire_cookie("vault.example.com").await;
-
-        // Should return UnsupportedConfiguration because vault_url is None
-        assert!(matches!(
-            result,
-            Err(AcquireCookieError::UnsupportedConfiguration)
-        ));
-    }
-
-    #[tokio::test]
-    async fn acquire_cookie_returns_unsupported_when_vault_url_empty() {
-        let repo = MockRepository::default();
-        let platform_api = MockPlatformApi::new();
-
-        // Setup config with SsoCookieVendor but vault_url is empty string
-        let config = ServerCommunicationConfig {
-            bootstrap: BootstrapConfig::SsoCookieVendor(SsoCookieVendorConfig {
-                idp_login_url: Some("https://example.com".to_string()),
-                cookie_name: Some("TestCookie".to_string()),
-                cookie_domain: Some("example.com".to_string()),
-                vault_url: Some("".to_string()), // Empty vault_url
-                cookie_value: None,
-            }),
-        };
-        repo.save("vault.example.com".to_string(), config)
-            .await
-            .unwrap();
-
-        // Platform API is ready to return cookies (but shouldn't be called)
-        platform_api
-            .set_cookies(Some(vec![AcquiredCookie {
-                name: "TestCookie".to_string(),
-                value: "value".to_string(),
-            }]))
-            .await;
-
-        let client = ServerCommunicationConfigClient::new(repo, platform_api);
-
-        let result = client.acquire_cookie("vault.example.com").await;
-
-        // Should return UnsupportedConfiguration because vault_url is empty
-        assert!(matches!(
-            result,
-            Err(AcquireCookieError::UnsupportedConfiguration)
         ));
     }
 }

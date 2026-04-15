@@ -16,14 +16,12 @@ wasm = [
     "dep:wasm-bindgen-futures",
     "dep:js-sys",
     "bitwarden-error/wasm",
-    "bitwarden-threading/wasm",
+    "bitwarden-threading/wasm"
 ] # WASM support
-test-support = [] # Expose test utilities (InMemoryCommunicationBackend) for downstream crates
 
 [dependencies]
 async-trait = { workspace = true }
 bitwarden-error = { workspace = true }
-bitwarden-ffi = { workspace = true }
 bitwarden-threading = { workspace = true }
 erased-serde = ">=0.4.6, <0.5"
 js-sys = { workspace = true, optional = true }

@@ -31,7 +31,7 @@ pub trait ProviderClientsApi: Send + Sync {
         &self,
         provider_id: uuid::Uuid,
         add_existing_organization_request_body: Option<models::AddExistingOrganizationRequestBody>,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<AddExistingOrganizationError>>;
 
     /// POST /providers/{providerId}/clients
     async fn create<'a>(
@@ -40,10 +40,13 @@ pub trait ProviderClientsApi: Send + Sync {
         create_client_organization_request_body: Option<
             models::CreateClientOrganizationRequestBody,
         >,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<CreateError>>;
 
     /// GET /providers/{providerId}/clients/addable
-    async fn get_addable_organizations<'a>(&self, provider_id: uuid::Uuid) -> Result<(), Error>;
+    async fn get_addable_organizations<'a>(
+        &self,
+        provider_id: uuid::Uuid,
+    ) -> Result<(), Error<GetAddableOrganizationsError>>;
 
     /// PUT /providers/{providerId}/clients/{providerOrganizationId}
     async fn update<'a>(
@@ -53,7 +56,7 @@ pub trait ProviderClientsApi: Send + Sync {
         update_client_organization_request_body: Option<
             models::UpdateClientOrganizationRequestBody,
         >,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<UpdateError>>;
 }
 
 pub struct ProviderClientsApiClient {
@@ -73,7 +76,7 @@ impl ProviderClientsApi for ProviderClientsApiClient {
         &self,
         provider_id: uuid::Uuid,
         add_existing_organization_request_body: Option<models::AddExistingOrganizationRequestBody>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<AddExistingOrganizationError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -89,7 +92,23 @@ impl ProviderClientsApi for ProviderClientsApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&add_existing_organization_request_body);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<AddExistingOrganizationError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn create<'a>(
@@ -98,7 +117,7 @@ impl ProviderClientsApi for ProviderClientsApiClient {
         create_client_organization_request_body: Option<
             models::CreateClientOrganizationRequestBody,
         >,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<CreateError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -115,10 +134,29 @@ impl ProviderClientsApi for ProviderClientsApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&create_client_organization_request_body);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<CreateError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
-    async fn get_addable_organizations<'a>(&self, provider_id: uuid::Uuid) -> Result<(), Error> {
+    async fn get_addable_organizations<'a>(
+        &self,
+        provider_id: uuid::Uuid,
+    ) -> Result<(), Error<GetAddableOrganizationsError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -133,7 +171,23 @@ impl ProviderClientsApi for ProviderClientsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<GetAddableOrganizationsError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn update<'a>(
@@ -143,7 +197,7 @@ impl ProviderClientsApi for ProviderClientsApiClient {
         update_client_organization_request_body: Option<
             models::UpdateClientOrganizationRequestBody,
         >,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<UpdateError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -161,6 +215,47 @@ impl ProviderClientsApi for ProviderClientsApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&update_client_organization_request_body);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<UpdateError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
+}
+
+/// struct for typed errors of method [`ProviderClientsApi::add_existing_organization`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AddExistingOrganizationError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`ProviderClientsApi::create`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CreateError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`ProviderClientsApi::get_addable_organizations`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetAddableOrganizationsError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`ProviderClientsApi::update`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum UpdateError {
+    UnknownValue(serde_json::Value),
 }

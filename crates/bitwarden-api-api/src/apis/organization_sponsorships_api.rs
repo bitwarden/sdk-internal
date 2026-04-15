@@ -26,12 +26,12 @@ use crate::{
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait OrganizationSponsorshipsApi: Send + Sync {
-    /// DELETE /organization/sponsorship/{organizationId}/{sponsoredFriendlyName}/revoke
+    /// DELETE /organization/sponsorship/{sponsoringOrgId}/{sponsoredFriendlyName}/revoke
     async fn admin_initiated_revoke_sponsorship<'a>(
         &self,
-        organization_id: uuid::Uuid,
+        sponsoring_org_id: uuid::Uuid,
         sponsored_friendly_name: &'a str,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<AdminInitiatedRevokeSponsorshipError>>;
 
     /// POST /organization/sponsorship/{sponsoringOrgId}/families-for-enterprise
     async fn create_sponsorship<'a>(
@@ -40,22 +40,28 @@ pub trait OrganizationSponsorshipsApi: Send + Sync {
         organization_sponsorship_create_request_model: Option<
             models::OrganizationSponsorshipCreateRequestModel,
         >,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<CreateSponsorshipError>>;
 
     /// GET /organization/sponsorship/{sponsoringOrgId}/sponsored
     async fn get_sponsored_organizations<'a>(
         &self,
         sponsoring_org_id: uuid::Uuid,
-    ) -> Result<models::OrganizationSponsorshipInvitesResponseModelListResponseModel, Error>;
+    ) -> Result<
+        models::OrganizationSponsorshipInvitesResponseModelListResponseModel,
+        Error<GetSponsoredOrganizationsError>,
+    >;
 
     /// GET /organization/sponsorship/{sponsoringOrgId}/sync-status
-    async fn get_sync_status<'a>(&self, sponsoring_org_id: uuid::Uuid) -> Result<(), Error>;
+    async fn get_sync_status<'a>(
+        &self,
+        sponsoring_org_id: uuid::Uuid,
+    ) -> Result<(), Error<GetSyncStatusError>>;
 
     /// POST /organization/sponsorship/validate-token
     async fn pre_validate_sponsorship_token<'a>(
         &self,
         sponsorship_token: Option<&'a str>,
-    ) -> Result<models::PreValidateSponsorshipResponseModel, Error>;
+    ) -> Result<models::PreValidateSponsorshipResponseModel, Error<PreValidateSponsorshipTokenError>>;
 
     /// POST /organization/sponsorship/redeem
     async fn redeem_sponsorship<'a>(
@@ -64,23 +70,26 @@ pub trait OrganizationSponsorshipsApi: Send + Sync {
         organization_sponsorship_redeem_request_model: Option<
             models::OrganizationSponsorshipRedeemRequestModel,
         >,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<RedeemSponsorshipError>>;
 
     /// DELETE /organization/sponsorship/sponsored/{sponsoredOrgId}
-    async fn remove_sponsorship<'a>(&self, sponsored_org_id: uuid::Uuid) -> Result<(), Error>;
+    async fn remove_sponsorship<'a>(
+        &self,
+        sponsored_org_id: uuid::Uuid,
+    ) -> Result<(), Error<RemoveSponsorshipError>>;
 
-    /// POST /organization/sponsorship/{organizationId}/families-for-enterprise/resend
+    /// POST /organization/sponsorship/{sponsoringOrgId}/families-for-enterprise/resend
     async fn resend_sponsorship_offer<'a>(
         &self,
-        organization_id: uuid::Uuid,
+        sponsoring_org_id: uuid::Uuid,
         sponsored_friendly_name: Option<&'a str>,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<ResendSponsorshipOfferError>>;
 
     /// DELETE /organization/sponsorship/{sponsoringOrganizationId}
     async fn revoke_sponsorship<'a>(
         &self,
         sponsoring_organization_id: uuid::Uuid,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<RevokeSponsorshipError>>;
 
     /// POST /organization/sponsorship/sync
     async fn sync<'a>(
@@ -88,7 +97,7 @@ pub trait OrganizationSponsorshipsApi: Send + Sync {
         organization_sponsorship_sync_request_model: Option<
             models::OrganizationSponsorshipSyncRequestModel,
         >,
-    ) -> Result<models::OrganizationSponsorshipSyncResponseModel, Error>;
+    ) -> Result<models::OrganizationSponsorshipSyncResponseModel, Error<SyncError>>;
 }
 
 pub struct OrganizationSponsorshipsApiClient {
@@ -106,17 +115,17 @@ impl OrganizationSponsorshipsApiClient {
 impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
     async fn admin_initiated_revoke_sponsorship<'a>(
         &self,
-        organization_id: uuid::Uuid,
+        sponsoring_org_id: uuid::Uuid,
         sponsored_friendly_name: &'a str,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<AdminInitiatedRevokeSponsorshipError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
 
         let local_var_uri_str = format!(
-            "{}/organization/sponsorship/{organizationId}/{sponsoredFriendlyName}/revoke",
+            "{}/organization/sponsorship/{sponsoringOrgId}/{sponsoredFriendlyName}/revoke",
             local_var_configuration.base_path,
-            organizationId = organization_id,
+            sponsoringOrgId = sponsoring_org_id,
             sponsoredFriendlyName = crate::apis::urlencode(sponsored_friendly_name)
         );
         let mut local_var_req_builder =
@@ -124,7 +133,23 @@ impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<AdminInitiatedRevokeSponsorshipError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn create_sponsorship<'a>(
@@ -133,7 +158,7 @@ impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
         organization_sponsorship_create_request_model: Option<
             models::OrganizationSponsorshipCreateRequestModel,
         >,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<CreateSponsorshipError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -150,13 +175,32 @@ impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&organization_sponsorship_create_request_model);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<CreateSponsorshipError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn get_sponsored_organizations<'a>(
         &self,
         sponsoring_org_id: uuid::Uuid,
-    ) -> Result<models::OrganizationSponsorshipInvitesResponseModelListResponseModel, Error> {
+    ) -> Result<
+        models::OrganizationSponsorshipInvitesResponseModelListResponseModel,
+        Error<GetSponsoredOrganizationsError>,
+    > {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -171,10 +215,47 @@ impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationSponsorshipInvitesResponseModelListResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationSponsorshipInvitesResponseModelListResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<GetSponsoredOrganizationsError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
-    async fn get_sync_status<'a>(&self, sponsoring_org_id: uuid::Uuid) -> Result<(), Error> {
+    async fn get_sync_status<'a>(
+        &self,
+        sponsoring_org_id: uuid::Uuid,
+    ) -> Result<(), Error<GetSyncStatusError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -189,13 +270,30 @@ impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<GetSyncStatusError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn pre_validate_sponsorship_token<'a>(
         &self,
         sponsorship_token: Option<&'a str>,
-    ) -> Result<models::PreValidateSponsorshipResponseModel, Error> {
+    ) -> Result<models::PreValidateSponsorshipResponseModel, Error<PreValidateSponsorshipTokenError>>
+    {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -213,7 +311,41 @@ impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::PreValidateSponsorshipResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::PreValidateSponsorshipResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<PreValidateSponsorshipTokenError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn redeem_sponsorship<'a>(
@@ -222,7 +354,7 @@ impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
         organization_sponsorship_redeem_request_model: Option<
             models::OrganizationSponsorshipRedeemRequestModel,
         >,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<RedeemSponsorshipError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -242,10 +374,29 @@ impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&organization_sponsorship_redeem_request_model);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<RedeemSponsorshipError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
-    async fn remove_sponsorship<'a>(&self, sponsored_org_id: uuid::Uuid) -> Result<(), Error> {
+    async fn remove_sponsorship<'a>(
+        &self,
+        sponsored_org_id: uuid::Uuid,
+    ) -> Result<(), Error<RemoveSponsorshipError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -260,22 +411,38 @@ impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<RemoveSponsorshipError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn resend_sponsorship_offer<'a>(
         &self,
-        organization_id: uuid::Uuid,
+        sponsoring_org_id: uuid::Uuid,
         sponsored_friendly_name: Option<&'a str>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<ResendSponsorshipOfferError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
 
         let local_var_uri_str = format!(
-            "{}/organization/sponsorship/{organizationId}/families-for-enterprise/resend",
+            "{}/organization/sponsorship/{sponsoringOrgId}/families-for-enterprise/resend",
             local_var_configuration.base_path,
-            organizationId = organization_id
+            sponsoringOrgId = sponsoring_org_id
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::POST, local_var_uri_str.as_str());
@@ -286,13 +453,29 @@ impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
         }
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<ResendSponsorshipOfferError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn revoke_sponsorship<'a>(
         &self,
         sponsoring_organization_id: uuid::Uuid,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<RevokeSponsorshipError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -307,7 +490,23 @@ impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<RevokeSponsorshipError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn sync<'a>(
@@ -315,7 +514,7 @@ impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
         organization_sponsorship_sync_request_model: Option<
             models::OrganizationSponsorshipSyncRequestModel,
         >,
-    ) -> Result<models::OrganizationSponsorshipSyncResponseModel, Error> {
+    ) -> Result<models::OrganizationSponsorshipSyncResponseModel, Error<SyncError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -331,6 +530,102 @@ impl OrganizationSponsorshipsApi for OrganizationSponsorshipsApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&organization_sponsorship_sync_request_model);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::OrganizationSponsorshipSyncResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::OrganizationSponsorshipSyncResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<SyncError> = serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
+}
+
+/// struct for typed errors of method
+/// [`OrganizationSponsorshipsApi::admin_initiated_revoke_sponsorship`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AdminInitiatedRevokeSponsorshipError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`OrganizationSponsorshipsApi::create_sponsorship`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CreateSponsorshipError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`OrganizationSponsorshipsApi::get_sponsored_organizations`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetSponsoredOrganizationsError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`OrganizationSponsorshipsApi::get_sync_status`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetSyncStatusError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method
+/// [`OrganizationSponsorshipsApi::pre_validate_sponsorship_token`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PreValidateSponsorshipTokenError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`OrganizationSponsorshipsApi::redeem_sponsorship`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum RedeemSponsorshipError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`OrganizationSponsorshipsApi::remove_sponsorship`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum RemoveSponsorshipError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`OrganizationSponsorshipsApi::resend_sponsorship_offer`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ResendSponsorshipOfferError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`OrganizationSponsorshipsApi::revoke_sponsorship`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum RevokeSponsorshipError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`OrganizationSponsorshipsApi::sync`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum SyncError {
+    UnknownValue(serde_json::Value),
 }

@@ -1,7 +1,7 @@
 use bitwarden_api_api::models::FolderRequestModel;
 use bitwarden_core::{
     ApiError, MissingFieldError,
-    key_management::{KeySlotIds, SymmetricKeySlotId},
+    key_management::{KeyIds, SymmetricKeyId},
     require,
 };
 use bitwarden_crypto::{
@@ -28,13 +28,11 @@ pub struct FolderAddEditRequest {
     pub name: String,
 }
 
-impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, FolderRequestModel>
-    for FolderAddEditRequest
-{
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, FolderRequestModel> for FolderAddEditRequest {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
     ) -> Result<FolderRequestModel, CryptoError> {
         Ok(FolderRequestModel {
             name: self.name.encrypt(ctx, key)?.to_string(),
@@ -42,9 +40,9 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, FolderRequestModel>
     }
 }
 
-impl IdentifyKey<SymmetricKeySlotId> for FolderAddEditRequest {
-    fn key_identifier(&self) -> SymmetricKeySlotId {
-        SymmetricKeySlotId::User
+impl IdentifyKey<SymmetricKeyId> for FolderAddEditRequest {
+    fn key_identifier(&self) -> SymmetricKeyId {
+        SymmetricKeyId::User
     }
 }
 
@@ -65,7 +63,7 @@ pub enum CreateFolderError {
 }
 
 pub(super) async fn create_folder<R: Repository<Folder> + ?Sized>(
-    key_store: &KeyStore<KeySlotIds>,
+    key_store: &KeyStore<KeyIds>,
     api_client: &bitwarden_api_api::apis::ApiClient,
     repository: &R,
     request: FolderAddEditRequest,
@@ -97,11 +95,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_folder() {
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let store: KeyStore<KeyIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
                 .unwrap();
         }
 
@@ -156,11 +154,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_folder_http_error() {
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let store: KeyStore<KeyIds> = KeyStore::default();
         {
             let mut ctx = store.context_mut();
             let local_key_id = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
-            ctx.persist_symmetric_key(local_key_id, SymmetricKeySlotId::User)
+            ctx.persist_symmetric_key(local_key_id, SymmetricKeyId::User)
                 .unwrap();
         }
 

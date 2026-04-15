@@ -20,21 +20,26 @@ pub struct WebAuthnCredentialCreateOptionsResponseModel {
         skip_serializing_if = "Option::is_none"
     )]
     pub object: Option<String>,
-    #[serde(rename = "options", alias = "Options")]
-    pub options: Box<models::CredentialCreateOptions>,
-    #[serde(rename = "token", alias = "Token")]
-    pub token: String,
+    #[serde(
+        rename = "options",
+        alias = "Options",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub options: Option<Box<models::CredentialCreateOptions>>,
+    #[serde(
+        rename = "token",
+        alias = "Token",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub token: Option<String>,
 }
 
 impl WebAuthnCredentialCreateOptionsResponseModel {
-    pub fn new(
-        options: models::CredentialCreateOptions,
-        token: String,
-    ) -> WebAuthnCredentialCreateOptionsResponseModel {
+    pub fn new() -> WebAuthnCredentialCreateOptionsResponseModel {
         WebAuthnCredentialCreateOptionsResponseModel {
             object: None,
-            options: Box::new(options),
-            token,
+            options: None,
+            token: None,
         }
     }
 }

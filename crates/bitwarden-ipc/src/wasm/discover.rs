@@ -3,7 +3,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::JsIpcClient;
 use crate::{
-    IpcClientExt, RequestError,
+    RequestError,
     discover::{DiscoverHandler, DiscoverRequest, DiscoverResponse},
     endpoint::Endpoint,
 };

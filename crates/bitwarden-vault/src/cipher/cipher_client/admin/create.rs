@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::CipherCreateRequestModel;
 use bitwarden_core::{
-    ApiError, MissingFieldError, NotAuthenticatedError, UserId, key_management::KeySlotIds,
+    ApiError, MissingFieldError, NotAuthenticatedError, UserId, key_management::KeyIds,
 };
 use bitwarden_crypto::{CryptoError, IdentifyKey, KeyStore};
 use bitwarden_error::bitwarden_error;
@@ -10,7 +10,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     Cipher, CipherView, VaultParseError,
-    cipher::cipher::{PartialCipher, StrictDecrypt},
+    cipher::cipher::PartialCipher,
     cipher_client::{
         admin::CipherAdminClient,
         create::{CipherCreateRequest, CipherCreateRequestInternal},
@@ -44,37 +44,22 @@ async fn create_cipher(
     request: CipherCreateRequestInternal,
     encrypted_for: UserId,
     api_client: &bitwarden_api_api::apis::ApiClient,
-    key_store: &KeyStore<KeySlotIds>,
-    use_strict_decryption: bool,
+    key_store: &KeyStore<KeyIds>,
 ) -> Result<CipherView, CreateCipherAdminError> {
     let collection_ids = request.create_request.collection_ids.clone();
-    // CipherMiniResponseModel does not include folder_id, favorite, or edit — save them from
-    // the request before it is consumed so they can be applied to the merged result.
-    let folder_id = request.create_request.folder_id;
-    let favorite = request.create_request.favorite;
     let mut cipher_request = key_store.encrypt(request)?;
     cipher_request.encrypted_for = Some(encrypted_for.into());
 
-    let mut cipher: Cipher = api_client
+    let cipher: Cipher = api_client
         .ciphers_api()
         .post_admin(Some(CipherCreateRequestModel {
-            collection_ids: Some(collection_ids.iter().cloned().map(Into::into).collect()),
+            collection_ids: Some(collection_ids.into_iter().map(Into::into).collect()),
             cipher: Box::new(cipher_request),
         }))
         .await?
         .merge_with_cipher(None)?;
 
-    cipher.collection_ids = collection_ids;
-    cipher.folder_id = folder_id;
-    cipher.favorite = favorite;
-    cipher.edit = true;
-    cipher.view_password = true;
-
-    if use_strict_decryption {
-        Ok(key_store.decrypt(&StrictDecrypt(cipher))?)
-    } else {
-        Ok(key_store.decrypt(&cipher)?)
-    }
+    Ok(key_store.decrypt(&cipher)?)
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -101,28 +86,20 @@ impl CipherAdminClient {
             .client
             .internal
             .get_flags()
-            .await
             .enable_cipher_key_encryption
         {
             let key = internal_request.key_identifier();
             internal_request.generate_cipher_key(&mut key_store.context(), key)?;
         }
 
-        create_cipher(
-            internal_request,
-            user_id,
-            &config.api_client,
-            key_store,
-            self.is_strict_decrypt().await,
-        )
-        .await
+        create_cipher(internal_request, user_id, &config.api_client, key_store).await
     }
 }
 
 #[cfg(test)]
 mod tests {
     use bitwarden_api_api::models::CipherMiniResponseModel;
-    use bitwarden_core::{OrganizationId, key_management::SymmetricKeySlotId};
+    use bitwarden_core::{OrganizationId, key_management::SymmetricKeyId};
     use bitwarden_crypto::SymmetricCryptoKey;
     use chrono::Utc;
 
@@ -161,30 +138,25 @@ mod tests {
                 });
         });
 
-        let store: KeyStore<KeySlotIds> = KeyStore::default();
+        let store: KeyStore<KeyIds> = KeyStore::default();
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeySlotId::User,
+            SymmetricKeyId::User,
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
         #[allow(deprecated)]
         let _ = store.context_mut().set_symmetric_key(
-            SymmetricKeySlotId::Organization(TEST_ORG_ID.parse::<OrganizationId>().unwrap()),
+            SymmetricKeyId::Organization(TEST_ORG_ID.parse::<OrganizationId>().unwrap()),
             SymmetricCryptoKey::make_aes256_cbc_hmac_key(),
         );
-
-        let test_folder_id: crate::FolderId =
-            "a4e13cc0-1234-5678-abcd-b181009709b8".parse().unwrap();
-        let test_collection_id: bitwarden_collections::collection::CollectionId =
-            TEST_COLLECTION_ID.parse().unwrap();
 
         let cipher_request: CipherCreateRequestInternal = CipherCreateRequest {
             organization_id: Some(TEST_ORG_ID.parse().unwrap()),
-            collection_ids: vec![test_collection_id],
-            folder_id: Some(test_folder_id),
+            collection_ids: vec![TEST_COLLECTION_ID.parse().unwrap()],
+            folder_id: None,
             name: "Test Cipher".into(),
             notes: None,
-            favorite: true,
+            favorite: false,
             reprompt: CipherRepromptType::None,
             r#type: CipherViewType::Login(LoginView {
                 username: None,
@@ -204,7 +176,6 @@ mod tests {
             TEST_USER_ID.parse().unwrap(),
             &api_client,
             &store,
-            false,
         )
         .await
         .unwrap();
@@ -213,18 +184,6 @@ mod tests {
         assert_eq!(
             response.organization_id,
             cipher_request.create_request.organization_id
-        );
-        // Fields omitted from CipherMiniResponseModel must be preserved from the request.
-        assert_eq!(
-            response.collection_ids,
-            cipher_request.create_request.collection_ids
-        );
-        assert_eq!(response.folder_id, cipher_request.create_request.folder_id);
-        assert_eq!(response.favorite, cipher_request.create_request.favorite);
-        assert!(response.edit, "edit should be true after admin create");
-        assert!(
-            response.view_password,
-            "view_password should be true after admin create"
         );
     }
 }

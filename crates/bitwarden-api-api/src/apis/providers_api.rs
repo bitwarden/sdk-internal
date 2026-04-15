@@ -27,10 +27,13 @@ use crate::{
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait ProvidersApi: Send + Sync {
     /// DELETE /providers/{id}
-    async fn delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error>;
+    async fn delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error<DeleteError>>;
 
     /// GET /providers/{id}
-    async fn get<'a>(&self, id: uuid::Uuid) -> Result<models::ProviderResponseModel, Error>;
+    async fn get<'a>(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<models::ProviderResponseModel, Error<GetError>>;
 
     /// POST /providers/{id}/delete-recover-token
     async fn post_delete_recover_token<'a>(
@@ -39,21 +42,21 @@ pub trait ProvidersApi: Send + Sync {
         provider_verify_delete_recover_request_model: Option<
             models::ProviderVerifyDeleteRecoverRequestModel,
         >,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error<PostDeleteRecoverTokenError>>;
 
     /// PUT /providers/{id}
     async fn put<'a>(
         &self,
         id: uuid::Uuid,
         provider_update_request_model: Option<models::ProviderUpdateRequestModel>,
-    ) -> Result<models::ProviderResponseModel, Error>;
+    ) -> Result<models::ProviderResponseModel, Error<PutError>>;
 
     /// POST /providers/{id}/setup
     async fn setup<'a>(
         &self,
         id: uuid::Uuid,
         provider_setup_request_model: Option<models::ProviderSetupRequestModel>,
-    ) -> Result<models::ProviderResponseModel, Error>;
+    ) -> Result<models::ProviderResponseModel, Error<SetupError>>;
 }
 
 pub struct ProvidersApiClient {
@@ -69,7 +72,7 @@ impl ProvidersApiClient {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl ProvidersApi for ProvidersApiClient {
-    async fn delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error> {
+    async fn delete<'a>(&self, id: uuid::Uuid) -> Result<(), Error<DeleteError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -84,10 +87,29 @@ impl ProvidersApi for ProvidersApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<DeleteError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
-    async fn get<'a>(&self, id: uuid::Uuid) -> Result<models::ProviderResponseModel, Error> {
+    async fn get<'a>(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<models::ProviderResponseModel, Error<GetError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -102,7 +124,40 @@ impl ProvidersApi for ProvidersApiClient {
 
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::ProviderResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProviderResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<GetError> = serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn post_delete_recover_token<'a>(
@@ -111,7 +166,7 @@ impl ProvidersApi for ProvidersApiClient {
         provider_verify_delete_recover_request_model: Option<
             models::ProviderVerifyDeleteRecoverRequestModel,
         >,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error<PostDeleteRecoverTokenError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -128,14 +183,30 @@ impl ProvidersApi for ProvidersApiClient {
         local_var_req_builder =
             local_var_req_builder.json(&provider_verify_delete_recover_request_model);
 
-        bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            Ok(())
+        } else {
+            let local_var_entity: Option<PostDeleteRecoverTokenError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn put<'a>(
         &self,
         id: uuid::Uuid,
         provider_update_request_model: Option<models::ProviderUpdateRequestModel>,
-    ) -> Result<models::ProviderResponseModel, Error> {
+    ) -> Result<models::ProviderResponseModel, Error<PutError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -151,14 +222,47 @@ impl ProvidersApi for ProvidersApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&provider_update_request_model);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::ProviderResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProviderResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<PutError> = serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
 
     async fn setup<'a>(
         &self,
         id: uuid::Uuid,
         provider_setup_request_model: Option<models::ProviderSetupRequestModel>,
-    ) -> Result<models::ProviderResponseModel, Error> {
+    ) -> Result<models::ProviderResponseModel, Error<SetupError>> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -174,6 +278,71 @@ impl ProvidersApi for ProvidersApiClient {
         local_var_req_builder = local_var_req_builder.with_extension(AuthRequired::Bearer);
         local_var_req_builder = local_var_req_builder.json(&provider_setup_request_model);
 
-        bitwarden_api_base::process_with_json_response(local_var_req_builder).await
+        let local_var_resp = local_var_req_builder.send().await?;
+
+        let local_var_status = local_var_resp.status();
+        let local_var_content_type = local_var_resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream");
+        let local_var_content_type = super::ContentType::from(local_var_content_type);
+        let local_var_content = local_var_resp.text().await?;
+
+        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
+            match local_var_content_type {
+                ContentType::Json => serde_json::from_str(&local_var_content).map_err(Error::from),
+                ContentType::Text => {
+                    return Err(Error::from(serde_json::Error::custom(
+                        "Received `text/plain` content type response that cannot be converted to `models::ProviderResponseModel`",
+                    )));
+                }
+                ContentType::Unsupported(local_var_unknown_type) => {
+                    return Err(Error::from(serde_json::Error::custom(format!(
+                        "Received `{local_var_unknown_type}` content type response that cannot be converted to `models::ProviderResponseModel`"
+                    ))));
+                }
+            }
+        } else {
+            let local_var_entity: Option<SetupError> =
+                serde_json::from_str(&local_var_content).ok();
+            let local_var_error = ResponseContent {
+                status: local_var_status,
+                content: local_var_content,
+                entity: local_var_entity,
+            };
+            Err(Error::ResponseError(local_var_error))
+        }
     }
+}
+
+/// struct for typed errors of method [`ProvidersApi::delete`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DeleteError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`ProvidersApi::get`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum GetError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`ProvidersApi::post_delete_recover_token`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PostDeleteRecoverTokenError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`ProvidersApi::put`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PutError {
+    UnknownValue(serde_json::Value),
+}
+/// struct for typed errors of method [`ProvidersApi::setup`]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum SetupError {
+    UnknownValue(serde_json::Value),
 }

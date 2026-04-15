@@ -11,7 +11,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
     Cipher, CipherError, CipherId, CipherRepromptType, CipherView, CiphersClient,
-    EncryptionContext, VaultParseError, cipher::cipher::PartialCipher,
+    EncryptionContext, VaultParseError,
 };
 
 /// Standalone function that shares a cipher to an organization via API call.
@@ -35,7 +35,7 @@ async fn share_cipher(
 
     let response = api_client.put_share(cipher_uuid, Some(req)).await?;
 
-    let mut new_cipher: Cipher = response.merge_with_cipher(None)?;
+    let mut new_cipher: Cipher = response.try_into()?;
     new_cipher.collection_ids = collection_ids;
 
     repository.set(cipher_id, new_cipher.clone()).await?;
@@ -174,43 +174,42 @@ impl CiphersClient {
         mut cipher_view: CipherView,
         organization_id: OrganizationId,
         collection_ids: Vec<CollectionId>,
-        original_cipher_view: Option<CipherView>,
-    ) -> Result<CipherView, CipherError> {
+        original_cipher: Option<Cipher>,
+    ) -> Result<Cipher, CipherError> {
         cipher_view = self.update_organization_and_collections(
             cipher_view,
             organization_id,
             collection_ids.clone(),
         )?;
 
-        self.update_password_history(&mut cipher_view, original_cipher_view)
+        self.update_password_history(&mut cipher_view, original_cipher)
             .await?;
 
-        let encrypted_cipher = self.encrypt(cipher_view).await?;
+        let encrypted_cipher = self.encrypt(cipher_view)?;
 
         let api_client = &self.client.internal.get_api_configurations().api_client;
 
-        let result_cipher = share_cipher(
+        share_cipher(
             api_client.ciphers_api(),
             &*self.get_repository()?,
             encrypted_cipher,
             collection_ids,
         )
-        .await?;
-        Ok(self.decrypt(result_cipher).await?)
+        .await
     }
 
     async fn update_password_history(
         &self,
         cipher_view: &mut CipherView,
-        mut original_cipher_view: Option<CipherView>,
+        mut original_cipher: Option<Cipher>,
     ) -> Result<(), CipherError> {
-        if let Some(cipher_id) = cipher_view.id
-            && original_cipher_view.is_none()
-            && let Some(cipher) = self.get_repository()?.get(cipher_id).await?
-        {
-            original_cipher_view = Some(self.decrypt(cipher).await?);
+        if let (Some(cipher_id), None) = (cipher_view.id, &original_cipher) {
+            original_cipher = self.get_repository()?.get(cipher_id).await?;
         }
-        if let Some(original_cipher_view) = original_cipher_view {
+        if let Some(original_cipher_view) = original_cipher
+            .map(|cipher| self.decrypt(cipher))
+            .transpose()?
+        {
             cipher_view.update_password_history(&original_cipher_view);
         }
         Ok(())
@@ -230,7 +229,7 @@ impl CiphersClient {
                 collection_ids.clone(),
             )?;
             self.update_password_history(&mut cv, None).await?;
-            encrypted_ciphers.push(self.encrypt(cv).await?);
+            encrypted_ciphers.push(self.encrypt(cv)?);
         }
         Ok(encrypted_ciphers)
     }
@@ -256,7 +255,7 @@ impl CiphersClient {
         cipher_views: Vec<CipherView>,
         organization_id: OrganizationId,
         collection_ids: Vec<CollectionId>,
-    ) -> Result<Vec<CipherView>, CipherError> {
+    ) -> Result<Vec<Cipher>, CipherError> {
         let encrypted_ciphers = self
             .prepare_encrypted_ciphers_for_bulk_share(
                 cipher_views,
@@ -267,18 +266,13 @@ impl CiphersClient {
 
         let api_client = &self.client.internal.get_api_configurations().api_client;
 
-        let result_ciphers = share_ciphers_bulk(
+        share_ciphers_bulk(
             api_client.ciphers_api(),
             &*self.get_repository()?,
             encrypted_ciphers,
             collection_ids,
         )
-        .await?;
-
-        Ok(
-            futures::future::try_join_all(result_ciphers.into_iter().map(|c| self.decrypt(c)))
-                .await?,
-        )
+        .await
     }
 }
 
@@ -475,7 +469,7 @@ mod tests {
         cipher_view_2.organization_id = Some(TEST_ORG_ID.parse().unwrap());
 
         // Encrypt and store cipher_view_1 in repository for password history lookup
-        let encrypted_1 = cipher_client.encrypt(cipher_view_1.clone()).await.unwrap();
+        let encrypted_1 = cipher_client.encrypt(cipher_view_1.clone()).unwrap();
         let repository = cipher_client.get_repository().unwrap();
         repository
             .set(TEST_CIPHER_ID.parse().unwrap(), encrypted_1.cipher.clone())
@@ -806,8 +800,7 @@ mod tests {
             .load_flags(std::collections::HashMap::from([(
                 "enableCipherKeyEncryption".to_owned(),
                 true,
-            )]))
-            .await;
+            )]));
 
         let user_request = InitUserCryptoRequest {
             user_id: Some(UserId::new(uuid::uuid!("060000fb-0922-4dd3-b170-6e15cb5df8c8"))),
@@ -914,15 +907,11 @@ mod tests {
         let client = make_test_client_with_wiremock(&mock_server).await;
         let repository = std::sync::Arc::new(MemoryRepository::<Cipher>::default());
         let cipher_client = client.vault().ciphers();
-        let original = cipher_view.clone();
+        let encrypted_original = cipher_client.encrypt(cipher_view.clone()).unwrap();
         repository
             .set(
                 TEST_CIPHER_ID.parse().unwrap(),
-                cipher_client
-                    .encrypt(original.clone())
-                    .await
-                    .unwrap()
-                    .cipher,
+                encrypted_original.cipher.clone(),
             )
             .await
             .unwrap();
@@ -942,13 +931,14 @@ mod tests {
                 cipher_view.clone(),
                 org_id,
                 vec![collection_id],
-                Some(original),
+                Some(encrypted_original.cipher),
             )
             .await;
 
         let shared_cipher = result.unwrap();
         assert_eq!(shared_cipher.organization_id, Some(org_id));
-        let history = shared_cipher.password_history.unwrap();
+        let decrypted_view = cipher_client.decrypt(shared_cipher.clone()).unwrap();
+        let history = decrypted_view.password_history.unwrap();
         assert_eq!(
             history.len(),
             1,
@@ -959,7 +949,7 @@ mod tests {
             "Password history should contain the original password"
         );
         assert_eq!(
-            shared_cipher.login.as_ref().unwrap().password,
+            decrypted_view.login.as_ref().unwrap().password,
             Some("new_password_456".to_string()),
             "New password should be set"
         );
@@ -1032,7 +1022,7 @@ mod tests {
         let repository = std::sync::Arc::new(MemoryRepository::<Cipher>::default());
         let cipher_client = client.vault().ciphers();
 
-        let encrypted_original1 = cipher_client.encrypt(cipher_view1.clone()).await.unwrap();
+        let encrypted_original1 = cipher_client.encrypt(cipher_view1.clone()).unwrap();
         repository
             .set(
                 encrypted_original1.cipher.id.unwrap(),
@@ -1041,7 +1031,7 @@ mod tests {
             .await
             .unwrap();
 
-        let encrypted_original2 = cipher_client.encrypt(cipher_view2.clone()).await.unwrap();
+        let encrypted_original2 = cipher_client.encrypt(cipher_view2.clone()).unwrap();
         repository
             .set(
                 encrypted_original2.cipher.id.unwrap(),
@@ -1074,21 +1064,23 @@ mod tests {
         let shared_ciphers = result.unwrap();
         assert_eq!(shared_ciphers.len(), 2);
 
+        let decrypted_view1 = cipher_client.decrypt(shared_ciphers[0].clone()).unwrap();
         assert_eq!(
-            shared_ciphers[0].password_history.clone().unwrap()[0].password,
+            decrypted_view1.password_history.unwrap()[0].password,
             "original_password_1"
         );
         assert_eq!(
-            shared_ciphers[0].login.clone().unwrap().password,
+            decrypted_view1.login.unwrap().password,
             Some("new_password_1".to_string())
         );
 
+        let decrypted_view2 = cipher_client.decrypt(shared_ciphers[1].clone()).unwrap();
         assert_eq!(
-            shared_ciphers[1].password_history.clone().unwrap()[0].password,
+            decrypted_view2.password_history.unwrap()[0].password,
             "original_password_2"
         );
         assert_eq!(
-            shared_ciphers[1].login.clone().unwrap().password,
+            decrypted_view2.login.unwrap().password,
             Some("new_password_2".to_string())
         );
     }

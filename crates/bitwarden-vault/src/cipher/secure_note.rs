@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::CipherSecureNoteModel;
 use bitwarden_core::{
-    key_management::{KeySlotIds, SymmetricKeySlotId},
+    key_management::{KeyIds, SymmetricKeyId},
     require,
 };
 use bitwarden_crypto::{CompositeEncryptable, CryptoError, Decryptable, KeyStoreContext};
@@ -17,7 +17,7 @@ use crate::{
 };
 
 #[allow(missing_docs)]
-#[derive(Clone, Copy, Serialize_repr, Debug, PartialEq)]
+#[derive(Clone, Copy, Serialize_repr, Debug)]
 #[repr(u8)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -60,11 +60,11 @@ pub struct SecureNoteView {
     pub r#type: SecureNoteType,
 }
 
-impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SecureNote> for SecureNoteView {
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, SecureNote> for SecureNoteView {
     fn encrypt_composite(
         &self,
-        _ctx: &mut KeyStoreContext<KeySlotIds>,
-        _key: SymmetricKeySlotId,
+        _ctx: &mut KeyStoreContext<KeyIds>,
+        _key: SymmetricKeyId,
     ) -> Result<SecureNote, CryptoError> {
         Ok(SecureNote {
             r#type: self.r#type,
@@ -72,11 +72,11 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, SecureNote> for Secure
     }
 }
 
-impl Decryptable<KeySlotIds, SymmetricKeySlotId, SecureNoteView> for SecureNote {
+impl Decryptable<KeyIds, SymmetricKeyId, SecureNoteView> for SecureNote {
     fn decrypt(
         &self,
-        _ctx: &mut KeyStoreContext<KeySlotIds>,
-        _key: SymmetricKeySlotId,
+        _ctx: &mut KeyStoreContext<KeyIds>,
+        _key: SymmetricKeyId,
     ) -> Result<SecureNoteView, CryptoError> {
         Ok(SecureNoteView {
             r#type: self.r#type,
@@ -135,8 +135,8 @@ impl CipherKind for SecureNote {
 
     fn decrypt_subtitle(
         &self,
-        _ctx: &mut KeyStoreContext<KeySlotIds>,
-        _key: SymmetricKeySlotId,
+        _ctx: &mut KeyStoreContext<KeyIds>,
+        _key: SymmetricKeyId,
     ) -> Result<String, CryptoError> {
         Ok(String::new())
     }

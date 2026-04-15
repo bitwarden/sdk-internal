@@ -1,6 +1,6 @@
 use bitwarden_api_api::models::{FolderResponseModel, FolderWithIdRequestModel};
 use bitwarden_core::{
-    key_management::{KeySlotIds, SymmetricKeySlotId},
+    key_management::{KeyIds, SymmetricKeyId},
     require,
 };
 use bitwarden_crypto::{
@@ -41,22 +41,22 @@ pub struct FolderView {
     pub revision_date: DateTime<Utc>,
 }
 
-impl IdentifyKey<SymmetricKeySlotId> for Folder {
-    fn key_identifier(&self) -> SymmetricKeySlotId {
-        SymmetricKeySlotId::User
+impl IdentifyKey<SymmetricKeyId> for Folder {
+    fn key_identifier(&self) -> SymmetricKeyId {
+        SymmetricKeyId::User
     }
 }
-impl IdentifyKey<SymmetricKeySlotId> for FolderView {
-    fn key_identifier(&self) -> SymmetricKeySlotId {
-        SymmetricKeySlotId::User
+impl IdentifyKey<SymmetricKeyId> for FolderView {
+    fn key_identifier(&self) -> SymmetricKeyId {
+        SymmetricKeyId::User
     }
 }
 
-impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Folder> for FolderView {
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Folder> for FolderView {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
     ) -> Result<Folder, CryptoError> {
         Ok(Folder {
             id: self.id,
@@ -66,11 +66,11 @@ impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Folder> for FolderView
     }
 }
 
-impl Decryptable<KeySlotIds, SymmetricKeySlotId, FolderView> for Folder {
+impl Decryptable<KeyIds, SymmetricKeyId, FolderView> for Folder {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
     ) -> Result<FolderView, CryptoError> {
         Ok(FolderView {
             id: self.id,

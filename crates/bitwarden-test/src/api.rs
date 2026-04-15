@@ -12,7 +12,9 @@ pub async fn start_api_mock(mocks: Vec<wiremock::Mock>) -> (wiremock::MockServer
 
     let config = Configuration {
         base_path: server.uri(),
+        user_agent: Some("test-agent".to_string()),
         client: reqwest::Client::new().into(),
+        oauth_access_token: None,
     };
 
     (server, config)

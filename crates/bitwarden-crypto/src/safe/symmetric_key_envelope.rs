@@ -11,7 +11,7 @@ use thiserror::Error;
 use wasm_bindgen::convert::FromWasmAbi;
 
 use crate::{
-    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KeySlotIds,
+    BitwardenLegacyKeyBytes, ContentFormat, CoseKeyBytes, EncodedSymmetricKey, KeyIds,
     KeyStoreContext, SymmetricCryptoKey, XChaCha20Poly1305Key,
     cose::{CONTAINED_KEY_ID, ContentNamespace, SafeObjectNamespace, XCHACHA20_POLY1305},
     keys::KeyId,
@@ -52,7 +52,7 @@ impl SymmetricKeyEnvelope {
     /// Seals a symmetric key with another symmetric key from the key store.
     ///
     /// This should never fail, except for memory allocation errors.
-    pub fn seal<Ids: KeySlotIds>(
+    pub fn seal<Ids: KeyIds>(
         key_to_seal: Ids::Symmetric,
         sealing_key: Ids::Symmetric,
         namespace: SymmetricKeyEnvelopeNamespace,
@@ -110,7 +110,7 @@ impl SymmetricKeyEnvelope {
     }
 
     /// Unseals a symmetric key from the envelope and stores it in the key store context.
-    pub fn unseal<Ids: KeySlotIds>(
+    pub fn unseal<Ids: KeyIds>(
         &self,
         wrapping_key: Ids::Symmetric,
         namespace: SymmetricKeyEnvelopeNamespace,

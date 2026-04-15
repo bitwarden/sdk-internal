@@ -10,6 +10,7 @@ use crate::login::{
 };
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "uniffi", uniffi::export)]
 impl LoginClient {
     /// Authenticates a user via email and master password.
     ///

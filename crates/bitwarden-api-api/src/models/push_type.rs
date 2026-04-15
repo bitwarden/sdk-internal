@@ -41,7 +41,6 @@ pub enum PushType {
     ProviderBankAccountVerified,
     PolicyChanged,
     AutoConfirm,
-    PremiumStatusChanged,
 
     /// Unknown value returned from the server. This is used to handle forward compatibility.
     __Unknown(i64),
@@ -77,7 +76,6 @@ impl PushType {
             Self::ProviderBankAccountVerified => 24,
             Self::PolicyChanged => 25,
             Self::AutoConfirm => 26,
-            Self::PremiumStatusChanged => 27,
             Self::__Unknown(v) => *v,
         }
     }
@@ -111,7 +109,6 @@ impl PushType {
             24 => Self::ProviderBankAccountVerified,
             25 => Self::PolicyChanged,
             26 => Self::AutoConfirm,
-            27 => Self::PremiumStatusChanged,
             v => Self::__Unknown(v),
         }
     }

@@ -5,10 +5,9 @@ use std::sync::{Arc, RwLock};
 
 use bitwarden_crypto::KeyStore;
 
-use crate::{client::LoginMethod, key_management::KeySlotIds};
+use crate::{client::LoginMethod, key_management::KeyIds};
 
 /// Trait for handling token usage and renewal.
-#[async_trait::async_trait]
 pub trait TokenHandler: 'static + Send + Sync {
     /// Initialize middleware that handles token attachment and renewal.
     /// This middleware should look for the presence of the [bitwarden_api_base::AuthRequired]
@@ -18,7 +17,7 @@ pub trait TokenHandler: 'static + Send + Sync {
         &self,
         login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
         identity_config: bitwarden_api_base::Configuration,
-        key_store: KeyStore<KeySlotIds>,
+        key_store: KeyStore<KeyIds>,
     ) -> Arc<dyn reqwest_middleware::Middleware>;
 
     /// This method is available only as a backwards compatibility measure until all the
@@ -26,7 +25,7 @@ pub trait TokenHandler: 'static + Send + Sync {
     /// done either during renewal (as part of the middleware) or during registration/login, in
     /// which case it would be up to the auth crate to internally set those tokens when initializing
     /// the client.
-    async fn set_tokens(&self, token: String, refresh_token: Option<String>, expires_in: u64);
+    fn set_tokens(&self, token: String, refresh_token: Option<String>, expires_in: u64);
 }
 
 /// Access tokens managed by client applications, such as the web or mobile apps.
@@ -50,18 +49,17 @@ impl ClientManagedTokenHandler {
     }
 }
 
-#[async_trait::async_trait]
 impl TokenHandler for ClientManagedTokenHandler {
     fn initialize_middleware(
         &self,
         _login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
         _identity_config: bitwarden_api_base::Configuration,
-        _key_store: KeyStore<KeySlotIds>,
+        _key_store: KeyStore<KeyIds>,
     ) -> Arc<dyn reqwest_middleware::Middleware> {
         Arc::new(self.clone())
     }
 
-    async fn set_tokens(&self, _token: String, _refresh_token: Option<String>, _expires_on: u64) {
+    fn set_tokens(&self, _token: String, _refresh_token: Option<String>, _expires_on: u64) {
         panic!("Client-managed tokens cannot be set by the SDK");
     }
 }
@@ -100,18 +98,17 @@ impl reqwest_middleware::Middleware for ClientManagedTokenHandler {
 #[derive(Clone, Copy)]
 pub struct NoopTokenHandler;
 
-#[async_trait::async_trait]
 impl TokenHandler for NoopTokenHandler {
     fn initialize_middleware(
         &self,
         _login_method: Arc<RwLock<Option<Arc<LoginMethod>>>>,
         _identity_config: bitwarden_api_base::Configuration,
-        _key_store: KeyStore<KeySlotIds>,
+        _key_store: KeyStore<KeyIds>,
     ) -> Arc<dyn reqwest_middleware::Middleware> {
         Arc::new(*self)
     }
 
-    async fn set_tokens(&self, _token: String, _refresh_token: Option<String>, _expires_on: u64) {
+    fn set_tokens(&self, _token: String, _refresh_token: Option<String>, _expires_on: u64) {
         panic!("Cannot set tokens on NoopTokenHandler");
     }
 }

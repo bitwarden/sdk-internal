@@ -21,12 +21,12 @@ wasm = [
     "bitwarden-policies/wasm",
     "dep:tsify",
     "dep:wasm-bindgen",
-    "dep:wasm-bindgen-futures",
+    "dep:wasm-bindgen-futures"
 ] # WASM support
 uniffi = [
     "bitwarden-core/uniffi",
     "bitwarden-policies/uniffi",
-    "dep:uniffi",
+    "dep:uniffi"
 ] # Uniffi bindings
 secrets = ["bitwarden-core/secrets"] # Secrets Manager support
 

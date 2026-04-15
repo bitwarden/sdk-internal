@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bitwarden_api_api::models::CipherFieldModel;
 use bitwarden_core::{
     MissingFieldError,
-    key_management::{KeySlotIds, SymmetricKeySlotId},
+    key_management::{KeyIds, SymmetricKeyId},
     require,
 };
 use bitwarden_crypto::{
@@ -17,7 +17,7 @@ use tsify::Tsify;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use super::{cipher::StrictDecrypt, linked_id::LinkedIdType};
+use super::linked_id::LinkedIdType;
 use crate::{PasswordHistoryView, VaultParseError};
 
 /// Represents the type of a [FieldView].
@@ -77,7 +77,6 @@ pub struct FieldView {
 
 /// Minimal field view for list/search operations.
 /// Contains only the fields needed for search indexing.
-#[cfg(feature = "wasm")]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
@@ -106,11 +105,11 @@ impl From<FieldView> for FieldListView {
     }
 }
 
-impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Field> for FieldView {
+impl CompositeEncryptable<KeyIds, SymmetricKeyId, Field> for FieldView {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
     ) -> Result<Field, CryptoError> {
         Ok(Field {
             name: self.name.encrypt(ctx, key)?,
@@ -159,32 +158,17 @@ impl FieldView {
     }
 }
 
-impl Decryptable<KeySlotIds, SymmetricKeySlotId, FieldView> for Field {
+impl Decryptable<KeyIds, SymmetricKeyId, FieldView> for Field {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeyIds>,
+        key: SymmetricKeyId,
     ) -> Result<FieldView, CryptoError> {
         Ok(FieldView {
             name: self.name.decrypt(ctx, key).ok().flatten(),
             value: self.value.decrypt(ctx, key).ok().flatten(),
             r#type: self.r#type,
             linked_id: self.linked_id,
-        })
-    }
-}
-
-impl Decryptable<KeySlotIds, SymmetricKeySlotId, FieldView> for StrictDecrypt<&Field> {
-    fn decrypt(
-        &self,
-        ctx: &mut KeyStoreContext<KeySlotIds>,
-        key: SymmetricKeySlotId,
-    ) -> Result<FieldView, CryptoError> {
-        Ok(FieldView {
-            name: self.0.name.decrypt(ctx, key)?,
-            value: self.0.value.decrypt(ctx, key)?,
-            r#type: self.0.r#type,
-            linked_id: self.0.linked_id,
         })
     }
 }
