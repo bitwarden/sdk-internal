@@ -9,7 +9,8 @@ use thiserror::Error;
 
 use crate::{
     repository::{Repository, RepositoryItem, RepositoryItemData, RepositoryMigrations},
-    sdk_managed::{Database, DatabaseConfiguration, SystemDatabase},
+    sdk_managed::{Database, DatabaseConfiguration, MemoryDatabase, SystemDatabase},
+    settings::{Key, Setting, SettingItem},
 };
 
 /// A registry that contains repositories for different types of items.
@@ -51,6 +52,18 @@ impl StateRegistry {
         }
     }
 
+    /// Creates a new `StateRegistry` backed by an in-memory database.
+    pub fn new_with_memory_db() -> Self {
+        let registry = Self::new();
+        // OnceLock::set returns Err only if already set.
+        // new() guarantees the OnceLock is unset. We ignore the result
+        // because there is no failure scenario here.
+        let _ = registry
+            .database
+            .set(SystemDatabase::Memory(MemoryDatabase::new()));
+        registry
+    }
+
     // TODO: Ideally we'd do this in new, but that would mean making the client initialization
     // async.
     // TODO: This function needs to be provided some configuration to know where to open the
@@ -80,6 +93,12 @@ impl StateRegistry {
             .expect("RwLock should not be poisoned") = migrations.into_repository_items();
 
         Ok(())
+    }
+
+    /// Get a handle to a setting by its type-safe key.
+    pub fn setting<T>(&self, key: Key<T>) -> Result<Setting<T>, StateRegistryError> {
+        let repo = self.get::<SettingItem>()?;
+        Ok(Setting::new(repo, key))
     }
 
     /// Registers a client-managed repository into the map, associating it with its type.
@@ -194,7 +213,7 @@ mod tests {
     impl_repository!(TestC, TestItem<Vec<u8>>);
 
     #[tokio::test]
-    async fn test_repository_map() {
+    async fn test_state_registry() {
         let a = Arc::new(TestA(145832));
         let b = Arc::new(TestB("test".to_string()));
         let c = Arc::new(TestC(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]));
@@ -255,5 +274,37 @@ mod tests {
             result,
             Err(StateRegistryError::DatabaseNotInitialized)
         ));
+    }
+
+    #[tokio::test]
+    async fn test_new_with_memory_db_sync() {
+        // Construct in sync context (no .await on the constructor itself)
+        let registry = StateRegistry::new_with_memory_db();
+        // Database must be accessible via async get after sync construction
+        let repo = registry.get::<TestItem<usize>>().unwrap();
+        let result = repo.get(String::new()).await;
+        // Should return Ok(None) — key not found, not an error
+        // (Note: TestItem<usize> is registered in this test module already)
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_setting_on_memory_db() {
+        use crate::register_setting_key;
+        register_setting_key!(const TEST_SETTING: String = "test_registry_setting_key");
+
+        let registry = StateRegistry::new_with_memory_db();
+        let setting = registry.setting(TEST_SETTING).unwrap();
+
+        // Value must not exist initially
+        assert_eq!(setting.get().await.unwrap(), None::<String>);
+
+        // Update and read back
+        setting.update("hello".to_string()).await.unwrap();
+        assert_eq!(setting.get().await.unwrap(), Some("hello".to_string()));
+
+        // Delete and confirm gone
+        setting.delete().await.unwrap();
+        assert_eq!(setting.get().await.unwrap(), None::<String>);
     }
 }

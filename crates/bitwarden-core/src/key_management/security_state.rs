@@ -23,7 +23,7 @@
 use std::{fmt::Debug, str::FromStr};
 
 use bitwarden_crypto::{
-    CoseSerializable, CoseSign1Bytes, CryptoError, EncodingError, KeyIds, KeyStoreContext,
+    CoseSerializable, CoseSign1Bytes, CryptoError, EncodingError, KeySlotIds, KeyStoreContext,
     SignedObject, SigningNamespace, VerifyingKey,
 };
 use bitwarden_encoding::{B64, FromStrVisitor};
@@ -71,7 +71,7 @@ impl SecurityState {
     }
 
     /// Signs the `SecurityState` with the provided signing key ID from the context.
-    pub fn sign<Ids: KeyIds>(
+    pub fn sign<Ids: KeySlotIds>(
         &self,
         signing_key_id: Ids::Signing,
         ctx: &mut KeyStoreContext<Ids>,

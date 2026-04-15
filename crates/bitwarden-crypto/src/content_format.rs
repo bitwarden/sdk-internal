@@ -2,8 +2,9 @@ use bitwarden_encoding::B64;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    CryptoError, EncString, KeyEncryptable, KeyEncryptableWithContentType, KeyIds, KeyStoreContext,
-    PrimitiveEncryptable, SymmetricCryptoKey, traits::PrimitiveEncryptableWithContentType,
+    CryptoError, EncString, KeyEncryptable, KeyEncryptableWithContentType, KeySlotIds,
+    KeyStoreContext, PrimitiveEncryptable, SymmetricCryptoKey,
+    traits::PrimitiveEncryptableWithContentType,
 };
 
 /// The content format describes the format of the contained bytes. Message encryption always
@@ -242,7 +243,7 @@ impl ConstContentFormat for CoseEncrypt0ContentFormat {
 /// serialized COSE Encrypt0 messages.
 pub type CoseEncrypt0Bytes = Bytes<CoseEncrypt0ContentFormat>;
 
-impl<Ids: KeyIds, T: ConstContentFormat> PrimitiveEncryptable<Ids, Ids::Symmetric, EncString>
+impl<Ids: KeySlotIds, T: ConstContentFormat> PrimitiveEncryptable<Ids, Ids::Symmetric, EncString>
     for Bytes<T>
 {
     fn encrypt(

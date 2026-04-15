@@ -83,18 +83,18 @@ impl AuthClient {
     }
 
     #[allow(missing_docs)]
-    pub fn make_register_tde_keys(
+    pub async fn make_register_tde_keys(
         &self,
         email: String,
         org_public_key: B64,
         remember_device: bool,
     ) -> Result<RegisterTdeKeyResponse, EncryptionSettingsError> {
-        make_register_tde_keys(&self.client, email, org_public_key, remember_device)
+        make_register_tde_keys(&self.client, email, org_public_key, remember_device).await
     }
 
     #[allow(missing_docs)]
     pub fn make_key_connector_keys(&self) -> Result<KeyConnectorResponse, CryptoError> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         make_key_connector_keys(&mut rng)
     }
 
@@ -130,30 +130,30 @@ impl AuthClient {
     }
 
     #[allow(missing_docs)]
-    pub fn validate_password(
+    pub async fn validate_password(
         &self,
         password: String,
         password_hash: B64,
     ) -> Result<bool, AuthValidateError> {
-        validate_password(&self.client, password, password_hash)
+        validate_password(&self.client, password, password_hash).await
     }
 
     #[allow(missing_docs)]
-    pub fn validate_password_user_key(
+    pub async fn validate_password_user_key(
         &self,
         password: String,
         encrypted_user_key: String,
     ) -> Result<B64, AuthValidateError> {
-        validate_password_user_key(&self.client, password, encrypted_user_key)
+        validate_password_user_key(&self.client, password, encrypted_user_key).await
     }
 
     #[allow(missing_docs)]
-    pub fn validate_pin(
+    pub async fn validate_pin(
         &self,
         pin: String,
         pin_protected_user_key: EncString,
     ) -> Result<bool, AuthValidateError> {
-        validate_pin(&self.client, pin, pin_protected_user_key)
+        validate_pin(&self.client, pin, pin_protected_user_key).await
     }
 
     /// Validates a PIN against a PIN-protected user key envelope.

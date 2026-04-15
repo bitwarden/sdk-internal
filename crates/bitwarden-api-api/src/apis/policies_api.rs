@@ -31,13 +31,13 @@ pub trait PoliciesApi: Send + Sync {
         &self,
         org_id: uuid::Uuid,
         r#type: models::PolicyType,
-    ) -> Result<models::PolicyStatusResponseModel, Error<GetError>>;
+    ) -> Result<models::PolicyStatusResponseModel, Error>;
 
     /// GET /organizations/{orgId}/policies
     async fn get_all<'a>(
         &self,
-        org_id: uuid::Uuid,
-    ) -> Result<models::PolicyResponseModelListResponseModel, Error<GetAllError>>;
+        org_id: &'a str,
+    ) -> Result<models::PolicyStatusResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{orgId}/policies/token
     async fn get_by_token<'a>(
@@ -46,13 +46,13 @@ pub trait PoliciesApi: Send + Sync {
         email: Option<&'a str>,
         token: Option<&'a str>,
         organization_user_id: Option<uuid::Uuid>,
-    ) -> Result<models::PolicyResponseModelListResponseModel, Error<GetByTokenError>>;
+    ) -> Result<models::PolicyResponseModelListResponseModel, Error>;
 
     /// GET /organizations/{orgId}/policies/master-password
     async fn get_master_password_policy<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<models::PolicyResponseModel, Error<GetMasterPasswordPolicyError>>;
+    ) -> Result<models::PolicyResponseModel, Error>;
 
     /// PUT /organizations/{orgId}/policies/{type}
     async fn put<'a>(
@@ -60,7 +60,7 @@ pub trait PoliciesApi: Send + Sync {
         org_id: uuid::Uuid,
         r#type: models::PolicyType,
         policy_request_model: Option<models::PolicyRequestModel>,
-    ) -> Result<models::PolicyResponseModel, Error<PutError>>;
+    ) -> Result<models::PolicyResponseModel, Error>;
 
     /// PUT /organizations/{orgId}/policies/{type}/vnext
     async fn put_v_next<'a>(
@@ -68,7 +68,7 @@ pub trait PoliciesApi: Send + Sync {
         org_id: uuid::Uuid,
         r#type: models::PolicyType,
         save_policy_request: Option<models::SavePolicyRequest>,
-    ) -> Result<models::PolicyResponseModel, Error<PutVNextError>>;
+    ) -> Result<models::PolicyResponseModel, Error>;
 }
 
 pub struct PoliciesApiClient {
@@ -88,7 +88,7 @@ impl PoliciesApi for PoliciesApiClient {
         &self,
         org_id: uuid::Uuid,
         r#type: models::PolicyType,
-    ) -> Result<models::PolicyStatusResponseModel, Error<GetError>> {
+    ) -> Result<models::PolicyStatusResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -104,8 +104,8 @@ impl PoliciesApi for PoliciesApiClient {
 
     async fn get_all<'a>(
         &self,
-        org_id: uuid::Uuid,
-    ) -> Result<models::PolicyResponseModelListResponseModel, Error<GetAllError>> {
+        org_id: &'a str,
+    ) -> Result<models::PolicyStatusResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -113,7 +113,7 @@ impl PoliciesApi for PoliciesApiClient {
         let local_var_uri_str = format!(
             "{}/organizations/{orgId}/policies",
             local_var_configuration.base_path,
-            orgId = org_id
+            orgId = crate::apis::urlencode(org_id)
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
@@ -129,7 +129,7 @@ impl PoliciesApi for PoliciesApiClient {
         email: Option<&'a str>,
         token: Option<&'a str>,
         organization_user_id: Option<uuid::Uuid>,
-    ) -> Result<models::PolicyResponseModelListResponseModel, Error<GetByTokenError>> {
+    ) -> Result<models::PolicyResponseModelListResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -162,7 +162,7 @@ impl PoliciesApi for PoliciesApiClient {
     async fn get_master_password_policy<'a>(
         &self,
         org_id: uuid::Uuid,
-    ) -> Result<models::PolicyResponseModel, Error<GetMasterPasswordPolicyError>> {
+    ) -> Result<models::PolicyResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -185,7 +185,7 @@ impl PoliciesApi for PoliciesApiClient {
         org_id: uuid::Uuid,
         r#type: models::PolicyType,
         policy_request_model: Option<models::PolicyRequestModel>,
-    ) -> Result<models::PolicyResponseModel, Error<PutError>> {
+    ) -> Result<models::PolicyResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -205,7 +205,7 @@ impl PoliciesApi for PoliciesApiClient {
         org_id: uuid::Uuid,
         r#type: models::PolicyType,
         save_policy_request: Option<models::SavePolicyRequest>,
-    ) -> Result<models::PolicyResponseModel, Error<PutVNextError>> {
+    ) -> Result<models::PolicyResponseModel, Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -219,41 +219,4 @@ impl PoliciesApi for PoliciesApiClient {
 
         bitwarden_api_base::process_with_json_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`PoliciesApi::get`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`PoliciesApi::get_all`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetAllError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`PoliciesApi::get_by_token`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetByTokenError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`PoliciesApi::get_master_password_policy`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum GetMasterPasswordPolicyError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`PoliciesApi::put`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutError {
-    UnknownValue(serde_json::Value),
-}
-/// struct for typed errors of method [`PoliciesApi::put_v_next`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PutVNextError {
-    UnknownValue(serde_json::Value),
 }

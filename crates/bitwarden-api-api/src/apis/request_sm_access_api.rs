@@ -30,7 +30,7 @@ pub trait RequestSmAccessApi: Send + Sync {
     async fn request_sm_access_from_admins<'a>(
         &self,
         request_sm_access_request_model: Option<models::RequestSmAccessRequestModel>,
-    ) -> Result<(), Error<RequestSMAccessFromAdminsError>>;
+    ) -> Result<(), Error>;
 }
 
 pub struct RequestSmAccessApiClient {
@@ -49,7 +49,7 @@ impl RequestSmAccessApi for RequestSmAccessApiClient {
     async fn request_sm_access_from_admins<'a>(
         &self,
         request_sm_access_request_model: Option<models::RequestSmAccessRequestModel>,
-    ) -> Result<(), Error<RequestSMAccessFromAdminsError>> {
+    ) -> Result<(), Error> {
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
@@ -66,11 +66,4 @@ impl RequestSmAccessApi for RequestSmAccessApiClient {
 
         bitwarden_api_base::process_with_empty_response(local_var_req_builder).await
     }
-}
-
-/// struct for typed errors of method [`RequestSmAccessApi::request_sm_access_from_admins`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum RequestSMAccessFromAdminsError {
-    UnknownValue(serde_json::Value),
 }

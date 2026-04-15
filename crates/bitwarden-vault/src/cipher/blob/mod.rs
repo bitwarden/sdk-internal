@@ -1,3 +1,4 @@
+mod sealed;
 #[allow(dead_code)]
 mod v1;
 
@@ -5,6 +6,8 @@ use bitwarden_crypto::{
     generate_versioned_sealable,
     safe::{DataEnvelopeNamespace, SealableData, SealableVersionedData},
 };
+#[allow(unused_imports)]
+use sealed::{SealedCipherBlob, SealedCipherBlobError};
 use serde::{Deserialize, Serialize};
 use v1::CipherBlobV1;
 

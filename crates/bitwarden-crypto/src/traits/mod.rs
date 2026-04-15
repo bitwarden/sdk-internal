@@ -4,12 +4,12 @@ pub use encryptable::{CompositeEncryptable, PrimitiveEncryptable};
 mod decryptable;
 pub use decryptable::Decryptable;
 
-pub(crate) mod key_id;
-pub use key_id::{KeyId, KeyIds, LocalId};
+pub(crate) mod keyslot_ids;
+pub use keyslot_ids::{KeySlotId, KeySlotIds, LocalId};
 
 /// Types implementing [IdentifyKey] are capable of knowing which cryptographic key is
 /// needed to encrypt/decrypt them.
-pub trait IdentifyKey<Key: KeyId> {
+pub trait IdentifyKey<Key: KeySlotId> {
     #[allow(missing_docs)]
     fn key_identifier(&self) -> Key;
 }
