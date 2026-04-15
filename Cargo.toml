@@ -21,6 +21,10 @@ keywords = ["bitwarden"]
 [workspace.dependencies]
 
 # External crates that are expected to maintain a consistent version across all crates
+ap-client = { version = "0.11.0", default-features = false }
+ap-noise = { version = "0.11.0" }
+ap-proxy-client = { version = "0.11.0", default-features = false }
+ap-proxy-protocol = { version = "0.11.0" }
 async-trait = ">=0.1.80, <0.2"
 bitwarden = { path = "crates/bitwarden", version = "=1.0.0" }
 bitwarden-api-api = { path = "crates/bitwarden-api-api", version = "=2.0.0" }
@@ -56,10 +60,6 @@ bitwarden-user-crypto-management = { path = "crates/bitwarden-user-crypto-manage
 bitwarden-uuid = { path = "crates/bitwarden-uuid", version = "=2.0.0" }
 bitwarden-uuid-macro = { path = "crates/bitwarden-uuid-macro", version = "=2.0.0" }
 bitwarden-vault = { path = "crates/bitwarden-vault", version = "=2.0.0" }
-ap-client = { version = "0.8.0", default-features = false }
-ap-noise = { version = "0.8.0" }
-ap-proxy-client = { version = "0.8.0", default-features = false }
-ap-proxy-protocol = { version = "0.8.0" }
 chrono = { version = ">=0.4.26, <0.5", features = [
     "clock",
     "serde",

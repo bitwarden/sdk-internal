@@ -20,7 +20,10 @@ use wasm_bindgen::prelude::*;
 
 use super::{
     proxy::{JsProxyClient, WasmProxyClient},
-    storage::{ConnectionRecord, InMemoryIdentityProvider, RepositoryConnectionStore},
+    storage::{
+        ConnectionRecord, InMemoryIdentityProvider, PskRecord, RepositoryConnectionStore,
+        RepositoryPskStore,
+    },
 };
 use crate::platform::repository::{WasmRepository, WasmRepositoryChannel};
 
@@ -91,6 +94,17 @@ export interface ConnectionRecord {
 }
 
 /**
+ * PskRecord stored in the PSK repository.
+ * The repository key is the psk_id string.
+ */
+export interface PskRecord {
+    pskId: string;
+    pskHex: string;
+    name: string | null;
+    createdAt: number;
+}
+
+/**
  * Static helper for proxy authentication.
  * Call `UserClient.sign_proxy_challenge(identityCose, challengeJson)`
  * to sign the proxy server's auth challenge without exposing key material to JS.
@@ -131,6 +145,68 @@ extern "C" {
 
     #[wasm_bindgen(method, catch, js_name = "removeAll")]
     async fn remove_all(this: &JsConnectionRepository) -> Result<JsValue, JsValue>;
+}
+
+// ---------------------------------------------------------------------------
+// JsPskRepository — JS-provided Repository<PskRecord>
+// ---------------------------------------------------------------------------
+
+#[wasm_bindgen]
+extern "C" {
+    /// JavaScript-provided PSK repository implementing `Repository<PskRecord>`.
+    #[wasm_bindgen(js_name = PskRepository)]
+    pub type JsPskRepository;
+
+    #[wasm_bindgen(method, catch)]
+    async fn get(this: &JsPskRepository, id: String) -> Result<JsValue, JsValue>;
+
+    #[wasm_bindgen(method, catch)]
+    async fn list(this: &JsPskRepository) -> Result<JsValue, JsValue>;
+
+    #[wasm_bindgen(method, catch)]
+    async fn set(this: &JsPskRepository, id: String, value: JsValue) -> Result<JsValue, JsValue>;
+
+    #[wasm_bindgen(method, catch, js_name = "setBulk")]
+    async fn set_bulk(this: &JsPskRepository, values: JsValue) -> Result<JsValue, JsValue>;
+
+    #[wasm_bindgen(method, catch)]
+    async fn remove(this: &JsPskRepository, id: String) -> Result<JsValue, JsValue>;
+
+    #[wasm_bindgen(method, catch, js_name = "removeBulk")]
+    async fn remove_bulk(this: &JsPskRepository, keys: JsValue) -> Result<JsValue, JsValue>;
+
+    #[wasm_bindgen(method, catch, js_name = "removeAll")]
+    async fn remove_all(this: &JsPskRepository) -> Result<JsValue, JsValue>;
+}
+
+impl WasmRepository<PskRecord> for JsPskRepository {
+    async fn get(&self, id: String) -> Result<JsValue, JsValue> {
+        self.get(id).await
+    }
+    async fn list(&self) -> Result<JsValue, JsValue> {
+        self.list().await
+    }
+    async fn set(&self, id: String, value: PskRecord) -> Result<JsValue, JsValue> {
+        let js_val = tsify::serde_wasm_bindgen::to_value(&value)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        self.set(id, js_val).await
+    }
+    async fn set_bulk(&self, values: Vec<(String, PskRecord)>) -> Result<JsValue, JsValue> {
+        let js_val = tsify::serde_wasm_bindgen::to_value(&values)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        self.set_bulk(js_val).await
+    }
+    async fn remove(&self, id: String) -> Result<JsValue, JsValue> {
+        self.remove(id).await
+    }
+    async fn remove_bulk(&self, keys: Vec<String>) -> Result<JsValue, JsValue> {
+        let js_val = tsify::serde_wasm_bindgen::to_value(&keys)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        self.remove_bulk(js_val).await
+    }
+    async fn remove_all(&self) -> Result<JsValue, JsValue> {
+        self.remove_all().await
+    }
 }
 
 impl WasmRepository<ConnectionRecord> for JsConnectionRepository {
@@ -207,6 +283,8 @@ pub struct UserClient {
     identity_provider: RefCell<Option<InMemoryIdentityProvider>>,
     /// Holds the connection repository between `new()` and `connect()`.
     connection_repo: RefCell<Option<JsConnectionRepository>>,
+    /// Holds the optional PSK repository between `new()` and `connect()`.
+    psk_repo: RefCell<Option<JsPskRepository>>,
     /// Pending oneshot reply channels keyed by request_id.
     pending_replies: Rc<RefCell<HashMap<String, PendingReplyKind>>>,
     /// Monotonic counter for generating request IDs.
@@ -226,10 +304,13 @@ impl UserClient {
     /// - `connection_repository`: JS object implementing `Repository<ConnectionRecord>` for
     ///   auto-persistence
     /// - `initial_identity_data`: COSE-encoded identity keypair bytes (required)
+    /// - `psk_repository`: Optional JS object implementing `Repository<PskRecord>` for reusable PSK
+    ///   persistence
     #[wasm_bindgen(constructor)]
     pub fn new(
         connection_repository: JsConnectionRepository,
         initial_identity_data: Vec<u8>,
+        psk_repository: Option<JsPskRepository>,
     ) -> Result<UserClient, JsValue> {
         tracing::info!(
             "[Agent Access WASM] new() called, identity_data={} bytes",
@@ -255,6 +336,7 @@ impl UserClient {
             identity: identity_bytes,
             identity_provider: RefCell::new(Some(identity)),
             connection_repo: RefCell::new(Some(connection_repository)),
+            psk_repo: RefCell::new(psk_repository),
             pending_replies: Rc::new(RefCell::new(HashMap::new())),
             next_request_id: Rc::new(Cell::new(0)),
             audit_callback: RefCell::new(None),
@@ -289,6 +371,14 @@ impl UserClient {
         let proxy = WasmProxyClient::new(proxy_client);
         tracing::info!("[Agent Access WASM] WasmProxyClient created, connecting to proxy...");
 
+        // Build PSK store from optional JS repository
+        let psk_store: Option<Box<dyn ap_client::PskStore>> =
+            self.psk_repo.borrow_mut().take().map(|psk_repo| {
+                let channel = WasmRepositoryChannel::new(psk_repo);
+                let repo_arc: Arc<dyn Repository<PskRecord>> = Arc::new(channel);
+                Box::new(RepositoryPskStore::new(repo_arc)) as Box<dyn ap_client::PskStore>
+            });
+
         // Build audit log from callback
         let audit_log: Option<Box<dyn AuditLog>> = self
             .audit_callback
@@ -306,6 +396,7 @@ impl UserClient {
             Box::new(connection_store),
             Box::new(proxy),
             audit_log,
+            psk_store,
         )
         .await
         .map_err(|e| {
@@ -404,9 +495,17 @@ impl UserClient {
     }
 
     /// Get a PSK token for pairing. Optionally provide a name for the connection.
-    pub async fn get_psk_token(&self, name: Option<String>) -> Result<String, JsValue> {
+    ///
+    /// When `reusable` is true, the PSK is persisted in the configured PSK store
+    /// and will not be consumed on first use. Requires a PSK repository to have
+    /// been passed to the constructor.
+    pub async fn get_psk_token(
+        &self,
+        name: Option<String>,
+        reusable: bool,
+    ) -> Result<String, JsValue> {
         self.get_client()?
-            .get_psk_token(name)
+            .get_psk_token(name, reusable)
             .await
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }

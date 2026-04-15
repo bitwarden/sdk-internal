@@ -6,9 +6,10 @@
 use std::sync::Arc;
 
 use ap_client::{
-    ClientError, ConnectionInfo, ConnectionStore, ConnectionUpdate, IdentityFingerprint,
+    ClientError, ConnectionInfo, ConnectionStore, ConnectionUpdate, IdentityFingerprint, PskEntry,
+    PskStore,
 };
-use ap_noise::MultiDeviceTransport;
+use ap_noise::{MultiDeviceTransport, Psk};
 use ap_proxy_protocol::IdentityKeyPair;
 use async_trait::async_trait;
 use bitwarden_state::repository::{Repository, RepositoryError};
@@ -141,6 +142,83 @@ impl ConnectionStore for RepositoryConnectionStore {
             .unwrap_or_default()
             .into_iter()
             .filter_map(|r| record_to_connection_info(r).ok())
+            .collect()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PskRecord + RepositoryPskStore — reusable PSK persistence via JS Repository
+// ---------------------------------------------------------------------------
+
+/// A stored reusable PSK record, persisted via a JS Repository keyed by `psk_id`.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PskRecord {
+    pub psk_id: String,
+    pub psk_hex: String,
+    pub name: Option<String>,
+    pub created_at: u64,
+}
+
+bitwarden_state::register_repository_item!(String => PskRecord, "PskRecord");
+
+fn psk_entry_to_record(entry: &PskEntry) -> PskRecord {
+    PskRecord {
+        psk_id: entry.psk_id.clone(),
+        psk_hex: entry.psk.to_hex(),
+        name: entry.name.clone(),
+        created_at: entry.created_at,
+    }
+}
+
+fn record_to_psk_entry(record: PskRecord) -> Result<PskEntry, ClientError> {
+    let psk =
+        Psk::from_hex(&record.psk_hex).map_err(|e| ClientError::ConnectionCache(e.to_string()))?;
+    Ok(PskEntry {
+        psk_id: record.psk_id,
+        psk,
+        name: record.name,
+        created_at: record.created_at,
+    })
+}
+
+/// PSK store backed by a `Repository<PskRecord>`.
+pub struct RepositoryPskStore {
+    repo: Arc<dyn Repository<PskRecord>>,
+}
+
+impl RepositoryPskStore {
+    pub fn new(repo: Arc<dyn Repository<PskRecord>>) -> Self {
+        Self { repo }
+    }
+}
+
+#[async_trait]
+impl PskStore for RepositoryPskStore {
+    async fn get(&self, psk_id: &String) -> Option<PskEntry> {
+        match self.repo.get(psk_id.clone()).await {
+            Ok(Some(record)) => record_to_psk_entry(record).ok(),
+            _ => None,
+        }
+    }
+
+    async fn save(&mut self, entry: PskEntry) -> Result<(), ClientError> {
+        let key = entry.psk_id.clone();
+        let record = psk_entry_to_record(&entry);
+        self.repo.set(key, record).await.map_err(repo_err)
+    }
+
+    async fn remove(&mut self, psk_id: &String) -> Result<(), ClientError> {
+        self.repo.remove(psk_id.clone()).await.map_err(repo_err)
+    }
+
+    async fn list(&self) -> Vec<PskEntry> {
+        self.repo
+            .list()
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|r| record_to_psk_entry(r).ok())
             .collect()
     }
 }
@@ -334,5 +412,58 @@ mod tests {
         let a = InMemoryIdentityProvider::generate();
         let b = InMemoryIdentityProvider::generate();
         assert_ne!(a.to_bytes(), b.to_bytes());
+    }
+
+    // --- MemoryPskStore (from library) ---
+
+    fn make_psk_entry(name: Option<&str>) -> PskEntry {
+        let psk = Psk::generate();
+        PskEntry {
+            psk_id: psk.id(),
+            psk,
+            name: name.map(|s| s.to_string()),
+            created_at: now_secs(),
+        }
+    }
+
+    #[tokio::test]
+    async fn empty_psk_store_has_no_entries() {
+        let store = ap_client::MemoryPskStore::new();
+        assert!(store.list().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn psk_save_makes_entry_findable() {
+        let mut store = ap_client::MemoryPskStore::new();
+        let entry = make_psk_entry(Some("test"));
+        let psk_id = entry.psk_id.clone();
+        store.save(entry).await.unwrap();
+
+        let retrieved = store.get(&psk_id).await;
+        assert!(retrieved.is_some());
+        assert_eq!(retrieved.unwrap().name.as_deref(), Some("test"));
+    }
+
+    #[tokio::test]
+    async fn psk_remove_deletes_entry() {
+        let mut store = ap_client::MemoryPskStore::new();
+        let entry = make_psk_entry(None);
+        let psk_id = entry.psk_id.clone();
+        store.save(entry).await.unwrap();
+        assert_eq!(store.list().await.len(), 1);
+
+        store.remove(&psk_id).await.unwrap();
+        assert!(store.get(&psk_id).await.is_none());
+        assert!(store.list().await.is_empty());
+    }
+
+    #[test]
+    fn psk_record_roundtrip() {
+        let entry = make_psk_entry(Some("roundtrip"));
+        let record = psk_entry_to_record(&entry);
+        let restored = record_to_psk_entry(record).unwrap();
+        assert_eq!(restored.psk_id, entry.psk_id);
+        assert_eq!(restored.name.as_deref(), Some("roundtrip"));
+        assert_eq!(restored.psk.to_hex(), entry.psk.to_hex());
     }
 }
