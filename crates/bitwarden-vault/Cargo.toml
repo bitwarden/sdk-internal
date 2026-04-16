@@ -20,7 +20,7 @@ uniffi = [
     "bitwarden-core/uniffi",
     "bitwarden-crypto/uniffi",
     "dep:uniffi",
-]
+] # Uniffi bindings
 wasm = [
     "bitwarden-collections/wasm",
     "bitwarden-core/wasm",
@@ -29,7 +29,7 @@ wasm = [
     "dep:tsify",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
-]
+] # WASM support
 
 [dependencies]
 async-trait = { workspace = true }
