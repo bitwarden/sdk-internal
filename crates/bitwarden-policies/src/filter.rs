@@ -14,17 +14,17 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// A newtype representing the policy type.
-#[derive(PartialEq, Serialize, Deserialize, Debug)]
+#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
 pub struct PolicyType(pub u8);
 
 /// An organization policy.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PolicyView {
-    id: Uuid,
-    organization_id: Uuid,
-    r#type: PolicyType,
-    data: Option<HashMap<String, serde_json::Value>>,
-    enabled: bool,
+    pub(crate) id: Uuid,
+    pub(crate) organization_id: Uuid,
+    pub(crate) r#type: PolicyType,
+    pub(crate) data: Option<HashMap<String, serde_json::Value>>,
+    pub(crate) enabled: bool,
 }
 
 /// Defines the filtering behavior for a specific policy type.
@@ -59,6 +59,12 @@ pub trait Policy: Send + Sync + 'static {
             OrganizationUserStatusType::Confirmed,
         ]
     }
+}
+
+pub struct DefaultPolicyDefinition;
+
+impl Policy for DefaultPolicyDefinition {
+    const TYPE: PolicyType = PolicyType(u8::MAX);
 }
 
 /// Filters `policies` to those that should be enforced against the user.
