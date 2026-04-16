@@ -5,7 +5,7 @@ use bitwarden_api_api::models::{
 use bitwarden_collections::collection::CollectionId;
 use bitwarden_core::{
     ApiError, MissingFieldError, OrganizationId, UserId,
-    key_management::{KeyIds, MINIMUM_ENFORCE_ICON_URI_HASH_VERSION, SymmetricKeyId},
+    key_management::{KeySlotIds, MINIMUM_ENFORCE_ICON_URI_HASH_VERSION, SymmetricKeySlotId},
     require,
 };
 use bitwarden_crypto::{
@@ -81,8 +81,8 @@ pub(super) trait CipherKind {
     /// Returns the item's subtitle.
     fn decrypt_subtitle(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<String, CryptoError>;
 
     /// Returns a list of populated fields for the cipher.
@@ -325,9 +325,9 @@ impl Cipher {
     /// does not need to be re-uploaded to the server.
     pub fn rewrap_cipher_key(
         &mut self,
-        old_key: SymmetricKeyId,
-        new_key: SymmetricKeyId,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        old_key: SymmetricKeySlotId,
+        new_key: SymmetricKeySlotId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<(), CipherKeyRewrapError> {
         let new_cipher_key = self
             .key
@@ -526,7 +526,7 @@ pub struct ListOrganizationCiphersResult {
 impl CipherListView {
     pub(crate) fn get_totp_key(
         self,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<Option<String>, CryptoError> {
         let key = self.key_identifier();
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
@@ -542,11 +542,11 @@ impl CipherListView {
     }
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, Cipher> for CipherView {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<Cipher, CryptoError> {
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
@@ -592,12 +592,12 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, Cipher> for CipherView {
     }
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for Cipher {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for Cipher {
     #[instrument(err, skip_all, fields(cipher_id = ?self.id, org_id = ?self.organization_id, kind = ?self.r#type))]
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
@@ -669,10 +669,10 @@ impl Cipher {
     /// * `ciphers_key` - The encrypted cipher key
     #[instrument(err, skip_all)]
     pub(super) fn decrypt_cipher_key(
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
         ciphers_key: &Option<EncString>,
-    ) -> Result<SymmetricKeyId, CryptoError> {
+    ) -> Result<SymmetricKeySlotId, CryptoError> {
         match ciphers_key {
             Some(ciphers_key) => ctx.unwrap_symmetric_key(key, ciphers_key),
             None => Ok(key),
@@ -693,8 +693,8 @@ impl Cipher {
     /// Returns the decrypted subtitle for the cipher, if applicable.
     fn decrypt_subtitle(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<String, CryptoError> {
         self.get_kind()
             .map(|sub| sub.decrypt_subtitle(ctx, key))
@@ -738,8 +738,8 @@ impl CipherView {
     #[allow(missing_docs)]
     pub fn generate_cipher_key(
         &mut self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        wrapping_key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        wrapping_key: SymmetricKeySlotId,
     ) -> Result<(), CryptoError> {
         let old_unwrapping_key = self.key_identifier();
         let old_ciphers_key = Cipher::decrypt_cipher_key(ctx, old_unwrapping_key, &self.key)?;
@@ -769,9 +769,9 @@ impl CipherView {
 
     fn reencrypt_attachment_keys(
         &mut self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        old_key: SymmetricKeyId,
-        new_key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        old_key: SymmetricKeySlotId,
+        new_key: SymmetricKeySlotId,
     ) -> Result<(), CryptoError> {
         if let Some(attachments) = &mut self.attachments {
             AttachmentView::reencrypt_keys(attachments, ctx, old_key, new_key)?;
@@ -782,7 +782,7 @@ impl CipherView {
     #[allow(missing_docs)]
     pub fn decrypt_fido2_credentials(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<Vec<Fido2CredentialView>, CryptoError> {
         let key = self.key_identifier();
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
@@ -798,9 +798,9 @@ impl CipherView {
 
     fn reencrypt_fido2_credentials(
         &mut self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        old_key: SymmetricKeyId,
-        new_key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        old_key: SymmetricKeySlotId,
+        new_key: SymmetricKeySlotId,
     ) -> Result<(), CryptoError> {
         if let Some(login) = self.login.as_mut() {
             login.reencrypt_fido2_credentials(ctx, old_key, new_key)?;
@@ -816,10 +816,10 @@ impl CipherView {
     /// * `organization_id` - The ID of the organization to move the cipher to
     pub fn move_to_organization(
         &mut self,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
         organization_id: OrganizationId,
     ) -> Result<(), CipherError> {
-        let new_key = SymmetricKeyId::Organization(organization_id);
+        let new_key = SymmetricKeySlotId::Organization(organization_id);
 
         self.reencrypt_cipher_keys(ctx, new_key)?;
         self.organization_id = Some(organization_id);
@@ -833,8 +833,8 @@ impl CipherView {
     /// Otherwise, the cipher will re-encrypt all attachment keys and FIDO2 credential keys
     pub fn reencrypt_cipher_keys(
         &mut self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        new_wrapping_key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        new_wrapping_key: SymmetricKeySlotId,
     ) -> Result<(), CipherError> {
         let old_key = self.key_identifier();
 
@@ -863,7 +863,7 @@ impl CipherView {
     #[allow(missing_docs)]
     pub fn set_new_fido2_credentials(
         &mut self,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
         creds: Vec<Fido2CredentialFullView>,
     ) -> Result<(), CipherError> {
         let key = self.key_identifier();
@@ -879,7 +879,7 @@ impl CipherView {
     #[allow(missing_docs)]
     pub fn get_fido2_credentials(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<Vec<Fido2CredentialFullView>, CipherError> {
         let key = self.key_identifier();
 
@@ -894,7 +894,7 @@ impl CipherView {
     #[allow(missing_docs)]
     pub fn decrypt_fido2_private_key(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
     ) -> Result<String, CipherError> {
         let fido2_credential = self.get_fido2_credentials(ctx)?;
 
@@ -923,11 +923,11 @@ impl CipherView {
     }
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for Cipher {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.key)?;
 
@@ -1007,29 +1007,29 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for Cipher {
     }
 }
 
-impl IdentifyKey<SymmetricKeyId> for Cipher {
-    fn key_identifier(&self) -> SymmetricKeyId {
+impl IdentifyKey<SymmetricKeySlotId> for Cipher {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
         match self.organization_id {
-            Some(organization_id) => SymmetricKeyId::Organization(organization_id),
-            None => SymmetricKeyId::User,
+            Some(organization_id) => SymmetricKeySlotId::Organization(organization_id),
+            None => SymmetricKeySlotId::User,
         }
     }
 }
 
-impl IdentifyKey<SymmetricKeyId> for CipherView {
-    fn key_identifier(&self) -> SymmetricKeyId {
+impl IdentifyKey<SymmetricKeySlotId> for CipherView {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
         match self.organization_id {
-            Some(organization_id) => SymmetricKeyId::Organization(organization_id),
-            None => SymmetricKeyId::User,
+            Some(organization_id) => SymmetricKeySlotId::Organization(organization_id),
+            None => SymmetricKeySlotId::User,
         }
     }
 }
 
-impl IdentifyKey<SymmetricKeyId> for CipherListView {
-    fn key_identifier(&self) -> SymmetricKeyId {
+impl IdentifyKey<SymmetricKeySlotId> for CipherListView {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
         match self.organization_id {
-            Some(organization_id) => SymmetricKeyId::Organization(organization_id),
-            None => SymmetricKeyId::User,
+            Some(organization_id) => SymmetricKeySlotId::Organization(organization_id),
+            None => SymmetricKeySlotId::User,
         }
     }
 }
@@ -1044,18 +1044,18 @@ impl IdentifyKey<SymmetricKeyId> for CipherListView {
 /// after feature has fully rolled out.
 pub(crate) struct StrictDecrypt<T>(pub(crate) T);
 
-impl IdentifyKey<SymmetricKeyId> for StrictDecrypt<Cipher> {
-    fn key_identifier(&self) -> SymmetricKeyId {
+impl IdentifyKey<SymmetricKeySlotId> for StrictDecrypt<Cipher> {
+    fn key_identifier(&self) -> SymmetricKeySlotId {
         self.0.key_identifier()
     }
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for StrictDecrypt<Cipher> {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherView> for StrictDecrypt<Cipher> {
     #[instrument(err, skip_all, fields(cipher_id = ?self.0.id, org_id = ?self.0.organization_id, kind = ?self.0.r#type))]
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<CipherView, CryptoError> {
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.0.key)?;
 
@@ -1135,11 +1135,11 @@ impl Decryptable<KeyIds, SymmetricKeyId, CipherView> for StrictDecrypt<Cipher> {
     }
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, CipherListView> for StrictDecrypt<Cipher> {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, CipherListView> for StrictDecrypt<Cipher> {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<CipherListView, CryptoError> {
         let ciphers_key = Cipher::decrypt_cipher_key(ctx, key, &self.0.key)?;
 
@@ -1587,7 +1587,10 @@ mod tests {
         }
     }
 
-    fn generate_fido2(ctx: &mut KeyStoreContext<KeyIds>, key: SymmetricKeyId) -> Fido2Credential {
+    fn generate_fido2(
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
+    ) -> Fido2Credential {
         Fido2Credential {
             credential_id: "123".to_string().encrypt(ctx, key).unwrap(),
             key_type: "public-key".to_string().encrypt(ctx, key).unwrap(),
@@ -1626,7 +1629,7 @@ mod tests {
                 uris: None,
                 totp: Some("2.hqdioUAc81FsKQmO1XuLQg==|oDRdsJrQjoFu9NrFVy8tcJBAFKBx95gHaXZnWdXbKpsxWnOr2sKipIG43pKKUFuq|3gKZMiboceIB5SLVOULKg2iuyu6xzos22dfJbvx0EHk=".parse().unwrap()),
                 autofill_on_page_load: None,
-                fido2_credentials: Some(vec![generate_fido2(&mut key_store.context(), SymmetricKeyId::User)]),
+                fido2_credentials: Some(vec![generate_fido2(&mut key_store.context(), SymmetricKeySlotId::User)]),
             }),
             identity: None,
             card: None,
@@ -1814,7 +1817,7 @@ mod tests {
             let cipher_key = ctx.generate_symmetric_key();
 
             original_cipher.key = Some(
-                ctx.wrap_symmetric_key(SymmetricKeyId::User, cipher_key)
+                ctx.wrap_symmetric_key(SymmetricKeySlotId::User, cipher_key)
                     .unwrap(),
             );
         }
@@ -1827,7 +1830,7 @@ mod tests {
         let wrapped_key = original_cipher.key.unwrap();
         let mut ctx = key_store.context();
         let _ = ctx
-            .unwrap_symmetric_key(SymmetricKeyId::User, &wrapped_key)
+            .unwrap_symmetric_key(SymmetricKeySlotId::User, &wrapped_key)
             .unwrap();
     }
 
@@ -1976,14 +1979,14 @@ mod tests {
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
-        let org_key = SymmetricKeyId::Organization(org);
+        let org_key = SymmetricKeySlotId::Organization(org);
 
         // Attachment has a key that is encrypted with the user key, as the cipher has no key itself
         let (attachment_key_enc, attachment_key_val) = {
             let mut ctx = key_store.context();
             let attachment_key = ctx.generate_symmetric_key();
             let attachment_key_enc = ctx
-                .wrap_symmetric_key(SymmetricKeyId::User, attachment_key)
+                .wrap_symmetric_key(SymmetricKeySlotId::User, attachment_key)
                 .unwrap();
             #[allow(deprecated)]
             let attachment_key_val = ctx
@@ -2006,7 +2009,7 @@ mod tests {
             decrypted_key: None,
         };
         cipher.attachments = Some(vec![attachment]);
-        let cred = generate_fido2(&mut key_store.context(), SymmetricKeyId::User);
+        let cred = generate_fido2(&mut key_store.context(), SymmetricKeySlotId::User);
         cipher.login.as_mut().unwrap().fido2_credentials = Some(vec![cred]);
 
         cipher
@@ -2048,13 +2051,13 @@ mod tests {
         let key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let org_key = SymmetricCryptoKey::make_aes256_cbc_hmac_key();
         let key_store = create_test_crypto_with_user_and_org_key(key, org, org_key);
-        let org_key = SymmetricKeyId::Organization(org);
+        let org_key = SymmetricKeySlotId::Organization(org);
 
         let mut ctx = key_store.context();
 
         let cipher_key = ctx.generate_symmetric_key();
         let cipher_key_enc = ctx
-            .wrap_symmetric_key(SymmetricKeyId::User, cipher_key)
+            .wrap_symmetric_key(SymmetricKeySlotId::User, cipher_key)
             .unwrap();
 
         // Attachment has a key that is encrypted with the cipher key
@@ -2667,10 +2670,10 @@ mod tests {
         // Create properly encrypted attachments
         let mut ctx = key_store.context();
         let valid1 = "valid_file_1.txt"
-            .encrypt(&mut ctx, SymmetricKeyId::User)
+            .encrypt(&mut ctx, SymmetricKeySlotId::User)
             .unwrap();
         let valid2 = "valid_file_2.txt"
-            .encrypt(&mut ctx, SymmetricKeyId::User)
+            .encrypt(&mut ctx, SymmetricKeySlotId::User)
             .unwrap();
 
         // Create corrupted attachment by encrypting with a random different key
@@ -2678,7 +2681,7 @@ mod tests {
         let wrong_key_store = create_test_crypto_with_user_key(wrong_key);
         let mut wrong_ctx = wrong_key_store.context();
         let corrupted = "corrupted_file.txt"
-            .encrypt(&mut wrong_ctx, SymmetricKeyId::User)
+            .encrypt(&mut wrong_ctx, SymmetricKeySlotId::User)
             .unwrap();
 
         let cipher = Cipher {

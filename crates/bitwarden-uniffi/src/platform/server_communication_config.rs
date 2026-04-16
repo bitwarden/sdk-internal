@@ -34,7 +34,7 @@ impl ServerCommunicationConfigClient {
     }
 }
 
-#[uniffi::export]
+#[uniffi::export(async_runtime = "tokio")]
 impl ServerCommunicationConfigClient {
     /// Retrieves the server communication configuration for a hostname
     pub async fn get_config(&self, hostname: String) -> Result<ServerCommunicationConfig> {

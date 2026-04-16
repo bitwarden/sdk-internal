@@ -37,7 +37,7 @@ impl GeneratorClients {
 #[derive(uniffi::Object)]
 pub struct ExporterClient(pub(crate) bitwarden_exporters::ExporterClient);
 
-#[uniffi::export]
+#[uniffi::export(async_runtime = "tokio")]
 impl ExporterClient {
     /// Export user vault
     pub async fn export_vault(
