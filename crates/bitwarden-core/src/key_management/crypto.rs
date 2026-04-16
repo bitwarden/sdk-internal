@@ -11,10 +11,10 @@ use bitwarden_crypto::safe::PasswordProtectedKeyEnvelopeNamespace;
 #[expect(deprecated)]
 use bitwarden_crypto::{
     CoseSerializable, CryptoError, DeviceKey, EncString, Kdf, KeyConnectorKey, KeyDecryptable,
-    KeyEncryptable, MasterKey, Pkcs8PrivateKeyBytes, PrimitiveEncryptable, PrivateKey, PublicKey,
-    RotateableKeySet, SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes,
-    SymmetricCryptoKey, TrustDeviceResponse, UnsignedSharedKey, UserKey,
-    dangerous_get_v2_rotated_account_keys, derive_symmetric_key_from_prf,
+    KeyEncryptable, MasterKey, PrimitiveEncryptable, PublicKey, RotateableKeySet,
+    SignatureAlgorithm, SignedPublicKey, SigningKey, SpkiPublicKeyBytes, SymmetricCryptoKey,
+    TrustDeviceResponse, UnsignedSharedKey, dangerous_get_v2_rotated_account_keys,
+    derive_symmetric_key_from_prf,
     safe::{PasswordProtectedKeyEnvelope, PasswordProtectedKeyEnvelopeError},
 };
 use bitwarden_encoding::B64;
@@ -504,9 +504,9 @@ pub(super) async fn make_update_password(
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct EnrollPinResponse {
-    /// [UserKey] protected by PIN
+    /// [UserKey](bitwarden_crypto::UserKey) protected by PIN
     pub pin_protected_user_key_envelope: PasswordProtectedKeyEnvelope,
-    /// PIN protected by [UserKey]
+    /// PIN protected by [UserKey](bitwarden_crypto::UserKey)
     pub user_key_encrypted_pin: EncString,
 }
 
@@ -536,9 +536,9 @@ pub(super) fn enroll_pin(
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 #[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
 pub struct DerivePinKeyResponse {
-    /// [UserKey] protected by PIN
+    /// [UserKey](bitwarden_crypto::UserKey) protected by PIN
     pin_protected_user_key: EncString,
-    /// PIN protected by [UserKey]
+    /// PIN protected by [UserKey](bitwarden_crypto::UserKey)
     encrypted_pin: EncString,
 }
 
@@ -679,114 +679,6 @@ pub(super) fn derive_key_connector(
         .map_err(|_| WrongPasswordError)?;
 
     Ok(master_key.to_base64())
-}
-
-/// Response from the `make_key_pair` function
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct MakeKeyPairResponse {
-    /// The user's public key
-    user_public_key: B64,
-    /// User's private key, encrypted with the user key
-    user_key_encrypted_private_key: EncString,
-}
-
-pub(super) fn make_key_pair(user_key: B64) -> Result<MakeKeyPairResponse, CryptoError> {
-    let user_key = UserKey::new(SymmetricCryptoKey::try_from(user_key)?);
-
-    let key_pair = user_key.make_key_pair()?;
-
-    Ok(MakeKeyPairResponse {
-        user_public_key: key_pair.public,
-        user_key_encrypted_private_key: key_pair.private,
-    })
-}
-
-/// Request for `verify_asymmetric_keys`.
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct VerifyAsymmetricKeysRequest {
-    /// The user's user key
-    user_key: B64,
-    /// The user's public key
-    user_public_key: B64,
-    /// User's private key, encrypted with the user key
-    user_key_encrypted_private_key: EncString,
-}
-
-/// Response for `verify_asymmetric_keys`.
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
-#[cfg_attr(feature = "wasm", derive(Tsify), tsify(into_wasm_abi, from_wasm_abi))]
-pub struct VerifyAsymmetricKeysResponse {
-    /// Whether the user's private key was decryptable by the user key.
-    private_key_decryptable: bool,
-    /// Whether the user's private key was a valid RSA key and matched the public key provided.
-    valid_private_key: bool,
-}
-
-pub(super) fn verify_asymmetric_keys(
-    request: VerifyAsymmetricKeysRequest,
-) -> Result<VerifyAsymmetricKeysResponse, CryptoError> {
-    #[derive(Debug, thiserror::Error)]
-    enum VerifyError {
-        #[error("Failed to decrypt private key: {0:?}")]
-        DecryptFailed(bitwarden_crypto::CryptoError),
-        #[error("Failed to parse decrypted private key: {0:?}")]
-        ParseFailed(bitwarden_crypto::CryptoError),
-        #[error("Failed to derive a public key: {0:?}")]
-        PublicFailed(bitwarden_crypto::CryptoError),
-        #[error("Derived public key doesn't match")]
-        KeyMismatch,
-    }
-
-    fn verify_inner(
-        user_key: &SymmetricCryptoKey,
-        request: &VerifyAsymmetricKeysRequest,
-    ) -> Result<(), VerifyError> {
-        let decrypted_private_key: Vec<u8> = request
-            .user_key_encrypted_private_key
-            .decrypt_with_key(user_key)
-            .map_err(VerifyError::DecryptFailed)?;
-
-        let decrypted_private_key = Pkcs8PrivateKeyBytes::from(decrypted_private_key);
-        let private_key =
-            PrivateKey::from_der(&decrypted_private_key).map_err(VerifyError::ParseFailed)?;
-
-        let derived_public_key_vec = private_key
-            .to_public_key()
-            .to_der()
-            .map_err(VerifyError::PublicFailed)?;
-
-        let derived_public_key = B64::from(derived_public_key_vec);
-
-        if derived_public_key != request.user_public_key {
-            return Err(VerifyError::KeyMismatch);
-        }
-        Ok(())
-    }
-
-    let user_key = SymmetricCryptoKey::try_from(request.user_key.clone())?;
-
-    Ok(match verify_inner(&user_key, &request) {
-        Ok(_) => VerifyAsymmetricKeysResponse {
-            private_key_decryptable: true,
-            valid_private_key: true,
-        },
-        Err(error) => {
-            tracing::debug!(%error, "User asymmetric keys verification");
-
-            VerifyAsymmetricKeysResponse {
-                private_key_decryptable: !matches!(error, VerifyError::DecryptFailed(_)),
-                valid_private_key: false,
-            }
-        }
-    })
 }
 
 /// Response for the `make_keys_for_user_crypto_v2`, containing a set of keys for a user
@@ -1133,7 +1025,7 @@ mod tests {
     use std::num::NonZeroU32;
 
     use bitwarden_crypto::{
-        Decryptable, KeyStore, PrivateKey, PublicKeyEncryptionAlgorithm, RsaKeyPair,
+        Decryptable, KeyStore, Pkcs8PrivateKeyBytes, PrivateKey, PublicKeyEncryptionAlgorithm,
         SymmetricKeyAlgorithm,
     };
 
@@ -1498,10 +1390,12 @@ mod tests {
                     iterations: 100_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
-                    private_key: make_key_pair(user_key.try_into().unwrap())
+                account_cryptographic_state: {
+                    let store: KeyStore<KeyIds> = KeyStore::default();
+                    let mut ctx = store.context_mut();
+                    WrappedAccountCryptographicState::make_v1(&mut ctx)
                         .unwrap()
-                        .user_key_encrypted_private_key,
+                        .1
                 },
                 method: InitUserCryptoMethod::DecryptedKey {
                     decrypted_user_key: user_key.to_string(),
@@ -1525,10 +1419,12 @@ mod tests {
                     iterations: 600_000.try_into().unwrap(),
                 },
                 email: "test@bitwarden.com".into(),
-                account_cryptographic_state: WrappedAccountCryptographicState::V1 {
-                    private_key: make_key_pair(user_key.try_into().unwrap())
+                account_cryptographic_state: {
+                    let store: KeyStore<KeyIds> = KeyStore::default();
+                    let mut ctx = store.context_mut();
+                    WrappedAccountCryptographicState::make_v1(&mut ctx)
                         .unwrap()
-                        .user_key_encrypted_private_key,
+                        .1
                 },
                 method: InitUserCryptoMethod::PinEnvelope {
                     pin: test_pin.to_string(),
@@ -1603,97 +1499,6 @@ mod tests {
             result.to_string(),
             "ySXq1RVLKEaV1eoQE/ui9aFKIvXTl9PAXwp1MljfF50="
         );
-    }
-
-    fn setup_asymmetric_keys_test() -> (UserKey, RsaKeyPair) {
-        let master_key = MasterKey::derive(
-            "asdfasdfasdf",
-            "test@bitwarden.com",
-            &Kdf::PBKDF2 {
-                iterations: NonZeroU32::new(600_000).unwrap(),
-            },
-        )
-        .unwrap();
-        let user_key = (master_key.make_user_key().unwrap()).0;
-        let key_pair = user_key.make_key_pair().unwrap();
-
-        (user_key, key_pair)
-    }
-
-    #[test]
-    fn test_make_key_pair() {
-        let (user_key, _) = setup_asymmetric_keys_test();
-
-        let response = make_key_pair(user_key.0.to_base64()).unwrap();
-
-        assert!(!response.user_public_key.to_string().is_empty());
-        let encrypted_private_key = response.user_key_encrypted_private_key;
-        let private_key: Vec<u8> = encrypted_private_key.decrypt_with_key(&user_key.0).unwrap();
-        assert!(!private_key.is_empty());
-    }
-
-    #[test]
-    fn test_verify_asymmetric_keys_success() {
-        let (user_key, key_pair) = setup_asymmetric_keys_test();
-
-        let request = VerifyAsymmetricKeysRequest {
-            user_key: user_key.0.to_base64(),
-            user_public_key: key_pair.public,
-            user_key_encrypted_private_key: key_pair.private,
-        };
-        let response = verify_asymmetric_keys(request).unwrap();
-
-        assert!(response.private_key_decryptable);
-        assert!(response.valid_private_key);
-    }
-
-    #[test]
-    fn test_verify_asymmetric_keys_decrypt_failed() {
-        let (user_key, key_pair) = setup_asymmetric_keys_test();
-        let undecryptable_private_key = "2.cqD39M4erPZ3tWaz2Fng9w==|+Bsp/xvM30oo+HThKN12qirK0A63EjMadcwethCX7kEgfL5nEXgAFsSgRBMpByc1djgpGDMXzUTLOE+FejXRsrEHH/ICZ7jPMgSR+lV64Mlvw3fgvDPQdJ6w3MCmjPueGQtrlPj1K78BkRomN3vQwwRBFUIJhLAnLshTOIFrSghoyG78na7McqVMMD0gmC0zmRaSs2YWu/46ES+2Rp8V5OC4qdeeoJM9MQfaOtmaqv7NRVDeDM3DwoyTJAOcon8eovMKE4jbFPUboiXjNQBkBgjvLhco3lVJnFcQuYgmjqrwuUQRsfAtZjxFXg/RQSH2D+SI5uRaTNQwkL4iJqIw7BIKtI0gxDz6eCVdq/+DLhpImgCV/aaIhF/jkpGqLCceFsYMbuqdULMM1VYKgV+IAuyC65R+wxOaKS+1IevvPnNp7tgKAvT5+shFg8piusj+rQ49daX2SmV2OImwdWMmmX93bcVV0xJ/WYB1yrqmyRUcTwyvX3RQF25P5okIIzFasRp8jXFZe8C6f93yzkn1TPQbp95zF4OsWjfPFVH4hzca07ACt2HjbAB75JakWbFA5MbCF8aOIwIfeLVhVlquQXCldOHCsl22U/f3HTGLB9OS8F83CDAy7qZqpKha9Im8RUhHoyf+lXrky0gyd6un7Ky8NSkVOGd8CEG7bvZfutxv/qtAjEM9/lV78fh8TQIy9GNgioMzplpuzPIJOgMaY/ZFZj6a8H9OMPneN5Je0H/DwHEglSyWy7CMgwcbQgXYGXc8rXTTxL71GUAFHzDr4bAJvf40YnjndoL9tf+oBw8vVNUccoD4cjyOT5w8h7M3Liaxk9/0O8JR98PKxxpv1Xw6XjFCSEHeG2y9FgDUASFR4ZwG1qQBiiLMnJ7e9kvxsdnmasBux9H0tOdhDhAM16Afk3NPPKA8eztJVHJBAfQiaNiUA4LIJ48d8EpUAe2Tvz0WW/gQThplUINDTpvPf+FojLwc5lFwNIPb4CVN1Ui8jOJI5nsOw4BSWJvLzJLxawHxX/sBuK96iXza+4aMH+FqYKt/twpTJtiVXo26sPtHe6xXtp7uO4b+bL9yYUcaAci69L0W8aNdu8iF0lVX6kFn2lOL8dBLRleGvixX9gYEVEsiI7BQBjxEBHW/YMr5F4M4smqCpleZIAxkse1r2fQ33BSOJVQKInt4zzgdKwrxDzuVR7RyiIUuNXHsprKtRHNJrSc4x5kWFUeivahed2hON+Ir/ZvrxYN6nJJPeYYH4uEm1Nn4osUzzfWILlqpmDPK1yYy365T38W8wT0cbdcJrI87ycS37HeB8bzpFJZSY/Dzv48Yy19mDZJHLJLCRqyxNeIlBPsVC8fvxQhzr+ZyS3Wi8Dsa2Sgjt/wd0xPULLCJlb37s+1aWgYYylr9QR1uhXheYfkXFED+saGWwY1jlYL5e2Oo9n3sviBYwJxIZ+RTKFgwlXV5S+Jx/MbDpgnVHP1KaoU6vvzdWYwMChdHV/6PhZVbeT2txq7Qt+zQN59IGrOWf6vlMkHxfUzMTD58CE+xAaz/D05ljHMesLj9hb3MSrymw0PcwoFGWUMIzIQE73pUVYNE7fVHa8HqUOdoxZ5dRZqXRVox1xd9siIPE3e6CuVQIMabTp1YLno=|Y38qtTuCwNLDqFnzJ3Cgbjm1SE15OnhDm9iAMABaQBA=".parse().unwrap();
-
-        let request = VerifyAsymmetricKeysRequest {
-            user_key: user_key.0.to_base64(),
-            user_public_key: key_pair.public,
-            user_key_encrypted_private_key: undecryptable_private_key,
-        };
-        let response = verify_asymmetric_keys(request).unwrap();
-
-        assert!(!response.private_key_decryptable);
-        assert!(!response.valid_private_key);
-    }
-
-    #[test]
-    fn test_verify_asymmetric_keys_parse_failed() {
-        let (user_key, key_pair) = setup_asymmetric_keys_test();
-
-        let invalid_private_key = "bad_key".to_string().encrypt_with_key(&user_key.0).unwrap();
-
-        let request = VerifyAsymmetricKeysRequest {
-            user_key: user_key.0.to_base64(),
-            user_public_key: key_pair.public,
-            user_key_encrypted_private_key: invalid_private_key,
-        };
-        let response = verify_asymmetric_keys(request).unwrap();
-
-        assert!(response.private_key_decryptable);
-        assert!(!response.valid_private_key);
-    }
-
-    #[test]
-    fn test_verify_asymmetric_keys_key_mismatch() {
-        let (user_key, key_pair) = setup_asymmetric_keys_test();
-        let new_key_pair = user_key.make_key_pair().unwrap();
-
-        let request = VerifyAsymmetricKeysRequest {
-            user_key: user_key.0.to_base64(),
-            user_public_key: key_pair.public,
-            user_key_encrypted_private_key: new_key_pair.private,
-        };
-        let response = verify_asymmetric_keys(request).unwrap();
-
-        assert!(response.private_key_decryptable);
-        assert!(!response.valid_private_key);
     }
 
     #[tokio::test]

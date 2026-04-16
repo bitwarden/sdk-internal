@@ -4,6 +4,7 @@
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
 
+mod asymmetric_key_regeneration;
 mod key_connector_migration;
 mod key_rotation;
 mod user_crypto_management_client;

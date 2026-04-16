@@ -349,7 +349,7 @@ impl WrappedAccountCryptographicState {
     }
 
     #[cfg(test)]
-    fn make_v1(
+    pub(crate) fn make_v1(
         ctx: &mut KeyStoreContext<KeyIds>,
     ) -> Result<(SymmetricKeyId, Self), AccountCryptographyInitializationError> {
         let user_key = ctx.make_symmetric_key(SymmetricKeyAlgorithm::Aes256CbcHmac);
@@ -361,6 +361,29 @@ impl WrappedAccountCryptographicState {
                 private_key: ctx.wrap_private_key(user_key, private_key)?,
             },
         ))
+    }
+
+    /// Reads the current V1 account cryptographic state from the key store by wrapping the
+    /// user's private key with the user key.
+    ///
+    /// This is useful for obtaining the wrapped state after an asymmetric key regeneration.
+    ///
+    /// Fails if the user key is not V1 (Aes256CbcHmac) or if the private key is not available.
+    pub fn get_v1_from_key_store(
+        ctx: &KeyStoreContext<KeyIds>,
+    ) -> Result<Self, RotateCryptographyStateError> {
+        let algorithm = ctx
+            .get_symmetric_key_algorithm(SymmetricKeyId::User)
+            .map_err(|_| RotateCryptographyStateError::KeyMissing)?;
+        if algorithm != SymmetricKeyAlgorithm::Aes256CbcHmac {
+            return Err(RotateCryptographyStateError::InvalidData);
+        }
+
+        let private_key = ctx
+            .wrap_private_key(SymmetricKeyId::User, PrivateKeyId::UserPrivateKey)
+            .map_err(|_| RotateCryptographyStateError::KeyMissing)?;
+
+        Ok(WrappedAccountCryptographicState::V1 { private_key })
     }
 
     /// Re-wraps the account cryptographic state with a new user key. If the cryptographic state is
