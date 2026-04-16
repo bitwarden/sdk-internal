@@ -139,7 +139,7 @@ pub(crate) struct PasswordHistoryDataV1 {
 
 #[cfg(test)]
 mod tests {
-    use bitwarden_core::key_management::KeyIds;
+    use bitwarden_core::key_management::KeySlotIds;
     use bitwarden_crypto::{KeyStore, SymmetricCryptoKey, safe::DataEnvelope};
     use bitwarden_encoding::B64;
     use chrono::TimeZone;
@@ -297,7 +297,7 @@ mod tests {
 
         for (name, blob) in blobs {
             let data: CipherBlob = blob.into();
-            let store: KeyStore<KeyIds> = KeyStore::default();
+            let store: KeyStore<KeySlotIds> = KeyStore::default();
             let mut ctx = store.context_mut();
             let (envelope, cek_id) = DataEnvelope::seal(data, &mut ctx).unwrap();
 
@@ -320,7 +320,7 @@ mod tests {
     fn verify_test_vector(cek_str: &str, envelope_str: &str, expected: CipherBlobV1) {
         let cek = SymmetricCryptoKey::try_from(B64::try_from(cek_str).unwrap()).unwrap();
 
-        let store: KeyStore<KeyIds> = KeyStore::default();
+        let store: KeyStore<KeySlotIds> = KeyStore::default();
         let mut ctx = store.context_mut();
         let cek_id = ctx.add_local_symmetric_key(cek);
 

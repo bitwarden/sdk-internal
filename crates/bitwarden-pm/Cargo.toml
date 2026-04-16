@@ -42,6 +42,7 @@ wasm = [
 bitwarden-license = ["dep:bitwarden-commercial-vault"]
 
 [dependencies]
+async-trait = { workspace = true }
 bitwarden-auth = { workspace = true }
 bitwarden-commercial-vault = { workspace = true, optional = true }
 bitwarden-core = { workspace = true, features = ["internal"] }
@@ -49,11 +50,13 @@ bitwarden-exporters = { workspace = true }
 bitwarden-fido = { workspace = true }
 bitwarden-generators = { workspace = true }
 bitwarden-send = { workspace = true }
+bitwarden-server-communication-config = { workspace = true }
 bitwarden-state = { workspace = true }
 bitwarden-sync = { workspace = true }
 bitwarden-user-crypto-management = { workspace = true }
 bitwarden-vault = { workspace = true }
 
+reqwest-middleware = { workspace = true }
 tsify = { workspace = true, optional = true }
 uniffi = { workspace = true, optional = true, features = ["tokio"] }
 wasm-bindgen = { workspace = true, optional = true }

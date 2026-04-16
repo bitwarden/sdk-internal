@@ -689,7 +689,7 @@ mod tests {
     use async_trait::async_trait;
     use bitwarden_core::{
         Client,
-        key_management::{KeyIds, SymmetricKeyId},
+        key_management::{KeySlotIds, SymmetricKeySlotId},
     };
     use bitwarden_crypto::{KeyStoreContext, PrimitiveEncryptable, SymmetricCryptoKey};
     use bitwarden_encoding::B64Url;
@@ -789,8 +789,8 @@ mod tests {
         0x84, 0x05, 0x71,
     ];
 
-    fn create_test_cipher(ctx: &mut KeyStoreContext<KeyIds>) -> CipherView {
-        let key = SymmetricKeyId::User;
+    fn create_test_cipher(ctx: &mut KeyStoreContext<KeySlotIds>) -> CipherView {
+        let key = SymmetricKeySlotId::User;
         let key_value = B64Url::from(TEST_FIDO_P256_KEY).to_string();
 
         let fido2_credential = Fido2Credential {
@@ -868,7 +868,7 @@ mod tests {
             .internal
             .get_key_store()
             .context_mut()
-            .set_symmetric_key(SymmetricKeyId::User, user_key)
+            .set_symmetric_key(SymmetricKeySlotId::User, user_key)
             .unwrap();
 
         let cipher = {
