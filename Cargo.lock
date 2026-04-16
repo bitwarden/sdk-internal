@@ -446,7 +446,7 @@ dependencies = [
  "async-trait",
  "bitwarden-api-base",
  "mockall",
- "reqwest 0.13.2",
+ "reqwest",
  "reqwest-middleware",
  "serde",
  "serde_json",
@@ -460,7 +460,7 @@ name = "bitwarden-api-base"
 version = "2.0.0"
 dependencies = [
  "http",
- "reqwest 0.13.2",
+ "reqwest",
  "reqwest-middleware",
  "serde",
  "serde_json",
@@ -474,7 +474,7 @@ dependencies = [
  "async-trait",
  "bitwarden-api-base",
  "mockall",
- "reqwest 0.13.2",
+ "reqwest",
  "reqwest-middleware",
  "serde",
  "serde_json",
@@ -490,7 +490,7 @@ dependencies = [
  "async-trait",
  "bitwarden-api-base",
  "mockall",
- "reqwest 0.13.2",
+ "reqwest",
  "reqwest-middleware",
  "serde",
  "serde_json",
@@ -514,7 +514,7 @@ dependencies = [
  "bitwarden-test",
  "chrono",
  "http",
- "reqwest 0.13.2",
+ "reqwest",
  "reqwest-middleware",
  "serde",
  "serde_bytes",
@@ -599,8 +599,7 @@ dependencies = [
  "http",
  "rand 0.10.1",
  "rand_chacha 0.10.0",
- "reqwest 0.12.28",
- "reqwest 0.13.2",
+ "reqwest",
  "reqwest-middleware",
  "rustls",
  "rustls-platform-verifier",
@@ -783,7 +782,7 @@ dependencies = [
  "p256 0.13.2",
  "passkey",
  "passkey-client",
- "reqwest 0.13.2",
+ "reqwest",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -802,7 +801,7 @@ dependencies = [
  "bitwarden-error",
  "rand 0.10.1",
  "rand_chacha 0.10.0",
- "reqwest 0.13.2",
+ "reqwest",
  "schemars 1.2.1",
  "serde",
  "serde_json",
@@ -924,7 +923,7 @@ dependencies = [
  "bitwarden-threading",
  "http",
  "js-sys",
- "reqwest 0.13.2",
+ "reqwest",
  "reqwest-middleware",
  "serde",
  "serde-wasm-bindgen",
@@ -1011,7 +1010,7 @@ dependencies = [
  "bitwarden-api-api",
  "bitwarden-api-identity",
  "bitwarden-core",
- "reqwest 0.13.2",
+ "reqwest",
  "reqwest-middleware",
  "serde",
  "thiserror 2.0.18",
@@ -1028,7 +1027,7 @@ dependencies = [
  "bitwarden-state",
  "bitwarden-test-macro",
  "futures",
- "reqwest 0.13.2",
+ "reqwest",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -1122,7 +1121,7 @@ dependencies = [
  "bitwarden-test",
  "bitwarden-vault",
  "chrono",
- "reqwest 0.13.2",
+ "reqwest",
  "serde",
  "serde_bytes",
  "serde_json",
@@ -1178,7 +1177,7 @@ dependencies = [
  "futures",
  "hmac 0.13.0",
  "percent-encoding",
- "reqwest 0.13.2",
+ "reqwest",
  "serde",
  "serde_json",
  "serde_repr",
@@ -4558,52 +4557,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "reqwest"
-version = "0.13.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab3f43e3283ab1488b624b44b0e988d0acea0b3214e694730a055cb6b2efa801"
-dependencies = [
- "base64 0.22.1",
- "bytes",
- "futures-core",
- "futures-util",
- "h2",
- "http",
- "http-body",
- "http-body-util",
- "hyper",
- "hyper-rustls",
- "hyper-util",
- "js-sys",
- "log",
- "mime_guess",
- "percent-encoding",
- "pin-project-lite",
- "serde",
- "serde_json",
- "sync_wrapper",
- "tokio",
- "tower",
- "tower-http",
- "tower-service",
- "url",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
-
-[[package]]
 name = "reqwest-middleware"
-version = "0.5.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "199dda04a536b532d0cc04d7979e39b1c763ea749bf91507017069c00b96056f"
+checksum = "57f17d28a6e6acfe1733fe24bcd30774d13bffa4b8a22535b4c8c98423088d4e"
 dependencies = [
  "anyhow",
  "async-trait",
  "http",
- "reqwest 0.13.2",
+ "reqwest",
  "serde",
- "thiserror 2.0.18",
+ "thiserror 1.0.69",
  "tower-service",
 ]
 
