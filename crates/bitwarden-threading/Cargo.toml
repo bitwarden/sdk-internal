@@ -13,14 +13,14 @@ license-file.workspace = true
 keywords.workspace = true
 
 [package.metadata.cargo-udeps.ignore]
-development = ["tokio-test"] # only used in doc-tests
+development = ["tokio-test"]
 
 [features]
 wasm = [
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
     "dep:js-sys",
-    "dep:gloo-timers"
+    "dep:gloo-timers",
 ]
 
 [dependencies]

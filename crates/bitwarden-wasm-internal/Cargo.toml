@@ -33,7 +33,7 @@ ap-proxy-protocol = { workspace = true }
 async-trait = { workspace = true }
 base64 = "0.22"
 bitwarden-commercial-vault = { workspace = true, optional = true, features = [
-  "wasm",
+    "wasm",
 ] }
 bitwarden-core = { workspace = true, features = ["wasm", "internal"] }
 bitwarden-crypto = { workspace = true, features = ["wasm"] }

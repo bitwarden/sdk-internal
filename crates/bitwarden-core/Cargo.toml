@@ -16,17 +16,15 @@ keywords.workspace = true
 
 [features]
 internal = ["dep:zxcvbn"]
-no-memory-hardening = [
-    "bitwarden-crypto/no-memory-hardening"
-] # Disable memory hardening features
-secrets = [] # Secrets manager API
+no-memory-hardening = ["bitwarden-crypto/no-memory-hardening"]
+secrets = []
 uniffi = [
     "internal",
     "bitwarden-crypto/uniffi",
     "bitwarden-encoding/uniffi",
     "dep:bitwarden-uniffi-error",
-    "dep:uniffi"
-] # Uniffi bindings
+    "dep:uniffi",
+]
 wasm = [
     "bitwarden-crypto/wasm",
     "bitwarden-encoding/wasm",
@@ -34,8 +32,8 @@ wasm = [
     "bitwarden-state/wasm",
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
-    "dep:tsify"
-] # WASM support
+    "dep:tsify",
+]
 # WARNING: This feature is for debugging purposes only and should never be enabled in production.
 # It disables compile-time debug prevention for cryptographic keys, exposing sensitive key material
 # in debug output, and adds tracing debug logs to encrypt/decrypt operations.
