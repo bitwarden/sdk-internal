@@ -1048,7 +1048,7 @@ mod tests {
         let file = model.file.unwrap();
         assert_eq!(file.id.as_deref(), Some("file-id"));
         assert_eq!(file.file_name.as_deref(), Some(file_name));
-        assert_eq!(file.size, Some(1234));
+        assert_eq!(file.size.as_deref(), Some("1234"));
         assert_eq!(file.size_name.as_deref(), Some("1.2 KB"));
 
         let text = model.text.unwrap();
