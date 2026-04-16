@@ -550,6 +550,7 @@ mod tests {
                         r#type: None,
                         identifier: None,
                         creation_date: None,
+                        last_activity_date: None,
                         is_trusted: None,
                         encrypted_user_key: None,
                         encrypted_public_key: None,

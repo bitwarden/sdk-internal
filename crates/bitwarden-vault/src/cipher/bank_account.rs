@@ -1,5 +1,5 @@
 use bitwarden_api_api::models::CipherBankAccountModel;
-use bitwarden_core::key_management::{KeyIds, SymmetricKeyId};
+use bitwarden_core::key_management::{KeySlotIds, SymmetricKeySlotId};
 use bitwarden_crypto::{
     CompositeEncryptable, CryptoError, Decryptable, EncString, KeyStoreContext,
     PrimitiveEncryptable,
@@ -46,11 +46,11 @@ pub struct BankAccountView {
     pub bank_contact_phone: Option<String>,
 }
 
-impl CompositeEncryptable<KeyIds, SymmetricKeyId, BankAccount> for BankAccountView {
+impl CompositeEncryptable<KeySlotIds, SymmetricKeySlotId, BankAccount> for BankAccountView {
     fn encrypt_composite(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<BankAccount, CryptoError> {
         Ok(BankAccount {
             bank_name: self.bank_name.encrypt(ctx, key)?,
@@ -67,11 +67,11 @@ impl CompositeEncryptable<KeyIds, SymmetricKeyId, BankAccount> for BankAccountVi
     }
 }
 
-impl Decryptable<KeyIds, SymmetricKeyId, BankAccountView> for BankAccount {
+impl Decryptable<KeySlotIds, SymmetricKeySlotId, BankAccountView> for BankAccount {
     fn decrypt(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<BankAccountView, CryptoError> {
         Ok(BankAccountView {
             bank_name: self.bank_name.decrypt(ctx, key).ok().flatten(),
@@ -91,8 +91,8 @@ impl Decryptable<KeyIds, SymmetricKeyId, BankAccountView> for BankAccount {
 impl CipherKind for BankAccount {
     fn decrypt_subtitle(
         &self,
-        ctx: &mut KeyStoreContext<KeyIds>,
-        key: SymmetricKeyId,
+        ctx: &mut KeyStoreContext<KeySlotIds>,
+        key: SymmetricKeySlotId,
     ) -> Result<String, CryptoError> {
         let bank_name = self
             .bank_name
@@ -171,7 +171,7 @@ mod tests {
     fn test_subtitle_bank_account() {
         let key = SymmetricCryptoKey::try_from("hvBMMb1t79YssFZkpetYsM3deyVuQv4r88Uj9gvYe0+G8EwxvW3v1iywVmSl61iwzd17JW5C/ivzxSP2C9h7Tw==".to_string()).unwrap();
         let key_store = create_test_crypto_with_user_key(key);
-        let key = SymmetricKeyId::User;
+        let key = SymmetricKeySlotId::User;
         let mut ctx = key_store.context();
 
         let original_subtitle = "My Bank".to_string();
