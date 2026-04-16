@@ -3,7 +3,8 @@
 //! Policy filtering logic.
 //!
 //! Provides the [`filter`] function and [`Policy`] trait for determining
-//! which policies should be enforced against the current user based on business rules.
+//! which raw policies apply to the current user, based on organization membership,
+//! user role, and status.
 
 use std::collections::HashMap;
 
@@ -13,11 +14,12 @@ use bitwarden_organizations::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// A newtype representing the policy type.
+/// A raw numeric policy type identifier as received from the server.
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct PolicyType(pub u8);
 
-/// An organization policy.
+/// A raw policy as received from the server, prior to any interpretation.
+#[allow(missing_docs)]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PolicyView {
     pub(crate) id: Uuid,
@@ -31,7 +33,7 @@ pub struct PolicyView {
 ///
 /// Implement this trait to control how a policy is enforced.
 pub trait Policy: Send + Sync + 'static {
-    /// The wire-format integer for this policy type.
+    /// Returns the policy type this definition handles.
     fn policy_type(&self) -> PolicyType;
 
     /// Returns the organization roles that are exempt from this policy.
@@ -58,14 +60,6 @@ pub trait Policy: Send + Sync + 'static {
             OrganizationUserStatusType::Accepted,
             OrganizationUserStatusType::Confirmed,
         ]
-    }
-}
-
-pub struct DefaultPolicyDefinition(pub PolicyType);
-
-impl Policy for DefaultPolicyDefinition {
-    fn policy_type(&self) -> PolicyType {
-        self.0
     }
 }
 

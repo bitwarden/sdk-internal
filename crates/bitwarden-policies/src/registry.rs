@@ -1,10 +1,25 @@
 #![allow(dead_code)]
 
+//! Policy registry for managing [`Policy`] implementations.
+//!
+//! The [`PolicyRegistry`] maps policy types to their definitions
+//! and provides an interface for filtering policies according to their registered definition.
+//! Unregistered policy types fall back to [`DefaultPolicyDefinition`].
+
 use std::collections::HashMap;
 
 use bitwarden_organizations::ProfileOrganization;
 
-use crate::filter::{DefaultPolicyDefinition, Policy, PolicyType, PolicyView, filter};
+use crate::filter::{Policy, PolicyType, PolicyView, filter};
+
+/// A [`Policy`] that uses the default filtering behavior for any policy type.
+struct DefaultPolicyDefinition(PolicyType);
+
+impl Policy for DefaultPolicyDefinition {
+    fn policy_type(&self) -> PolicyType {
+        self.0
+    }
+}
 
 trait ErasedPolicy: Send + Sync {
     fn filter_raw<'a>(
@@ -24,17 +39,25 @@ impl<P: Policy> ErasedPolicy for P {
     }
 }
 
+/// A registry mapping policy types to their [`Policy`] implementations.
+///
+/// Use [`PolicyRegistry::builder`] to construct an instance.
 pub struct PolicyRegistry {
     policies: HashMap<PolicyType, Box<dyn ErasedPolicy>>,
 }
 
 impl PolicyRegistry {
+    /// Returns a [`PolicyRegistryBuilder`] for constructing a registry.
     pub fn builder() -> PolicyRegistryBuilder {
         PolicyRegistryBuilder {
             policies: HashMap::new(),
         }
     }
 
+    /// Filters `policies` to those of `policy_type` that should be enforced.
+    ///
+    /// Uses the registered [`Policy`] for `policy_type` if one exists,
+    /// otherwise falls back to [`DefaultPolicyDefinition`].
     pub(crate) fn filter_by_type<'a>(
         &self,
         policies: &'a [PolicyView],
@@ -48,16 +71,21 @@ impl PolicyRegistry {
     }
 }
 
+/// Builder for [`PolicyRegistry`].
 pub struct PolicyRegistryBuilder {
     policies: HashMap<PolicyType, Box<dyn ErasedPolicy>>,
 }
 
 impl PolicyRegistryBuilder {
+    /// Registers a [`Policy`] for its policy type.
+    ///
+    /// If a definition for the same type is already registered, it is replaced.
     pub fn register<P: Policy>(mut self, policy: P) -> Self {
         self.policies.insert(policy.policy_type(), Box::new(policy));
         self
     }
 
+    /// Builds the [`PolicyRegistry`].
     pub fn build(self) -> PolicyRegistry {
         PolicyRegistry {
             policies: self.policies,
